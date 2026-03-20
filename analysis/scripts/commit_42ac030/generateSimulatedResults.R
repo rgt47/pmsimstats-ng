@@ -65,12 +65,10 @@
 
 generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
                                    censorparams,modelparams,simparam,analysisparams,
-                                   rawdataout=FALSE,lambda_cor=1){
+                                   rawdataout=FALSE){
 
   # defaults
-  if(missing(analysisparams)) analysisparams<-list(useDE=TRUE,
-                                                   t_random_slope=FALSE,
-                                                   full_model_out=FALSE)
+  if(missing(analysisparams)) analysisparams<-list(useDE=TRUE,randomslopes=FALSE)
 
   # Hold original directory in case we change it
   initialdirectory<-getwd()
@@ -135,13 +133,13 @@ generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
       Ns<-Ns+c(rep(1,p$modelparam$N%%nP),rep(0,nP-p$modelparam$N%%nP)) # distribute the remainder
       NNs<-Ns*simparam$Nreps # here adjust so doing all with this paramset at once
       p$modelparam$N<-NNs[[1]]
-      dat<-generateData(p$modelparam,p$respparam,p$blparam,td[[1]],FALSE,TRUE,lambda_cor=lambda_cor)
+      dat<-generateData(p$modelparam,p$respparam,p$blparam,td[[1]],FALSE,TRUE)
       dat[,path:=1]
       dat[,replicate:=rep(1:simparam$Nreps,Ns[1])]
       if(nP>1){
         for(iP in 2:nP){
           p$modelparam$N<-NNs[[iP]]
-          dat2<-generateData(p$modelparam,p$respparam,p$blparam,td[[iP]],FALSE,TRUE,lambda_cor=lambda_cor)
+          dat2<-generateData(p$modelparam,p$respparam,p$blparam,td[[iP]],FALSE,TRUE)
           dat2[,path:=iP]
           dat2[,replicate:=rep(1:simparam$Nreps,Ns[iP])]
           dat<-rbind(dat,dat2)

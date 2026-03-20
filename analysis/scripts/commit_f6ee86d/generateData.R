@@ -40,12 +40,7 @@
 #'   (Usually yes, although you may want to turn this off at times to test the impact of
 #'   this step on your covariance sturcture)
 #' @param seed Randomization seed (defaults to NA)
-#' @param lambda_cor Rate of BM-BR correlation decay during off-drug
-#'   periods (per week). Controls how fast the biomarker's predictive
-#'   power decays after drug discontinuation. When 0, the correlation
-#'   is set by whether BR mean is nonzero (original behavior). When
-#'   positive, the correlation decays as exp(-lambda_cor * tsd).
-#'   Defaults to 0.
+#' @param scalefactor TODO update when understand what this does?
 #' @param verbose Set to \code{TRUE} if you want chatty outputs; defaults to \code{FALSE}
 #' @returns A \code{dat} file that contains both the total symptom scores at each timepoint
 #'   and also all the individual factors that were used to generate those total scores
@@ -54,7 +49,7 @@
 #' @export
 
 
-generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePositiveDefinite,seed=NA,lambda_cor=0,verbose=FALSE){
+generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePositiveDefinite,seed=NA,scalefactor=2,verbose=FALSE){
 
   # I. Turn the trial design information into something easier to use
   d<-data.table(trialdesign)
@@ -88,11 +83,17 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
     }
     if(c=="br"){
       brmeans<-modgompertz(d$tod,rp$max,rp$disp,rp$rate)
+      ## Code added in by Ron Thomas:
+      brtest <- brmeans == 0
+      rawbrmeans <- brmeans
+      names(brtest) <- labels[19:26]
+      names(rawbrmeans) <- labels[19:26]
+      ## End new code
       if(nP>1){
         for(p in 2:nP){
           if(!d[p]$onDrug){
             if(d[p]$tsd>0){
-              brmeans[p]<-brmeans[p]+brmeans[p-1]*(1/2)^(d$tsd[p]/modelparam$carryover_t1half)
+              brmeans[p]<-brmeans[p]+brmeans[p-1]*(1/2)^(scalefactor * d$tsd[p]/modelparam$carryover_t1half)
             }
           }
         }
@@ -105,66 +106,76 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
   correlations<-diag(length(labels))
   rownames(correlations)<-labels
   colnames(correlations)<-labels
+  # Give some output if in verbose mode:
+  if(verbose==TRUE){
+    aa <- data.frame(modelparam$carryover_t1half, rawbrmeans, brmeans, diff = brmeans - rawbrmeans)
+    cat("brmeans before and after adj:\n ")
+    print(aa)
+  }
   for(c in cl){
-    # AR(1) autocorrelations across time: rho^|t_i - t_j|
+    # build in the autocorrlations across time
     if(nP>1){
-      rho<-modelparam[[paste("c",c,sep=".")]]
+      ac<-modelparam[(paste("c",c,sep="."))][,]
       for(p in 1:(nP-1)){
         for(p2 in (1+p):nP){
           n1<-paste(trialdesign$timeptname[p],c,sep=".")
           n2<-paste(trialdesign$timeptname[p2],c,sep=".")
-          time_gap<-abs(d$t_wk_cumulative[p2] - d$t_wk_cumulative[p])
-          correlations[n1,n2]<-rho^time_gap
-          correlations[n2,n1]<-rho^time_gap
+          correlations[n1,n2]<-ac
+          correlations[n2,n1]<-ac
         }
       }
     }
-    # cross-factor correlations (same time and different time)
+    # build in the autocorrelations across factors
     for(c2 in setdiff(cl,c)){
       for(p in 1:nP){
         n1<-paste(trialdesign$timeptname[p],c,sep=".")
         n2<-paste(trialdesign$timeptname[p],c2,sep=".")
         correlations[n1,n2]<-modelparam$c.cf1t
-        correlations[n2,n1]<-modelparam$c.cf1t
+        correlations[n2, n1] <- modelparam$c.cf1t  ##### <--------FIXING TYPO, this was [n1,n2] again
       }
       for(p in 1:(nP-1)){
         for(p2 in (1+p):nP){
           n1<-paste(trialdesign$timeptname[p],c,sep=".")
           n2<-paste(trialdesign$timeptname[p2],c2,sep=".")
-          time_gap<-abs(d$t_wk_cumulative[p2] - d$t_wk_cumulative[p])
-          correlations[n1,n2]<-modelparam$c.cfct * modelparam[[paste("c",c,sep=".")]]^time_gap
-          correlations[n2,n1]<-modelparam$c.cfct * modelparam[[paste("c",c,sep=".")]]^time_gap
+          correlations[n1,n2]<-modelparam$c.cfct
+          correlations[n2,n1]<-modelparam$c.cfct
         }
       }
     }
-    # biomarker-BR correlation with independent decay
+    # correlation with biomarker
     for(p in 1:nP){
       n1<-paste(trialdesign$timeptname[p],"br",sep=".")
-      if(d[p]$onDrug){
-        correlations[n1,'bm']<-modelparam$c.bm
-        correlations['bm',n1]<-modelparam$c.bm
-      } else if(d[p]$tsd>0 && lambda_cor>0){
-        decay<-exp(-lambda_cor * d$tsd[p])
-        correlations[n1,'bm']<-modelparam$c.bm * decay
-        correlations['bm',n1]<-modelparam$c.bm * decay
+      ## RON THOMAS VERSION:
+      if (p > 1) {
+        n0 <- paste(trialdesign$timeptname[p - 1], "br", sep = ".")
+        mm1 <- means[which(n1 == labels)]
+        mm0 <- means[which(n0 == labels)]
+        correlations["bm", n1] <- correlations[n1, "bm"] <- ifelse(brtest[p], ifelse(brmeans[p] == 0, 0, (mm1 / mm0) * modelparam$c.bm), modelparam$c.bm)
       }
+      ##
+      ## Following commented out in Ron Thomas version:
+      #if(means[which(n1==labels)]!=0){
+      #  correlations[n1,'bm']<-modelparam$c.bm
+      #  correlations['bm',n1]<-modelparam$c.bm
+      #}
+      ## End commented out by Ron
     }
+  }
+  # Again, some output if in verbose mode:
+  if(verbose==TRUE){
+    cat("carryover: ")
+    print(modelparam$carryover_t1half)
+    cat("br correlations: \n")
+    print(correlations[19:26, 1])
   }
   # Turn correlation matrix into covariance matrix
   sigma<-outer(sds,sds)*correlations
   #  should be faster: outer(S,S)*R where S is SDs and R is correlation matrix
   #  previous: sigma<-correlations*sds%o%sds
 
-  # Check and enforce positive definiteness:
+  # If turned on, force to be positive definite:
   if(makePositiveDefinite){
     if(!is.positive.definite(sigma)){
-      if(verbose){
-        evals<-eigen(sigma, symmetric=TRUE, only.values=TRUE)$values
-        neg_evals<-evals[evals<0]
-        warning(sprintf(
-          "Non-PD covariance matrix corrected (min eigenvalue: %.4f, %d negative). Consider constraining correlation parameters.",
-          min(evals), length(neg_evals)))
-      }
       sigma<-make.positive.definite(sigma, tol=1e-3)
     }
   }

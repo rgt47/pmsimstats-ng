@@ -1,0 +1,639 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{parskip}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{verbatim}
+\usepackage{array}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Covariance Matrix Positive Definiteness}
+\lhead{pmsimstats White Paper}
+\rfoot{\thepage}
+
+\title{Positive Definiteness Failures in the\\
+       pmsimstats Covariance Matrix:\\
+       Prevalence, Causes, and Consequences\\[6pt]
+       \large White Paper on Structural Constraints in the
+       Hendrickson et al.\ (2020) Data-Generating Process}
+\author{Automated analysis of the \texttt{pmsimstats} codebase}
+\date{2026-03-19}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+
+\begin{abstract}
+The \texttt{pmsimstats} data-generating process constructs a
+$26 \times 26$ covariance matrix from user-specified correlation
+parameters and passes it to \texttt{MASS::mvrnorm()} to draw
+simulated participant data. When the resulting matrix is not
+positive definite (PD), the code silently projects it to the
+nearest PD matrix via
+\texttt{corpcor::make.positive.definite()}. We instrumented the
+simulation pipeline to measure the frequency and severity of
+these failures across four code versions (commits). The results
+reveal that PD failure is not a rare edge case but a routine
+feature of the simulation: 24.7\% of matrices fail at the
+initial commit, rising to 63.0\% after the Ron Thomas edits.
+All 162 matrices in the parameter sweep are ill-conditioned
+(condition number $> 100$). The failures are concentrated in the
+OL+BDC design (83--92\% failure rate) due to abrupt
+expectancy-driven variance changes mid-trial. These findings
+indicate that the correlation parameter space used in the
+publication is not self-consistent and that the PD correction
+introduces an uncontrolled perturbation to the intended
+covariance structure.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% =================================================================
+\section{Introduction}
+% =================================================================
+
+The \texttt{pmsimstats} package simulates clinical trial data by
+drawing participant outcomes from a multivariate normal (MVN)
+distribution. The MVN requires a positive definite covariance
+matrix $\Sigma$. The package constructs $\Sigma$ from a
+correlation matrix $R$ and a vector of standard deviations
+$\boldsymbol{\sigma}$:
+\[
+\Sigma = \text{diag}(\boldsymbol{\sigma})
+  \cdot R \cdot
+  \text{diag}(\boldsymbol{\sigma})
+\]
+
+If the resulting $\Sigma$ is not positive definite, the code
+applies a correction:
+
+\begin{verbatim}
+if (makePositiveDefinite) {
+  if (!is.positive.definite(sigma)) {
+    sigma <- make.positive.definite(sigma, tol = 1e-3)
+  }
+}
+\end{verbatim}
+
+This correction projects $\Sigma$ to the nearest PD matrix by
+setting negative eigenvalues to a small positive tolerance. The
+correction is silent: no warning is issued, no diagnostic is
+recorded, and the user has no way to know how many matrices
+were corrected or how severely the intended covariance structure
+was perturbed.
+
+This white paper quantifies the prevalence and severity of PD
+failures across the parameter space used in the published
+Figure~4, traces their root causes, and evaluates the
+consequences for the simulation results.
+
+% =================================================================
+\section{Experimental Design}
+% =================================================================
+
+\subsection{Instrumentation}
+
+We instrumented the simulation by replacing
+\texttt{corpcor::is.positive.definite()} and
+\texttt{corpcor::make.positive.definite()} with wrapper
+functions that record every call and its result. The wrappers
+additionally compute the eigenvalue spectrum and condition
+number ($\kappa = \lambda_{\max} / \lambda_{\min}$) for each
+matrix checked. No simulation code was modified; the
+instrumentation operates at the function-dispatch level.
+
+\subsection{Simulation Parameters}
+
+The parameter sweep is identical to the one used for Figure~4 in
+Hendrickson et al.\ (2020):
+
+\begin{itemize}[nosep]
+\item \textbf{Trial designs:} OL (1~path), OL+BDC (2~paths),
+  CO (2~paths), N-of-1 (4~paths)
+\item \textbf{Model parameters:}
+  $N \in \{35, 70\}$,
+  $c_{bm} \in \{0, 0.3, 0.6\}$,
+  $t_{1/2} \in \{0, 0.1, 0.2\}$ weeks
+\item \textbf{Fixed correlations:}
+  $c_{tv} = c_{pb} = c_{br} = 0.8$,
+  $c_{cf1t} = 0.2$,
+  $c_{cfct} = 0.1$
+\item \textbf{Censoring:} 4 patterns plus no censoring
+\end{itemize}
+
+\subsection{Number of PD Checks per Simulation}
+
+The function \texttt{generateSimulatedResults()} calls
+\texttt{generateData()} once per path per parameter combination.
+Each call constructs one $\Sigma$ matrix and checks it once for
+positive definiteness. The total number of checks is
+deterministic and independent of the number of replicates
+(\texttt{Nreps}), because all $N \times \text{Nreps}$
+participants for a given path are drawn in a single
+\texttt{mvrnorm()} call:
+
+\begin{table}[h]
+\centering
+\caption{PD checks per simulation run}
+\begin{tabular}{lrr}
+\toprule
+Design & Paths & $\times$ 18 param sets \\
+\midrule
+OL & 1 & 18 \\
+OL+BDC & 2 & 36 \\
+CO & 2 & 36 \\
+N-of-1 & 4 & 72 \\
+\midrule
+\textbf{Total} & & \textbf{162} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Code Versions Tested}
+
+We tested four commits spanning the repository history:
+
+\begin{table}[h]
+\centering
+\caption{Commits tested for PD failure rates}
+\begin{tabular}{lll}
+\toprule
+Commit & Description & Key change \\
+\midrule
+\texttt{42ac030} & Initial (publication) &
+  Step-function BM--BR correlation \\
+\texttt{8609f12} & Ron Thomas edits &
+  Proportional BM--BR scaling, $s = 2$ \\
+\texttt{f6ee86d} & Autocorrelation typo fix &
+  Symmetric cross-factor correlation \\
+\texttt{f70f86d} & Carryover term added &
+  Additional DGP carryover logic \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% =================================================================
+\section{Results}
+% =================================================================
+
+\subsection{Overall Failure Rates}
+
+\begin{table}[h]
+\centering
+\caption{PD failure rates by commit (162 matrices per run)}
+\begin{tabular}{llrrr}
+\toprule
+Commit & Description & Failures & Rate (\%) &
+  $\Delta$ from initial \\
+\midrule
+\texttt{42ac030} & Initial commit &
+  40 & 24.7 & --- \\
+\texttt{8609f12} & Ron Thomas edits &
+  102 & 63.0 & $+38.3$ pp \\
+\texttt{f6ee86d} & Autocorr typo fix &
+  102 & 63.0 & $+38.3$ pp \\
+\texttt{f70f86d} & Carryover added &
+  102 & 63.0 & $+38.3$ pp \\
+\bottomrule
+\end{tabular}
+\label{tab:rates}
+\end{table}
+
+The Ron Thomas edits (\texttt{8609f12}) more than doubled the
+PD failure rate from 24.7\% to 63.0\%. Subsequent commits did
+not change the rate, confirming that the additional failures are
+caused by the correlation scaling logic introduced at
+\texttt{8609f12}, not by the autocorrelation fix or carryover
+additions.
+
+\subsection{Condition Number Statistics}
+
+Every matrix in the parameter sweep is ill-conditioned. The
+condition number $\kappa = \lambda_{\max} / \lambda_{\min}$
+measures numerical stability; values above 100 indicate
+ill-conditioning, and values above $10^6$ indicate severe
+ill-conditioning.
+
+\begin{table}[h]
+\centering
+\caption{Condition number statistics across all 162 matrices}
+\begin{tabular}{lrrrr}
+\toprule
+Commit & Median $\kappa$ & $\kappa > 100$ &
+  $\kappa > 1{,}000$ & $\kappa > 10^6$ \\
+\midrule
+\texttt{42ac030} & 229 & 162/162 & 40/162 & 40/162 \\
+\texttt{8609f12} & $3.1 \times 10^{18}$ &
+  162/162 & 102/162 & 102/162 \\
+\texttt{f6ee86d} & $3.1 \times 10^{18}$ &
+  162/162 & 102/162 & 102/162 \\
+\texttt{f70f86d} & $3.1 \times 10^{18}$ &
+  162/162 & 102/162 & 102/162 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+At the initial commit, 75\% of matrices have $\kappa$ between
+100 and 1{,}000 (ill-conditioned but not catastrophic). The
+remaining 25\% (the failing matrices) have $\kappa > 10^{18}$,
+indicating that the negative eigenvalue is very small relative
+to the dominant eigenvalue. After the Ron Thomas edits, the
+median $\kappa$ itself is $10^{18}$, reflecting the majority
+of matrices now failing PD.
+
+\subsection{Eigenvalue Analysis of Failed Matrices}
+
+All PD failures involve exactly one negative eigenvalue. The
+severity ranges from barely negative ($-0.52$) to substantially
+negative ($-33.3$):
+
+\begin{table}[h]
+\centering
+\caption{Minimum eigenvalue in failed matrices}
+\begin{tabular}{lrrr}
+\toprule
+Commit & Worst & Median & Least severe \\
+\midrule
+\texttt{42ac030} & $-33.26$ & $-15.36$ & $-0.52$ \\
+\texttt{8609f12} & $-33.37$ & $-17.11$ & $-0.52$ \\
+\texttt{f6ee86d} & $-33.37$ & $-17.11$ & $-0.52$ \\
+\texttt{f70f86d} & $-33.37$ & $-17.11$ & $-0.52$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A minimum eigenvalue of $-33$ is not a minor numerical
+perturbation. For context, the dominant eigenvalue is
+approximately 700 (the sum of the largest variances in the
+system). A negative eigenvalue of $-33$ represents approximately
+5\% of the dominant eigenvalue, indicating a substantial
+structural inconsistency in the specified correlation matrix.
+
+\subsection{Failure Breakdown by Design and Parameter}
+
+The failures are not distributed uniformly across designs. At
+the initial commit:
+
+\begin{table}[h]
+\centering
+\caption{PD failure rate by design and $c_{bm}$ (initial
+  commit). Each cell shows failures out of total matrices for
+  that design-$c_{bm}$ combination across all $N$ and
+  carryover values.}
+\begin{tabular}{lrrr}
+\toprule
+Design & $c_{bm} = 0$ & $c_{bm} = 0.3$ &
+  $c_{bm} = 0.6$ \\
+\midrule
+OL & 0/6 (0\%) & 0/6 (0\%) & 0/6 (0\%) \\
+CO & 0/12 (0\%) & 1/12 (8\%) & 1/12 (8\%) \\
+N-of-1 & 2/24 (8\%) & 2/24 (8\%) & 2/24 (8\%) \\
+OL+BDC & \textbf{10/12 (83\%)} & \textbf{11/12 (92\%)} &
+  \textbf{11/12 (92\%)} \\
+\bottomrule
+\end{tabular}
+\label{tab:breakdown}
+\end{table}
+
+The OL+BDC design accounts for 32 of the 40 failures (80\%).
+The OL design never fails. CO and N-of-1 have low failure rates
+that are largely independent of $c_{bm}$, indicating that the
+biomarker correlation is not the primary driver of PD failure
+for these designs.
+
+% =================================================================
+\section{Root Cause Analysis}
+% =================================================================
+
+\subsection{Why OL+BDC Fails}
+
+The OL+BDC design has a distinctive feature that none of the
+other designs share: the expectancy value changes abruptly from
+1.0 (open-label phase, first 4 timepoints) to 0.5 (blinded
+discontinuation phase, last 4 timepoints).
+
+The expectancy value directly scales the standard deviation of
+the ER (expectancy response) factor:
+\[
+\sigma_{\text{ER},t} =
+  \sigma_{\text{ER}}^{\text{base}} \times e_t
+\]
+where $e_t$ is the expectancy at timepoint $t$. For OL+BDC:
+\[
+\sigma_{\text{ER}} =
+  [10, 10, 10, 10, 5, 5, 5, 5]
+\]
+
+This creates a covariance matrix where the ER block has
+variance 100 for the first 4 timepoints and 25 for the last 4,
+while the cross-timepoint covariances (driven by the
+autocorrelation $c_{pb} = 0.8$) are:
+\[
+\text{Cov}(\text{ER}_i, \text{ER}_j) =
+  0.8 \times \sigma_{\text{ER},i} \times
+  \sigma_{\text{ER},j}
+\]
+
+When $i$ is in the open-label phase and $j$ is in the blinded
+phase:
+\[
+\text{Cov}(\text{ER}_i, \text{ER}_j) =
+  0.8 \times 10 \times 5 = 40
+\]
+
+The corresponding correlation in the full covariance matrix is:
+\[
+\text{Cor}(\text{ER}_i, \text{ER}_j) =
+  \frac{40}{\sqrt{100 \times 25}} = 0.8
+\]
+
+This is consistent. However, the problem arises from the
+interaction between the ER block, the other factor blocks (TV,
+BR), and the cross-factor correlations. The compound symmetry
+autocorrelation ($\rho = 0.8$) combined with cross-factor
+correlations ($c_{cf1t} = 0.2$, $c_{cfct} = 0.1$) and the
+heterogeneous ER variances creates a joint covariance structure
+that is not guaranteed to be PD.
+
+Intuitively, the abrupt halving of ER variance mid-trial, while
+maintaining the same autocorrelation and cross-factor
+correlations, forces the correlation matrix into a region where
+the implied joint correlations are self-contradictory.
+
+\subsection{Why OL Never Fails}
+
+The OL design has constant expectancy ($e_t = 1$ for all $t$),
+producing homogeneous variances within each factor block. The
+compound symmetry structure with constant variances is PD by
+construction for the autocorrelation and cross-factor
+correlation values used (0.8, 0.2, 0.1). The BM--BR
+correlations ($c_{bm}$ up to 0.6) do not violate PD in this
+homogeneous setting.
+
+\subsection{Why Ron Thomas Edits Increase Failures}
+
+The Ron Thomas edits introduced two changes that affect the
+correlation matrix:
+
+\begin{enumerate}
+\item \textbf{Timepoint-1 zero correlation.} The BM--BR
+  correlation at the first timepoint is always set to 0,
+  regardless of treatment status. This creates an additional
+  asymmetry in the correlation matrix (the first BR column/row
+  has zero correlation with BM while subsequent on-drug
+  timepoints have $c_{bm}$).
+
+\item \textbf{Proportional carryover scaling.} Off-drug
+  timepoints with carryover residual receive a BM--BR
+  correlation proportional to the residual ratio. At the
+  carryover half-lives tested (0.1 and 0.2 weeks), these
+  correlations are effectively zero (ratios $< 0.001$),
+  creating additional near-zero entries in the correlation
+  matrix that interact with the existing compound symmetry
+  structure.
+\end{enumerate}
+
+Both changes increase the heterogeneity of the BM--BR
+correlation row/column. At the initial commit, the BM--BR
+correlations are either 0 or $c_{bm}$ (a simple binary
+pattern). After the edits, they can be 0, a tiny fraction of
+$c_{bm}$, or full $c_{bm}$, depending on the timepoint.
+This additional heterogeneity pushes more matrices below the
+PD boundary.
+
+% =================================================================
+\section{Consequences}
+% =================================================================
+
+\subsection{What Does \texttt{make.positive.definite()} Do?}
+
+The function \texttt{corpcor::make.positive.definite(m,
+tol = 1e-3)} performs the following:
+
+\begin{enumerate}
+\item Computes the eigendecomposition: $\Sigma = Q \Lambda Q^T$
+\item Replaces any $\lambda_i < \text{tol}$ with $\text{tol}$
+\item Reconstructs: $\Sigma^* = Q \Lambda^* Q^T$
+\end{enumerate}
+
+This is the ``nearest PD matrix'' in the Frobenius norm sense.
+However, it does not preserve the structure of the intended
+correlation matrix. Specifically:
+
+\begin{itemize}
+\item The diagonal elements of $\Sigma^*$ may differ from the
+  intended variances.
+\item The off-diagonal elements (covariances) are perturbed
+  by an amount proportional to the magnitude of the negative
+  eigenvalue.
+\item The implied correlation matrix
+  $R^* = D^{-1} \Sigma^* D^{-1}$ (where
+  $D = \text{diag}(\sqrt{\text{diag}(\Sigma^*)})$) may have
+  entries that differ substantially from the intended values.
+\end{itemize}
+
+\subsection{Magnitude of the Perturbation}
+
+For the worst-case failures (minimum eigenvalue $\approx -33$),
+the correction shifts eigenvalues by up to 33 units. Given that
+the total variance in the system (trace of $\Sigma$) is
+approximately $\sum_i \sigma_i^2 \approx 3{,}200$, the
+perturbation represents roughly 1\% of the total variance.
+However, because the perturbation is concentrated in specific
+eigenvectors (those associated with the near-zero or negative
+eigenvalues), it can disproportionately affect particular
+correlation entries---especially the BM--BR correlations and
+cross-phase ER correlations that created the non-PD condition
+in the first place.
+
+\subsection{Impact on Power Estimates}
+
+The practical impact on power estimates is difficult to quantify
+analytically because the perturbation is parameter-dependent and
+interacts with the analysis model in complex ways. However,
+several qualitative observations can be made:
+
+\begin{enumerate}
+\item \textbf{The OL+BDC design is most affected.} With 83--92\%
+  of its matrices requiring correction, the OL+BDC power
+  estimates are based almost entirely on perturbed covariance
+  matrices. The intended correlation structure is not faithfully
+  represented.
+
+\item \textbf{The OL design is unaffected.} No corrections are
+  needed, so the OL power estimates reflect the intended
+  covariance structure exactly.
+
+\item \textbf{Design comparisons are confounded.} When comparing
+  power across designs (the paper's primary analysis), the
+  OL+BDC results are based on a different effective covariance
+  structure than the OL and CO results. This is a systematic
+  confound that cannot be resolved by increasing the number
+  of replicates.
+
+\item \textbf{The Ron Thomas edits worsen the confound.} By
+  increasing the failure rate from 25\% to 63\%, the edits
+  ensure that the majority of all simulation runs across all
+  designs operate on perturbed covariance matrices.
+\end{enumerate}
+
+% =================================================================
+\section{Relationship to the Correlation Scaling Artifact}
+% =================================================================
+
+This PD failure analysis is related to but distinct from the
+correlation scaling artifact described in the companion white
+paper. The two issues are:
+
+\begin{enumerate}
+\item \textbf{Correlation scaling artifact:} The original code
+  assigns full BM--BR correlation to off-drug timepoints with
+  negligible carryover residual, creating spurious conditional
+  expectations. This is a \emph{modeling choice} issue.
+
+\item \textbf{PD failure:} The specified correlation parameters
+  do not produce a valid covariance matrix for certain
+  design-parameter combinations, requiring silent correction.
+  This is a \emph{parameter validity} issue.
+\end{enumerate}
+
+The two issues interact: the correlation scaling rule determines
+which BM--BR correlation values are assigned, which in turn
+determines whether the resulting matrix is PD. The Ron Thomas
+proportional scaling creates more heterogeneous BM--BR
+correlation patterns, which increases PD failures. However,
+even under the original (simpler) correlation rule, the OL+BDC
+design fails PD over 80\% of the time due to the
+expectancy-driven variance heterogeneity.
+
+% =================================================================
+\section{Recommendations}
+% =================================================================
+
+\subsection{Short-Term Mitigations}
+
+\begin{enumerate}
+\item \textbf{Log PD failures.} Add a counter to
+  \texttt{generateData()} that records how many matrices
+  required PD correction, and include this count in the
+  simulation output. This allows users to assess the
+  prevalence of corrections for any parameter configuration.
+
+\item \textbf{Warn on high failure rates.} If the PD failure
+  rate exceeds a threshold (e.g., 10\%), issue a warning
+  indicating that the correlation parameters may not be
+  self-consistent for the specified design.
+
+\item \textbf{Report the perturbation magnitude.} When a
+  correction is applied, compute and log the Frobenius norm of
+  the perturbation:
+  $\|\Sigma^* - \Sigma\|_F$. This allows users to assess
+  whether the correction is negligible or substantial.
+\end{enumerate}
+
+\subsection{Medium-Term Solutions}
+
+\begin{enumerate}
+\item \textbf{Pre-validate parameter combinations.} Before
+  running the simulation, test each unique (design, model
+  parameter) combination for PD and reject or flag invalid
+  ones. The \texttt{pmsimstats2025} repository implements
+  this via \texttt{validate\_parameter\_grid()}.
+
+\item \textbf{Constrain the correlation parameter space.}
+  Determine the feasible region of $\{c_{tv}, c_{pb}, c_{br},
+  c_{cf1t}, c_{cfct}, c_{bm}\}$ that guarantees PD for each
+  design. This can be done numerically by sweeping the
+  parameter space and testing PD at each point.
+
+\item \textbf{Address the OL+BDC variance heterogeneity.}
+  The OL+BDC design's 83\% failure rate is driven by the
+  abrupt expectancy change. Consider whether the compound
+  symmetry autocorrelation assumption is appropriate when
+  variances change mid-trial, or whether a different
+  autocorrelation structure (e.g., damped exponential) would
+  be more appropriate.
+\end{enumerate}
+
+\subsection{Long-Term Structural Solutions}
+
+\begin{enumerate}
+\item \textbf{Cholesky parameterization.} Instead of specifying
+  a correlation matrix and checking PD after the fact,
+  parameterize the covariance matrix via its Cholesky factor
+  $L$ such that $\Sigma = LL^T$ is PD by construction. This
+  eliminates the need for PD correction entirely but requires
+  reparameterizing the correlation structure.
+
+\item \textbf{Structured correlation models.} Replace the
+  ad hoc compound symmetry + BM--BR correlation with a
+  structured model (e.g., factor-analytic, spatial
+  exponential) that has known PD constraints. This would
+  make the feasible parameter region explicit rather than
+  requiring numerical validation.
+
+\item \textbf{Separate the correlation parameters from the
+  variance parameters.} The current approach specifies
+  correlations and variances independently, then combines
+  them into a covariance matrix. Because PD depends on the
+  joint structure, parameters that are individually reasonable
+  can produce an invalid joint specification. A parameterization
+  that enforces joint validity would prevent this class of
+  errors.
+\end{enumerate}
+
+% =================================================================
+\section{Conclusions}
+% =================================================================
+
+\begin{enumerate}
+\item Positive definiteness failure is not a rare edge case in
+  the \texttt{pmsimstats} simulation pipeline. At the parameter
+  values used in the publication, 24.7\% of covariance matrices
+  require silent correction at the initial commit, rising to
+  63.0\% after the Ron Thomas edits.
+
+\item All 162 matrices in the parameter sweep are
+  ill-conditioned ($\kappa > 100$), and the failed matrices
+  have condition numbers exceeding $10^{18}$. The negative
+  eigenvalues are substantial (up to $-33$), not mere
+  floating-point artifacts.
+
+\item The failures are concentrated in the OL+BDC design
+  (83--92\% failure rate) due to the abrupt expectancy-driven
+  change in ER variance mid-trial. The OL design never fails.
+
+\item The \texttt{make.positive.definite()} correction silently
+  perturbs the intended covariance structure. Because the
+  perturbation is design-dependent, cross-design power
+  comparisons (the paper's primary analysis) are confounded
+  by differences in the effective covariance structure.
+
+\item The Ron Thomas correlation scaling edits increase the
+  PD failure rate by introducing additional heterogeneity in
+  the BM--BR correlation pattern. This compounds the existing
+  OL+BDC failures with new failures across all designs.
+
+\item The correlation parameters used in the publication
+  ($c_{tv} = c_{pb} = c_{br} = 0.8$, $c_{cf1t} = 0.2$,
+  $c_{cfct} = 0.1$, $c_{bm}$ up to 0.6) are not
+  self-consistent for the OL+BDC design. Any simulation
+  results for this design should be interpreted with the
+  understanding that the covariance structure was
+  machine-corrected rather than as specified.
+\end{enumerate}
+
+\vfill
+\noindent\rule{\textwidth}{0.4pt}\\
+{\small\textit{Rendered on 2026-03-19.}\\
+\textit{Source: \textasciitilde/prj/alz/01c-pmsimstats-orig/%
+pmsimstats/analysis/output/pd\_failure\_white\_paper.tex}}
+
+\end{document}

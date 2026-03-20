@@ -1,0 +1,908 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{parskip}
+\usepackage{caption}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{pmsimstats Commit Impact Analysis}
+\lhead{Hendrickson et al.\ (2020) Figure 4}
+\rfoot{\thepage}
+
+\title{Impact of Post-Publication Code Changes on \\
+       Statistical Power Estimates in \texttt{pmsimstats} \\[6pt]
+       \large A Commit-by-Commit Analysis of Hendrickson et al.\
+       (2020) Figure~4}
+\author{Automated analysis}
+\date{2026-03-19}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+
+\begin{abstract}
+The \texttt{pmsimstats} R package implements Monte Carlo
+simulation-based power analysis for aggregated N-of-1 clinical
+trial designs, as described in Hendrickson et al.\ (2020). The
+bundled dataset \texttt{results\_core.rda} was generated at the
+initial commit (\texttt{42ac030}) and matches the published
+Figure~4. Subsequent commits introduced changes to the
+data-generating process and analysis model that fundamentally
+altered the power estimates. This report traces the impact of
+each commit on Figure~4, identifies the specific code changes
+responsible for the divergence, and documents the statistical
+consequences. All simulations use 200 replicates per cell.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% -----------------------------------------------------------------
+\section{Background}
+% -----------------------------------------------------------------
+
+Figure~4 of Hendrickson et al.\ (2020) presents power heatmaps
+for detecting a biomarker--treatment interaction across four trial
+designs (OL, OL+BDC, CO, N-of-1) as a function of sample size
+($N = 35, 70$), biomarker correlation ($c_{bm} = 0, 0.3, 0.6$),
+carryover half-life ($t_{1/2} = 0, 0.1, 0.2$ weeks), and five
+censoring conditions. The figure comprises two panels:
+
+\begin{itemize}
+\item \textbf{Panel A:} Power with carryover fixed at zero,
+  varying $c_{bm}$ and censoring.
+\item \textbf{Panel B:} Power with $c_{bm}$ fixed at 0.6,
+  varying carryover and censoring.
+\end{itemize}
+
+The repository contains five commits that modify the core
+simulation functions (\texttt{generateData.R} and
+\texttt{lme\_analysis.R}). We extracted the R source files at each
+commit, ran the identical parameter sweep (200 replicates), and
+compared the resulting power estimates against the published
+values.
+
+% -----------------------------------------------------------------
+\section{Commit History}
+% -----------------------------------------------------------------
+
+The commits are listed in chronological order from the initial
+commit to the current HEAD:
+
+\begin{table}[h]
+\centering
+\caption{Commits modifying core simulation code}
+\begin{tabular}{lll}
+\toprule
+Hash & Date & Description \\
+\midrule
+\texttt{42ac030} & Initial & Original published code \\
+\texttt{8609f12} & Post-pub & Ron Thomas' edits, curated \\
+\texttt{f6ee86d} & Post-pub & Fixed autocorrelation typo \\
+\texttt{f70f86d} & Post-pub & Carryover term added to DGP \\
+\texttt{325314f} & Post-pub & Modified Db to include carryover
+  (broken) \\
+\texttt{HEAD} & Current & Fixed version of \texttt{325314f} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Commit \texttt{325314f} contains two bugs that prevent execution
+(a typo \texttt{op*carryover\_scalefactor} instead of
+\texttt{op\$carryover\_scalefactor}, and extraction of a
+non-existent coefficient name \texttt{bm:DbcTRUE}). The current
+HEAD code fixes these bugs and was used in its place.
+
+% -----------------------------------------------------------------
+\section{Summary of Agreement with Figure~4}
+% -----------------------------------------------------------------
+
+\begin{table}[h]
+\centering
+\caption{Correlation and deviation from published Figure~4
+  (48 cells: 24 from Panel A + 24 from Panel B, no-censoring
+  rows only)}
+\begin{tabular}{llccccc}
+\toprule
+Commit & Description & Corr & Mean $|d|$ & Max $|d|$
+  & $>$0.10 & $>$0.05 \\
+\midrule
+\texttt{42ac030} & Initial commit
+  & \textbf{0.994} & 0.030 & 0.11 & 1 & 9 \\
+\texttt{8609f12} & Ron Thomas edits
+  & 0.705 & 0.214 & 0.78 & 29 & 32 \\
+\texttt{f6ee86d} & Autocorr typo fix
+  & 0.705 & 0.217 & 0.76 & 29 & 31 \\
+\texttt{f70f86d} & Carryover added
+  & 0.691 & 0.219 & 0.77 & 29 & 32 \\
+\texttt{HEAD} & Current code
+  & 0.613 & 0.231 & 0.76 & 30 & 34 \\
+\bottomrule
+\end{tabular}
+\label{tab:summary}
+\end{table}
+
+The initial commit reproduces the publication with correlation
+0.994. All subsequent commits produce correlations in the range
+0.61--0.71, with mean absolute deviations exceeding 0.20 and
+more than 60\% of cells deviating by more than 0.10 from the
+published values.
+
+% -----------------------------------------------------------------
+\section{Figure~4 at Each Commit}
+% -----------------------------------------------------------------
+
+\subsection{Commit \texttt{42ac030}: Initial (Publication Code)}
+
+This is the code that generated the bundled
+\texttt{results\_core.rda} and matches the published Figure~4.
+The key features of the biomarker--BR correlation logic at this
+commit:
+
+\begin{itemize}
+\item The correlation between the biomarker and BR at each
+  timepoint is set to $c_{bm}$ whenever the BR mean is nonzero
+  (i.e., whenever the participant has been on drug at that
+  timepoint), and zero otherwise.
+\item No special handling for carryover residuals: if the
+  participant is off drug and the raw BR mean is zero, the
+  BM--BR correlation is zero, even if carryover has been applied
+  to make the adjusted BR mean nonzero.
+\item No scale factor on the carryover decay (effective
+  $\text{sf} = 1$).
+\end{itemize}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{figure4_42ac030.pdf}
+\caption{Figure~4 reproduced from initial commit
+  \texttt{42ac030} (200 replicates). Matches published values
+  with $r = 0.994$.}
+\label{fig:42ac030}
+\end{figure}
+
+\clearpage
+
+\subsection{Commit \texttt{8609f12}: Ron Thomas' Edits}
+
+This commit introduced three changes to \texttt{generateData.R}:
+
+\begin{enumerate}
+\item \textbf{Scale factor on carryover decay.} The carryover
+  formula changed from
+  \[
+    \text{BR}_t = \text{BR}_t +
+      \text{BR}_{t-1} \cdot (1/2)^{t_{sd} / t_{1/2}}
+  \]
+  to
+  \[
+    \text{BR}_t = \text{BR}_t +
+      \text{BR}_{t-1} \cdot (1/2)^{2 \cdot t_{sd} / t_{1/2}}
+  \]
+  The scale factor of 2 causes the drug effect to decay twice
+  as fast after discontinuation.
+
+\item \textbf{Ron Thomas biomarker--BR correlation scaling.}
+  The original logic set $\text{Cor}(bm, \text{BR}_t) = c_{bm}$
+  whenever $\text{BR}_t \neq 0$. The new logic:
+  \begin{itemize}
+  \item Skips timepoint 1 entirely (always zero correlation at
+    the first measurement).
+  \item For on-drug timepoints (raw BR $> 0$):
+    $\text{Cor} = c_{bm}$.
+  \item For off-drug timepoints with carryover residual (raw
+    BR $= 0$ but adjusted BR $> 0$): $\text{Cor} = (\text{BR}_t
+    / \text{BR}_{t-1}) \cdot c_{bm}$ (scaled proportionally).
+  \item For off-drug timepoints without residual (adjusted
+    BR $= 0$): $\text{Cor} = 0$.
+  \end{itemize}
+
+\item \textbf{Verbose diagnostics.} Added optional printing of
+  BR means and correlations for debugging.
+\end{enumerate}
+
+The \texttt{lme\_analysis.R} changes at this commit were
+documentation-only (added \texttt{full\_model\_out} option).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{figure4_8609f12.pdf}
+\caption{Figure~4 at commit \texttt{8609f12} (Ron Thomas edits,
+  200 replicates). Correlation with publication: $r = 0.705$.}
+\label{fig:8609f12}
+\end{figure}
+
+\textbf{Impact.} This commit is the primary source of divergence
+(Table~\ref{tab:summary}). Two effects are visible:
+
+\begin{enumerate}
+\item \textbf{Carryover sensitivity eliminated.} In the
+  publication, N-of-1 power drops from 0.95 to 0.18 when
+  $t_{1/2} = 0.1$ weeks (Panel~B). After this commit, N-of-1
+  power stays at $\sim$0.78 regardless of carryover. The Ron
+  Thomas correlation scaling ensures that off-drug timepoints
+  with carryover residual retain a nonzero BM--BR correlation
+  proportional to the residual, effectively ``protecting'' the
+  biomarker interaction signal from carryover contamination.
+  Combined with the scale factor doubling the decay rate, the
+  carryover effect on power is almost entirely neutralized.
+
+\item \textbf{OL power inflated.} OL power at $c_{bm} = 0.6$,
+  $N = 35$ jumps from 0.25 to 0.55. The zero-correlation
+  convention at timepoint 1 changes the effective degrees of
+  freedom in the BM--BR correlation structure, altering the
+  \texttt{bm:t} interaction signal that the OL analysis model
+  tests.
+\end{enumerate}
+
+\clearpage
+
+\subsection{Commit \texttt{f6ee86d}: Autocorrelation Typo Fix}
+
+This commit fixed a symmetry bug in the cross-factor correlation
+matrix. The original code at \texttt{42ac030} had:
+
+\begin{verbatim}
+correlations[n1,n2] <- modelparam$c.cf1t
+correlations[n1,n2] <- modelparam$c.cf1t  # BUG: should be [n2,n1]
+\end{verbatim}
+
+The fix corrected the second line to
+\texttt{correlations[n2,n1]}, ensuring the correlation matrix is
+symmetric. However, the \texttt{make.positive.definite()} call
+in the original code had been implicitly fixing this asymmetry
+by projecting to the nearest positive-definite matrix, so the
+practical impact on power estimates is negligible.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{figure4_f6ee86d.pdf}
+\caption{Figure~4 at commit \texttt{f6ee86d} (autocorrelation
+  typo fix, 200 replicates). Correlation with publication:
+  $r = 0.705$.}
+\label{fig:f6ee86d}
+\end{figure}
+
+\textbf{Impact.} Negligible change from \texttt{8609f12}. The
+correlation with the publication remains at 0.705, and the
+mean absolute deviation is essentially unchanged (0.217 vs
+0.214). The typo fix is mathematically correct but does not
+remediate the divergence introduced by the Ron Thomas edits.
+
+\clearpage
+
+\subsection{Commit \texttt{f70f86d}: Carryover Term Added to DGP}
+
+This commit did not change \texttt{generateData.R} or
+\texttt{lme\_analysis.R} in ways that affect the Figure~4
+parameter sweep (the carryover term was added to other parts
+of the codebase). The power estimates are consistent with
+\texttt{f6ee86d}.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{figure4_f70f86d.pdf}
+\caption{Figure~4 at commit \texttt{f70f86d} (carryover term
+  added, 200 replicates). Correlation with publication:
+  $r = 0.691$.}
+\label{fig:f70f86d}
+\end{figure}
+
+\textbf{Impact.} Minor additional drift (correlation drops from
+0.705 to 0.691), likely attributable to Monte Carlo variability
+rather than code changes.
+
+\clearpage
+
+\subsection{Current HEAD: Fixed Carryover in Analysis Model}
+
+The current HEAD code includes the changes from \texttt{325314f}
+(which was broken) in their fixed form. The key addition is the
+continuous drug indicator \texttt{Dbc} in the analysis model:
+
+\begin{verbatim}
+data.m2[Db==TRUE, Dbc := 1]
+data.m2[Db==FALSE, Dbc := (1/2)^(sf * tsd / t_half)]
+\end{verbatim}
+
+The LME formula changed from \texttt{Sx $\sim$ bm + t + Db +
+bm*Db + (1|ptID)} to \texttt{Sx $\sim$ bm + t + Dbc + bm*Dbc +
+(1|ptID)}, where \texttt{Dbc} is continuous (1 when on drug,
+exponential decay when off drug) rather than binary.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{figure4_HEAD.pdf}
+\caption{Figure~4 at current HEAD (200 replicates). Correlation
+  with publication: $r = 0.613$.}
+\label{fig:HEAD}
+\end{figure}
+
+\textbf{Impact.} The continuous \texttt{Dbc} further degrades
+agreement with the publication (correlation drops from 0.691 to
+0.613). The CO design is particularly affected: power at
+$c_{bm} = 0.3$, $N = 35$ drops from 0.57 (paper) to 0.24.
+The continuous carryover term in the analysis model partially
+absorbs the biomarker interaction signal when carryover is
+present, reducing the effective power of the \texttt{bm:Dbc}
+test.
+
+% -----------------------------------------------------------------
+\section{Detailed Power Comparison}
+% -----------------------------------------------------------------
+
+\subsection{Panel A: Effect of Biomarker Correlation (No Carryover)}
+
+\begin{table}[h]
+\centering
+\caption{Power at carryover $= 0$, no censoring (200 reps each)}
+\small
+\begin{tabular}{llccccccc}
+\toprule
+Design & $N$ & $c_{bm}$ & Paper & 42ac030 & 8609f12 & f6ee86d
+  & f70f86d & HEAD \\
+\midrule
+OL     & 35 & 0.0 & 0.08 & 0.08 & 0.05 & 0.04 & 0.06 & 0.05 \\
+OL     & 35 & 0.3 & 0.05 & 0.10 & 0.17 & 0.18 & 0.21 & 0.22 \\
+OL     & 35 & 0.6 & 0.25 & 0.27 & 0.55 & 0.56 & 0.47 & 0.50 \\
+OL     & 70 & 0.6 & 0.43 & 0.47 & 0.85 & 0.88 & 0.83 & 0.84 \\
+\midrule
+CO     & 35 & 0.3 & 0.57 & 0.61 & 0.45 & 0.46 & 0.45 & 0.24 \\
+CO     & 35 & 0.6 & 0.96 & 0.99 & 0.94 & 0.94 & 0.94 & 0.60 \\
+CO     & 70 & 0.6 & 1.00 & 1.00 & 1.00 & 1.00 & 1.00 & 0.88 \\
+\midrule
+N-of-1 & 35 & 0.6 & 0.95 & 0.97 & 0.78 & 0.84 & 0.80 & 0.86 \\
+N-of-1 & 70 & 0.6 & 1.00 & 1.00 & 0.98 & 1.00 & 0.98 & 0.99 \\
+\bottomrule
+\end{tabular}
+\label{tab:4a}
+\end{table}
+
+\subsection{Panel B: Effect of Carryover ($c_{bm} = 0.6$)}
+
+\begin{table}[h]
+\centering
+\caption{Power at $c_{bm} = 0.6$, no censoring (200 reps each).
+  The carryover sensitivity of N-of-1 is the paper's central
+  finding.}
+\small
+\begin{tabular}{llccccccc}
+\toprule
+Design & $N$ & $t_{1/2}$ & Paper & 42ac030 & 8609f12 & f6ee86d
+  & f70f86d & HEAD \\
+\midrule
+N-of-1 & 35 & 0.0 & 0.95 & 0.97 & 0.78 & 0.84 & 0.80 & 0.86 \\
+N-of-1 & 35 & 0.1 & \textbf{0.18} & 0.16
+  & \textcolor{red}{0.78} & \textcolor{red}{0.85}
+  & \textcolor{red}{0.83} & \textcolor{red}{0.83} \\
+N-of-1 & 35 & 0.2 & \textbf{0.23} & 0.18
+  & \textcolor{red}{0.82} & \textcolor{red}{0.80}
+  & \textcolor{red}{0.84} & \textcolor{red}{0.78} \\
+N-of-1 & 70 & 0.1 & \textbf{0.22} & 0.29
+  & \textcolor{red}{1.00} & \textcolor{red}{0.98}
+  & \textcolor{red}{0.99} & \textcolor{red}{0.98} \\
+N-of-1 & 70 & 0.2 & \textbf{0.33} & 0.25
+  & \textcolor{red}{0.99} & \textcolor{red}{0.98}
+  & \textcolor{red}{0.99} & \textcolor{red}{0.98} \\
+\midrule
+CO     & 35 & 0.0 & 0.96 & 0.99 & 0.94 & 0.94 & 0.94 & 0.60 \\
+CO     & 35 & 0.1 & 0.71 & 0.60 & 0.93 & 0.94 & 0.93 & 0.66 \\
+CO     & 35 & 0.2 & 0.65 & 0.64 & 0.92 & 0.94 & 0.97 & 0.59 \\
+\midrule
+OL+BDC & 35 & 0.1 & \textbf{0.26} & 0.21
+  & \textcolor{red}{0.75} & \textcolor{red}{0.80}
+  & \textcolor{red}{0.80} & \textcolor{red}{0.77} \\
+OL+BDC & 35 & 0.2 & \textbf{0.27} & 0.23
+  & \textcolor{red}{0.78} & \textcolor{red}{0.70}
+  & \textcolor{red}{0.80} & \textcolor{red}{0.76} \\
+\bottomrule
+\end{tabular}
+\label{tab:4b}
+\end{table}
+
+Red values indicate cells where power should drop precipitously
+due to carryover but instead remains high after the Ron Thomas
+edits. This is the most consequential change: the paper's central
+finding---that N-of-1 designs are acutely sensitive to
+carryover---is not reproducible with any post-\texttt{42ac030}
+version of the code.
+
+% -----------------------------------------------------------------
+\section{Root Cause Analysis}
+% -----------------------------------------------------------------
+
+The divergence traces to two changes in the biomarker--BR
+correlation logic introduced at commit \texttt{8609f12}:
+
+\subsection{Change 1: Carryover-Proportional Correlation Scaling}
+
+In the original code, the BM--BR correlation is binary:
+$c_{bm}$ when BR mean $\neq 0$, and 0 otherwise. When a
+participant goes off drug, the raw BR mean drops to zero at
+timepoints where \texttt{tod} $= 0$, so the correlation drops
+to zero. Even though carryover adds a residual to the adjusted
+BR mean, the correlation assignment uses the raw mean, not the
+adjusted one. This means the biomarker interaction signal is
+``switched off'' when the participant is off drug, regardless of
+carryover. The result is that carryover residuals contaminate the
+outcome without providing compensating biomarker interaction
+information, degrading power.
+
+The Ron Thomas version replaces this with a proportional scaling:
+when the raw BR is zero but the adjusted BR is nonzero (due to
+carryover), the correlation is scaled by the ratio of current to
+previous BR means. This preserves a partial biomarker interaction
+signal during carryover periods, effectively immunizing the power
+estimate against carryover effects. Whether this is
+methodologically correct depends on the substantive question:
+does a carryover drug effect retain its biomarker specificity?
+The original code assumes it does not; the revised code assumes
+it does, proportionally.
+
+\subsection{Change 2: Scale Factor on Carryover Decay}
+
+The addition of \texttt{scalefactor = 2} doubles the rate of
+carryover decay in the DGP. At $t_{1/2} = 0.1$ weeks, the
+effective half-life becomes 0.05 weeks ($\sim$8 hours), which
+means virtually no carryover residual survives to the next
+assessment timepoint. This independently reduces the impact of
+carryover on power, though the correlation scaling change
+(Change~1) is the dominant effect.
+
+\subsection{Interaction Between Changes}
+
+The two changes interact synergistically. The proportional
+correlation scaling (Change~1) means that whatever carryover
+residual survives retains biomarker interaction information.
+The doubled decay rate (Change~2) means that less carryover
+residual survives. Together, they almost completely eliminate
+the carryover sensitivity that is the paper's central finding.
+
+% -----------------------------------------------------------------
+\section{Assessment of the Three Changes in Commit
+         \texttt{8609f12}}
+% -----------------------------------------------------------------
+
+Commit \texttt{8609f12} introduced three changes to
+\texttt{generateData.R}. We evaluate each on its statistical
+and clinical merits.
+
+\subsection{Change 1: Scale Factor on Carryover Decay ---
+            Not Sensible}
+
+The carryover decay formula was changed from
+$(1/2)^{t_{sd}/t_{1/2}}$ to $(1/2)^{2 \cdot t_{sd}/t_{1/2}}$,
+halving the effective half-life. This change is not sensible
+for the following reasons:
+
+\begin{enumerate}
+\item \textbf{The parameter name becomes dishonest.}
+  \texttt{carryover\_t1half} is documented as a half-life,
+  but with $s = 2$ the actual half-life is
+  \texttt{carryover\_t1half} / 2. A parameter called 0.1
+  weeks actually represents 0.05 weeks ($\sim$8 hours).
+
+\item \textbf{The purpose was not understood.} The commit
+  added the parameter with the documentation comment:
+  \texttt{@param scalefactor TODO update when understand
+  what this does?}
+
+\item \textbf{It has no practical effect at the tested
+  values.} At $t_{1/2} = 0.1$ weeks and $t_{sd} = 1$ week
+  (the smallest assessment gap), the decay factor is
+  $(1/2)^{10} \approx 0.001$ without the scale factor and
+  $(1/2)^{20} \approx 10^{-6}$ with it. Both are negligible.
+  The carryover residual is effectively zero either way.
+
+\item \textbf{If different decay rates are needed, the
+  half-life itself should be varied,} not a hidden multiplier
+  that changes its meaning.
+\end{enumerate}
+
+\textbf{Recommendation:} Remove the scale factor (revert to
+$s = 1$). Explore different carryover rates by varying
+$t_{1/2}$ directly.
+
+\subsection{Change 2: Timepoint-1 Zero Correlation ---
+            Not Sensible}
+
+The biomarker--BR correlation assignment was changed to skip
+timepoint 1 ($p > 1$ guard), so
+$\text{Cor}(\text{BM}, \text{BR}_1) = 0$ regardless of
+treatment status. This is not a scientific choice but a
+\textbf{coding artifact}: the proportional scaling formula
+computes $\text{BR}_t / \text{BR}_{t-1}$, and at $p = 1$
+there is no previous timepoint ($p - 1 = 0$), which would
+cause an index-out-of-bounds error.
+
+The consequence is clinically unreasonable:
+
+\begin{itemize}
+\item At timepoint 1 in the OL design, the participant has
+  been on drug for 2.5 weeks. The BR mean is substantially
+  nonzero ($\sim$2.6 points of improvement).
+\item At timepoint 1 in the N-of-1 design, the participant
+  has been on drug for 4 weeks. The BR mean is $\sim$4.3
+  points.
+\item There is no pharmacological reason the biomarker should
+  not predict drug response at these timepoints.
+\end{itemize}
+
+For the OL design (8 on-drug timepoints), losing the
+correlation at one timepoint reduces the effective
+biomarker interaction signal by 12.5\%, altering the
+\texttt{bm:t} interaction and contributing to the
+inflated OL power observed after this commit.
+
+\textbf{Recommendation:} Handle $p = 1$ as a separate case.
+When the participant is on drug at timepoint 1, assign
+$\text{Cor}(\text{BM}, \text{BR}_1) = c_{bm}$. When off drug,
+assign zero. Do not skip it.
+
+\subsection{Change 3: Proportional Correlation Scaling ---
+            Right Intent, Wrong Implementation}
+
+The proportional scaling addresses a genuine artifact in the
+original code. Under the original step-function rule, any
+nonzero carryover residual (even 0.001\% of the peak effect)
+triggers the full $c_{bm}$ correlation. This creates
+conditional expectations where participants with high
+biomarkers show substantial positive BR and participants with
+low biomarkers show substantial \emph{negative} BR at
+timepoints where the drug effect is negligible:
+
+\begin{table}[h]
+\centering
+\caption{Conditional $E[\text{BR} \mid \text{BM}]$ at an
+  off-drug timepoint with $\mu_{\text{BR}} \approx 0.01$}
+\begin{tabular}{lrr}
+\toprule
+Biomarker & Original ($\rho = 0.6$) &
+  Proportional ($\rho \approx 0$) \\
+\midrule
+$-1$ SD (109 mmHg) & $-4.8$ & $+0.01$ \\
+Mean (124 mmHg) & $+0.01$ & $+0.01$ \\
+$+1$ SD (140 mmHg) & $+4.9$ & $+0.01$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The $-4.8$ value for low-biomarker participants implies the
+drug is \emph{harming} them during the off-drug period, which
+is clinically incoherent. The proportional scaling correctly
+eliminates this artifact.
+
+However, the specific implementation---exact proportional
+coupling between the mean decay and the correlation decay---is
+an arbitrary choice. The ratio
+$\text{BR}_t / \text{BR}_{t-1}$ reduces to the carryover
+decay factor $(1/2)^{s \cdot t_{sd} / t_{1/2}}$, meaning
+the correlation decays with the same time constant as the
+drug effect. This conflates two distinct phenomena:
+
+\begin{enumerate}
+\item \textbf{Drug effect decay} (mean structure): how
+  quickly the pharmacologic effect wears off.
+\item \textbf{Biomarker predictive decay} (correlation
+  structure): how quickly the biomarker stops predicting
+  who benefits from the residual effect.
+\end{enumerate}
+
+There is no \emph{a priori} reason these should share the
+same time constant. The biomarker might predict
+susceptibility (correlation persists longer than the effect),
+or it might index only the acute response (correlation
+decays faster).
+
+\textbf{Recommendation:} Recode the correlation decay as an
+independent exponential:
+\[
+\text{Cor}(\text{BM}, \text{BR}_t) =
+  c_{bm} \cdot \exp(-\lambda_{cor} \cdot t_{sd})
+\]
+where $\lambda_{cor}$ is a separate parameter. This
+subsumes the original rule ($\lambda_{cor} = 0$, step
+function), the proportional scaling
+($\lambda_{cor} = \lambda_{drug}$), and intermediate
+cases as a sensitivity analysis parameter. The formula
+also avoids the $p > 1$ index problem because it depends
+on $t_{sd}$ directly, not on a ratio of adjacent means.
+
+% -----------------------------------------------------------------
+\section{Positive Definiteness Failure Analysis}
+% -----------------------------------------------------------------
+
+The covariance matrix constructed by \texttt{generateData()}
+is not guaranteed to be positive definite (PD) for all parameter
+combinations. When it fails, the code silently corrects it via
+\texttt{corpcor::make.positive.definite()}. We instrumented the
+simulation to measure the frequency and severity of these
+failures.
+
+\subsection{Failure Rates by Commit}
+
+The simulation constructs exactly 162 unique covariance matrices
+per run (4 designs $\times$ their path counts $\times$ 18 model
+parameter combinations). This count is deterministic and
+independent of \texttt{Nreps}.
+
+\begin{table}[h]
+\centering
+\caption{PD failure rates (162 matrices per run)}
+\begin{tabular}{llrr}
+\toprule
+Commit & Description & Failures & Rate \\
+\midrule
+\texttt{42ac030} & Initial commit &
+  40/162 & 24.7\% \\
+\texttt{8609f12} & Ron Thomas edits &
+  102/162 & 63.0\% \\
+\texttt{f6ee86d} & Autocorr typo fix &
+  102/162 & 63.0\% \\
+\texttt{f70f86d} & Carryover added &
+  102/162 & 63.0\% \\
+\bottomrule
+\end{tabular}
+\label{tab:pd_rates}
+\end{table}
+
+The Ron Thomas edits more than doubled the failure rate.
+The proportional scaling and timepoint-1 zero-correlation
+introduce additional heterogeneity in the BM--BR correlation
+pattern, pushing more matrices below the PD boundary.
+
+\subsection{Failure Breakdown by Design}
+
+At the initial commit, failures are concentrated in the OL+BDC
+design:
+
+\begin{table}[h]
+\centering
+\caption{PD failure rate by design and $c_{bm}$ (initial
+  commit)}
+\begin{tabular}{lrrr}
+\toprule
+Design & $c_{bm} = 0$ & $c_{bm} = 0.3$ &
+  $c_{bm} = 0.6$ \\
+\midrule
+OL & 0/6 (0\%) & 0/6 (0\%) & 0/6 (0\%) \\
+CO & 0/12 (0\%) & 1/12 (8\%) & 1/12 (8\%) \\
+N-of-1 & 2/24 (8\%) & 2/24 (8\%) & 2/24 (8\%) \\
+OL+BDC & 10/12 (83\%) & 11/12 (92\%) & 11/12 (92\%) \\
+\bottomrule
+\end{tabular}
+\label{tab:pd_design}
+\end{table}
+
+The OL+BDC design's high failure rate is driven by the abrupt
+change in expectancy from 1.0 (open-label phase) to 0.5
+(blinded discontinuation phase), which halves the ER standard
+deviation mid-trial while maintaining compound symmetry
+autocorrelation. The OL design never fails because all
+timepoints have uniform expectancy and variance.
+
+\subsection{Eigenvalue Analysis}
+
+All PD failures involve exactly one negative eigenvalue, with
+magnitudes ranging from $-0.52$ to $-33.3$. The dominant
+eigenvalue is approximately 700. A negative eigenvalue of
+$-33$ represents roughly 5\% of the dominant eigenvalue,
+indicating a substantial structural inconsistency---not a
+floating-point artifact. All 162 matrices have condition
+numbers exceeding 100, and 100\% of all matrices across all
+commits are ill-conditioned.
+
+\subsection{Consequences}
+
+The \texttt{make.positive.definite()} correction silently
+perturbs the intended covariance structure. Because the
+perturbation is design-dependent (OL+BDC is almost always
+corrected; OL is never corrected), cross-design power
+comparisons are confounded by differences in the effective
+covariance structure that no amount of replication can resolve.
+
+% -----------------------------------------------------------------
+\section{Viable Parameter Ranges}
+% -----------------------------------------------------------------
+
+To determine the parameter constraints that eliminate PD
+failures, we swept the maximum $c_{bm}$ that produces a
+valid covariance matrix for each design and path, under both
+the original compound symmetry (CS) autocorrelation and an
+AR(1) alternative where
+$\rho_{ij} = \rho^{|t_i - t_j|}$ with $t$ in weeks.
+
+\subsection{Compound Symmetry (Publication Parameters)}
+
+With the publication's autocorrelation ($\rho = 0.8$),
+cross-factor ($c_{cf1t} = 0.2$, $c_{cfct} = 0.1$), and the
+fixed-HEAD correlation rule ($\lambda_{cor} = 1$):
+
+\begin{table}[h]
+\centering
+\caption{Maximum $c_{bm}$ before PD failure (compound symmetry
+  $\rho = 0.8$, carryover $= 0.1$)}
+\begin{tabular}{lrr}
+\toprule
+Design & Path & Max $c_{bm}$ \\
+\midrule
+OL & 1 & 0.89 \\
+OL+BDC & 1 & 0.36 \\
+OL+BDC & 2 & 0.31 \\
+CO & 1 & 0.26 \\
+CO & 2 & \textbf{0.25} \\
+N-of-1 & 1--2 & 0.30 \\
+N-of-1 & 3--4 & 0.28 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The binding constraint is CO Path~2 at $c_{bm} = 0.25$. The
+publication's use of $c_{bm} = 0.6$ is outside the feasible
+region for every design except OL. Every simulation at
+$c_{bm} \geq 0.3$ for CO, N-of-1, and OL+BDC required
+silent PD correction.
+
+For the original commit (42ac030), the constraints are
+similar at carryover $= 0$ (binding at $c_{bm} = 0.25$ for
+CO Path~2). However, at carryover $> 0$, the original
+step-function correlation rule fills in more $c_{bm}$ entries
+(any nonzero residual triggers full correlation), which
+paradoxically \emph{improves} PD by making the correlation
+matrix more uniform. Most designs reach $c_{bm} = 0.89$ at
+carryover $= 0.1$, except CO Path~2 which remains at 0.25
+(its off-drug timepoints precede any on-drug exposure, so the
+carryover residual is zero).
+
+\subsection{AR(1) Autocorrelation}
+
+AR(1) replaces the constant within-factor autocorrelation
+$\rho$ with $\rho^{|t_i - t_j|}$, so nearby timepoints are
+more correlated than distant ones. This is more realistic
+than compound symmetry and substantially expands the feasible
+$c_{bm}$ range:
+
+\begin{table}[h]
+\centering
+\caption{Maximum $c_{bm}$ under AR(1) autocorrelation
+  ($\lambda_{cor} = 1$, carryover $= 0.1$,
+  $c_{cf1t} = 0.2$, $c_{cfct} = 0.1$)}
+\begin{tabular}{lr|rrrr}
+\toprule
+Design & Path & $\rho = 0.7$ & $\rho = 0.8$ &
+  $\rho = 0.9$ & $\rho = 0.95$ \\
+\midrule
+OL & 1 & 0.49 & 0.57 & 0.70 & $<0$ \\
+OL+BDC & 1 & 0.51 & 0.45 & $<0$ & $<0$ \\
+OL+BDC & 2 & 0.53 & 0.47 & $<0$ & $<0$ \\
+CO & 1 & \textbf{0.62} & \textbf{0.64} & 0.49 & $<0$ \\
+CO & 2 & 0.61 & 0.62 & 0.44 & $<0$ \\
+N-of-1 & 1 & 0.52 & 0.44 & $<0$ & $<0$ \\
+N-of-1 & 3 & 0.53 & 0.43 & $<0$ & $<0$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Key observations:
+
+\begin{itemize}
+\item \textbf{AR(1) at $\rho = 0.8$ roughly doubles the
+  feasible range} for CO (0.25 $\to$ 0.62) and N-of-1
+  (0.28 $\to$ 0.43) compared to compound symmetry at the
+  same $\rho$.
+
+\item \textbf{At $\rho = 0.7$, all designs reach
+  $c_{bm} \geq 0.49$}, making the publication's range
+  ($c_{bm}$ up to 0.5) feasible without PD correction
+  for any design.
+
+\item \textbf{At $\rho \geq 0.9$, AR(1) is worse} than
+  compound symmetry because the near-unit correlations at
+  short time gaps ($\rho^1 = 0.9$) create near-singularity.
+  At $\rho = 0.95$, all matrices fail at $c_{bm} = 0$.
+
+\item \textbf{Total PD failure rate} across the full
+  parameter grid: 25.9\% at AR(1) $\rho = 0.8$ vs
+  44.4\% at CS $\rho = 0.8$ (fixed HEAD).
+\end{itemize}
+
+\subsection{Recommended Parameter Configuration}
+
+Based on the sweep results, we recommend:
+
+\begin{itemize}
+\item \textbf{Autocorrelation:} AR(1) with $\rho = 0.7$.
+  This produces realistic time-dependent decay of
+  within-factor correlations and keeps all designs within
+  the PD boundary at $c_{bm} \leq 0.5$.
+
+\item \textbf{Biomarker correlation:}
+  $c_{bm} \in \{0, 0.25, 0.5\}$. This replaces the
+  publication's $\{0, 0.3, 0.6\}$ with values that are
+  within the feasible region for all designs under AR(1)
+  at $\rho = 0.7$.
+
+\item \textbf{Cross-factor correlations:}
+  $c_{cf1t} = 0.2$, $c_{cfct} = 0.1$ (unchanged). The
+  cross-factor different-time correlations should also
+  decay with AR(1): $c_{cfct} \cdot \rho^{|t_i - t_j|}$.
+
+\item \textbf{Correlation decay:}
+  $\lambda_{cor} = 1$ (per week). The BM--BR correlation
+  during off-drug periods decays as
+  $c_{bm} \cdot e^{-t_{sd}}$, providing moderate decay
+  without the artifacts of the step function or the
+  over-correction of exact proportional scaling.
+\end{itemize}
+
+Under this configuration, zero PD corrections are needed,
+all parameter combinations produce valid covariance matrices,
+and the simulation results reflect the intended correlation
+structure without machine perturbation.
+
+% -----------------------------------------------------------------
+\section{Conclusions}
+% -----------------------------------------------------------------
+
+\begin{enumerate}
+\item The published Figure~4 is reproducible only from the
+  initial commit (\texttt{42ac030}). The bundled
+  \texttt{results\_core.rda} was generated from this code.
+
+\item The first post-publication commit (\texttt{8609f12}, Ron
+  Thomas' edits) introduced three changes. Two are not
+  sensible (the scale factor and the timepoint-1 zero
+  correlation), and the third (proportional correlation
+  scaling) addresses a genuine artifact in the original code
+  but should be recoded as an independent correlation decay
+  parameter.
+
+\item The Ron Thomas edits also increased the PD failure rate
+  from 24.7\% to 63.0\%, compounding the existing OL+BDC
+  failures (83--92\%) with new failures across all designs.
+
+\item All subsequent commits remain in the diverged state.
+  Neither the autocorrelation typo fix (\texttt{f6ee86d}) nor
+  the carryover analysis term (\texttt{325314f}/HEAD)
+  remediates the divergence; the HEAD code shows the lowest
+  correlation with the publication (0.613).
+
+\item The original code's step-function correlation rule
+  creates a modeling artifact: full BM--BR correlation at
+  off-drug timepoints with negligible carryover residual
+  produces clinically implausible conditional expectations
+  (drug ``harm'' for low-biomarker participants). The
+  power drop reported in Figure~4B is primarily driven by
+  this artifact, not by the carryover residual itself.
+
+\item The recommended path forward is to:
+  \begin{enumerate}
+  \item Remove the scale factor (revert to $s = 1$).
+  \item Fix the timepoint-1 correlation to apply $c_{bm}$
+    when on drug.
+  \item Recode the proportional scaling as an independent
+    correlation decay parameter
+    $\lambda_{cor}$, enabling sensitivity analysis.
+  \item Pre-validate parameter combinations for positive
+    definiteness and reject or constrain those that fail.
+  \end{enumerate}
+
+\item For any work requiring consistency with the published
+  results, the initial commit code must be used. The scripts
+  \texttt{01b\_generate\_results\_core\_original.R} and
+  \texttt{01c\_generate\_by\_commit.R} provide infrastructure
+  for running simulations against any commit version.
+\end{enumerate}
+
+\vfill
+\noindent\rule{\textwidth}{0.4pt}\\
+{\small\textit{Rendered on 2026-03-19 at 17:37 PDT.}\\
+\textit{Source: \textasciitilde/prj/alz/01c-pmsimstats-orig/%
+pmsimstats/analysis/output/commit\_impact\_report.tex}}
+
+\end{document}

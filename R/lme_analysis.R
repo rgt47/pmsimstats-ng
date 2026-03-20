@@ -194,14 +194,31 @@ lme_analysis<-function(trialdesign_set,dat,op){
 
   # Package output
   c<-summary(fit)$coefficients
+  coefnames<-rownames(c)
   if(varInDb){
-    p<-c['bm:Dbc','Pr(>|t|)']
-    beta<-c['bm:Dbc','Estimate']
-    betaSE<-c['bm:Dbc','Std. Error']
+    target<-intersect(c('bm:Dbc','Dbc:bm'), coefnames)
+    if(length(target)==0){
+      beta<-as.numeric(NA)
+      betaSE<-as.numeric(NA)
+      p<-as.numeric(NA)
+    } else {
+      target<-target[1]
+      p<-c[target,'Pr(>|t|)']
+      beta<-c[target,'Estimate']
+      betaSE<-c[target,'Std. Error']
+    }
   }else{
-    p<-c['bm:t','Pr(>|t|)']
-    beta<-c['bm:t','Estimate']
-    betaSE<-c['bm:t','Std. Error']
+    target<-intersect(c('bm:t','t:bm'), coefnames)
+    if(length(target)==0){
+      beta<-as.numeric(NA)
+      betaSE<-as.numeric(NA)
+      p<-as.numeric(NA)
+    } else {
+      target<-target[1]
+      p<-c[target,'Pr(>|t|)']
+      beta<-c[target,'Estimate']
+      betaSE<-c[target,'Std. Error']
+    }
   }
 
   # pvalue plan from http://mindingthebrain.blogspot.in/2014/02/three-ways-to-get-parameter-specific-p.html

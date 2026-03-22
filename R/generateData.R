@@ -49,6 +49,9 @@
 #'   correlation decay (original publication behavior). Set to a
 #'   positive value to override with a custom decay rate.
 #' @param verbose Set to \code{TRUE} if you want chatty outputs; defaults to \code{FALSE}
+#' @param cached_sigma Pre-built sigma matrix (list with sigma, means,
+#'   labels, nP, cl, trialdesign components). When provided, skips
+#'   sigma construction entirely. Use \link{buildSigma} to create.
 #' @returns A \code{dat} file that contains both the total symptom scores at each timepoint
 #'   and also all the individual factors that were used to generate those total scores
 #' @examples
@@ -56,7 +59,65 @@
 #' @export
 
 
-generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePositiveDefinite,seed=NA,lambda_cor=NA,verbose=FALSE){
+generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePositiveDefinite,seed=NA,lambda_cor=NA,verbose=FALSE,cached_sigma=NULL){
+
+  if(!is.null(cached_sigma)){
+    sigma<-cached_sigma$sigma
+    means<-cached_sigma$means
+    labels<-cached_sigma$labels
+    nP<-cached_sigma$nP
+    cl<-cached_sigma$cl
+  } else {
+    built<-buildSigma(modelparam,respparam,blparam,trialdesign,makePositiveDefinite,lambda_cor,verbose)
+    sigma<-built$sigma
+    means<-built$means
+    labels<-built$labels
+    nP<-built$nP
+    cl<-built$cl
+    trialdesign<-built$trialdesign
+  }
+
+  # Draw participants from MVN
+  dat<-mvrnorm(n=modelparam$N,mu=means,Sigma=sigma,empirical=empirical)
+  dat<-data.table(dat)
+  setnames(dat,names(dat),labels)
+
+  # Compute outcome columns using vectorized operations
+  dat[,ptID:=1:modelparam$N]
+  tnames<-if(is.data.frame(trialdesign)) trialdesign$timeptname else trialdesign$timeptnames
+  if(is.null(tnames)) tnames<-trialdesign$timeptname
+  for(p in 1:nP){
+    n<-tnames[p]
+    comps<-paste(n,cl,sep=".")
+    dat[,(paste0("D_",n)):=rowSums(.SD),.SDcols=comps]
+  }
+  for(p in 1:nP){
+    n<-tnames[p]
+    comps<-paste(n,cl,sep=".")
+    dat[,(n):=BL - rowSums(.SD),.SDcols=comps]
+  }
+
+  return(dat)
+}
+
+
+#' Build sigma matrix for a trial path
+#'
+#' \code{buildSigma} constructs the covariance matrix, mean vector,
+#' and labels for a single trial path. The result can be cached and
+#' passed to \link{generateData} via the cached_sigma parameter to
+#' avoid redundant matrix construction across replicates.
+#'
+#' @param modelparam Model parameters (see \link{generateData})
+#' @param respparam Response parameters (see \link{generateData})
+#' @param blparam Baseline parameters (see \link{generateData})
+#' @param trialdesign Trial path specification
+#' @param makePositiveDefinite Force positive definiteness?
+#' @param lambda_cor Correlation decay rate (NA for auto)
+#' @param verbose Print diagnostics?
+#' @return List with sigma, means, labels, nP, cl, trialdesign
+#' @export
+buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefinite=TRUE,lambda_cor=NA,verbose=FALSE){
 
   # Compute lambda_cor from carryover half-life if not specified
   if(is.na(lambda_cor)){
@@ -67,37 +128,31 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
     }
   }
 
-  # I. Turn the trial design information into something easier to use
   d<-data.table(trialdesign)
   d$t_wk_cumulative<-cumulative(d$t_wk)
   d[,onDrug:=(tod>0)]
   nP<-dim(trialdesign)[1]
 
-  # II. Now set up a whole host of variables that we're going to want to track - essentially our baseline
-  #     parameters for each subject ("bm","BL"), and the three modeled factors for each stage of the trial.
-
-  # Set up the variable names
   cl<-c("tv","pb","br")
   labels<-c(c("bm","BL"),
             paste(trialdesign$timeptname,cl[1],sep="."),
             paste(trialdesign$timeptname,cl[2],sep="."),
             paste(trialdesign$timeptname,cl[3],sep="."))
 
-  # Set up vectors with the standard deviations and means
   sds<-c(blparam[cat=="bm"]$sd,blparam[cat=="BL"]$sd)
   sds<-c(sds,rep(respparam[cat=="tv"]$sd,nP))
   sds<-c(sds,rep(respparam[cat=="pb"]$sd,nP)*trialdesign$e)
   sds<-c(sds,rep(respparam[cat=="br"]$sd,nP))
   means<-c(blparam[cat=="bm"]$m,blparam[cat=="BL"]$m)
-  for (c in cl){
-    rp<-respparam[cat==c]
-    if(c=="tv"){
+  for (cc in cl){
+    rp<-respparam[cat==cc]
+    if(cc=="tv"){
       means<-c(means,modgompertz(d$t_wk_cumulative,rp$max,rp$disp,rp$rate))
     }
-    if(c=="pb"){
+    if(cc=="pb"){
       means<-c(means,modgompertz(d$tpb,rp$max,rp$disp,rp$rate)*trialdesign$e)
     }
-    if(c=="br"){
+    if(cc=="br"){
       brmeans<-modgompertz(d$tod,rp$max,rp$disp,rp$rate)
       if(nP>1){
         for(p in 2:nP){
@@ -112,61 +167,71 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
     }
   }
 
-  # Turn this into a matrix of correlations
-  correlations<-diag(length(labels))
+  # Build correlation matrix
+  nLabels<-length(labels)
+  correlations<-diag(nLabels)
   rownames(correlations)<-labels
   colnames(correlations)<-labels
-  for(c in cl){
-    # AR(1) autocorrelations across time: rho^|t_i - t_j|
+
+  # Pre-compute time gaps for AR(1)
+  weeks<-d$t_wk_cumulative
+
+  for(cc in cl){
+    rho<-modelparam[[paste("c",cc,sep=".")]]
+    # AR(1) autocorrelations
     if(nP>1){
-      rho<-modelparam[[paste("c",c,sep=".")]]
       for(p in 1:(nP-1)){
         for(p2 in (1+p):nP){
-          n1<-paste(trialdesign$timeptname[p],c,sep=".")
-          n2<-paste(trialdesign$timeptname[p2],c,sep=".")
-          time_gap<-abs(d$t_wk_cumulative[p2] - d$t_wk_cumulative[p])
-          correlations[n1,n2]<-rho^time_gap
-          correlations[n2,n1]<-rho^time_gap
+          n1<-paste(trialdesign$timeptname[p],cc,sep=".")
+          n2<-paste(trialdesign$timeptname[p2],cc,sep=".")
+          tg<-abs(weeks[p2] - weeks[p])
+          ar1_val<-rho^tg
+          correlations[n1,n2]<-ar1_val
+          correlations[n2,n1]<-ar1_val
         }
       }
     }
-    # cross-factor correlations (same time and different time)
-    for(c2 in setdiff(cl,c)){
+    # Cross-factor correlations
+    for(c2 in setdiff(cl,cc)){
       for(p in 1:nP){
-        n1<-paste(trialdesign$timeptname[p],c,sep=".")
+        n1<-paste(trialdesign$timeptname[p],cc,sep=".")
         n2<-paste(trialdesign$timeptname[p],c2,sep=".")
         correlations[n1,n2]<-modelparam$c.cf1t
         correlations[n2,n1]<-modelparam$c.cf1t
       }
-      for(p in 1:(nP-1)){
-        for(p2 in (1+p):nP){
-          n1<-paste(trialdesign$timeptname[p],c,sep=".")
-          n2<-paste(trialdesign$timeptname[p2],c2,sep=".")
-          time_gap<-abs(d$t_wk_cumulative[p2] - d$t_wk_cumulative[p])
-          correlations[n1,n2]<-modelparam$c.cfct * modelparam[[paste("c",c,sep=".")]]^time_gap
-          correlations[n2,n1]<-modelparam$c.cfct * modelparam[[paste("c",c,sep=".")]]^time_gap
+      if(nP>1){
+        for(p in 1:(nP-1)){
+          for(p2 in (1+p):nP){
+            n1<-paste(trialdesign$timeptname[p],cc,sep=".")
+            n2<-paste(trialdesign$timeptname[p2],c2,sep=".")
+            tg<-abs(weeks[p2] - weeks[p])
+            cfval<-modelparam$c.cfct * rho^tg
+            correlations[n1,n2]<-cfval
+            correlations[n2,n1]<-cfval
+          }
         }
       }
     }
-    # biomarker-BR correlation with independent decay
-    for(p in 1:nP){
-      n1<-paste(trialdesign$timeptname[p],"br",sep=".")
-      if(d[p]$onDrug){
-        correlations[n1,'bm']<-modelparam$c.bm
-        correlations['bm',n1]<-modelparam$c.bm
-      } else if(d[p]$tsd>0 && lambda_cor>0){
-        decay<-exp(-lambda_cor * d$tsd[p])
-        correlations[n1,'bm']<-modelparam$c.bm * decay
-        correlations['bm',n1]<-modelparam$c.bm * decay
+    # BM-BR correlation with decay
+    if(cc=="br"){
+      for(p in 1:nP){
+        n1<-paste(trialdesign$timeptname[p],"br",sep=".")
+        if(d[p]$onDrug){
+          correlations[n1,'bm']<-modelparam$c.bm
+          correlations['bm',n1]<-modelparam$c.bm
+        } else if(d[p]$tsd>0 && lambda_cor>0){
+          decay<-exp(-lambda_cor * d$tsd[p])
+          correlations[n1,'bm']<-modelparam$c.bm * decay
+          correlations['bm',n1]<-modelparam$c.bm * decay
+        }
       }
     }
   }
-  # Turn correlation matrix into covariance matrix
-  sigma<-outer(sds,sds)*correlations
-  #  should be faster: outer(S,S)*R where S is SDs and R is correlation matrix
-  #  previous: sigma<-correlations*sds%o%sds
 
-  # Check and enforce positive definiteness:
+  # Covariance matrix
+  sigma<-outer(sds,sds)*correlations
+
+  # PD check (skip eigenvalue computation unless verbose)
   if(makePositiveDefinite){
     if(!is.positive.definite(sigma)){
       if(verbose){
@@ -180,44 +245,57 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
     }
   }
 
-  # Set seed:
-  #if(is.na(seed)){seed<-round(rnorm(1,10000,10000))}
-  #set.seed(seed)
-
-  # Make the componant data!
-  dat<-mvrnorm(n=modelparam$N,mu=means,Sigma=sigma,empirical=empirical)
-  dat<-data.table(dat)
-  setnames(dat,names(dat),labels)
-
-  # TESTING
-  #tdat1<-dat[, lapply(.SD, mean)]
-  #plot(c(d$t_wk_cumulative),tdat1[,.(OL.br,BD.br,UD.br,COd.br,COp.br)])
+  list(sigma=sigma, means=means, labels=labels, nP=nP, cl=cl,
+       trialdesign=trialdesign)
+}
 
 
-  #tdat2<-dat[, lapply(.SD, mean)]
-  #plot(c(d$t_wk_cumulative),tdat2[,.(OL.br,BD.br,UD.br,COd.br,COp.br)])
+#' Validate parameter grid for positive definiteness
+#'
+#' Tests all parameter combinations for PD before simulation.
+#' Returns only valid combinations.
+#'
+#' @param trialdesigns List of trial designs
+#' @param modelparams Model parameter grid
+#' @param respparam Response parameters
+#' @param blparam Baseline parameters
+#' @param lambda_cor Correlation decay rate
+#' @return List with valid_params (filtered grid) and n_rejected
+#' @export
+validateParameterGrid<-function(trialdesigns,modelparams,respparam,blparam,lambda_cor=NA){
+  n_total<-0
+  n_rejected<-0
+  rejected<-character()
 
-  # Turn it into actual fake data... calc intervals separately, because will use
-  dat[,ptID:=1:modelparam$N]
-  for(p in 1:nP){
-    n<-trialdesign$timeptname[p]
-    evalstring<-paste(
-      "dat[,D_",n,":=sum(",paste(paste(n,cl,sep='.',collapse=','),sep=','),"),by='ptID']",
-      sep="")
-    eval(parse(text=evalstring))
+  for(iTD in 1:length(trialdesigns)){
+    td<-trialdesigns[[iTD]][[2]]
+    for(iP in 1:length(td)){
+      for(iM in 1:nrow(modelparams)){
+        n_total<-n_total+1
+        mp<-modelparams[iM,]
+        result<-tryCatch({
+          s<-buildSigma(mp,respparam,blparam,td[[iP]],
+                        makePositiveDefinite=FALSE,lambda_cor=lambda_cor)
+          is.positive.definite(s$sigma)
+        }, error=function(e) FALSE)
+        if(!result){
+          n_rejected<-n_rejected+1
+          td_name<-trialdesigns[[iTD]][[1]]$name_shortform
+          rejected<-c(rejected, sprintf(
+            "%s path %d: c.bm=%.2f co=%.1f",
+            td_name, iP, mp$c.bm, mp$carryover_t1half))
+        }
+      }
+    }
   }
-  for(p in 1:nP){
-    n<-trialdesign$timeptname[p]
-    evalstring<-paste(
-      "dat[,",n,":=sum(BL,-",paste(paste(n,cl,sep='.',collapse=',-'),sep=','),"),by='ptID']",
-      sep="")
-    eval(parse(text=evalstring))
+
+  if(n_rejected > 0){
+    cat(sprintf("PD validation: %d/%d rejected (%.1f%%)\n",
+                n_rejected, n_total, 100*n_rejected/n_total))
+    for(r in rejected) cat("  ", r, "\n")
+  } else {
+    cat(sprintf("PD validation: all %d combinations valid\n", n_total))
   }
 
-  # TESTING
-  #tdat3<-dat[, lapply(.SD, mean)]
-  #plot(c(0,d$t_wk_cumulative),tdat3[,.(BL,OL,BD,UD,COd,COp)])
-  #plot(c(d$t_wk_cumulative),tdat3[,.(D_OL,D_BD,D_UD,D_COd,D_COp)])
-
-  return(dat)
+  list(n_total=n_total, n_rejected=n_rejected, rejected=rejected)
 }

@@ -43,6 +43,8 @@
 #'   }
 #' @param rawdataout=FALSE Binary - output the raw data for all
 #'   simulations?  This is memory intensive for large runs.
+#' @param lambda_cor Correlation decay rate (NA for auto, see
+#'   \link{generateData})
 #' @return Returns a list with three named parts:
 #'   \itemize{
 #'     \item{\code{results}}{  A large data table that tells you the parameters used
@@ -65,18 +67,20 @@
 
 generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
                                    censorparams,modelparams,simparam,analysisparams,
-                                   rawdataout=FALSE,lambda_cor=NA){
+                                   rawdataout=FALSE,lambda_cor=NA,n_cores=1){
 
   # defaults
   if(missing(analysisparams)) analysisparams<-list(useDE=TRUE,
                                                    t_random_slope=FALSE,
                                                    full_model_out=FALSE)
 
+  # Auto-detect cores if requested
+  if(n_cores < 1) n_cores <- max(1, parallel::detectCores() - 1)
+
   # Hold original directory in case we change it
   initialdirectory<-getwd()
 
-  # Setup our path through the variable parameters and
-  # initialize counts used for tracking on the screen:
+  # Setup parameter grid
   tic("Total time:")
   VPGmaster<-expand.grid(
     trialdesign=1:length(trialdesigns),
@@ -85,12 +89,39 @@ generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
     modelparamset=1:dim(modelparams)[1]
   )
   nV<-dim(VPGmaster)[1]
-  # note that censor param not included because done after data generation
   irep<-1
   totrep<-nV*simparam$Nreps
   totparamsets<-nV
 
-  # If we're doing a progressive save, have a "large loop" that controls the smaller inside loop
+  # --- Optimization 1: Pre-build and cache sigma matrices ---
+  cat("Caching sigma matrices...\n")
+  tic("Sigma cache built")
+  sigma_cache<-list()
+  for(iR in 1:nV){
+    td<-trialdesigns[[VPGmaster[iR,"trialdesign"]]][[2]]
+    rp<-respparamsets[[VPGmaster[iR,"respparamset"]]]$param
+    bp<-blparamsets[[VPGmaster[iR,"blparamset"]]]$param
+    mp<-modelparams[VPGmaster[iR,"modelparamset"],]
+    nP<-length(td)
+    for(iP in 1:nP){
+      cache_key<-paste(VPGmaster[iR,"trialdesign"],
+                       VPGmaster[iR,"respparamset"],
+                       VPGmaster[iR,"blparamset"],
+                       VPGmaster[iR,"modelparamset"],
+                       iP, sep="_")
+      if(is.null(sigma_cache[[cache_key]])){
+        sigma_cache[[cache_key]]<-buildSigma(
+          mp, rp, bp, td[[iP]],
+          makePositiveDefinite=TRUE,
+          lambda_cor=lambda_cor, verbose=FALSE)
+      }
+    }
+  }
+  toc()
+  cat(sprintf("Cached %d unique sigma matrices\n\n",
+              length(sigma_cache)))
+
+  # Progressive save setup
   if(simparam$progressiveSave==FALSE){
     nLargeLoops<-1
     LLstarts<-1
@@ -112,118 +143,142 @@ generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
     VPG<-VPGmaster[LLstarts[iLL]:LLstops[iLL],]
     iparamset<-LLstarts[iLL]
 
-    # Create output structure:
-    out<-cbind(VPG[0,],data.table(censorparamset=integer(),use_DE=logical(),t_random_slope=logical(),
-                                  irep=integer(),frac_NA=numeric(),beta=numeric(),betaSE=numeric(),
-                                  p=numeric(),issingular=logical(),warning=character()))
     if(rawdataout){d_out<-list(precensor=list(),postcensor=list())}
 
-    # Loop through the different variable parameters
-    for(iR in 1:dim(VPG)[1]){
-      tic(paste("Parameter set ",iR," of ",dim(VPG)[1]," in this save unit now complete (on ",iparamset," of ",nV," total sets)",sep=""))
+    # Define per-parameter-set worker function
+    run_one_paramset<-function(iR, VPG, trialdesigns, respparamsets,
+                               blparamsets, modelparams, simparam,
+                               analysisparams, censorparams,
+                               sigma_cache, nV, iLL_offset){
       td<-trialdesigns[[VPG[iR,"trialdesign"]]][[2]]
-      p<-list()
-      p$respparam<-respparamsets[[VPG[iR,"respparamset"]]]$param
-      p$blparam<-blparamsets[[VPG[iR,"blparamset"]]]$param
-      p$modelparam<-modelparams[VPG[iR,"modelparamset"],]
+      pp<-list()
+      pp$respparam<-respparamsets[[VPG[iR,"respparamset"]]]$param
+      pp$blparam<-blparamsets[[VPG[iR,"blparamset"]]]$param
+      pp$modelparam<-modelparams[VPG[iR,"modelparamset"],]
 
-      # Run this set of params 1 time to create N*Nrep simuated participants then subset, for efficiency;
-      # have to create the dat for each path and merge
-      #
       nP<-length(td)
-      Ns<-p$modelparam$N%/%nP # How many in each path run?
-      Ns<-Ns+c(rep(1,p$modelparam$N%%nP),rep(0,nP-p$modelparam$N%%nP)) # distribute the remainder
-      NNs<-Ns*simparam$Nreps # here adjust so doing all with this paramset at once
-      p$modelparam$N<-NNs[[1]]
-      dat<-generateData(p$modelparam,p$respparam,p$blparam,td[[1]],FALSE,TRUE,lambda_cor=lambda_cor)
+      Ns<-pp$modelparam$N%/%nP
+      Ns<-Ns+c(rep(1,pp$modelparam$N%%nP),rep(0,nP-pp$modelparam$N%%nP))
+      NNs<-Ns*simparam$Nreps
+
+      pp$modelparam$N<-NNs[[1]]
+      ck<-paste(VPG[iR,"trialdesign"], VPG[iR,"respparamset"],
+                VPG[iR,"blparamset"], VPG[iR,"modelparamset"],
+                1, sep="_")
+      dat<-generateData(pp$modelparam,pp$respparam,pp$blparam,td[[1]],FALSE,TRUE,
+                        cached_sigma=sigma_cache[[ck]])
       dat[,path:=1]
       dat[,replicate:=rep(1:simparam$Nreps,Ns[1])]
       if(nP>1){
         for(iP in 2:nP){
-          p$modelparam$N<-NNs[[iP]]
-          dat2<-generateData(p$modelparam,p$respparam,p$blparam,td[[iP]],FALSE,TRUE,lambda_cor=lambda_cor)
+          pp$modelparam$N<-NNs[[iP]]
+          ck<-paste(VPG[iR,"trialdesign"], VPG[iR,"respparamset"],
+                    VPG[iR,"blparamset"], VPG[iR,"modelparamset"],
+                    iP, sep="_")
+          dat2<-generateData(pp$modelparam,pp$respparam,pp$blparam,td[[iP]],FALSE,TRUE,
+                             cached_sigma=sigma_cache[[ck]])
           dat2[,path:=iP]
           dat2[,replicate:=rep(1:simparam$Nreps,Ns[iP])]
           dat<-rbind(dat,dat2)
         }
       }
-      p$modelparam$N<-sum(Ns)
+      pp$modelparam$N<-sum(Ns)
 
-      # Analysis chunk repeat x nAnalysisParametersets:
+      results_list<-list()
+      ridx<-0
       for(iAP in 1:dim(analysisparams)[1]){
-        # Analyze entire population to get "empircal true beta" (ETbeta)
-        #tic("analysis-whole population")
         ETanalysisout<-lme_analysis(td,dat,analysisparams[iAP,])
-        #toc()
-        # Now, for each replicate: analyize and save output
-        #tic("analysis-replicates")
         for(iS in 1:simparam$Nreps){
-          # tryCatch(
-          #   expr = {
-          #     analysisout<-lme_analysis(td,dat[replicate==iS],analysisparams[iAP,])
-          #     analysisout$warning<-NA
-          #   },
-          #   error=function(e){
-          #     message('Error in call to lme_analysis')
-          #     print(e)
-          #     print(paste("Error occurred on VPG line ",iR," on analysis parameterset ",AP," on replicate ",iS,sep=""))
-          #   },
-          #   warning=function(w){
-          #     message('Error in call to lme_analysis')
-          #     print(w)
-          #     print(paste("Error occurred on VPG line ",iR," on analysis parameterset ",AP," on replicate ",iS,sep=""))
-          #     analysisout<-data.table(beta=NA,betaSE=NA,p=NA,issingular=analysisout$issingular,warning=w)
-          #   }
-          # )
           analysisout<-lme_analysis(td,dat[replicate==iS],analysisparams[iAP,])
-          o<-cbind(VPG[iR,],as.data.table(p$modelparam),
-                   data.table(censorparamset=0,use_DE=analysisparams[iAP,]$useDE,t_random_slope=analysisparams[iAP,]$t_random_slope,
-                              irep=((iR-1)*simparam$Nreps+iS),frac_NA=0,ETbeta=ETanalysisout$beta,
-                              ETbetaSE=ETanalysisout$betaSE,beta=analysisout$beta,betaSE=analysisout$betaSE,
-                              p=analysisout$p,issingular=analysisout$issingular,warning=analysisout$warning))
-          out<-rbind(out,o)
+          ridx<-ridx+1
+          results_list[[ridx]]<-cbind(VPG[iR,],as.data.table(pp$modelparam),
+                   data.table(censorparamset=0,use_DE=analysisparams[iAP,]$useDE,
+                              t_random_slope=analysisparams[iAP,]$t_random_slope,
+                              irep=((iR-1)*simparam$Nreps+iS),frac_NA=0,
+                              ETbeta=ETanalysisout$beta,ETbetaSE=ETanalysisout$betaSE,
+                              beta=analysisout$beta,betaSE=analysisout$betaSE,
+                              p=analysisout$p,issingular=analysisout$issingular,
+                              warning=analysisout$warning))
         }
-        # Repeat for each set of censor parameters
         nocensoringflag<-FALSE
         if(length(censorparams)<2){
-          if(is.na(censorparams)){
-            nocensoringflag<-TRUE
-          }
+          if(is.na(censorparams)) nocensoringflag<-TRUE
         }
         if(!nocensoringflag){
-          h_datc<-vector(mode="list",length=(dim(censorparams)[1]))
           for(iC in 1:dim(censorparams)[1]){
-            h_datc[[iC]]<-censordata(dat,td[[1]],censorparams[iC,])
+            datc<-censordata(dat,td[[1]],censorparams[iC,])
             for(iS in 1:simparam$Nreps){
-              frac_NA<-sum(is.na(h_datc[[iC]][replicate==iS]))/(p$modelparam$N*length(td[[1]]$t_wk))
-              analysisout<-lme_analysis(td,h_datc[[iC]][replicate==iS],analysisparams[iAP,])
-              o<-cbind(VPG[iR,],as.data.table(p$modelparam),
-                       data.table(censorparamset=iC,use_DE=analysisparams[iAP,]$useDE,t_random_slope=analysisparams[iAP,]$t_random_slope,
-                                  irep=((iR-1)*simparam$Nreps+iS),frac_NA=frac_NA,ETbeta=ETanalysisout$beta,
-                                  ETbetaSE=ETanalysisout$betaSE,beta=analysisout$beta,betaSE=analysisout$betaSE,
-                                  p=analysisout$p,issingular=analysisout$issingular,warning=analysisout$warning))
-              out<-rbind(out,o)
+              frac_NA<-sum(is.na(datc[replicate==iS]))/(pp$modelparam$N*length(td[[1]]$t_wk))
+              analysisout<-lme_analysis(td,datc[replicate==iS],analysisparams[iAP,])
+              ridx<-ridx+1
+              results_list[[ridx]]<-cbind(VPG[iR,],as.data.table(pp$modelparam),
+                       data.table(censorparamset=iC,use_DE=analysisparams[iAP,]$useDE,
+                                  t_random_slope=analysisparams[iAP,]$t_random_slope,
+                                  irep=((iR-1)*simparam$Nreps+iS),frac_NA=frac_NA,
+                                  ETbeta=ETanalysisout$beta,ETbetaSE=ETanalysisout$betaSE,
+                                  beta=analysisout$beta,betaSE=analysisout$betaSE,
+                                  p=analysisout$p,issingular=analysisout$issingular,
+                                  warning=analysisout$warning))
             }
           }
-          #toc()
-        }else{
-          h_datc<-NA
         }
       }
+      rbindlist(results_list)
+    }
 
-      if(rawdataout){
-        d_out$precensor[[iparamset]]<-dat
-        d_out$postcensor[[iparamset]]<-h_datc
+    # Run parameter sets (parallel or sequential)
+    nR<-dim(VPG)[1]
+    use_parallel<-(n_cores > 1) && requireNamespace("furrr", quietly=TRUE)
+
+    if(use_parallel){
+      future::plan(future::multisession, workers=n_cores)
+      cat(sprintf("Parallel: %d workers for %d parameter sets\n",
+                  n_cores, nR))
+
+      # Wrap worker to carry function definitions via closure
+      make_worker<-function(genData_fn, lmeAnal_fn, censor_fn,
+                            worker_fn){
+        function(iR){
+          # Inject functions into worker's scope
+          environment(worker_fn)$generateData<-genData_fn
+          environment(worker_fn)$lme_analysis<-lmeAnal_fn
+          environment(worker_fn)$censordata<-censor_fn
+          worker_fn(iR, VPG, trialdesigns, respparamsets,
+                    blparamsets, modelparams, simparam,
+                    analysisparams, censorparams,
+                    sigma_cache, nV, LLstarts[iLL])
+        }
       }
+      worker<-make_worker(generateData, lme_analysis,
+                          censordata, run_one_paramset)
 
-      iparamset<-iparamset+1
-      toc()
-      #progress(iparamset,max.value=totparamsets)
-    } # end iR
+      out_parts<-furrr::future_map(1:nR, worker,
+        .options=furrr::furrr_options(
+          seed=TRUE,
+          packages=c("data.table","nlme","MASS","corpcor")),
+        .progress=TRUE)
+
+      out<-rbindlist(out_parts)
+      future::plan(future::sequential)
+    } else {
+      out_parts<-vector("list", nR)
+      for(iR in 1:nR){
+        tic(paste("Parameter set ",iR," of ",nR,
+                  " (", iparamset," of ",nV," total)",sep=""))
+        out_parts[[iR]]<-run_one_paramset(
+          iR, VPG, trialdesigns, respparamsets,
+          blparamsets, modelparams, simparam,
+          analysisparams, censorparams,
+          sigma_cache, nV, LLstarts[iLL])
+        iparamset<-iparamset+1
+        toc()
+      }
+      out<-rbindlist(out_parts)
+    }
 
     # Organize the output and return it
     if(rawdataout){
-      outpt<-list(results=as.data.table(out),
+      outpt<-list(results=out,
                   parameterselections=list(trialdesigns=trialdesigns,
                                            respparamsets=respparamsets,
                                            blparamsets=blparamsets,
@@ -233,7 +288,7 @@ generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
                                            simparam=simparam),
                   rawdata=d_out)
     }else{
-      outpt<-list(results=as.data.table(out),
+      outpt<-list(results=out,
                   parameterselections=list(trialdesigns=trialdesigns,
                                            respparamsets=respparamsets,
                                            blparamsets=blparamsets,

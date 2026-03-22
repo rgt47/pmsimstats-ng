@@ -111,7 +111,10 @@ analysisparams <- expand.grid(
 # Run
 # ---------------------------------------------------------------
 
-cat("Starting simulation at", format(Sys.time()), "\n\n")
+n_cores <- as.integer(Sys.getenv("NCORES", unset = "-1"))
+if(n_cores < 0) n_cores <- max(1, parallel::detectCores() - 1)
+cat("Starting simulation at", format(Sys.time()), "\n")
+cat("Cores:", n_cores, "\n\n")
 
 simresults <- generateSimulatedResults(
   trialdesigns = list(trialdesigns$OL, trialdesigns$OLBDC,
@@ -129,7 +132,8 @@ simresults <- generateSimulatedResults(
     savedir = output_dir
   ),
   analysisparams = analysisparams,
-  rawdataout = FALSE
+  rawdataout = FALSE,
+  n_cores = n_cores
 )
 
 # ---------------------------------------------------------------

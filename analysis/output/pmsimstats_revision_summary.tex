@@ -697,19 +697,92 @@ moderate drop is genuine.
 PD failures were driven by two factors: (a)~the OL+BDC
 expectancy-induced variance heterogeneity, and (b)~the
 compound symmetry autocorrelation assumption. Switching to
-AR(1) at $\rho = 0.7$ and constraining $c_{bm} \leq 0.5$
-eliminates all PD failures for all designs except edge
-cases. The AR(1) structure is also more clinically
-realistic (nearby timepoints are more correlated than
-distant ones) and requires the analysis model to explicitly
-account for the time-dependent residual correlation via
-\texttt{nlme::lme} with \texttt{corCAR1}.
+AR(1) at $\rho = 0.7$ and constraining $c_{bm} \leq 0.45$
+eliminates all PD failures for all designs. The AR(1)
+structure is also more clinically realistic (nearby
+timepoints are more correlated than distant ones) and
+requires the analysis model to explicitly account for the
+time-dependent residual correlation via \texttt{nlme::lme}
+with \texttt{corCAR1}.
 
 The two solutions are coupled: AR(1) solves the PD problem
 but introduces time-dependent residuals that inflate
 Type~I error under \texttt{lmer}. The \texttt{corCAR1}
 analysis model solves the Type~I error problem. Neither
 fix is sufficient alone; both are required together.
+
+\subsubsection{PD Failure Rates Before and After}
+
+\begin{table}[h]
+\centering
+\caption{PD failure rates across the simulation parameter
+  grid}
+\begin{tabular}{llrrr}
+\toprule
+Configuration & Parameters & Failures & Total & Rate \\
+\midrule
+Before & CS $\rho=0.8$, $c_{bm} \leq 0.6$ &
+  40 & 162 & 24.7\% \\
+After & AR(1) $\rho=0.7$, $c_{bm} \leq 0.45$ &
+  0 & 162 & \textbf{0\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Maximum Feasible $c_{bm}$ by Design}
+
+The maximum $c_{bm}$ that produces a valid (PD) covariance
+matrix differs by design. Under compound symmetry, the
+binding constraint is CO Path~2 at $c_{bm} = 0.25$---well
+below the publication's $c_{bm} = 0.6$. Under AR(1), the
+feasible range approximately doubles:
+
+\begin{table}[h]
+\centering
+\caption{Maximum $c_{bm}$ before PD failure by design
+  (carryover $= 0$)}
+\begin{tabular}{lrr}
+\toprule
+Design (binding path) & CS $\rho = 0.8$ &
+  AR(1) $\rho = 0.7$ \\
+\midrule
+OL & 0.89 & 0.49 \\
+OL+BDC & 0.26 & \textbf{0.45} \\
+CO & \textbf{0.25} & \textbf{0.61} \\
+N-of-1 & 0.25 & \textbf{0.53} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Under CS, the publication's $c_{bm} = 0.6$ is outside the
+feasible region for every design except OL. Every
+simulation at $c_{bm} \geq 0.3$ for CO, N-of-1, and OL+BDC
+required silent PD correction via
+\texttt{make.positive.definite()}, which perturbed the
+intended covariance structure in unknown ways.
+
+\subsubsection{Eigenvalue Spectrum Visualization}
+
+Figure~\ref{fig:eigenvalues} shows the eigenvalue spectrum
+of the $26 \times 26$ covariance matrix for the OL+BDC
+design (Path~1) under both configurations. The negative
+eigenvalue ($-28.1$) in Panel~A is visually obvious and
+represents a substantial structural inconsistency---not a
+floating-point artifact. Panel~B shows all eigenvalues
+positive under the revised parameterization.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{eigenvalue_spectrum.png}
+\caption{Eigenvalue spectrum of the covariance matrix for
+  OL+BDC Path~1. \textbf{A:}~Compound symmetry
+  ($\rho = 0.8$, $c_{bm} = 0.6$): one eigenvalue is
+  $-28.1$, rendering the matrix non-positive definite.
+  \textbf{B:}~AR(1) ($\rho = 0.7$, $c_{bm} = 0.45$): all
+  eigenvalues positive (minimum $= 0.14$). The red dashed
+  line marks zero.}
+\label{fig:eigenvalues}
+\end{figure}
 
 % =================================================================
 \section{Summary of All Changes}

@@ -668,6 +668,105 @@ N-of-1 & 70 & 0.83 & 0.74 & 0.55 & Large drop \\
 \end{figure}
 
 % =================================================================
+\section{Response Parameter Sensitivity (Figure~5)}
+% =================================================================
+
+Figure~5 of the publication explores how the response
+trajectory parameters (Gompertz maximum and rate for each
+factor) affect power. We reproduced this analysis with the
+revised DGP and analysis model.
+
+\subsection{Setup}
+
+\begin{itemize}[nosep]
+\item \textbf{Panel A:} Vary \texttt{max} for BR, ER, TR
+  across $\{5, 8, 11\}$ ($3^3 = 27$ combinations).
+  Fixed: $N = 35$, $c_{bm} = 0.5$, carryover $= 0$.
+  Note: \texttt{sd = max} following the publication's
+  convention.
+\item \textbf{Panel B:} Vary \texttt{rate} for BR, ER, TR
+  across $\{0.2, 0.35, 0.5\}$ ($3^3 = 27$ combinations).
+  Fixed: $N = 35$, $c_{bm} = 0.25$, carryover $= 0$.
+\item Both panels: AR(1) $\rho = 0.7$,
+  \texttt{nlme::lme} with \texttt{corCAR1}, 200 replicates,
+  no censoring.
+\end{itemize}
+
+\subsection{Results}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{figure5_20260322_161934.png}
+\caption{Response parameter sensitivity (revised code,
+  200 replicates). \textbf{A:}~Effect of maximum response
+  values. \textbf{B:}~Effect of response rate values.
+  The qualitative patterns match the publication.}
+\label{fig:figure5}
+\end{figure}
+
+The qualitative patterns from the publication are preserved:
+
+\begin{itemize}
+\item Higher BR max increases power (larger drug-specific
+  signal).
+\item Higher ER max decreases power (larger
+  expectancy-related confounding), with the strongest
+  effect on designs with open-label phases (OL+BDC,
+  N-of-1).
+\item Higher TR max decreases power (larger non-specific
+  noise).
+\item Rate effects are less consistent across designs,
+  matching the publication's finding.
+\end{itemize}
+
+\subsection{Why Absolute Power Is Lower Than the Publication}
+
+The revised Figure~5 shows generally lower power than the
+publication's Figure~5. This is not a deficiency of the
+revised code but a consequence of three methodological
+corrections, each of which reduces power for principled
+reasons:
+
+\begin{enumerate}
+\item \textbf{Lower $c_{bm}$ ($0.5$ vs $0.6$).} The
+  biomarker--treatment interaction signal scales directly
+  with $c_{bm}$. The reduction from 0.6 to 0.5 (required
+  to stay within the PD-feasible region) reduces the
+  effect size by approximately 17\%. Because power is a
+  nonlinear function of effect size, the power reduction
+  is larger than 17\% in the mid-range where the power
+  curve is steepest.
+
+\item \textbf{Correct standard errors via \texttt{corCAR1}.}
+  The publication's \texttt{lmer} analysis assumed
+  conditionally independent residuals, which
+  underestimated standard errors when the DGP contained
+  autocorrelated residuals. The \texttt{nlme} analysis
+  with \texttt{corCAR1} estimates the residual
+  autocorrelation and produces wider (but correct)
+  confidence intervals. Correct standard errors mean less
+  power but accurate Type~I error control.
+
+\item \textbf{AR(1) autocorrelation ($\rho = 0.7$) vs
+  compound symmetry ($\rho = 0.8$).} Under AR(1), distant
+  timepoints have much lower correlation
+  ($0.7^{20} \approx 0$) compared to compound symmetry
+  (constant 0.8). This reduces the effective within-person
+  consistency: each participant's repeated measures carry
+  less redundant information, weakening the
+  repeated-measures advantage that drives power in
+  crossover and N-of-1 designs.
+\end{enumerate}
+
+In summary, the publication's higher power was partly
+genuine (higher $c_{bm}$) and partly artifact
+(underestimated standard errors from misspecified residual
+structure). The revised power estimates are lower but
+honest: they reflect what a real trial would achieve given
+proper Type~I error control and a valid covariance
+structure.
+
+% =================================================================
 \section{Conclusions on the Two Problems}
 % =================================================================
 

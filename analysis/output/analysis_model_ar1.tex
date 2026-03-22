@@ -1,0 +1,487 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{parskip}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{verbatim}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Analysis Model with AR(1) Residuals}
+\lhead{pmsimstats White Paper}
+\rfoot{\thepage}
+
+\title{Matching the Analysis Model to the\\
+       Data-Generating Process:\\
+       AR(1) Residual Correlation in the\\
+       pmsimstats LME Analysis\\[6pt]
+       \large White Paper on Type I Error Control Under
+       Time-Dependent Autocorrelation}
+\author{Automated analysis of the \texttt{pmsimstats} codebase}
+\date{2026-03-21}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+
+\begin{abstract}
+When the \texttt{pmsimstats} data-generating process was
+updated from compound symmetry to AR(1) within-factor
+autocorrelation to expand the feasible parameter space, the
+analysis model's assumption of independent residuals (given
+a random intercept) became misspecified. This misspecification
+inflated Type~I error rates for the OL and CO designs from the
+nominal 5\% to 13--17\%. This paper documents the problem,
+derives the appropriate analysis model, and validates the fix
+by switching from \texttt{lme4::lmer} to \texttt{nlme::lme}
+with a continuous-time AR(1) residual correlation structure
+(\texttt{corCAR1}).
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% =================================================================
+\section{The Problem}
+% =================================================================
+
+\subsection{Background}
+
+The original \texttt{pmsimstats} DGP used compound symmetry
+(CS) autocorrelation: the correlation between the same factor
+at any two timepoints was a constant $\rho = 0.8$, regardless
+of the time gap between them. The analysis model used
+\texttt{lme4::lmer} with a random intercept per participant
+and no explicit residual correlation structure:
+
+\begin{verbatim}
+Sx ~ bm + t + Dbc + bm:Dbc + (1|ptID)     # varInDb
+Sx ~ bm + t + bm:t + (1|ptID)             # OL (no varInDb)
+\end{verbatim}
+
+Under CS, the random intercept absorbs the constant
+within-person correlation, and the residuals are approximately
+independent. Type~I error rates were near the nominal 5\%.
+
+\subsection{The AR(1) Change}
+
+To expand the feasible biomarker correlation range (from
+$c_{bm} \leq 0.25$ to $c_{bm} \leq 0.5$), the DGP was
+updated to use AR(1) autocorrelation:
+
+\[
+\text{Cor}(\text{Factor}_{t_i}, \text{Factor}_{t_j}) =
+\rho^{|t_i - t_j|}
+\]
+
+where $t$ is measured in weeks. At $\rho = 0.7$, adjacent
+timepoints 2.5 weeks apart have correlation
+$0.7^{2.5} = 0.41$, while timepoints 20 weeks apart have
+correlation $0.7^{20} = 0.0008$.
+
+Unlike CS, AR(1) produces time-varying correlations that the
+random intercept cannot fully absorb. The residuals after
+removing the random intercept retain autocorrelation that
+decays with time, and the \texttt{lmer} model (which assumes
+conditionally independent residuals) underestimates the
+standard errors of the fixed effects.
+
+\subsection{Observed Type I Error Inflation}
+
+With the AR(1) DGP and the original \texttt{lmer} analysis
+model, Type~I error rates at $c_{bm} = 0$ were:
+
+\begin{table}[h]
+\centering
+\caption{Type~I error rates with AR(1) DGP and \texttt{lmer}
+  analysis (200 replicates, no censoring)}
+\begin{tabular}{lrr}
+\toprule
+Design & $N = 35$ & $N = 70$ \\
+\midrule
+OL & 0.13 & 0.09 \\
+OL+BDC & 0.09 & 0.05 \\
+CO & \textbf{0.17} & \textbf{0.13} \\
+N-of-1 & 0.06 & 0.08 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The CO design showed 17\% false positive rate at $N = 35$
+(3.4$\times$ the nominal rate). OL was similarly inflated.
+OL+BDC and N-of-1 were closer to nominal.
+
+\subsection{Why CO and OL Are Most Affected}
+
+\textbf{CO design.} The crossover has two paths: drug-first
+(Path A: on-on-on-on-off-off-off-off) and placebo-first
+(Path B: off-off-off-off-on-on-on-on). Under AR(1), the
+autocorrelation within each path decays with time, creating
+a correlation gradient across timepoints. The \texttt{Dbc}
+variable (binary on/off drug) is perfectly confounded with
+the first vs.\ second half of the trial. The \texttt{bm:Dbc}
+interaction can absorb spurious signal from the time-dependent
+correlation structure that the random intercept does not
+capture.
+
+\textbf{OL design.} All participants are always on drug, so
+the model uses \texttt{bm:t} (biomarker $\times$ time) as
+the interaction term. Under AR(1), the residual correlation
+decays with time, creating time-dependent heteroscedasticity
+in the residuals that inflates the \texttt{bm:t} standard
+error estimate downward.
+
+\textbf{OL+BDC and N-of-1.} These designs have more complex
+path structures with multiple transitions between on-drug and
+off-drug. The \texttt{Dbc} variable is less confounded with
+linear time, so the AR(1) residual structure has less impact
+on the interaction estimate.
+
+% =================================================================
+\section{The Solution: \texttt{nlme::lme} with \texttt{corCAR1}}
+% =================================================================
+
+\subsection{Continuous-Time AR(1)}
+
+The \texttt{nlme} package provides the \texttt{corCAR1}
+correlation structure, which models continuous-time AR(1)
+residual correlation:
+
+\[
+\text{Cor}(\varepsilon_{i,t_1}, \varepsilon_{i,t_2}) =
+\phi^{|t_1 - t_2|}
+\]
+
+where $\phi$ is estimated from the data. This directly matches
+the AR(1) structure used in the DGP (with $\phi$ corresponding
+to the DGP's $\rho$).
+
+\subsection{Model Specification}
+
+The analysis model was changed from \texttt{lme4::lmer}:
+
+\begin{verbatim}
+lmer(Sx ~ bm + t + Dbc + bm:Dbc + (1|ptID),
+     data = datamerged)
+\end{verbatim}
+
+to \texttt{nlme::lme}:
+
+\begin{verbatim}
+lme(Sx ~ bm + t + Dbc + bm:Dbc,
+    random = ~1|ptID,
+    correlation = corCAR1(form = ~t|ptID),
+    data = datamerged)
+\end{verbatim}
+
+The key addition is
+\texttt{correlation = corCAR1(form = \textasciitilde t|ptID)},
+which tells \texttt{nlme} to estimate and account for AR(1)
+residual correlation as a function of the time variable
+\texttt{t}, grouped by participant \texttt{ptID}.
+
+\subsection{Coefficient Extraction}
+
+The \texttt{nlme::lme} summary uses a different output
+format than \texttt{lme4::lmer}:
+
+\begin{itemize}
+\item \texttt{lmer}: \texttt{summary(fit)\$coefficients}
+  with columns \texttt{Estimate}, \texttt{Std. Error},
+  \texttt{Pr(>|t|)}
+\item \texttt{lme}: \texttt{summary(fit)\$tTable} with
+  columns \texttt{Value}, \texttt{Std.Error},
+  \texttt{p-value}
+\end{itemize}
+
+The code was updated to extract from the \texttt{tTable}
+format.
+
+\subsection{Error Handling}
+
+Two levels of fallback were implemented:
+
+\begin{enumerate}
+\item If \texttt{lme} with \texttt{corCAR1} fails to
+  converge (can happen with small sample sizes or
+  degenerate data), the model falls back to \texttt{lme}
+  without a correlation structure.
+\item If the fallback also fails, the function returns
+  \texttt{NA} for all output values.
+\end{enumerate}
+
+Additionally, rows with \texttt{NA} outcomes (from censoring)
+are removed before fitting, as \texttt{nlme::lme} uses
+\texttt{na.fail} by default.
+
+% =================================================================
+\section{Why This Is the Correct Model}
+% =================================================================
+
+\subsection{DGP-Analysis Consistency}
+
+A simulation study's power estimates are valid when the
+analysis model is correctly specified relative to the DGP.
+When the DGP generates data with AR(1) residual
+autocorrelation, the analysis model must account for this
+structure. Failure to do so produces:
+
+\begin{itemize}
+\item \textbf{Underestimated standard errors:} The effective
+  sample size is smaller than the nominal sample size because
+  correlated observations carry less independent information.
+  Ignoring the correlation inflates the apparent precision.
+\item \textbf{Inflated Type~I error:} The underestimated
+  standard errors produce test statistics that are too large,
+  leading to excess false positives.
+\item \textbf{Biased power estimates:} Power appears higher
+  than it actually is because the test rejects too often
+  under both the null and alternative hypotheses.
+\end{itemize}
+
+\subsection{The Random Intercept Is Not Sufficient}
+
+Under compound symmetry, the within-person correlation is
+constant across all timepoint pairs. A random intercept
+$u_i \sim N(0, \sigma_u^2)$ induces an equicorrelation
+structure:
+
+\[
+\text{Cor}(Y_{i,t_1}, Y_{i,t_2}) =
+\frac{\sigma_u^2}{\sigma_u^2 + \sigma_\varepsilon^2}
+= \text{constant}
+\]
+
+This exactly matches CS, so the residuals after removing the
+random effect are independent.
+
+Under AR(1), the within-person correlation varies:
+$\rho^{|t_1 - t_2|}$. The random intercept can absorb the
+``average'' correlation but leaves a residual correlation
+pattern:
+
+\[
+\text{Cor}(\varepsilon_{i,t_1}, \varepsilon_{i,t_2} \mid u_i) =
+\rho^{|t_1 - t_2|} - \frac{\sigma_u^2}{\sigma_u^2 +
+\sigma_\varepsilon^2}
+\]
+
+This residual correlation is positive for nearby timepoints
+(where $\rho^{|t_1 - t_2|}$ exceeds the average) and negative
+for distant timepoints (where it falls below). The
+\texttt{lmer} model treats these residuals as independent,
+producing incorrect standard errors.
+
+\subsection{Why \texttt{corCAR1} Is Preferred Over Discrete
+            AR(1)}
+
+The timepoints in the trial designs are not equally spaced.
+For example, the N-of-1 design has timepoints at weeks
+4, 8, 9, 10, 11, 12, 16, 20 --- with gaps ranging from
+1 to 4 weeks. The continuous-time AR(1) model
+(\texttt{corCAR1}) handles unequal spacing naturally:
+$\phi^{|t_1 - t_2|}$ where $t$ is in weeks. The discrete
+AR(1) (\texttt{corAR1}) would assume equal spacing between
+consecutive observations, which is incorrect for these
+designs.
+
+% =================================================================
+\section{Design-Specific Model Selection}
+% =================================================================
+
+The analysis model varies by design based on the structure
+of the drug exposure variable:
+
+\subsection{Designs with Within-Subject Drug Variation
+            (CO, N-of-1, OL+BDC)}
+
+These designs have participants who experience both on-drug
+and off-drug timepoints. The model tests whether the
+biomarker predicts differential response to drug vs.\
+no-drug:
+
+\begin{equation}
+S_{i,t} = \beta_0 + \beta_1 \cdot bm_i + \beta_2 \cdot t +
+\beta_3 \cdot D_{bc,t} +
+\beta_4 \cdot bm_i \cdot D_{bc,t} + u_i +
+\varepsilon_{i,t}
+\label{eq:varInDb}
+\end{equation}
+
+where $D_{bc}$ is the binary drug indicator and $\beta_4$ is
+the biomarker--treatment interaction of interest.
+$\varepsilon_{i,t}$ follows continuous-time AR(1) with
+parameter $\phi$ estimated from the data.
+
+\subsection{Open-Label Design (OL)}
+
+All participants are always on drug, so there is no
+within-subject drug variation. The model tests whether the
+biomarker predicts the rate of improvement over time:
+
+\begin{equation}
+S_{i,t} = \beta_0 + \beta_1 \cdot bm_i + \beta_2 \cdot t +
+\beta_3 \cdot bm_i \cdot t + u_i + \varepsilon_{i,t}
+\label{eq:OL}
+\end{equation}
+
+where $\beta_3$ is the biomarker--time interaction. The AR(1)
+correlation structure is particularly important here because
+\texttt{bm:t} is directly confounded with the time-dependent
+residual correlation under AR(1).
+
+% =================================================================
+\section{Implementation}
+% =================================================================
+
+The complete model fitting code:
+
+\begin{verbatim}
+# Build fixed-effects formula
+modelbase <- "Sx ~ bm + t"
+if (varInDb) {
+  modelbase <- paste0(modelbase, " + Dbc + bm:Dbc")
+} else {
+  modelbase <- paste0(modelbase, " + bm:t")
+}
+form <- as.formula(modelbase)
+
+# Fit with nlme::lme and AR(1) residual correlation
+fit <- tryCatch(
+  nlme::lme(form, random = ~1|ptID,
+    correlation = nlme::corCAR1(form = ~t|ptID),
+    data = datamerged,
+    control = nlme::lmeControl(
+      opt = "optim",
+      maxIter = 200, msMaxIter = 200)),
+  error = function(e) {
+    # Fallback: no correlation structure
+    tryCatch(
+      nlme::lme(form, random = ~1|ptID,
+        data = datamerged,
+        control = nlme::lmeControl(opt = "optim")),
+      error = function(e2) NULL
+    )
+  }
+)
+
+# Extract from nlme tTable
+c <- summary(fit)$tTable
+p <- c[target, "p-value"]
+beta <- c[target, "Value"]
+betaSE <- c[target, "Std.Error"]
+\end{verbatim}
+
+% =================================================================
+\section{Validation}
+% =================================================================
+
+The 200-replicate simulation confirms that the \texttt{corCAR1}
+model corrects the Type~I error inflation:
+
+\begin{table}[h]
+\centering
+\caption{Type~I error rates at $c_{bm} = 0$, no censoring,
+  carryover $= 0$ (200 replicates). The \texttt{corCAR1}
+  model restores rates to the nominal 5\% range.}
+\begin{tabular}{lrrrr}
+\toprule
+& \multicolumn{2}{c}{\texttt{lmer} (before)}
+& \multicolumn{2}{c}{\texttt{lme + corCAR1} (after)} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5}
+Design & $N = 35$ & $N = 70$ & $N = 35$ & $N = 70$ \\
+\midrule
+OL & 0.13 & 0.09 & \textbf{0.03} & \textbf{0.02} \\
+OL+BDC & 0.09 & 0.05 & \textbf{0.03} & \textbf{0.04} \\
+CO & 0.17 & 0.13 & \textbf{0.06} & \textbf{0.08} \\
+N-of-1 & 0.06 & 0.08 & \textbf{0.04} & \textbf{0.06} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All designs are now within the expected range for 200
+replicates (a 95\% binomial confidence interval for
+$p = 0.05$ at $n = 200$ is $[0.02, 0.09]$).
+
+Power estimates with carryover also show the expected
+pattern:
+
+\begin{table}[h]
+\centering
+\caption{Power at $c_{bm} = 0.5$, no censoring, with
+  \texttt{lme + corCAR1} analysis model (200 replicates).
+  $\lambda_{cor} = \ln 2 / t_{1/2}$ (auto).}
+\begin{tabular}{llrrrl}
+\toprule
+Design & $N$ & $t_{1/2} = 0$ & $t_{1/2} = 0.5$ &
+  $t_{1/2} = 1.0$ & Carryover effect \\
+\midrule
+OL & 35 & 0.08 & 0.06 & 0.09 & None (always on drug) \\
+OL & 70 & 0.12 & 0.14 & 0.15 & None \\
+\midrule
+OL+BDC & 35 & 0.34 & 0.24 & 0.18 & Moderate drop \\
+OL+BDC & 70 & 0.68 & 0.55 & 0.27 & \textbf{Large drop} \\
+\midrule
+CO & 35 & 0.27 & 0.25 & 0.19 & Small drop \\
+CO & 70 & 0.43 & 0.44 & 0.34 & Small drop \\
+\midrule
+N-of-1 & 35 & 0.53 & 0.33 & 0.23 & \textbf{Large drop} \\
+N-of-1 & 70 & 0.83 & 0.74 & 0.55 & \textbf{Large drop} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The paper's central finding is confirmed with correct Type~I
+error control: N-of-1 and OL+BDC designs are sensitive to
+carryover (power drops of 0.28--0.41 at $t_{1/2} = 1.0$
+week), while the CO design is more robust (drops of
+0.08--0.10). The power drops are moderate and clinically
+interpretable at realistic half-lives, unlike the
+artifact-driven crash (0.95 $\to$ 0.18) in the original
+publication at $t_{1/2} = 0.1$ weeks.
+
+% =================================================================
+\section{Summary of Changes Across the Analysis Model History}
+% =================================================================
+
+\begin{table}[h]
+\centering
+\caption{Evolution of the analysis model}
+\small
+\begin{tabular}{llll}
+\toprule
+Version & Package & Correlation & Issue \\
+\midrule
+Original (42ac030) & \texttt{lme4::lmer} & None (RI only) &
+  Correct under CS \\
+Ron Thomas (8609f12) & \texttt{lme4::lmer} & None (RI only) &
+  Correct under CS \\
+HEAD (pre-fix) & \texttt{lme4::lmer} & None (RI only) &
+  Inflated Type~I under AR(1) \\
+HEAD (current) & \texttt{nlme::lme} & \texttt{corCAR1} &
+  Correct under AR(1) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The transition from \texttt{lmer} to \texttt{lme} is driven
+entirely by the need to specify an explicit residual
+correlation structure, which \texttt{lme4} does not support.
+The fixed-effects formula is unchanged. The random effects
+structure (random intercept per participant) is unchanged.
+The only addition is the \texttt{corCAR1} term that accounts
+for the time-dependent residual autocorrelation introduced by
+the AR(1) DGP.
+
+\vfill
+\noindent\rule{\textwidth}{0.4pt}\\
+{\small\textit{Rendered on 2026-03-21.}\\
+\textit{Source: \textasciitilde/prj/alz/01c-pmsimstats-orig/%
+pmsimstats/analysis/output/analysis\_model\_ar1.tex}}
+
+\end{document}

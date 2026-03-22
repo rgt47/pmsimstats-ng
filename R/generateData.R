@@ -42,10 +42,12 @@
 #' @param seed Randomization seed (defaults to NA)
 #' @param lambda_cor Rate of BM-BR correlation decay during off-drug
 #'   periods (per week). Controls how fast the biomarker's predictive
-#'   power decays after drug discontinuation. When 0, the correlation
-#'   is set by whether BR mean is nonzero (original behavior). When
-#'   positive, the correlation decays as exp(-lambda_cor * tsd).
-#'   Defaults to 0.
+#'   power decays after drug discontinuation. The correlation decays
+#'   as exp(-lambda_cor * tsd). Defaults to NA, which computes the
+#'   pharmacokinetically consistent value ln(2) / carryover_t1half,
+#'   matching the drug elimination rate. Set to 0 to disable
+#'   correlation decay (original publication behavior). Set to a
+#'   positive value to override with a custom decay rate.
 #' @param verbose Set to \code{TRUE} if you want chatty outputs; defaults to \code{FALSE}
 #' @returns A \code{dat} file that contains both the total symptom scores at each timepoint
 #'   and also all the individual factors that were used to generate those total scores
@@ -54,7 +56,16 @@
 #' @export
 
 
-generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePositiveDefinite,seed=NA,lambda_cor=0,verbose=FALSE){
+generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePositiveDefinite,seed=NA,lambda_cor=NA,verbose=FALSE){
+
+  # Compute lambda_cor from carryover half-life if not specified
+  if(is.na(lambda_cor)){
+    if(modelparam$carryover_t1half > 0){
+      lambda_cor <- log(2) / modelparam$carryover_t1half
+    } else {
+      lambda_cor <- 0
+    }
+  }
 
   # I. Turn the trial design information into something easier to use
   d<-data.table(trialdesign)

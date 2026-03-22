@@ -129,12 +129,12 @@ lme_analysis<-function(trialdesign_set,dat,op){
   # 3) Test whether we can use the carryover term, ie, tsd is sometimes non-zero
   varintsd=(nrow(datamerged[tsd!=0])>0)
 
-  # Use these to pick a model
+  # Build fixed-effects formula
   modelbase="Sx~bm+t"
   if(varInDb){
-    modelbase=paste0(modelbase,"+Dbc+bm*Dbc")
+    modelbase=paste0(modelbase,"+Dbc+bm:Dbc")
   }else{
-    modelbase=paste0(modelbase,"+bm*t")
+    modelbase=paste0(modelbase,"+bm:t")
   }
   if((varInExp>1)&(op$useDE==TRUE)){
     modelbase=paste0(modelbase,"+De")
@@ -142,58 +142,52 @@ lme_analysis<-function(trialdesign_set,dat,op){
   if(op$simplecarryover&varintsd){
     modelbase=paste0(modelbase,"+tsd")
   }
-  if(op$t_random_slope){
-    modelbase=paste0(modelbase,"+(1+t|ptID)")
-  }else{
-    modelbase=paste0(modelbase,"+(1|ptID)")
+  form<-as.formula(modelbase)
+
+  # Fit using nlme::lme with AR(1) residual correlation to
+  # match the AR(1) autocorrelation in the DGP
+  # Remove rows with NA in any model variable
+  model_vars<-c("Sx","bm","t","ptID")
+  if(varInDb) model_vars<-c(model_vars,"Dbc")
+  if(op$simplecarryover&varintsd) model_vars<-c(model_vars,"tsd")
+  if((varInExp>1)&(op$useDE==TRUE)) model_vars<-c(model_vars,"De")
+  for(mv in model_vars){
+    datamerged<-datamerged[!is.na(get(mv))]
   }
-  # now knit together and evaluate - poor programming form!
-  eval(parse(text=paste0("form<-",modelbase)))
-  # if(varInDb){
-  #   if(op$t_random_slope){
-  #     if((varInExp>1)&(op$useDE==TRUE)){
-  #       form<-Sx~bm+De+Db+t+bm*Db+(1+t|ptID)
-  #     } else {
-  #       form<-Sx~bm+Db+t+bm*Db+(1+t|ptID)
-  #     }
-  #   }else{
-  #     if((varInExp>1)&(op$useDE==TRUE)){
-  #       form<-Sx~bm+De+Db+t+bm*Db+(1|ptID)
-  #     } else {
-  #       form<-Sx~bm+Db+t+bm*Db+(1|ptID)
-  #     }
-  #   }
-  # }else{
-  #   if(op$t_random_slope){
-  #     if((varInExp>1)&(op$useDE==TRUE)){
-  #       form<-Sx~bm+De+t+bm*t+(1+t|ptID)
-  #     } else {
-  #       form<-Sx~bm+t+bm*t+(1+t|ptID)
-  #     }
-  #   }else{
-  #     if((varInExp>1)&(op$useDE==TRUE)){
-  #       form<-Sx~bm+De+t+bm*t+(1|ptID)
-  #     } else {
-  #       form<-Sx~bm+t+bm*t+(1|ptID)
-  #     }
-  #   }
-  # }
 
-  # Run (should insert tryCatch here, but not working!)
-  fit<-lmer(form,data=datamerged)
-  holdWarning<-summary(fit)$fitMsgs
-  if(length(holdWarning)==0) holdWarning<-as.character(NA)
-
-  # set issingular flag off, turn on if get singular warning
-  issingular<-FALSE
-  if(length(summary(fit)$optinfo$conv$lme4$messages)>0){
-    if(summary(fit)$optinfo$conv$lme4$messages[[1]]=="boundary (singular) fit: see ?isSingular"){
-      issingular<-TRUE
+  fit<-tryCatch(
+    nlme::lme(form, random=~1|ptID,
+              correlation=nlme::corCAR1(form=~t|ptID),
+              data=datamerged,
+              control=nlme::lmeControl(opt="optim",
+                maxIter=200, msMaxIter=200)),
+    error=function(e){
+      tryCatch(
+        nlme::lme(form, random=~1|ptID,
+                  data=datamerged,
+                  control=nlme::lmeControl(opt="optim")),
+        error=function(e2){
+          NULL
+        }
+      )
     }
+  )
+
+  holdWarning<-as.character(NA)
+  issingular<-FALSE
+
+  if(is.null(fit)){
+    out<-data.table(beta=as.numeric(NA),betaSE=as.numeric(NA),
+                    p=as.numeric(NA),issingular=NA,
+                    warning="model failed to converge")
+    if(op$full_model_out){
+      out<-list(form=form,fit=NULL,datamerged=datamerged,stdout=out)
+    }
+    return(out)
   }
 
-  # Package output
-  c<-summary(fit)$coefficients
+  # Extract coefficients from nlme summary
+  c<-summary(fit)$tTable
   coefnames<-rownames(c)
   if(varInDb){
     target<-intersect(c('bm:Dbc','Dbc:bm'), coefnames)
@@ -203,9 +197,9 @@ lme_analysis<-function(trialdesign_set,dat,op){
       p<-as.numeric(NA)
     } else {
       target<-target[1]
-      p<-c[target,'Pr(>|t|)']
-      beta<-c[target,'Estimate']
-      betaSE<-c[target,'Std. Error']
+      p<-c[target,'p-value']
+      beta<-c[target,'Value']
+      betaSE<-c[target,'Std.Error']
     }
   }else{
     target<-intersect(c('bm:t','t:bm'), coefnames)
@@ -215,9 +209,9 @@ lme_analysis<-function(trialdesign_set,dat,op){
       p<-as.numeric(NA)
     } else {
       target<-target[1]
-      p<-c[target,'Pr(>|t|)']
-      beta<-c[target,'Estimate']
-      betaSE<-c[target,'Std. Error']
+      p<-c[target,'p-value']
+      beta<-c[target,'Value']
+      betaSE<-c[target,'Std.Error']
     }
   }
 

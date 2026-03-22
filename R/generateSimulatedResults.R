@@ -65,7 +65,7 @@
 
 generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
                                    censorparams,modelparams,simparam,analysisparams,
-                                   rawdataout=FALSE,lambda_cor=1){
+                                   rawdataout=FALSE,lambda_cor=NA){
 
   # defaults
   if(missing(analysisparams)) analysisparams<-list(useDE=TRUE,

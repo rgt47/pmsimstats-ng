@@ -658,13 +658,14 @@ N-of-1 & 70 & 0.83 & 0.74 & 0.55 & Large drop \\
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=\textwidth]{figure4_20260322_152130.png}
+\includegraphics[width=\textwidth]{figure4_20260323_111624.png}
 \caption{Revised Figure~4 with AR(1) DGP ($\rho = 0.7$),
-  $c_{bm} \in \{0, 0.25, 0.5\}$,
+  $c_{bm} \in \{0, 0.25, 0.45\}$,
   $t_{1/2} \in \{0, 0.5, 1.0\}$ weeks,
   $\lambda_{cor} = \ln 2 / t_{1/2}$,
-  and \texttt{nlme::lme} with \texttt{corCAR1} analysis.
-  1,000 replicates per cell (40 minutes, 9 cores).}
+  \texttt{nlme::lme} with \texttt{corCAR1} analysis,
+  and zero PD corrections. 200 replicates per cell
+  (8 minutes, 9 cores).}
 \end{figure}
 
 % =================================================================
@@ -927,6 +928,17 @@ Rank deficiency & Graceful NA return &
 \midrule
 data.table access & \texttt{[[]]} for column selection &
   Compatibility with current data.table versions \\
+\midrule
+$c_{bm}$ range & $\{0, 0.25, 0.45\}$ &
+  Max PD-feasible value is 0.45 (OL+BDC); ensures
+  zero silent covariance corrections \\
+\midrule
+Cholesky pre-computation & $L = \text{chol}(\Sigma)$
+  cached per sigma &
+  Eliminates per-call Cholesky in MVN draw \\
+\midrule
+PD pre-validation & Automatic at simulation start &
+  Reports invalid combinations before compute \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1018,13 +1030,40 @@ The optimization collects results in a pre-allocated list
 and calls \texttt{rbindlist()} once at the end, which is
 $O(n)$.
 
-\subsection{Parameter Validation}
+\subsection{Pre-Computed Cholesky Factor}
 
-A new \texttt{validateParameterGrid()} function tests all
-parameter combinations for positive definiteness before the
-simulation starts. Invalid combinations are reported upfront,
-avoiding wasted computation on parameter sets that would
-require silent PD correction.
+The \texttt{buildSigma()} function now pre-computes the
+Cholesky decomposition of $\Sigma$ and stores it in the
+cache alongside the covariance matrix. The
+\texttt{generateData()} function uses this pre-computed
+factor to draw participants via $L Z + \mu$ (where
+$Z \sim N(0, I)$) instead of calling
+\texttt{MASS::mvrnorm()}, which would recompute the
+Cholesky on every call. This is mathematically identical
+to \texttt{mvrnorm()} but eliminates redundant
+decompositions across replicate batches.
+
+\subsection{Parameter Validation in Pipeline}
+
+The \texttt{validateParameterGrid()} function is now
+wired into \texttt{generateSimulatedResults()} and runs
+automatically before the sigma cache is built. It tests
+every (design $\times$ path $\times$ model parameter)
+combination for positive definiteness and reports any
+failures upfront. This led to the discovery that
+$c_{bm} = 0.5$ exceeded the PD boundary for OL (max
+0.49) and OL+BDC (max 0.45), causing 20/162 (12.3\%)
+silent corrections. Constraining $c_{bm}$ to 0.45
+eliminated all failures:
+
+\begin{verbatim}
+PD validation: all 162 combinations valid
+\end{verbatim}
+
+The simulation parameter grid was updated from
+$c_{bm} \in \{0, 0.25, 0.5\}$ to
+$c_{bm} \in \{0, 0.25, 0.45\}$ to ensure zero PD
+corrections for all designs and paths.
 
 \subsection{Fast PD Path}
 

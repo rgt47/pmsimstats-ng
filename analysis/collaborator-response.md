@@ -3,6 +3,23 @@
 Date: 2026-03-23
 Context: Following the pmsimstats code audit and revision
 
+## Code Locations
+
+All new functions are in the `orig` repo at
+`~/Dropbox/prj/alz/01c-pmsimstats-orig/pmsimstats/`:
+
+| Function | File | Purpose |
+|----------|------|---------|
+| `analyze_trial_extended()` | `R/carryover_analysis.R` | Main drug effect + interaction + predicted curves |
+| `characterize_carryover()` | `R/carryover_analysis.R` | Sweep half-lives, compare AIC, find best fit |
+| `print_trial_summary()` | `R/carryover_analysis.R` | Clinical summary of trial analysis |
+| `print_carryover_summary()` | `R/carryover_analysis.R` | Summary of carryover characterization |
+| `lme_analysis()` | `R/lme_analysis.R` | Core LME analysis (nlme + corCAR1) |
+| `generateData()` | `R/generateData.R` | Data generation with cached sigma |
+| `buildSigma()` | `R/generateData.R` | Covariance matrix construction |
+| `validateParameterGrid()` | `R/generateData.R` | PD pre-validation |
+| `generateSimulatedResults()` | `R/generateSimulatedResults.R` | Full simulation loop with parallel processing |
+
 ---
 
 ## Goal 1: Did prazosin improve PTSD symptoms?
@@ -36,12 +53,19 @@ whether the drug indicator is significant.
 The existing infrastructure supports this; it only requires
 extracting a different coefficient from the model output.
 
-### Action
+### Action -- DONE
 
-Minor code change: add an option to `lme_analysis()` to
-extract the main drug effect (`Dbc`) in addition to or
-instead of the interaction (`bm:Dbc`). Estimated effort:
-one afternoon.
+Implemented in `R/carryover_analysis.R` as
+`analyze_trial_extended()`. Extracts both the main drug
+effect (`Dbc`) and the biomarker interaction (`bm:Dbc`)
+with 95% CIs, variance components, predicted response
+curves, and clinical decision thresholds.
+
+Usage:
+```r
+result <- analyze_trial_extended(td, dat, op, threshold = 5)
+print_trial_summary(result)
+```
 
 ---
 
@@ -116,11 +140,24 @@ provides the timing information. The analysis would:
 4. Plot the residual pattern across timepoints to
    visualize where carryover is strongest
 
-### Action
+### Action -- DONE
 
-Create a `characterize_carryover()` function that sweeps
-half-lives and returns a model comparison table. Estimated
-effort: 1-2 days.
+Implemented in `R/carryover_analysis.R` as
+`characterize_carryover()`. Sweeps candidate half-lives,
+fits nlme::lme at each, compares AIC/BIC, and returns the
+best-fitting half-life with full model output.
+
+Usage:
+```r
+cc <- characterize_carryover(td, dat,
+  half_lives = c(0.25, 0.5, 1.0, 2.0, 4.0))
+print_carryover_summary(cc)
+# cc$best_t_half gives the optimal half-life
+# cc$best_model gives the full model fit
+```
+
+Validated: correctly recovers the true t_half = 1.0 from
+simulated data generated with that half-life.
 
 ---
 
@@ -231,20 +268,24 @@ The full model object provides access to:
 
 ### Action
 
-Extend `lme_analysis()` output to include items 1-4.
-Estimated effort: 2-3 days.
+**DONE.** Implemented as `analyze_trial_extended()` in
+`R/carryover_analysis.R`. Items 1-4 are all included:
+estimated carryover half-life (via `characterize_carryover`),
+predicted response curves (`result$predicted_effect(bm)`),
+biomarker-specific treatment effect with CIs, and clinical
+decision threshold (`result$threshold_bm`).
 
 ---
 
 ## Summary of Actions
 
-| Goal | Status | Action | Effort |
-|------|--------|--------|--------|
-| 1. Prazosin efficacy | Infrastructure ready | Extract `Dbc` coefficient | 1 afternoon |
-| 2a. Carryover quantification | Framework defined | Create `characterize_carryover()` | 1-2 days |
-| 2b. Best response sequence | Conceptual | Residual analysis at each timepoint | 1 day |
-| 3a. Simulation power | **Complete** | Backport decay options if needed | Done / incremental |
-| 3b. Actual analysis output | In progress | Extend output structure | 2-3 days |
+| Goal | Status | Action | Location |
+|------|--------|--------|----------|
+| 1. Prazosin efficacy | **DONE** | `analyze_trial_extended()` | `R/carryover_analysis.R` |
+| 2a. Carryover quantification | **DONE** | `characterize_carryover()` | `R/carryover_analysis.R` |
+| 2b. Best response sequence | Conceptual | Residual analysis at each timepoint | Needs implementation |
+| 3a. Simulation power | **DONE** | Full simulation with optimizations | `R/generateSimulatedResults.R` |
+| 3b. Actual analysis output | **DONE** | Extended output with predictions | `R/carryover_analysis.R` |
 
 ---
 

@@ -95,7 +95,7 @@ censorparams <- data.table(
 
 coremodelparams <- expand.grid(
   N = c(35, 70),
-  c.bm = c(0, .25, .5),
+  c.bm = c(0, .25, .45),
   carryover_t1half = c(0, .5, 1.0),
   c.tv = .7, c.pb = .7, c.br = .7,
   c.cf1t = .2, c.cfct = .1

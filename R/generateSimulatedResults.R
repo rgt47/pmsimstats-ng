@@ -93,6 +93,16 @@ generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
   totrep<-nV*simparam$Nreps
   totparamsets<-nV
 
+  # --- Pre-flight: validate parameter grid for PD ---
+  validation<-validateParameterGrid(trialdesigns,modelparams,
+    respparamsets[[1]]$param,blparamsets[[1]]$param,lambda_cor)
+  if(validation$n_rejected > 0){
+    cat("WARNING: ", validation$n_rejected, " parameter combinations",
+        " fail positive definiteness.\n",
+        "Results for these combinations may be affected by ",
+        "silent covariance matrix correction.\n\n", sep="")
+  }
+
   # --- Optimization 1: Pre-build and cache sigma matrices ---
   cat("Caching sigma matrices...\n")
   tic("Sigma cache built")

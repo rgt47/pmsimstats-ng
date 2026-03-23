@@ -67,6 +67,7 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
     labels<-cached_sigma$labels
     nP<-cached_sigma$nP
     cl<-cached_sigma$cl
+    chol_sigma<-cached_sigma$chol_sigma
   } else {
     built<-buildSigma(modelparam,respparam,blparam,trialdesign,makePositiveDefinite,lambda_cor,verbose)
     sigma<-built$sigma
@@ -74,11 +75,17 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
     labels<-built$labels
     nP<-built$nP
     cl<-built$cl
+    chol_sigma<-built$chol_sigma
     trialdesign<-built$trialdesign
   }
 
-  # Draw participants from MVN
-  dat<-mvrnorm(n=modelparam$N,mu=means,Sigma=sigma,empirical=empirical)
+  # Draw participants using pre-computed Cholesky factor
+  # Equivalent to mvrnorm(n, mu, Sigma) but avoids
+  # recomputing the Cholesky decomposition on each call
+  n<-modelparam$N
+  p<-length(means)
+  Z<-matrix(rnorm(n * p), nrow=n, ncol=p)
+  dat<-Z %*% chol_sigma + matrix(means, nrow=n, ncol=p, byrow=TRUE)
   dat<-data.table(dat)
   setnames(dat,names(dat),labels)
 
@@ -245,8 +252,13 @@ buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefini
     }
   }
 
+  # Pre-compute Cholesky factor for efficient MVN draws
+  chol_sigma<-tryCatch(chol(sigma), error=function(e){
+    chol(make.positive.definite(sigma, tol=1e-3))
+  })
+
   list(sigma=sigma, means=means, labels=labels, nP=nP, cl=cl,
-       trialdesign=trialdesign)
+       trialdesign=trialdesign, chol_sigma=chol_sigma)
 }
 
 

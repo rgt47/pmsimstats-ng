@@ -1,86 +1,396 @@
 ---
-title: "Gompertz Model Fitting: Reverse-Engineering the Hendrickson
-  Parameters from the Raskind et al. (2013) Trial Data"
+title: "Dissecting Treatment Response: The BR-ER-TV Framework
+  and Gompertz Trajectory Modeling in N-of-1 Trial Design"
+subtitle: "A Clinician's Guide to the Hendrickson et al. (2020)
+  Simulation, with Worked Examples from the Raskind et al.
+  (2013) Prazosin Trial"
 output:
   html_document:
     toc: true
+    toc_depth: 3
     toc_float: true
-    code_folding: show
+    code_folding: hide
+    number_sections: true
   pdf_document:
     toc: true
+    number_sections: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(
+  echo = TRUE, warning = FALSE, message = FALSE,
+  fig.width = 8, fig.height = 4.5
+)
 library(data.table)
 library(ggplot2)
-library(minpack.lm)  # for nlsLM (robust nonlinear least squares)
+library(minpack.lm)
 ```
 
-# Background
+# Why This Document Exists
 
-The Hendrickson et al. (2020) simulation uses a modified Gompertz
-function to model the expected trajectory of each response factor
-(BR, ER, TR) over time. The parameters for this function were
-extracted from the Raskind et al. (2013) parallel-group RCT of
-prazosin for PTSD in active-duty soldiers (Am J Psychiatry
-170:1003-1010).
+When a patient improves on a medication, the natural
+clinical question is straightforward: did the drug work?
+The answer, however, is rarely simple. Clinical improvement
+is a composite of at least three distinct processes operating
+simultaneously, and standard parallel-group randomized
+controlled trials (PG-RCTs) are poorly equipped to
+disentangle them at the individual level.
 
-This document reverse-engineers the data from the published
-figures and tables, fits the modified Gompertz model, and
-compares the fitted parameters with those used in the simulation.
+Hendrickson et al. (2020) proposed an aggregated N-of-1
+trial design that addresses this limitation directly. Their
+simulation study, published in *Frontiers in Digital Health*,
+compared the statistical power of four trial architectures for
+validating a predictive biomarker -- standing systolic blood
+pressure -- against treatment-specific response to the PTSD
+pharmacotherapeutic prazosin. The simulation parameters were
+grounded in data from the Raskind et al. (2013) parallel-group
+RCT of prazosin in active-duty soldiers with combat-related
+PTSD (*Am J Psychiatry* 170:1003--1010).
 
-# Summary of Raskind et al. (2013)
+This document serves two purposes. First, it provides an
+accessible exposition of the three-factor decomposition
+(BR, ER, TV) that underlies the Hendrickson simulation,
+with concrete clinical examples drawn from the prazosin
+trial. Second, it reconstructs the Gompertz trajectory
+parameters from the published Raskind data, allowing the
+reader to see exactly how abstract simulation inputs map
+to observable clinical outcomes. The intended audience is
+clinicians with moderate statistical training who wish to
+understand the Hendrickson paper at a level deeper than the
+abstract but without requiring facility in simulation
+programming.
 
-**Trial design:** 15-week double-blind RCT, N=67 (32 prazosin,
-35 placebo), with 6-week titration period. Assessments at
-baseline, weeks 7, 11, and 15.
 
-**The biomarker:** Standing systolic blood pressure (2 min after
-standing). Table 3 shows baseline standing systolic BP: prazosin
-group mean=125, placebo group mean=121 mmHg. Blood pressure did
-not significantly differ over time or between groups (p=0.61).
+# The Clinical Problem: What Does 'Response' Actually Mean?
 
-**The outcome:** CAPS total score. Baseline: prazosin 77.3,
-placebo 85.7. Week 15: prazosin 52.4, placebo 71.9. Difference
-in change from baseline: 11.3 points (p=0.02).
+## A Familiar Scenario
 
-**Where the Hendrickson simulation parameters came from:**
+Consider a soldier returning from deployment in Iraq with
+severe combat-related PTSD. His Clinician-Administered PTSD
+Scale (CAPS) total score is 82 at baseline -- well above the
+50-point threshold used by Raskind et al. (2013) for trial
+eligibility. He is enrolled in a 15-week double-blind RCT of
+prazosin, an alpha-1 adrenoreceptor antagonist originally
+developed for hypertension, now repurposed for PTSD
+nightmares. His standing systolic blood pressure at baseline
+is 130 mmHg.
 
-- Baseline CAPS mean (83.07) and SD (18.48): averaged from
-  both groups
-- Baseline BP mean (124.33) and SD (15.36): averaged from
-  both groups
-- BR trajectory (max=10.99, rate=0.42): fit to the
-  prazosin-minus-placebo difference curve (Figure 1D shows
-  the divergence)
-- TV+ER trajectory (max=6.51, rate=0.35): fit to the placebo
-  group trajectory
+After 15 weeks on prazosin, his CAPS score drops to 55 -- a
+27-point improvement. Is this the drug working?
 
-**The biomarker-treatment interaction finding:** This paper does
-not test it directly. Hendrickson et al. (2020) cites a separate
-post-hoc analysis (Raskind et al. 2016, Biol Psychiatry
-80:736-42) that found 'higher pretreatment blood pressure is
+The honest answer is: partly. His improvement is an
+inseparable mixture of at least three processes:
+
+1. **The drug itself** reduced his hyperarousal and
+   nightmares by blocking alpha-1 adrenergic receptors
+   in the CNS (the *biological response*).
+
+2. **His expectation of benefit** -- the knowledge that he
+   was enrolled in a trial and might be receiving active
+   medication -- produced neurobiologically real symptom
+   relief through dopaminergic and anti-inflammatory
+   pathways (the *expectancy-related response*).
+
+3. **The passage of time** -- the structure of regular
+   clinical contact, regression to the mean, and natural
+   fluctuation in PTSD severity -- contributed its own
+   trajectory of change (the *time-varying response*).
+
+A standard PG-RCT can estimate the *average* drug effect
+across the group (prazosin minus placebo), but it cannot
+tell this individual soldier how much of his 27-point
+improvement was pharmacological and how much was
+non-specific. More critically for precision medicine, it
+cannot determine whether his baseline blood pressure of
+130 mmHg *predicted* his drug-specific response.
+
+## Why the Standard RCT Falls Short
+
+The Raskind et al. (2013) trial enrolled 67 soldiers
+(32 prazosin, 35 placebo) and found a statistically
+significant 11.3-point advantage for prazosin on the CAPS
+total score (p = 0.02). That group-level finding is
+valuable but limited in two important ways.
+
+First, participants randomized to placebo provide no
+information about what their drug-specific response would
+have been. Second, participants randomized to prazosin who
+improve cannot be distinguished from participants who would
+have improved equally on placebo. As Hendrickson et al.
+(2020) note, this makes PG-RCTs 'poorly optimized for
+quantifying the relationship of a biomarker measured at
+baseline to a treatment-specific response.'
+
+The key insight of the N-of-1 approach is that each
+participant serves as his or her own control, cycling
+through periods on active drug and placebo. This within-person
+contrast isolates the biological response from the
+non-specific components far more efficiently than
+between-group comparisons.
+
+
+# The Three-Factor Decomposition
+
+## Overview
+
+The Hendrickson simulation models clinical symptom change
+over time as the linear sum of three factors:
+
+$$Y_{it} = \text{BL}_i + \text{BR}_{it} + \text{ER}_{it} +
+\text{TV}_{it} + \varepsilon_{it}$$
+
+where $i$ indexes participants, $t$ indexes timepoints,
+$\text{BL}_i$ is the baseline symptom level, and
+$\varepsilon_{it}$ is measurement noise. Each of the three
+response factors captures a distinct causal mechanism.
+
+## Biological Response (BR)
+
+**Definition.** BR is the direct pharmacological effect of
+the drug on the patient's physiology. It depends on drug
+exposure and individual pharmacokinetics, and is
+independent of the patient's beliefs or expectations.
+
+**Clinical example.** Prazosin is an alpha-1 adrenoreceptor
+antagonist that reduces norepinephrine effects at CNS
+alpha-1 adrenoreceptors (Raskind et al. 2013). Enhanced
+CNS adrenergic activity contributes to PTSD
+pathophysiology, particularly the hyperarousal symptoms
+assessed by the CAPS. When a soldier takes prazosin, the
+drug accumulates over the 6-week titration period,
+blocking these receptors with increasing effectiveness.
+His hyperarousal symptoms decline -- not because he
+believes they will, but because the receptor is physically
+occupied.
+
+Critically, Raskind et al. (2013) note that prazosin has a
+'short duration of action (6 to 10 hours),' necessitating
+twice-daily dosing. This means BR is pharmacokinetically
+tied to recent drug exposure. When prazosin is withdrawn,
+the drug washes out within days and BR returns to zero.
+This on-off property is precisely what makes crossover and
+N-of-1 designs informative: the contrast between on-drug
+and off-drug periods within the same person isolates BR
+from everything else.
+
+**What BR looks like over time.** BR does not increase
+linearly. Each additional day of drug exposure produces
+diminishing returns as receptors approach saturation. The
+trajectory follows a saturating curve: rapid initial
+improvement, then a gradual leveling off toward a
+biological ceiling. In the Raskind data, the
+prazosin-minus-placebo difference grew quickly through
+week 7 and then began to plateau, consistent with this
+pattern.
+
+## Expectancy-Related Response (ER)
+
+**Definition.** ER is the component of improvement
+attributable to the patient's belief or expectation that
+he or she is receiving effective treatment. This is the
+placebo effect in its neurobiological sense -- not a mere
+artifact, but a measurable physiological response driven
+by expectation.
+
+**Clinical example.** When our soldier is told he will
+receive either prazosin or placebo, the mere act of
+enrollment and clinical attention activates hope and
+expectation. Research in placebo neuroscience has
+demonstrated that expectation of benefit can activate
+endogenous opioid and dopamine systems, reduce
+inflammatory markers, and produce measurable symptom
+relief. In the Raskind trial, placebo participants improved
+by 13.8 CAPS points over 15 weeks -- a substantial change
+that cannot be attributed to any pharmacological mechanism.
+
+**Why ER depends on trial phase.** The magnitude of ER
+varies with the participant's awareness of treatment
+assignment:
+
+| Trial phase                  | Expectancy | Reasoning |
+|:-----------------------------|:----------:|:----------|
+| Open-label (on active drug)  | 1.0        | Full knowledge of active treatment |
+| Blinded (drug vs. placebo)   | 0.5        | Uncertain whether receiving drug |
+| Known placebo or washout     | ~0         | No expectation of drug benefit |
+
+This is why the Hendrickson N-of-1 design (their Design 4)
+begins with an 8-week open-label prazosin phase. During this
+period, both BR and ER are fully engaged, producing maximum
+clinical improvement and allowing acutely symptomatic
+patients to stabilize before entering the blinded phases.
+The subsequent blinded discontinuation and crossover blocks
+then manipulate drug exposure while holding expectancy at
+the intermediate level (0.5), enabling the analysis to
+separate BR from ER.
+
+**Why ER must be modeled separately.** If ER is absorbed
+into a generic 'error' term, the model conflates
+pharmacological and psychological sources of improvement.
+A patient whose 20-point improvement comprises 8 points of
+BR and 12 points of ER would be indistinguishable from a
+patient whose 20-point improvement comprises 15 points of
+BR and 5 points of ER. Yet these two patients have
+fundamentally different relationships between their
+biomarker and their drug-specific response. Collapsing BR
+and ER obscures precisely the signal that biomarker
+validation requires.
+
+## Time-Varying Response (TV)
+
+**Definition.** TV is the component of symptom change that
+occurs independently of any treatment -- the natural
+disease trajectory. It encompasses regression to the mean,
+the therapeutic effect of regular clinical contact, and
+the patient's evolving life circumstances.
+
+**Clinical example.** Even without prazosin, our soldier's
+PTSD severity is not static. Over the 15 weeks of the
+trial, he has regular visits with a clinician, keeps a
+structured schedule, and may experience natural fluctuations
+in symptom severity related to the calendar (proximity to
+deployment anniversary), employment, and social support. Some
+of the 13.8-point improvement seen in the Raskind placebo
+group reflects TV: structured clinical contact and the
+passage of time both contribute to symptom change.
+
+**Why TV cannot be absorbed into a time covariate.** A
+simple linear time term assumes that symptoms change at a
+constant rate throughout the trial. In practice, the
+trajectory is typically nonlinear: rapid early improvement
+(regression to the mean, engagement with clinical
+structure) that gradually slows. The Gompertz function
+captures this S-shaped trajectory. Moreover, TV is
+individual-specific. Two patients may have very different
+natural trajectories -- one improving steadily, another
+worsening due to external stressors -- and a single time
+covariate cannot accommodate this heterogeneity.
+
+## Putting the Three Factors Together
+
+Consider our soldier's trajectory through the Hendrickson
+N-of-1 design (Design 4):
+
+**Weeks 1--8 (open-label prazosin):**
+
+- BR = 9 points (prazosin accumulates, hyperarousal declines)
+- ER = 6 points (full expectancy: he knows he is on drug)
+- TV = 4 points (clinical structure, regression to mean)
+- Total improvement = 19 points. He feels substantially better.
+
+**Weeks 9--12 (blinded discontinuation -- randomly assigned
+to placebo without his knowledge):**
+
+- BR = 0 (prazosin washes out within days; no drug, no biological effect)
+- ER = 3 points (expectancy at 0.5: he is told he 'may or may not' be on drug)
+- TV = 5 points (natural trajectory continues to plateau)
+- Total improvement from baseline = 8 points. He notices a setback.
+
+**Weeks 13--16 (crossover period 1 -- on active drug,
+blinded):**
+
+- BR = 8 points (prazosin restored; biological effect returns)
+- ER = 3 points (still blinded; expectancy remains at 0.5)
+- TV = 5 points (natural trajectory at plateau)
+- Total improvement from baseline = 16 points.
+
+**What the N-of-1 design reveals:** The contrast between
+the blinded discontinuation (total = 8) and the crossover
+period on drug (total = 16) isolates the biological
+response: 16 - 8 = 8 points, which is the within-person
+BR estimate. This is far more informative than the
+group-level 11.3-point difference from the PG-RCT, because
+it is specific to this patient and uncontaminated by
+between-person variability in ER and TV.
+
+**What a one-component model would conclude:** 'Improvement
+varied from 8 to 19 points across phases -- noisy, hard to
+interpret.'
+
+**What the three-component model reveals:** 'BR is
+consistent at 8--9 points when on drug and 0 when off. ER
+contributes 3--6 points depending on expectancy. TV
+plateaus at 4--5 points. The drug works for this patient;
+expectations modulate the total but do not account for the
+drug-specific effect.'
+
+
+# The Biomarker Question
+
+## From Group-Level Efficacy to Individual Prediction
+
+The Raskind et al. (2013) trial established that prazosin
+is, on average, more effective than placebo for PTSD. But
+the precision medicine question is different: *Can we
+predict, before treatment begins, which individual patients
+will benefit most from prazosin?*
+
+A separate post-hoc analysis by Raskind et al. (2016,
+*Biol Psychiatry* 80:736--742) found that higher
+pretreatment standing systolic blood pressure was
 associated with greater PTSD symptom reduction in soldiers
-treated with prazosin.' That finding motivated the N-of-1 trial
-design to validate the biomarker prospectively.
+treated with prazosin. This makes mechanistic sense:
+elevated standing blood pressure may reflect higher
+baseline CNS adrenergic tone, and patients with more
+adrenergic dysregulation have more 'room' for prazosin to
+work.
 
-**Prazosin pharmacokinetics:** The paper notes prazosin has a
-'short duration of action (6 to 10 hours),' which is why
-twice-daily dosing was used. This maps to a carryover half-life
-of roughly 3-5 hours (0.02-0.03 weeks) -- much shorter than
-even the Hendrickson publication's 0.1 weeks. At these true
-pharmacokinetic half-lives, the carryover residual between
-weekly assessments is negligible.
+## Why Biomarker Validation Requires Decomposition
+
+The statistical test that Hendrickson et al. (2020) simulate
+is not 'Does prazosin work?' but rather 'Does the baseline
+biomarker (blood pressure) predict the magnitude of the
+drug-specific response (BR)?'
+
+This distinction matters because the biomarker should
+predict *only* BR, not ER or TV. If elevated blood pressure
+predicted expectancy-related improvement, that would be a
+confound, not a biomarker-treatment interaction. And if it
+predicted the time-varying trajectory, the association would
+be spurious. The three-factor decomposition isolates the
+target quantity (BR) from the noise (ER + TV), concentrating
+statistical power on the clinically relevant signal.
+
+The analysis model from Hendrickson et al. (2020) formalizes
+this as:
+
+$$S_{i,t} = \beta_{i,0} + \beta_1 \cdot bm + \beta_2
+\cdot Db + \beta_3 \cdot t + \beta_4 \cdot bm \cdot Db$$
+
+where $bm$ is the baseline biomarker, $Db$ is drug exposure,
+$t$ is time, and the interaction term $\beta_4$ tests
+whether the biomarker predicts drug-specific response. A
+non-zero $\beta_4$ indicates that the biomarker is
+predictive -- the precision medicine finding.
+
 
 # The Modified Gompertz Function
 
-The function used in pmsimstats is:
+## Why Trajectories Are Not Linear
 
-$$f(t) = \text{max} \cdot e^{-\text{disp} \cdot e^{-\text{rate} \cdot t}}$$
+Each of the three response factors follows a characteristic
+time course. The improvement does not accumulate at a
+constant rate; instead, it follows a saturating pattern:
+
+- **Early phase:** Rapid change as the mechanism engages
+  (drug accumulates, expectancy forms, regression to mean
+  operates).
+- **Middle phase:** Improvement continues but decelerates.
+- **Late phase:** The factor approaches its biological or
+  psychological ceiling.
+
+A linear model would predict indefinite improvement -- 2
+CAPS points per week, every week, forever. After 50 weeks,
+that would imply a 100-point improvement on a scale with a
+maximum of about 136. This is biologically implausible.
+
+The modified Gompertz function captures the saturating
+pattern with three interpretable parameters:
+
+$$f(t) = \text{max} \cdot e^{-\text{disp}
+\cdot e^{-\text{rate} \cdot t}}$$
 
 with an offset-rescaling to ensure $f(0) = 0$ and
-$f(\infty) = \text{max}$:
+$f(\infty) = \text{max}$.
 
 ```{r}
 modgompertz <- function(t, maxr, disp, rate) {
@@ -92,22 +402,37 @@ modgompertz <- function(t, maxr, disp, rate) {
 }
 ```
 
-# Extracting Data from Raskind et al. (2013)
+## Parameter Interpretation
 
-## CAPS Total Score Trajectories
+| Parameter | Symbol       | Clinical meaning | Example |
+|:----------|:-------------|:-----------------|:--------|
+| Maximum   | $\text{max}$ | Ceiling effect: the most this factor can contribute | BR max = 11: prazosin can reduce CAPS by at most 11 points |
+| Rate      | $\text{rate}$ | Speed of onset: how quickly the factor reaches half its ceiling | rate = 0.42: half-maximum BR reached by approximately week 4 |
+| Displacement | $\text{disp}$ | Curve shape: controls the inflection point and steepness | disp = 5: produces a delayed onset followed by rapid rise |
 
-From Table 3 and Figure 1D of Raskind et al. (2013):
+The displacement parameter deserves particular comment. With
+$\text{disp} = 5$, the Gompertz curve has a pronounced
+sigmoidal shape: near-zero improvement in the first 1--2
+weeks, then a rapid rise, then a plateau. This matches the
+clinical observation from the Raskind trial that prazosin
+required a 6-week titration period before reaching
+therapeutic doses, and that most improvement occurred
+between weeks 2 and 10.
+
+
+# Reconstructing the Raskind Data
+
+## Extracting CAPS Trajectories
+
+The Raskind et al. (2013) trial assessed CAPS total scores
+at baseline and weeks 7, 11, and 15. Table 3 of that paper
+provides adjusted means at baseline and week 15. Weeks 7
+and 11 values are interpolated from Figure 1D, which plots
+the full CAPS total score trajectory for both groups.
 
 ```{r}
-# Assessment timepoints (weeks)
 weeks <- c(0, 7, 11, 15)
 
-# CAPS total scores (adjusted means from Table 3)
-caps_prazosin <- c(77.3, NA, NA, 52.4)
-caps_placebo  <- c(85.7, NA, NA, 71.9)
-
-# Interpolate weeks 7 and 11 from Figure 1D
-# (read approximately from the plotted curves)
 caps_prazosin <- c(77.3, 60, 54, 52.4)
 caps_placebo  <- c(85.7, 76, 74, 71.9)
 
@@ -117,47 +442,62 @@ trial_data <- data.table(
   group = rep(c("Prazosin", "Placebo"), each = 4)
 )
 
-# Compute change from baseline (improvement is positive)
 trial_data[, baseline := caps[1], by = group]
 trial_data[, improvement := baseline - caps]
 ```
 
-## Visualize the Raw Trajectories
+The baseline CAPS scores differed between groups (prazosin
+77.3, placebo 85.7), reflecting the expected variability
+in a trial of this size (N = 67). The Hendrickson simulation
+uses the pooled baseline mean of 83.07 (SD = 18.48),
+averaged across both groups.
 
-```{r fig.width=8, fig.height=4}
+```{r fig.height=4}
 ggplot(trial_data, aes(x = week, y = improvement,
                        color = group, shape = group)) +
   geom_point(size = 3) +
   geom_line(linewidth = 0.8) +
-  labs(x = "Week", y = "Improvement from baseline (CAPS points)",
-       title = "CAPS Score Improvement: Raskind et al. (2013)",
-       subtitle = "Reconstructed from Table 3 and Figure 1D") +
-  scale_color_manual(values = c("Placebo" = "red",
-                                "Prazosin" = "blue")) +
+  labs(
+    x = "Week",
+    y = "Improvement from baseline (CAPS points)",
+    title = "CAPS Score Improvement: Raskind et al. (2013)",
+    subtitle = "Reconstructed from Table 3 and Figure 1D"
+  ) +
+  scale_color_manual(values = c(
+    "Placebo" = "firebrick", "Prazosin" = "steelblue"
+  )) +
   theme_minimal(base_size = 12) +
   theme(legend.position = "right")
 ```
 
-## Decompose into Three Factors
+Both groups improve over time, but the prazosin group
+improves more. The gap between the curves widens most
+between baseline and week 7 (during the titration period),
+then stabilizes. This widening gap is the observable
+signature of BR.
 
-Following Hendrickson et al. (2020):
+## Decomposing the Trajectories into BR and TV+ER
 
-- **TV + ER** (combined): the placebo group trajectory.
-  Since placebo participants receive no drug, their
-  improvement is entirely non-specific (time-variant +
-  expectancy).
-- **BR**: the difference between prazosin and placebo
-  trajectories. This isolates the drug-specific effect.
+The logic of the decomposition follows directly from the
+factor definitions:
+
+- **Placebo group improvement = TV + ER.** These patients
+  receive no drug, so BR = 0 at all timepoints. Their
+  entire improvement is non-specific: some combination of
+  natural trajectory (TV) and expectancy (ER). Because this
+  was a double-blind trial, placebo participants believed
+  they might be receiving active drug, so ER is non-zero.
+
+- **BR = Prazosin improvement minus Placebo improvement.**
+  Subtracting the placebo trajectory from the prazosin
+  trajectory removes the non-specific components,
+  isolating the drug-specific effect.
 
 ```{r}
-# Separate by group
 praz <- trial_data[group == "Prazosin"]
 plac <- trial_data[group == "Placebo"]
 
-# BR = prazosin improvement - placebo improvement
 br_improvement <- praz$improvement - plac$improvement
-
-# TV+ER = placebo improvement
 tver_improvement <- plac$improvement
 
 factor_data <- data.table(
@@ -166,44 +506,100 @@ factor_data <- data.table(
   TV_ER = tver_improvement
 )
 
-knitr::kable(factor_data, digits = 2,
-             caption = "Factor decomposition")
+knitr::kable(
+  factor_data, digits = 2,
+  caption = "Factor decomposition of CAPS improvement",
+  col.names = c("Week", "BR (drug-specific)",
+                "TV+ER (non-specific)")
+)
 ```
 
-```{r fig.width=8, fig.height=4}
-factor_long <- melt(factor_data, id.vars = "week",
-                    variable.name = "factor",
-                    value.name = "improvement")
+```{r}
+factor_long <- melt(
+  factor_data, id.vars = "week",
+  variable.name = "factor",
+  value.name = "improvement"
+)
 
 ggplot(factor_long, aes(x = week, y = improvement,
                         color = factor, shape = factor)) +
   geom_point(size = 3) +
   geom_line(linewidth = 0.8) +
-  labs(x = "Week",
-       y = "Improvement (CAPS points)",
-       title = "Factor Decomposition",
-       subtitle = "BR = drug-specific; TV+ER = non-specific") +
+  labs(
+    x = "Week",
+    y = "Improvement (CAPS points)",
+    title = "Factor Decomposition of Treatment Response",
+    subtitle = paste(
+      "BR = prazosin minus placebo;",
+      "TV+ER = placebo trajectory"
+    )
+  ) +
   scale_color_manual(
-    values = c("BR" = "blue", "TV_ER" = "brown"),
+    values = c("BR" = "steelblue", "TV_ER" = "sienna"),
     labels = c("BR (drug-specific)",
-               "TV+ER (non-specific)")) +
+               "TV+ER (non-specific)")
+  ) +
   theme_minimal(base_size = 12)
 ```
 
-# Fitting the Modified Gompertz
+Several features of this decomposition merit attention.
+First, the TV+ER component is substantial -- comparable in
+magnitude to BR. By week 15, the placebo group improved by
+approximately 14 CAPS points, while the drug-specific
+difference was approximately 11 points. This means that
+roughly half of the prazosin group's total improvement was
+non-specific. This is not unusual in psychiatric trials; it
+is precisely why isolating BR is important for biomarker
+validation.
 
-## Fit to BR (Drug-Specific Response)
+Second, the Raskind trial was double-blinded throughout, so
+the expectancy component is at an intermediate level
+(participants knew they had a 50% chance of receiving
+prazosin). In the Hendrickson N-of-1 design, the open-label
+phase would produce a larger ER contribution, followed by a
+reduction during blinded phases.
+
+## The 'Tabula Rasa' Assumption
+
+The Raskind data provide a single placebo trajectory that
+represents TV + ER combined. There is no empirical way to
+separate TV from ER using these data alone, because every
+placebo participant simultaneously experienced both the
+passage of time (TV) and the expectation of possible benefit
+(ER).
+
+Hendrickson et al. (2020) address this by adopting a
+'tabula rasa' (TaRa) parameter set in which TV and ER are
+assigned identical Gompertz parameters: max = 6.506,
+disp = 5, rate = 0.35, SD = 10 for each. The combined
+TV + ER trajectory is simply split equally between the two
+factors. This is a modeling convenience, not an empirical
+claim. The sensitivity analyses in Hendrickson Figures 5A
+and 5B explore what happens when TV and ER parameters
+diverge.
+
+For the clinician, the practical implication is this: the
+exact partition of non-specific improvement into TV and ER
+matters less than the fact that both are separated from BR.
+The biomarker validation test targets $\beta_4$ (the
+biomarker-by-drug interaction), which depends on BR alone.
+
+
+# Fitting the Gompertz Model to the Raskind Data
+
+## Fitting BR (Drug-Specific Response)
+
+We fit the modified Gompertz function to the BR trajectory
+(prazosin minus placebo improvement at each timepoint)
+using nonlinear least squares with starting values informed
+by the Hendrickson publication parameters.
 
 ```{r}
-# Remove baseline (t=0, improvement=0) for fitting
-# but it is implicitly enforced by the offset-rescaling
 br_fit_data <- data.table(
   t = factor_data$week,
   y = factor_data$BR
 )
 
-# Fit using nonlinear least squares
-# Start values informed by Hendrickson parameters
 fit_br <- nlsLM(
   y ~ modgompertz(t, maxr, disp, rate),
   data = br_fit_data,
@@ -216,15 +612,25 @@ br_params <- coef(fit_br)
 summary(fit_br)
 ```
 
-**Fitted parameters:**
+**Fitted BR parameters:**
 $\text{max} = `r sprintf("%.3f", br_params["maxr"])`$,
 $\text{disp} = `r sprintf("%.3f", br_params["disp"])`$,
 $\text{rate} = `r sprintf("%.3f", br_params["rate"])`$
 
-**Hendrickson parameters:**
-$\text{max} = 10.986$, $\text{disp} = 5.000$, $\text{rate} = 0.420$
+**Hendrickson publication parameters:**
+$\text{max} = 10.986$,
+$\text{disp} = 5.000$,
+$\text{rate} = 0.420$
 
-## Fit to TV+ER (Non-Specific Response)
+The fitted parameters should approximate the Hendrickson
+values, since both are derived from the same underlying
+Raskind data. Any discrepancy reflects the difference
+between fitting group-level summary statistics (our
+approach, using 4 timepoints read from published figures)
+versus fitting individual-level data (the Hendrickson
+authors had access to the original dataset).
+
+## Fitting TV+ER (Non-Specific Response)
 
 ```{r}
 tver_fit_data <- data.table(
@@ -244,20 +650,28 @@ tver_params <- coef(fit_tver)
 summary(fit_tver)
 ```
 
-**Fitted parameters:**
+**Fitted TV+ER parameters:**
 $\text{max} = `r sprintf("%.3f", tver_params["maxr"])`$,
 $\text{disp} = `r sprintf("%.3f", tver_params["disp"])`$,
 $\text{rate} = `r sprintf("%.3f", tver_params["rate"])`$
 
-**Hendrickson parameters (TV = ER = 'tabula rasa'):**
-$\text{max} = 6.506$, $\text{disp} = 5.000$, $\text{rate} = 0.350$
+**Hendrickson publication parameters (each of TV and ER):**
+$\text{max} = 6.506$,
+$\text{disp} = 5.000$,
+$\text{rate} = 0.350$
 
-## Visualize the Fits
+Note that the Hendrickson max of 6.506 applies to each of
+TV and ER separately. Under the tabula rasa assumption,
+TV + ER combined has an effective maximum of approximately
+$2 \times 6.506 = 13.0$ CAPS points. The fitted TV+ER
+maximum from the Raskind placebo data should approximate
+this value.
+
+## Comparing Fitted and Publication Curves
 
 ```{r fig.width=10, fig.height=5}
 t_smooth <- seq(0, 20, by = 0.1)
 
-# Fitted curves
 br_curve <- data.table(
   t = t_smooth,
   y = modgompertz(t_smooth, br_params["maxr"],
@@ -271,7 +685,6 @@ tver_curve <- data.table(
   source = "Fitted TV+ER"
 )
 
-# Hendrickson curves
 br_hend <- data.table(
   t = t_smooth,
   y = modgompertz(t_smooth, 10.986, 5, 0.42),
@@ -280,12 +693,11 @@ br_hend <- data.table(
 tver_hend <- data.table(
   t = t_smooth,
   y = modgompertz(t_smooth, 6.506, 5, 0.35),
-  source = "Hendrickson TV+ER"
+  source = "Hendrickson TV+ER (single factor)"
 )
 
 curves <- rbind(br_curve, tver_curve, br_hend, tver_hend)
 
-# Observed data points
 obs <- rbind(
   data.table(t = weeks, y = factor_data$BR,
              source = "Observed BR"),
@@ -294,40 +706,67 @@ obs <- rbind(
 )
 
 ggplot() +
-  geom_line(data = curves, aes(x = t, y = y,
-            color = source, linetype = source),
-            linewidth = 0.8) +
-  geom_point(data = obs, aes(x = t, y = y,
-             color = source), size = 3) +
+  geom_line(
+    data = curves,
+    aes(x = t, y = y, color = source, linetype = source),
+    linewidth = 0.8
+  ) +
+  geom_point(
+    data = obs,
+    aes(x = t, y = y, color = source),
+    size = 3
+  ) +
   scale_color_manual(values = c(
-    "Fitted BR" = "blue",
-    "Hendrickson BR" = "blue",
-    "Fitted TV+ER" = "brown",
-    "Hendrickson TV+ER" = "brown",
-    "Observed BR" = "blue",
-    "Observed TV+ER" = "brown")) +
+    "Fitted BR" = "steelblue",
+    "Hendrickson BR" = "steelblue",
+    "Fitted TV+ER" = "sienna",
+    "Hendrickson TV+ER (single factor)" = "sienna",
+    "Observed BR" = "steelblue",
+    "Observed TV+ER" = "sienna"
+  )) +
   scale_linetype_manual(values = c(
     "Fitted BR" = "solid",
     "Hendrickson BR" = "dashed",
     "Fitted TV+ER" = "solid",
-    "Hendrickson TV+ER" = "dashed")) +
-  labs(x = "Week",
-       y = "Improvement (CAPS points)",
-       title = "Gompertz Fits: Observed Data vs Hendrickson Parameters",
-       subtitle = paste("Solid = fitted to Raskind data;",
-                        "Dashed = Hendrickson publication values")) +
+    "Hendrickson TV+ER (single factor)" = "dashed"
+  )) +
+  labs(
+    x = "Week",
+    y = "Improvement (CAPS points)",
+    title = paste(
+      "Gompertz Fits: Raskind Data vs.",
+      "Hendrickson Publication Parameters"
+    ),
+    subtitle = paste(
+      "Solid = fitted to Raskind group means;",
+      "Dashed = Hendrickson simulation values"
+    )
+  ) +
   theme_minimal(base_size = 12) +
   theme(legend.position = "right")
 ```
 
-# Variance Estimation
+The dashed Hendrickson TV+ER curve represents a *single*
+factor (either TV or ER alone, each with max = 6.506). The
+solid fitted TV+ER curve represents the *combined*
+non-specific trajectory from the placebo group. The
+Hendrickson curve should therefore lie below the fitted
+curve, roughly at half its height.
 
-The between-person SD of each factor is needed for the
-covariance matrix. Hendrickson used SD = 8 for BR and
-SD = 10 for TV+ER.
 
-From Raskind Table 3, baseline CAPS total score SD can be
-recovered from the 95% confidence intervals:
+# Variance and the Covariance Structure
+
+## Between-Person Variability in Each Factor
+
+The Gompertz parameters describe the *mean* trajectory.
+But patients vary: one soldier's BR might be 12 CAPS
+points while another's is only 4. This between-person
+variability is captured by the standard deviation of each
+factor, which enters the simulation through the covariance
+matrix used to generate individual trajectories.
+
+From Raskind Table 3, we can recover the raw CAPS total
+score SD from the 95% confidence intervals:
 
 - Prazosin: mean = 77.3, 95% CI = 69.1--85.5,
   giving $\text{SE} = 4.1$ and
@@ -344,15 +783,17 @@ Assuming equal SDs across groups:
 $$4.77 = \text{SD} \times \sqrt{1/32 + 1/35}
        = \text{SD} \times 0.247$$
 
-This yields an SD of change of approximately 19.3.
+This yields an SD of change of approximately 19.3 CAPS
+points.
 
-The Hendrickson factor SDs (8 for BR, 10 for TV/ER) are
-lower than the raw CAPS SD because they represent the SD
-of each individual factor, not the total outcome. The
-total outcome SD includes all three factors plus baseline
-variability.
+The Hendrickson factor SDs are substantially smaller than
+this total SD because they represent the variability of
+each individual factor, not the total outcome. The total
+outcome variability is the sum of variances across all
+factors plus baseline variability, partially offset by
+cross-factor correlations.
 
-**Hendrickson factor SDs:**
+**Hendrickson factor standard deviations:**
 
 | Factor              |  SD  |
 |:--------------------|-----:|
@@ -365,20 +806,48 @@ variability.
 total_var <- 18.5^2 + 10^2 + 10^2 + 8^2
 ```
 
-Sum of marginal variances:
-`r sprintf("%.0f", total_var)`,
-yielding an implied total SD of
-`r sprintf("%.1f", sqrt(total_var))`.
-The observed CAPS SD is approximately 23.
-Cross-correlations reduce the total below the sum of
-marginal variances.
+The sum of marginal variances is
+`r sprintf("%.0f", total_var)`, yielding an implied total
+SD of `r sprintf("%.1f", sqrt(total_var))`. The observed
+CAPS SD is approximately 23, which is lower than this
+implied value. This is expected: the factors are not
+independent, and cross-correlations (particularly between
+baseline severity and the response factors) reduce the
+total variance below the sum of its components.
 
-# Parameter Comparison Table
+## Why Separate Variances Matter
+
+Each factor has its own variance because the underlying
+mechanisms operate on different timescales and are subject
+to different sources of individual variation:
+
+- **BR variance** (SD = 8) reflects individual differences
+  in pharmacokinetics: metabolism rate, receptor density,
+  drug absorption. Two soldiers on identical prazosin doses
+  may achieve different CNS drug concentrations.
+
+- **TV variance** (SD = 10) reflects heterogeneity in
+  natural disease trajectory: life circumstances,
+  comorbidities, social support, proximity to trauma cues.
+
+- **ER variance** (SD = 10) reflects individual differences
+  in suggestibility, prior treatment experience, and the
+  strength of the therapeutic alliance.
+
+The simulation generates correlated factor values from a
+multivariate normal distribution with a covariance matrix
+that encodes both the marginal variances and the
+between-factor correlations (including the correlation
+between baseline biomarker and BR, which is the target of
+the validation test).
+
+
+# Parameter Comparison
 
 ```{r}
 comparison <- data.table(
-  Factor = c("BR", "TV+ER", "TV (Hendrickson)",
-             "ER (Hendrickson)"),
+  Factor = c("BR", "TV+ER (combined)",
+             "TV (Hendrickson)", "ER (Hendrickson)"),
   max_fitted = c(br_params["maxr"], tver_params["maxr"],
                  NA, NA),
   max_hendrickson = c(10.986, NA, 6.506, 6.506),
@@ -391,62 +860,370 @@ comparison <- data.table(
   sd_hendrickson = c(8, NA, 10, 10)
 )
 
-knitr::kable(comparison, digits = 3,
-             caption = "Parameter comparison")
+knitr::kable(
+  comparison, digits = 3,
+  caption = paste(
+    "Comparison of parameters fitted to Raskind",
+    "group means vs. Hendrickson publication values"
+  )
+)
 ```
 
-# Discussion
 
-## Key Observations
+# How Trial Design Affects Power: Lessons from the Simulation
 
-1. **The BR parameters** (drug-specific response) should
-   closely match Hendrickson's values (max=10.986,
-   disp=5, rate=0.42) because they were derived from the
-   same Raskind data.
+## The Four Designs Compared
 
-2. **The TV+ER parameters** were set equal in Hendrickson
-   ('tabula rasa' assumption) because the placebo trajectory
-   cannot separate time-variant from expectancy-related
-   improvement. The combined placebo trajectory has a single
-   Gompertz fit, which Hendrickson assigned identically to
-   both TV and ER.
+Hendrickson et al. (2020) compared four trial architectures,
+all matched in total duration and number of assessment
+points (see their Figure 2):
 
-3. **The displacement parameter** (disp=5) was the same for
-   all factors. This controls the inflection point of the
-   Gompertz curve and is the least well-constrained parameter
-   given only 4 timepoints.
+1. **Open-label (OL):** 20 weeks of open-label prazosin.
+   All participants know they are on drug. BR and ER are
+   fully confounded; the biomarker-by-drug interaction
+   cannot be tested directly.
 
-4. **The SD values** (8 for BR, 10 for TV/ER) represent
-   between-person variability in each factor, not the total
-   outcome variability. They were likely derived from the
-   variance decomposition of the mixed-effects model used
-   in the Raskind analysis.
+2. **Open-label + blinded discontinuation (OL+BDC):**
+   16 weeks of open-label prazosin, then a 4-week blinded
+   discontinuation. The discontinuation block introduces
+   a within-person contrast but is brief.
 
-## Limitations of This Reconstruction
+3. **Traditional crossover (CO):** Two 10-week periods,
+   randomized to drug-then-placebo or placebo-then-drug.
+   Both periods are blinded. Provides within-person
+   contrast but no open-label stabilization phase.
 
-- Only 4 timepoints are available (weeks 0, 7, 11, 15),
-  providing limited constraint on a 3-parameter model.
-- Weeks 7 and 11 values were interpolated from Figure 1D
-  (approximate).
-- The Gompertz fit is underdetermined with 4 points and
-  3 parameters (only 1 degree of freedom).
-- The published Hendrickson parameters may have used
-  individual-level data (available to the authors but not
-  to us) rather than group means.
+4. **Proposed N-of-1 design:** 8 weeks open-label, 4 weeks
+   blinded discontinuation, then two 4-week crossover
+   blocks. This design combines the clinical advantages
+   of open-label stabilization with the statistical
+   advantages of multiple within-person contrasts.
 
-## Implications for the Simulation
+## Key Findings
 
-The Gompertz parameters control the mean trajectory of
-each factor. They determine:
+The simulation results (Hendrickson Figure 4A) demonstrate
+that:
 
-- **How quickly** each factor reaches its plateau (rate)
-- **How large** the plateau is (max)
-- **The shape** of the approach to plateau (disp)
+- **Design 4 (N-of-1) had the highest power** for detecting
+  the biomarker-treatment interaction under the tabula rasa
+  parameter set, outperforming both the open-label and
+  OL+BDC designs. With 70 subjects and a biomarker-BR
+  correlation of 0.6, the N-of-1 design achieved power of
+  approximately 0.99 without censoring.
 
-The simulation's power estimates are sensitive to the
-ratio of BR max to TV+ER max (signal-to-noise ratio) and
-to the rates (faster BR means more drug effect is captured
-within the assessment window). Figure 5 of Hendrickson
-et al. (2020) explores this sensitivity systematically.
+- **The traditional crossover was comparable** in power to
+  the N-of-1 design (also approximately 0.99 with 70
+  subjects), but lacked the clinical advantage of beginning
+  with open-label stabilization.
+
+- **The open-label design performed poorly** (power of
+  approximately 0.25 with 70 subjects), because it cannot
+  separate BR from ER.
+
+- **Carryover was devastating to power** (Hendrickson
+  Figure 4B). Even a short carryover half-life of 0.1 weeks
+  reduced N-of-1 power substantially, because it blurs the
+  on-drug/off-drug contrast that the design depends on.
+  For prazosin, with its 6--10 hour duration of action, the
+  pharmacokinetic half-life is approximately 0.02--0.03
+  weeks, so carryover should be negligible between weekly
+  assessments.
+
+## Clinical Implications
+
+For the clinician considering an N-of-1 trial to validate
+a predictive biomarker, the Hendrickson results suggest
+several principles:
+
+- **Include an open-label phase** to stabilize acutely
+  symptomatic patients and maximize enrollment. This is
+  ethically important: patients referred for PTSD treatment
+  are unlikely to accept initial randomization to placebo.
+
+- **Choose drugs with short half-lives** (or at least
+  short pharmacodynamic durations). Carryover effects
+  erode the power advantage of crossover designs. Prazosin,
+  with its 6--10 hour duration of action, is well suited
+  to this approach.
+
+- **Maximize the number of within-person contrasts.** The
+  N-of-1 design's advantage comes from having multiple
+  on-drug and off-drug periods within the same patient,
+  which averages out the noise from any single transition.
+
+- **The signal-to-noise ratio matters more than sample
+  size.** Figure 5A of Hendrickson et al. shows that when
+  the BR maximum is large relative to the TR and ER
+  maximums, power approaches 1.0 even with modest sample
+  sizes. The practical implication is that drugs with
+  strong biological effects and short durations of action
+  are ideal candidates for N-of-1 biomarker validation.
+
+
+# Sensitivity to Gompertz Parameters: What Figure 5 Tells Us
+
+The preceding sections establish that the simulation's power
+depends on the trial design and the biomarker-BR correlation.
+But a question of equal practical importance is: *How
+sensitive are these power estimates to the Gompertz
+parameters themselves?* If the true trajectory parameters
+differ from the tabula rasa values, do the design
+recommendations still hold?
+
+Hendrickson et al. (2020) address this directly in their
+Figure 5, which systematically varies the maximum response
+values (Figure 5A) and the rate parameters (Figure 5B)
+across all three factors and all four trial designs. These
+results have important implications for clinicians
+considering which drugs and which outcome measures are
+amenable to N-of-1 biomarker validation.
+
+## Effect of Maximum Response Values (Figure 5A)
+
+Figure 5A presents a 3 x 3 grid of heat maps for each
+trial design. The rows correspond to the BR maximum (5, 8,
+or 11 CAPS points), and the columns correspond to the ER
+maximum (5, 8, or 11), with each cell within a panel
+varying the TR maximum (5, 8, or 11). The biomarker-BR
+correlation is fixed at 0.6 and N = 35.
+
+The results reveal a clear and clinically interpretable
+pattern:
+
+**Increasing BR max improves power across all designs.**
+This is the signal: a larger drug-specific ceiling means
+more separation between high-biomarker and low-biomarker
+patients, making the interaction easier to detect. When
+BR max = 11 (roughly equivalent to the tabula rasa value
+of 10.986), power exceeds 0.90 for the crossover and
+N-of-1 designs regardless of the ER and TR maximums.
+When BR max drops to 5 (a weak drug effect), power falls
+below 0.20 for the open-label design and remains marginal
+even for the crossover.
+
+*Clinical translation:* A drug that produces at most a
+5-point improvement on the CAPS (out of a maximum possible
+score of approximately 136) is a poor candidate for
+biomarker validation via any design. The drug effect is
+simply too small relative to the noise floor. Prazosin,
+with its estimated BR max of approximately 11 CAPS points,
+sits in a favorable region of this parameter space.
+
+**Increasing ER max decreases power, especially for
+designs with expectancy variation.** Larger non-specific
+expectancy effects add variance to the outcome without
+contributing to the biomarker-BR signal. This dilution is
+most pronounced in the OL+BDC and N-of-1 designs, which
+include open-label phases where expectancy is at its
+maximum (1.0) followed by blinded phases where it drops to
+0.5. The resulting within-person ER change adds noise to
+the treatment contrast.
+
+*Clinical translation:* Conditions with large placebo
+responses (e.g., depression, chronic pain) will require
+larger sample sizes or stronger drug effects to achieve
+adequate power. Conditions where the placebo response is
+modest (e.g., neurodegenerative diseases with objective
+biomarkers) may be more favorable for N-of-1 designs.
+
+**Increasing TR max also decreases power.** The
+time-varying component is pure noise from the perspective
+of biomarker validation. It affects all participants
+equally regardless of drug assignment, so it does not
+bias the interaction estimate, but it inflates the
+residual variance and reduces the signal-to-noise ratio.
+
+*Clinical translation:* Diseases with highly variable
+natural trajectories will require larger samples. One
+strategy to mitigate this is to shorten the trial (reducing
+the window over which TV accumulates), but this must be
+balanced against the need for sufficient treatment exposure
+to observe BR.
+
+**The ratio of BR max to non-specific maximums is the
+key quantity.** When BR max = 11 and both ER max and TR
+max = 5 (a favorable signal-to-noise ratio), even the
+open-label design achieves power above 0.60. When the
+ratio reverses (BR max = 5, ER max = TR max = 11), power
+is uniformly poor. This highlights that the choice of
+drug and outcome measure matters as much as the choice of
+trial design.
+
+## Effect of Rate Parameters (Figure 5B)
+
+Figure 5B uses the same grid layout but varies the rate
+parameters (0.2, 0.35, or 0.5 per week) for each factor,
+holding the maximums at their tabula rasa values. The
+biomarker-BR correlation is fixed at 0.3 (lower than in
+Figure 5A), making the power landscape more conservative.
+
+The rate parameter controls how quickly each factor
+approaches its ceiling. A rate of 0.5 means the factor
+reaches half-maximum in approximately 2--3 weeks; a rate
+of 0.2 means this takes 5--7 weeks. The results are less
+straightforward than for the maximums:
+
+**For designs with blinded discontinuation (OL+BDC and
+N-of-1), faster BR rates generally improve power.** A
+higher BR rate means the drug effect ramps up quickly
+during on-drug periods and (because the offset-rescaling
+enforces $f(0) = 0$) disappears quickly when the drug is
+removed. This sharpens the within-person contrast between
+on-drug and off-drug assessments.
+
+**For the traditional crossover, faster BR rates
+paradoxically *decrease* power across much of the
+parameter space.** This occurs because in the crossover
+design, each treatment period is 10 weeks long. When BR
+reaches its ceiling quickly (say by week 3), the remaining
+7 weeks of the period provide assessment points that are
+all at the same plateau value. These 'ceiling' observations
+contain no additional information about the rate of onset
+but do accumulate TV and ER variance. In effect, the
+crossover design wastes assessment points when the drug
+effect saturates early.
+
+*Clinical translation:* The relationship between drug
+onset speed and trial design is not monotonic. For drugs
+with very fast onset (analogous to high BR rate), the
+N-of-1 design with its shorter treatment blocks (4 weeks)
+is more efficient than the crossover with its longer blocks
+(10 weeks). For drugs with slower onset, longer treatment
+blocks may be necessary to observe the full BR trajectory,
+favoring the crossover design.
+
+**Faster ER rates decrease power for the OL+BDC and N-of-1
+designs.** When the expectancy response ramps up quickly,
+it reaches its ceiling during the open-label phase and is
+fully established before the blinded transition. This means
+the ER drop upon entering the blinded phase is large and
+abrupt, adding a substantial within-person change that is
+unrelated to BR. The analysis model must absorb this
+ER-driven variance, reducing the precision of the
+biomarker-by-drug interaction estimate.
+
+**TR rate has minimal impact on power** across most of the
+parameter space and most designs. This is because the
+time-varying component is continuous and gradual: whether
+it reaches its plateau by week 5 or week 10 has little
+effect on the within-person contrasts that drive power in
+the crossover and N-of-1 designs.
+
+## Practical Synthesis
+
+The Figure 5 results can be distilled into a set of
+practical guidelines for clinicians and trialists:
+
+1. **Screen candidate drugs by their signal-to-noise
+   profile.** Before committing to an N-of-1 design,
+   estimate the likely BR max from prior RCT data (as we
+   did from the Raskind trial) and compare it to the
+   expected ER and TR maximums. If BR max is less than half
+   of ER max + TR max, power will be poor regardless of
+   design.
+
+2. **Match block length to drug onset speed.** Fast-onset
+   drugs (high BR rate) benefit from shorter treatment
+   blocks with more transitions (the N-of-1 design).
+   Slow-onset drugs may require longer blocks to observe
+   the full BR trajectory (favoring the crossover).
+
+3. **Account for the placebo response in power
+   calculations.** Conditions with large expectancy effects
+   require larger sample sizes. The tabula rasa assumption
+   (ER max = TR max = 6.5) may be optimistic for conditions
+   like depression, where placebo response rates often
+   exceed 30%.
+
+4. **The Gompertz parameters are not nuisance quantities.**
+   They directly affect the feasibility of biomarker
+   validation. Reporting and estimating these parameters
+   from pilot data should be a standard part of N-of-1
+   trial planning.
+
+
+# Limitations of This Reconstruction
+
+Several caveats apply to the Gompertz parameter estimates
+derived here:
+
+- **Only four timepoints** (weeks 0, 7, 11, 15) are
+  available from the Raskind publication, providing minimal
+  constraint on a three-parameter model. With four data
+  points and three parameters, there is only one residual
+  degree of freedom.
+
+- **Weeks 7 and 11 values were read from Figure 1D** of
+  Raskind et al. (2013) and are approximate. The published
+  table provides exact values only at baseline and week 15.
+
+- **We are fitting group means, not individual data.** The
+  Hendrickson authors had access to the original
+  individual-level data from the Raskind trial, which
+  would provide far more constraint on the Gompertz fit.
+  Our reconstruction is a pedagogical exercise, not a
+  replication.
+
+- **The displacement parameter is poorly constrained.**
+  With only four timepoints, the data cannot distinguish
+  between different values of $\text{disp}$ that produce
+  similar curves over the observed time window. The
+  Hendrickson choice of $\text{disp} = 5$ for all factors
+  was likely guided by the individual-level data and by
+  theoretical considerations about the shape of treatment
+  response curves.
+
+
+# Summary
+
+The Hendrickson et al. (2020) simulation makes a compelling
+case for aggregated N-of-1 designs in predictive biomarker
+validation. The key conceptual ingredients are:
+
+1. **Decomposition of treatment response** into biological
+   (BR), expectancy (ER), and time-varying (TV) components,
+   each following a Gompertz trajectory with parameters
+   derived from the Raskind et al. (2013) prazosin trial.
+
+2. **Isolation of the target signal** (the biomarker-by-BR
+   interaction) from the noise (ER + TV), which
+   concentrates statistical power on the precision medicine
+   question.
+
+3. **Within-person contrasts** achieved through blinded
+   discontinuation and crossover phases, which provide
+   far more efficient estimation of individual-level BR
+   than between-group comparisons.
+
+4. **Practical clinical design** that begins with
+   open-label stabilization to address ethical and
+   enrollment concerns, while preserving statistical power
+   through subsequent blinded phases.
+
+The Gompertz parameters are not arbitrary simulation inputs.
+They are grounded in observable clinical data: the shape and
+magnitude of CAPS score trajectories in a real trial of
+prazosin for combat-related PTSD. Understanding where these
+parameters come from -- and what they represent clinically --
+is essential for interpreting the simulation results and
+for designing future N-of-1 trials in precision psychiatry.
+
+
+# References
+
+- Hendrickson RC, Thomas RG, Schork NJ, Raskind MA (2020).
+  Optimizing aggregated N-of-1 trial designs for predictive
+  biomarker validation: statistical methods and theoretical
+  findings. *Front Digit Health* 2:13.
+
+- Raskind MA, Peterson K, Williams T, et al. (2013). A
+  trial of prazosin for combat trauma PTSD with nightmares
+  in active-duty soldiers returned from Iraq and
+  Afghanistan. *Am J Psychiatry* 170:1003--1010.
+
+- Raskind MA, Peskind ER, Chow B, et al. (2016). Trial of
+  prazosin for post-traumatic stress disorder in military
+  veterans. *Biol Psychiatry* 80:736--742.
+
 
 *Session info:* `r sessionInfo()$R.version$version.string`

@@ -50,6 +50,7 @@
 lme_analysis<-function(trialdesign_set,dat,op){
 
   if(missing(op)){
+    op<-list()
     op$useDE<-TRUE
     op$t_random_slope<-FALSE
     op$full_model_out<-FALSE

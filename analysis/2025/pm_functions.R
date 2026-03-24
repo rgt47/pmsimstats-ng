@@ -1297,326 +1297,354 @@ lme_analysis <- function(trial_design_set, dat, op) {
 
 
 #===========================================================================
-# HENDRICKSON-ALIGNED FUNCTIONS (Phase 1)
-# These functions replicate the exact DGP from Hendrickson et al. (2020)
-# to enable faithful replication before extending with carryover modeling.
 #===========================================================================
+# Step 7a: build_trial_design (tidyverse port of buildtrialdesign)
+#===========================================================================
+build_trial_design <- function(name_longform = 'Trial Design 1',
+                               name_shortform = name_longform,
+                               timepoints,
+                               timeptnames = paste0('V', seq_along(timepoints)),
+                               expectancies,
+                               ondrug) {
 
-#' Modified Gompertz function (Hendrickson original)
-#'
-#' Offset-rescaled version that guarantees f(0) = 0 and asymptotes at
-#' maxr. The pmsimstats2025 mod_gompertz() does NOT pass through the
-#' origin; this version does, matching the original package exactly.
-#'
-#' @param t Time vector
-#' @param maxr Maximum response value
-#' @param disp Displacement parameter
-#' @param rate Rate parameter
-#' @return Numeric vector of response values, with f(0) = 0
-modgompertz_orig <- function(t, maxr, disp, rate) {
-  y <- maxr * exp(-disp * exp(-rate * t))
-  vert_offset <- maxr * exp(-disp * exp(-rate * 0))
-  y <- y - vert_offset
-  y <- y * (maxr / (maxr - vert_offset))
-  y
-}
-
-#' Hendrickson response and baseline parameters
-#'
-#' Extracted from the original pmsimstats package data objects
-#' (extracted_rp.rda, extracted_bp.rda). These are the CAPS5/blood
-#' pressure values used in the published simulations.
-hendrickson_resp_params <- list(
-  tv = list(max = 6.50647, disp = 5, rate = 0.35, sd = 10),
-  pb = list(max = 6.50647, disp = 5, rate = 0.35, sd = 10),
-  br = list(max = 10.98604, disp = 5, rate = 0.42, sd = 8)
-)
-
-hendrickson_bl_params <- list(
-  BL = list(m = 83.069, sd = 18.483),
-  bm = list(m = 124.328, sd = 15.362)
-)
-
-#' Hendrickson correlation defaults
-hendrickson_corr_params <- list(
-  c.tv = 0.7,
-  c.pb = 0.7,
-  c.br = 0.7,
-  c.cf1t = 0.2,
-  c.cfct = 0.1
-)
-
-#' Compute time-since-discontinuation (orig interval-based logic)
-#'
-#' In the original, tsd accumulates interval widths (t_wk) while
-#' off drug, resets to 0 when on drug, and is zeroed for periods
-#' before a participant was ever on drug (via everondrug mask).
-#'
-#' @param t_wk Numeric vector of interval widths (not cumulative)
-#' @param ondrug Binary vector: 1 = on drug, 0 = off drug
-#' @return Numeric vector of time-since-discontinuation values
-compute_tsd_orig <- function(t_wk, ondrug) {
-  nP <- length(ondrug)
-  od_intervals <- t_wk * ondrug
-  tsd <- t_wk * (ondrug != 1)
-  for (iTP in 2:nP) {
-    if (od_intervals[iTP] == 0) {
-      tsd[iTP] <- tsd[iTP] + tsd[iTP - 1]
-    }
-  }
-  everondrug <- (cumsum(ondrug) > 0)
-  tsd * everondrug
-}
-
-#' Compute time-on-drug (orig interval-based logic)
-#'
-#' Accumulates interval widths while on drug, resets when off drug.
-#' This differs from pmsimstats2025's cumsum(treatment) approach
-#' which counts measurement occasions rather than elapsed time.
-#'
-#' @param t_wk Numeric vector of interval widths (not cumulative)
-#' @param ondrug Binary vector: 1 = on drug, 0 = off drug
-#' @return Numeric vector of time-on-drug values
-compute_tod_orig <- function(t_wk, ondrug) {
-  nP <- length(ondrug)
-  od_intervals <- t_wk * ondrug
-  tod <- od_intervals
-  for (iTP in 2:nP) {
-    if (od_intervals[iTP] > 0) {
-      tod[iTP] <- tod[iTP] + tod[iTP - 1]
-    }
-  }
-  tod
-}
-
-#' Compute time-in-placebo-belief (orig interval-based logic)
-#'
-#' Accumulates interval widths while expectancy > 0.
-#'
-#' @param t_wk Numeric vector of interval widths
-#' @param expectancies Numeric vector of expectancy values (0-1)
-#' @return Numeric vector of time-in-placebo-belief values
-compute_tpb_orig <- function(t_wk, expectancies) {
-  nP <- length(expectancies)
-  tpb <- t_wk * (expectancies > 0)
-  for (iTP in 2:nP) {
-    if (tpb[iTP] > 0) {
-      tpb[iTP] <- tpb[iTP] + tpb[iTP - 1]
-    }
-  }
-  tpb
-}
-
-#' Biomarker-BR correlation with exponential decay
-#'
-#' On-drug timepoints receive the full c.bm correlation. Off-drug
-#' timepoints with tsd > 0 receive exponentially decayed correlation:
-#' c.bm * exp(-lambda_cor * tsd). Timepoints before any drug exposure
-#' receive zero correlation.
-#'
-#' @param ondrug Binary vector: 1 = on drug, 0 = off drug
-#' @param tsd Numeric vector of time-since-discontinuation
-#' @param c.bm Base biomarker-BR correlation
-#' @param lambda_cor Correlation decay rate
-#' @param nP Number of timepoints
-#' @return Numeric vector of per-timepoint BM-BR correlations
-build_bm_br_correlations <- function(ondrug, tsd, c.bm,
-                                     lambda_cor, nP) {
-  corrs <- numeric(nP)
-  for (p in 1:nP) {
-    if (ondrug[p] == 1) {
-      corrs[p] <- c.bm
-    } else if (tsd[p] > 0 && lambda_cor > 0) {
-      corrs[p] <- c.bm * exp(-lambda_cor * tsd[p])
-    }
-  }
-  corrs
-}
-
-#' Build per-path sigma matrix (Hendrickson-aligned)
-#'
-#' Constructs the full covariance matrix for a single path through
-#' the trial design, following the original's exact logic:
-#' 1. Compute tod, tsd, tpb from ondrug vector
-#' 2. Compute means via modgompertz_orig
-#' 3. Apply carryover to BR means
-#' 4. Build SDs with expectancy-scaled PB
-#' 5. Build correlation matrix (compound symmetry within-factor,
-#'    Ron Thomas BM-BR scaling)
-#' 6. Sigma = outer(sds, sds) * correlations
-#' 7. PD enforcement via corpcor
-#'
-#' @param timepoints Cumulative timepoint vector (e.g., c(4,8,9,...))
-#' @param ondrug Binary vector for this path
-#' @param expectancies Expectancy vector for this path
-#' @param c.bm Biomarker-BR correlation
-#' @param carryover_t1half Carryover half-life in weeks
-#' @param lambda_cor Correlation decay rate (default NA, auto-computed)
-#' @param resp_params Response parameters (default hendrickson_resp_params)
-#' @param bl_params Baseline parameters (default hendrickson_bl_params)
-#' @param corr_params Correlation parameters (default hendrickson_corr_params)
-#' @param make_pd Force positive definiteness (default TRUE)
-#' @return List with sigma, means, labels, sds, correlations, indices,
-#'   and diagnostic info (brmeans, brtest, bm_br_corrs)
-build_path_sigma <- function(
-    timepoints,
-    ondrug,
-    expectancies,
-    c.bm,
-    carryover_t1half,
-    lambda_cor = NA,
-    resp_params = hendrickson_resp_params,
-    bl_params = hendrickson_bl_params,
-    corr_params = hendrickson_corr_params,
-    make_pd = TRUE) {
-
-  nP <- length(ondrug)
-
-  # Auto-compute lambda_cor from carryover half-life
-  if (is.na(lambda_cor)) {
-    if (carryover_t1half > 0) {
-      lambda_cor <- log(2) / carryover_t1half
-    } else {
-      lambda_cor <- 0
-    }
-  }
-
+  n_paths <- length(ondrug)
   t_wk <- c(timepoints[1],
-            diff(timepoints))
+             diff(timepoints))
 
-  tod <- compute_tod_orig(t_wk, ondrug)
-  tsd <- compute_tsd_orig(t_wk, ondrug)
-  tpb <- compute_tpb_orig(t_wk, expectancies)
-  t_cumulative <- cumsum(t_wk)
+  trialpaths <- map(ondrug, function(od) {
+    od_intervals <- t_wk * od
+    tod <- od_intervals
+    tsd <- t_wk * (od != 1)
+    tpb <- t_wk * (expectancies > 0)
 
-  timeptnames <- paste0('T', seq_len(nP))
-  cl <- c('tv', 'pb', 'br')
+    for (i in 2:length(timepoints)) {
+      if (od_intervals[i] > 0) {
+        tod[i] <- tod[i] + tod[i - 1]
+      } else {
+        tsd[i] <- tsd[i] + tsd[i - 1]
+      }
+      if (tpb[i] > 0) {
+        tpb[i] <- tpb[i] + tpb[i - 1]
+      }
+    }
 
-  labels <- c(
-    'bm', 'BL',
-    paste(timeptnames, cl[1], sep = '.'),
-    paste(timeptnames, cl[2], sep = '.'),
-    paste(timeptnames, cl[3], sep = '.')
+    ever_on_drug <- (cumsum(od) > 0)
+    tsd <- ever_on_drug * tsd
+
+    tibble(
+      timeptnames = timeptnames,
+      t_wk = t_wk,
+      e = expectancies,
+      tod = tod,
+      tsd = tsd,
+      tpb = tpb
+    )
+  })
+
+  metadata <- list(
+    name_longform = name_longform,
+    name_shortform = name_shortform,
+    timepoints = timepoints,
+    timeptnames = timeptnames,
+    expectancies = expectancies,
+    ondrug = ondrug
   )
 
-  sds <- c(bl_params$bm$sd, bl_params$BL$sd)
-  sds <- c(sds, rep(resp_params$tv$sd, nP))
-  sds <- c(sds, rep(resp_params$pb$sd, nP) * expectancies)
-  sds <- c(sds, rep(resp_params$br$sd, nP))
+  list(metadata = metadata, trialpaths = trialpaths)
+}
 
-  tv_means <- modgompertz_orig(t_cumulative,
-    resp_params$tv$max, resp_params$tv$disp, resp_params$tv$rate)
-  pb_means <- modgompertz_orig(tpb,
-    resp_params$pb$max, resp_params$pb$disp, resp_params$pb$rate) *
-    expectancies
 
-  brmeans <- modgompertz_orig(tod,
-    resp_params$br$max, resp_params$br$disp, resp_params$br$rate)
-  brtest <- brmeans == 0
-  rawbrmeans <- brmeans
+#===========================================================================
+# Step 7b: censor_data (tidyverse port of censordata)
+#===========================================================================
+censor_data <- function(dat, trialdesign, censorparam) {
+  td <- as_tibble(trialdesign)
+  td$t_wk_cumulative <- cumsum(td$t_wk)
+  n_tp <- nrow(td)
 
-  if (nP > 1 && carryover_t1half > 0) {
-    for (p in 2:nP) {
-      if (ondrug[p] == 0 && tsd[p] > 0) {
-        brmeans[p] <- brmeans[p] +
-          brmeans[p - 1] * (1/2)^(tsd[p] / carryover_t1half)
-      }
+  tp_names <- if ('timeptnames' %in% names(td)) {
+    td$timeptnames
+  } else if ('timeptname' %in% names(td)) {
+    td$timeptname
+  } else {
+    td$timepoint_name
+  }
+
+  delta_cols <- paste0('D_', tp_names)
+  cdt <- dat |> select(all_of(delta_cols))
+
+  frac_NA <- censorparam$beta0
+  frac_NA_biased <- censorparam$beta1
+  fna1 <- frac_NA * (1 - frac_NA_biased)
+  fna2 <- frac_NA * frac_NA_biased
+
+  cdt_ps1 <- matrix(1, nrow = nrow(cdt), ncol = ncol(cdt))
+  cdt_ps2 <- sapply(cdt, function(x) (x + 100)^censorparam$eb1)
+  cdt_p1 <- t(t(cdt_ps1) * td$t_wk)
+  cdt_p2 <- t(t(cdt_ps2) * td$t_wk)
+
+  nr <- nrow(cdt_p1)
+  nc <- ncol(cdt_p1)
+  cdt_r1 <- runif(nr * nc, min = 0,
+                   max = 2 * mean(cdt_p1) * (0.5 / fna1))
+  cdt_r2 <- runif(nr * nc, min = 0,
+                   max = 2 * mean(cdt_p2) * (0.5 / fna2))
+
+  do1 <- cdt_p1 > matrix(cdt_r1, nrow = nr, ncol = nc)
+  do2 <- cdt_p2 > matrix(cdt_r2, nrow = nr, ncol = nc)
+  do_mat <- do1 | do2
+
+  for (itp in seq_along(tp_names)) {
+    for (tp_idx in 1:itp) {
+      masking_col <- tp_idx
+      masked_tp <- tp_names[itp]
+      mask <- do_mat[, masking_col]
+      dat[[masked_tp]][mask] <- NA
     }
   }
 
-  means <- c(bl_params$bm$m, bl_params$BL$m,
-             tv_means, pb_means, brmeans)
+  dat
+}
 
-  correlations <- diag(length(labels))
-  rownames(correlations) <- labels
-  colnames(correlations) <- labels
 
-  for (cc in cl) {
-    ac <- corr_params[[paste0('c.', cc)]]
-    if (nP > 1) {
-      for (p in 1:(nP - 1)) {
-        for (p2 in (p + 1):nP) {
-          n1 <- paste(timeptnames[p], cc, sep = '.')
-          n2 <- paste(timeptnames[p2], cc, sep = '.')
-          time_gap <- abs(t_cumulative[p2] - t_cumulative[p])
-          correlations[n1, n2] <- ac^time_gap
-          correlations[n2, n1] <- ac^time_gap
+#===========================================================================
+# Step 7c: generate_simulated_results
+# (tidyverse port of generateSimulatedResults)
+#===========================================================================
+generate_simulated_results <- function(
+    trialdesigns, respparamsets, blparamsets,
+    censorparams, modelparams, simparam,
+    analysisparams, rawdataout = FALSE,
+    lambda_cor = NA, n_cores = 1) {
+
+  if (missing(analysisparams)) {
+    analysisparams <- list(useDE = TRUE, t_random_slope = FALSE,
+                           full_model_out = FALSE)
+  }
+
+  if (n_cores < 1) {
+    n_cores <- max(1, parallel::detectCores() - 1)
+  }
+
+  initial_dir <- getwd()
+
+  vpg_master <- expand.grid(
+    trialdesign = seq_along(trialdesigns),
+    respparamset = seq_along(respparamsets),
+    blparamset = seq_along(blparamsets),
+    modelparamset = seq_len(nrow(modelparams))
+  )
+  n_combos <- nrow(vpg_master)
+
+  cat('Caching sigma matrices...\n')
+  sigma_cache <- list()
+  for (i_r in seq_len(n_combos)) {
+    td <- trialdesigns[[vpg_master[i_r, 'trialdesign']]][[2]]
+    rp <- respparamsets[[vpg_master[i_r, 'respparamset']]]$param
+    bpp <- blparamsets[[vpg_master[i_r, 'blparamset']]]$param
+    mpp <- modelparams[vpg_master[i_r, 'modelparamset'], ]
+    n_paths <- length(td)
+
+    for (i_p in seq_len(n_paths)) {
+      cache_key <- paste(vpg_master[i_r, 'trialdesign'],
+                         vpg_master[i_r, 'respparamset'],
+                         vpg_master[i_r, 'blparamset'],
+                         vpg_master[i_r, 'modelparamset'],
+                         i_p, sep = '_')
+      if (is.null(sigma_cache[[cache_key]])) {
+        td_path <- td[[i_p]]
+        if (!'timepoint_name' %in% names(td_path)) {
+          if ('timeptnames' %in% names(td_path)) {
+            td_path$timepoint_name <- td_path$timeptnames
+          }
         }
+        sigma_cache[[cache_key]] <- build_sigma_matrix(
+          mpp, rp, bpp, td_path,
+          factor_types = c('tv', 'pb', 'br'),
+          factor_abbreviations = c('tv', 'pb', 'br'),
+          lambda_cor = lambda_cor
+        )
       }
     }
+  }
+  cat(sprintf('Cached %d unique sigma matrices\n\n',
+              length(sigma_cache)))
 
-    for (c2 in setdiff(cl, cc)) {
-      for (p in 1:nP) {
-        n1 <- paste(timeptnames[p], cc, sep = '.')
-        n2 <- paste(timeptnames[p], c2, sep = '.')
-        correlations[n1, n2] <- corr_params$c.cf1t
-        correlations[n2, n1] <- corr_params$c.cf1t
+  # Progressive save setup
+  if (!simparam$progressiveSave) {
+    n_large_loops <- 1
+    ll_starts <- 1
+    ll_stops <- n_combos
+  } else {
+    n_large_loops <- ceiling(n_combos / simparam$nRep2save)
+    if (n_large_loops > 1) {
+      ll_starts <- c(1, 1 + simparam$nRep2save *
+                       (1:(n_large_loops - 1)))
+      ll_stops <- c(ll_starts[2:n_large_loops] - 1, n_combos)
+    } else {
+      ll_starts <- 1
+      ll_stops <- n_combos
+    }
+  }
+
+  for (i_ll in simparam$saveunit2start:n_large_loops) {
+    vpg <- vpg_master[ll_starts[i_ll]:ll_stops[i_ll], ,
+                      drop = FALSE]
+    i_paramset <- ll_starts[i_ll]
+    n_r <- nrow(vpg)
+
+    run_one <- function(i_r) {
+      td <- trialdesigns[[vpg[i_r, 'trialdesign']]][[2]]
+      rp <- respparamsets[[vpg[i_r, 'respparamset']]]$param
+      bpp <- blparamsets[[vpg[i_r, 'blparamset']]]$param
+      mpp <- modelparams[vpg[i_r, 'modelparamset'], ]
+
+      n_paths <- length(td)
+      Ns <- mpp$N %/% n_paths
+      Ns <- Ns + c(rep(1, mpp$N %% n_paths),
+                    rep(0, n_paths - mpp$N %% n_paths))
+      NNs <- Ns * simparam$Nreps
+
+      mpp_copy <- mpp
+      mpp_copy$N <- NNs[[1]]
+      ck <- paste(vpg[i_r, 'trialdesign'],
+                  vpg[i_r, 'respparamset'],
+                  vpg[i_r, 'blparamset'],
+                  vpg[i_r, 'modelparamset'],
+                  1, sep = '_')
+
+      td_path <- td[[1]]
+      if (!'timepoint_name' %in% names(td_path)) {
+        if ('timeptnames' %in% names(td_path)) {
+          td_path$timepoint_name <- td_path$timeptnames
+        }
       }
-      if (nP > 1) {
-        for (p in 1:(nP - 1)) {
-          for (p2 in (p + 1):nP) {
-            n1 <- paste(timeptnames[p], cc, sep = '.')
-            n2 <- paste(timeptnames[p2], c2, sep = '.')
-            time_gap <- abs(t_cumulative[p2] - t_cumulative[p])
-            correlations[n1, n2] <- corr_params$c.cfct * ac^time_gap
-            correlations[n2, n1] <- corr_params$c.cfct * ac^time_gap
+
+      dat <- generate_data(mpp_copy, rp, bpp, td_path,
+                           empirical = FALSE,
+                           make_positive_definite = TRUE,
+                           cached_sigma = sigma_cache[[ck]])
+      dat$path <- 1
+      dat$replicate <- rep(1:simparam$Nreps, Ns[1])
+
+      if (n_paths > 1) {
+        for (i_p in 2:n_paths) {
+          mpp_copy$N <- NNs[[i_p]]
+          ck <- paste(vpg[i_r, 'trialdesign'],
+                      vpg[i_r, 'respparamset'],
+                      vpg[i_r, 'blparamset'],
+                      vpg[i_r, 'modelparamset'],
+                      i_p, sep = '_')
+          td_p <- td[[i_p]]
+          if (!'timepoint_name' %in% names(td_p)) {
+            if ('timeptnames' %in% names(td_p)) {
+              td_p$timepoint_name <- td_p$timeptnames
+            }
+          }
+          dat2 <- generate_data(mpp_copy, rp, bpp, td_p,
+                                empirical = FALSE,
+                                make_positive_definite = TRUE,
+                                cached_sigma = sigma_cache[[ck]])
+          dat2$path <- i_p
+          dat2$replicate <- rep(1:simparam$Nreps, Ns[i_p])
+          dat <- bind_rows(dat, dat2)
+        }
+      }
+      mpp_copy$N <- sum(Ns)
+
+      results_list <- list()
+      ridx <- 0
+
+      for (i_ap in seq_len(nrow(analysisparams))) {
+        ap_row <- as.list(analysisparams[i_ap, ])
+        et_out <- lme_analysis(td, dat, ap_row)
+        for (i_s in seq_len(simparam$Nreps)) {
+          dat_rep <- dat |> filter(replicate == i_s)
+          a_out <- lme_analysis(td, dat_rep, ap_row)
+          ridx <- ridx + 1
+          results_list[[ridx]] <- bind_cols(
+            as_tibble(vpg[i_r, , drop = FALSE]),
+            as_tibble(as.list(mpp_copy)),
+            tibble(
+              censorparamset = 0,
+              use_DE = ap_row$useDE,
+              t_random_slope = ap_row$t_random_slope,
+              irep = (i_r - 1) * simparam$Nreps + i_s,
+              frac_NA = 0,
+              ETbeta = et_out$beta,
+              ETbetaSE = et_out$betaSE,
+              beta = a_out$beta,
+              betaSE = a_out$betaSE,
+              p = a_out$p,
+              issingular = a_out$issingular,
+              warning = a_out$warning
+            )
+          )
+        }
+
+        nocensoring <- length(censorparams) < 2 &&
+          is.na(censorparams)
+        if (!nocensoring) {
+          for (i_c in seq_len(nrow(censorparams))) {
+            datc <- censor_data(dat, td[[1]], censorparams[i_c, ])
+            for (i_s in seq_len(simparam$Nreps)) {
+              datc_rep <- datc |> filter(replicate == i_s)
+              frac_na <- sum(is.na(datc_rep)) /
+                (mpp_copy$N * nrow(td[[1]]))
+              a_out <- lme_analysis(td, datc_rep, ap_row)
+              ridx <- ridx + 1
+              results_list[[ridx]] <- bind_cols(
+                as_tibble(vpg[i_r, , drop = FALSE]),
+                as_tibble(as.list(mpp_copy)),
+                tibble(
+                  censorparamset = i_c,
+                  use_DE = ap_row$useDE,
+                  t_random_slope = ap_row$t_random_slope,
+                  irep = (i_r - 1) * simparam$Nreps + i_s,
+                  frac_NA = frac_na,
+                  ETbeta = et_out$beta,
+                  ETbetaSE = et_out$betaSE,
+                  beta = a_out$beta,
+                  betaSE = a_out$betaSE,
+                  p = a_out$p,
+                  issingular = a_out$issingular,
+                  warning = a_out$warning
+                )
+              )
+            }
           }
         }
       }
+      bind_rows(results_list)
+    }
+
+    out_parts <- map(seq_len(n_r), function(i_r) {
+      cat(sprintf('Parameter set %d of %d (%d of %d total)\n',
+                  i_r, n_r, i_paramset + i_r - 1, n_combos))
+      run_one(i_r)
+    })
+    out <- bind_rows(out_parts)
+
+    outpt <- list(
+      results = out,
+      parameterselections = list(
+        trialdesigns = trialdesigns,
+        respparamsets = respparamsets,
+        blparamsets = blparamsets,
+        censorparams = censorparams,
+        modelparams = modelparams,
+        analysisparams = analysisparams,
+        simparam = simparam
+      )
+    )
+
+    if (simparam$progressiveSave) {
+      setwd(simparam$savedir)
+      saveRDS(outpt, paste(simparam$basesavename, i_ll,
+                           sep = '_save'))
     }
   }
 
-  bm_br_corrs <- build_bm_br_correlations(
-    ondrug, tsd, c.bm = c.bm,
-    lambda_cor = lambda_cor, nP = nP
-  )
-  for (p in 1:nP) {
-    n1 <- paste(timeptnames[p], 'br', sep = '.')
-    correlations['bm', n1] <- bm_br_corrs[p]
-    correlations[n1, 'bm'] <- bm_br_corrs[p]
-  }
-
-  sigma <- outer(sds, sds) * correlations
-
-  was_pd <- corpcor::is.positive.definite(sigma)
-  if (make_pd && !was_pd) {
-    sigma <- corpcor::make.positive.definite(sigma, tol = 1e-3)
-  }
-
-  bm_idx <- 1
-  bl_idx <- 2
-  tv_idx <- 3:(2 + nP)
-  pb_idx <- (3 + nP):(2 + 2 * nP)
-  br_idx <- (3 + 2 * nP):(2 + 3 * nP)
-
-  list(
-    sigma = sigma,
-    means = means,
-    labels = labels,
-    sds = sds,
-    correlations = correlations,
-    indices = list(
-      bm = bm_idx, bl = bl_idx,
-      tv = tv_idx, pb = pb_idx, br = br_idx,
-      nP = nP
-    ),
-    path_info = list(
-      ondrug = ondrug,
-      tod = tod,
-      tsd = tsd,
-      tpb = tpb,
-      t_wk = t_wk,
-      t_cumulative = t_cumulative,
-      timeptnames = timeptnames,
-      expectancies = expectancies
-    ),
-    diagnostics = list(
-      brmeans = brmeans,
-      rawbrmeans = rawbrmeans,
-      brtest = brtest,
-      bm_br_corrs = bm_br_corrs,
-      was_pd = was_pd,
-      eigenvalues = eigen(sigma, only.values = TRUE)$values
-    )
-  )
+  setwd(initial_dir)
+  if (!simparam$progressiveSave) outpt
 }

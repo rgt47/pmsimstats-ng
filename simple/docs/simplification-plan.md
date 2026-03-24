@@ -78,6 +78,7 @@ Consider dropping TR initially; add back if baseline drift is important.
 | GEE | `geepack::geeglm()` | Robust to correlation misspecification | Slightly complex |
 | Random intercept LMM | `lme4::lmer(y ~ x + (1|id))` | Simpler than full lme | Still mixed model |
 | Simple linear regression | `lm(response ~ on_drug * biomarker)` | Ignores clustering | Biased SE but fast |
+| RM-ANOVA | `aov(y ~ bm_group * drug + Error(id/drug))` | Familiar to clinicians, handles within-subject factor | Requires dichotomized biomarker (~36% information loss); sphericity assumption |
 
 **Recommendation**: Use **ANCOVA on change scores** as primary analysis:
 
@@ -490,9 +491,153 @@ screening tool when followed by a properly specified model.
 
 ---
 
+#### Method 6: Repeated measures ANOVA (biomarker dichotomized)
+
+**Setup.** Because repeated measures ANOVA requires a grouping factor
+(not a continuous covariate), the biomarker must be dichotomized:
+
+$$G_i = \begin{cases} 1 & \text{if } bm_i > \text{median}(bm) \\
+0 & \text{otherwise} \end{cases}$$
+
+The data are arranged as a $N \times T$ matrix of outcomes, with two
+between-subject groups ($G = 0, 1$) and a within-subject factor $D$
+(on-drug vs. off-drug). If the design has multiple timepoints within
+each drug condition, there is an additional within-subject factor for
+time nested within drug phase.
+
+**Model (split-plot / mixed ANOVA):**
+
+$$Y_{it} = \mu + \alpha_{G_i} + \delta_{D_{it}} +
+(\alpha\delta)_{G_i, D_{it}} + \pi_i + \varepsilon_{it}$$
+
+where:
+
+- $\mu$ is the grand mean
+- $\alpha_{G_i}$ is the between-subject biomarker group effect
+- $\delta_{D_{it}}$ is the within-subject drug effect
+- $(\alpha\delta)_{G_i, D_{it}}$ is the biomarker-by-drug interaction
+- $\pi_i \sim N(0, \sigma^2_\pi)$ is the subject effect (random)
+- $\varepsilon_{it} \sim N(0, \sigma^2_\varepsilon)$ is the residual
+
+**Interaction test:** $H_0: (\alpha\delta)_{G,D} = 0$ for all
+combinations, tested via the $F$-statistic:
+
+$$F = \frac{\text{MS}_{G \times D}}{\text{MS}_{\text{error}(within)}}$$
+
+with $df_1 = (g-1)(d-1)$ and $df_2 = (N-g)(d-1)$, where $g = 2$
+(biomarker groups) and $d = 2$ (on-drug, off-drug). Under the simple
+two-group, two-condition case: $df_1 = 1$ and $df_2 = N - 2$.
+
+**Sphericity.** When more than two levels of the within-subject factor
+are present (e.g., multiple timepoints within each drug phase), the
+$F$-test assumes sphericity: equal variances of all pairwise differences
+between within-subject levels. Violation inflates the Type I error rate.
+The Greenhouse-Geisser (GG) and Huynh-Feldt (HF) corrections multiply
+both $df_1$ and $df_2$ by a correction factor
+$\hat{\varepsilon} \in [1/(k-1), 1]$:
+
+$$F_\text{corrected}: \quad df_1' = df_1 \cdot \hat{\varepsilon},
+\quad df_2' = df_2 \cdot \hat{\varepsilon}$$
+
+When the within-subject factor is simply on-drug vs. off-drug ($k = 2$),
+sphericity is satisfied trivially (there is only one pairwise
+difference), and no correction is needed. When timepoints within phases
+are retained as separate levels, the correction becomes relevant.
+
+**Precision of the interaction test:**
+
+For the simple case ($g = 2$ groups, $d = 2$ drug conditions, collapsing
+timepoints within phases into means):
+
+$$\text{MS}_{G \times D} =
+\frac{N}{4} \left(
+(\bar{\Delta}_\text{high} - \bar{\Delta}_\text{low})
+\right)^2$$
+
+$$\text{MS}_\text{error(within)} =
+\frac{1}{N-2} \sum_{i=1}^{N}
+(\Delta_i - \bar{\Delta}_{G_i})^2$$
+
+where $\Delta_i = \bar{Y}_{i,\text{on}} - \bar{Y}_{i,\text{off}}$ as
+in the ANCOVA approach. The noncentrality parameter for the $F$-test is:
+
+$$\lambda = \frac{N}{4} \cdot
+\frac{(\mu_{\Delta,\text{high}} -
+\mu_{\Delta,\text{low}})^2}{\sigma^2_\Delta}$$
+
+**Comparison to ANCOVA (Method 1).** The repeated measures ANOVA on
+phase means with dichotomized biomarker is algebraically equivalent to a
+two-sample $t$-test on $\Delta_i$ between biomarker groups. The ANCOVA
+on change scores with continuous biomarker tests the same conceptual
+hypothesis but retains the full biomarker distribution. The efficiency
+loss from dichotomization is well established: for a normally distributed
+biomarker, the median split retains only $2/\pi \approx 63.7\%$ of the
+information, corresponding to a relative efficiency of approximately
+0.64 (Cohen 1983, Royston et al. 2006). In sample-size terms, the
+repeated measures ANOVA requires approximately $N/0.64 \approx 1.57N$
+subjects to achieve the same power as ANCOVA with a continuous biomarker.
+
+**When timepoints are not collapsed.** If the full set of $T$ timepoints
+is retained as within-subject levels (rather than collapsing into phase
+means), the model becomes a two-way mixed ANOVA with $G$ (between) and
+timepoint (within). The interaction $G \times \text{timepoint}$ tests
+whether the two biomarker groups have different temporal profiles, which
+is broader than the targeted $bm \times D$ interaction. This formulation:
+
+- Gains power from using all observations (no information loss from
+  averaging)
+- Loses specificity by testing a composite hypothesis across all
+  timepoints rather than the drug contrast specifically
+- Requires the sphericity assumption across all $T$ timepoints, which
+  is typically violated in longitudinal data and necessitates GG/HF
+  correction
+- The corrected degrees of freedom can substantially reduce power when
+  $\hat{\varepsilon}$ is small (strong autocorrelation, many timepoints)
+
+**Design implications:**
+
+| Design feature | Effect on power | Mechanism |
+|:---------------|:----------------|:----------|
+| More subjects ($N \uparrow$) | $\propto N$ (via noncentrality $\lambda$) | More independent group comparisons |
+| More on/off-drug assessments | Reduces $\sigma^2_\Delta$ when collapsing to phase means (same as ANCOVA) | More precise within-subject drug effect estimate |
+| Balanced phases ($\bar{D} \to 0.5$) | Same benefit as ANCOVA | Minimizes variance of $\Delta_i$ |
+| Balanced biomarker groups ($N_\text{high} \approx N_\text{low}$) | Maximizes $F$-test power | Median split guarantees this for even $N$ |
+| More crossovers ($K \uparrow$) | Indirect benefit via $n_\text{on}$, $n_\text{off}$ | Same as ANCOVA |
+| More timepoints retained as levels | Increases $df_1$ but triggers sphericity issues | GG/HF correction can offset gains |
+| Autocorrelation ($\rho \uparrow$) | Reduces $\hat{\varepsilon}$ when timepoints retained | Corrected $df$ shrink, widening the rejection threshold |
+
+**Design-specific behavior:**
+
+- **OL:** No within-subject drug factor. The within-subject factor
+  becomes time, and the interaction $G \times \text{time}$ tests whether
+  biomarker groups have different slopes. Same confounding problem as all
+  other methods.
+- **OL+BDC:** The within-subject drug factor has two levels (on/off) but
+  is heavily imbalanced. Collapsing to phase means is necessary; the
+  sparse off-drug phase inflates $\sigma^2_\Delta$.
+- **CO:** Clean two-level within-subject drug factor with balanced
+  phases. Sphericity is trivially satisfied (two levels). The repeated
+  measures ANOVA is most natural here.
+- **N-of-1:** Multiple drug-on and drug-off blocks. If collapsed to
+  phase means, behaves like ANCOVA with good balance. If blocks are
+  retained as separate within-subject levels, sphericity becomes a
+  concern.
+
+**Summary.** Repeated measures ANOVA is conceptually accessible and
+widely implemented, making it attractive for clinical audiences.
+However, for the biomarker interaction test specifically, it suffers
+from two compounding limitations: (1) dichotomization of the biomarker
+discards approximately 36% of the information, and (2) when timepoints
+are retained rather than collapsed, sphericity violations and
+GG/HF corrections can further erode power. For these reasons, ANCOVA
+on change scores (Method 1) or the random intercept LMM (Method 4)
+are generally preferable when the biomarker is continuous.
+
+---
+
 #### The OL design: a fundamentally different interaction test
 
-For the open-label design, all five methods face the same problem: there
+For the open-label design, all six methods face the same problem: there
 is no within-subject drug variation. The interaction must be formulated
 as biomarker-by-time:
 
@@ -532,9 +677,17 @@ entries are proportional to $1/\text{Var}(\hat{\beta}_\text{interaction})$
 | **ANCOVA info** | $N \cdot \text{Var}(bm) \cdot \text{Var}(b_i)^{-1}$ | $N \cdot \text{Var}(bm) \cdot \sigma^{-2}_\Delta$ | $N \cdot \text{Var}(bm) \cdot \sigma^{-2}_\Delta$ | $N \cdot \text{Var}(bm) \cdot \sigma^{-2}_\Delta$ |
 | **LMM info** | $\sum \widetilde{bm}^2_i \cdot \text{SS}(t_i)$ | $\sum \widetilde{bm}^2_i \cdot 1.5$ | $\sum \widetilde{bm}^2_i \cdot 2.0$ | $\sum \widetilde{bm}^2_i \cdot 2.9$ |
 | **GEE info** | ~Same as LMM | ~Same as LMM | ~Same as LMM | ~Same as LMM |
+| **RM-ANOVA info** | ~$0.64 \times$ ANCOVA | ~$0.64 \times$ ANCOVA | ~$0.64 \times$ ANCOVA | ~$0.64 \times$ ANCOVA |
 | **$K$ (transitions)** | 0 | 1 | 1 | 3 |
 | **Autocorrelation vulnerability** | Low (no transitions) | Medium (1 long block + 1 short block) | Medium (2 long blocks) | Low per block (shorter blocks) but more boundary effects |
 | **Carryover vulnerability** | None (no transitions) | Low (1 transition) | Low (1 transition) | High (3 transitions) |
+
+The RM-ANOVA row reflects the ~$2/\pi$ efficiency penalty from
+dichotomizing the biomarker at the median. If timepoints within phases
+are retained as separate within-subject levels rather than collapsed to
+phase means, GG/HF corrections further reduce effective degrees of
+freedom under autocorrelation, widening the gap relative to the
+regression-based methods.
 
 The N-of-1 design achieves the highest information for the biomarker
 interaction under the LMM and GEE approaches when carryover is absent,

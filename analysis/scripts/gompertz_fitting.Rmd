@@ -1,0 +1,457 @@
+---
+title: "Gompertz Model Fitting: Reverse-Engineering the Hendrickson
+  Parameters from the Raskind et al. (2013) Trial Data"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+  pdf_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(data.table)
+library(ggplot2)
+library(minpack.lm)  # for nlsLM (robust nonlinear least squares)
+```
+
+# Background
+
+The Hendrickson et al. (2020) simulation uses a modified Gompertz
+function to model the expected trajectory of each response factor
+(BR, ER, TR) over time. The parameters for this function were
+extracted from the Raskind et al. (2013) parallel-group RCT of
+prazosin for PTSD in active-duty soldiers (Am J Psychiatry
+170:1003-1010).
+
+This document reverse-engineers the data from the published
+figures and tables, fits the modified Gompertz model, and
+compares the fitted parameters with those used in the simulation.
+
+# Summary of Raskind et al. (2013)
+
+**Trial design:** 15-week double-blind RCT, N=67 (32 prazosin,
+35 placebo), with 6-week titration period. Assessments at
+baseline, weeks 7, 11, and 15.
+
+**The biomarker:** Standing systolic blood pressure (2 min after
+standing). Table 3 shows baseline standing systolic BP: prazosin
+group mean=125, placebo group mean=121 mmHg. Blood pressure did
+not significantly differ over time or between groups (p=0.61).
+
+**The outcome:** CAPS total score. Baseline: prazosin 77.3,
+placebo 85.7. Week 15: prazosin 52.4, placebo 71.9. Difference
+in change from baseline: 11.3 points (p=0.02).
+
+**Where the Hendrickson simulation parameters came from:**
+
+- Baseline CAPS mean (83.07) and SD (18.48): averaged from
+  both groups
+- Baseline BP mean (124.33) and SD (15.36): averaged from
+  both groups
+- BR trajectory (max=10.99, rate=0.42): fit to the
+  prazosin-minus-placebo difference curve (Figure 1D shows
+  the divergence)
+- TV+ER trajectory (max=6.51, rate=0.35): fit to the placebo
+  group trajectory
+
+**The biomarker-treatment interaction finding:** This paper does
+not test it directly. Hendrickson et al. (2020) cites a separate
+post-hoc analysis (Raskind et al. 2016, Biol Psychiatry
+80:736-42) that found 'higher pretreatment blood pressure is
+associated with greater PTSD symptom reduction in soldiers
+treated with prazosin.' That finding motivated the N-of-1 trial
+design to validate the biomarker prospectively.
+
+**Prazosin pharmacokinetics:** The paper notes prazosin has a
+'short duration of action (6 to 10 hours),' which is why
+twice-daily dosing was used. This maps to a carryover half-life
+of roughly 3-5 hours (0.02-0.03 weeks) -- much shorter than
+even the Hendrickson publication's 0.1 weeks. At these true
+pharmacokinetic half-lives, the carryover residual between
+weekly assessments is negligible.
+
+# The Modified Gompertz Function
+
+The function used in pmsimstats is:
+
+$$f(t) = \text{max} \cdot e^{-\text{disp} \cdot e^{-\text{rate} \cdot t}}$$
+
+with an offset-rescaling to ensure $f(0) = 0$ and
+$f(\infty) = \text{max}$:
+
+```{r}
+modgompertz <- function(t, maxr, disp, rate) {
+  y <- maxr * exp(-disp * exp(-rate * t))
+  vert_offset <- maxr * exp(-disp * exp(-rate * 0))
+  y <- y - vert_offset
+  y <- y * (maxr / (maxr - vert_offset))
+  y
+}
+```
+
+# Extracting Data from Raskind et al. (2013)
+
+## CAPS Total Score Trajectories
+
+From Table 3 and Figure 1D of Raskind et al. (2013):
+
+```{r}
+# Assessment timepoints (weeks)
+weeks <- c(0, 7, 11, 15)
+
+# CAPS total scores (adjusted means from Table 3)
+caps_prazosin <- c(77.3, NA, NA, 52.4)
+caps_placebo  <- c(85.7, NA, NA, 71.9)
+
+# Interpolate weeks 7 and 11 from Figure 1D
+# (read approximately from the plotted curves)
+caps_prazosin <- c(77.3, 60, 54, 52.4)
+caps_placebo  <- c(85.7, 76, 74, 71.9)
+
+trial_data <- data.table(
+  week = rep(weeks, 2),
+  caps = c(caps_prazosin, caps_placebo),
+  group = rep(c("Prazosin", "Placebo"), each = 4)
+)
+
+# Compute change from baseline (improvement is positive)
+trial_data[, baseline := caps[1], by = group]
+trial_data[, improvement := baseline - caps]
+```
+
+## Visualize the Raw Trajectories
+
+```{r fig.width=8, fig.height=4}
+ggplot(trial_data, aes(x = week, y = improvement,
+                       color = group, shape = group)) +
+  geom_point(size = 3) +
+  geom_line(linewidth = 0.8) +
+  labs(x = "Week", y = "Improvement from baseline (CAPS points)",
+       title = "CAPS Score Improvement: Raskind et al. (2013)",
+       subtitle = "Reconstructed from Table 3 and Figure 1D") +
+  scale_color_manual(values = c("Placebo" = "red",
+                                "Prazosin" = "blue")) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "right")
+```
+
+## Decompose into Three Factors
+
+Following Hendrickson et al. (2020):
+
+- **TV + ER** (combined): the placebo group trajectory.
+  Since placebo participants receive no drug, their
+  improvement is entirely non-specific (time-variant +
+  expectancy).
+- **BR**: the difference between prazosin and placebo
+  trajectories. This isolates the drug-specific effect.
+
+```{r}
+# Separate by group
+praz <- trial_data[group == "Prazosin"]
+plac <- trial_data[group == "Placebo"]
+
+# BR = prazosin improvement - placebo improvement
+br_improvement <- praz$improvement - plac$improvement
+
+# TV+ER = placebo improvement
+tver_improvement <- plac$improvement
+
+factor_data <- data.table(
+  week = weeks,
+  BR = br_improvement,
+  TV_ER = tver_improvement
+)
+
+cat("Factor decomposition:\n")
+print(factor_data)
+```
+
+```{r fig.width=8, fig.height=4}
+factor_long <- melt(factor_data, id.vars = "week",
+                    variable.name = "factor",
+                    value.name = "improvement")
+
+ggplot(factor_long, aes(x = week, y = improvement,
+                        color = factor, shape = factor)) +
+  geom_point(size = 3) +
+  geom_line(linewidth = 0.8) +
+  labs(x = "Week",
+       y = "Improvement (CAPS points)",
+       title = "Factor Decomposition",
+       subtitle = "BR = drug-specific; TV+ER = non-specific") +
+  scale_color_manual(
+    values = c("BR" = "blue", "TV_ER" = "brown"),
+    labels = c("BR (drug-specific)",
+               "TV+ER (non-specific)")) +
+  theme_minimal(base_size = 12)
+```
+
+# Fitting the Modified Gompertz
+
+## Fit to BR (Drug-Specific Response)
+
+```{r}
+# Remove baseline (t=0, improvement=0) for fitting
+# but it is implicitly enforced by the offset-rescaling
+br_fit_data <- data.table(
+  t = factor_data$week,
+  y = factor_data$BR
+)
+
+# Fit using nonlinear least squares
+# Start values informed by Hendrickson parameters
+fit_br <- nlsLM(
+  y ~ modgompertz(t, maxr, disp, rate),
+  data = br_fit_data,
+  start = list(maxr = 12, disp = 5, rate = 0.3),
+  lower = c(maxr = 1, disp = 0.1, rate = 0.01),
+  upper = c(maxr = 50, disp = 20, rate = 2)
+)
+
+cat("=== BR (Biologic Response) Gompertz Fit ===\n")
+summary(fit_br)
+
+br_params <- coef(fit_br)
+cat("\nFitted parameters:\n")
+cat(sprintf("  max  = %.3f\n", br_params["maxr"]))
+cat(sprintf("  disp = %.3f\n", br_params["disp"]))
+cat(sprintf("  rate = %.3f\n", br_params["rate"]))
+
+cat("\nHendrickson parameters:\n")
+cat("  max  = 10.986\n")
+cat("  disp = 5.000\n")
+cat("  rate = 0.420\n")
+```
+
+## Fit to TV+ER (Non-Specific Response)
+
+```{r}
+tver_fit_data <- data.table(
+  t = factor_data$week,
+  y = factor_data$TV_ER
+)
+
+fit_tver <- nlsLM(
+  y ~ modgompertz(t, maxr, disp, rate),
+  data = tver_fit_data,
+  start = list(maxr = 15, disp = 5, rate = 0.3),
+  lower = c(maxr = 1, disp = 0.1, rate = 0.01),
+  upper = c(maxr = 50, disp = 20, rate = 2)
+)
+
+cat("=== TV+ER (Non-Specific Response) Gompertz Fit ===\n")
+summary(fit_tver)
+
+tver_params <- coef(fit_tver)
+cat("\nFitted parameters:\n")
+cat(sprintf("  max  = %.3f\n", tver_params["maxr"]))
+cat(sprintf("  disp = %.3f\n", tver_params["disp"]))
+cat(sprintf("  rate = %.3f\n", tver_params["rate"]))
+
+cat("\nHendrickson parameters (TV = ER = 'tabula rasa'):\n")
+cat("  max  = 6.506\n")
+cat("  disp = 5.000\n")
+cat("  rate = 0.350\n")
+```
+
+## Visualize the Fits
+
+```{r fig.width=10, fig.height=5}
+t_smooth <- seq(0, 20, by = 0.1)
+
+# Fitted curves
+br_curve <- data.table(
+  t = t_smooth,
+  y = modgompertz(t_smooth, br_params["maxr"],
+                  br_params["disp"], br_params["rate"]),
+  source = "Fitted BR"
+)
+tver_curve <- data.table(
+  t = t_smooth,
+  y = modgompertz(t_smooth, tver_params["maxr"],
+                  tver_params["disp"], tver_params["rate"]),
+  source = "Fitted TV+ER"
+)
+
+# Hendrickson curves
+br_hend <- data.table(
+  t = t_smooth,
+  y = modgompertz(t_smooth, 10.986, 5, 0.42),
+  source = "Hendrickson BR"
+)
+tver_hend <- data.table(
+  t = t_smooth,
+  y = modgompertz(t_smooth, 6.506, 5, 0.35),
+  source = "Hendrickson TV+ER"
+)
+
+curves <- rbind(br_curve, tver_curve, br_hend, tver_hend)
+
+# Observed data points
+obs <- rbind(
+  data.table(t = weeks, y = factor_data$BR,
+             source = "Observed BR"),
+  data.table(t = weeks, y = factor_data$TV_ER,
+             source = "Observed TV+ER")
+)
+
+ggplot() +
+  geom_line(data = curves, aes(x = t, y = y,
+            color = source, linetype = source),
+            linewidth = 0.8) +
+  geom_point(data = obs, aes(x = t, y = y,
+             color = source), size = 3) +
+  scale_color_manual(values = c(
+    "Fitted BR" = "blue",
+    "Hendrickson BR" = "blue",
+    "Fitted TV+ER" = "brown",
+    "Hendrickson TV+ER" = "brown",
+    "Observed BR" = "blue",
+    "Observed TV+ER" = "brown")) +
+  scale_linetype_manual(values = c(
+    "Fitted BR" = "solid",
+    "Hendrickson BR" = "dashed",
+    "Fitted TV+ER" = "solid",
+    "Hendrickson TV+ER" = "dashed")) +
+  labs(x = "Week",
+       y = "Improvement (CAPS points)",
+       title = "Gompertz Fits: Observed Data vs Hendrickson Parameters",
+       subtitle = paste("Solid = fitted to Raskind data;",
+                        "Dashed = Hendrickson publication values")) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "right")
+```
+
+# Variance Estimation
+
+The between-person SD of each factor is needed for the
+covariance matrix. Hendrickson used SD = 8 for BR and
+SD = 10 for TV+ER.
+
+```{r}
+# From Raskind Table 3:
+# CAPS total score baseline SD (from 95% CI width):
+# Prazosin: 77.3, 95% CI = 69.1-85.5 -> SE = 4.1, SD = 4.1*sqrt(32) = 23.2
+# Placebo:  85.7, 95% CI = 78.0-93.3 -> SE = 3.9, SD = 3.9*sqrt(35) = 23.1
+
+# Change from baseline SD:
+# Difference in change: 11.3, 95% CI = 2.0-20.7
+# SE of difference = (20.7-2.0)/(2*1.96) = 4.77
+# Since SE = sqrt(SD_praz^2/n_praz + SD_plac^2/n_plac)
+# and if SD_praz ~ SD_plac ~ SD:
+# 4.77 = SD * sqrt(1/32 + 1/35) = SD * 0.247
+# SD of change ~ 19.3
+
+# The SD of 8 (BR) and 10 (TV+ER) in Hendrickson are
+# lower than the raw CAPS SD because they represent the
+# SD of each FACTOR, not the total outcome. The total
+# outcome SD includes all three factors plus baseline
+# variability.
+
+cat("=== Variance Decomposition ===\n\n")
+cat("Raw CAPS total score SD (from trial): ~23 points\n")
+cat("This includes baseline variability + all 3 factors\n\n")
+
+cat("Hendrickson factor SDs:\n")
+cat("  BR (drug-specific):    SD = 8\n")
+cat("  TV (time-variant):     SD = 10\n")
+cat("  ER (expectancy):       SD = 10\n")
+cat("  Baseline (BL):         SD = 18.5\n\n")
+
+# Check: total variance at a timepoint should approximate
+# the observed outcome variance
+# Var(outcome) ~ Var(BL) + Var(TV) + Var(ER) + Var(BR) + cross-terms
+# With autocorrelation and cross-factor correlation, the
+# relationship is complex, but the marginal variances give
+# an approximate bound:
+total_var <- 18.5^2 + 10^2 + 10^2 + 8^2
+cat(sprintf("Sum of marginal variances: %.0f\n", total_var))
+cat(sprintf("Implied total SD: %.1f\n", sqrt(total_var)))
+cat("Observed CAPS SD: ~23\n")
+cat("(Cross-correlations reduce the total below the sum)\n")
+```
+
+# Parameter Comparison Table
+
+```{r}
+comparison <- data.table(
+  Factor = c("BR", "TV+ER", "TV (Hendrickson)",
+             "ER (Hendrickson)"),
+  max_fitted = c(br_params["maxr"], tver_params["maxr"],
+                 NA, NA),
+  max_hendrickson = c(10.986, NA, 6.506, 6.506),
+  disp_fitted = c(br_params["disp"], tver_params["disp"],
+                   NA, NA),
+  disp_hendrickson = c(5, NA, 5, 5),
+  rate_fitted = c(br_params["rate"], tver_params["rate"],
+                   NA, NA),
+  rate_hendrickson = c(0.42, NA, 0.35, 0.35),
+  sd_hendrickson = c(8, NA, 10, 10)
+)
+
+cat("=== Parameter Comparison ===\n\n")
+print(comparison, digits = 3)
+```
+
+# Discussion
+
+## Key Observations
+
+1. **The BR parameters** (drug-specific response) should
+   closely match Hendrickson's values (max=10.986,
+   disp=5, rate=0.42) because they were derived from the
+   same Raskind data.
+
+2. **The TV+ER parameters** were set equal in Hendrickson
+   ('tabula rasa' assumption) because the placebo trajectory
+   cannot separate time-variant from expectancy-related
+   improvement. The combined placebo trajectory has a single
+   Gompertz fit, which Hendrickson assigned identically to
+   both TV and ER.
+
+3. **The displacement parameter** (disp=5) was the same for
+   all factors. This controls the inflection point of the
+   Gompertz curve and is the least well-constrained parameter
+   given only 4 timepoints.
+
+4. **The SD values** (8 for BR, 10 for TV/ER) represent
+   between-person variability in each factor, not the total
+   outcome variability. They were likely derived from the
+   variance decomposition of the mixed-effects model used
+   in the Raskind analysis.
+
+## Limitations of This Reconstruction
+
+- Only 4 timepoints are available (weeks 0, 7, 11, 15),
+  providing limited constraint on a 3-parameter model.
+- Weeks 7 and 11 values were interpolated from Figure 1D
+  (approximate).
+- The Gompertz fit is underdetermined with 4 points and
+  3 parameters (only 1 degree of freedom).
+- The published Hendrickson parameters may have used
+  individual-level data (available to the authors but not
+  to us) rather than group means.
+
+## Implications for the Simulation
+
+The Gompertz parameters control the mean trajectory of
+each factor. They determine:
+
+- **How quickly** each factor reaches its plateau (rate)
+- **How large** the plateau is (max)
+- **The shape** of the approach to plateau (disp)
+
+The simulation's power estimates are sensitive to the
+ratio of BR max to TV+ER max (signal-to-noise ratio) and
+to the rates (faster BR means more drug effect is captured
+within the assessment window). Figure 5 of Hendrickson
+et al. (2020) explores this sensitivity systematically.
+
+```{r}
+cat("\nSession info:\n")
+sessionInfo()$R.version$version.string
+```

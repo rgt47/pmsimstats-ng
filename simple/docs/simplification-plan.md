@@ -110,6 +110,443 @@ p_value <- coef(summary(model))["biomarker", "Pr(>|t|)"]
 **Recommendation**: **Phase means** - average response during on-drug vs
 off-drug periods, then analyze the difference.
 
+### 2c. Mathematical Specification of the Interaction Test
+
+This section formally defines the biomarker-treatment interaction test
+under each analysis method and connects the precision of the interaction
+estimate to trial design features: the number of subjects ($N$), the
+number of assessment timepoints per subject ($T$), the number of
+within-subject treatment transitions (crossovers), and the proportion of
+time spent on vs. off drug.
+
+#### Notation
+
+| Symbol | Definition |
+|--------|-----------|
+| $Y_{it}$ | Observed outcome for subject $i$ at timepoint $t$ |
+| $bm_i$ | Baseline biomarker value for subject $i$ (time-invariant) |
+| $D_{it}$ | Drug exposure indicator (1 = on drug, 0 = off drug) at timepoint $t$ |
+| $t$ | Time (weeks since baseline) |
+| $u_i$ | Subject-specific random intercept, $u_i \sim N(0, \sigma^2_u)$ |
+| $\varepsilon_{it}$ | Residual error, $\varepsilon_{it} \sim N(0, \sigma^2_\varepsilon)$ |
+| $N$ | Number of subjects |
+| $T_i$ | Total number of assessment timepoints for subject $i$ |
+| $n_{i,\text{on}}$ | Number of on-drug assessments for subject $i$ |
+| $n_{i,\text{off}}$ | Number of off-drug assessments for subject $i$ |
+| $K_i$ | Number of treatment transitions (drug-to-placebo or placebo-to-drug) for subject $i$ |
+
+Throughout, the **target hypothesis** is:
+
+$$H_0: \text{the biomarker does not predict the magnitude of
+drug-specific response}$$
+
+The mathematical form of this hypothesis differs depending on whether
+the design includes within-subject drug variation.
+
+---
+
+#### The fundamental distinction: within-subject drug variation
+
+**Designs with within-subject drug variation** (OL+BDC, CO, N-of-1):
+Subject $i$ has observations both on drug ($D_{it} = 1$) and off drug
+($D_{it} = 0$). The interaction is $bm_i \times D_{it}$, testing whether
+the biomarker predicts the within-subject drug effect.
+
+**Designs without within-subject drug variation** (OL): All observations
+for subject $i$ have $D_{it} = 1$. There is no within-subject drug
+contrast. The interaction must be reformulated as $bm_i \times t$,
+testing whether the biomarker predicts the rate of improvement over time
+while on drug. This is a fundamentally weaker test because temporal
+improvement confounds BR, ER, and TV.
+
+This distinction is the primary reason the open-label design has low
+power (Hendrickson Figure 4A): the interaction term targets a different,
+noisier quantity.
+
+---
+
+#### Method 1: ANCOVA on phase-mean change scores
+
+**Step 1.** Collapse repeated measures into within-subject phase means:
+
+$$\bar{Y}_{i,\text{on}} = \frac{1}{n_{i,\text{on}}}
+\sum_{t: D_{it}=1} Y_{it}, \qquad
+\bar{Y}_{i,\text{off}} = \frac{1}{n_{i,\text{off}}}
+\sum_{t: D_{it}=0} Y_{it}$$
+
+**Step 2.** Compute the within-subject drug effect:
+
+$$\Delta_i = \bar{Y}_{i,\text{on}} - \bar{Y}_{i,\text{off}}$$
+
+**Step 3.** Regress the drug effect on the biomarker:
+
+$$\Delta_i = \gamma_0 + \gamma_1 \cdot bm_i + e_i$$
+
+**Interaction test:** $H_0: \gamma_1 = 0$ via $t$-test on
+$\hat{\gamma}_1$, with $N - 2$ degrees of freedom.
+
+**Precision of $\hat{\gamma}_1$:**
+
+$$\text{Var}(\hat{\gamma}_1) =
+\frac{\sigma^2_\Delta}{N \cdot \text{Var}(bm)}$$
+
+where $\sigma^2_\Delta = \text{Var}(\Delta_i)$ is the between-subject
+variance of the within-subject drug effect. This variance decomposes as:
+
+$$\sigma^2_\Delta = \text{Var}(\bar{Y}_{i,\text{on}}) +
+\text{Var}(\bar{Y}_{i,\text{off}}) -
+2\,\text{Cov}(\bar{Y}_{i,\text{on}},
+\bar{Y}_{i,\text{off}})$$
+
+Each phase-mean variance is approximately:
+
+$$\text{Var}(\bar{Y}_{i,\text{phase}}) \approx
+\sigma^2_u + \frac{\sigma^2_\varepsilon}{n_{i,\text{phase}}}$$
+
+The covariance term $\text{Cov}(\bar{Y}_{i,\text{on}},
+\bar{Y}_{i,\text{off}})$ arises from the shared random intercept $u_i$
+and equals $\sigma^2_u$ under compound symmetry.
+
+**Substituting:**
+
+$$\sigma^2_\Delta \approx
+\frac{\sigma^2_\varepsilon}{n_{i,\text{on}}} +
+\frac{\sigma^2_\varepsilon}{n_{i,\text{off}}}
+= \sigma^2_\varepsilon \left(
+\frac{1}{n_{i,\text{on}}} + \frac{1}{n_{i,\text{off}}}
+\right)$$
+
+The random intercept cancels in the difference, which is a key advantage
+of within-subject contrasts. What remains is purely residual variance,
+reduced by the number of observations in each phase.
+
+**Design implications:**
+
+| Design feature | Effect on $\text{Var}(\hat{\gamma}_1)$ |
+|:---------------|:---------------------------------------|
+| More subjects ($N \uparrow$) | Direct reduction: $\propto 1/N$ |
+| More on-drug assessments ($n_\text{on} \uparrow$) | Reduces $\sigma^2_\Delta$ via $1/n_\text{on}$ term |
+| More off-drug assessments ($n_\text{off} \uparrow$) | Reduces $\sigma^2_\Delta$ via $1/n_\text{off}$ term |
+| Balanced phases ($n_\text{on} \approx n_\text{off}$) | Minimizes the harmonic mean, hence $\sigma^2_\Delta$ |
+| More crossovers ($K \uparrow$) | No direct effect beyond increasing $n_\text{on}$ and $n_\text{off}$; however, distributing observations across more transitions reduces sensitivity to period effects |
+| Wider biomarker range ($\text{Var}(bm) \uparrow$) | Direct reduction: $\propto 1/\text{Var}(bm)$ |
+
+**Design-specific behavior:**
+
+- **OL:** $n_{i,\text{off}} = 0$, so $\Delta_i$ is undefined. The ANCOVA
+  must be reformulated as $\bar{Y}_i = \gamma_0 + \gamma_1 \cdot bm_i + e_i$
+  (regress total response on biomarker), which confounds BR with ER and TV.
+- **OL+BDC:** $n_{i,\text{on}} \approx 5$, $n_{i,\text{off}} \approx 2$
+  (the blinded discontinuation contributes only 2 off-drug assessments for
+  half of participants). Imbalanced phases inflate $\sigma^2_\Delta$.
+- **CO:** $n_{i,\text{on}} \approx 4$, $n_{i,\text{off}} \approx 4$.
+  Balanced phases. One crossover transition.
+- **N-of-1:** $n_{i,\text{on}} \approx 6$, $n_{i,\text{off}} \approx 4$.
+  Multiple crossover transitions. Highest total observation count and
+  reasonable balance.
+
+**OL special case.** Without drug variation, the ANCOVA tests a different
+quantity. One approach is to use the slope of improvement over time as
+the subject-level summary:
+
+$$b_i = \text{slope of } Y_{it} \text{ vs. } t \text{ for subject } i$$
+
+$$b_i = \gamma_0 + \gamma_1 \cdot bm_i + e_i$$
+
+Here $\gamma_1$ tests whether the biomarker predicts the rate of
+improvement. This conflates BR rate with ER and TV rates, explaining
+the poor power of the OL design.
+
+---
+
+#### Method 2: Paired $t$-test on change scores
+
+The paired $t$-test applies to the same $\Delta_i$ as ANCOVA but tests a
+different hypothesis:
+
+$$H_0: E[\Delta_i] = 0 \quad \text{(no average drug effect)}$$
+
+$$t = \frac{\bar{\Delta}}{s_\Delta / \sqrt{N}}, \quad df = N - 1$$
+
+**This does not test the biomarker interaction.** It tests whether the
+drug works on average, collapsing over biomarker values. To recover a
+biomarker interaction test from a $t$-test framework, one must
+dichotomize:
+
+$$\text{Split subjects into } bm_\text{high} \text{ and }
+bm_\text{low} \text{ by median}$$
+
+$$t = \frac{\bar{\Delta}_\text{high} -
+\bar{\Delta}_\text{low}}{s_p \sqrt{1/N_\text{high} +
+1/N_\text{low}}}, \quad df = N - 2$$
+
+This is equivalent to ANCOVA with a binary biomarker and inherits the
+same design dependencies. Dichotomization discards information, reducing
+power relative to ANCOVA with a continuous biomarker by approximately
+$2/\pi \approx 64\%$ relative efficiency (Cohen 1983).
+
+**Design implications:** Same as ANCOVA, but uniformly less powerful due
+to dichotomization. Not recommended when the biomarker is continuous.
+
+---
+
+#### Method 3: GEE (generalized estimating equations)
+
+**Model (population-averaged):**
+
+$$E[Y_{it}] = \beta_0 + \beta_1 \cdot bm_i + \beta_2 \cdot D_{it}
++ \beta_3 \cdot t + \beta_4 \cdot bm_i \cdot D_{it}$$
+
+with working correlation matrix $R_i(\alpha)$ and sandwich (robust)
+variance estimator.
+
+**Interaction test:** $H_0: \beta_4 = 0$ via Wald test using the
+sandwich-estimated variance:
+
+$$z = \frac{\hat{\beta}_4}{\widehat{\text{SE}}_\text{robust}
+(\hat{\beta}_4)}$$
+
+**Precision of $\hat{\beta}_4$:**
+
+The sandwich estimator is consistent regardless of the working
+correlation structure, but efficiency depends on how well the working
+correlation approximates the truth. Under a correct working correlation:
+
+$$\text{Var}(\hat{\beta}_4) \approx
+\frac{1}{N \cdot \text{Var}(bm) \cdot
+\text{Var}_\text{within}(D)}
+\cdot \sigma^2_\text{eff}$$
+
+where $\text{Var}_\text{within}(D)$ is the within-subject variance of
+drug exposure and $\sigma^2_\text{eff}$ is the effective residual
+variance after accounting for the working correlation.
+
+**Within-subject variance of drug exposure** is the critical
+design-dependent quantity:
+
+$$\text{Var}_\text{within}(D_i) =
+\bar{D}_i(1 - \bar{D}_i)$$
+
+where $\bar{D}_i = n_{i,\text{on}} / T_i$ is the proportion of time on
+drug. This is maximized when $\bar{D}_i = 0.5$ (equal time on and off
+drug) and equals zero when $\bar{D}_i = 1$ (all observations on drug,
+i.e. the OL design).
+
+**Design implications:**
+
+| Design feature | Effect on $\text{Var}(\hat{\beta}_4)$ |
+|:---------------|:--------------------------------------|
+| More subjects ($N \uparrow$) | Direct reduction: $\propto 1/N$ |
+| More timepoints ($T \uparrow$) | Reduces $\sigma^2_\text{eff}$ (more observations to estimate correlation); modest gain under strong autocorrelation |
+| Balanced drug exposure ($\bar{D} \to 0.5$) | Maximizes $\text{Var}_\text{within}(D)$, directly reducing $\text{Var}(\hat{\beta}_4)$ |
+| More crossovers ($K \uparrow$) | Does not change $\text{Var}_\text{within}(D)$ directly, but distributes drug variation across time, improving robustness to temporal confounds |
+| Autocorrelation ($\rho \uparrow$) | Increases effective variance; observations close in time contribute less independent information |
+
+**Design-specific behavior:**
+
+- **OL:** $\text{Var}_\text{within}(D) = 0$. The interaction $bm \times D$
+  is not estimable. Must substitute $bm \times t$ (same limitation as
+  ANCOVA).
+- **OL+BDC:** $\bar{D} \approx 0.75$ (most time on drug).
+  $\text{Var}_\text{within}(D) \approx 0.19$. Suboptimal but nonzero.
+- **CO:** $\bar{D} = 0.5$. $\text{Var}_\text{within}(D) = 0.25$.
+  Optimal balance. One transition.
+- **N-of-1:** $\bar{D} \approx 0.55$ (open-label phase tips the balance
+  slightly toward on-drug). $\text{Var}_\text{within}(D) \approx 0.25$.
+  Near-optimal, with multiple transitions.
+
+**GEE vs. LMM:** GEE estimates population-averaged effects (marginal
+model), while LMM estimates subject-specific effects (conditional model).
+For the linear case with continuous outcomes, $\beta_4$ has the same
+interpretation under both approaches. The practical difference is that
+GEE provides valid inference under working-correlation misspecification
+(via the sandwich estimator), while LMM requires correct specification
+of the random effects structure but is more efficient when correctly
+specified.
+
+---
+
+#### Method 4: Random intercept LMM (lme4::lmer)
+
+**Model (subject-specific):**
+
+$$Y_{it} = \beta_0 + \beta_1 \cdot bm_i + \beta_2 \cdot D_{it}
++ \beta_3 \cdot t + \beta_4 \cdot bm_i \cdot D_{it}
++ u_i + \varepsilon_{it}$$
+
+$$u_i \sim N(0, \sigma^2_u), \qquad
+\varepsilon_{it} \sim N(0, \sigma^2_\varepsilon)$$
+
+**Interaction test:** $H_0: \beta_4 = 0$ via Wald test (or Kenward-Roger
+/ Satterthwaite $F$-test for small $N$).
+
+**Precision of $\hat{\beta}_4$:**
+
+Under the random-intercept model with independent residuals, the
+information matrix for $\beta_4$ depends on the 'effective' within-subject
+information after projecting out the random intercept. The approximate
+variance is:
+
+$$\text{Var}(\hat{\beta}_4) \approx
+\frac{\sigma^2_\varepsilon}{
+\sum_{i=1}^{N} \widetilde{bm}_i^2 \cdot
+\text{SS}_\text{within}(D_i)}$$
+
+where $\widetilde{bm}_i = bm_i - \overline{bm}$ is the centered
+biomarker value and:
+
+$$\text{SS}_\text{within}(D_i) =
+\sum_{t=1}^{T_i} (D_{it} - \bar{D}_i)^2
+= T_i \cdot \bar{D}_i (1 - \bar{D}_i)$$
+
+is the within-subject sum of squares of drug exposure for subject $i$.
+This quantity has a direct interpretation: it is the total 'information'
+about drug variation contained in subject $i$'s data.
+
+**Design implications:**
+
+| Design feature | Effect on $\text{Var}(\hat{\beta}_4)$ | Mechanism |
+|:---------------|:--------------------------------------|:----------|
+| More subjects ($N \uparrow$) | $\propto 1/N$ | More independent biomarker-by-drug contrasts |
+| More timepoints ($T \uparrow$) | $\propto 1/T$ (given fixed $\bar{D}$) | Each additional timepoint adds to $\text{SS}_\text{within}(D_i)$ |
+| Balanced drug exposure ($\bar{D} \to 0.5$) | Maximizes $\bar{D}(1 - \bar{D})$, hence $\text{SS}_\text{within}(D)$ | Equal on/off time maximizes within-subject contrast |
+| More crossovers ($K \uparrow$) | No direct effect on $\text{SS}_\text{within}(D)$ under independence | Under AR(1) residuals, more transitions reduce the effective autocorrelation penalty (see below) |
+| Wider biomarker range | Increases $\sum \widetilde{bm}_i^2$ | More leverage for the interaction term |
+| Autocorrelation ($\rho > 0$) | Inflates effective $\sigma^2_\varepsilon$ | Correlated residuals reduce the effective sample size per subject |
+
+**The autocorrelation-crossover interaction.** Under AR(1) residuals
+(as implemented in the full nlme::lme model with corCAR1), the effective
+information from each on-drug or off-drug block depends on block length
+$L$ and autocorrelation $\rho$:
+
+$$\text{effective observations per block} \approx
+\frac{L}{1 + (L-1)\rho} \cdot L$$
+
+Short blocks (high $K$, low $L$) suffer less from autocorrelation than
+long blocks (low $K$, high $L$) because fewer consecutive observations
+are highly correlated. This is why the N-of-1 design (four 4-week
+blocks) can outperform the crossover (two 10-week blocks) when
+autocorrelation is moderate, despite having the same total duration.
+
+Conversely, when the drug has substantial carryover, each transition
+introduces a contaminated observation at the block boundary. More
+transitions ($K \uparrow$) means more contaminated observations. This
+is the mechanism behind the 'precipitous decline in power' with
+carryover that Hendrickson et al. report for the N-of-1 design (their
+Figure 4B).
+
+**Design-specific $\text{SS}_\text{within}(D)$:**
+
+| Design | $T$ | $n_\text{on}$ | $n_\text{off}$ | $\bar{D}$ | $\text{SS}_\text{within}(D)$ | $K$ |
+|--------|-----|---------------|-----------------|-----------|------------------------------|-----|
+| OL | 8 | 8 | 0 | 1.0 | 0 | 0 |
+| OL+BDC | 8 | ~6 | ~2 | ~0.75 | ~1.5 | 1 |
+| CO | 8 | 4 | 4 | 0.5 | 2.0 | 1 |
+| N-of-1 | 12 | ~7 | ~5 | ~0.58 | ~2.9 | 3 |
+
+The N-of-1 design has the highest $\text{SS}_\text{within}(D)$ due to
+both more total timepoints and near-balanced drug exposure. The OL
+design has zero within-subject drug information.
+
+---
+
+#### Method 5: Simple linear regression (ignoring clustering)
+
+**Model:**
+
+$$Y_{it} = \beta_0 + \beta_1 \cdot bm_i + \beta_2 \cdot D_{it}
++ \beta_3 \cdot t + \beta_4 \cdot bm_i \cdot D_{it}
++ \varepsilon_{it}$$
+
+This is the same fixed-effects structure as Method 4 but without the
+random intercept $u_i$. All $N \times T$ observations are treated as
+independent.
+
+**Interaction test:** $H_0: \beta_4 = 0$ via OLS $t$-test.
+
+**Precision of $\hat{\beta}_4$ (nominal):**
+
+$$\text{Var}_\text{OLS}(\hat{\beta}_4) =
+\frac{\hat{\sigma}^2}{\text{SS}(bm \cdot D \mid
+\text{other predictors})}$$
+
+where $\hat{\sigma}^2$ is the OLS residual variance. Because the model
+ignores the random intercept, $\hat{\sigma}^2$ absorbs both
+$\sigma^2_u$ and $\sigma^2_\varepsilon$, but the denominator treats all
+$N \times T$ observations as independent. This produces **downward-biased
+standard errors** because the effective sample size for the
+between-subject component ($bm_i$) is $N$, not $N \times T$.
+
+**Type I error inflation:** The degree of inflation depends on
+$\sigma^2_u / \sigma^2_\varepsilon$ (the intraclass correlation) and the
+number of observations per subject $T$. With $T = 8$ and ICC = 0.3
+(typical for CAPS data), the nominal $\alpha = 0.05$ test has an actual
+Type I error of approximately 0.15--0.25.
+
+**Design implications:** The same as Method 4 for power ordering across
+designs, but with inflated Type I error that invalidates nominal
+$p$-values. Not recommended for inference but can serve as a fast
+screening tool when followed by a properly specified model.
+
+---
+
+#### The OL design: a fundamentally different interaction test
+
+For the open-label design, all five methods face the same problem: there
+is no within-subject drug variation. The interaction must be formulated
+as biomarker-by-time:
+
+$$Y_{it} = \beta_0 + \beta_1 \cdot bm_i + \beta_2 \cdot t
++ \beta_3 \cdot bm_i \cdot t + u_i + \varepsilon_{it}$$
+
+Here $\beta_3$ tests whether the biomarker predicts the slope of
+improvement over time. This is a weaker test than $\beta_4$ (the
+biomarker-by-drug interaction) for two reasons:
+
+1. **Confounding.** The slope $dY/dt$ includes BR, ER, and TV. The
+   biomarker-by-time interaction conflates all three: $\beta_3$ detects a
+   biomarker association with the total improvement rate, not just the
+   drug-specific component.
+
+2. **Precision.** The within-subject information for the time slope
+   depends on $\text{SS}_\text{within}(t) = \sum(t - \bar{t})^2$, which
+   is determined by the spacing and number of assessment points. This
+   quantity is typically smaller than $\text{SS}_\text{within}(D)$ for
+   designs with balanced crossovers, because the time variable has less
+   'contrast' than a binary drug indicator that switches between 0 and 1.
+
+---
+
+#### Summary: interaction test precision across designs and methods
+
+The following table summarizes the effective information for the
+biomarker interaction test across all design-method combinations. The
+entries are proportional to $1/\text{Var}(\hat{\beta}_\text{interaction})$
+(higher = more power):
+
+| | OL | OL+BDC | CO | N-of-1 |
+|:----------|:---------|:---------|:---------|:---------|
+| **Interaction term** | $bm \times t$ | $bm \times D$ | $bm \times D$ | $bm \times D$ |
+| **Target** | Total improvement rate | Drug-specific effect | Drug-specific effect | Drug-specific effect |
+| **Confounded with** | ER, TV slopes | -- | -- | -- |
+| **ANCOVA info** | $N \cdot \text{Var}(bm) \cdot \text{Var}(b_i)^{-1}$ | $N \cdot \text{Var}(bm) \cdot \sigma^{-2}_\Delta$ | $N \cdot \text{Var}(bm) \cdot \sigma^{-2}_\Delta$ | $N \cdot \text{Var}(bm) \cdot \sigma^{-2}_\Delta$ |
+| **LMM info** | $\sum \widetilde{bm}^2_i \cdot \text{SS}(t_i)$ | $\sum \widetilde{bm}^2_i \cdot 1.5$ | $\sum \widetilde{bm}^2_i \cdot 2.0$ | $\sum \widetilde{bm}^2_i \cdot 2.9$ |
+| **GEE info** | ~Same as LMM | ~Same as LMM | ~Same as LMM | ~Same as LMM |
+| **$K$ (transitions)** | 0 | 1 | 1 | 3 |
+| **Autocorrelation vulnerability** | Low (no transitions) | Medium (1 long block + 1 short block) | Medium (2 long blocks) | Low per block (shorter blocks) but more boundary effects |
+| **Carryover vulnerability** | None (no transitions) | Low (1 transition) | Low (1 transition) | High (3 transitions) |
+
+The N-of-1 design achieves the highest information for the biomarker
+interaction under the LMM and GEE approaches when carryover is absent,
+owing to both its larger total $T$ and its near-balanced drug exposure.
+The crossover achieves optimal balance ($\bar{D} = 0.5$) with fewer
+transitions, making it more robust to carryover at the cost of fewer
+total timepoints. The OL+BDC design has the lowest information among
+the designs with within-subject drug variation, because its short
+discontinuation block contributes few off-drug observations.
+
+---
+
 ### 3. Trial Designs (NON-SIMPLIFIABLE)
 
 **CRITICAL**: The four Hendrickson trial designs must be preserved exactly as

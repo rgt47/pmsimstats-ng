@@ -80,7 +80,7 @@ measures. -- RCH implement with RGT guidance*
 - The `lambda_cor = ln(2)/t_half` derivation provides a
   principled framework for relating carryover half-life to
   the correlation structure (see
-  `correlation_decay_derivation.pdf`).
+  `pdf/08-biomarker-correlation-decay.pdf`).
 - The `Dbc` continuous drug indicator with exponential decay
   is already implemented and parameterized by
   `carryover_t1half`.
@@ -295,18 +295,18 @@ The following documents and code are available:
 
 ### White Papers
 
-- `pmsimstats_revision_summary.pdf` (13 pages): Complete
+- `pdf/04-revised-power-analysis.pdf` (13 pages): Complete
   revision summary for the authors, with before/after
   Figure 4 heatmaps and all code changes
-- `figure5_comparison.pdf` (6 pages): Response parameter
-  sensitivity analysis
-- `correlation_decay_derivation.pdf` (10 pages):
+- `pdf/18-response-parameter-sensitivity.pdf` (6 pages):
+  Response parameter sensitivity analysis
+- `pdf/08-biomarker-correlation-decay.pdf` (10 pages):
   Pharmacokinetic derivation of the correlation decay rule
-- `analysis_model_ar1.pdf` (8 pages): Analysis model
-  transition from lmer to nlme with corCAR1
-- `pd_failure_white_paper.pdf` (10 pages): Positive
-  definiteness failure analysis
-- `figure4-walkthrough.md`: Complete technical walkthrough
+- `pdf/06-ar1-residual-correlation.pdf` (8 pages): Analysis
+  model transition from lmer to nlme with corCAR1
+- `pdf/07-positive-definiteness-failures.pdf` (10 pages):
+  Positive definiteness failure analysis
+- `13-figure4-walkthrough.md`: Complete technical walkthrough
   of Figure 4 methodology and code
 
 ### Simulation Scripts

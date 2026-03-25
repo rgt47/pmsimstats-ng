@@ -466,4 +466,4 @@ power estimates within Monte Carlo error bounds for N=200 reps.
 
 ---
 *Rendered on 2026-03-24 at 10:16 PDT.*
-*Source: ~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/docs/2025-alignment-plan.md*
+*Source: ~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/docs/15-tidyverse-alignment-plan.md*

@@ -378,7 +378,7 @@ random-intercept model absorbs the AR(1) residual
 autocorrelation into a biased variance estimate, shrinking
 standard errors and inflating test statistics.
 
-### 7.3 Correlation Decay Derivation (correlation_decay_derivation.pdf)
+### 7.3 Biomarker Correlation Decay (08-biomarker-correlation-decay.pdf)
 
 Derives the exponential decay formula for the biomarker-response
 correlation during off-drug periods from pharmacokinetic first
@@ -393,7 +393,7 @@ The derivation shows this is the unique decay function that
 maintains the proportional relationship between individual drug
 effects and the biomarker.
 
-### 7.4 PD Failure White Paper (pd_failure_white_paper.pdf)
+### 7.4 Positive Definiteness Failures (07-positive-definiteness-failures.pdf)
 
 Presents the instrumented measurement of positive definiteness
 failures across four code versions and 162 parameter
@@ -408,7 +408,7 @@ consequences for cross-design power comparisons. Recommends
 AR(1) autocorrelation, pre-validation, and parameter
 constraints as solutions.
 
-### 7.5 Correlation Scaling White Paper (correlation_scaling_white_paper.pdf)
+### 7.5 Carryover Correlation Artifact (09-carryover-correlation-artifact.pdf)
 
 Analyzes the BM-BR correlation mechanism in the Hendrickson
 DGP. The biomarker-treatment interaction emerges from
@@ -422,7 +422,7 @@ analysis model. The paper traces how this correlation
 propagates through the sigma matrix to produce the observed
 power pattern across designs and parameter values.
 
-### 7.6 Figure 5 Comparison (figure5_comparison.pdf)
+### 7.6 Response Parameter Sensitivity (18-response-parameter-sensitivity.pdf)
 
 Compares Figure 5 (response parameter sensitivity analysis)
 between the original publication code and the revised code.
@@ -433,7 +433,7 @@ differences introduced by the DGP revisions and validates
 that the qualitative conclusions about parameter sensitivity
 are robust to the corrections.
 
-### 7.7 Commit Impact Report (commit_impact_report.pdf)
+### 7.7 Commit Impact Report (05-commit-impact-report.pdf)
 
 Traces the impact of each individual commit (from the
 publication code through the Ron Thomas edits to the current
@@ -517,4 +517,4 @@ and which were neutral (code cleanup without DGP changes).
 
 ---
 *Rendered on 2026-03-25 at 08:31 PDT.*
-*Source: ~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/docs/pmsimstats-status-report.md*
+*Source: ~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/docs/03-audit-and-revision-report.md*

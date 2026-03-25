@@ -459,9 +459,160 @@ biomarker development), investigators should:
 
 ---
 
-## 6. Relationship to the Broader Literature
+## 6. Alternative Analysis Strategies Under Architecture B
 
-### 6.1 Treatment effect heterogeneity
+The power loss documented in Section 3 arises from two distinct
+sources: (1) compressed variance of the treatment indicator $Dbc$
+when carryover is present, and (2) erosion of the BM-BR
+correlation during off-drug periods. Source 1 is a property of
+the analysis model parameterization and can potentially be
+addressed by choosing a different predictor. Source 2 is a
+property of the data itself -- the signal is genuinely weaker in
+off-drug observations -- and no analysis model can recover signal
+that is not present. However, analysis strategies that are
+selective about *which observations contribute to the test* or
+*how they are weighted* can mitigate the damage.
+
+### 6.1 Restrict analysis to on-drug observations
+
+The most direct approach is to discard off-drug timepoints
+entirely and test the biomarker-treatment interaction using only
+on-drug observations. Every retained observation has the full
+BM-BR correlation ($c_{bm}$), so correlation erosion is
+eliminated. The cost is a reduction in effective sample size
+(fewer observations per participant). For designs with many
+on-drug timepoints (OL has 8, the Hybrid design has 5-6 per
+path), the net effect may be positive: the per-observation
+signal-to-noise ratio is maximal, and the analysis model
+simplifies to `Sx ~ bm + t + bm:t` since there is no treatment
+contrast to model. The interaction is detected through the
+correlation between biomarker and the time-on-drug trajectory.
+
+This approach is most promising for the Open-Label design (which
+has no off-drug observations regardless) and the Hybrid design
+(which has a long initial on-drug phase). It is least useful for
+the Crossover design, where discarding half the observations
+substantially reduces statistical power.
+
+### 6.2 Weighted analysis
+
+Rather than discarding off-drug observations entirely, a weighted
+analysis retains all observations but weights them by their
+estimated drug exposure level. On-drug observations receive
+weight 1. Off-drug observations receive weight proportional to
+the expected residual drug effect:
+
+$$w_t = e^{-\lambda \cdot t_{sd}}$$
+
+This downweights observations where the BM-BR correlation has
+decayed (and where they contribute more noise than signal to the
+interaction estimate) without discarding them entirely. The
+rationale is information-theoretic: observations with higher drug
+exposure carry more information about the biomarker-treatment
+interaction because the correlation signal is stronger. This is
+straightforward to implement in `nlme::lme` using the `weights`
+argument.
+
+### 6.3 Within-subject contrast
+
+For designs with both on-drug and off-drug periods (CO, Hybrid,
+OL+BDC), a summary-measure approach computes a per-participant
+contrast: the difference between mean on-drug response and mean
+off-drug response. The biomarker-treatment interaction is then
+tested by a simple regression of these contrasts on the biomarker:
+
+$$\bar{Y}_{i,\text{on}} - \bar{Y}_{i,\text{off}} = \alpha +
+\gamma \cdot B_i + \epsilon_i$$
+
+This sidesteps the $Dbc$ parameterization and the
+repeated-measures model entirely. Carryover affects the magnitude
+of the contrast (making off-drug means closer to on-drug means),
+but the *correlation between the contrast and the biomarker* may
+be more robust because within-subject averaging reduces noise
+before the biomarker association is tested. The approach trades
+the efficiency of a full longitudinal model for robustness to
+misspecification of the carryover and correlation structure.
+
+### 6.4 Two-stage random slopes
+
+A two-stage approach first estimates participant-specific
+treatment effects, then tests their association with the
+biomarker. Stage 1 fits a random-slopes model:
+
+$$Y_{it} = \beta_0 + \beta_1 t + u_{0i} + u_{1i} D_{it} +
+\epsilon_{it}$$
+
+where $u_{1i}$ is participant $i$'s random treatment effect
+(deviation from the population mean drug effect). Stage 2
+regresses the estimated random slopes on the biomarker:
+
+$$\hat{u}_{1i} = \delta_0 + \delta_1 B_i + \eta_i$$
+
+This separates the within-subject treatment effect estimation
+(which uses the longitudinal data and is affected by carryover)
+from the between-subject biomarker association (which uses the
+cross-sectional relationship between estimated effects and
+biomarker values). The approach may be more robust to carryover
+because the random slope $u_{1i}$ integrates over the
+participant's entire trajectory, including both on-drug and
+off-drug phases.
+
+### 6.5 Exclusion of contaminated observations
+
+The first 1-2 off-drug timepoints carry the most carryover
+contamination: the residual drug effect is highest, and the
+BM-BR correlation is in the process of decaying. Later off-drug
+timepoints, where the drug has fully washed out, provide a
+cleaner contrast with the on-drug phase. Excluding the early
+off-drug observations and retaining only the later ones yields
+a comparison between fully-on and fully-off states, avoiding the
+intermediate zone where the analysis model is most strained.
+
+### 6.6 Design-level solutions
+
+Rather than adapting the analysis model to accommodate carryover,
+the trial design itself can be modified to reduce carryover
+exposure:
+
+- **Longer washout periods** between drug phases eliminate
+  residual drug effect before off-drug measurements begin.
+- **More on-drug timepoints** relative to off-drug increase the
+  proportion of high-signal observations.
+- **Front-loaded drug exposure** (as in the OL+BDC design)
+  ensures that the strongest on-drug signal is captured before
+  any carryover-contaminated off-drug observations are collected.
+
+Design-level solutions address the root cause (carryover in the
+data) rather than the symptom (power loss in the analysis). Their
+cost is typically a longer trial duration or reduced ability to
+estimate the carryover dynamics themselves.
+
+### 6.7 Comparative evaluation
+
+The strategies described above differ in their assumptions,
+implementation complexity, and expected power recovery:
+
+| Strategy | Discards data | Complexity | Expected benefit |
+|----------|:---:|:---:|---|
+| On-drug only | Yes | Low | High for OL/Hybrid; poor for CO |
+| Weighted | No | Low | Moderate; depends on weight calibration |
+| Within-subject contrast | Aggregates | Low | Moderate; robust to misspecification |
+| Two-stage random slopes | No | Moderate | Unknown; separates estimation stages |
+| Exclude early off-drug | Some | Low | Moderate; improves contrast clarity |
+| Design modification | N/A | N/A | High; addresses root cause |
+
+A systematic simulation comparison of these strategies under
+Architecture B, analogous to the factorial comparison of analysis
+models in Section 3, would identify which approach best recovers
+the power lost to carryover for each trial design. This is a
+direction for future work.
+
+---
+
+## 7. Relationship to the Broader Literature
+
+
+### 7.1 Treatment effect heterogeneity
 
 The statistical literature on treatment effect heterogeneity
 (Rothwell 2005; Kent et al. 2010; Varadhan et al. 2013)
@@ -475,7 +626,7 @@ the regression directly. Architecture B corresponds to a
 *latent class* or *mixture model* perspective where the biomarker
 is a noisy indicator of class membership.
 
-### 6.2 Prevalence of each architecture
+### 7.2 Prevalence of each architecture
 
 A survey of the simulation methodology literature reveals that
 Architecture A (direct mean moderation) is the near-universal
@@ -507,7 +658,7 @@ because these studies do not account for the additional power
 loss that carryover produces when the interaction signal resides
 in the covariance structure rather than the mean structure.
 
-### 6.3 Crossover and N-of-1 trial methodology
+### 7.3 Crossover and N-of-1 trial methodology
 
 The crossover trial literature (Senn 2002; Jones & Kenward 2014)
 addresses carryover extensively but does not distinguish between
@@ -520,7 +671,7 @@ suggests that crossover designs with short washout periods may
 be less suitable for detecting correlation-based biomarker
 interactions than previously recognized.
 
-### 6.4 Precision medicine trial design
+### 7.4 Precision medicine trial design
 
 Enrichment and biomarker-stratified designs (Simon 2010; Freidlin
 & Korn 2014) use Architecture A exclusively for power
@@ -531,7 +682,7 @@ treatment switching.
 
 ---
 
-## 7. Conclusions
+## 8. Conclusions
 
 1. The choice between direct mean moderation (Architecture A) and
    differential correlation (Architecture B) for generating

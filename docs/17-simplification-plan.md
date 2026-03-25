@@ -855,7 +855,7 @@ one-at-a-time sensitivity analyses.
 │   │   └── sensitivity.R    # Parameter sensitivity (optional)
 │   └── output/
 └── docs/
-    └── simplification-plan.md
+    └── 17-simplification-plan.md
 ```
 
 ### Key Design Principles

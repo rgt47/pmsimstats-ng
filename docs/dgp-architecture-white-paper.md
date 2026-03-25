@@ -82,8 +82,11 @@ its root cause revealed the architectural difference described in
 this paper, which, to our knowledge, has not been explicitly
 discussed in the simulation methodology literature.
 
-This paper formalizes the distinction, demonstrates its
-consequences, and provides guidance for investigators designing
+This paper provides, to our knowledge, the first systematic
+comparison of these two DGP architectures for biomarker-treatment
+interaction power estimation under carryover. We formalize the
+distinction, demonstrate its consequences with simulation
+results, and provide guidance for investigators designing
 simulation studies for predictive biomarker-moderated treatment
 effects.
 
@@ -554,7 +557,17 @@ treatment switching.
    power sensitivity to carryover should inform trial design
    decisions regarding off-drug period duration.
 
-5. Simulation studies for biomarker-moderated treatment effects
+5. The existing clinical trial simulation literature uses
+   Architecture A almost exclusively. The Hendrickson et al.
+   (2020) MVN approach is, to our knowledge, unique in the
+   N-of-1 trial context. This means that published power
+   estimates for biomarker-moderated crossover and N-of-1
+   designs may be systematically optimistic for biomarkers
+   that operate through a correlation-based (Architecture B)
+   mechanism, because they do not account for the carryover
+   sensitivity documented here.
+
+6. Simulation studies for biomarker-moderated treatment effects
    should explicitly report their DGP architecture and consider
    sensitivity analyses under the alternative when the biological
    mechanism is uncertain.

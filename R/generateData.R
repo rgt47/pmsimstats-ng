@@ -100,17 +100,21 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
   dat<-data.table(dat)
   setnames(dat,names(dat),labels)
 
-  # Architecture A: scale BR components by centered biomarker
+  # Architecture A: additive biomarker moderation of BR
+  # Each participant's BR is shifted by bm * tod * c.bm, where tod
+  # is cumulative time-on-drug at each timepoint. This creates an
+  # interaction that scales with drug exposure duration: strongest
+  # at late on-drug timepoints, zero at never-treated timepoints,
+  # and carried forward by the DGP carryover in the BR means.
   if(dgp_architecture == "mean_moderation"){
     beta_bm<-modelparam$c.bm
-    bm_mean<-blparam[cat=="bm"]$m
-    bm_sd<-blparam[cat=="bm"]$sd
-    bm_centered<-(dat$bm - bm_mean) / bm_sd
+    d<-data.table(trialdesign)
     tnames<-if(is.data.frame(trialdesign)) trialdesign$timeptname else trialdesign$timeptnames
     if(is.null(tnames)) tnames<-trialdesign$timeptname
+
     for(tp in 1:nP){
       br_col<-paste(tnames[tp], "br", sep=".")
-      dat[,(br_col):=get(br_col) * (1 + beta_bm * bm_centered)]
+      dat[,(br_col):=get(br_col) + bm * d$tod[tp] * beta_bm]
     }
   }
 

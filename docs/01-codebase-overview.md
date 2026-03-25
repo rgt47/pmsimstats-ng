@@ -175,7 +175,7 @@ analysis/scripts/original_R/      # Copy of 42ac030
 | `06-ar1-residual-correlation.pdf` | 8 | lmer to nlme transition with Type I error validation |
 | `07-positive-definiteness-failures.pdf` | 10 | PD failure prevalence and causes |
 | `09-carryover-correlation-artifact.pdf` | 10 | BM-BR correlation artifact analysis |
-| `05-commit-impact-report.pdf` | 13 | Commit-by-commit Figure 4 comparison |
+| `05-revision-summary.pdf` | 12 | Revision summary with before/after heatmaps and code change appendix |
 
 ## Bundled Data (`data/`)
 

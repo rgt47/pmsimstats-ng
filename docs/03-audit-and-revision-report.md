@@ -433,7 +433,7 @@ differences introduced by the DGP revisions and validates
 that the qualitative conclusions about parameter sensitivity
 are robust to the corrections.
 
-### 7.7 Commit Impact Report (05-commit-impact-report.pdf)
+### 7.7 Revision Summary (05-revision-summary.pdf)
 
 Traces the impact of each individual commit (from the
 publication code through the Ron Thomas edits to the current

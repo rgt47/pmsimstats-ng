@@ -356,7 +356,7 @@ The consolidated repository includes seven technical white
 papers documenting the audit findings, theoretical derivations,
 and validation results.
 
-### 7.1 Revision Summary (pmsimstats_revision_summary.pdf)
+### 7.1 Revised Power Analysis (04-revised-power-analysis.pdf)
 
 A 13-page comprehensive summary of all changes from v0.1.0
 to v0.2.0, written for the original authors. Documents each
@@ -366,7 +366,7 @@ Type I error correction and the complete parameter grid with
 power estimates at 200 and 1,000 replicates. Serves as the
 primary reference for understanding what changed and why.
 
-### 7.2 Analysis Model AR(1) (analysis_model_ar1.pdf)
+### 7.2 AR(1) Residual Correlation (06-ar1-residual-correlation.pdf)
 
 Derives why the original `lme4::lmer` random-intercept model
 produces inflated Type I error (13-17%) under the AR(1) DGP

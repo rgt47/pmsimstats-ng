@@ -160,17 +160,17 @@ analysis/scripts/commit_325314f/   # Modified Db (broken)
 analysis/scripts/original_R/      # Copy of 42ac030
 ```
 
-## White Papers (`analysis/output/`)
+## White Papers (`docs/pdf/`)
 
 | Document | Pages | Content |
 |----------|------:|---------|
-| `pmsimstats_revision_summary.pdf` | 13 | Main paper: problems, fixes, validated results |
-| `figure5_comparison.pdf` | 6 | Response parameter sensitivity before/after |
-| `correlation_decay_derivation.pdf` | 10 | Pharmacokinetic derivation of lambda_cor |
-| `analysis_model_ar1.pdf` | 8 | lmer to nlme transition with Type I error validation |
-| `pd_failure_white_paper.pdf` | 10 | PD failure prevalence and causes |
-| `correlation_scaling_white_paper.pdf` | 10 | BM-BR correlation artifact analysis |
-| `commit_impact_report.pdf` | 13 | Commit-by-commit Figure 4 comparison |
+| `04-revised-power-analysis.pdf` | 13 | Main paper: problems, fixes, validated results |
+| `18-response-parameter-sensitivity.pdf` | 6 | Response parameter sensitivity before/after |
+| `08-biomarker-correlation-decay.pdf` | 10 | Pharmacokinetic derivation of lambda_cor |
+| `06-ar1-residual-correlation.pdf` | 8 | lmer to nlme transition with Type I error validation |
+| `07-positive-definiteness-failures.pdf` | 10 | PD failure prevalence and causes |
+| `09-carryover-correlation-artifact.pdf` | 10 | BM-BR correlation artifact analysis |
+| `05-commit-impact-report.pdf` | 13 | Commit-by-commit Figure 4 comparison |
 
 ## Bundled Data (`data/`)
 

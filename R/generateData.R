@@ -101,20 +101,30 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
   setnames(dat,names(dat),labels)
 
   # Architecture A: additive biomarker moderation of BR
-  # Each participant's BR is shifted by bm * tod * c.bm, where tod
-  # is cumulative time-on-drug at each timepoint. This creates an
-  # interaction that scales with drug exposure duration: strongest
-  # at late on-drug timepoints, zero at never-treated timepoints,
-  # and carried forward by the DGP carryover in the BR means.
+  # Each participant's BR is shifted proportionally to their
+  # standardized biomarker value when on drug. The shift magnitude
+  # is c.bm * sigma_br per SD of biomarker, matching the
+  # conditional expectation under Architecture B's MVN model:
+  #   E[BR | bm, on_drug] = mu_BR + c.bm * (sigma_br/sigma_bm) * (bm - mu_bm)
+  # This produces comparable effect sizes between architectures
+  # for the same c.bm value.
   if(dgp_architecture == "mean_moderation"){
     beta_bm<-modelparam$c.bm
+    bm_mean<-blparam[cat=="bm"]$m
+    bm_sd<-blparam[cat=="bm"]$sd
+    br_sd<-respparam[cat=="br"]$sd
+    bm_z<-(dat$bm - bm_mean) / bm_sd
+
     d<-data.table(trialdesign)
+    d[,onDrug:=(tod>0)]
     tnames<-if(is.data.frame(trialdesign)) trialdesign$timeptname else trialdesign$timeptnames
     if(is.null(tnames)) tnames<-trialdesign$timeptname
 
     for(tp in 1:nP){
-      br_col<-paste(tnames[tp], "br", sep=".")
-      dat[,(br_col):=get(br_col) + bm * d$tod[tp] * beta_bm]
+      if(d[tp]$onDrug){
+        br_col<-paste(tnames[tp], "br", sep=".")
+        dat[,(br_col):=get(br_col) + beta_bm * bm_z * br_sd]
+      }
     }
   }
 

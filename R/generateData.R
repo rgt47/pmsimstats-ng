@@ -8,7 +8,10 @@
 #' @param modelparam a datatable with a single entry per named column:
 #' \itemize{
 #'  \item{\code{N}}{  Number of simulated participants}
-#'  \item{\code{c.bm}}{  Correlation between the biomarker and the biologic response}
+#'  \item{\code{c.bm}}{  Biomarker-BR parameter. Under MVN architecture
+#'    (default), this is the correlation between biomarker and biological
+#'    response. Under mean moderation architecture, this is the regression
+#'    coefficient scaling the BR component by centered biomarker value.}
 #'  \item{\code{carryover_t1half}}{  Halflife of the carryover effect}
 #'  \item{\code{c.tv}}{  Autocorrelation for the tv factor across timepoints}
 #'  \item{\code{c.pb}}{ Autocorrelation for the pb factor across timepoints}
@@ -52,6 +55,11 @@
 #' @param cached_sigma Pre-built sigma matrix (list with sigma, means,
 #'   labels, nP, cl, trialdesign components). When provided, skips
 #'   sigma construction entirely. Use \link{buildSigma} to create.
+#' @param dgp_architecture DGP architecture for the biomarker-treatment
+#'   interaction. \code{"mvn"} (default) uses differential correlation
+#'   in the covariance structure (Architecture B). \code{"mean_moderation"}
+#'   uses direct mean scaling of the BR component by the biomarker
+#'   (Architecture A). See the DGP architecture white paper for details.
 #' @returns A \code{dat} file that contains both the total symptom scores at each timepoint
 #'   and also all the individual factors that were used to generate those total scores
 #' @examples
@@ -59,7 +67,9 @@
 #' @export
 
 
-generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePositiveDefinite,seed=NA,lambda_cor=NA,verbose=FALSE,cached_sigma=NULL){
+generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePositiveDefinite,seed=NA,lambda_cor=NA,verbose=FALSE,cached_sigma=NULL,dgp_architecture="mvn"){
+
+  dgp_architecture<-match.arg(dgp_architecture, c("mvn", "mean_moderation"))
 
   if(!is.null(cached_sigma)){
     sigma<-cached_sigma$sigma
@@ -69,7 +79,8 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
     cl<-cached_sigma$cl
     chol_sigma<-cached_sigma$chol_sigma
   } else {
-    built<-buildSigma(modelparam,respparam,blparam,trialdesign,makePositiveDefinite,lambda_cor,verbose)
+    built<-buildSigma(modelparam,respparam,blparam,trialdesign,makePositiveDefinite,lambda_cor,verbose,
+                      dgp_architecture=dgp_architecture)
     sigma<-built$sigma
     means<-built$means
     labels<-built$labels
@@ -88,6 +99,20 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
   dat<-Z %*% chol_sigma + matrix(means, nrow=n, ncol=p, byrow=TRUE)
   dat<-data.table(dat)
   setnames(dat,names(dat),labels)
+
+  # Architecture A: scale BR components by centered biomarker
+  if(dgp_architecture == "mean_moderation"){
+    beta_bm<-modelparam$c.bm
+    bm_mean<-blparam[cat=="bm"]$m
+    bm_sd<-blparam[cat=="bm"]$sd
+    bm_centered<-(dat$bm - bm_mean) / bm_sd
+    tnames<-if(is.data.frame(trialdesign)) trialdesign$timeptname else trialdesign$timeptnames
+    if(is.null(tnames)) tnames<-trialdesign$timeptname
+    for(tp in 1:nP){
+      br_col<-paste(tnames[tp], "br", sep=".")
+      dat[,(br_col):=get(br_col) * (1 + beta_bm * bm_centered)]
+    }
+  }
 
   # Compute outcome columns using vectorized operations
   dat[,ptID:=1:modelparam$N]
@@ -122,9 +147,12 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
 #' @param makePositiveDefinite Force positive definiteness?
 #' @param lambda_cor Correlation decay rate (NA for auto)
 #' @param verbose Print diagnostics?
+#' @param dgp_architecture DGP architecture (\code{"mvn"} or
+#'   \code{"mean_moderation"}). Under mean moderation, the BM-BR
+#'   correlation block is omitted from the covariance matrix.
 #' @return List with sigma, means, labels, nP, cl, trialdesign
 #' @export
-buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefinite=TRUE,lambda_cor=NA,verbose=FALSE){
+buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefinite=TRUE,lambda_cor=NA,verbose=FALSE,dgp_architecture="mvn"){
 
   # Compute lambda_cor from carryover half-life if not specified
   if(is.na(lambda_cor)){
@@ -219,8 +247,8 @@ buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefini
         }
       }
     }
-    # BM-BR correlation with decay
-    if(cc=="br"){
+    # BM-BR correlation with decay (Architecture B / MVN only)
+    if(cc=="br" && dgp_architecture=="mvn"){
       for(p in 1:nP){
         n1<-paste(trialdesign$timeptname[p],"br",sep=".")
         if(d[p]$onDrug){

@@ -45,6 +45,9 @@
 #'   simulations?  This is memory intensive for large runs.
 #' @param lambda_cor Correlation decay rate (NA for auto, see
 #'   \link{generateData})
+#' @param dgp_architecture DGP architecture for the biomarker-treatment
+#'   interaction (\code{"mvn"} or \code{"mean_moderation"}). See
+#'   \link{generateData} for details.
 #' @return Returns a list with three named parts:
 #'   \itemize{
 #'     \item{\code{results}}{  A large data table that tells you the parameters used
@@ -67,7 +70,8 @@
 
 generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
                                    censorparams,modelparams,simparam,analysisparams,
-                                   rawdataout=FALSE,lambda_cor=NA,n_cores=1){
+                                   rawdataout=FALSE,lambda_cor=NA,n_cores=1,
+                                   dgp_architecture="mvn"){
 
   # defaults
   if(missing(analysisparams)) analysisparams<-list(useDE=TRUE,
@@ -123,7 +127,8 @@ generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
         sigma_cache[[cache_key]]<-buildSigma(
           mp, rp, bp, td[[iP]],
           makePositiveDefinite=TRUE,
-          lambda_cor=lambda_cor, verbose=FALSE)
+          lambda_cor=lambda_cor, verbose=FALSE,
+          dgp_architecture=dgp_architecture)
       }
     }
   }
@@ -159,7 +164,8 @@ generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
     run_one_paramset<-function(iR, VPG, trialdesigns, respparamsets,
                                blparamsets, modelparams, simparam,
                                analysisparams, censorparams,
-                               sigma_cache, nV, iLL_offset){
+                               sigma_cache, nV, iLL_offset,
+                               dgp_architecture="mvn"){
       td<-trialdesigns[[VPG[iR,"trialdesign"]]][[2]]
       pp<-list()
       pp$respparam<-respparamsets[[VPG[iR,"respparamset"]]]$param
@@ -176,7 +182,8 @@ generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
                 VPG[iR,"blparamset"], VPG[iR,"modelparamset"],
                 1, sep="_")
       dat<-generateData(pp$modelparam,pp$respparam,pp$blparam,td[[1]],FALSE,TRUE,
-                        cached_sigma=sigma_cache[[ck]])
+                        cached_sigma=sigma_cache[[ck]],
+                        dgp_architecture=dgp_architecture)
       dat[,path:=1]
       dat[,replicate:=rep(1:simparam$Nreps,Ns[1])]
       if(nP>1){
@@ -186,7 +193,8 @@ generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
                     VPG[iR,"blparamset"], VPG[iR,"modelparamset"],
                     iP, sep="_")
           dat2<-generateData(pp$modelparam,pp$respparam,pp$blparam,td[[iP]],FALSE,TRUE,
-                             cached_sigma=sigma_cache[[ck]])
+                             cached_sigma=sigma_cache[[ck]],
+                             dgp_architecture=dgp_architecture)
           dat2[,path:=iP]
           dat2[,replicate:=rep(1:simparam$Nreps,Ns[iP])]
           dat<-rbind(dat,dat2)
@@ -256,7 +264,8 @@ generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
           worker_fn(iR, VPG, trialdesigns, respparamsets,
                     blparamsets, modelparams, simparam,
                     analysisparams, censorparams,
-                    sigma_cache, nV, LLstarts[iLL])
+                    sigma_cache, nV, LLstarts[iLL],
+                    dgp_architecture=dgp_architecture)
         }
       }
       worker<-make_worker(generateData, lme_analysis,
@@ -279,7 +288,8 @@ generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
           iR, VPG, trialdesigns, respparamsets,
           blparamsets, modelparams, simparam,
           analysisparams, censorparams,
-          sigma_cache, nV, LLstarts[iLL])
+          sigma_cache, nV, LLstarts[iLL],
+          dgp_architecture=dgp_architecture)
         iparamset<-iparamset+1
         toc()
       }

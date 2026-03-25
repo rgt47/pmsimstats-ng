@@ -55,7 +55,7 @@ relative to noise (br_sd = 5). The `bm:Dbc` interaction
 term sees minimal contrast. Power remained low under
 carryover.
 
-### Attempt 3: Additive with time-on-drug (correct)
+### Attempt 3: Additive with time-on-drug (incorrect scaling)
 
 ```r
 dat[, (br_col) := get(br_col) + bm * tod * beta_bm]
@@ -70,19 +70,55 @@ participant_data[[br_col]] <- participant_data[[br_col]] +
   biomarker * treatment_status * interaction_strength
 ```
 
-**Why this works:** The moderation term is proportional to
-`tod` (cumulative time on drug), not to the current drug
-exposure level. On-drug timepoints accumulate `tod`
-monotonically (2.5, 5.0, 7.5, ...), producing a strong,
-growing biomarker signal. Off-drug timepoints have `tod = 0`
-(never treated in that path), so no moderation is applied
-there. The signal lives entirely in the mean structure and
-is orthogonal to the covariance -- carryover cannot erode
-it.
+**Problem:** With uncentered biomarker (mean ~124) and
+`tod` scaling with weeks (up to 10-20), the moderation
+shift was ~650 units against BR noise SD of ~8. Power was
+1.00 everywhere -- an artifact of an absurdly overpowered
+signal, not genuine resilience to carryover. The original
+2025 codebase had this same scaling issue.
 
-**Result:** Power = 1.00 across all carryover half-lives
-(0, 0.5, 1.0) at N=70, c.bm=0.45 for both N-of-1 and
-OL+BDC designs.
+### Attempt 4: Centered, on-drug binary, calibrated (correct)
+
+```r
+bm_z <- (dat$bm - bm_mean) / bm_sd
+for (tp in 1:nP) {
+  if (d[tp]$onDrug) {
+    dat[, (br_col) := get(br_col) + c.bm * bm_z * br_sd]
+  }
+}
+```
+
+**Why this works:** The formulation matches Architecture B's
+conditional expectation from the MVN model:
+
+$$E[BR | bm, \text{on drug}] = \mu_{BR} + c_{bm} \cdot
+\frac{\sigma_{BR}}{\sigma_{bm}} \cdot (bm - \mu_{bm})$$
+
+The standardized biomarker `bm_z` centers the signal
+(mean moderation = 0 in the population). The `br_sd`
+scaling produces comparable effect sizes between
+architectures: a 1-SD biomarker shift produces
+`c.bm * sigma_br` units of BR shift. The binary on-drug
+indicator ensures moderation is present whenever drug is
+active and absent otherwise.
+
+**Calibration (c.bm = 0.45, extracted parameters):**
+
+- Architecture A: 3.36 BR units per SD of biomarker
+- Architecture B: 3.48 BR units per SD of biomarker
+- Signal-to-noise ratio: ~0.65-0.9 (realistic)
+
+**Power (N-of-1, N=70, c.bm=0.45, Nreps=50):**
+
+| $t_{1/2}$ | Architecture A | Architecture B |
+|:---:|:---:|:---:|
+| 0.0 | 0.74 | 0.82 |
+| 0.5 | 0.68 | 0.64 |
+| 1.0 | 0.72 | 0.50 |
+
+Architecture A power is stable across carryover levels
+(variation is Monte Carlo noise at Nreps=50). Architecture B
+shows the characteristic 40% relative decline.
 
 ## Architectural Difference
 
@@ -95,11 +131,12 @@ the interaction signal lives:
   erodes the off-drug correlation, compressing the contrast.
 
 - **Architecture A (mean moderation):** Signal is in the
-  first moment (mean). The moderation is additive and
-  proportional to cumulative drug exposure. The analysis
-  model detects a direct shift in mean outcome conditional
-  on biomarker value. This shift is unaffected by carryover
-  because it depends on `tod`, not on current drug status.
+  first moment (mean). The moderation is a fixed additive
+  shift to BR during on-drug timepoints. Off-drug timepoints
+  carry no moderation signal regardless of carryover state.
+  The analysis model detects the interaction from the
+  differential mean between high-biomarker and
+  low-biomarker participants when on drug.
 
 ## Implementation Details
 

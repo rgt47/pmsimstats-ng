@@ -489,7 +489,7 @@ lme_analysis <- function(trial_design_set, dat, op) {
     td <- trial_design_set[[g]]
 
     dat_single <- dat |>
-      filter(path == g) |>
+      dplyr::filter(path == g) |>
       as_tibble()
 
     td_names <- if ('timeptnames' %in% names(td)) {
@@ -515,7 +515,7 @@ lme_analysis <- function(trial_design_set, dat, op) {
     valid_names <- all_names[all_names %in% names(dat_single)]
 
     data_wide <- dat_single |>
-      select(ptID, bm, all_of(valid_names)) |>
+      dplyr::select(ptID, bm, all_of(valid_names)) |>
       mutate(ptID = ptID + last_ptID)
     last_ptID <- max(data_wide$ptID)
 
@@ -527,7 +527,7 @@ lme_analysis <- function(trial_design_set, dat, op) {
         values_drop_na = FALSE
       ) |>
       left_join(
-        td_with_bl |> select(timeptnames, t, De = e, tod, tsd),
+        td_with_bl |> dplyr::select(timeptnames, t, De = e, tod, tsd),
         by = 'timeptnames'
       ) |>
       mutate(Db = (tod > 0))
@@ -564,11 +564,11 @@ lme_analysis <- function(trial_design_set, dat, op) {
 
   if (!var_in_Db) {
     ever_on_drug <- datamerged |>
-      filter(t > 0, mean_Db == 1) |>
+      dplyr::filter(t > 0, mean_Db == 1) |>
       pull(ptID) |>
       unique()
     datamerged <- datamerged |>
-      filter(ptID %in% ever_on_drug)
+      dplyr::filter(ptID %in% ever_on_drug)
   }
 
   # Test 3: is tsd ever non-zero?
@@ -595,7 +595,7 @@ lme_analysis <- function(trial_design_set, dat, op) {
   if (op$simplecarryover & var_in_tsd) model_vars <- c(model_vars, 'tsd')
   if ((var_in_exp > 1) & (op$useDE == TRUE)) model_vars <- c(model_vars, 'De')
   for (mv in model_vars) {
-    datamerged <- datamerged |> filter(!is.na(.data[[mv]]))
+    datamerged <- datamerged |> dplyr::filter(!is.na(.data[[mv]]))
   }
 
   # Fit nlme::lme with corCAR1 (matches orig)
@@ -746,7 +746,7 @@ censor_data <- function(dat, trialdesign, censorparam) {
   }
 
   delta_cols <- paste0('D_', tp_names)
-  cdt <- dat |> select(all_of(delta_cols))
+  cdt <- dat |> dplyr::select(all_of(delta_cols))
 
   frac_NA <- censorparam$beta0
   frac_NA_biased <- censorparam$beta1
@@ -932,7 +932,7 @@ generate_simulated_results <- function(
         ap_row <- as.list(analysisparams[i_ap, ])
         et_out <- lme_analysis(td, dat, ap_row)
         for (i_s in seq_len(simparam$Nreps)) {
-          dat_rep <- dat |> filter(replicate == i_s)
+          dat_rep <- dat |> dplyr::filter(replicate == i_s)
           a_out <- lme_analysis(td, dat_rep, ap_row)
           ridx <- ridx + 1
           results_list[[ridx]] <- bind_cols(
@@ -961,7 +961,7 @@ generate_simulated_results <- function(
           for (i_c in seq_len(nrow(censorparams))) {
             datc <- censor_data(dat, td[[1]], censorparams[i_c, ])
             for (i_s in seq_len(simparam$Nreps)) {
-              datc_rep <- datc |> filter(replicate == i_s)
+              datc_rep <- datc |> dplyr::filter(replicate == i_s)
               frac_na <- sum(is.na(datc_rep)) /
                 (mpp_copy$N * nrow(td[[1]]))
               a_out <- lme_analysis(td, datc_rep, ap_row)

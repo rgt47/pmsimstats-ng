@@ -1,9 +1,9 @@
-# figure4_comparison.R
+# 03-plot-factorial-comparison.R
 # Figure 4 heatmaps: (a) no carryover in analysis model vs
 #                     (b) continuous Dbc carryover in analysis model
 #
 # Usage:
-#   NREPS=50 Rscript analysis/carryover_factorial/figure4_comparison.R
+#   NREPS=50 Rscript analysis/carryover_factorial/03-plot-factorial-comparison.R
 
 library(devtools)
 library(tictoc)
@@ -20,7 +20,7 @@ if (n_cores < 0) n_cores <- max(1, parallel::detectCores() - 1)
 cat(sprintf('Figure 4 comparison: Nreps=%d, cores=%d\n\n', Nreps, n_cores))
 
 # -----------------------------------------------------------------
-# Trial designs (identical to 01d_generate_head.R)
+# Trial designs (identical to 04-generate-power-head.R)
 # -----------------------------------------------------------------
 
 tdOL <- buildtrialdesign(

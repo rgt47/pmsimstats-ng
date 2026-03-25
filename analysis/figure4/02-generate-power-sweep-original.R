@@ -1,4 +1,4 @@
-# 01b_generate_results_core_original.R
+# 02-generate-power-sweep-original.R
 #
 # Reproduces the results_core data using the ORIGINAL code from the
 # initial commit (42ac030), which matches the code that generated the
@@ -12,8 +12,8 @@
 # the publication.
 #
 # Usage:
-#   Rscript analysis/scripts/01b_generate_results_core_original.R
-#   NREPS=50 Rscript analysis/scripts/01b_generate_results_core_original.R
+#   Rscript analysis/figure4/02-generate-power-sweep-original.R
+#   NREPS=50 Rscript analysis/figure4/02-generate-power-sweep-original.R
 
 library(data.table)
 library(lme4)

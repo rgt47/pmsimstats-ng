@@ -311,14 +311,14 @@ The following documents and code are available:
 
 ### Simulation Scripts
 
-- `01d_generate_head.R`: Figure 4 simulation (current code)
-- `03_generate_figure5.R`: Figure 5 simulation (revised)
-- `03b_generate_figure5_original.R`: Figure 5 (original)
-- `01b_generate_results_core_original.R`: Publication
-  reproduction
-- `01c_generate_by_commit.R`: Per-commit comparison
-- `01e_pd_diagnostics.R`: PD failure instrumentation
-- `02_plot_figure4.R`: Heatmap plotting
+- `analysis/figure4/04-generate-power-head.R`: Figure 4 simulation (current code)
+- `analysis/figure4/01-generate-power-sweep.R`: Figure 4 power sweep (sequential)
+- `analysis/figure4/02-generate-power-sweep-original.R`: Publication reproduction
+- `analysis/figure4/03-generate-power-by-commit.R`: Per-commit comparison
+- `analysis/figure4/05-pd-diagnostics.R`: PD failure instrumentation
+- `analysis/figure4/06-plot-power-heatmaps.R`: Heatmap plotting
+- `analysis/figure5/01-generate-parameter-sensitivity.R`: Figure 5 simulation (revised)
+- `analysis/figure5/02-generate-parameter-sensitivity-original.R`: Figure 5 (original)
 
 ### Key Results
 

@@ -1,10 +1,10 @@
-# 01d_generate_head.R
+# 04-generate-power-head.R
 #
 # Runs the Figure 4 parameter sweep using the current HEAD code
 # loaded as a proper package via devtools::load_all().
 #
 # Usage:
-#   NREPS=200 Rscript analysis/scripts/01d_generate_head.R
+#   NREPS=200 Rscript analysis/figure4/04-generate-power-head.R
 
 library(devtools)
 load_all(".")

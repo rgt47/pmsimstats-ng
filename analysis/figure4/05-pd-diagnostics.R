@@ -1,4 +1,4 @@
-# 01e_pd_diagnostics.R
+# 05-pd-diagnostics.R
 #
 # Measures the rate at which the covariance matrix fails the
 # positive definiteness check and requires correction via
@@ -16,7 +16,7 @@
 # Usage:
 #   COMMIT_DIR=analysis/scripts/commit_42ac030 \
 #   COMMIT_HASH=42ac030 NREPS=50 \
-#   Rscript analysis/scripts/01e_pd_diagnostics.R
+#   Rscript analysis/figure4/05-pd-diagnostics.R
 
 library(data.table)
 library(lme4)

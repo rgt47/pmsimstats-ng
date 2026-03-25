@@ -260,7 +260,7 @@ The two simulation pipelines coexist independently:
   `buildSigma()`, `generateData()`, `lme_analysis()`,
   `generateSimulatedResults()`. This is the gold standard.
 
-- **2025** (`analysis/2025/pm_functions.R`, 1023 lines):
+- **2025** (`analysis/2025/01-pm-functions.R`, 1023 lines):
   tidyverse-based monolithic file loaded via `source()`. Uses
   `build_sigma_matrix()`, `generate_data()`, `lme_analysis()`,
   `generate_simulated_results()`. Validated bit-identical to

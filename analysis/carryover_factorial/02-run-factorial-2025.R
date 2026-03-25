@@ -1,15 +1,15 @@
-# run_2025.R
+# 02-run-factorial-2025.R
 # Factorial comparison: DGP carryover x analysis model
 # Uses 2025 tidyverse pipeline via source()
 #
-# Mirrors run_orig.R exactly but uses the 2025 pm_functions.R.
-# Both scripts should produce statistically equivalent results
-# (same distribution, different per-seed realizations at low Nreps;
-# converging at high Nreps).
+# Mirrors 01-run-factorial-orig.R exactly but uses the 2025
+# 01-pm-functions.R. Both scripts should produce statistically
+# equivalent results (same distribution, different per-seed
+# realizations at low Nreps; converging at high Nreps).
 #
 # Usage:
-#   NREPS=10 Rscript analysis/carryover_factorial/run_2025.R
-#   NREPS=1000 Rscript analysis/carryover_factorial/run_2025.R
+#   NREPS=10 Rscript analysis/carryover_factorial/02-run-factorial-2025.R
+#   NREPS=1000 Rscript analysis/carryover_factorial/02-run-factorial-2025.R
 
 library(tidyverse)
 library(data.table)
@@ -17,7 +17,7 @@ library(corpcor)
 library(MASS)
 library(nlme)
 
-source('analysis/2025/pm_functions.R')
+source('analysis/2025/01-pm-functions.R')
 
 output_dir <- 'analysis/carryover_factorial/output'
 if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)

@@ -1,4 +1,4 @@
-# 01_generate_results_core.R
+# 01-generate-power-sweep.R
 #
 # Reproduces the results_core simulation data from
 # Hendrickson et al. (2020), Figure 4.
@@ -12,8 +12,8 @@
 #          ~30-60 minutes at Nreps=50 for a quick validation run.
 #
 # Usage:
-#   Rscript analysis/scripts/01_generate_results_core.R
-#   NREPS=50 Rscript analysis/scripts/01_generate_results_core.R
+#   Rscript analysis/figure4/01-generate-power-sweep.R
+#   NREPS=50 Rscript analysis/figure4/01-generate-power-sweep.R
 
 library(devtools)
 load_all(".")

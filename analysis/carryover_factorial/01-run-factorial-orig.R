@@ -1,4 +1,4 @@
-# run_orig.R
+# 01-run-factorial-orig.R
 # Factorial comparison: DGP carryover x analysis model
 # Uses orig R/ package functions via devtools::load_all()
 #
@@ -10,8 +10,8 @@
 # small enough that this does not matter.
 #
 # Usage:
-#   NREPS=10 Rscript analysis/carryover_factorial/run_orig.R
-#   NREPS=1000 Rscript analysis/carryover_factorial/run_orig.R
+#   NREPS=10 Rscript analysis/carryover_factorial/01-run-factorial-orig.R
+#   NREPS=1000 Rscript analysis/carryover_factorial/01-run-factorial-orig.R
 
 library(devtools)
 library(tictoc)

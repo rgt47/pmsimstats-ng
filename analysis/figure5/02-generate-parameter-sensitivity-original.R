@@ -1,4 +1,4 @@
-# 03b_generate_figure5_original.R
+# 02-generate-parameter-sensitivity-original.R
 #
 # Generates Figure 5 equivalent using the ORIGINAL code from
 # the initial commit (42ac030) to match the publication.
@@ -9,7 +9,7 @@
 #   Fixed: N=35, c.bm=0.3, carryover=0, no censoring
 #
 # Usage:
-#   NREPS=200 Rscript analysis/scripts/03b_generate_figure5_original.R
+#   NREPS=200 Rscript analysis/figure5/02-generate-parameter-sensitivity-original.R
 
 library(data.table)
 library(lme4)

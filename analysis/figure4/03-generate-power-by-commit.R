@@ -1,4 +1,4 @@
-# 01c_generate_by_commit.R
+# 03-generate-power-by-commit.R
 #
 # Parameterized simulation script that runs the Figure 4 parameter
 # sweep using R source files extracted from a specific git commit.
@@ -12,7 +12,7 @@
 #   COMMIT_DIR=analysis/scripts/commit_42ac030 \
 #   COMMIT_HASH=42ac030 \
 #   NREPS=200 \
-#   Rscript analysis/scripts/01c_generate_by_commit.R
+#   Rscript analysis/figure4/03-generate-power-by-commit.R
 
 library(data.table)
 library(lme4)

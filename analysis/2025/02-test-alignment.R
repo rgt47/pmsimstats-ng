@@ -1,11 +1,11 @@
-# test_alignment.R
-# Validates that 2025 pm_functions.R produces identical output
+# 02-test-alignment.R
+# Validates that 2025 01-pm-functions.R produces identical output
 # to orig R/ functions for the same inputs.
 
 library(devtools)
 load_all('.')
 library(tidyverse)
-source('analysis/2025/pm_functions.R')
+source('analysis/2025/01-pm-functions.R')
 
 cat('=== Level 1: Gompertz ===\n')
 t_seq <- seq(0, 30, by = 0.5)

@@ -1,4 +1,4 @@
-# 03_generate_figure5.R
+# 01-generate-parameter-sensitivity.R
 #
 # Generates Figure 5 equivalent: effect of response trajectory
 # parameters (max and rate) on power across trial designs.
@@ -10,8 +10,8 @@
 # AR(1) rho=0.7, lambda_cor=auto
 #
 # Usage:
-#   Rscript analysis/scripts/03_generate_figure5.R
-#   NREPS=200 Rscript analysis/scripts/03_generate_figure5.R
+#   Rscript analysis/figure5/01-generate-parameter-sensitivity.R
+#   NREPS=200 Rscript analysis/figure5/01-generate-parameter-sensitivity.R
 
 library(devtools)
 load_all(".")

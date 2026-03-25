@@ -1,4 +1,4 @@
-#' pm_functions.R: Common functions for precision medicine trial simulation
+#' 01-pm-functions.R: Common functions for precision medicine trial simulation
 #'
 #' This script contains shared functions extracted from vig5.R for use in
 #' multiple vignettes and analysis scripts.

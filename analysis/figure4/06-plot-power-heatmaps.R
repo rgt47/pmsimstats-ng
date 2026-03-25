@@ -1,14 +1,14 @@
-# 02_plot_figure4.R
+# 06-plot-power-heatmaps.R
 #
 # Generates the Figure 4 power heatmaps from Hendrickson et al.
 # (2020). Can use either:
 #   (a) the bundled results_core.rda (default), or
-#   (b) a freshly computed .rds file from 01_generate_results_core.R
+#   (b) a freshly computed .rds file from 01-generate-power-sweep.R
 #
 # Usage:
-#   Rscript analysis/scripts/02_plot_figure4.R
+#   Rscript analysis/figure4/06-plot-power-heatmaps.R
 #   RESULTS_FILE=analysis/output/results_core_YYYYMMDD_final.rds \
-#     Rscript analysis/scripts/02_plot_figure4.R
+#     Rscript analysis/figure4/06-plot-power-heatmaps.R
 
 library(devtools)
 load_all(".")

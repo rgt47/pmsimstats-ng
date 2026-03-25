@@ -132,20 +132,25 @@ Visualization:
 - **`plotfactortrajectories()`** -- Factor trajectory plots
   by trial path.
 
-## Analysis Scripts (`analysis/scripts/`)
+## Analysis Scripts
 
-### Simulation Scripts
+### Figure 4 (`analysis/figure4/`)
 
 | Script | Purpose |
 |--------|---------|
-| `01d_generate_head.R` | Figure 4: current code, parallel, c.bm={0,0.25,0.45} |
-| `01b_generate_results_core_original.R` | Figure 4: original commit code |
-| `01c_generate_by_commit.R` | Figure 4: parameterized by commit |
-| `01_generate_results_core.R` | Figure 4: current code, sequential |
-| `01e_pd_diagnostics.R` | PD failure rate instrumentation |
-| `03_generate_figure5.R` | Figure 5: revised code |
-| `03b_generate_figure5_original.R` | Figure 5: original code |
-| `02_plot_figure4.R` | Heatmap plotting with provenance |
+| `01-generate-power-sweep.R` | Figure 4: current code, sequential |
+| `02-generate-power-sweep-original.R` | Figure 4: original commit code |
+| `03-generate-power-by-commit.R` | Figure 4: parameterized by commit |
+| `04-generate-power-head.R` | Figure 4: current code, parallel, c.bm={0,0.25,0.45} |
+| `05-pd-diagnostics.R` | PD failure rate instrumentation |
+| `06-plot-power-heatmaps.R` | Heatmap plotting with provenance |
+
+### Figure 5 (`analysis/figure5/`)
+
+| Script | Purpose |
+|--------|---------|
+| `01-generate-parameter-sensitivity.R` | Figure 5: revised code |
+| `02-generate-parameter-sensitivity-original.R` | Figure 5: original code |
 
 ### Extracted Code by Commit
 

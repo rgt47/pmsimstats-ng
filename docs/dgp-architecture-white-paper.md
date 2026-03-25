@@ -51,17 +51,36 @@ reverses across biomarker strata) and *quantitative* interactions
 (the magnitude varies but the direction is consistent). Simulation
 frameworks must choose how to generate this heterogeneity.
 
-We encountered this choice in the development of the pmsimstats
-simulation framework for N-of-1 clinical trials (Hendrickson et al.
-2020). During a comprehensive audit, we discovered that two
-parallel implementations of the same scientific question -- both
-intended to simulate the same trial designs and both producing
-plausible power estimates -- yielded qualitatively different
-conclusions about how carryover effects influence statistical
-power. Tracing this discrepancy to its root cause revealed a
-fundamental architectural difference in the DGP that, to our
-knowledge, has not been explicitly discussed in the simulation
-methodology literature.
+The dominant approach in the clinical trial simulation literature
+is direct mean moderation: the biomarker enters the outcome model
+as an interaction term that explicitly scales the treatment effect.
+This approach is used in essentially all simulation frameworks for
+biomarker-stratified designs (Simon 2010), adaptive enrichment
+trials (Freidlin & Korn 2014), basket and umbrella trials (Renfro
+& Sargent 2017), and platform trials. N-of-1 simulation studies
+(Zucker et al. 1997; Araujo et al. 2016; Duan et al. 2013)
+similarly use hierarchical random-effects models in which the
+biomarker predicts the individual treatment effect through the
+mean structure. We are not aware of a clinical trial simulation
+framework other than Hendrickson et al. (2020) that generates the
+biomarker-treatment interaction through differential correlation in
+a multivariate normal joint distribution rather than through direct
+mean moderation.
+
+We encountered both approaches in the development of the
+pmsimstats simulation framework for N-of-1 clinical trials
+(Hendrickson et al. 2020). The original publication code uses the
+MVN differential correlation approach -- an unusual choice that, as
+we show, has substantive consequences for power estimation under
+carryover. During a comprehensive audit, we discovered that a
+parallel tidyverse reimplementation of the same simulation had
+inadvertently adopted the standard direct mean moderation approach.
+Both implementations produced plausible power estimates, but they
+yielded qualitatively different conclusions about how carryover
+effects influence statistical power. Tracing this discrepancy to
+its root cause revealed the architectural difference described in
+this paper, which, to our knowledge, has not been explicitly
+discussed in the simulation methodology literature.
 
 This paper formalizes the distinction, demonstrates its
 consequences, and provides guidance for investigators designing
@@ -453,7 +472,39 @@ the regression directly. Architecture B corresponds to a
 *latent class* or *mixture model* perspective where the biomarker
 is a noisy indicator of class membership.
 
-### 6.2 Crossover and N-of-1 trial methodology
+### 6.2 Prevalence of each architecture
+
+A survey of the simulation methodology literature reveals that
+Architecture A (direct mean moderation) is the near-universal
+standard. All simulation frameworks for biomarker-stratified
+designs (Simon 2010), adaptive enrichment trials (Freidlin & Korn
+2014), basket and umbrella trials (Renfro & Sargent 2017), and
+platform trials use direct mean moderation with explicit
+interaction terms. N-of-1 simulation studies (Zucker et al. 1997;
+Araujo et al. 2016; Duan et al. 2013) use hierarchical
+random-effects models in which individual treatment effects are
+drawn from a population distribution -- a variant of Architecture
+A where the biomarker predicts the random treatment effect
+through the mean structure.
+
+Architecture B (differential correlation via MVN) appears
+primarily in latent variable and structural equation modeling
+contexts (Rizopoulos 2012), Bayesian joint modeling frameworks,
+and copula-based simulation studies. In the clinical trial
+simulation literature specifically, the Hendrickson et al. (2020)
+framework appears to be unique in using differential correlation
+as the mechanism for biomarker-treatment interaction in an N-of-1
+trial context.
+
+This predominance of Architecture A has an important implication:
+the power estimates reported in the vast majority of
+biomarker-moderated trial simulation studies may be optimistic
+for biomarkers that operate through an Architecture B mechanism,
+because these studies do not account for the additional power
+loss that carryover produces when the interaction signal resides
+in the covariance structure rather than the mean structure.
+
+### 6.3 Crossover and N-of-1 trial methodology
 
 The crossover trial literature (Senn 2002; Jones & Kenward 2014)
 addresses carryover extensively but does not distinguish between
@@ -463,24 +514,14 @@ analysis model or use adequate washout -- applies to both
 architectures but has different power implications under each.
 Our finding that Architecture B is more sensitive to carryover
 suggests that crossover designs with short washout periods may
-be less suitable for detecting MVN-type biomarker interactions
-than previously recognized.
+be less suitable for detecting correlation-based biomarker
+interactions than previously recognized.
 
-The N-of-1 trial methodology (Zucker et al. 1997; Duan et al.
-2013; Araujo et al. 2016) typically uses random-effects models
-to aggregate across participants. These models implicitly assume
-Architecture A (individual treatment effects with between-subject
-heterogeneity). The Hendrickson et al. (2020) framework is
-unusual in using Architecture B for an N-of-1 context, which may
-be more appropriate when the biomarker is a population-level
-predictor rather than an individual-level effect modifier.
-
-### 6.3 Precision medicine trial design
+### 6.4 Precision medicine trial design
 
 Enrichment and biomarker-stratified designs (Simon 2010; Freidlin
-& Korn 2014) typically use Architecture A for power calculations,
-modeling the treatment effect as a function of biomarker subgroup
-membership. The power estimates from these calculations may be
+& Korn 2014) use Architecture A exclusively for power
+calculations. The power estimates from these calculations may be
 optimistic for biomarkers that operate through an Architecture B
 mechanism, particularly in designs with crossover components or
 treatment switching.
@@ -571,6 +612,16 @@ Varadhan R, Segal JB, Boyd CM, Wu AW, Weiss CO. A framework for
 the analysis of heterogeneity of treatment effect in
 patient-centered outcomes research. *J Clin Epidemiol*.
 2013;66(8):818-825.
+
+Relling MV, Evans WE. Pharmacogenomics in the clinic. *Nature*.
+2015;526(7573):343-350.
+
+Renfro LA, Sargent DJ. Statistical controversies in clinical
+research: basket trials, umbrella trials, and other master
+protocols. *Ann Oncol*. 2017;28(1):34-43.
+
+Rizopoulos D. *Joint Models for Longitudinal and Time-to-Event
+Data: With Applications in R*. Boca Raton, FL: CRC Press; 2012.
 
 Zucker DR, Schmid CH, McIntosh MW, D'Agostino RB, Selker HP,
 Lau J. Combining single patient (N-of-1) trials to estimate

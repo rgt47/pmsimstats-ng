@@ -1,0 +1,203 @@
+\documentclass[11pt]{article}
+\newcommand{\doctitle}{Code Review: analysis/2025/pm\_functions.R}
+\newcommand{\shorttitle}{Tidyverse Code Review}
+\newcommand{\docdate}{2026-03-24}
+\input{pmsimstats-preamble}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+\tableofcontents
+
+\section{Dead Code}
+
+\subsection{1. \texttt{calculate\_carryover()} (lines 24-77)}
+
+Multi-model carryover function supporting exponential, linear, and
+Weibull decay. \textbf{Never called} by any function in the file. The
+actual carryover is computed inline in \texttt{apply\_carryover\_to\_component()}
+using the exponential formula \texttt{(1/2)\^{}(tsd/halflife)}. The linear
+and Weibull models were never integrated into the DGP.
+
+\textbf{Action:} Remove entirely.
+
+\subsection{2. \texttt{calculate\_component\_halflives()} (lines 138-145)}
+
+Returns a list with three identical values (\texttt{br\_halflife},
+\texttt{pb\_halflife}, \texttt{tv\_halflife}), all set to \texttt{base\_halflife}. Only
+\texttt{br\_halflife} is ever used (the function guards on
+\texttt{component\_name != "br"} in \texttt{apply\_carryover\_to\_component()}).
+
+\textbf{Action:} Inline the single value. Replace all calls with
+\texttt{model\_param\$carryover\_t1half} directly.
+
+\subsection{3. \texttt{calculate\_bio\_response\_with\_interaction()} (lines 95-126)}
+
+Thin wrapper that:
+
+\begin{enumerate}
+\item Calls \texttt{mod\_gompertz()} on \texttt{trial\_data\$tod}
+\item Sets \texttt{bio\_response\_test <- base\_bio\_response == 0}
+\item Calls \texttt{apply\_carryover\_to\_component()}
+\item Returns a 3-element list
+\end{enumerate}
+
+This adds indirection without value. The orig code does this inline
+in \texttt{buildSigma()} in 10 lines. The \texttt{raw\_bio\_response\_means} return
+field is never used by any caller.
+
+\textbf{Action:} Inline into \texttt{generate\_data()} and \texttt{build\_sigma\_matrix()}.
+
+\subsection{4. \texttt{validate\_correlation\_structure()} (lines 778-813)}
+
+Diagnostic function. Calls \texttt{build\_sigma\_matrix()} and reports
+eigenvalues and condition number. Not called by the simulation
+pipeline. Was useful during development but is now redundant with
+\texttt{validate\_parameter\_grid()}.
+
+\textbf{Action:} Remove. The orig's \texttt{validateParameterGrid()} (ported
+as Step 7c) covers this use case.
+
+\subsection{5. \texttt{create\_sigma\_cache\_key()} (lines 815-822)}
+
+Creates a cache key from \texttt{design\_name}, \texttt{params\$n\_participants},
+\texttt{params\$biomarker\_correlation}, \texttt{params\$carryover\_t1half}. \textbf{Never
+called.} The actual caching in \texttt{generate\_simulated\_results()} uses
+\texttt{paste(vpg indices, sep='\_')} directly.
+
+\textbf{Action:} Remove entirely.
+
+\subsection{6. \texttt{validate\_parameter\_grid()} (lines 828-991)}
+
+170-line validation function with extensive console output, emoji,
+condition number statistics, and recommendations. References
+\texttt{param\_grid\$biomarker\_correlation} and \texttt{param\_grid\$n\_participants}
+-- column names from the old 2025 parameter format that no longer
+exists after the alignment. Would crash if called.
+
+\textbf{Action:} Remove. The orig's \texttt{validateParameterGrid()} and the
+ported \texttt{generate\_simulated\_results()} handle pre-flight validation.
+
+\subsection{7. \texttt{report\_parameter\_validation()} (lines 997-1044)}
+
+Companion reporting function for \texttt{validate\_parameter\_grid()}. Same
+issue -- references old column names. Never called by the pipeline.
+
+\textbf{Action:} Remove.
+
+\subsection{8. Deprecated docstring block (lines 147-158)}
+
+Roxygen comment block for a function that was already removed.
+Describes the deprecated \texttt{calculate\_carryover\_adjusted\_correlations()}
+which no longer exists.
+
+\textbf{Action:} Remove.
+
+\section{Duplication}
+
+\subsection{9. \texttt{generate\_data()} and \texttt{build\_sigma\_matrix()} share \textasciitilde{}100 lines}
+
+Both functions independently compute: labels, standard\_deviations,
+means (including the Gompertz + carryover loop), and the correlation
+matrix. The logic is copy-pasted. In orig, \texttt{buildSigma()} is a
+standalone function and \texttt{generateData()} calls it (or uses a
+cached version).
+
+\textbf{Action:} Make \texttt{generate\_data()} always call \texttt{build\_sigma\_matrix()}
+when no cached sigma is provided, eliminating the duplicated sigma
+construction path (lines 433-582 of generate\_data). This matches
+the orig architecture where \texttt{generateData()} calls \texttt{buildSigma()}.
+
+\subsection{10. \texttt{factor\_types} and \texttt{factor\_abbreviations} are identical}
+
+After the alignment, \texttt{factor\_types = c("tv", "pb", "br")} and
+\texttt{factor\_abbreviations = c("tv", "pb", "br")} are the same vector.
+Both are passed around as separate arguments and iterated in
+parallel. The \texttt{current\_factor} / \texttt{factor\_abbrev} distinction no
+longer exists.
+
+\textbf{Action:} Collapse to a single \texttt{factors <- c("tv", "pb", "br")}
+throughout.
+
+\section{Simplifications}
+
+\subsection{11. \texttt{apply\_carryover\_to\_component()} over-engineered}
+
+Takes \texttt{component\_halflives} (a list) and \texttt{component\_name} (a
+string), then immediately returns unchanged if \texttt{component\_name !=
+"br"}. This function is called three times in a loop -- twice it
+returns immediately. The function could simply accept the halflife
+value directly and only be called for BR.
+
+\textbf{Action:} Call only for BR component. Pass
+\texttt{model\_param\$carryover\_t1half} directly instead of the halflives
+list. Remove the \texttt{component\_name} guard.
+
+\subsection{12. \texttt{prepare\_trial\_data()} fallback logic}
+
+Lines 238-246 handle a \texttt{week} column fallback that is never
+exercised. All trial designs in this codebase use \texttt{t\_wk}. The
+\texttt{on\_drug} column it adds duplicates information already available
+from \texttt{tod > 0}.
+
+\textbf{Action:} Simplify to: add \texttt{t\_wk\_cumulative <- cumsum(t\_wk)} and
+\texttt{on\_drug <- (tod > 0)}. Remove the \texttt{week} fallback.
+
+\subsection{13. \texttt{build\_correlation\_matrix()} signature has 11 parameters}
+
+Several are vestigial: \texttt{bio\_response\_test}, \texttt{bio\_response\_means},
+\texttt{means} are only used for the BM-BR correlation block, and even
+there \texttt{bio\_response\_test} is only checked when \texttt{trial\_data} is
+NULL (which never happens in practice since \texttt{trial\_data} is always
+passed). The \texttt{factor\_types} parameter is now identical to
+\texttt{factor\_abbreviations}.
+
+\textbf{Action:} Simplify signature. Remove \texttt{bio\_response\_test},
+\texttt{bio\_response\_means}, \texttt{means}, \texttt{factor\_types}. Use \texttt{trial\_data}
+(always present) for the on-drug check.
+
+\subsection{14. \texttt{process\_participant\_data()} pre-allocates then overwrites}
+
+Lines 1054-1058 create a zero-filled tibble and bind it, then
+lines 1060-1079 overwrite every column. The pre-allocation has no
+benefit since \texttt{mutate()} creates new columns regardless.
+
+\textbf{Action:} Remove the pre-allocation block. Let the \texttt{mutate()}
+calls create the columns directly.
+
+\subsection{15. PD tracking in \texttt{generate\_data()} is single-call accounting}
+
+\texttt{sigma\_count} and \texttt{non\_positive\_definite\_count} are initialized to
+0, incremented at most once (the function builds one sigma), and
+then attached as attributes. The \texttt{non\_positive\_definite\_rate} is
+always 0 or 1. This tracking made sense in a loop but is trivial
+for a single-sigma function.
+
+\textbf{Action:} Replace with a single boolean attribute
+\texttt{was\_pd\_corrected}.
+
+\section{Estimated Impact}
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{lrccc}
+\toprule
+Category & Items & Lines removed & Lines simplified \\
+\midrule
+Dead code & 7 & \textasciitilde{}350 & -- \\
+Duplication & 2 & \textasciitilde{}100 & \textasciitilde{}50 \\
+Simplifications & 5 & \textasciitilde{}30 & \textasciitilde{}60 \\
+\midrule
+\textbf{Total} & \textbf{14} & \textbf{\textasciitilde{}480} & \textbf{\textasciitilde{}110} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Current file: 1650 lines. After cleanup: \textasciitilde{}1060 lines.
+
+\vfill
+\noindent\rule{\textwidth}{0.4pt}
+{\footnotesize
+Rendered on 2026-03-25 at 19:01 PDT.\\
+Source: \textasciitilde/prj/alz/10-pmsimstats-ng/pmsimstats-ng/docs/16-tidyverse-code-review.tex}
+\end{document}

@@ -316,6 +316,34 @@ The two simulation pipelines coexist independently:
   \item GitHub repository: \texttt{rgt47/pmsimstats-ng}
 \end{itemize}
 
+\subsection{Dual-Architecture Extension}
+
+The simulation framework now supports two data-generating
+process (DGP) architectures for the biomarker-treatment
+interaction, controlled by the \texttt{dgp\_architecture}
+parameter in \texttt{generateData()}:
+
+\begin{itemize}
+\item \textbf{Architecture B} (\texttt{'mvn'}, default):
+  The biomarker-treatment interaction is encoded as
+  differential correlation in the MVN covariance structure.
+  This is the original Hendrickson et al.\ (2020) approach.
+  The PD constraint limits $c_{bm} \leq 0.45$ with AR(1)
+  $\rho = 0.7$.
+
+\item \textbf{Architecture A} (\texttt{'mean\_moderation'}):
+  The interaction is an additive shift in the mean structure,
+  applied post-MVN-draw. The BM-BR correlation block is
+  omitted from $\Sigma$, removing the PD constraint entirely.
+  Power is stable across carryover levels.
+\end{itemize}
+
+See \texttt{02-dgp-mean-moderation-vs-mvn.tex} for the
+theoretical comparison and
+\texttt{19-mean-moderation-implementation-notes.tex} for the
+implementation derivation. The dual-architecture framework
+resides on the \texttt{feature/mean-moderation-dgp} branch.
+
 \bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
 
 \section{Collaborator Deliverables}
@@ -373,97 +401,39 @@ Raskind et al. trial. Status: complete.
 
 \section{White Paper Documentation}
 
-The consolidated repository includes seven technical white
-papers documenting the audit findings, theoretical derivations,
-and validation results.
+The consolidated repository includes the following technical
+white papers documenting the audit findings, theoretical
+derivations, and validation results.
 
-\subsection{Revised Power Analysis (04-revised-power-analysis.pdf)}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{rll}
+\toprule
+\# & Document & Content \\
+\midrule
+01 & Codebase Overview & Package structure, parameters, dependencies \\
+02 & DGP Architecture Comparison & Mean moderation vs.\ MVN correlation \\
+03 & Audit and Revision Report & Seven DGP corrections, PD resolution, deliverables \\
+04 & Revised Power Analysis & Problems, fixes, validated results \\
+06 & AR(1) Residual Correlation & lmer to nlme transition with Type I error validation \\
+07 & Positive Definiteness Failures & PD failure prevalence and causes \\
+08 & BM-BR Correlation Decay & Pharmacokinetic derivation of $\lambda_{\text{cor}}$ \\
+09 & Carryover Correlation Artifact & BM-BR correlation artifact analysis \\
+10 & Carryover Analysis Assessment & Carryover characterization in actual data \\
+13 & Figure 4 Walkthrough & Pre-audit methodology reference \\
+14 & Trial Analysis Guide & Collaborator goal implementation \\
+15 & Tidyverse Alignment Plan & Alignment between orig and 2025 pipelines \\
+16 & Tidyverse Code Review & Code review of 2025 pipeline \\
+17 & Simplification Plan & Codebase simplification strategy \\
+18 & Response Parameter Sensitivity & Response parameter sensitivity before/after \\
+19 & Mean Moderation Implementation & Implementation derivation for Architecture~A \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-A 13-page comprehensive summary of all changes from v0.1.0
-to v0.2.0, written for the original authors. Documents each
-DGP revision with before/after code, parameter tables, and
-heatmap comparisons. Includes the validation results showing
-Type I error correction and the complete parameter grid with
-power estimates at 200 and 1,000 replicates. Serves as the
-primary reference for understanding what changed and why.
-
-\subsection{AR(1) Residual Correlation (06-ar1-residual-correlation.pdf)}
-
-Derives why the original \texttt{lme4::lmer} random-intercept model
-produces inflated Type I error (13--17\%) under the AR(1) DGP
-and validates that \texttt{nlme::lme} with \texttt{corCAR1} corrects this
-to the nominal 5\%. Presents a simulation study comparing the
-two analysis models across 1,000 replicates under the null
-($c_{bm} = 0$) for all four trial designs. Shows that the
-random-intercept model absorbs the AR(1) residual
-autocorrelation into a biased variance estimate, shrinking
-standard errors and inflating test statistics.
-
-\subsection{Biomarker Correlation Decay (08-biomarker-correlation-decay.pdf)}
-
-Derives the exponential decay formula for the biomarker-response
-correlation during off-drug periods from pharmacokinetic first
-principles. When each participant's drug effect decays by the
-same fraction per unit time ($e^{-\lambda t}$, where $\lambda =
-\ln 2 / t_{1/2}$), the between-participant spread of drug
-effects decays proportionally, preserving the coefficient of
-variation. This implies the correlation between biomarker and
-drug-mediated response decays at the same rate:
-$\text{Cor}(bm, br_t) = c_{bm} \cdot e^{-\lambda t_{sd}}$.
-The derivation shows this is the unique decay function that
-maintains the proportional relationship between individual drug
-effects and the biomarker.
-
-\subsection{Positive Definiteness Failures (07-positive-definiteness-failures.pdf)}
-
-Presents the instrumented measurement of positive definiteness
-failures across four code versions and 162 parameter
-combinations. Documents that 24.7\% of covariance matrices fail
-PD at the publication commit, rising to 63.0\% after subsequent
-edits, with all matrices ill-conditioned ($\kappa > 100$).
-Traces the root cause to the OL+BDC design's abrupt
-expectancy-driven variance change (83--92\% failure rate) and the
-compound symmetry autocorrelation structure. Evaluates the
-perturbation introduced by \texttt{make.positive.definite()} and its
-consequences for cross-design power comparisons. Recommends
-AR(1) autocorrelation, pre-validation, and parameter
-constraints as solutions.
-
-\subsection{Carryover Correlation Artifact (09-carryover-correlation-artifact.pdf)}
-
-Analyzes the BM-BR correlation mechanism in the Hendrickson
-DGP. The biomarker-treatment interaction emerges from
-differential correlation in the MVN draw: when on drug,
-$\text{Cor}(bm, br) = c_{bm}$; when off drug, the correlation
-decays or drops to zero. This means participants with high
-biomarker values tend to have large drug effects (high BR
-means) and participants with low biomarker values tend to have
-small drug effects, creating the interaction detectable by the
-analysis model. The paper traces how this correlation
-propagates through the sigma matrix to produce the observed
-power pattern across designs and parameter values.
-
-\subsection{Response Parameter Sensitivity (18-response-parameter-sensitivity.pdf)}
-
-Compares Figure 5 (response parameter sensitivity analysis)
-between the original publication code and the revised code.
-Figure 5 sweeps the Gompertz response parameters (max, disp,
-rate) and standard deviations across a grid to assess which
-parameters most strongly influence power. Documents the
-differences introduced by the DGP revisions and validates
-that the qualitative conclusions about parameter sensitivity
-are robust to the corrections.
-
-\subsection{Revised Power Analysis (04-revised-power-analysis.pdf)}
-
-Traces the impact of each individual commit (from the
-publication code through the Ron Thomas edits to the current
-HEAD) on the power estimates. Reproduces the Figure 4 heatmap
-at each commit to show how each change affected the power
-surface. Documents which changes improved power estimates
-(AR(1) expanding the feasible region), which degraded them
-(proportional BM-BR scaling reducing effective correlation),
-and which were neutral (code cleanup without DGP changes).
+Note: document 05 has been removed (duplicate of 04).
+Document 11 now resides in \texttt{analysis/report/}.
 
 \bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
 

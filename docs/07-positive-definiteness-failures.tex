@@ -17,9 +17,9 @@ parameters and passes it to \texttt{MASS::mvrnorm()} to draw
 simulated participant data. When the resulting matrix is not
 positive definite (PD), the code silently projects it to the
 nearest PD matrix via
-\texttt{corpcor::make.positive.definite()}. We instrumented the
-simulation pipeline to measure the frequency and severity of
-these failures across four code versions (commits). The results
+\texttt{corpcor::make.positive.definite()}. The simulation
+pipeline was instrumented to measure the frequency and severity
+of these failures across four code versions (commits). The results
 reveal that PD failure is not a rare edge case but a routine
 feature of the simulation: 24.7\% of matrices fail at the
 initial commit, rising to 63.0\% after the Ron Thomas edits.
@@ -32,6 +32,22 @@ publication is not self-consistent and that the PD correction
 introduces an uncontrolled perturbation to the intended
 covariance structure.
 \end{abstract}
+
+\bigskip
+\noindent\fbox{\parbox{\dimexpr\textwidth-2\fboxsep-2\fboxrule}{%
+\textbf{Architecture scope.} The positive definiteness failures
+documented here are specific to Architecture~B (MVN differential
+correlation), in which the biomarker-BR correlation parameter
+$c_{bm}$ enters the off-diagonal entries of the covariance matrix.
+Under Architecture~A (direct mean moderation), the BM-BR
+correlation block is absent from $\Sigma$ and the PD constraint on
+$c_{bm}$ is eliminated entirely: values up to 0.95 produce valid
+covariance matrices across all trial designs. For a comparison of
+both DGP architectures, see
+\texttt{02-dgp-mean-moderation-vs-mvn.tex}. For implementation
+details of Architecture~A, see
+\texttt{19-mean-moderation-implementation-notes.tex}.}}
+\bigskip
 
 \tableofcontents
 \newpage
@@ -81,7 +97,7 @@ consequences for the simulation results.
 
 \subsection{Instrumentation}
 
-We instrumented the simulation by replacing
+The simulation was instrumented by replacing
 \texttt{corpcor::is.positive.definite()} and
 \texttt{corpcor::make.positive.definite()} with wrapper
 functions that record every call and its result. The wrappers
@@ -139,7 +155,7 @@ N-of-1 & 4 & 72 \\
 
 \subsection{Code Versions Tested}
 
-We tested four commits spanning the repository history:
+Four commits spanning the repository history were tested:
 
 \begin{table}[h]
 \centering
@@ -175,7 +191,7 @@ Commit & Description & Failures & Rate (\%) &
   $\Delta$ from initial \\
 \midrule
 \texttt{42ac030} & Initial commit &
-  40 & 24.7 & --- \\
+  40 & 24.7 & -- \\
 \texttt{8609f12} & Ron Thomas edits &
   102 & 63.0 & $+38.3$ pp \\
 \texttt{f6ee86d} & Autocorr typo fix &
@@ -430,9 +446,9 @@ perturbation represents roughly 1\% of the total variance.
 However, because the perturbation is concentrated in specific
 eigenvectors (those associated with the near-zero or negative
 eigenvalues), it can disproportionately affect particular
-correlation entries---especially the BM--BR correlations and
+correlation entries (especially the BM--BR correlations and
 cross-phase ER correlations that created the non-PD condition
-in the first place.
+in the first place).
 
 \subsection{Impact on Power Estimates}
 

@@ -29,6 +29,21 @@ the paper's qualitative conclusions are preserved while the
 quantitative estimates are refined.
 \end{abstract}
 
+\bigskip
+\noindent\fbox{\parbox{\dimexpr\textwidth-2\fboxsep-2\fboxrule}{%
+\textbf{Architecture scope.} This document describes the revised
+power analysis under the MVN differential correlation approach
+(Architecture~B), in which the biomarker-treatment interaction is
+encoded in the covariance structure. The positive definiteness
+constraints, carryover sensitivity findings, and parameter ceilings
+reported here are specific to Architecture~B. Under Architecture~A
+(direct mean moderation), the PD constraint is removed and power is
+stable across carryover levels. For a comparison of both DGP
+architectures, see \texttt{02-dgp-mean-moderation-vs-mvn.tex}. For
+implementation details of Architecture~A, see
+\texttt{19-mean-moderation-implementation-notes.tex}.}}
+\bigskip
+
 \tableofcontents
 \newpage
 
@@ -55,10 +70,10 @@ half-life increases from zero to just 0.1 weeks (17 hours).
 This finding influenced the design of the ongoing clinical
 trial.
 
-Our audit of the simulation code reveals that this dramatic
+An audit of the simulation code reveals that this dramatic
 power drop is primarily an artifact of how the simulation
 assigns correlations during off-drug periods, not a genuine
-consequence of carryover at those half-lives. We also found
+consequence of carryover at those half-lives. The analysis also identified
 that the covariance matrix used to generate data is
 mathematically invalid (not positive definite) for 25\% of the
 parameter combinations, with the simulation silently correcting
@@ -66,9 +81,9 @@ these invalid matrices in ways that alter the intended data
 structure.
 
 Both problems have principled solutions. The corrected
-simulation confirms the paper's qualitative conclusion---N-of-1
+simulation confirms the paper's qualitative conclusion (N-of-1
 designs are more sensitive to carryover than crossover
-designs---but the quantitative severity is moderate rather than
+designs) but the quantitative severity is moderate rather than
 catastrophic, occurring at clinically realistic carryover
 half-lives (0.5--1.0 weeks) rather than at the very short
 half-lives (0.1 weeks) reported in the publication.
@@ -77,7 +92,7 @@ half-lives (0.1 weeks) reported in the publication.
 \section{Reproducing the Published Results}
 % =================================================================
 
-We began by extracting the original simulation code and
+The analysis began by extracting the original simulation code and
 verifying that it reproduces the published Figure~4. Using the
 original code with 200 replicates per cell, the reproduced
 power estimates correlate with the publication at $r = 0.994$.
@@ -124,15 +139,15 @@ statistically significant.
 
 \subsection{What Happens During Off-Drug Periods}
 
-Consider a participant in the N-of-1 design at week 11---one
+Consider a participant in the N-of-1 design at week 11, one
 week after the drug was discontinued. With a carryover
 half-life of 0.1 weeks (17 hours):
 
 \begin{itemize}
 \item The \textbf{mean drug effect} has decayed to 0.01\% of
-  its peak value---essentially zero.
+  its peak value, essentially zero.
 \item The \textbf{standard deviation} remains at 8 CAPS
-  points---unchanged from when the drug was active.
+  points, unchanged from when the drug was active.
 \item The \textbf{correlation with the biomarker} is set to
   the full value ($\rho = 0.6$) in the original code, because
   the carryover residual, though negligible, is technically
@@ -144,7 +159,7 @@ near-zero mean produces an impossible clinical scenario: the
 simulation predicts that a participant with high blood pressure
 will show 4.8 points of drug-related improvement, while a
 participant with low blood pressure will show 4.8 points of
-\emph{worsening}---at a timepoint where the drug effect is
+\emph{worsening}, at a timepoint where the drug effect is
 essentially gone.
 
 \subsection{Why This Destroys Power}
@@ -178,7 +193,7 @@ measure is the hallmark of an artifact.
 The correlation between the biomarker and the drug response
 should decay at the same rate as the drug effect itself. When
 the drug clears, each participant's drug effect decays by the
-same fraction---a participant who responded strongly retains
+same fraction; a participant who responded strongly retains
 a proportionally larger residual than one who responded weakly.
 The biomarker-specific spread therefore shrinks in proportion
 to the mean:
@@ -207,7 +222,7 @@ half-lives, not an artifact at negligible ones.
 The simulation generates data by drawing from a multivariate
 normal distribution, which requires a valid covariance matrix.
 A covariance matrix is ``positive definite'' (PD) if it
-represents a physically realizable pattern of correlations---one
+represents a physically realizable pattern of correlations, one
 where no combination of variables has negative variance.
 
 When the covariance matrix is \emph{not} positive definite, the
@@ -219,7 +234,7 @@ correlation structure in unknown ways.
 
 \subsection{How Often Does This Occur?}
 
-We instrumented the simulation to count how often the
+The simulation was instrumented to count how often the
 correction is applied. The results are striking:
 
 \begin{table}[h]
@@ -272,7 +287,7 @@ Two changes eliminate the PD failures:
 \item \textbf{AR(1) autocorrelation} replaces compound
   symmetry. In the original code, any two measurements of
   the same factor are equally correlated ($\rho = 0.8$)
-  regardless of how far apart in time they are---a
+  regardless of how far apart in time they are, a
   measurement at week 2 is as correlated with week 20 as
   with week 3. AR(1) uses time-dependent correlation:
   $\rho^{|t_i - t_j|}$, so nearby measurements are more
@@ -393,7 +408,7 @@ N-of-1 & 70 & 0.75 & 0.63 & 0.43 & Large drop \\
 
 \item \textbf{The quantitative severity is reduced.} Power
   drops from 0.45 to 0.23 (N-of-1, $N = 35$, $t_{1/2} = 1.0$
-  week)---a meaningful reduction but not the catastrophic
+  week), a meaningful reduction but not the catastrophic
   crash from 0.95 to 0.18 reported at $t_{1/2} = 0.1$ weeks.
   The catastrophic drop was an artifact of the correlation
   assignment rule.
@@ -541,8 +556,8 @@ $c_{bm} = 0.45$ is within the valid range for all designs.
 \subsection{Post-Publication Code History}
 
 After publication, the simulation code was modified in
-several commits. These changes---intended to improve the
-carryover modeling---inadvertently altered the power
+several commits. These changes, intended to improve the
+carryover modeling, inadvertently altered the power
 estimates and increased the covariance matrix failure rate
 from 25\% to 63\%. Each commit is described below with
 its specific code changes and impact on Figure~4.

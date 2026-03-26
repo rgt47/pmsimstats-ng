@@ -1,0 +1,487 @@
+\documentclass[11pt]{article}
+\newcommand{\doctitle}{Implementing Direct Mean Moderation for
+  Biomarker-Treatment Interactions:
+  A Worked Example in Signal Calibration}
+\newcommand{\shorttitle}{Mean Moderation Implementation}
+\newcommand{\docdate}{2026-03-25}
+\input{pmsimstats-preamble}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+
+\begin{abstract}
+This document traces four attempts to implement direct mean
+moderation (Architecture~A) for the biomarker-treatment
+interaction in the \texttt{pmsimstats-ng} clinical trial
+simulation framework. Three attempts produced incorrect
+behavior due to scaling errors: one generated no signal during
+off-drug periods, another generated signal that decayed too
+rapidly, and a third generated signal so large that power
+reached 1.00 under all conditions. The correct formulation
+uses standardized biomarker values, a binary on-drug
+indicator, and scaling by the biological response standard
+deviation to produce effect sizes that are calibrated against
+the existing multivariate normal (MVN) architecture. We
+present the mathematical derivation, explain why each
+incorrect attempt failed, and provide empirical verification.
+The narrative is intended to illustrate how dimensional
+analysis and calibration against a known reference
+implementation can guide the development of simulation
+components.
+\end{abstract}
+
+\tableofcontents
+
+\section{Introduction}
+
+\subsection{The problem}
+
+Consider a clinical trial in which a baseline biomarker
+$B_i$ (e.g., resting blood pressure) is hypothesized to
+predict which participants will benefit from a drug. A
+simulation framework generates synthetic trial data and
+estimates the statistical power to detect this
+biomarker-treatment interaction. How should the simulation
+encode the relationship between biomarker and drug response?
+
+There are two fundamentally different approaches, which we
+call Architecture~A and Architecture~B. This document is
+concerned with the implementation of Architecture~A.
+
+\subsection{Architecture B: differential correlation (MVN)}
+
+The existing implementation in \texttt{pmsimstats-ng}
+generates all participant-level variables---biomarker ($B_i$),
+baseline symptom score ($\text{BL}_i$), and response
+components at each timepoint ($\text{BR}_{it}$,
+$\text{TV}_{it}$, $\text{PB}_{it}$)---from a single
+multivariate normal (MVN) draw:
+%
+\begin{equation}
+  \mathbf{X}_i \sim \text{MVN}(\boldsymbol{\mu},\,\Sigma)
+\end{equation}
+%
+The biomarker-treatment interaction is encoded in the
+covariance matrix $\Sigma$. Specifically, the correlation
+between the biomarker and the biological response (BR)
+component depends on treatment status:
+%
+\begin{equation}\label{eq:mvn-cor}
+  \text{Cor}(B_i,\,\text{BR}_{it}) =
+  \begin{cases}
+    c_{bm} & \text{if on drug at time } t \\
+    c_{bm} \cdot e^{-\lambda \cdot t_{sd}} &
+      \text{if off drug (with decay)} \\
+    0 & \text{if never treated}
+  \end{cases}
+\end{equation}
+%
+where $c_{bm}$ is the biomarker-BR correlation parameter,
+$\lambda$ is the correlation decay rate, and $t_{sd}$ is time
+since drug discontinuation.
+
+The interaction signal lives in the \emph{second moment}
+(covariance) of the joint distribution. It is not visible in
+the population means---all participants have the same expected
+BR at a given timepoint regardless of their biomarker value.
+The signal emerges only in the conditional distribution:
+given that participant $i$ has biomarker value $b$, their
+expected BR is shifted:
+%
+\begin{equation}\label{eq:cond-exp}
+  E[\text{BR}_{it} \mid B_i = b,\,\text{on drug}]
+  = \mu_{\text{BR}}(t) + c_{bm} \cdot
+    \frac{\sigma_{\text{BR}}}{\sigma_B}
+    \cdot (b - \mu_B)
+\end{equation}
+%
+This is a standard property of the multivariate normal
+distribution (see, e.g., Mardia et al., 1979, Chapter~3).
+
+\subsection{Architecture A: direct mean moderation}
+
+Under Architecture~A, the biomarker enters the
+\emph{mean structure} directly. The BR component for
+participant $i$ at timepoint $t$ is:
+%
+\begin{equation}\label{eq:arch-a}
+  \text{BR}_{it} = \text{BR}_{it}^{\text{base}}
+  + \beta_{bm} \cdot B_i^{*} \cdot D_{it} \cdot \sigma_{\text{BR}}
+\end{equation}
+%
+where $\text{BR}_{it}^{\text{base}}$ is drawn from the MVN
+(with no BM-BR correlation), $B_i^{*} = (B_i - \mu_B) /
+\sigma_B$ is the standardized biomarker, $D_{it}$ is a binary
+drug indicator (1 if on drug, 0 otherwise), and
+$\sigma_{\text{BR}}$ is the BR standard deviation from the
+response parameters.
+
+The interaction is \emph{deterministic}: given a participant's
+biomarker value and treatment status, the BR shift is fully
+determined. The signal lives in the \emph{first moment}
+(conditional mean).
+
+\subsection{Why the distinction matters}
+
+Under drug carryover, the drug effect persists into off-drug
+periods and gradually decays. Under Architecture~B, the
+correlation between biomarker and BR during off-drug periods
+also decays (Equation~\ref{eq:mvn-cor}), eroding the signal
+that the analysis model uses to detect the interaction. Under
+Architecture~A, the moderation applies only during on-drug
+timepoints and is absent during off-drug timepoints regardless
+of carryover---the signal is binary (present or absent), not
+graded. This architectural difference produces qualitatively
+different conclusions about statistical power under carryover
+(see the companion white paper,
+\texttt{02-dgp-mean-moderation-vs-mvn.md}).
+
+\section{The calibration problem}
+
+Before describing the implementation attempts, we establish
+the calibration target. For the two architectures to be
+comparable, they should produce similar effect sizes for the
+same value of $c_{bm}$. Under Architecture~B, the conditional
+expectation (Equation~\ref{eq:cond-exp}) tells us that a
+one-standard-deviation shift in the biomarker produces a BR
+shift of:
+%
+\begin{equation}\label{eq:target}
+  \Delta_{\text{BR}} = c_{bm} \cdot \sigma_{\text{BR}}
+\end{equation}
+%
+For the parameters used in the Hendrickson et al.\ (2020)
+framework ($c_{bm} = 0.45$, $\sigma_{\text{BR}} = 8$), this
+is $0.45 \times 8 = 3.6$ units of BR per SD of biomarker.
+Any correct Architecture~A implementation should produce a
+shift of approximately the same magnitude.
+
+We can verify this empirically. Drawing 500 participants
+under Architecture~B with $c_{bm} = 0.45$, the regression
+of mean on-drug BR on the biomarker yields a slope
+corresponding to 3.48 BR units per SD of biomarker, with
+residual SD of 3.89---consistent with the theoretical
+prediction.
+
+\section{Four implementation attempts}
+
+\subsection{Attempt 1: multiplicative scaling}
+
+The most intuitive approach is to scale each participant's
+BR by a factor that depends on their biomarker value:
+%
+\begin{equation}
+  \text{BR}_{it}^{\text{mod}} = \text{BR}_{it}^{\text{base}}
+  \cdot (1 + \beta_{bm} \cdot B_i^{*})
+\end{equation}
+
+\begin{lstlisting}
+dat[, (br_col) := get(br_col) * (1 + beta_bm * bm_centered)]
+\end{lstlisting}
+
+\textbf{Why it fails.} During off-drug timepoints, the base
+BR value $\text{BR}_{it}^{\text{base}}$ is near zero (the
+Gompertz response function evaluates to approximately zero
+when time-on-drug is zero). Multiplying a near-zero value by
+$(1 + \text{small})$ produces a near-zero result. The
+moderation signal is proportional to the \emph{magnitude} of
+the base BR, not to the drug exposure status. Consequently,
+the analysis model sees strong biomarker-BR association during
+on-drug periods (where base BR is large) and essentially no
+association during off-drug periods---precisely mimicking
+Architecture~B's correlation erosion.
+
+\textbf{Result.} Power dropped approximately 60\% under
+carryover, indistinguishable from Architecture~B.
+
+\textbf{Lesson.} Multiplicative moderation conflates the
+interaction signal with the response magnitude. When the
+response is near zero (off-drug), the signal vanishes
+regardless of the moderation strength.
+
+\subsection{Attempt 2: additive with drug exposure decay}
+
+To address the zero-base problem, we switched to an additive
+formulation where the moderation signal tracks the
+pharmacokinetic drug exposure level:
+%
+\begin{equation}
+  \text{BR}_{it}^{\text{mod}} = \text{BR}_{it}^{\text{base}}
+  + \beta_{bm} \cdot B_i^{*} \cdot \phi(t) \cdot \sigma_{\text{BR}}
+\end{equation}
+%
+where the drug exposure function is:
+%
+\begin{equation}
+  \phi(t) =
+  \begin{cases}
+    1 & \text{if on drug} \\
+    \left(\tfrac{1}{2}\right)^{t_{sd} / t_{1/2}} &
+      \text{if off drug with carryover} \\
+    0 & \text{if never treated}
+  \end{cases}
+\end{equation}
+
+\begin{lstlisting}
+drug_exposure <- (1/2)^(tsd / t1half)
+dat[, (br_col) := get(br_col) +
+  beta_bm * bm_centered * drug_exposure * br_sd]
+\end{lstlisting}
+
+\textbf{Why it fails.} The drug exposure function decays
+exponentially during off-drug periods. For the crossover
+design with $t_{1/2} = 1.0$ week, the drug exposure at the
+four off-drug timepoints (each 2.5 weeks apart) is 0.18,
+0.031, 0.006, and 0.001. The additive moderation signal at
+these timepoints is $0.45 \times 1 \times 0.18 \times 8 =
+0.65$ BR units at the first off-drug timepoint, falling to
+$0.004$ by the fourth. Against per-timepoint noise of
+$\sigma_{\text{BR}} = 8$, this signal is undetectable.
+
+\textbf{Result.} Power under carryover remained low,
+comparable to Architecture~B.
+
+\textbf{Lesson.} Tracking drug exposure decay in the
+moderation signal reintroduces the very phenomenon that
+Architecture~A is intended to avoid. If the moderation
+decays with the drug, the architecture is functionally
+equivalent to Architecture~B from the analysis model's
+perspective.
+
+\subsection{Attempt 3: additive with time-on-drug}
+
+We then implemented the formulation found in the original
+2025 tidyverse codebase
+(\texttt{pmsimstats2025/analysis/scripts/pm\_functions.R},
+initial commit \texttt{957c8bd}):
+%
+\begin{equation}
+  \text{BR}_{it}^{\text{mod}} = \text{BR}_{it}^{\text{base}}
+  + B_i \cdot \text{tod}_t \cdot \beta_{bm}
+\end{equation}
+%
+where $\text{tod}_t$ is the cumulative time on drug at
+timepoint $t$ (in weeks), and $B_i$ is the \emph{raw}
+(uncentered, unstandardized) biomarker value.
+
+\begin{lstlisting}
+dat[, (br_col) := get(br_col) + bm * tod * beta_bm]
+\end{lstlisting}
+
+\textbf{Why it fails.} The biomarker in the Hendrickson
+framework has mean $\mu_B \approx 124$ and SD
+$\sigma_B \approx 15$ (systolic blood pressure). The
+cumulative time-on-drug reaches 10--20 weeks. The moderation
+shift for a typical participant at the last on-drug timepoint
+is:
+%
+\begin{equation}
+  124 \times 10 \times 0.45 = 558 \text{ BR units}
+\end{equation}
+%
+The BR noise SD is 8. The signal-to-noise ratio is
+approximately 70:1. Statistical power is 1.00 under all
+conditions---not because Architecture~A is resilient to
+carryover, but because the signal is so absurdly large that
+no amount of noise or carryover could obscure it.
+
+\textbf{Result.} Power = 1.00 everywhere. This was the
+behavior observed in the original 2025 codebase, which was
+incorrectly interpreted as carryover resilience.
+
+\textbf{Lesson.} Dimensional analysis would have caught this
+immediately. The product $B_i \times \text{tod}_t$ has units
+of (mmHg $\times$ weeks), which is not commensurate with the
+BR component (unitless symptom-score change). The resulting
+signal is orders of magnitude larger than the noise floor.
+Always check that the moderation term has the correct units
+and magnitude relative to the outcome variable.
+
+\subsection{Attempt 4: centered, binary, calibrated (correct)}
+
+The correct formulation standardizes the biomarker, uses a
+binary drug indicator, and scales by $\sigma_{\text{BR}}$ to
+match the conditional expectation from the MVN model
+(Equation~\ref{eq:cond-exp}):
+%
+\begin{equation}\label{eq:correct}
+  \text{BR}_{it}^{\text{mod}} = \text{BR}_{it}^{\text{base}}
+  + c_{bm} \cdot \frac{B_i - \mu_B}{\sigma_B}
+    \cdot \mathbf{1}[\text{on drug at } t]
+    \cdot \sigma_{\text{BR}}
+\end{equation}
+
+\begin{lstlisting}
+bm_z <- (dat$bm - bm_mean) / bm_sd
+for (tp in 1:nP) {
+  if (d[tp]$onDrug) {
+    br_col <- paste(tnames[tp], "br", sep = ".")
+    dat[, (br_col) := get(br_col) + c.bm * bm_z * br_sd]
+  }
+}
+\end{lstlisting}
+
+\textbf{Why it works.}
+
+\begin{enumerate}[leftmargin=2em]
+
+\item \textbf{Centering.} The standardized biomarker
+  $B_i^{*}$ has mean zero. The population-average moderation
+  is zero---only deviations from the mean biomarker produce
+  differential BR. This is the correct behavior: we are
+  modeling an \emph{interaction} (differential response by
+  biomarker level), not a main effect.
+
+\item \textbf{Binary indicator.} The on-drug indicator
+  $\mathbf{1}[\text{on drug}]$ is 1 during treatment and 0
+  during off-drug periods. Unlike $\text{tod}$ (which grows
+  with cumulative exposure) or $\phi(t)$ (which decays during
+  washout), this indicator produces a clean, constant signal
+  during all on-drug timepoints and zero signal during all
+  off-drug timepoints. Carryover in the DGP affects the BR
+  \emph{means} but not the moderation term.
+
+\item \textbf{Scaling.} The factor $\sigma_{\text{BR}}$
+  ensures that $c_{bm}$ has the same interpretation in both
+  architectures: a one-SD shift in the biomarker produces a
+  $c_{bm} \times \sigma_{\text{BR}}$ shift in BR. For
+  $c_{bm} = 0.45$ and $\sigma_{\text{BR}} = 8$, this is
+  3.6~BR units---matching the Architecture~B calibration
+  target from Equation~\ref{eq:target}.
+
+\end{enumerate}
+
+\section{Empirical verification}
+
+\subsection{Calibration}
+
+Drawing 500 participants under both architectures with
+identical parameters ($c_{bm} = 0.45$, $N = 500$, crossover
+design, no carryover), the regression of mean on-drug BR on
+the biomarker yields:
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+& \textbf{Arch A} & \textbf{Arch B} \\
+\midrule
+BR shift per SD of biomarker & 3.36 & 3.48 \\
+Residual SD & 5.23 & 3.89 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The shift magnitudes are comparable. Architecture~A has
+slightly higher residual variance because the BM-BR
+correlation in the covariance matrix is absent (the noise
+components are independent), whereas Architecture~B's MVN
+draw produces correlated noise that reduces the residual
+variance in the regression.
+
+\subsection{Power under carryover}
+
+Using the N-of-1 (Hybrid) design with $N = 70$,
+$c_{bm} = 0.45$, and 50 replicates per cell:
+
+\begin{center}
+\begin{tabular}{cccc}
+\toprule
+$t_{1/2}$ (weeks) & \textbf{Arch A} & \textbf{Arch B}
+  & \textbf{Relative change (B)} \\
+\midrule
+0.0 & 0.74 & 0.82 & --- \\
+0.5 & 0.68 & 0.64 & $-22\%$ \\
+1.0 & 0.72 & 0.50 & $-39\%$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Architecture~A power is stable (variation within Monte Carlo
+error at $N_{\text{reps}} = 50$). Architecture~B shows
+progressive power loss with increasing carryover half-life,
+reaching a 39\% relative decline at $t_{1/2} = 1.0$ week.
+
+\section{Discussion}
+
+\subsection{Why scaling matters}
+
+The four attempts illustrate a general principle in
+simulation development: the \emph{units and magnitude} of
+each component in the data-generating process must be
+verified against a known reference. Three of the four
+attempts produced code that executed without errors,
+generated plausible-looking data, and could be analyzed by
+the downstream statistical model. The errors were detectable
+only by checking whether the resulting power estimates were
+consistent with theoretical expectations.
+
+\begin{itemize}[leftmargin=2em]
+
+\item Attempt~1 was identifiable by checking the correlation
+  between biomarker and BR during off-drug timepoints
+  (expected: nonzero under Architecture~A; observed: zero).
+
+\item Attempt~2 was identifiable by computing the
+  signal-to-noise ratio at off-drug timepoints (expected:
+  detectable; observed: negligible).
+
+\item Attempt~3 was identifiable by dimensional analysis
+  (biomarker in mmHg, time in weeks, product in
+  mmHg$\cdot$weeks, outcome in symptom-score units) or by
+  checking the signal-to-noise ratio (expected: $\sim$1;
+  observed: $\sim$70).
+
+\end{itemize}
+
+\subsection{The role of the conditional expectation}
+
+The correct formulation (Equation~\ref{eq:correct}) was
+derived by asking: ``What effect size does Architecture~B
+produce for the same value of $c_{bm}$?'' The answer comes
+directly from the conditional expectation of the MVN
+distribution (Equation~\ref{eq:cond-exp}). By matching this
+conditional expectation, we ensure that $c_{bm} = 0.45$
+means the same thing---in terms of detectable effect
+size---under both architectures. This is essential for the
+comparative power analysis that motivates the dual-architecture
+framework.
+
+\subsection{Implementation}
+
+The \texttt{dgp\_architecture} parameter controls the choice
+between architectures in the \texttt{pmsimstats-ng} R
+package. It is threaded through three functions:
+
+\begin{itemize}[leftmargin=2em]
+
+\item \texttt{buildSigma()}: When
+  \texttt{dgp\_architecture = "mean\_moderation"}, the BM-BR
+  correlation block is omitted from the covariance matrix.
+  The biomarker and BR components are drawn independently.
+
+\item \texttt{generateData()}: After the MVN draw, the
+  additive moderation term
+  (Equation~\ref{eq:correct}) is applied to all on-drug BR
+  columns.
+
+\item \texttt{generateSimulatedResults()}: The parameter is
+  passed to the sigma cache and all \texttt{generateData()}
+  calls within the simulation loop.
+
+\end{itemize}
+
+The default is \texttt{"mvn"} (Architecture~B), preserving
+backward compatibility with the Hendrickson et al.\ (2020)
+publication code. All 67 existing unit tests pass under the
+default.
+
+\vfill
+
+\noindent\rule{\textwidth}{0.4pt}
+
+{\footnotesize
+Rendered on 2026-03-25 at 18:49 PDT.\\
+Source: \textasciitilde/prj/alz/10-pmsimstats-ng/pmsimstats-ng/docs/19-mean-moderation-implementation-notes.tex}
+
+\end{document}

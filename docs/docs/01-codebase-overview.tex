@@ -1,0 +1,306 @@
+\documentclass[11pt]{article}
+\newcommand{\doctitle}{pmsimstats Codebase Overview}
+\newcommand{\shorttitle}{Codebase Overview}
+\newcommand{\docdate}{2026-03-24}
+\input{pmsimstats-preamble}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+\tableofcontents
+
+The \texttt{pmsimstats} R package implements Monte Carlo
+simulation-based power analysis for aggregated N-of-1
+clinical trial designs, comparing four trial designs on their
+ability to detect a biomarker-treatment interaction. Based on
+Hendrickson et al. (2020), \textit{Frontiers in Digital Health} 2:13.
+
+\section{Core R Package Files (\texttt{R/})}
+
+\subsection{generateData.R}
+
+The data-generating process (DGP). Two exported functions:
+
+\begin{itemize}
+  \item \textbf{\texttt{generateData()}} -- Draws simulated participant data
+    from a multivariate normal distribution. Accepts a
+    pre-built covariance matrix (\texttt{cached\_sigma}) or builds
+    one via \texttt{buildSigma()}. Uses pre-computed Cholesky factor
+    for efficient MVN draws (\texttt{L \%*\% Z + mu}). Computes
+    outcome columns via vectorized \texttt{data.table} operations.
+
+  \item \textbf{\texttt{buildSigma()}} -- Constructs the 26x26 covariance
+    matrix for a single trial path. Implements:
+    \begin{itemize}
+      \item AR(1) within-factor autocorrelation: $\rho^{|t_i - t_j|}$
+      \item Cross-factor correlations (same-time and different-time
+        with AR(1) decay)
+      \item Biomarker-BR correlation with exponential decay during
+        off-drug periods: $c.bm \cdot \exp(-\lambda_{cor} \cdot tsd)$
+      \item Auto-derives $\lambda_{cor} = \ln(2) / \text{carryover\_t1half}$
+      \item Positive definiteness check with verbose warning
+      \item Pre-computes Cholesky factor for caching
+    \end{itemize}
+
+  \item \textbf{\texttt{validateParameterGrid()}} -- Tests all parameter
+    combinations for PD before simulation. Reports failures
+    upfront.
+\end{itemize}
+
+\subsection{generateSimulatedResults.R}
+
+The simulation loop. Single exported function:
+
+\begin{itemize}
+  \item \textbf{\texttt{generateSimulatedResults()}} -- Orchestrates the full
+    parameter sweep:
+    \begin{enumerate}
+      \item PD pre-validation of all parameter combinations
+      \item Sigma matrix caching (builds all unique matrices once)
+      \item Parameter grid expansion across designs, response
+        params, baseline params, and model params
+      \item Per-parameter-set worker function
+        (\texttt{run\_one\_paramset}) that generates data, fits LME,
+        applies censoring, and collects results
+      \item Parallel execution via \texttt{furrr::future\_map()} with
+        closure-based function passing to workers
+      \item Progressive save support for long runs
+    \end{enumerate}
+
+    Key parameters: \texttt{lambda\_cor} (correlation decay, default
+    NA = auto), \texttt{n\_cores} (parallelism, default auto-detect).
+\end{itemize}
+
+\subsection{lme\_analysis.R}
+
+The analysis model. Single exported function:
+
+\begin{itemize}
+  \item \textbf{\texttt{lme\_analysis()}} -- Fits a linear mixed-effects model
+    to simulated or actual trial data:
+    \begin{itemize}
+      \item Uses \texttt{nlme::lme} with \texttt{corCAR1(form = \~{}t|ptID)} for
+        continuous-time AR(1) residual correlation
+      \item Dynamic formula selection: \texttt{Sx \~{} bm + t + Dbc +
+        bm:Dbc} when within-subject drug variation exists;
+        \texttt{Sx \~{} bm + t + bm:t} for open-label
+      \item \texttt{Dbc} is a continuous drug indicator (1 when on drug,
+        exponential decay when off drug)
+      \item Graceful handling of rank-deficient models (returns NA)
+      \item Fallback to \texttt{lme} without \texttt{corCAR1} if optimization
+        fails
+      \item Extracts interaction coefficient from \texttt{nlme} tTable
+    \end{itemize}
+\end{itemize}
+
+\subsection{carryover\_analysis.R}
+
+Extended analysis functions for actual trial data:
+
+\begin{itemize}
+  \item \textbf{\texttt{characterize\_carryover()}} -- Sweeps candidate
+    carryover half-lives (default 0.1 to 8 weeks), fits
+    \texttt{nlme::lme} at each, compares AIC/BIC to identify the
+    best-fitting half-life. Returns drug effect, interaction,
+    AR(1) phi at each half-life.
+
+  \item \textbf{\texttt{analyze\_trial\_extended()}} -- Extracts both the main
+    drug effect (\texttt{Dbc}) and biomarker interaction (\texttt{bm:Dbc})
+    with 95\% CIs. Computes variance components, predicted
+    drug effect as a function of biomarker value, and
+    clinical decision threshold.
+
+  \item \textbf{\texttt{print\_carryover\_summary()}} / \textbf{\texttt{print\_trial\_summary()}}
+    -- Clinical reporting summaries.
+\end{itemize}
+
+\subsection{buildtrialdesign.R}
+
+Trial design specification:
+
+\begin{itemize}
+  \item \textbf{\texttt{buildtrialdesign()}} -- Constructs trial paths from
+    intuitive inputs (timepoints, expectancies, on-drug
+    vectors). Computes derived timing variables: \texttt{tod}
+    (time on drug), \texttt{tsd} (time since discontinuation),
+    \texttt{tpb} (time in positive belief).
+\end{itemize}
+
+\subsection{utilities.R}
+
+Helper functions:
+
+\begin{itemize}
+  \item \textbf{\texttt{modgompertz()}} -- Modified Gompertz function for
+    response trajectories. Passes through origin, asymptotes
+    at \texttt{maxr}.
+  \item \textbf{\texttt{cumulative()}} -- Converts interval durations to
+    cumulative time.
+  \item \textbf{\texttt{reknitsimresults()}} -- Recombines progressive save
+    chunks.
+\end{itemize}
+
+\subsection{censordata.R}
+
+Dropout simulation:
+
+\begin{itemize}
+  \item \textbf{\texttt{censordata()}} -- Two-component dropout: time-dependent
+    (flat rate) and outcome-dependent (biased by symptom
+    change). Implements last-observation-carried-forward
+    censoring.
+\end{itemize}
+
+\subsection{plottingfunctions.R}
+
+Visualization:
+
+\begin{itemize}
+  \item \textbf{\texttt{PlotModelingResults()}} -- Power heatmaps across
+    4-dimensional parameter grids with \texttt{ggplot2 geom\_tile}
+    and \texttt{facet\_grid}.
+  \item \textbf{\texttt{plotfactortrajectories()}} -- Factor trajectory plots
+    by trial path.
+\end{itemize}
+
+\section{Analysis Scripts}
+
+\subsection{Figure 4 (\texttt{analysis/figure4/})}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{ll}
+\toprule
+Script & Purpose \\
+\midrule
+\texttt{01-generate-power-sweep.R} & Figure 4: current code, sequential \\
+\texttt{02-generate-power-sweep-original.R} & Figure 4: original commit code \\
+\texttt{03-generate-power-by-commit.R} & Figure 4: parameterized by commit \\
+\texttt{04-generate-power-head.R} & Figure 4: current code, parallel, c.bm=\{0,0.25,0.45\} \\
+\texttt{05-pd-diagnostics.R} & PD failure rate instrumentation \\
+\texttt{06-plot-power-heatmaps.R} & Heatmap plotting with provenance \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Figure 5 (\texttt{analysis/figure5/})}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{ll}
+\toprule
+Script & Purpose \\
+\midrule
+\texttt{01-generate-parameter-sensitivity.R} & Figure 5: revised code \\
+\texttt{02-generate-parameter-sensitivity-original.R} & Figure 5: original code \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Extracted Code by Commit}
+
+Code from each historical commit extracted for comparison:
+
+\begin{verbatim}
+analysis/scripts/commit_42ac030/   # Initial (publication)
+analysis/scripts/commit_8609f12/   # Ron Thomas edits
+analysis/scripts/commit_f6ee86d/   # Autocorrelation typo fix
+analysis/scripts/commit_f70f86d/   # Carryover added
+analysis/scripts/commit_325314f/   # Modified Db (broken)
+analysis/scripts/original_R/      # Copy of 42ac030
+\end{verbatim}
+
+\section{White Papers (\texttt{docs/pdf/})}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrl}
+\toprule
+Document & Pages & Content \\
+\midrule
+\texttt{04-revised-power-analysis.pdf} & 13 & Main paper: problems, fixes, validated results \\
+\texttt{18-response-parameter-sensitivity.pdf} & 6 & Response parameter sensitivity before/after \\
+\texttt{08-biomarker-correlation-decay.pdf} & 10 & Pharmacokinetic derivation of lambda\_cor \\
+\texttt{06-ar1-residual-correlation.pdf} & 8 & lmer to nlme transition with Type I error validation \\
+\texttt{07-positive-definiteness-failures.pdf} & 10 & PD failure prevalence and causes \\
+\texttt{09-carryover-correlation-artifact.pdf} & 10 & BM-BR correlation artifact analysis \\
+\texttt{05-revision-summary.pdf} & 12 & Revision summary with before/after heatmaps and code change appendix \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Bundled Data (\texttt{data/})}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{ll}
+\toprule
+File & Content \\
+\midrule
+\texttt{results\_core.rda} & Published Figure 4 results (initial commit, 500 reps) \\
+\texttt{extracted\_bp.rda} & Baseline parameters (BP mean/SD, CAPS mean/SD) \\
+\texttt{extracted\_rp.rda} & Response parameters (Gompertz max/disp/rate/sd) \\
+\texttt{CTdata.rda} & Actual clinical trial data \\
+\texttt{results\_maxes.rda} & Figure 5A results (response maxima) \\
+\texttt{results\_rates.rda} & Figure 5B results (response rates) \\
+\texttt{results\_trajectories.rda} & Factor trajectory data \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Key Parameters}
+
+\subsection{Current Configuration (Revised Code)}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+Parameter & Value & Rationale \\
+\midrule
+Autocorrelation & AR(1), rho = 0.7 & PD-feasible, clinically realistic \\
+c.bm & \{0, 0.25, 0.45\} & Max PD-feasible = 0.45 (OL+BDC) \\
+Carryover t\_half & \{0, 0.5, 1.0\} weeks & Clinically realistic \\
+lambda\_cor & ln(2) / t\_half (auto) & Pharmacokinetic derivation \\
+Cross-factor (same time) & c.cf1t = 0.2 & Unchanged from publication \\
+Cross-factor (diff time) & c.cfct * $\rho^{|t_i-t_j|}$ & AR(1) decay applied \\
+Analysis model & nlme::lme + corCAR1 & Required for AR(1) Type I error control \\
+PD corrections & 0/162 (0\%) & All matrices valid \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Publication Configuration (Original Code)}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+Parameter & Value & Issue \\
+\midrule
+Autocorrelation & CS, rho = 0.8 & PD failures at c.bm > 0.25 \\
+c.bm & \{0, 0.3, 0.6\} & 0.6 exceeds PD-feasible range \\
+Carryover t\_half & \{0, 0.1, 0.2\} weeks & Too short for genuine effects \\
+BM-BR correlation & Step function & Power drop artifact \\
+Analysis model & lmer (no corCAR1) & Correct under CS \\
+PD corrections & 40/162 (24.7\%) & Silent, uncontrolled \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Dependencies}
+
+Core: \texttt{data.table}, \texttt{nlme}, \texttt{lme4}, \texttt{lmerTest}, \texttt{corpcor},
+\texttt{MASS}, \texttt{ggplot2}
+
+Performance: \texttt{furrr}, \texttt{future} (parallel processing)
+
+Legacy (in DESCRIPTION but used minimally): \texttt{svMisc},
+\texttt{tictoc}, \texttt{ggpubr}, \texttt{gridExtra}
+
+\vfill
+\noindent\rule{\textwidth}{0.4pt}
+{\footnotesize
+Rendered on 2026-03-25 at 19:00 PDT.\\
+Source: \textasciitilde/prj/alz/10-pmsimstats-ng/pmsimstats-ng/docs/01-codebase-overview.tex}
+\end{document}

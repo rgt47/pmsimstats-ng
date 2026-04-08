@@ -793,5 +793,6 @@ population treatment effects and to evaluate individual patient
 responses to treatment. *J Clin Epidemiol*. 1997;50(4):401-410.
 
 ---
-*Rendered on 2026-03-25 at 09:27 PDT.*
-*Source: ~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/docs/dgp-architecture-white-paper.md*
+
+*Rendered on 2026-04-08 at 09:53 PDT.*
+*Source: ~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/docs/02-dgp-mean-moderation-vs-mvn.md*

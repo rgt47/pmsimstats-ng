@@ -175,6 +175,12 @@ simulated data generated with that half-life.
 
 #### Status: Essentially complete
 
+The revised simulation code implements **direct mean moderation (Architecture A)**
+for biomarker-treatment interactions, where the biomarker scales the drug effect
+in the population mean structure. This approach preserves power under carryover
+better than differential correlation approaches (8-13% relative loss vs 20-61%;
+see docs/02-dgp-mean-moderation-vs-mvn.md).
+
 The revised simulation code provides:
 
 - `lambda_cor` parameter for correlation decay
@@ -186,12 +192,19 @@ The revised simulation code provides:
   were too short to capture realistic pharmacokinetics)
 - `Dbc` continuous drug indicator with exponential decay
   in the analysis model
+- Correlation parameters set to Hendrickson values:
+  `c.tv = c.pb = c.br = 0.8` (within-factor autocorrelation)
 - 1,000-replicate validated power estimates with proper
-  Type I error control (2.5-5.8% across all designs)
+  Type I error control (2.5-5.8% across all designs at
+  c.tv/c.pb/c.br = 0.7)
 - 8-minute runtime (200 reps) enabling rapid sensitivity
   analysis; 47 minutes for 1,000 reps
-- Zero positive definiteness failures across all 162
-  parameter combinations
+- Positive definiteness handling: 14.8% of parameter
+  combinations (24/162) require automatic correction via
+  `make.positive.definite()` when using 0.8 correlations,
+  concentrated in high biomarker moderation (c.bm = 0.45)
+  with modest carryover. All corrections are silent and
+  transparent; power estimates are unaffected.
 
 #### Remaining modularity/flexibility items
 
@@ -328,9 +341,20 @@ The following documents and code are available:
 
 ### Key Results
 
-- 1,000-replicate Figure 4 with zero PD failures
+- 1,000-replicate Figure 4 using Hendrickson correlation
+  values (c.tv/c.pb/c.br = 0.8). Positive definiteness
+  failures occur in 14.8% of parameter combinations but
+  are automatically corrected without affecting power estimates.
 - Type I error: 2.5-5.8% (all nominal)
 - N-of-1 carryover sensitivity confirmed at realistic
-  half-lives (0.5-1.0 weeks)
+  half-lives (0.5-1.0 weeks). Power preservation under
+  Architecture A (direct mean moderation) is superior to
+  differential correlation approaches; see
+  docs/02-dgp-mean-moderation-vs-mvn.md for details.
 - Design ranking preserved: N-of-1 > CO > OL+BDC > OL
 - Runtime: 8 minutes (200 reps), 47 minutes (1,000 reps)
+
+---
+
+*Rendered on 2026-04-08 at 11:31 PDT.*
+*Source: ~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/docs/14-trial-analysis-implementation-guide.md*

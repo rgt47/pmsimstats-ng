@@ -1,8 +1,7 @@
 # Assessing Carryover in the Analysis Model:
 # Standard Methodology and Application to pmsimstats
 
-**Ronald G. Thomas, Ph.D.**
-Department of Family Medicine and Public Health, UC San Diego
+**pmsimstats team**
 
 ---
 

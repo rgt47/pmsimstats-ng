@@ -1,12 +1,7 @@
 # Two Architectures for Simulating Biomarker-Treatment Interactions:
 # Implications for Statistical Power Under Carryover
 
-**Ronald G. Thomas, Ph.D.**
-Department of Family Medicine and Public Health, UC San Diego
-
-**Rebecca C. Hendrickson, M.D., Ph.D.**
-VA Puget Sound Health Care System, Department of Psychiatry and
-Behavioral Sciences, University of Washington
+**pmsimstats team**
 
 ---
 

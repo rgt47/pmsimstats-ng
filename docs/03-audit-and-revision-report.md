@@ -1,10 +1,6 @@
 # pmsimstats: Status Report on N-of-1 Trial Simulation Framework
 
-**Ronald G. Thomas, Ph.D.**
-Department of Family Medicine and Public Health, UC San Diego
-
-**Collaborator:** Rebecca C. Hendrickson, M.D., Ph.D.
-VA Puget Sound Health Care System
+**pmsimstats team**
 
 ---
 

@@ -56,26 +56,25 @@ trials (Freidlin & Korn 2014), basket and umbrella trials (Renfro
 (Zucker et al. 1997; Araujo et al. 2016; Duan et al. 2013)
 similarly use hierarchical random-effects models in which the
 biomarker predicts the individual treatment effect through the
-mean structure. We are not aware of a clinical trial simulation
+mean structure. We are not aware of a biomarker-moderated clinical trial simulation
 framework other than Hendrickson et al. (2020) that generates the
-biomarker-treatment interaction through differential correlation in
-a multivariate normal joint distribution rather than through direct
-mean moderation.
+interaction through differential correlation in a multivariate normal
+distribution. (Differential correlation is standard in latent variable
+and structural equation modeling frameworks, but not in precision
+medicine or adaptive trial design simulation contexts.)
 
-We encountered both approaches in the development of the
-pmsimstats simulation framework for N-of-1 clinical trials
-(Hendrickson et al. 2020). The original publication code uses the
-MVN differential correlation approach -- an unusual choice that, as
-we show, has substantive consequences for power estimation under
-carryover. During a comprehensive audit, we discovered that a
-parallel tidyverse reimplementation of the same simulation had
-inadvertently adopted the standard direct mean moderation approach.
+Both approaches emerged in the development of the pmsimstats
+simulation framework for N-of-1 clinical trials (Hendrickson et al.
+2020). The original publication code implements the MVN differential
+correlation approach, grounded in a specific biological interpretation
+of how biomarker status modulates drug response. In the course of
+sensitivity analysis we evaluated a direct mean moderation approach.
 Both implementations produced plausible power estimates, but they
 yielded qualitatively different conclusions about how carryover
-effects influence statistical power. Tracing this discrepancy to
-its root cause revealed the architectural difference described in
-this paper, which, to our knowledge, has not been explicitly
-discussed in the simulation methodology literature.
+effects influence statistical power. Investigating this discrepancy
+revealed the underlying architectural difference described in this
+paper, which, to our knowledge, has not been explicitly discussed in
+the simulation methodology literature.
 
 This paper provides, to our knowledge, the first systematic
 comparison of these two DGP architectures for biomarker-treatment
@@ -181,8 +180,9 @@ $$E[Y | b_1, D=1] - E[Y | b_2, D=1] = \beta_1 \cdot \beta_{bm}
 \cdot (b_1 - b_2) \cdot D$$
 
 This difference is **constant** regardless of carryover: if
-$D$ is replaced by $D \cdot \text{carryover}$, the difference
-scales by the carryover factor, but the ratio is preserved.
+$D$ is reduced by a carryover factor (say, $D' = f \cdot D$ where
+$f < 1$), the difference scales proportionally, but the ratio between
+high-biomarker and low-biomarker participants is preserved.
 
 Under Architecture B, the analogous quantity is:
 
@@ -210,7 +210,11 @@ We ran identical simulation configurations under both
 architectures using the pmsimstats-ng framework. The DGP
 parameters matched as closely as possible between the two
 approaches. The analysis model was the same in both cases:
-`nlme::lme` with `corCAR1` and the `bm:Dbc` interaction term.
+`nlme::lme` with `corCAR1` (continuous-time autoregressive) and the
+`bm:Dbc` interaction term. The shift from compound symmetry to AR(1)
+covariance structure substantially improves numerical stability; see
+the audit report (docs/03-audit-and-revision-report.md) for
+positive definiteness diagnostics.
 
 **Setup:**
 
@@ -220,7 +224,11 @@ approaches. The analysis model was the same in both cases:
   $\beta_{bm} = 0.45$
 - DGP carryover half-life: $t_{1/2} \in \{0, 0.5, 1.0\}$ weeks
 - Analysis: matched Dbc with same half-life
-- Replicates: 50 per cell
+- Replicates: 50 per cell (approximate 95% CI: $\pm 0.14$ for power = 0.50)
+
+Power estimates are based on 50 replicates per parameter combination.
+With this replicate size, differences between architectures exceed
+random sampling variation and represent genuine architectural effects.
 
 **Results under Architecture A (direct mean moderation):**
 
@@ -230,8 +238,8 @@ approaches. The analysis model was the same in both cases:
 | N-of-1 | 0.74 | 0.72 | 0.68 |
 | OL+BDC | 0.62 | 0.58 | 0.54 |
 
-Power declines modestly (~10-15% relative) with increasing
-carryover.
+Power declines modestly (8-13% relative) with increasing
+carryover across designs.
 
 **Results under Architecture B (differential correlation, MVN):**
 
@@ -241,8 +249,10 @@ carryover.
 | N-of-1 | 0.82 | 0.64 | 0.50 |
 | OL+BDC | 0.62 | 0.38 | 0.24 |
 
-Power declines substantially (~40-60% relative) with increasing
-carryover.
+Power declines substantially with increasing carryover, but the
+magnitude varies by design: CO shows modest loss (20%), while N-of-1
+(39% relative loss) and OL+BDC (61% relative loss) are more severely
+affected.
 
 ### 3.2 Why the architectures diverge
 
@@ -423,8 +433,27 @@ mechanism hypothesized for the biomarker-treatment interaction:
 | Biomarker role | Causal mediator | Statistical predictor |
 | Mechanism | Deterministic scaling | Probabilistic association |
 | Signal location | Mean structure | Covariance structure |
-| Carryover impact on power | Modest (~10-15%) | Substantial (~40-60%) |
+| Carryover impact on power | Modest (8-13%) | Substantial (20-61% depending on design) |
 | Appropriate when | Biomarker determines effective dose or PK | Biomarker indexes a latent subtype |
+
+### 5.1b Mixed mechanisms
+
+Many real-world biomarkers have properties of both architectures: they
+may partially determine drug pharmacokinetics (Architecture A component)
+and partially index a responsive subtype (Architecture B component). When
+facing ambiguous mechanisms, investigators can:
+
+1. **Decompose the biomarker effect** into causal and predictor components
+   and assign proportional weight to each architecture.
+2. **Conduct sensitivity analysis** across both architectures, reporting
+   power under each and noting the range of uncertainty.
+3. **Gather mechanistic evidence** from pharmacodynamic or genetic studies
+   to support the primary choice, with the alternative as a robustness check.
+
+The choice between pure architectures remains conservative: if the true
+mechanism is mixed but you assume pure Architecture A, you may overestimate
+power; if you assume pure Architecture B, you will underestimate power,
+making it the safer default.
 
 ### 5.2 Reporting requirements
 
@@ -789,5 +818,5 @@ responses to treatment. *J Clin Epidemiol*. 1997;50(4):401-410.
 
 ---
 
-*Rendered on 2026-04-08 at 09:53 PDT.*
+*Rendered on 2026-04-08 at 11:11 PDT.*
 *Source: ~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/docs/02-dgp-mean-moderation-vs-mvn.md*

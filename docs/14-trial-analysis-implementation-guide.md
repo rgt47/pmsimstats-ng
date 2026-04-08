@@ -1,7 +1,12 @@
 # Response to Collaborator Goals
 
-Date: 2026-03-23
+Date: 2026-03-23 (Updated 2026-04-08)
 Context: Following the pmsimstats code audit and revision
+
+**Note**: The code implements **Architecture A (direct mean moderation)** for
+biomarker-treatment interactions. See `docs/02-dgp-mean-moderation-vs-mvn.md`
+for detailed comparison with differential correlation approaches and implications
+for power under carryover.
 
 ## Code Locations
 
@@ -176,8 +181,9 @@ The revised simulation code provides:
   (auto-derived from half-life or manual override for
   sensitivity analysis)
 - Carryover half-life as a simulation parameter:
-  `c(0, 0.5, 1.0)` weeks (clinically realistic values
-  replacing the publication's `c(0, 0.1, 0.2)`)
+  `c(0, 0.5, 1.0)` weeks (clinically realistic values;
+  updated from the publication's `c(0, 0.1, 0.2)` which
+  were too short to capture realistic pharmacokinetics)
 - `Dbc` continuous drug indicator with exponential decay
   in the analysis model
 - 1,000-replicate validated power estimates with proper

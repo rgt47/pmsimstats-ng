@@ -29,14 +29,47 @@ Both architectures produce qualitatively different power losses under carryover 
 - `utilities.R` - Cumulative effects, modGompertz function
 - `packagedocumentation.R`, `datadocumentation.R` - Package-level documentation
 
+### implementations/ Directory
+
+Three parallel implementations of the simulation framework, each supporting different DGP architectures and coding styles:
+
+| Collection | Style | Architecture | Location | Coding Style |
+|---|---|---|---|---|
+| **original** | Reference baseline | Architecture B (MVN) only | `implementations/original/R/` | data.table |
+| **original-extended** | Extended reference | Architecture A + B (dual) | `implementations/original-extended/R/` | data.table |
+| **tidyverse** | Modern alternative | Architecture A + B (dual) | `implementations/tidyverse/R/` | tidyverse |
+
+**Key distinctions:**
+- `original` = Corrected Hendrickson publication code (no `dgp_architecture` parameter)
+- `original-extended` = Same as `original` + `dgp_architecture` parameter for Architecture A support
+- `tidyverse` = Complete reimplementation in tidyverse style, also supports both architectures
+
+**Parameter support across implementations:**
+
+All three collections accept the same core parameters:
+- `c.bm`: Under MVN (Architecture B), BM-BR correlation; under mean moderation (Architecture A), regression coefficient
+- `carryover_t1half`: Half-life of carryover effect (weeks)
+- `lambda_cor`: Correlation decay rate (auto-derived from carryover_t1half if NA)
+- `dgp_architecture`: Switch between `"mvn"` (Architecture B) and `"mean_moderation"` (Architecture A)
+  - Not present in `original` collection (fixed to MVN)
+  - Present in `original-extended` and `tidyverse` (default: `"mvn"`)
+
+**When to use each:**
+- **original**: Historical reference; testing backward compatibility; Architecture B-only baseline
+- **original-extended**: Production use; both architectures available; data.table style
+- **tidyverse**: Modern tidyverse code; both architectures available; type stability via tidyverse packages
+
+**See also:** Each collection has a `README.md` with usage examples, parameter documentation, and validation notes.
+
 ### analysis/ Directory
 
 Organized by research question:
 - `figure4/`, `figure5/` - Publication figure reproduction and sensitivity analysis
 - `architecture_comparison/` - DGP architecture contrast studies
 - `carryover_factorial/` - Carryover effect decomposition
-- `2025/` - Alignment work between original and tidyverse implementations
 - `archive/` - Historical versions and snapshots
+
+**Note:** `analysis/2025/` has been moved to `/Users/zenn/Library/CloudStorage/Dropbox/prj/alz/10-pmsimstats-ng/archive/2025/` (external archive). The tidyverse implementation is now accessible via `implementations/tidyverse/`.
 
 ### docs/ Documentation
 

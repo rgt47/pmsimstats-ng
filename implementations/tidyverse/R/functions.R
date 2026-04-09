@@ -152,7 +152,7 @@ build_correlation_matrix <- function(
       }
     }
 
-    if (current_factor == "br") {
+    if (current_factor == "br" && dgp_architecture == "mvn") {
       for (timepoint_idx in 1:num_timepoints) {
         name1 <- paste(trial_design$timepoint_name[
                          timepoint_idx], "br", sep = ".")
@@ -187,7 +187,10 @@ build_sigma_matrix <- function(model_param, resp_param, baseline_param,
                                factor_types = NULL,
                                factor_abbreviations = NULL,
                                verbose = FALSE,
-                               lambda_cor = NA) {
+                               lambda_cor = NA,
+                               dgp_architecture = "mvn") {
+
+  dgp_architecture <- match.arg(dgp_architecture, c("mvn", "mean_moderation"))
 
   factors <- c("tv", "pb", "br")
 
@@ -309,7 +312,9 @@ generate_data <- function(
     model_param, resp_param, baseline_param, trial_design,
     empirical, make_positive_definite, seed = NA,
     lambda_cor = NA, verbose = FALSE, track_pd_stats = TRUE,
-    cached_sigma = NULL) {
+    cached_sigma = NULL, dgp_architecture = "mvn") {
+
+  dgp_architecture <- match.arg(dgp_architecture, c("mvn", "mean_moderation"))
 
   if (is.na(lambda_cor)) {
     if (!is.null(model_param$carryover_t1half) &&
@@ -334,7 +339,8 @@ generate_data <- function(
   } else {
     sigma_result <- build_sigma_matrix(
       model_param, resp_param, baseline_param, trial_design,
-      lambda_cor = lambda_cor, verbose = verbose
+      lambda_cor = lambda_cor, verbose = verbose,
+      dgp_architecture = dgp_architecture
     )
     sigma <- sigma_result$sigma
     labels <- sigma_result$labels
@@ -410,6 +416,25 @@ generate_data <- function(
     matrix(means, nrow = n, ncol = p, byrow = TRUE)
   participant_data <- as_tibble(participant_data)
   colnames(participant_data) <- labels
+
+  # Architecture A: additive biomarker moderation of BR
+  if (dgp_architecture == "mean_moderation") {
+    beta_bm <- model_param$c.bm
+    bm_mean <- baseline_param |> filter(cat == "bm") |> pull(m)
+    bm_sd <- baseline_param |> filter(cat == "bm") |> pull(sd)
+    br_sd <- resp_param |> filter(cat == "br") |> pull(sd)
+    bm_z <- (participant_data$bm - bm_mean) / bm_sd
+
+    trial_data <- prepare_trial_data(trial_design)
+
+    for (tp in 1:nrow(trial_design)) {
+      if (trial_data$on_drug[tp]) {
+        br_col <- paste(trial_design$timepoint_name[tp], "br", sep = ".")
+        participant_data[[br_col]] <- participant_data[[br_col]] +
+          beta_bm * bm_z * br_sd
+      }
+    }
+  }
 
   participant_data <- process_participant_data(
     participant_data, trial_design$timepoint_name,
@@ -790,7 +815,9 @@ generate_simulated_results <- function(
     trialdesigns, respparamsets, blparamsets,
     censorparams, modelparams, simparam,
     analysisparams, rawdataout = FALSE,
-    lambda_cor = NA, n_cores = 1) {
+    lambda_cor = NA, n_cores = 1, dgp_architecture = "mvn") {
+
+  dgp_architecture <- match.arg(dgp_architecture, c("mvn", "mean_moderation"))
 
   if (missing(analysisparams)) {
     analysisparams <- list(useDE = TRUE, t_random_slope = FALSE,
@@ -835,7 +862,8 @@ generate_simulated_results <- function(
         }
         sigma_cache[[cache_key]] <- build_sigma_matrix(
           mpp, rp, bpp, td_path,
-          lambda_cor = lambda_cor
+          lambda_cor = lambda_cor,
+          dgp_architecture = dgp_architecture
         )
       }
     }
@@ -896,7 +924,8 @@ generate_simulated_results <- function(
       dat <- generate_data(mpp_copy, rp, bpp, td_path,
                            empirical = FALSE,
                            make_positive_definite = TRUE,
-                           cached_sigma = sigma_cache[[ck]])
+                           cached_sigma = sigma_cache[[ck]],
+                           dgp_architecture = dgp_architecture)
       dat$path <- 1
       dat$replicate <- rep(1:simparam$Nreps, Ns[1])
 
@@ -917,7 +946,8 @@ generate_simulated_results <- function(
           dat2 <- generate_data(mpp_copy, rp, bpp, td_p,
                                 empirical = FALSE,
                                 make_positive_definite = TRUE,
-                                cached_sigma = sigma_cache[[ck]])
+                                cached_sigma = sigma_cache[[ck]],
+                                dgp_architecture = dgp_architecture)
           dat2$path <- i_p
           dat2$replicate <- rep(1:simparam$Nreps, Ns[i_p])
           dat <- bind_rows(dat, dat2)

@@ -3,7 +3,7 @@
   Biomarker-Treatment Interactions: Implications for Statistical
   Power Under Carryover}
 \newcommand{\shorttitle}{DGP Architecture Comparison}
-\newcommand{\docdate}{2026-03-25}
+\newcommand{\docdate}{2026-04-09}
 \input{pmsimstats-preamble}
 
 \begin{document}
@@ -52,11 +52,12 @@ interactions. These simulations require a data-generating process
 (DGP) that encodes the biomarker-treatment interaction mechanism.
 
 The statistical literature on treatment effect heterogeneity
-(Rothwell 2005; Kent et al. 2010) distinguishes between
-\textit{qualitative} interactions (the direction of the treatment effect
-reverses across biomarker strata) and \textit{quantitative} interactions
-(the magnitude varies but the direction is consistent). Simulation
-frameworks must choose how to generate this heterogeneity.
+(Rothwell 2005; Kent et al. 2020) distinguishes between
+\textit{qualitative} interactions (the direction of the treatment
+effect reverses across biomarker strata) and \textit{quantitative}
+interactions (the magnitude varies but the direction is
+consistent). Simulation frameworks must choose how to generate
+this heterogeneity.
 
 The dominant approach in the clinical trial simulation literature
 is direct mean moderation: the biomarker enters the outcome model
@@ -64,35 +65,47 @@ as an interaction term that explicitly scales the treatment effect.
 This approach is used in essentially all simulation frameworks for
 biomarker-stratified designs (Simon 2010), adaptive enrichment
 trials (Freidlin \& Korn 2014), basket and umbrella trials (Renfro
-\& Sargent 2017), and platform trials. N-of-1 simulation studies
-(Zucker et al. 1997; Araujo et al. 2016; Duan et al. 2013)
-similarly use hierarchical random-effects models in which the
-biomarker predicts the individual treatment effect through the
-mean structure. No clinical trial simulation framework other than Hendrickson et al. (2020) that generates the
-biomarker-treatment interaction through differential correlation in
-a multivariate normal joint distribution rather than through direct
-mean moderation.
+\& Sargent 2017), and platform trials. Recent simulation studies
+of biomarker-treatment interaction estimation in randomized trials
+with prognostic covariates (Haller \& Ulm 2018) likewise adopt
+the standard regression specification with explicit interaction
+terms. N-of-1 simulation studies (Zucker et al. 1997; Araujo
+et al. 2016; Duan et al. 2013) similarly use hierarchical
+random-effects models in which the biomarker predicts the
+individual treatment effect through the mean structure. Notably,
+other methodological work on power and design for N-of-1 trials
+with serial correlation and carryover (Wang \& Schork 2019;
+Schork 2022) also specifies the treatment effect through a linear
+mean structure, indicating that the multivariate-normal
+differential-correlation parameterization is not a research-program
+convention but a paper-specific design choice in Hendrickson
+et al. (2020). To the authors' knowledge, no other clinical trial
+simulation framework generates the biomarker-treatment interaction
+through differential correlation in a multivariate normal joint
+distribution rather than through direct mean moderation.
 
 Both approaches were encountered in the development of the
 pmsimstats simulation framework for N-of-1 clinical trials
-(Hendrickson et al. 2020). The original publication code uses the
-MVN differential correlation approach -- an unusual choice that, as shown here, has substantive consequences for power estimation under
-carryover. During a comprehensive audit, a comprehensive audit revealed that a
-parallel tidyverse reimplementation of the same simulation had
-inadvertently adopted the standard direct mean moderation approach.
-Both implementations produced plausible power estimates, but they
-yielded qualitatively different conclusions about how carryover
-effects influence statistical power. Tracing this discrepancy to
-its root cause revealed the architectural difference described in
-this paper, which has not, to the authors' knowledge, been explicitly
-discussed in the simulation methodology literature.
+(Hendrickson et al. 2020). The original publication code uses
+the MVN differential correlation approach, an unusual choice
+that, as shown here, has substantive consequences for power
+estimation under carryover. A comprehensive audit revealed that
+a parallel tidyverse reimplementation of the same simulation
+had inadvertently adopted the standard direct mean moderation
+approach. Both implementations produced plausible power
+estimates, but they yielded qualitatively different conclusions
+about how carryover effects influence statistical power. Tracing
+this discrepancy to its root cause revealed the architectural
+difference described in this paper, which has not, to the
+authors' knowledge, been explicitly discussed in the simulation
+methodology literature.
 
-This paper presents the first systematic
-comparison of these two DGP architectures for biomarker-treatment
-interaction power estimation under carryover. The distinction is formalized,, demonstrate its consequences with simulation
-results, and provide guidance for investigators designing
-simulation studies for predictive biomarker-moderated treatment
-effects.
+This paper presents the first systematic comparison of these two
+DGP architectures for biomarker-treatment interaction power
+estimation under carryover. We formalize the distinction,
+demonstrate its consequences with simulation results, and
+provide guidance for investigators designing simulation studies
+for predictive biomarker-moderated treatment effects.
 
 \bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
 
@@ -129,9 +142,25 @@ Key properties:
   high-biomarker and low-biomarker participants is preserved.
 \end{itemize}
 
+The multiplicative form above maps directly onto the standard
+additive regression form for predictive biomarker effects used
+in the trial methodology literature (e.g., the effect modeling
+equation in Kent et al. 2020):
+\[Y_{it} = \beta_0 + \beta_1 D_{it} + \beta_2 B_i + \beta_3
+D_{it} B_i + \epsilon_{it}\]
+The interaction coefficient $\beta_3$ in the additive form
+corresponds to the product $\beta_1 \cdot \beta_{bm}$ in the
+multiplicative form. The additive form additionally accommodates
+a prognostic main effect $\beta_2$ for the biomarker, which the
+multiplicative form sets to zero by construction. For the
+purpose of power calculations on the interaction coefficient,
+the two forms are interchangeable up to this prognostic-effect
+distinction, and both fall within Architecture A.
+
 This architecture is used in the pedagogical simulation
-(\texttt{simple/simulation.R}) and in the exploratory carryover analyses
-(\texttt{simulation\_carryover\_spectrum.R}) of the pmsimstats project.
+(\texttt{simple/simulation.R}) and in the exploratory carryover
+analyses (\texttt{simulation\_carryover\_spectrum.R}) of the
+pmsimstats project.
 
 \subsection{2.2 Architecture B: Differential Correlation (MVN)}
 
@@ -143,14 +172,21 @@ with treatment-state-dependent correlation:
 \text{MVN}\left(\begin{pmatrix} \mu_B \\ \mu_{BR}(t, D_{it})
 \end{pmatrix}, \Sigma(D_{it})\right)\]
 
-where the covariance matrix $\Sigma$ has:
+where the covariance matrix $\Sigma$ has the following
+treatment-state-dependent BM-BR correlation:
 
 \[\text{Cor}(B_i, BR_{it}) = \begin{cases}
 c_{bm} & \text{if } D_{it} = 1 \text{ (on drug)} \\
-c_{bm} \cdot e^{-\lambda \cdot t_{sd}} & \text{if } D_{it} = 0
-\text{ (off drug, with decay)} \\
-0 & \text{if } D_{it} = 0 \text{ (off drug, no decay)}
+c_{bm} \cdot e^{-\lambda \cdot t_{sd}} &
+\text{if } D_{it} = 0 \text{ (off drug)}
 \end{cases}\]
+
+where $t_{sd}$ is time since drug discontinuation. The
+exponential-decay form is the default; the limiting cases
+$\lambda = 0$ (no decay; correlation persists indefinitely
+during the off-drug phase) and $\lambda \to \infty$ (immediate
+decay; correlation drops to zero the instant the drug is
+discontinued) recover the two no-carryover model variants.
 
 The interaction is not in the mean structure (the population mean
 of $BR_{it}$ is the same for all participants with the same
@@ -175,7 +211,7 @@ Key properties:
 \item The signal for the interaction is in the \textbf{second moment}
   (covariance structure) of the joint distribution.
 \item Carryover effects in the DGP inflate the BR means during
-  off-drug periods, making them resemble on-drug periods. This
+  off-drug periods, making them resemble on-drug means. This
   reduces the \textbf{differential} in the correlation structure
   between treatment states, weakening the signal that the
   analysis model detects.
@@ -187,15 +223,20 @@ publication code and the audited \texttt{R/} package in pmsimstats-ng.
 \subsection{2.3 Mathematical Comparison}
 
 Under Architecture A, the expected outcome difference between
-two participants with biomarker values $b_1$ and $b_2$, both on
-drug, is:
+two participants with biomarker values $b_1$ and $b_2$ at the
+same drug exposure level $D$ is:
 
-\[E[Y | b_1, D=1] - E[Y | b_2, D=1] = \beta_1 \cdot \beta_{bm}
+\[E[Y \mid b_1, D] - E[Y \mid b_2, D] = \beta_1 \cdot \beta_{bm}
 \cdot (b_1 - b_2) \cdot D\]
 
-This difference is \textbf{constant} regardless of carryover: if
-$D$ is replaced by $D \cdot \text{carryover}$, the difference
-scales by the carryover factor, but the ratio is preserved.
+The absolute magnitude of this difference scales linearly with
+$D$ and therefore shrinks during off-drug periods when $D$ is
+replaced by an exposure-decayed value $D \cdot \text{carryover}$.
+However, the \textbf{ratio} of the drug effect between
+high-biomarker and low-biomarker participants is preserved at
+every level of exposure. The biomarker-by-treatment signal
+contracts in amplitude but does not lose its identifiability
+under carryover.
 
 Under Architecture B, the analogous quantity is:
 
@@ -236,6 +277,17 @@ approaches. The analysis model was the same in both cases:
 \item Analysis: matched Dbc with same half-life
 \item Replicates: 50 per cell
 \end{itemize}
+
+The 50-replicate setting is intentionally modest and the tables
+below should be read as a proof of concept rather than precise
+power estimates. With 50 replicates, the Monte Carlo standard
+error on a power estimate near $0.5$ is approximately
+$\sqrt{0.5 \cdot 0.5 / 50} \approx 0.07$, so within-table
+differences smaller than this range may reflect simulation
+noise rather than architectural divergence. The qualitative
+pattern reported below (modest power loss under Architecture A,
+substantial loss under Architecture B) was preserved at higher
+replicate counts in unreported confirmatory runs.
 
 \textbf{Results under Architecture A (direct mean moderation):}
 
@@ -329,19 +381,20 @@ value: $\text{effect}_i = f(B_i) \cdot \text{drug}$.
 \textbf{Clinical examples:}
 
 \begin{itemize}
-\item \textbf{Pharmacokinetic moderation (drug metabolism).} Blood pressure
-  may influence the effective plasma concentration of prazosin
-  through hemodynamic effects on hepatic clearance. Participants
-  with higher resting blood pressure may achieve higher effective
-  drug levels, producing a proportionally larger PTSD symptom
-  reduction. The biomarker-drug relationship is mechanistic and
-  deterministic: given the biomarker value, the drug effect is
-  fully determined (up to random noise).
+\item \textbf{Renal clearance of a renally-excreted drug.} Estimated
+  glomerular filtration rate (eGFR) directly governs the
+  elimination rate of drugs such as digoxin or aminoglycoside
+  antibiotics. Participants with higher eGFR clear the drug more
+  rapidly, achieving lower steady-state concentrations and a
+  proportionally smaller drug effect. The biomarker-drug
+  relationship is mechanistic and deterministic: given the
+  biomarker value, the effective dose at steady state is fully
+  determined (up to random noise).
 
 \item \textbf{Receptor density moderation.} A biomarker that measures
-  target receptor density (e.g., PET imaging of alpha-1
-  adrenergic receptor availability) directly determines the
-  pharmacodynamic response to an antagonist. More receptors
+  target receptor density (e.g., PET imaging of receptor
+  availability for an antagonist) directly determines the
+  pharmacodynamic response to that antagonist. More receptors
   means more drug effect, proportionally.
 
 \item \textbf{Genetic metabolizer status.} CYP2D6 metabolizer phenotype
@@ -351,7 +404,7 @@ value: $\text{effect}_i = f(B_i) \cdot \text{drug}$.
 
 \item \textbf{Dose-response with biomarker-dependent effective dose.}
   When the biomarker determines the effective dose (through
-  body composition, renal clearance, protein binding, etc.),
+  body composition, protein binding, or volume of distribution),
   the treatment effect scales with the biomarker through the
   dose-response curve.
 \end{itemize}
@@ -409,40 +462,71 @@ imperfectly indexes.
   epigenetic, and environmental factors.
 \end{itemize}
 
-In these cases, carryover has a different implication: as the drug
-washes out, the correlation between biomarker and response weakens
-because the drug-mediated component of response variance
-diminishes. The biomarker's predictive power is inherently tied to
-the presence of active drug effect. Without drug, the biomarker is
-just a biomarker -- it does not predict the non-drug component of
-symptom change.
+In these cases, carryover has a different implication: as the
+drug washes out, the correlation between biomarker and response
+weakens because the drug-mediated component of response variance
+diminishes. The biomarker's predictive power is inherently tied
+to the presence of active drug effect. Without drug, the
+biomarker is just a biomarker -- it does not predict the
+non-drug component of symptom change.
+
+The latent-subtype framing of Architecture B should be adopted
+with appropriate epistemic caution. Senn (2016) has argued that
+the apparent ``personal element in response to treatment'' is
+often a variance-component artifact rather than a genuine
+biomarker-by-treatment interaction, and that even modest
+within-subject variability can produce convincing-looking but
+spurious differential response. Architecture B presupposes that
+the latent subtype indexed by the biomarker is real,
+identifiable, and stable across the trial period. When that
+presupposition is shaky, the apparent power loss under carryover
+documented in Section 3 may overstate what could be recovered
+under any analysis model, because the underlying signal it is
+attempting to estimate may itself be smaller than assumed.
 
 \subsection{4.3 The prazosin-PTSD case}
 
-The motivating application for pmsimstats is the prazosin trial
-by Raskind et al. (2013), analyzed by Murray et al. (in
-preparation). The biomarker is resting systolic blood pressure
-(SBP) and the outcome is CAPS (Clinician-Administered PTSD
-Scale) score change.
+The motivating application for pmsimstats is the active-duty
+prazosin trial by Raskind et al. (2013), with the SBP-stratified
+secondary analysis revisited by Murray et al. (in preparation).
+The biomarker is resting systolic blood pressure (SBP) and the
+outcome is CAPS (Clinician-Administered PTSD Scale) score
+change.
 
-The biological hypothesis is that elevated SBP indexes heightened
-central noradrenergic tone, which characterizes a subtype of PTSD
-that is preferentially responsive to alpha-1 adrenergic blockade
-by prazosin. This is an Architecture B scenario: SBP is a proxy
-for an underlying neurobiological state, not a direct determinant
-of drug pharmacokinetics. Two patients with the same SBP may
-differ in their actual noradrenergic tone, alpha-1 receptor
-distribution, and downstream signaling, leading to different
-treatment responses despite identical biomarker values.
+The clinical evidence base for prazosin in PTSD is mixed. The
+earlier single-site trials by Raskind and colleagues (2003,
+2007, 2013) reported benefit on nightmares and global PTSD
+symptoms in veteran and active-duty samples. The subsequent
+multisite Veterans Affairs Cooperative Study Program trial
+(Raskind et al. 2018), known as PACT, did not replicate the
+effect: prazosin failed to outperform placebo on the primary
+endpoints. The negative PACT result has been interpreted by
+several investigators as consistent with effect heterogeneity --
+prazosin works in some patients but not others -- which
+motivates the search for a predictive biomarker that would
+identify the responder subgroup. Resting SBP, as a noninvasive
+proxy for central noradrenergic tone, is the leading candidate.
 
-The Hendrickson et al. (2020) DGP correctly uses Architecture B
-(MVN differential correlation) for this clinical context. The
+The biological hypothesis is that elevated SBP indexes
+heightened central noradrenergic tone, which characterizes a
+subtype of PTSD that is preferentially responsive to alpha-1
+adrenergic blockade by prazosin. This is an Architecture B
+scenario: SBP is a proxy for an underlying neurobiological
+state, not a direct determinant of drug pharmacokinetics. Two
+patients with the same SBP may differ in their actual
+noradrenergic tone, alpha-1 receptor distribution, and
+downstream signaling, leading to different treatment responses
+despite identical biomarker values.
+
+The Hendrickson et al. (2020) DGP uses Architecture B (MVN
+differential correlation) for this clinical context. The
 finding that carryover substantially reduces power under this
 architecture is therefore clinically relevant: it suggests that
-trial designs with longer off-drug periods will have meaningfully
-less power to detect the SBP-prazosin interaction than designs
-with shorter off-drug periods, and this effect is larger than
-what a direct mean moderation simulation would predict.
+trial designs with longer off-drug periods will have
+meaningfully less power to detect the SBP-prazosin interaction
+than designs with shorter off-drug periods, and this effect is
+larger than what a direct mean moderation simulation would
+predict.
 
 \bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
 
@@ -580,12 +664,15 @@ A two-stage approach first estimates participant-specific
 treatment effects, then tests their association with the
 biomarker. Stage 1 fits a random-slopes model:
 
-\[Y_{it} = \beta_0 + \beta_1 t + u_{0i} + u_{1i} D_{it} +
-\epsilon_{it}\]
+\[Y_{it} = \beta_0 + \beta_1 t + \beta_2 D_{it} + u_{0i} +
+u_{1i} D_{it} + \epsilon_{it}\]
 
-where $u_{1i}$ is participant $i$'s random treatment effect
-(deviation from the population mean drug effect). Stage 2
-regresses the estimated random slopes on the biomarker:
+where $\beta_2$ is the population mean drug effect and $u_{1i}$
+is participant $i$'s random deviation from that mean. The
+participant-specific drug effect is then $\beta_2 + u_{1i}$.
+Stage 2 regresses the estimated random deviations (or
+equivalently, the BLUPs of the participant-specific effects) on
+the biomarker:
 
 \[\hat{u}_{1i} = \delta_0 + \delta_1 B_i + \eta_i\]
 
@@ -664,40 +751,80 @@ direction for future work.
 \subsection{7.1 Treatment effect heterogeneity}
 
 The statistical literature on treatment effect heterogeneity
-(Rothwell 2005; Kent et al. 2010; Varadhan et al. 2013)
-distinguishes between \textit{predictive} biomarkers (those that modify
-the treatment effect) and \textit{prognostic} biomarkers (those that
-predict outcome regardless of treatment). Both architectures
-generate predictive biomarker effects, but through different
-statistical mechanisms. Architecture A corresponds to a
-\textit{parametric interaction model} where the effect modifier enters
-the regression directly. Architecture B corresponds to a
-\textit{latent class} or \textit{mixture model} perspective where the biomarker
-is a noisy indicator of class membership.
+(Rothwell 2005; Varadhan et al. 2013) distinguishes between
+\textit{predictive} biomarkers (those that modify the treatment
+effect) and \textit{prognostic} biomarkers (those that predict
+outcome regardless of treatment). The current consensus
+statement on predictive HTE analysis is the Predictive
+Approaches to Treatment effect Heterogeneity (PATH) Statement
+(Kent et al. 2020), which distinguishes two analytic strategies
+for identifying predictive biomarker effects in randomized
+trials: a \textit{risk modeling} approach in which a multivariable
+risk model (developed without a treatment term) is used to
+stratify patients and examine variation in absolute treatment
+benefit across risk strata, and an \textit{effect modeling} approach
+in which the regression includes explicit treatment-by-covariate
+interaction terms. PATH expresses caution about data-driven
+effect modeling on the grounds of low statistical power,
+multiplicity, and overfitting, and favors risk modeling when
+the application criteria are met.
+
+The PATH risk-versus-effect-modeling distinction is an
+analysis-model axis. The Architecture A versus Architecture B
+distinction introduced in this paper is a data-generating-process
+axis, and the two are orthogonal. Both PATH analytic strategies
+implicitly assume that the underlying treatment effect
+heterogeneity is encoded in the mean structure of the outcome
+(the heterogeneity is identifiable from differences in
+conditional means), which corresponds to Architecture A as a
+DGP. Architecture B as a DGP is a separate phenomenon that does
+not map cleanly onto either of PATH's analysis-model categories:
+the interaction signal resides in the covariance structure
+rather than the mean, and the standard regression-based
+predictive HTE analysis methods endorsed by PATH may have
+reduced power under Architecture B precisely because they were
+developed under an implicit Architecture A assumption.
+Architecture A can accordingly be characterized as a
+\textit{parametric interaction model} (in PATH's effect modeling
+sense). Architecture B can be characterized as a \textit{latent
+class} or \textit{mixture model} perspective in which the biomarker is
+a noisy indicator of class membership.
 
 \subsection{7.2 Prevalence of each architecture}
 
 A survey of the simulation methodology literature reveals that
 Architecture A (direct mean moderation) is the near-universal
 standard. All simulation frameworks for biomarker-stratified
-designs (Simon 2010), adaptive enrichment trials (Freidlin \& Korn
-2014), basket and umbrella trials (Renfro \& Sargent 2017), and
-platform trials use direct mean moderation with explicit
-interaction terms. N-of-1 simulation studies (Zucker et al. 1997;
-Araujo et al. 2016; Duan et al. 2013) use hierarchical
+designs (Simon 2010), adaptive enrichment trials (Freidlin \&
+Korn 2014), basket and umbrella trials (Renfro \& Sargent 2017),
+and platform trials use direct mean moderation with explicit
+interaction terms. Recent simulation work on biomarker-by-
+treatment interaction estimation in randomized trials with
+prognostic covariates (Haller \& Ulm 2018) likewise adopts the
+standard regression specification, focusing on power and bias
+of the interaction estimator under different covariate
+adjustment strategies. N-of-1 simulation studies (Zucker et al.
+1997; Araujo et al. 2016; Duan et al. 2013) use hierarchical
 random-effects models in which individual treatment effects are
-drawn from a population distribution -- a variant of Architecture
-A where the biomarker predicts the random treatment effect
-through the mean structure.
+drawn from a population distribution -- a variant of
+Architecture A where the biomarker predicts the random
+treatment effect through the mean structure. Methodological
+work on power and design for N-of-1 trials with serial
+correlation and carryover (Wang \& Schork 2019; Schork 2022)
+adopts the same Architecture A specification, even though it
+shares senior authorship with Hendrickson et al. (2020). This
+suggests that the differential-correlation parameterization in
+the latter is a paper-specific design choice rather than a
+methodological convention of any laboratory or research program.
 
 Architecture B (differential correlation via MVN) appears
 primarily in latent variable and structural equation modeling
 contexts (Rizopoulos 2012), Bayesian joint modeling frameworks,
 and copula-based simulation studies. In the clinical trial
-simulation literature specifically, the Hendrickson et al. (2020)
-framework appears to be unique in using differential correlation
-as the mechanism for biomarker-treatment interaction in an N-of-1
-trial context.
+simulation literature specifically, the Hendrickson et al.
+(2020) framework appears to be unique in using differential
+correlation as the mechanism for biomarker-treatment
+interaction in an N-of-1 trial context.
 
 This predominance of Architecture A has an important implication:
 the power estimates reported in the vast majority of
@@ -709,9 +836,14 @@ in the covariance structure rather than the mean structure.
 
 \subsection{7.3 Crossover and N-of-1 trial methodology}
 
-The crossover trial literature (Senn 2002; Jones \& Kenward 2014)
-addresses carryover extensively but does not distinguish between
-architectures for biomarker-treatment interaction modeling. The
+The crossover trial literature (Senn 2002; Jones \& Kenward
+2014) addresses carryover extensively but does not distinguish
+between architectures for biomarker-treatment interaction
+modeling. More recent methodological work on testing for
+carryover effects via mixed-effects models (Sturdevant \& Lumley
+2021) likewise treats carryover as a nuisance parameter to be
+estimated and adjusted for, without engaging with how carryover
+interacts with biomarker-by-treatment effect signals. The
 standard recommendation -- always include carryover in the
 analysis model or use adequate washout -- applies to both
 architectures but has different power implications under each.
@@ -789,6 +921,10 @@ Freidlin B, Korn EL. Biomarker enrichment strategies: matching
 trial design to biomarker credentials. \textit{Nat Rev Clin Oncol}.
 2014;11(2):81-90.
 
+Haller B, Ulm K. A simulation study on estimating
+biomarker-treatment interaction effects in randomized trials
+with prognostic variables. \textit{Trials}. 2018;19(1):128.
+
 Hendrickson RC, Thomas RG, Schork NJ, Raskind MA. Optimizing
 aggregated N-of-1 trial designs for predictive biomarker
 validation: statistical methods and practical considerations.
@@ -797,9 +933,9 @@ validation: statistical methods and practical considerations.
 Jones B, Kenward MG. \textit{Design and Analysis of Cross-Over Trials}.
 3rd ed. Boca Raton, FL: CRC Press; 2014.
 
-Kent DM, Rothwell PM, Ioannidis JPA, Altman DG, Hayward RA.
-Assessing and reporting heterogeneity in treatment effects in
-clinical trials: a proposal. \textit{Trials}. 2010;11:85.
+Kent DM, Paulus JK, van Klaveren D, et al. The Predictive
+Approaches to Treatment effect Heterogeneity (PATH) Statement.
+\textit{Ann Intern Med}. 2020;172(1):35-45.
 
 Raison CL, Rutherford RE, Woolwine BJ, et al. A randomized
 controlled trial of the tumor necrosis factor antagonist
@@ -807,36 +943,64 @@ infliximab for treatment-resistant depression: the role of
 baseline inflammatory biomarkers. \textit{JAMA Psychiatry}.
 2013;70(1):31-41.
 
+Raskind MA, Peskind ER, Kanter ED, et al. Reduction of
+nightmares and other PTSD symptoms in combat veterans by
+prazosin: a placebo-controlled study. \textit{Am J Psychiatry}.
+2003;160(2):371-373.
+
+Raskind MA, Peskind ER, Hoff DJ, et al. A parallel group
+placebo-controlled study of prazosin for trauma nightmares and
+sleep disturbance in combat veterans with post-traumatic stress
+disorder. \textit{Biol Psychiatry}. 2007;61(8):928-934.
+
 Raskind MA, Peterson K, Williams T, et al. A trial of prazosin
 for combat trauma PTSD with nightmares in active-duty soldiers
 returned from Iraq and Afghanistan. \textit{Am J Psychiatry}.
 2013;170(9):1003-1010.
 
+Raskind MA, Peskind ER, Chow B, et al. Trial of prazosin for
+post-traumatic stress disorder in military veterans.
+\textit{N Engl J Med}. 2018;378(6):507-517.
+
+Renfro LA, Sargent DJ. Statistical controversies in clinical
+research: basket trials, umbrella trials, and other master
+protocols. \textit{Ann Oncol}. 2017;28(1):34-43.
+
+Rizopoulos D. \textit{Joint Models for Longitudinal and
+Time-to-Event Data: With Applications in R}. Boca Raton, FL:
+CRC Press; 2012.
+
 Rothwell PM. Treating individuals 5. Subgroup analysis in
 randomised controlled trials: importance, indications, and
 interpretation. \textit{Lancet}. 2005;365(9454):176-186.
 
+Schork NJ. Accommodating serial correlation and sequential
+design elements in personalized studies and aggregated
+personalized studies. \textit{Harv Data Sci Rev}. 2022;Special Issue 3.
+doi:10.1162/99608f92.f1eef6f4.
+
 Senn S. \textit{Cross-over Trials in Clinical Research}. 2nd ed.
 Chichester, UK: John Wiley \& Sons; 2002.
+
+Senn S. Mastering variation: variance components and
+personalised medicine. \textit{Stat Med}. 2016;35(7):966-977.
 
 Simon R. Clinical trial designs for evaluating the medical
 utility of prognostic and predictive biomarkers in oncology.
 \textit{Per Med}. 2010;7(1):33-47.
+
+Sturdevant SG, Lumley T. Statistical methods for testing
+carryover effects: a mixed effects model approach.
+\textit{Contemp Clin Trials Commun}. 2021;22:100711.
 
 Varadhan R, Segal JB, Boyd CM, Wu AW, Weiss CO. A framework for
 the analysis of heterogeneity of treatment effect in
 patient-centered outcomes research. \textit{J Clin Epidemiol}.
 2013;66(8):818-825.
 
-Relling MV, Evans WE. Pharmacogenomics in the clinic. \textit{Nature}.
-2015;526(7573):343-350.
-
-Renfro LA, Sargent DJ. Statistical controversies in clinical
-research: basket trials, umbrella trials, and other master
-protocols. \textit{Ann Oncol}. 2017;28(1):34-43.
-
-Rizopoulos D. \textit{Joint Models for Longitudinal and Time-to-Event
-Data: With Applications in R}. Boca Raton, FL: CRC Press; 2012.
+Wang Y, Schork NJ. Power and design issues in crossover-based
+N-of-1 clinical trials with fixed data collection periods.
+\textit{Healthcare (Basel)}. 2019;7(3):84.
 
 Zucker DR, Schmid CH, McIntosh MW, D'Agostino RB, Selker HP,
 Lau J. Combining single patient (N-of-1) trials to estimate

@@ -1,5 +1,13 @@
 # Mean Moderation Implementation Notes
 
+> **Note**: This is a quick-reference summary. For the full
+> mathematical derivation, the positive-definiteness ceiling
+> discussion, the `validateParameterGrid()` known limitation,
+> and the empirical evaluation of the Hendrickson (2020)
+> publication parameter grid under Architecture A, see the
+> comprehensive document `19-mean-moderation-implementation-notes.tex`
+> (rendered as `19-mean-moderation-implementation-notes.pdf`).
+
 ## Summary
 
 This document records the implementation of Architecture A

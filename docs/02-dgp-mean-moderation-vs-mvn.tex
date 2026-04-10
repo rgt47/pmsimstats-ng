@@ -111,6 +111,18 @@ for predictive biomarker-moderated treatment effects.
 
 \section{2. Two DGP Architectures}
 
+\textbf{Notation.} Throughout this paper, $B_i$ denotes the
+biomarker value of participant $i$, $D_{it}$ the binary on-drug
+indicator at timepoint $t$ (1 on drug, 0 off drug), and
+$BR_{it}$ the biological response component of the outcome.
+These three symbols describe the data-generating-process layer.
+The analysis-model layer uses a related but distinct continuous
+drug exposure variable, \texttt{Dbc}, defined in Section 3.1.
+Code-style identifiers in typewriter font (\texttt{bm},
+\texttt{Dbc}, \texttt{BR}) refer to specific variables in the
+pmsimstats codebase or to R formula syntax; mathematical
+symbols are used otherwise.
+
 \subsection{2.1 Architecture A: Direct Mean Moderation}
 
 In this approach, the biomarker enters the mean structure of the
@@ -263,8 +275,24 @@ biomarker values, eliminating the differential signal.
 Identical simulation configurations were run under both
 architectures using the pmsimstats-ng framework. The DGP
 parameters matched as closely as possible between the two
-approaches. The analysis model was the same in both cases:
-\texttt{nlme::lme} with \texttt{corCAR1} and the \texttt{bm:Dbc} interaction term.
+approaches. The analysis model was the same in both cases: an
+\texttt{nlme::lme} fit with a \texttt{corCAR1} continuous-time
+autocorrelation structure and a single biomarker-by-drug
+interaction term, written \texttt{bm:Dbc} in R formula syntax.
+
+The analysis-model drug exposure variable \texttt{Dbc} is the
+\emph{continuous} analogue of the binary DGP indicator $D_{it}$.
+It equals $1$ during on-drug periods and $\exp(-\lambda t_{sd})$
+during off-drug periods, where $t_{sd}$ is time since drug
+discontinuation and $\lambda$ is the analysis-model carryover
+decay rate (typically derived from the drug's pharmacokinetic
+half-life as $\lambda = \ln 2 / t_{1/2}$, in which case it
+matches the DGP decay rate of Section 2.2 by construction).
+Whereas $D_{it}$ flips abruptly between 0 and 1, \texttt{Dbc}
+captures the smooth shrinkage of residual drug effect during
+washout. The interaction coefficient on \texttt{bm:Dbc} is
+therefore the test of whether the biomarker moderates the
+exposure-decayed drug effect.
 
 \textbf{Setup:}
 
@@ -274,7 +302,7 @@ approaches. The analysis model was the same in both cases:
 \item Biomarker correlation / moderation: $c_{bm} = 0.45$ /
   $\beta_{bm} = 0.45$
 \item DGP carryover half-life: $t_{1/2} \in \{0, 0.5, 1.0\}$ weeks
-\item Analysis: matched Dbc with same half-life
+\item Analysis: matched \texttt{Dbc} with same half-life
 \item Replicates: 50 per cell
 \end{itemize}
 
@@ -327,13 +355,15 @@ carryover.
 
 \subsection{3.2 Why the architectures diverge}
 
-\textbf{Under Architecture A}, carryover reduces the magnitude of the
-drug exposure variable $D_{it}$ during off-drug periods, but the
-biomarker moderation coefficient $\beta_{bm}$ is a fixed
-population parameter. The interaction \texttt{bm * D} has reduced
-variance (because $D$ has less contrast), but the signal-to-noise
-ratio degrades only modestly because the noise structure is
-independent of the carryover.
+\textbf{Under Architecture A}, carryover reduces the magnitude
+of the drug exposure variable seen by the analysis model
+(\texttt{Dbc} drops below 1 during washout), but the biomarker
+moderation coefficient $\beta_{bm}$ is a fixed population
+parameter. The biomarker-by-drug interaction term therefore has
+reduced variance (because \texttt{Dbc} has less contrast between
+drug states), but the signal-to-noise ratio degrades only
+modestly because the noise structure is independent of the
+carryover.
 
 \textbf{Under Architecture B}, carryover operates on two levels
 simultaneously:
@@ -354,11 +384,12 @@ simultaneously:
   drug-independent component.
 \end{enumerate}
 
-The analysis model's \texttt{bm:Dbc} interaction coefficient depends on
-the covariance between \texttt{bm} and \texttt{Dbc}-weighted outcomes. Under
-Architecture B, this covariance is being attacked from both sides:
-the treatment contrast in $Dbc$ is compressed, and the
-biomarker-BR correlation that generates the covariance signal is
+The analysis model's interaction coefficient (the coefficient
+on \texttt{bm:Dbc}) depends on the covariance between $B_i$ and
+\texttt{Dbc}-weighted outcomes. Under Architecture B, this
+covariance is being attacked from both sides: the treatment
+contrast in \texttt{Dbc} is compressed, and the BM-BR
+correlation that generates the covariance signal is
 simultaneously decaying.
 
 \bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
@@ -587,9 +618,10 @@ biomarker development), investigators should:
 \section{6. Alternative Analysis Strategies Under Architecture B}
 
 The power loss documented in Section 3 arises from two distinct
-sources: (1) compressed variance of the treatment indicator $Dbc$
-when carryover is present, and (2) erosion of the BM-BR
-correlation during off-drug periods. Source 1 is a property of
+sources: (1) compressed variance of the treatment indicator
+\texttt{Dbc} when carryover is present, and (2) erosion of the
+BM-BR correlation during off-drug periods. Source 1 is a
+property of
 the analysis model parameterization and can potentially be
 addressed by choosing a different predictor. Source 2 is a
 property of the data itself -- the signal is genuinely weaker in
@@ -649,8 +681,9 @@ tested by a simple regression of these contrasts on the biomarker:
 \[\bar{Y}_{i,\text{on}} - \bar{Y}_{i,\text{off}} = \alpha +
 \gamma \cdot B_i + \epsilon_i\]
 
-This sidesteps the $Dbc$ parameterization and the
-repeated-measures model entirely. Carryover affects the magnitude
+This sidesteps the \texttt{Dbc} parameterization and the
+repeated-measures model entirely. Carryover affects the
+magnitude
 of the contrast (making off-drug means closer to on-drug means),
 but the \textit{correlation between the contrast and the biomarker} may
 be more robust because within-subject averaging reduces noise
@@ -854,12 +887,64 @@ interactions than previously recognized.
 
 \subsection{7.4 Precision medicine trial design}
 
-Enrichment and biomarker-stratified designs (Simon 2010; Freidlin
-\& Korn 2014) use Architecture A exclusively for power
-calculations. The power estimates from these calculations may be
-optimistic for biomarkers that operate through an Architecture B
-mechanism, particularly in designs with crossover components or
-treatment switching.
+Enrichment and biomarker-stratified designs (Simon 2010;
+Freidlin \& Korn 2014) use Architecture A exclusively for power
+calculations. Three families of design are particularly worth
+considering in light of the architectural distinction.
+
+\textbf{Adaptive enrichment trials} adjust the eligible
+population mid-trial based on emerging evidence of a
+biomarker-treatment interaction. The interim power calculations
+that drive these adaptive decisions are universally framed in
+the Architecture A regression idiom. If the true biomarker
+mechanism is closer to Architecture B and any participants pass
+through washout intervals between dose-finding stages, the
+realized power for the interaction test will be lower than the
+adaptation rule expects, biasing decisions toward premature
+futility stopping or toward overly narrow enrichment criteria.
+The discrepancy is most acute when the biomarker mechanism is
+uncertain at the design stage, which is precisely the situation
+in which adaptive enrichment is most attractive.
+
+\textbf{Treatment-switching designs} (most crossover, basket,
+and platform trials, as well as N-of-1 hybrid designs) cycle
+individual participants through different drug states. Under
+Architecture B, each washout phase erodes the BM-BR correlation,
+so the biomarker-treatment interaction signal in the second and
+subsequent treatment periods is structurally weaker than in the
+first. The power loss documented in Section 3 applies here
+directly. By contrast, parallel-group enrichment designs --- in
+which each participant remains on a single treatment for the
+duration of the trial --- escape this loss because there is no
+off-drug phase during which the correlation can decay; for
+these designs, Architectures A and B yield similar power
+estimates. The architectural choice therefore matters most in
+exactly the designs where the biomarker mechanism is most
+likely to be of clinical interest, namely those that
+deliberately expose each participant to both treatment states
+in order to estimate within-subject responsiveness.
+
+\textbf{Basket and umbrella trials} (Renfro \& Sargent 2017)
+introduce an additional layer because their power calculations
+average across multiple biomarker-defined arms. If even a
+subset of the arms operate through an Architecture B
+mechanism while the trial-wide power calculation assumes
+Architecture A throughout, the aggregated power estimates will
+be biased optimistically in a way that is difficult to detect
+from trial-level results alone. Subgroup-specific power
+diagnostics under both architectures should accompany the
+primary planning analysis whenever the underlying biology is
+heterogeneous across baskets.
+
+In all three settings the practical recommendation parallels
+that of Section 5.3: when the biological mechanism is uncertain,
+run the power calculation under both architectures and treat
+the Architecture B estimate as the more conservative anchor for
+sample size planning. This recommendation is consistent with
+the PATH Statement (Kent et al. 2020), which itself counsels
+caution about data-driven discovery of treatment-by-covariate
+interactions and prefers risk modeling approaches when the
+application criteria are met.
 
 \bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
 
@@ -1010,6 +1095,6 @@ responses to treatment. \textit{J Clin Epidemiol}. 1997;50(4):401-410.
 \vfill
 \noindent\rule{\textwidth}{0.4pt}
 {\footnotesize
-Rendered on 2026-03-25 at 19:01 PDT.\\
+Rendered on 2026-04-09 at 17:43 PDT.\\
 Source: \textasciitilde/prj/alz/10-pmsimstats-ng/pmsimstats-ng/docs/02-dgp-mean-moderation-vs-mvn.tex}
 \end{document}

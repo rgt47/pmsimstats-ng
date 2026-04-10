@@ -148,23 +148,34 @@ the interaction signal lives:
 
 ## Implementation Details
 
-The `dgp_architecture` parameter is threaded through:
+The `dgp_architecture` parameter is threaded through three
+functions:
 
-- `buildSigma()`: skips BM-BR correlation block when
-  `dgp_architecture = "mean_moderation"`
-- `generateData()`: applies additive `bm * tod * c.bm`
-  post-draw
-- `generateSimulatedResults()`: passes parameter to both
-  sigma cache and data generation
+- `buildSigma()`: when
+  `dgp_architecture = "mean_moderation"`, the BM-BR
+  correlation block is omitted from the covariance matrix.
+- `generateData()`: after the MVN draw, the additive
+  moderation `c.bm * bm_z * br_sd` is applied to the BR
+  column at every on-drug timepoint, where `bm_z` is the
+  standardized biomarker and `br_sd` is the BR standard
+  deviation from the response parameters.
+- `generateSimulatedResults()`: passes the parameter to
+  both the sigma cache and the per-paramset data generation.
 
-Default is `"mvn"` to preserve backward compatibility. All
-67 existing tests pass with the default.
+Default is `"mvn"` to preserve backward compatibility with
+the Hendrickson et al. (2020) publication. All 67 existing
+tests pass under the default.
 
 ## Files Modified
 
 - `R/generateData.R`: `buildSigma()` and `generateData()`
 - `R/generateSimulatedResults.R`: parameter threading
 
-## Branch
+## Status
 
-`feature/mean-moderation-dgp`
+Merged to `master` on 2026-04-08 in commit `5ed7b41` (the
+`feature/mean-moderation-dgp` branch). The same merge also
+introduced the `implementations/` directory with three
+parallel collections (`original`, `original-extended`,
+`tidyverse`); the active `R/` package directory mirrors
+`implementations/original-extended/`.

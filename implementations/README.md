@@ -1,6 +1,6 @@
 # pmsimstats Implementations
 
-This directory contains three parallel, complete implementations of the pmsimstats-ng simulation framework. Each collection supports different DGP architectures and uses different coding styles.
+This directory contains four implementations of the pmsimstats-ng simulation framework. Three (`original`, `original-extended`, `tidyverse`) are parallel, complete implementations that support the full power-analysis pipeline with different coding styles and architecture coverage. The fourth (`simple`) is a reduced-complexity sandbox for pedagogical demonstrations and exploratory design prototyping.
 
 ## Quick Reference
 
@@ -9,6 +9,7 @@ This directory contains three parallel, complete implementations of the pmsimsta
 | **original/** | B (MVN) only | data.table | Historical reference, backward compatibility baseline |
 | **original-extended/** | A + B (dual) | data.table | Production use, default choice |
 | **tidyverse/** | A + B (dual) | tidyverse | Modern alternative, type-stable code |
+| **simple/** | A only | base R | Reduced-complexity sandbox, pedagogical reference, design prototyping |
 
 ## Architecture Definitions
 
@@ -26,6 +27,9 @@ Use **`tidyverse/`** to see a modern tidyverse alternative while still having du
 
 ### For historical reference or backward compatibility
 Use **`original/`** to match the exact corrected Hendrickson publication code (Architecture B only).
+
+### For reduced-complexity exploration or pedagogical demonstrations
+Use **`simple/`** when prototyping a new trial-design variant, illustrating the mean-moderation mechanism in minimal base R, or stripping the DGP down to ask whether a design-level finding survives simplification. Not intended for publication-grade power calculations.
 
 ## Common Workflows
 
@@ -79,10 +83,11 @@ dat <- generate_data(
 | original/ | Not available | MVN only | ✗ | ✓ |
 | original-extended/ | Available | mvn | ✓ | ✓ |
 | tidyverse/ | Available | mvn | ✓ | ✓ |
+| simple/ | Not available | mean moderation only | ✓ | ✗ |
 
 ## File Organization
 
-Each collection contains:
+The three full collections (`original`, `original-extended`, `tidyverse`) share this structure:
 ```
 <collection>/
   R/                  # Core simulation functions
@@ -94,6 +99,14 @@ Each collection contains:
     censordata.R
     carryover_analysis.R
   README.md           # Collection-specific documentation
+```
+
+The `simple/` sandbox has a deliberately minimal layout:
+```
+simple/
+  simulation.R        # Self-contained Architecture A simulation in base R
+  docs/               # Design-variant notes
+  README.md           # Sandbox usage and workflow
 ```
 
 ## Validation & Testing

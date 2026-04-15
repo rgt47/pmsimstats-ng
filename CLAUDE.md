@@ -31,18 +31,20 @@ Both architectures produce qualitatively different power losses under carryover 
 
 ### implementations/ Directory
 
-Three parallel implementations of the simulation framework, each supporting different DGP architectures and coding styles:
+Four implementations of the simulation framework. The first three are parallel, complete implementations of the full power-analysis pipeline; the fourth (`simple`) is a reduced-complexity sandbox for pedagogical demonstrations and exploratory design prototyping.
 
 | Collection | Style | Architecture | Location | Coding Style |
 |---|---|---|---|---|
 | **original** | Reference baseline | Architecture B (MVN) only | `implementations/original/R/` | data.table |
 | **original-extended** | Extended reference | Architecture A + B (dual) | `implementations/original-extended/R/` | data.table |
 | **tidyverse** | Modern alternative | Architecture A + B (dual) | `implementations/tidyverse/R/` | tidyverse |
+| **simple** | Reduced-complexity sandbox | Architecture A only | `implementations/simple/simulation.R` | base R |
 
 **Key distinctions:**
 - `original` = Corrected Hendrickson publication code (no `dgp_architecture` parameter)
 - `original-extended` = Same as `original` + `dgp_architecture` parameter for Architecture A support
 - `tidyverse` = Complete reimplementation in tidyverse style, also supports both architectures
+- `simple` = Single-file base-R sandbox for reduced-complexity designs and pedagogical demonstrations; not package-structured, not tested, not for publication-grade power calculations
 
 **Parameter support across implementations:**
 
@@ -58,6 +60,7 @@ All three collections accept the same core parameters:
 - **original**: Historical reference; testing backward compatibility; Architecture B-only baseline
 - **original-extended**: Production use; both architectures available; data.table style
 - **tidyverse**: Modern tidyverse code; both architectures available; type stability via tidyverse packages
+- **simple**: Reduced-complexity sandbox; prototyping new trial-design variants; pedagogical demonstrations of the mean-moderation mechanism; base R with no external dependencies
 
 **See also:** Each collection has a `README.md` with usage examples, parameter documentation, and validation notes.
 

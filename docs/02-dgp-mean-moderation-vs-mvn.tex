@@ -23,14 +23,14 @@ Simulation studies of predictive biomarker-treatment interactions
 in clinical trials require a data-generating process (DGP) that
 specifies how the biomarker moderates treatment response. We
 identify two fundamentally different DGP architectures used in
-practice and show that the choice between them determines whether
-carryover effects reduce statistical power to detect the
-interaction. Under \textit{direct mean moderation}, the biomarker scales
-the treatment effect in the population mean structure; power is
-largely preserved under carryover because the proportional
-relationship between biomarker and drug response is maintained at
-every timepoint. Under \textit{differential correlation} (the MVN
-approach), the interaction emerges from treatment-state-dependent
+practice and show that the choice between them determines the
+extent to which carryover effects reduce statistical power to
+detect the interaction. Under \textit{direct mean moderation}, the
+biomarker scales the treatment effect in the population mean
+structure; power is largely preserved under carryover because the
+proportional relationship between biomarker and drug response is
+maintained at every timepoint. Under \textit{differential
+correlation} (the multivariate normal, or MVN, approach), the interaction emerges from treatment-state-dependent
 correlation between biomarker and response in the joint
 distribution; carryover erodes this differential correlation signal
 and substantially reduces power. We formalize the mathematical
@@ -222,8 +222,11 @@ the conditional expectation of their biological response is:
 \cdot \frac{\sigma_{BR}}{\sigma_B} \cdot (b - \mu_B)\]
 
 This conditional expectation has an interaction-like structure:
-the biomarker value $b$ modulates the expected BR, but only when
-the correlation $c_{bm}$ is nonzero (i.e., when on drug).
+the biomarker value $b$ modulates the expected BR. The effective
+correlation is $c_{bm}$ on drug and $c_{bm} \cdot
+e^{-\lambda t_{sd}}$ during the washout; the moderation therefore
+persists with attenuated strength during off-drug periods and
+vanishes only in the limit of complete decay.
 
 Key properties:
 
@@ -287,10 +290,26 @@ biomarker values, eliminating the differential signal.
 Identical simulation configurations were run under both
 architectures using the pmsimstats-ng framework. The DGP
 parameters matched as closely as possible between the two
-approaches. The analysis model was the same in both cases: an
-\texttt{nlme::lme} fit with a \texttt{corCAR1} continuous-time
-autocorrelation structure and a single biomarker-by-drug
-interaction term, written \texttt{bm:Dbc} in R formula syntax.
+approaches. Critically, the non-biologic response components
+(time-varying response, placebo-belief accumulation, and
+residual noise) are generated from the same multivariate normal
+draw with identical means, variances, within-factor AR(1)
+autocorrelation, and cross-factor correlations in both
+architectures. The two DGPs differ \emph{only} in how the
+biomarker-to-biological-response (BM-BR) linkage is encoded:
+Architecture~B embeds it in the off-diagonal $c_{bm}$ entries of
+$\Sigma$, whereas Architecture~A omits those entries and adds a
+post-draw shift $c_{bm} \cdot B_i^{*} \cdot \sigma_{BR}$ to
+on-drug BR columns (see
+\texttt{19-mean-moderation-implementation-notes.tex} for the
+scaling derivation). The divergent carryover behavior reported
+below is therefore attributable to the BM-BR parameterization,
+not to any difference in how the placebo, time-varying, or
+residual-noise components are generated. The analysis model was
+the same in both cases: an \texttt{nlme::lme} fit with a
+\texttt{corCAR1} continuous-time autocorrelation structure and a
+single biomarker-by-drug interaction term, written
+\texttt{bm:Dbc} in R formula syntax.
 
 The analysis-model drug exposure variable \texttt{Dbc} is the
 \emph{continuous} analogue of the binary DGP indicator $D_{it}$.
@@ -369,13 +388,19 @@ carryover.
 
 \textbf{Under Architecture A}, carryover reduces the magnitude
 of the drug exposure variable seen by the analysis model
-(\texttt{Dbc} drops below 1 during washout), but the biomarker
-moderation coefficient $\beta_{bm}$ is a fixed population
-parameter. The biomarker-by-drug interaction term therefore has
+(\texttt{Dbc} drops below 1 during washout), and the mean BR at
+off-drug timepoints is inflated by the residual drug effect
+exactly as in Architecture B. Both mechanisms compress the
+between-state treatment contrast and are shared by the two
+architectures. What Architecture A lacks is the second channel
+of signal loss: the biomarker moderation coefficient
+$\beta_{bm}$ is a fixed population parameter, the biomarker
+enters the mean structure directly rather than through a
+correlation, and the noise structure is independent of drug
+state. The biomarker-by-drug interaction term therefore has
 reduced variance (because \texttt{Dbc} has less contrast between
 drug states), but the signal-to-noise ratio degrades only
-modestly because the noise structure is independent of the
-carryover.
+modestly.
 
 \textbf{Under Architecture B}, carryover operates on two levels
 simultaneously:
@@ -384,7 +409,8 @@ simultaneously:
 \item \textbf{Mean blurring}: The BR means during off-drug periods are
   inflated by residual carryover, making them resemble on-drug
   BR means. This reduces the treatment contrast that the analysis
-  model uses to distinguish drug effect from no-drug.
+  model uses to distinguish drug effect from no-drug. This channel
+  is shared with Architecture A.
 
 \item \textbf{Correlation erosion}: The BM-BR correlation during off-drug
   periods decays exponentially with $t_{sd}$. This is not just a
@@ -393,7 +419,14 @@ simultaneously:
   the degree to which the drug effect is active; as the drug
   washes out, the correlation weakens because the drug-mediated
   component of BR variance shrinks relative to the
-  drug-independent component.
+  drug-independent component. This channel is \emph{unique} to
+  Architecture B, because only here does the biomarker signal
+  live in the second moment of the joint distribution. Under
+  Architecture A the drug-mediated and drug-independent
+  components of BR variance move in tandem -- both are scaled by
+  the same \texttt{Dbc}-weighted drug effect -- so their ratio,
+  and hence the identifiability of the interaction, is preserved
+  even as amplitudes shrink.
 \end{enumerate}
 
 The analysis model's interaction coefficient (the coefficient
@@ -418,8 +451,14 @@ response.
 Architecture A (direct mean moderation) is appropriate when the
 biomarker governs the \textbf{magnitude of the drug's biological
 effect} for each individual participant. The drug effect for
-participant $i$ is deterministically scaled by their biomarker
-value: $\text{effect}_i = f(B_i) \cdot \text{drug}$.
+participant $i$ is scaled by their biomarker value:
+$\text{effect}_i = f(B_i) \cdot \text{drug}$. The scaling is
+deterministic in the population-mean sense --- any two
+participants sharing the same $B_i$ have the same expected
+response --- but individual outcomes still carry the usual noise,
+random-effect, and residual-biological variability. The label
+``deterministic'' refers to the mean structure of the DGP, not to
+the realized response of any single participant.
 
 \textbf{Clinical examples:}
 
@@ -513,8 +552,30 @@ to the presence of active drug effect. Without drug, the
 biomarker is just a biomarker -- it does not predict the
 non-drug component of symptom change.
 
-The latent-subtype framing of Architecture B should be adopted
-with appropriate epistemic caution. Senn (2016) has argued that
+The latent-subtype framing raises a legitimate modeling
+question: if the biomarker is really a noisy indicator of an
+underlying responder class, the biologically faithful DGP would
+be an explicit finite mixture in which each participant is drawn
+from one of two (or more) response distributions with
+class-membership probability a function of $B_i$. Under such a
+mixture DGP the individual-level moderation is discrete, not
+probabilistic, and the MVN differential-correlation
+parameterization is best understood as a tractable
+second-moment approximation to a richer mixture model rather
+than as the generative mechanism itself. The practical
+consequence is that Architecture~B as implemented here captures
+the population-level covariance implications of a latent-class
+mechanism without committing to its full generative form; this
+is adequate for power calculations that test for the presence
+of an interaction but should not be read as an endorsement of
+MVN differential correlation as the correct mechanistic model.
+Whether the observed power loss under carryover is better
+mitigated by analysis strategies (Section 6) or by explicit
+mixture modeling is an open question.
+
+The latent-subtype framing of Architecture B should also be
+adopted with appropriate epistemic caution. Senn (2016) has
+argued that
 the apparent ``personal element in response to treatment'' is
 often a variance-component artifact rather than a genuine
 biomarker-by-treatment interaction, and that even modest
@@ -530,8 +591,9 @@ attempting to estimate may itself be smaller than assumed.
 \subsection{4.3 The prazosin-PTSD case}
 
 The motivating application for pmsimstats is the active-duty
-prazosin trial by Raskind et al. (2013), with the SBP-stratified
-secondary analysis revisited by Murray et al. (in preparation).
+prazosin trial by Raskind et al. (2013), whose SBP-stratified
+secondary analysis is the subject of ongoing reanalysis by the
+pmsimstats team.
 The biomarker is resting systolic blood pressure (SBP) and the
 outcome is CAPS (Clinician-Administered PTSD Scale) score
 change.
@@ -648,8 +710,15 @@ The most direct approach is to discard off-drug timepoints
 entirely and test the biomarker-treatment interaction using only
 on-drug observations. Every retained observation has the full
 BM-BR correlation ($c_{bm}$), so correlation erosion is
-eliminated. The cost is a reduction in effective sample size
-(fewer observations per participant). For designs with many
+eliminated. The costs are twofold: a reduction in effective
+sample size (fewer observations per participant) and, more
+importantly, the loss of the off-drug reference that separates
+the biological response from placebo and time-varying
+background response. Without off-drug observations the
+biological, placebo, and time-varying components are confounded,
+which is why the Open-Label design -- despite having the most
+on-drug timepoints -- does not dominate the other designs in
+the Section 3 results. For designs with many
 on-drug timepoints (OL has 8, the Hybrid design has 5-6 per
 path), the net effect may be positive: the per-observation
 signal-to-noise ratio is maximal, and the analysis model
@@ -753,8 +822,17 @@ exposure:
 \item \textbf{More on-drug timepoints} relative to off-drug increase the
   proportion of high-signal observations.
 \item \textbf{Front-loaded drug exposure} (as in the OL+BDC design)
-  ensures that the strongest on-drug signal is captured before
-  any carryover-contaminated off-drug observations are collected.
+  places a long initial on-drug block before the off-drug
+  baseline-during-continued-treatment phase, so that the BM-BR
+  correlation has been fully established before any off-drug
+  observations are collected. The alternative ordering
+  (off-drug first, then on-drug) has the appealing property of
+  placing the placebo and time-varying estimation in an
+  uncontaminated window but sacrifices on-drug exposure duration
+  and forces the BM-BR signal to be re-established after a
+  wash-in; the net power trade-off depends on the ratio of
+  carryover half-life to total trial length and is explored
+  empirically in the Section 3 results.
 \end{itemize}
 
 Design-level solutions address the root cause (carryover in the
@@ -1109,6 +1187,6 @@ responses to treatment. \textit{J Clin Epidemiol}. 1997;50(4):401-410.
 \vfill
 \noindent\rule{\textwidth}{0.4pt}
 {\footnotesize
-Rendered on 2026-04-09 at 18:49 PDT.\\
+Rendered on 2026-04-15 at 10:48 PDT.\\
 Source: \textasciitilde/prj/alz/10-pmsimstats-ng/pmsimstats-ng/docs/02-dgp-mean-moderation-vs-mvn.tex}
 \end{document}

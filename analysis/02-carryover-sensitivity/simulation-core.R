@@ -84,12 +84,16 @@ build_design_set <- function(name) {
 ## -----------------------------------------------------------------
 
 default_resp_param <- function() {
+  ## br sd = 8 matches the docs/19 calibration target
+  ## (c_bm * sigma_BR = 0.45 * 8 = 3.6 BR units per SD of biomarker).
+  ## tv / pb values follow the Hendrickson (2020) defaults; tv sd is
+  ## bumped to 6 so the TV trajectory is not dominated by BR noise.
   tibble::tibble(
     cat  = c('tv', 'pb', 'br'),
     max  = c(10.98604, 6.50647, 10.98604),
     disp = c(5, 5, 5),
     rate = c(0.42, 0.35, 0.42),
-    sd   = c(5, 2, 5)
+    sd   = c(6, 2, 8)
   )
 }
 
@@ -188,10 +192,13 @@ prepare_long_data <- function(dat, design_set, carryover_t1half,
 
 fit_spec <- function(dat_long, spec) {
   spec <- match.arg(spec, c('A1', 'A2', 'A3'))
+  ## A3 follows the Jones & Kenward (2014) crossover pattern: the
+  ## lagged-treatment indicator L is a nuisance covariate; the
+  ## biomarker interaction of interest remains bm:Db.
   form <- switch(spec,
     A1 = as.formula('Sx ~ bm + t + Db  + bm:Db'),
     A2 = as.formula('Sx ~ bm + t + Dbc + bm:Dbc'),
-    A3 = as.formula('Sx ~ bm + t + Db  + bm:Db + L + bm:L')
+    A3 = as.formula('Sx ~ bm + t + Db  + bm:Db + L')
   )
 
   fit <- tryCatch(
@@ -231,10 +238,21 @@ fit_spec <- function(dat_long, spec) {
 }
 
 fit_three_specs <- function(dat_long) {
+  has_off_drug <- any(dat_long$Db == 0)
+  has_lagged   <- any(dat_long$L  == 1)
+  na_row <- function(spec, reason) {
+    tibble(spec = spec, estimate = NA_real_,
+           p_value = NA_real_, converged = FALSE,
+           reason = reason)
+  }
   bind_rows(
-    fit_spec(dat_long, 'A1'),
-    fit_spec(dat_long, 'A2'),
-    fit_spec(dat_long, 'A3')
+    if (has_off_drug) fit_spec(dat_long, 'A1') |>
+      mutate(reason = NA_character_)
+    else na_row('A1', 'no off-drug observations'),
+    fit_spec(dat_long, 'A2') |> mutate(reason = NA_character_),
+    if (has_off_drug && has_lagged) fit_spec(dat_long, 'A3') |>
+      mutate(reason = NA_character_)
+    else na_row('A3', 'no lagged-on timepoints')
   )
 }
 

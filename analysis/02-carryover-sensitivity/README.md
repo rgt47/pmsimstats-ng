@@ -24,6 +24,7 @@ Total cells: $3 \times 3 \times 2 \times 3 \times 3 \times 2 \times
 
 | Script | Purpose |
 |---|---|
+| `simulation-core.R` | Shared helpers: design presets (OL, CO, Hybrid, OLBDC), multi-path data generation wrapper, long-form preparation with `Db`/`Dbc`/`L` columns, and the three analysis-spec fitters (A1/A2/A3). Sourced by `01-run-factorial.R`. |
 | `01-run-factorial.R` | Primary simulation driver; writes `output/01-factorial.rds` |
 | `02-summarise-grid.R` | Aggregate replicate-level results into power and type-I-error grids; writes `output/02-grid-summary.rds` and `manuscripts/data/02-grid-summary.rds` |
 | `03-render-figures.R` | Generate PDF figures into `manuscripts/figures/` |
@@ -42,10 +43,14 @@ cross-validation against that collection is limited to the
 ## Usage
 
 ```r
-# Development run (50 replicates, ~few minutes)
+# Smoke test (2 reps x 4 designs, one parameter setting; ~2 seconds)
+# Confirms the full pipeline runs. Writes output/01-smoke.rds.
+Rscript analysis/02-carryover-sensitivity/01-run-factorial.R --smoke
+
+# Development run (50 replicates per cell, minutes)
 Rscript analysis/02-carryover-sensitivity/01-run-factorial.R --dev
 
-# Production run (500 replicates, hours)
+# Production run (500 replicates per cell, hours)
 Rscript analysis/02-carryover-sensitivity/01-run-factorial.R
 
 # Summarise + write manuscript-side RDS
@@ -54,6 +59,22 @@ Rscript analysis/02-carryover-sensitivity/02-summarise-grid.R
 # Figures
 Rscript analysis/02-carryover-sensitivity/03-render-figures.R
 ```
+
+## Pipeline status
+
+- Full pipeline end-to-end validated on the smoke configuration:
+  OL, CO, Hybrid, OLBDC designs generate data, prepare long-form
+  with `Db`/`Dbc`/`L` columns, and fit all three analysis
+  specifications (A1 binary, A2 exposure-weighted, A3
+  binary + lagged) with non-NA p-values and estimates.
+- OL designs correctly report `no off-drug observations` for A1
+  and `no lagged-on timepoints` for A3 in the `reason` column;
+  A2 on OL fails silently because `Dbc` is identically 1 (aliased
+  with `bm`).
+- The full factorial grid (162 cells x 500 reps = 81000 cell-
+  replicate evaluations) has not been run. Production timing on
+  the current hardware should be estimated from a dev run before
+  committing to a full production run.
 
 ## Output conventions
 

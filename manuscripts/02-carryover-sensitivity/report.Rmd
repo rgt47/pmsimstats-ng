@@ -136,12 +136,16 @@ We report results at $k = 0.7$ (slow elimination) and $k = 1.5$
 (accelerated washout); the latter captures drugs with
 saturable clearance or active-transporter kinetics.
 
-**Implementation note.** At the time of writing the tidyverse
-collection implements only the exponential form (see
-`implementations/tidyverse/R/functions.R`, function
-`apply_carryover_to_component`). Adding linear and Weibull
-variants is a prerequisite simulation step, tracked as a
-prerequisite in `analysis/02-carryover-sensitivity/README.md`.
+**Implementation note.** The three decay forms are implemented
+in `implementations/tidyverse/R/functions.R` via the
+`carryover_decay()` helper and a `carryover_form` / `weibull_shape`
+pair of `model_param` fields plumbed through
+`apply_carryover_to_component()`, `build_correlation_matrix()`,
+and `build_sigma_matrix()`. Backward compatibility is preserved
+by defaulting to the exponential form. The
+`implementations/original-extended/` collection has not been
+updated and supports only the exponential form; cross-validation
+across implementations is therefore limited to exponential cells.
 
 ## Analysis-model carryover specifications
 
@@ -234,12 +238,15 @@ For each cell we report:
 
 Simulations are orchestrated from
 `analysis/02-carryover-sensitivity/` and use
-`implementations/original-extended/` (data.table, dual
-architecture) for primary runs. Tidyverse runs via
-`implementations/tidyverse/` serve as cross-validation.
-Reproducibility metadata (R version, `renv.lock` hash,
-`implementations/` commit SHA, simulation seed) are recorded in
-each output `.rds` file.
+`implementations/tidyverse/` as the primary implementation
+(only collection with linear and Weibull decay support). Shared
+helpers in `analysis/02-carryover-sensitivity/simulation-core.R`
+define design presets (OL, CO, Hybrid, OLBDC), multi-path data
+generation, long-form preparation with `Db` / `Dbc` / `L`
+columns, and the three analysis-spec fitters.
+Reproducibility metadata (R version, `implementations/tidyverse/`
+commit SHA, simulation seed, elapsed time) are recorded in each
+output `.rds` file.
 
 Parallel execution uses `furrr::future_map` with the `multicore`
 backend. Sigma matrices are cached per unique

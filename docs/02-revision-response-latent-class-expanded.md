@@ -1,134 +1,21 @@
 ---
-title: "Revision response to reviewer comments on doc 02"
+title: "Expanded response: latent-class faithfulness versus MVN approximation"
 author: "pmsimstats team"
 date: "2026-04-15"
 ---
 
-# Revision response: reviewer comments on `02-dgp-mean-moderation-vs-mvn.tex`
+# Expanded §4.2 response: latent-class faithfulness versus MVN approximation
 
-This document summarises the edits applied to
-`02-dgp-mean-moderation-vs-mvn.tex` in response to reviewer RH's
-annotated PDF (`02-dgp-mean-moderation-vs-mvn rchcomments_rh.pdf`)
-and the accompanying email summary, followed by an extended
-discussion of the two higher-level concerns raised in the email
-summary. The document is organised in three parts.
+This note expands the Pass 2 edit applied to §4.2 of
+`02-dgp-mean-moderation-vs-mvn.tex`, which addressed the reviewer's
+question in the email summary: if Architecture B is really an
+"imperfect responder indicator", why not model that explicitly at the
+participant level rather than via covariance structure?
 
-- **Part I** summarises the two-pass edit log: an initial surgical
-  pass addressing line-level sticky notes and a second pass addressing
-  the two higher-level concerns from the email summary.
-- **Part II** expands the Pass 2 §4.2 edit (on latent-class
-  faithfulness versus MVN differential correlation) into a fuller
-  treatment suitable for possible promotion to a new §4.3 or
-  appendix of the main white paper.
-- **Part III** extends the discussion to the psychometric
-  latent-variable literature, locating Architecture B within the
-  broader taxonomy of mixture and factor-mixture models that has
-  developed in that tradition over the past half-century.
+The short paragraph added in Pass 2 acknowledges the tension. A fuller
+treatment develops five threads.
 
----
-
-# Part I. Edit log
-
-## I.1 Pass 1: edits from sticky notes
-
-+----+-------------------------------------------------+-----------+---------------------------------------------------+
-| #  | Comment                                         | Location  | Edit                                              |
-+====+=================================================+===========+===================================================+
-| 1  | "whether" -> "the extent to which"              | Abstract  | Reworded                                          |
-+----+-------------------------------------------------+-----------+---------------------------------------------------+
-| 2  | Why the "MVN" abbreviation?                     | Abstract  | Expanded to "multivariate normal (MVN)" on        |
-|    |                                                 |           | first use                                         |
-+----+-------------------------------------------------+-----------+---------------------------------------------------+
-| 3  | "i.e., when on drug" is inaccurate; moderation  | §2.2      | Replaced with the attenuated off-drug             |
-|    | also persists during decay                      |           | correlation formula and noted the moderation      |
-|    |                                                 |           | persists with decay                               |
-+----+-------------------------------------------------+-----------+---------------------------------------------------+
-| 4  | Does carryover asymmetry really apply only to   | §3.2      | Explicitly labelled mean-blurring as a shared     |
-|    | B? (raised three times)                         |           | channel across both architectures; identified     |
-|    |                                                 |           | correlation erosion as the B-unique channel;      |
-|    |                                                 |           | explained why Architecture A ratios survive       |
-|    |                                                 |           | amplitude loss                                    |
-+----+-------------------------------------------------+-----------+---------------------------------------------------+
-| 5  | "Deterministic" too strong given biological     | §4.1      | Clarified that determinism refers to the          |
-|    | variability                                     |           | population mean structure, not individual         |
-|    |                                                 |           | outcomes                                          |
-+----+-------------------------------------------------+-----------+---------------------------------------------------+
-| 6  | "(in preparation)" placeholder citation         | §4.3      | Replaced with "ongoing reanalysis by the          |
-|    |                                                 |           | pmsimstats team"                                  |
-+----+-------------------------------------------------+-----------+---------------------------------------------------+
-| 7  | §6.1 lists only effective-sample-size cost;     | §6.1      | Added placebo and time-varying-response           |
-|    | confounding cost missing                        |           | confounding as the dominant cost; linked to the   |
-|    |                                                 |           | observation that OL does not dominate in          |
-|    |                                                 |           | Section 3                                         |
-+----+-------------------------------------------------+-----------+---------------------------------------------------+
-| 8  | §6.6 "Front-loaded" rationale unclear           | §6.6      | Explained the trade-off versus the reverse        |
-|    |                                                 |           | ordering (off-drug baseline first)                |
-+----+-------------------------------------------------+-----------+---------------------------------------------------+
-
-## I.2 Pass 2: edits from email summary
-
-+----+-------------------------------------------------+-----------+---------------------------------------------------+
-| #  | Comment                                         | Location  | Edit                                              |
-+====+=================================================+===========+===================================================+
-| 9  | Is the divergent carryover impact an artifact   | §3.1      | Added explicit methodological paragraph: TV,      |
-|    | of Architecture A being implemented without     |           | placebo, AR(1) autocorrelation, and cross-factor  |
-|    | the non-biologic components?                    |           | correlations come from the same MVN draw in       |
-|    |                                                 |           | both architectures; DGPs differ only in BM-BR     |
-|    |                                                 |           | linkage (covariance entry in B, post-draw         |
-|    |                                                 |           | additive shift in A); cross-referenced doc 19     |
-+----+-------------------------------------------------+-----------+---------------------------------------------------+
-| 10 | If Architecture B is really "imperfect          | §4.2      | Added paragraph acknowledging the tension: if     |
-|    | responder indicator," why not model that        |           | the biomarker is truly a noisy latent-class       |
-|    | explicitly at the participant level rather      |           | indicator, an explicit finite-mixture DGP is the  |
-|    | than via covariance structure?                  |           | biologically faithful representation; MVN         |
-|    |                                                 |           | differential correlation is best understood as a  |
-|    |                                                 |           | tractable second-moment approximation; framed     |
-|    |                                                 |           | mixture modelling versus analysis-strategy        |
-|    |                                                 |           | mitigation as open question                       |
-+----+-------------------------------------------------+-----------+---------------------------------------------------+
-
-Part II below expands comment #10 into a fuller treatment.
-
-## I.3 Skipped with rationale
-
-+------------------------------------------------------+-----------------------------------------------------------+
-| Comment                                              | Rationale                                                 |
-+======================================================+===========================================================+
-| §2.2 BR vocabulary needs upfront introduction        | Already handled in the §2 "Notation" paragraph            |
-+------------------------------------------------------+-----------------------------------------------------------+
-| §2.2 properties list should be parallel with §2.1,   | Reviewer later retracted at §5.1: "Ah, just what I was    |
-| ideally a table                                      | suggesting above! Great!"                                 |
-+------------------------------------------------------+-----------------------------------------------------------+
-| §6.5 regrouping with §6.1 / §6.2                     | Structural reorganisation beyond scope of targeted        |
-|                                                      | revision                                                  |
-+------------------------------------------------------+-----------------------------------------------------------+
-| §7.1 predictive and prognostic framing feels vacuous | Section already substantially expanded with PATH framing  |
-|                                                      | in the current draft                                      |
-+------------------------------------------------------+-----------------------------------------------------------+
-| §7.2 redundant with introduction                     | Partial redundancy acknowledged; implication paragraph    |
-|                                                      | carries unique content                                    |
-+------------------------------------------------------+-----------------------------------------------------------+
-| §8 Conclusions: rename A and B by underlying model   | Terminology is load-bearing across documents 02, 19, and  |
-|                                                      | 21; renaming is out of scope for this revision            |
-+------------------------------------------------------+-----------------------------------------------------------+
-
-## I.4 Output
-
-- Source: `02-dgp-mean-moderation-vs-mvn.tex` (rendered timestamp
-  updated to 2026-04-15 at 10:48 PDT).
-- PDF: 19 pages (was 18 pages before the Pass 2 additions).
-
----
-
-# Part II. Expanded §4.2 response: latent-class faithfulness versus MVN approximation
-
-The Pass 2 edit to §4.2 acknowledged the reviewer's concern that if
-the biomarker is really an "imperfect responder indicator," the
-biologically faithful DGP is an explicit finite mixture rather than
-an MVN with differential correlation. A fuller treatment develops
-five threads, summarised below.
-
-## II.1 What the faithful generative model actually looks like
+## 1. What the faithful generative model actually looks like
 
 If blood pressure (or any candidate predictive biomarker) genuinely
 indexes an unobserved responder/non-responder dichotomy, the
@@ -148,7 +35,7 @@ operates only on the class-specific means and does not erode any
 correlation signal, because class membership $Z_i$ is
 drug-state-invariant.
 
-## II.2 Why MVN differential correlation is nonetheless a defensible second-moment summary
+## 2. Why MVN differential correlation is nonetheless a defensible second-moment summary
 
 A two-component mixture with class-dependent means and a common
 within-class covariance produces a marginal joint distribution of
@@ -163,7 +50,7 @@ Architecture B as implemented therefore captures the covariance
 implications of the latent-class mechanism without committing to the
 discrete generative form.
 
-## II.3 Where the approximation breaks down
+## 3. Where the approximation breaks down
 
 The MVN approximation will be misleading in three regimes:
 
@@ -184,7 +71,7 @@ The MVN approximation will be misleading in three regimes:
   structure and analysis models assuming constant covariance will be
   misspecified.
 
-## II.4 Implications for the power estimates in Section 3
+## 4. Implications for the power estimates in Section 3
 
 The substantial Architecture B power loss under carryover (40-60%)
 reflects erosion of a second-moment signal. A mixture-model analysis
@@ -199,7 +86,7 @@ mixture analysis, and (iii) MVN-DGP with both analyses would
 characterise the loss attributable to second-moment approximation
 versus the loss attributable to analysis-model misspecification.
 
-## II.5 Practical recommendation and scope of the open question
+## 5. Practical recommendation and scope of the open question
 
 For the prazosin-PTSD application, mixture modelling is attractive in
 principle but carries identifiability costs that are acute in N-of-1
@@ -212,16 +99,12 @@ designed to detect an interaction whose existence is itself uncertain.
 The open question, therefore, is not whether mixture modelling is more
 faithful (it is), but whether the fidelity gain is recoverable at
 realistic sample sizes, or whether analysis-strategy mitigations
-(Section 6 of the main document: restricted analysis, weighting,
-within-subject contrasts) deliver a better power-per-complexity trade.
-Resolving this question empirically is out of scope for the present
-white paper but is a natural next step in the pmsimstats programme.
+(Section 6: restricted analysis, weighting, within-subject contrasts)
+deliver a better power-per-complexity trade. Resolving this question
+empirically is out of scope for the present white paper but is a
+natural next step in the pmsimstats programme.
 
----
-
-# Part III. Architecture B in the psychometric latent-variable tradition
-
-## III.1 Connection to the psychometric latent variable literature
+## 6. Connection to the psychometric latent variable literature
 
 The reviewer's question, translated into psychometric vocabulary,
 asks whether biomarker-moderated treatment response is better modelled
@@ -249,13 +132,13 @@ function of a continuous biomarker), while Architecture B as
 implemented in Hendrickson et al. (2020) is most naturally interpreted
 as a second-moment approximation to the latent-class view.
 
-## III.2 Finite mixture taxonomy relevant to biomarker moderation
+## 7. Finite mixture taxonomy relevant to biomarker moderation
 
 Four families of finite mixture model from the psychometric and
 econometric literatures bear directly on the biomarker-treatment
 interaction problem.
 
-### III.2.1 Latent class and latent profile analysis
+### 7.1 Latent class and latent profile analysis
 
 Latent class analysis (LCA; categorical indicators) and latent profile
 analysis (LPA; continuous indicators) assume a small number of
@@ -271,7 +154,7 @@ references include Lazarsfeld & Henry (1968), Goodman (1974), Clogg
 GOLD software and the `poLCA` R package implement the standard EM
 estimation routines.
 
-### III.2.2 Growth mixture models and group-based trajectory models
+### 7.2 Growth mixture models and group-based trajectory models
 
 Growth mixture models (GMM; Muthén & Shedden 1999; Muthén 2001, 2004)
 extend LPA to longitudinal data by specifying class-specific growth
@@ -279,7 +162,7 @@ extend LPA to longitudinal data by specifying class-specific growth
 random-effects variation. Group-based trajectory models (Nagin 1999,
 2005) are the degenerate case in which within-class random-effect
 variances are set to zero. GMM is the closest psychometric analogue
-of the mixture DGP discussed in Part II: each participant belongs to a
+of the mixture DGP discussed in §4.2: each participant belongs to a
 latent class with its own drug-response trajectory, and the class
 label is drug-state-invariant. Bauer & Curran (2003) and Bauer
 (2007) document the identifiability and overextraction hazards that
@@ -288,7 +171,7 @@ apply with full force to N-of-1 trials, where the number of
 participants is typically well below the sample sizes at which GMM
 class-count recovery has been validated.
 
-### III.2.3 Factor mixture models
+### 7.3 Factor mixture models
 
 Factor mixture models (FMM; Yung 1997; Arminger, Stein & Wittenberg
 1999; Lubke & Muthén 2005) combine continuous latent factors with
@@ -304,7 +187,7 @@ indicator (via class-membership probability) and a continuous
 modulator of within-class response (via factor loadings on the
 biological-response factor).
 
-### III.2.4 Regression mixtures and mixtures of experts
+### 7.4 Regression mixtures and mixtures of experts
 
 Regression mixtures (DeSarbo & Cron 1988; Wedel & DeSarbo 1995;
 Jedidi, Jagpal & DeSarbo 1997) and the closely related mixture of
@@ -317,7 +200,7 @@ probability of being a responder and the magnitude of the
 within-responder drug effect, which is precisely the generative form
 the reviewer's question invites.
 
-## III.3 The Architecture B spectrum: covariance, mean, and combined biomarker moderation
+## 8. The Architecture B spectrum: covariance, mean, and combined biomarker moderation
 
 Architecture B as implemented in Hendrickson et al. (2020) and
 pmsimstats specifies biomarker-dependent covariance structure with
@@ -326,7 +209,7 @@ point on a broader spectrum of biomarker-moderated DGPs recognised in
 the psychometric literature; the spectrum is usefully organised by
 which moments of the joint distribution depend on the biomarker.
 
-### III.3.1 Covariance-only moderation (Architecture B as implemented)
+### 8.1 Covariance-only moderation (Architecture B as implemented)
 
 The Hendrickson-Schork specification holds $E[BR_{it}]$ fixed across
 biomarker strata and encodes the interaction entirely in
@@ -340,7 +223,7 @@ Hendrickson context is tractability for power simulation under
 multivariate normality; its cost, as the reviewer observes, is that
 it does not correspond cleanly to any natural generative mechanism.
 
-### III.3.2 Combined mean and covariance moderation
+### 8.2 Combined mean and covariance moderation
 
 Arminger, Stein & Wittenberg (1999), in the canonical Psychometrika
 treatment of mixtures with covariate-dependent structure, develop
@@ -357,7 +240,7 @@ heterogeneity in the random-effects population, which is the more
 direct generalisation of the repeated-measures structure used in
 pmsimstats.
 
-### III.3.3 Location-scale moderation (GAMLSS and related)
+### 8.3 Location-scale moderation (GAMLSS and related)
 
 Generalised additive models for location, scale, and shape (GAMLSS;
 Rigby & Stasinopoulos 2005) and the related distributional-regression
@@ -367,11 +250,11 @@ link functions. In the biomarker-trial context, this yields a DGP in
 which high-biomarker participants may have both a shifted mean drug
 response (location effect) and altered response variability (scale
 effect), without requiring discrete class structure. The GAMLSS
-framework is the continuous-heterogeneity analogue of FMM and occupies
-an intermediate position between pure Architecture A (mean only) and
+framework is continuous-heterogeneity analogue of FMM and occupies an
+intermediate position between pure Architecture A (mean only) and
 pure Architecture B (covariance only).
 
-### III.3.4 Heterogeneous random-effects models
+### 8.4 Heterogeneous random-effects models
 
 Verbeke & Lesaffre (1996), Zhang & Davidian (2001), and
 Proust-Lima et al. (2017) develop linear mixed-effects models in which
@@ -386,7 +269,7 @@ biomarker predicts class membership rather than entering the
 analysis-model mean structure. The `lcmm` R package (Proust-Lima
 et al. 2017) implements this family.
 
-## III.4 Implications for the pmsimstats framework
+## 9. Implications for the pmsimstats framework
 
 Three implications follow from locating Architecture B within the
 broader psychometric spectrum.
@@ -394,14 +277,14 @@ broader psychometric spectrum.
 **First**, the covariance-only parameterisation adopted in
 Hendrickson et al. (2020) is the most restrictive operational case of
 a much richer family. The substantial power loss under carryover
-documented in Section 3 of the main document is a specific property of
-this restrictive case and may not generalise to the
-mean-plus-covariance or heterogeneous-random-effects variants that are
-standard in psychometrics. A complete sensitivity analysis for the
-prazosin-PTSD application should accordingly report power under at
-least three points on the spectrum: Architecture A (mean-only),
-Architecture B as implemented (covariance-only), and a combined
-mean-plus-covariance specification of the Arminger et al. (1999) form.
+documented in Section 3 is a specific property of this restrictive
+case and may not generalise to the mean-plus-covariance or
+heterogeneous-random-effects variants that are standard in
+psychometrics. A complete sensitivity analysis for the prazosin-PTSD
+application should accordingly report power under at least three
+points on the spectrum: Architecture A (mean-only), Architecture B as
+implemented (covariance-only), and a combined mean-plus-covariance
+specification of the Arminger et al. (1999) form.
 
 **Second**, the identifiability concerns documented in the
 psychometric GMM and FMM literatures (Bauer & Curran 2003; Bauer 2007;
@@ -415,7 +298,7 @@ deliver recoverable power gains at realistic trial sizes.
 
 **Third**, if the pmsimstats programme pursues a richer DGP in
 subsequent work, the natural target is the heterogeneous-random-slopes
-form (III.3.4) rather than a full FMM. The random-slopes
+form (§8.4) rather than a full FMM. The random-slopes
 parameterisation preserves the analysis model's compatibility with
 existing N-of-1 estimation machinery (`nlme::lme` with
 participant-specific random treatment effects) while admitting the
@@ -424,27 +307,26 @@ level. This would preserve the audit chain of the current framework
 and permit direct comparison with the covariance-only baseline under
 carryover.
 
-## III.5 Software and implementation references
+## 10. Software and implementation references
 
 R packages relevant to estimating the models surveyed above, in
 approximate order of fit to the pmsimstats use case:
 
 - `lcmm` (Proust-Lima et al. 2017). Joint latent class mixed models
   for longitudinal and survival data; the closest available tooling
-  for heterogeneous random-effects specification (III.3.4).
+  for heterogeneous random-effects specification (§8.4).
 - `flexmix` (Leisch 2004; Grün & Leisch 2008). General regression
   mixture framework with user-definable component models; suitable
-  for regression-mixture and mixture-of-experts specifications
-  (III.2.4).
+  for regression-mixture and mixture-of-experts specifications (§7.4).
 - `mclust` (Scrucca et al. 2016). Gaussian finite mixture models with
-  a range of class-specific covariance parameterisations; supports
+  a range of class-specific covariance parameterisations; supports the
   Arminger et al. (1999) mean-plus-covariance specifications
   non-longitudinally.
 - `gamlss` (Rigby & Stasinopoulos 2005). Distributional regression
   with covariate-dependent location, scale, and shape parameters
-  (III.3.3).
-- `poLCA` (Linzer & Lewis 2011). Polytomous latent class analysis
-  for the categorical-indicator case.
+  (§8.3).
+- `poLCA` (Linzer & Lewis 2011). Polytomous latent class analysis for
+  the categorical-indicator case.
 - `OpenMx` and `lavaan` (with mixture extensions). Structural
   equation mixture modelling for FMM-style specifications; more
   general but with steeper configuration cost than `lcmm` or
@@ -454,28 +336,27 @@ The psychometric reference implementation outside R is Mplus (Muthén &
 Muthén 1998-2017), which remains the standard for GMM, FMM, and
 related mixture-SEM specifications.
 
-## III.6 Placement within the main document
+## Relation to the existing §4.2 paragraph
 
-Part II above (five-thread expansion of the latent-class faithfulness
-question) could extend the §4.2 Pass 2 paragraph in place, or be
-promoted to a new §4.3 ("Mixture-modelling alternative to MVN
-differential correlation") so that §4.2 retains its current
-clinical-examples focus.
+The five threads in Sections 1-5 above could extend the §4.2 Pass 2
+paragraph in place, or be promoted to a new §4.3 ("Mixture-modelling
+alternative to MVN differential correlation") so that §4.2 retains
+its current clinical-examples focus. Either approach preserves the
+document's existing architecture-comparison narrative while giving
+the reviewer's concern the technical treatment it warrants.
 
-Part III (psychometric-connection material) is more naturally placed
-either as a new §4.4 ("Architecture B in the psychometric
-latent-variable tradition") or as an appendix. It answers a distinct
-question from the Part II expansion: whereas Part II concerns the
-biological faithfulness of Architecture B, Part III concerns its
-methodological provenance and the spectrum of related specifications
-already developed in the psychometric literature. Treating the two as
-separate document additions preserves the logical structure of
-Section 4 (biological assumptions) while giving the
+The psychometric-connection material in Sections 6-10 is more
+naturally placed either as a new §4.4 ("Architecture B in the
+psychometric latent-variable tradition") or as an appendix. It
+answers a distinct question from the §4.2 edit: whereas §4.2 concerns
+the biological faithfulness of Architecture B, Sections 6-10 concern
+its methodological provenance and the spectrum of related
+specifications already developed in the psychometric literature.
+Treating the two as separate document additions preserves the logical
+structure of Section 4 (biological assumptions) while giving the
 methodological-provenance discussion the space it requires.
 
----
-
-# References (additions beyond the main document bibliography)
+## References (additions beyond the main document bibliography)
 
 Arminger G, Stein P, Wittenberg J. Mixtures of conditional mean- and
 covariance-structure models. *Psychometrika*. 1999;64(4):475-494.
@@ -597,5 +478,5 @@ of random effects for longitudinal data. *Biometrics*.
 
 ---
 
-*Rendered on 2026-04-15 at 12:40 PDT.*
-*Source: ~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/docs/02-revision-response-to-reviewer.md*
+*Rendered on 2026-04-15 at 12:35 PDT.*
+*Source: ~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/docs/02-revision-response-latent-class-expanded.md*

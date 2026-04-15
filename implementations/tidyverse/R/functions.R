@@ -14,19 +14,73 @@ mod_gompertz <- function(t, maxr, disp, rate) {
   y * (maxr / (maxr - vert_offset))
 }
 
+#' Residual drug-effect decay multiplier
+#'
+#' Returns the fraction of residual drug effect present at time-since-
+#' discontinuation `tsd`, for a carryover with given `halflife` and
+#' functional form.
+#'
+#' @param tsd Numeric, time since drug discontinuation (same time
+#'   units as `halflife`). May be a vector.
+#' @param halflife Numeric, carryover half-life. The value of `tsd`
+#'   at which the multiplier equals 0.5 under the exponential and
+#'   Weibull forms, and at which the multiplier equals 0.5 under the
+#'   linear form (which reaches zero at `2 * halflife`).
+#' @param form Character, one of `"exponential"` (default),
+#'   `"linear"`, or `"weibull"`.
+#' @param shape Numeric, Weibull shape parameter `k`. Ignored unless
+#'   `form = "weibull"`. `k = 1` recovers the exponential form;
+#'   `k < 1` gives a heavier tail (slow elimination); `k > 1` gives
+#'   an accelerated washout.
+#' @return Numeric vector of the same length as `tsd`, with values
+#'   in `[0, 1]`.
+#'
+#' @details
+#' - Exponential: \eqn{\phi(t) = \exp(-\lambda t)} with
+#'   \eqn{\lambda = \ln 2 / t_{1/2}}.
+#' - Linear: \eqn{\phi(t) = \max(0, 1 - t / (2 t_{1/2}))}.
+#' - Weibull: \eqn{\phi(t) = \exp(-(\lambda_w t)^k)} with
+#'   \eqn{\lambda_w = (\ln 2)^{1/k} / t_{1/2}}.
+#'
+#' All three forms satisfy \eqn{\phi(0) = 1} and
+#' \eqn{\phi(t_{1/2}) = 0.5}.
+carryover_decay <- function(tsd, halflife,
+                            form = c("exponential", "linear", "weibull"),
+                            shape = 1) {
+  form <- match.arg(form)
+  if (is.null(halflife) || halflife == 0) return(rep(0, length(tsd)))
+  switch(form,
+    exponential = exp(-log(2) / halflife * tsd),
+    linear      = pmax(0, 1 - tsd / (2 * halflife)),
+    weibull     = {
+      if (!is.numeric(shape) || shape <= 0) {
+        stop("Weibull `shape` must be a positive number.")
+      }
+      lambda_w <- (log(2))^(1 / shape) / halflife
+      exp(-(lambda_w * tsd)^shape)
+    }
+  )
+}
+
 #' Carryover calculation for bio-response component (Hendrickson method)
 #'
 #' @param component_means Current component means
 #' @param trial_data Trial design data
 #' @param halflife Carryover half-life value
+#' @param form Decay form; see [carryover_decay()].
+#' @param shape Weibull shape; see [carryover_decay()].
 #' @return Adjusted means with carryover effects
 #'
 #' @details Following Hendrickson et al. (2020), carryover is applied
 #' ONLY to the bio-response (br) component when participants are off
-#' drug. The formula is: mu[t] = base[t] + mu[t-1] * (1/2)^(tsd/t1half)
-#' where tsd is time since discontinuation.
+#' drug. The recurrence is
+#' `mu[t] = base[t] + mu[t-1] * phi(tsd; halflife, form, shape)`
+#' where `phi` is the decay multiplier from [carryover_decay()]. The
+#' default `form = "exponential"` reproduces the Hendrickson
+#' `(1/2)^(tsd/t1half)` behaviour exactly.
 apply_carryover_to_component <- function(
-    component_means, trial_data, halflife) {
+    component_means, trial_data, halflife,
+    form = "exponential", shape = 1) {
 
   num_timepoints <- length(component_means)
 
@@ -43,7 +97,8 @@ apply_carryover_to_component <- function(
           prev_idx <= length(component_means) &&
           idx <= length(component_means)) {
         time_lag <- trial_data$tsd[idx]
-        decay_factor <- (1/2)^(time_lag / halflife)
+        decay_factor <- carryover_decay(time_lag, halflife,
+                                        form = form, shape = shape)
         component_means[idx] <- component_means[idx] +
           component_means[prev_idx] * decay_factor
       }
@@ -76,7 +131,8 @@ prepare_trial_data <- function(trial_design) {
 
 build_correlation_matrix <- function(
     labels, trial_design, model_param, num_timepoints,
-    factors, trial_data, lambda_cor = 0) {
+    factors, trial_data, lambda_cor = 0,
+    carryover_form = "exponential", weibull_shape = 1) {
   correlations <- diag(length(labels))
   rownames(correlations) <- labels
   colnames(correlations) <- labels
@@ -165,7 +221,11 @@ build_correlation_matrix <- function(
         } else {
           tsd_now <- trial_data$tsd[timepoint_idx]
           if (tsd_now > 0 && lambda_cor > 0) {
-            decay <- exp(-lambda_cor * tsd_now)
+            halflife_for_decay <- log(2) / lambda_cor
+            decay <- carryover_decay(
+              tsd_now, halflife_for_decay,
+              form = carryover_form, shape = weibull_shape
+            )
             correlations["bm", name1] <-
               model_param$c.bm * decay
             correlations[name1, "bm"] <-
@@ -223,6 +283,17 @@ build_sigma_matrix <- function(model_param, resp_param, baseline_param,
 
   halflife <- model_param$carryover_t1half
 
+  carryover_form <- if (!is.null(model_param$carryover_form)) {
+    model_param$carryover_form
+  } else {
+    "exponential"
+  }
+  weibull_shape <- if (!is.null(model_param$weibull_shape)) {
+    model_param$weibull_shape
+  } else {
+    1
+  }
+
   means <- c(
     baseline_param$m[baseline_param$cat == "bm"],
     baseline_param$m[baseline_param$cat == "BL"]
@@ -257,7 +328,8 @@ build_sigma_matrix <- function(model_param, resp_param, baseline_param,
         resp_param$rate[resp_param$cat == "br"]
       )
       br_means <- apply_carryover_to_component(
-        br_means, trial_data, halflife
+        br_means, trial_data, halflife,
+        form = carryover_form, shape = weibull_shape
       )
       means <- c(means, br_means)
     }
@@ -265,7 +337,8 @@ build_sigma_matrix <- function(model_param, resp_param, baseline_param,
 
   correlations <- build_correlation_matrix(
     labels, trial_design, model_param, num_timepoints,
-    factors, trial_data = trial_data, lambda_cor = lambda_cor
+    factors, trial_data = trial_data, lambda_cor = lambda_cor,
+    carryover_form = carryover_form, weibull_shape = weibull_shape
   )
 
   sigma <- outer(standard_deviations, standard_deviations) * correlations
@@ -353,6 +426,17 @@ generate_data <- function(
 
   halflife <- model_param$carryover_t1half
 
+  carryover_form <- if (!is.null(model_param$carryover_form)) {
+    model_param$carryover_form
+  } else {
+    "exponential"
+  }
+  weibull_shape <- if (!is.null(model_param$weibull_shape)) {
+    model_param$weibull_shape
+  } else {
+    1
+  }
+
   means <- c(
     baseline_param$m[baseline_param$cat == "bm"],
     baseline_param$m[baseline_param$cat == "BL"]
@@ -387,7 +471,8 @@ generate_data <- function(
         resp_param$rate[resp_param$cat == "br"]
       )
       br_means <- apply_carryover_to_component(
-        br_means, trial_data, halflife
+        br_means, trial_data, halflife,
+        form = carryover_form, shape = weibull_shape
       )
       means <- c(means, br_means)
     }

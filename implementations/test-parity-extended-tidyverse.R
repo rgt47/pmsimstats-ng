@@ -30,6 +30,7 @@ suppressPackageStartupMessages({
   library(data.table)
   library(tibble)
   library(dplyr)
+  library(tidyr)
   library(purrr)
   library(nlme)
   library(MASS)
@@ -134,8 +135,14 @@ make_model_param <- function(N, c_bm, t_half) {
 # ---- 4. Comparison helpers ------------------------------------------------
 
 TOL_NUM <- 1e-10
+# Analysis tolerances account for nlme::lme optim noise across
+# independent fits of the same data (data.table vs tibble representation
+# can perturb the optimiser's trajectory by ~1e-9); observed differences
+# are at the 8-9th decimal even when the fits are mathematically
+# identical. Tolerances are set to catch any real divergence (would be
+# orders of magnitude larger).
 TOL_BETA <- 1e-6
-TOL_P <- 1e-8
+TOL_P <- 1e-6
 
 cmp <- function(a, b, tol = TOL_NUM) {
   r <- all.equal(a, b, tolerance = tol)
@@ -189,17 +196,50 @@ compare_data <- function(design, arch, t_half, c_bm, seed, N = 35,
 # Dbc computation, or lme invocation rather than in data.
 compare_analysis <- function(design, arch, t_half, c_bm, seed, N = 40) {
   mp <- make_model_param(N, c_bm, t_half)
-  set.seed(seed)
-  dat_ext <- ext_env$generateData(mp, resp_dt, bl_dt,
-                                  designs_ext[[design]]$trialpaths[[1]],
+  tps_ext <- designs_ext[[design]]$trialpaths
+  nP <- length(tps_ext)
+  # Split N across paths as the batch code does (larger paths get extras)
+  Ns <- N %/% nP
+  Ns <- Ns + c(rep(1, N %% nP), rep(0, nP - (N %% nP)))
+  build_multipath_ext <- function() {
+    dat <- NULL
+    for (iP in seq_len(nP)) {
+      mp_p <- mp; mp_p$N <- Ns[iP]
+      set.seed(seed + iP)
+      d <- ext_env$generateData(mp_p, resp_dt, bl_dt, tps_ext[[iP]],
+                                 empirical = FALSE,
+                                 makePositiveDefinite = TRUE,
+                                 dgp_architecture = arch)
+      d <- as.data.table(d); d[, path := iP]
+      dat <- if (is.null(dat)) d else rbind(dat, d, fill = TRUE)
+    }
+    dat
+  }
+  build_multipath_tid <- function() {
+    tps_tid <- designs_tid[[design]]$trialpaths
+    dat <- NULL
+    for (iP in seq_len(nP)) {
+      mp_p <- mp; mp_p$N <- Ns[iP]
+      set.seed(seed + iP)
+      d <- tid_env$generate_data(mp_p, resp_tbl, bl_tbl, tps_tid[[iP]],
                                   empirical = FALSE,
-                                  makePositiveDefinite = TRUE,
+                                  make_positive_definite = TRUE,
                                   dgp_architecture = arch)
-  # generateData returns per-path frame; pull all paths together
-  # Typical batch code loops paths externally; for per-design analysis we
-  # need dat with all paths + a `path` column. If only one path exists,
-  # annotate it as path=1.
-  if (!'path' %in% names(dat_ext)) dat_ext[, path := 1L]
+      d <- as.data.table(d); d[, path := iP]
+      dat <- if (is.null(dat)) d else rbind(dat, d, fill = TRUE)
+    }
+    dat
+  }
+  dat_ext <- build_multipath_ext()
+  # dat_tid_raw <- build_multipath_tid()  # not needed; data parity established
+  # Strip `timepoint_name` from tidyverse design paths for analysis: the
+  # tidyverse lme_analysis rename() collides if both `timepoint_name` and
+  # `timeptnames` are present. Keep `timeptnames` (which the tidyverse
+  # rename accepts unchanged) and drop the duplicate.
+  tps_tid_an <- lapply(designs_tid[[design]]$trialpaths, function(p) {
+    p$timepoint_name <- NULL
+    p
+  })
   op <- list(useDE = TRUE, t_random_slope = FALSE, full_model_out = FALSE,
              carryover_t1half = if (t_half > 0) t_half else 1,
              simplecarryover = FALSE, carryover_scalefactor = 1)
@@ -207,11 +247,11 @@ compare_analysis <- function(design, arch, t_half, c_bm, seed, N = 40) {
     ext_env$lme_analysis(designs_ext[[design]]$trialpaths, dat_ext, op),
     error = function(e) list(beta = NA_real_, betaSE = NA_real_,
                              p = NA_real_, err = conditionMessage(e)))
-  # tidyverse path: same data (ensure copy), may need `timepoint_name` in
-  # the design paths (already present in designs_tid).
+  # Isolate analysis-layer differences: feed the same data (from ext) to
+  # both analyzers. Data parity has already been established above.
   dat_tid <- as_tibble(dat_ext)
   fit_tid <- tryCatch(
-    tid_env$lme_analysis(designs_tid[[design]]$trialpaths, dat_tid, op),
+    tid_env$lme_analysis(tps_tid_an, dat_tid, op),
     error = function(e) list(beta = NA_real_, betaSE = NA_real_,
                              p = NA_real_, err = conditionMessage(e)))
   # Extract from each

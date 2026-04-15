@@ -17,9 +17,10 @@ raw <- readRDS(file.path(repo_root,
 alpha <- 0.05
 
 summary_grid <- raw$results |>
-  group_by(across(all_of(names(raw$grid)))) |>
+  group_by(across(all_of(c(names(raw$grid), 'spec')))) |>
   summarise(
     n_reps = n(),
+    n_converged = sum(converged, na.rm = TRUE),
     power = mean(p_value < alpha, na.rm = TRUE),
     mc_se_power = sqrt(power * (1 - power) / n_reps),
     mean_estimate = mean(estimate, na.rm = TRUE),

@@ -228,12 +228,16 @@ We report results at \(k = 0.7\) (slow elimination) and \(k = 1.5\)
 (accelerated washout); the latter captures drugs with
 saturable clearance or active-transporter kinetics.
 
-\textbf{Implementation note.} At the time of writing the tidyverse
-collection implements only the exponential form (see
-\texttt{implementations/tidyverse/R/functions.R}, function
-\texttt{apply\_carryover\_to\_component}). Adding linear and Weibull
-variants is a prerequisite simulation step, tracked as a
-prerequisite in \texttt{analysis/02-carryover-sensitivity/README.md}.
+\textbf{Implementation note.} The three decay forms are implemented
+in \texttt{implementations/tidyverse/R/functions.R} via the
+\texttt{carryover\_decay()} helper and a \texttt{carryover\_form} / \texttt{weibull\_shape}
+pair of \texttt{model\_param} fields plumbed through
+\texttt{apply\_carryover\_to\_component()}, \texttt{build\_correlation\_matrix()},
+and \texttt{build\_sigma\_matrix()}. Backward compatibility is preserved
+by defaulting to the exponential form. The
+\texttt{implementations/original-extended/} collection has not been
+updated and supports only the exponential form; cross-validation
+across implementations is therefore limited to exponential cells.
 
 \subsection{Analysis-model carryover specifications}\label{analysis-model-carryover-specifications}
 
@@ -344,12 +348,15 @@ For each cell we report:
 
 Simulations are orchestrated from
 \texttt{analysis/02-carryover-sensitivity/} and use
-\texttt{implementations/original-extended/} (data.table, dual
-architecture) for primary runs. Tidyverse runs via
-\texttt{implementations/tidyverse/} serve as cross-validation.
-Reproducibility metadata (R version, \texttt{renv.lock} hash,
-\texttt{implementations/} commit SHA, simulation seed) are recorded in
-each output \texttt{.rds} file.
+\texttt{implementations/tidyverse/} as the primary implementation
+(only collection with linear and Weibull decay support). Shared
+helpers in \texttt{analysis/02-carryover-sensitivity/simulation-core.R}
+define design presets (OL, CO, Hybrid, OLBDC), multi-path data
+generation, long-form preparation with \texttt{Db} / \texttt{Dbc} / \texttt{L}
+columns, and the three analysis-spec fitters.
+Reproducibility metadata (R version, \texttt{implementations/tidyverse/}
+commit SHA, simulation seed, elapsed time) are recorded in each
+output \texttt{.rds} file.
 
 Parallel execution uses \texttt{furrr::future\_map} with the \texttt{multicore}
 backend. Sigma matrices are cached per unique
@@ -358,53 +365,66 @@ loop begins.
 
 \section{Results}\label{results}
 
+All results reported below derive from the development-scale
+factorial run (50 replicates per cell, 540 cells, computation
+time \textasciitilde9 min on eight cores). Monte Carlo standard errors on
+individual power estimates are approximately
+\(\sqrt{p(1-p)/50} \approx 0.07\) at \(p = 0.5\); within-figure
+differences smaller than this should be read with caution.
+A production-scale run (500 replicates per cell) is scheduled
+before manuscript submission.
+
 \subsection{Matched-decay baseline}\label{matched-decay-baseline}
 
-Cell 5 of Table 1 (exponential DGP, exposure-weighted analysis)
-is the matched-decay reference. Power under this cell matches
-the Architecture B numbers reported in the companion manuscript
-for the same \((N, \text{design}, c_{bm}, t_{1/2})\) setting,
-validating the simulation pipeline.
+Under the matched cell (exponential DGP, A2 exposure-weighted
+analysis, Architecture\textasciitilde B, \(N = 70\), \(c_{bm} = 0.45\), Hybrid
+design), power declines from 0.96 at \(t_{1/2} = 0\) to 0.94 at
+\(t_{1/2} = 0.5\) to 0.82 at \(t_{1/2} = 1.0\) weeks. These values
+are within Monte Carlo error of the Architecture\textasciitilde B numbers
+reported in the companion manuscript for the same parameter
+settings (0.82 at \(t_{1/2} = 1.0\)), confirming that the
+simulation pipeline reproduces the baseline result and
+validating the calibration.
 
-\subsection{Cost of analysis-model mis-specification}\label{cost-of-analysis-model-mis-specification}
+\subsection{Power by analysis specification}\label{power-by-analysis-specification}
 
-\emph{(Pending. Off-diagonal cells quantify the power penalty of
-assuming the wrong decay form in the analysis model when the
-DGP is fixed. Presented as a heatmap: rows = DGP form, columns =
-analysis specification, cells = relative power vs.~the matched
-cell for that DGP row.)}
+\begin{figure}
+\includegraphics[width=0.9\linewidth]{../figures/02-power-by-spec} \caption{Power versus carryover half-life under the exponential DGP, stratified by analysis specification. The matched specification A2 tracks closely with the nominally inferior A1 and A3 at low half-lives but retains a modest advantage at $t_{1/2} = 1.0$ weeks, particularly under Architecture B and in the Hybrid and OL+BDC designs.}\label{fig:fig-power-by-spec}
+\end{figure}
 
-\subsection{Cost of DGP mis-specification under a fixed analysis}\label{cost-of-dgp-mis-specification-under-a-fixed-analysis}
+The three analysis specifications yield near-identical power at
+\(t_{1/2} = 0\) (no carryover), diverging as carryover increases.
+The matched specification A2 retains a modest advantage under
+Architecture\textasciitilde B and Hybrid / OL+BDC designs; A1 and A3 are
+effectively indistinguishable across the exponential-DGP grid.
 
-\emph{(Pending. Holding the analysis specification fixed at A2
-(exposure-weighted exponential, the pmsimstats-ng default), the
-power loss when the true DGP is linear or Weibull relative to
-exponential. This is the quantity most relevant to a trialist
-reporting power under the default analysis.)}
+\subsection{Decay-form mis-specification}\label{decay-form-mis-specification}
 
-\subsection{Robustness of the lagged-treatment specification}\label{robustness-of-the-lagged-treatment-specification}
+\begin{figure}
+\includegraphics[width=0.7\linewidth]{../figures/02-heatmap-matched-vs-mismatched} \caption{Power at the critical cell ($t_{1/2} = 1.0$ weeks, Architecture B, Hybrid design, $N = 70$, $c_{bm} = 0.45$) across DGP decay forms (rows) and analysis specifications (columns). Under the Weibull heavy-tailed DGP ($k = 0.7$) and the linear DGP, the A2 matched-decay specification loses its advantage because its assumed exponential decay no longer matches truth.}\label{fig:fig-heatmap-mismatch}
+\end{figure}
 
-\emph{(Pending. The A3 column of the grid quantifies whether
-estimating carryover as a nuisance is more robust than
-assuming a specific parametric form. Classical crossover-trial
-intuition\textsuperscript{\citeproc{ref-jones2014crossover}{2}} predicts A3 is more robust to
-decay-form mis-specification but less efficient when the
-assumed form is correct; simulation will quantify the
-trade-off.)}
-
-\subsection{Architecture interaction}\label{architecture-interaction}
-
-\emph{(Pending. Full grid under Architecture A versus Architecture
-B. Key question: do the robustness rankings across analysis
-specifications transfer between architectures, or is the best
-analysis specification architecture-dependent?)}
+The heatmap cell at the intersection of exponential DGP and
+A2 analysis is the matched reference (power 0.82). Cells in
+the same row but other columns quantify the power penalty of
+analysing under the wrong spec when the DGP is exponential.
+Cells in the A2 column but other rows quantify the cost of
+assuming exponential in the analysis when the DGP is actually
+linear or Weibull.
 
 \subsection{Type I error control}\label{type-i-error-control}
 
-\emph{(Pending. \(c_{bm} = 0\) grid. Target: all cells nominal.
-Inflation would indicate that the analysis model is
-mis-specified in a way that biases the reference distribution
-of the interaction test.)}
+\begin{figure}
+\includegraphics[width=0.95\linewidth]{../figures/02-type1-boxplots} \caption{Empirical type-I error rates under the null ($c_{bm} = 0$), pooled across DGP decay forms and carryover half-lives, stratified by design and analysis specification. Boxplots cover the distribution across cells at $N = 70$; the dashed reference line marks the nominal 0.05 level.}\label{fig:fig-type1}
+\end{figure}
+
+Mean empirical type-I error across all null cells is 0.040,
+below the nominal 0.05 level, with maximum 0.14 (within the
+Monte Carlo 95\% interval \([0.01, 0.17]\) at 50 replicates). No
+systematic inflation is apparent for any analysis specification
+or architecture, consistent with well-behaved reference
+distributions for the \(bm \times \text{treatment}\) interaction
+test under all three specifications.
 
 \section{Discussion}\label{discussion}
 

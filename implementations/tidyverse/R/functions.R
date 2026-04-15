@@ -132,7 +132,8 @@ prepare_trial_data <- function(trial_design) {
 build_correlation_matrix <- function(
     labels, trial_design, model_param, num_timepoints,
     factors, trial_data, lambda_cor = 0,
-    carryover_form = "exponential", weibull_shape = 1) {
+    carryover_form = "exponential", weibull_shape = 1,
+    dgp_architecture = "mvn") {
   correlations <- diag(length(labels))
   rownames(correlations) <- labels
   colnames(correlations) <- labels
@@ -338,7 +339,8 @@ build_sigma_matrix <- function(model_param, resp_param, baseline_param,
   correlations <- build_correlation_matrix(
     labels, trial_design, model_param, num_timepoints,
     factors, trial_data = trial_data, lambda_cor = lambda_cor,
-    carryover_form = carryover_form, weibull_shape = weibull_shape
+    carryover_form = carryover_form, weibull_shape = weibull_shape,
+    dgp_architecture = dgp_architecture
   )
 
   sigma <- outer(standard_deviations, standard_deviations) * correlations

@@ -5,71 +5,88 @@
 ## writes replicate-level results to output/01-factorial.rds.
 ##
 ## Usage:
-##   Rscript analysis/02-carryover-sensitivity/01-run-factorial.R [--dev]
+##   Rscript analysis/02-carryover-sensitivity/01-run-factorial.R [--dev] [--smoke]
 ##
-## --dev reduces replicates to 50 per cell for development timing;
-## production omits the flag and runs 500 replicates.
+## --dev   : 50 replicates per cell (development timing)
+## --smoke : 2 replicates, one cell per design (pipeline sanity only)
+## default : 500 replicates (production)
 
 suppressPackageStartupMessages({
   library(tibble)
   library(dplyr)
+  library(tidyr)
   library(purrr)
   library(furrr)
-  library(nlme)
 })
 
 repo_root <- here::here()
 source(file.path(repo_root,
   'implementations/tidyverse/R/functions.R'))
+source(file.path(repo_root,
+  'analysis/02-carryover-sensitivity/simulation-core.R'))
 
 args <- commandArgs(trailingOnly = TRUE)
 dev_mode <- '--dev' %in% args
-n_reps <- if (dev_mode) 50 else 500
+smoke_mode <- '--smoke' %in% args
+n_reps <- if (smoke_mode) 2 else if (dev_mode) 50 else 500
 
 seed <- 20260415L
 set.seed(seed)
 
-grid <- tidyr::expand_grid(
-  carryover_form  = c('linear', 'exponential', 'weibull'),
-  weibull_shape   = c(0.7, 1.0, 1.5),
-  analysis_spec   = c('A1', 'A2', 'A3'),
-  dgp_arch        = c('mean_moderation', 'mvn'),
-  t1half          = c(0.0, 0.5, 1.0),
-  design          = c('CO', 'Hybrid', 'OLBDC'),
-  N               = c(35, 70),
-  c_bm            = c(0.0, 0.30, 0.45)
-) |>
-  filter(!(carryover_form != 'weibull' & weibull_shape != 1.0))
-
-stopifnot(nrow(grid) > 0)
-
-fit_one_cell <- function(row, n_reps) {
-  ## TODO: replace with actual simulation body that:
-  ##   1. builds trial design with row$design and row$t1half
-  ##   2. calls generate_data() with model_param carrying
-  ##      carryover_form, weibull_shape, dgp_architecture, c.bm
-  ##   3. fits three analysis models (A1 binary, A2 Dbc,
-  ##      A3 binary + lagged) and extracts the bm-by-treatment
-  ##      interaction p-value and point estimate
-  ##   4. returns a tibble of replicate-level results
-  tibble::tibble(
-    rep = seq_len(n_reps),
-    p_value = NA_real_,
-    estimate = NA_real_,
-    converged = NA
+if (smoke_mode) {
+  grid <- tidyr::expand_grid(
+    carryover_form  = 'exponential',
+    weibull_shape   = 1.0,
+    dgp_arch        = 'mvn',
+    t1half          = 0.5,
+    design          = c('OL', 'CO', 'OLBDC', 'Hybrid'),
+    N               = 35,
+    c_bm            = 0.45
   )
+} else {
+  grid <- tidyr::expand_grid(
+    carryover_form  = c('linear', 'exponential', 'weibull'),
+    weibull_shape   = c(0.7, 1.0, 1.5),
+    dgp_arch        = c('mean_moderation', 'mvn'),
+    t1half          = c(0.0, 0.5, 1.0),
+    design          = c('CO', 'Hybrid', 'OLBDC'),
+    N               = c(35, 70),
+    c_bm            = c(0.0, 0.30, 0.45)
+  ) |>
+    dplyr::filter(
+      !(carryover_form != 'weibull' & weibull_shape != 1.0)
+    )
 }
 
-plan(multicore, workers = max(1, parallel::detectCores() - 1))
+stopifnot(nrow(grid) > 0)
+cat(sprintf('Grid cells: %d, n_reps per cell: %d\n',
+            nrow(grid), n_reps))
 
-results <- grid |>
-  mutate(row_id = row_number()) |>
-  (\(g) future_map_dfr(
-    seq_len(nrow(g)),
-    \(i) bind_cols(g[i, ], fit_one_cell(g[i, ], n_reps)),
-    .options = furrr_options(seed = seed),
-    .progress = interactive()
-  ))()
+plan(
+  if (smoke_mode) sequential else multicore,
+  workers = if (smoke_mode) 1
+            else max(1, parallel::detectCores() - 1)
+)
+
+t_start <- Sys.time()
+
+results <- future_map_dfr(
+  seq_len(nrow(grid)),
+  function(i) {
+    cell <- grid[i, ]
+    cell_result <- simulate_cell(cell, n_reps)
+    bind_cols(
+      cell[rep(1, nrow(cell_result)), ],
+      cell_result
+    )
+  },
+  .options = furrr_options(seed = seed),
+  .progress = interactive()
+)
+
+t_elapsed <- Sys.time() - t_start
+cat(sprintf('Completed in %.1f %s\n',
+            as.numeric(t_elapsed, units = 'secs'), 'seconds'))
 
 out_dir <- file.path(repo_root,
   'analysis/02-carryover-sensitivity/output')
@@ -81,6 +98,8 @@ meta <- list(
   seed = seed,
   n_reps = n_reps,
   dev_mode = dev_mode,
+  smoke_mode = smoke_mode,
+  elapsed_secs = as.numeric(t_elapsed, units = 'secs'),
   r_version = R.version.string,
   git_sha = tryCatch(
     system('git rev-parse --short HEAD', intern = TRUE),
@@ -88,11 +107,13 @@ meta <- list(
   )
 )
 
+out_file <- if (smoke_mode) '01-smoke.rds' else '01-factorial.rds'
 saveRDS(
   list(results = results, grid = grid, meta = meta),
-  file.path(out_dir, '01-factorial.rds')
+  file.path(out_dir, out_file)
 )
 
-message('Wrote ', file.path(out_dir, '01-factorial.rds'),
-  ' (', nrow(results), ' replicate rows across ',
-  nrow(grid), ' cells)')
+message(sprintf(
+  'Wrote %s (%d rows across %d cells)',
+  file.path(out_dir, out_file), nrow(results), nrow(grid)
+))

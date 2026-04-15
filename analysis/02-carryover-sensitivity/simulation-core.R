@@ -139,7 +139,17 @@ generate_data_multi_path <- function(model_param, resp_param,
 
 prepare_long_data <- function(dat, design_set, carryover_t1half,
                               carryover_form = 'exponential',
-                              weibull_shape = 1) {
+                              weibull_shape = 1,
+                              analysis_t1half = NULL,
+                              analysis_form = NULL,
+                              analysis_shape = NULL) {
+  ## Dbc in the analysis model uses analysis_* parameters if
+  ## supplied; otherwise falls back to the DGP parameters
+  ## (analyst perfectly specifies truth).
+  if (is.null(analysis_t1half)) analysis_t1half <- carryover_t1half
+  if (is.null(analysis_form))   analysis_form   <- carryover_form
+  if (is.null(analysis_shape))  analysis_shape  <- weibull_shape
+
 
   design_set <- map(seq_along(design_set), function(i) {
     td <- design_set[[i]]
@@ -161,9 +171,9 @@ prepare_long_data <- function(dat, design_set, carryover_t1half,
       L   = as.numeric(L_lg),
       Dbc = dplyr::case_when(
         Db_lg ~ 1,
-        TRUE  ~ carryover_decay(tsd, carryover_t1half,
-                                form = carryover_form,
-                                shape = weibull_shape)
+        TRUE  ~ carryover_decay(tsd, analysis_t1half,
+                                form = analysis_form,
+                                shape = analysis_shape)
       )
     ) |>
     dplyr::select(-Db_lg, -L_lg, -D_prev)
@@ -265,6 +275,20 @@ simulate_cell <- function(cell, n_reps) {
   resp_param <- default_resp_param()
   baseline_param <- default_baseline_param()
 
+  ## rho: common within-factor AR(1) autocorrelation. Falls back
+  ## to 0.7 if not provided (Tier 1 default).
+  rho <- cell$rho %||% 0.7
+
+  ## analyst-assumed carryover parameters for the A2 analysis
+  ## predictor. Default to DGP truth (perfectly specified).
+  analysis_t1half <- cell$analysis_t1half %||% cell$t1half
+  analysis_form   <- cell$analysis_form   %||% cell$carryover_form
+  analysis_shape  <- cell$analysis_shape  %||% cell$weibull_shape
+
+  ## optional dropout block (S3)
+  dropout_rate <- cell$dropout_rate %||% 0
+  dropout_mech <- cell$dropout_mech %||% 'MCAR'
+
   model_param <- list(
     N = cell$N,
     c.bm = cell$c_bm,
@@ -272,7 +296,7 @@ simulate_cell <- function(cell, n_reps) {
     carryover_form = cell$carryover_form,
     weibull_shape = cell$weibull_shape,
     dgp_architecture = cell$dgp_arch,
-    c.tv = 0.7, c.pb = 0.7, c.br = 0.7,
+    c.tv = rho, c.pb = rho, c.br = rho,
     c.cf1t = 0.2, c.cfct = 0.1
   )
 
@@ -288,14 +312,72 @@ simulate_cell <- function(cell, n_reps) {
                     converged = FALSE))
     }
 
+    if (dropout_rate > 0) {
+      dat <- apply_dropout(dat, design_set,
+                           rate = dropout_rate,
+                           mechanism = dropout_mech)
+    }
+
     dat_long <- prepare_long_data(
       dat, design_set,
       carryover_t1half = cell$t1half,
       carryover_form = cell$carryover_form,
-      weibull_shape = cell$weibull_shape
+      weibull_shape = cell$weibull_shape,
+      analysis_t1half = analysis_t1half,
+      analysis_form = analysis_form,
+      analysis_shape = analysis_shape
     )
 
     fit_three_specs(dat_long) |>
       mutate(rep = rep_i, .before = 1)
   })
+}
+
+## -----------------------------------------------------------------
+## Dropout (S3)
+##
+## apply_dropout imposes missingness on timepoint outcome columns
+## under two mechanisms:
+##   - MCAR: uniform random probability `rate` per observation
+##   - MAR:  probability scales with baseline severity (BL column),
+##           with participants in the upper half of BL about twice
+##           as likely to drop out as those in the lower half; the
+##           marginal rate still averages to `rate`.
+## Dropout is monotone: once a participant misses a timepoint,
+## subsequent timepoints are also missing, matching clinical
+## trial dropout conventions.
+## -----------------------------------------------------------------
+
+apply_dropout <- function(dat, design_set, rate, mechanism) {
+  if (rate == 0) return(dat)
+  mechanism <- match.arg(mechanism, c('MCAR', 'MAR'))
+
+  tp_names <- design_set |>
+    map(~ .x$timepoint_name) |>
+    unlist() |>
+    unique()
+
+  n <- nrow(dat)
+  n_tp <- length(tp_names)
+
+  drop_prob <- if (mechanism == 'MCAR') {
+    matrix(rate, nrow = n, ncol = n_tp)
+  } else {
+    bl_rank <- rank(dat$BL) / n
+    base <- rate * 2 * bl_rank
+    base <- pmin(base, 1)
+    matrix(base, nrow = n, ncol = n_tp)
+  }
+
+  draws <- matrix(runif(n * n_tp), nrow = n, ncol = n_tp)
+  drop_mask <- draws < drop_prob
+
+  for (i in seq_len(n)) {
+    first_drop <- which(drop_mask[i, ])[1]
+    if (!is.na(first_drop)) {
+      dat[i, tp_names[first_drop:n_tp]] <- NA
+    }
+  }
+
+  dat
 }

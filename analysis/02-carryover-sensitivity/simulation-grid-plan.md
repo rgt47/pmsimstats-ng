@@ -130,6 +130,62 @@ companion manuscript's reference case, chosen in Hendrickson
 (2020) as the largest value that passes positive-definiteness
 under the Architecture B covariance structure.
 
+## Relationship between Tier 1 and Tier 2
+
+Tier 1 and Tier 2 serve distinct inferential roles and are
+reported separately, linked at a single anchor point.
+
+**Tier 1** is analysed as a full factorial. The headline claim is
+a joint statement over its axes: across the DGP-form by
+architecture by design by $N$ by $c_{bm}$ grid, the ranking among
+A1/A2/A3 takes the observed form. Primary figures and tables
+present the full T1 grid or marginal summaries of it.
+
+**Tier 2** blocks are each conditional statements of the form
+"holding every other axis at the reference configuration, the
+ranking varies (or does not vary) along axis $Y$." Each block is
+one compact figure (the varied axis on the horizontal, power on
+the vertical, coloured by analysis specification). Blocks are
+not pooled with Tier 1 and are not combined with each other;
+there is no full-factorial cell $T_1 \times S_1 \times S_2
+\times \cdots$ being estimated.
+
+The two tiers meet at exactly one place: the **reference
+configuration** (Tier 2 anchor). That reference is a specific
+cell of Tier 1, so every Tier 2 block's baseline column equals a
+known Tier 1 estimate. The shared anchor is what allows Discussion
+statements of the form "the Tier 1 ranking holds at the reference
+and remains stable within $\pm X$ across the $S_1$ perturbation"
+without pooling.
+
+Three reasons this separation is retained rather than unified
+into a joint estimation:
+
+1. **Combinatorial cost.** The design principle of Tier 2 is to
+   avoid the full factorial that a joint analysis would require;
+   pooling would retroactively impose that factorial.
+2. **Interpretability.** Tier 1 power estimates are marginal,
+   averaged over the other Tier 1 axes. Tier 2 power estimates
+   condition on the reference. These are different quantities,
+   and averaging across them would blur which conclusion applies
+   where.
+3. **Double-counting.** The Tier 2 reference cell is already
+   evaluated in Tier 1. A pooled estimator would weight that
+   cell twice relative to its sampling frequency.
+
+The manuscript Results section therefore follows the separated
+reporting pattern used by Sturdevant & Lumley (2021) and
+Schork (2022): a principal-grid subsection, followed by a brief
+Sensitivity Analyses subsection with one paragraph and one figure
+per Tier 2 block. The Discussion synthesises across tiers.
+
+A joint emulator (e.g., a generalised additive model of power
+over all axes, or a Gaussian-process surrogate) would enable
+combined statements at higher resolution than either tier
+provides alone; this is out of scope for the present manuscript
+but is noted as a direction for methodological follow-up in the
+Discussion.
+
 ## Tier 2: marginal sensitivity blocks
 
 Each block varies one additional axis against the **reference
@@ -148,16 +204,18 @@ reference = {
 }
 ```
 
-All Tier-2 blocks cross the varied axis with the three analysis
-specifications (A1 / A2 / A3), so every block yields a 3-column
-comparison of how the spec ranking changes.
+All Tier-2 blocks yield three rows per cell, one for each
+analysis specification (A1 / A2 / A3), so every block yields a
+3-spec comparison of how the ranking changes along the varied
+axis. The cell counts below enumerate parameter cells; the
+number of model fits per block is (cells) × (replicates) × 3.
 
 ### Block S1: autocorrelation sensitivity
 
 **Axis.** AR(1) within-factor autocorrelation $\rho \in \{0.5,
 0.7, 0.8, 0.9\}$.
 
-**Cell count.** $4 \times 3 = 12$.
+**Cell count.** 4.
 
 **Rationale.** Hendrickson (2020) uses $\rho = 0.8$; the revised
 analysis in `docs/02` uses $\rho = 0.7$ after positive-definiteness
@@ -178,7 +236,7 @@ sensitive.
 \in \{0.5, 1.0\}$ and analyst-assumed half-life in A2 and DGP
 decay form $t_{1/2}^{\text{analyst}} \in \{0.25, 0.5, 1.0, 2.0\}$.
 
-**Cell count.** $2 \times 4 \times 3 = 24$.
+**Cell count.** $2 \times 4 = 8$.
 
 **Rationale.** The Tier 1 grid holds the analyst's assumed
 half-life equal to the DGP's, corresponding to perfect prospective
@@ -198,7 +256,9 @@ pharmacokinetic information is limited.
 mechanisms (MCAR, MAR biased by baseline severity), using the
 `R/censordata.R` facility. Crossed with analysis specification.
 
-**Cell count.** $4 \times 2 \times 3 = 24$.
+**Cell count.** 7 (the $4 \times 2 = 8$ grid collapses the
+$(\text{rate} = 0, \text{mechanism} = \text{MAR})$ cell into
+the equivalent MCAR null).
 
 **Rationale.** Biomarker-moderated trials in clinical populations
 typically experience 10-30% dropout. The A2 and A3 specifications
@@ -214,7 +274,7 @@ trialists deciding between them at the design stage.
 **Axis.** $c_{bm} \in \{0, 0.10, 0.20, 0.30, 0.45, 0.60\}$
 crossed with analysis specification.
 
-**Cell count.** $6 \times 3 = 18$.
+**Cell count.** 6.
 
 **Rationale.** Tier 1's three levels establish type-I control at
 $c_{bm} = 0$ and two points on the power curve. Block S4 adds
@@ -230,7 +290,7 @@ Architecture A with a note.
 **Axis.** $\rho \in \{0.5, 0.8\}$ crossed with $t_{1/2} \in
 \{0, 0.5, 1.0\}$ crossed with analysis specification.
 
-**Cell count.** $2 \times 3 \times 3 = 18$.
+**Cell count.** $2 \times 3 = 6$.
 
 **Rationale.** Block S1 varies $\rho$ at a single carryover
 level; Block S5 lets us check whether the $\rho$-sensitivity of
@@ -241,37 +301,56 @@ becomes a methodological reassurance rather than a finding.
 
 ## Aggregate computational cost
 
-| Block | Cells | Replicates | Cell-fits | Wall-clock (8-core) |
+Each cell yields three rows (one per analysis specification)
+and therefore three `nlme::lme` fits per replicate.
+
+| Block | Cells | Replicates | Model fits | Wall-clock (8-core) |
 |---|---|---|---|---|
 | Tier 1 | 540 | 500 | 810,000 | ~85 min |
-| S1 | 12 | 500 | 18,000 | ~2 min |
-| S2 | 24 | 500 | 36,000 | ~4 min |
-| S3 | 24 | 500 | 36,000 | ~4 min |
-| S4 | 18 | 500 | 27,000 | ~3 min |
-| S5 | 18 | 500 | 27,000 | ~3 min |
-| **Total** | **636** | | **954,000** | **~100 min** |
+| S1 | 4 | 500 | 6,000 | ~0.5 min |
+| S2 | 8 | 500 | 12,000 | ~1 min |
+| S3 | 7 | 500 | 10,500 | ~1 min |
+| S4 | 6 | 500 | 9,000 | ~0.8 min |
+| S5 | 6 | 500 | 9,000 | ~0.8 min |
+| **Total** | **571** | | **856,500** | **~90 min** |
 
-Marginal blocks add approximately 15 minutes to the Tier 1
-production run. The total fits in one overnight execution.
+The five marginal blocks together add approximately four minutes
+to the Tier 1 production run. The total fits in a single
+execution.
 
 ## Implementation status
 
-- **Tier 1:** implemented in `01-run-factorial.R`; production run
-  currently in flight.
-- **S1 (rho):** requires plumbing `rho` through `model_param`
-  in the tidyverse implementation. Currently fixed at 0.7.
-- **S2 (half-life mismatch):** requires splitting
-  `carryover_t1half` into DGP and analysis values in
-  `prepare_long_data()`. Single-line change.
-- **S3 (dropout):** requires wiring `censor_data()` into the
-  per-replicate loop of `simulate_cell()`.
-- **S4 (effect-size curve):** requires no code change; extend
-  the `c_bm` vector in a separate driver script to avoid bloating
-  Tier 1.
-- **S5 (rho-by-carryover):** depends on S1 plumbing.
+- **Tier 1:** implemented in `01-run-factorial.R`; production
+  run currently in flight.
+- **S1 (rho):** implemented. `simulate_cell()` accepts an
+  optional `rho` column; sets `c.tv = c.pb = c.br = rho`
+  (defaults to 0.7 if absent, matching Tier 1).
+- **S2 (half-life mismatch):** implemented. `prepare_long_data()`
+  accepts optional `analysis_t1half` / `analysis_form` /
+  `analysis_shape` arguments; Dbc is constructed from these when
+  provided and falls back to DGP truth otherwise.
+- **S3 (dropout):** implemented. New `apply_dropout()` helper
+  supports MCAR and MAR mechanisms; called from `simulate_cell()`
+  when `dropout_rate > 0`.
+- **S4 (effect-size curve):** implemented as a `c_bm` vector in
+  the S4 block of `04-run-sensitivity-blocks.R`; no core code
+  change needed.
+- **S5 (rho-by-carryover):** implemented (uses S1 plumbing).
 
-Script `04-run-sensitivity-blocks.R` will orchestrate the five
-blocks after Tier 1 is archived.
+All five blocks are orchestrated by
+`04-run-sensitivity-blocks.R`. Smoke-tested at 1 rep per block
+(all blocks build correctly and all 15 model fits converged).
+Ready to run in production after Tier 1 completes.
+
+**Execution order.** Run Tier 1 first (`01-run-factorial.R`),
+then Tier 2 (`04-run-sensitivity-blocks.R`). They must not be
+run concurrently because they both request all available
+cores. Scheduled command:
+
+```bash
+Rscript analysis/02-carryover-sensitivity/01-run-factorial.R && \
+Rscript analysis/02-carryover-sensitivity/04-run-sensitivity-blocks.R
+```
 
 ## What is *not* in the plan
 

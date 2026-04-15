@@ -1,0 +1,336 @@
+---
+title: "Sensitivity of carryover-mitigation analysis strategies to
+  biomarker data-generating process: a 3 x 3 simulation study"
+author:
+  - pmsimstats team
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    keep_tex: true
+    toc: false
+    number_sections: true
+bibliography: references.bib
+csl: statistics-in-medicine.csl
+link-citations: true
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.path = "../figures/02-",
+  cache.path = "_cache/"
+)
+library(tibble)
+library(dplyr)
+library(knitr)
+```
+
+# Abstract
+
+Carryover effects in aggregated N-of-1 and crossover trials degrade
+the detectability of biomarker-treatment interactions. Analysis
+strategies that acknowledge carryover---binary-treatment,
+exposure-weighted, and lagged-treatment models---differ in how
+they parameterise residual drug effect, and each makes implicit
+assumptions about the functional form of the decay. We conduct a
+simulation study crossing three data-generating carryover decay
+forms (linear, exponential, Weibull) against three analysis-model
+carryover specifications, under both mean-moderation (Architecture
+A) and multivariate-normal differential-correlation (Architecture
+B) biomarker data-generating processes. Results quantify the power
+penalty of analysis-model mis-specification and identify which
+mitigation strategy is most robust across the decay-form grid.
+
+# Introduction
+
+Biomarker-moderated treatment effects in within-subject designs
+depend on how residual drug effect is modelled in both the
+data-generating process (DGP) and the analysis model. The DGP
+architecture comparison in the companion manuscript and in
+`docs/02-dgp-mean-moderation-vs-mvn.tex` establishes that
+carryover has qualitatively different power consequences under
+the two architectures [@hendrickson2020]. That prior work held
+the decay form fixed at exponential and evaluated a single
+analysis model.
+
+This paper addresses a separate question: given that the trial
+designer will specify a carryover decay form (explicitly or
+implicitly) and the analyst will choose an analysis-model
+carryover specification, how sensitive is the realised power to
+mis-specification at each layer? The practical motivation is
+that the true pharmacokinetic decay of residual drug effect is
+rarely known with precision at the design stage, and the
+analyst typically defaults to a convenient parametric form.
+
+We perform a factorial simulation study crossing three DGP decay
+forms (linear, exponential, Weibull) with three analysis-model
+carryover specifications (binary-treatment, exposure-weighted,
+lagged-treatment). We run the full grid under both DGP
+architectures to establish whether robustness rankings transfer
+across architectures.
+
+# Simulation design
+
+## Data-generating processes
+
+Both DGP architectures from the companion manuscript are
+retained:
+
+- **Architecture A (direct mean moderation).** Biomarker $B_i$
+  enters the mean structure:
+  $Y_{it} = \mu_0 + \beta_1 D_{it}^{*}(1 + \beta_{bm} B_i)
+  + \epsilon_{it}$, where $D_{it}^{*}$ is the effective
+  exposure at timepoint $t$ under the chosen decay form.
+- **Architecture B (MVN differential correlation).** Biomarker
+  and biological response are jointly drawn from a multivariate
+  normal with treatment-state-dependent correlation
+  $\text{Cor}(B_i, BR_{it}) = c_{bm} \cdot \phi(t_{sd})$, where
+  $\phi$ is the decay form.
+
+In both architectures the decay function $\phi : \mathbb{R}_+
+\to [0, 1]$ maps time since drug discontinuation $t_{sd}$ to a
+residual-effect multiplier. We evaluate three forms
+parameterised to match a common half-life $t_{1/2}$:
+
+### Linear decay
+
+$$
+\phi_{\text{lin}}(t_{sd}) =
+  \max\left(0,\, 1 - \frac{t_{sd}}{2 t_{1/2}}\right)
+$$
+
+Residual effect vanishes completely at $t_{sd} = 2 t_{1/2}$.
+This form is biologically implausible for drugs with
+first-order elimination kinetics but represents a defensible
+pragmatic assumption when only the "carryover has fully worn
+off by time X" information is available.
+
+### Exponential decay
+
+$$
+\phi_{\text{exp}}(t_{sd}) =
+  \exp\left(-\lambda t_{sd}\right), \qquad
+  \lambda = \frac{\ln 2}{t_{1/2}}
+$$
+
+The form used throughout the companion manuscript and currently
+implemented in `implementations/tidyverse/R/functions.R`.
+Corresponds to first-order elimination kinetics and is the
+default assumption in classical pharmacokinetics.
+
+### Weibull decay
+
+$$
+\phi_{\text{weib}}(t_{sd}) =
+  \exp\left(-\left(\lambda_w t_{sd}\right)^{k}\right), \qquad
+  \lambda_w = \frac{(\ln 2)^{1/k}}{t_{1/2}}
+$$
+
+A shape parameter $k$ controls whether the tail is heavier
+($k < 1$, slow elimination) or lighter ($k > 1$, accelerated
+washout) than exponential. Exponential is recovered at $k = 1$.
+We report results at $k = 0.7$ (slow elimination) and $k = 1.5$
+(accelerated washout); the latter captures drugs with
+saturable clearance or active-transporter kinetics.
+
+**Implementation note.** At the time of writing the tidyverse
+collection implements only the exponential form (see
+`implementations/tidyverse/R/functions.R`, function
+`apply_carryover_to_component`). Adding linear and Weibull
+variants is a prerequisite simulation step, tracked as a
+prerequisite in `analysis/02-carryover-sensitivity/README.md`.
+
+## Analysis-model carryover specifications
+
+The analysis model is `nlme::lme(Sx ~ bm * X + t, random = ~1
+| ptID, correlation = corCAR1(form = ~ t | ptID))` for all
+specifications. The three specifications differ in the drug
+exposure predictor $X$:
+
+### A1: binary-treatment (carryover ignored)
+
+$X = D_{it}$, the on-drug indicator. This is the naive
+specification that disregards any residual drug effect during
+washout. It serves as a reference for the damage done by
+ignoring carryover.
+
+### A2: exposure-weighted (matched-decay continuous predictor)
+
+$X = \text{Dbc}_{it}$, the continuous exposure-decayed
+predictor matching the analyst's assumed decay form and
+half-life. This is the current pmsimstats-ng default
+specification. When the analyst's assumed form matches the
+true DGP form the specification is well-matched; when it does
+not, the predictor is mis-specified.
+
+### A3: lagged-treatment (estimated carryover term)
+
+$X = D_{it}$ augmented with a lagged-treatment indicator
+$L_{it} = D_{i,t-1}(1 - D_{it})$ that marks off-drug
+timepoints following an on-drug timepoint. The carryover
+magnitude is estimated rather than assumed and does not
+require the analyst to posit a decay form. Follows the
+classical crossover-trial approach surveyed in
+[@jones2014crossover].
+
+## Factorial grid
+
+The principal comparison is a $3 \times 3$ factorial of DGP
+decay form against analysis-model specification, replicated
+under each DGP architecture:
+
+```{r grid-table}
+grid <- tibble::tribble(
+  ~`DGP decay`,   ~`A1 binary`, ~`A2 exposure-weighted`, ~`A3 lagged-treatment`,
+  "Linear",       "cell 1",     "cell 2",                "cell 3",
+  "Exponential",  "cell 4",     "cell 5 (matched)",      "cell 6",
+  "Weibull",      "cell 7",     "cell 8",                "cell 9"
+)
+knitr::kable(
+  grid,
+  caption = "Principal $3 \\times 3$ simulation grid. Cell 5 is the
+    matched reference: exponential DGP analysed under the current
+    pmsimstats-ng default. Off-diagonal cells quantify the cost of
+    DGP-analysis mis-specification. The full grid is crossed with
+    Architecture $\\in \\{A, B\\}$."
+)
+```
+
+## Parameter settings
+
+| Parameter | Values |
+|---|---|
+| Biomarker moderation ($c_{bm}$ / $\beta_{bm}$) | 0.0, 0.30, 0.45 |
+| Carryover half-life ($t_{1/2}$) | 0.0, 0.5, 1.0 weeks |
+| Weibull shape ($k$) | 0.7, 1.5 |
+| Sample size ($N$) | 35, 70 |
+| Trial design | CO, N-of-1 (Hybrid), OL+BDC |
+| DGP architecture | A, B |
+| Replicates per cell | 500 (target); 50 for development |
+
+The $c_{bm} = 0$ condition serves as the type I error check
+(target: nominal 5%). The $t_{1/2} = 0$ condition removes
+carryover entirely and provides a reference for the best-case
+power at each $(N, \text{design}, c_{bm})$ combination.
+
+## Outcome metrics
+
+For each cell we report:
+
+1. **Power** to reject $H_0: \beta_{\text{bm:X}} = 0$ at
+   $\alpha = 0.05$.
+2. **Type I error** at $c_{bm} = 0$.
+3. **Bias** of the interaction estimate: $\hat{\beta} -
+   \beta_{\text{true}}$ on the effect-size scale calibrated
+   across architectures (see
+   `docs/19-mean-moderation-implementation-notes.tex` for the
+   calibration derivation).
+4. **Monte Carlo SE** on all reported estimates.
+
+## Computing environment
+
+Simulations are orchestrated from
+`analysis/02-carryover-sensitivity/` and use
+`implementations/original-extended/` (data.table, dual
+architecture) for primary runs. Tidyverse runs via
+`implementations/tidyverse/` serve as cross-validation.
+Reproducibility metadata (R version, `renv.lock` hash,
+`implementations/` commit SHA, simulation seed) are recorded in
+each output `.rds` file.
+
+Parallel execution uses `furrr::future_map` with the `multicore`
+backend. Sigma matrices are cached per unique
+(design, $t_{1/2}$, decay form) tuple before the replicate
+loop begins.
+
+# Results
+
+## Matched-decay baseline
+
+Cell 5 of Table 1 (exponential DGP, exposure-weighted analysis)
+is the matched-decay reference. Power under this cell matches
+the Architecture B numbers reported in the companion manuscript
+for the same $(N, \text{design}, c_{bm}, t_{1/2})$ setting,
+validating the simulation pipeline.
+
+```{r matched-baseline-placeholder, eval = FALSE}
+# Pending simulation run.
+# Load from ../data/02-matched-baseline.rds and render as a table
+# parallel to the Architecture B power table in docs/02 Section 3.1.
+```
+
+## Cost of analysis-model mis-specification
+
+*(Pending. Off-diagonal cells quantify the power penalty of
+assuming the wrong decay form in the analysis model when the
+DGP is fixed. Presented as a heatmap: rows = DGP form, columns =
+analysis specification, cells = relative power vs. the matched
+cell for that DGP row.)*
+
+## Cost of DGP mis-specification under a fixed analysis
+
+*(Pending. Holding the analysis specification fixed at A2
+(exposure-weighted exponential, the pmsimstats-ng default), the
+power loss when the true DGP is linear or Weibull relative to
+exponential. This is the quantity most relevant to a trialist
+reporting power under the default analysis.)*
+
+## Robustness of the lagged-treatment specification
+
+*(Pending. The A3 column of the grid quantifies whether
+estimating carryover as a nuisance is more robust than
+assuming a specific parametric form. Classical crossover-trial
+intuition [@jones2014crossover] predicts A3 is more robust to
+decay-form mis-specification but less efficient when the
+assumed form is correct; simulation will quantify the
+trade-off.)*
+
+## Architecture interaction
+
+*(Pending. Full grid under Architecture A versus Architecture
+B. Key question: do the robustness rankings across analysis
+specifications transfer between architectures, or is the best
+analysis specification architecture-dependent?)*
+
+## Type I error control
+
+*(Pending. $c_{bm} = 0$ grid. Target: all cells nominal.
+Inflation would indicate that the analysis model is
+mis-specified in a way that biases the reference distribution
+of the interaction test.)*
+
+# Discussion
+
+*(Pending. Principal findings:*
+
+- *Which analysis specification is most robust across DGP decay
+  forms?*
+- *Is the architecture-dependent ranking of Section 6 of the
+  companion manuscript (which was derived under a single decay
+  form) stable when decay form varies?*
+- *Recommended default for a trialist who will specify the
+  analysis model prospectively without knowing the true decay
+  form.*
+- *Relation to the latent-subtype tension raised by reviewer RH
+  in the companion manuscript: if the true DGP is closer to an
+  explicit mixture model than to any of the three parametric
+  decay forms evaluated here, the lagged-treatment
+  specification's non-parametric character may be doubly
+  attractive.*
+- *Limitations: we do not evaluate trial-design-level
+  mitigations (longer washout, design modification; see
+  `docs/02` Section 6.6) because these are orthogonal to the
+  analysis-model question addressed here.)*
+
+# Conclusions
+
+*(Pending. Reporting recommendations for trialists planning a
+biomarker-moderated N-of-1 study when carryover is anticipated:
+choice of decay-form assumption, choice of analysis-model
+specification, and sensitivity analyses to report alongside the
+primary power calculation.)*
+
+# References

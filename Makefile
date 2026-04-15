@@ -34,6 +34,12 @@ help:
 	@echo "    docker-push-team, docker-document, docker-build-pkg, docker-check"
 	@echo "    docker-test, docker-vignettes, docker-render, docker-check-renv"
 	@echo ""
+	@echo "  Manuscripts (journal-format reports under manuscripts/):"
+	@echo "    manuscript-01          - Knit manuscripts/01-biomarker-interaction-review/report.Rmd"
+	@echo "    manuscript-02          - Knit manuscripts/02-carryover-sensitivity/report.Rmd"
+	@echo "    manuscripts            - Knit both manuscripts"
+	@echo "    manuscripts-clean      - Remove knitted TeX/PDF and caches"
+	@echo ""
 	@echo "  Cleanup:"
 	@echo "    clean, docker-clean"
 	@echo "    docker-prune-cache       - Remove Docker build cache"
@@ -195,6 +201,26 @@ r: check-renv
 
 # Alias for rstudio
 rstudio: docker-rstudio
+
+# Manuscripts (journal-format reports under manuscripts/)
+MANUSCRIPT_01_DIR := manuscripts/01-biomarker-interaction-review
+MANUSCRIPT_02_DIR := manuscripts/02-carryover-sensitivity
+
+manuscript-01:
+	cd $(MANUSCRIPT_01_DIR) && \
+	  R --quiet -e "rmarkdown::render('report.Rmd')"
+
+manuscript-02:
+	cd $(MANUSCRIPT_02_DIR) && \
+	  R --quiet -e "rmarkdown::render('report.Rmd')"
+
+manuscripts: manuscript-01 manuscript-02
+
+manuscripts-clean:
+	rm -f $(MANUSCRIPT_01_DIR)/report.tex $(MANUSCRIPT_01_DIR)/report.pdf
+	rm -rf $(MANUSCRIPT_01_DIR)/report_files $(MANUSCRIPT_01_DIR)/_cache
+	rm -f $(MANUSCRIPT_02_DIR)/report.tex $(MANUSCRIPT_02_DIR)/report.pdf
+	rm -rf $(MANUSCRIPT_02_DIR)/report_files $(MANUSCRIPT_02_DIR)/_cache
 
 # Cleanup
 clean:

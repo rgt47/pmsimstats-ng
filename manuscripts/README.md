@@ -14,7 +14,7 @@ CSL style file; shared numerical assets live in the sibling
 | ID | Title (working)                                          | Status   | Sources                                                      |
 |----|----------------------------------------------------------|----------|--------------------------------------------------------------|
 | 01 | Biomarker-treatment interaction in N-of-1 trials: two data-generating architectures | Drafting | `docs/02-dgp-mean-moderation-vs-mvn.tex`, `docs/19`, `docs/21` |
-| 02 | Sensitivity of carryover-mitigation analysis strategies to biomarker DGP | Planning | `docs/02` §6, `implementations/`, new simulation runs        |
+| 02 | Robustness of carryover-mitigation analysis strategies for biomarker-treatment interaction | Drafting (production results in) | `docs/02` §6, `implementations/tidyverse/`, `analysis/02-carryover-sensitivity/` |
 
 ## Conventions
 

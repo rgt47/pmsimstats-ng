@@ -34,7 +34,7 @@ make_default_params <- function(c.bm = 0.3, carryover_t1half = 0) {
 {
   td <- make_ol_design()
   p <- make_default_params()
-  result <- pmsimstats:::buildSigma(p$mp, p$rp, p$bp, td$trialpaths[[1]])
+  result <- buildSigma(p$mp, p$rp, p$bp, td$trialpaths[[1]])
   expect_true(is.positive.definite(result$sigma),
               info = 'buildSigma returns PD matrix for OL design')
 }
@@ -42,7 +42,7 @@ make_default_params <- function(c.bm = 0.3, carryover_t1half = 0) {
 {
   td <- make_ol_design()
   p <- make_default_params()
-  result <- pmsimstats:::buildSigma(p$mp, p$rp, p$bp, td$trialpaths[[1]])
+  result <- buildSigma(p$mp, p$rp, p$bp, td$trialpaths[[1]])
   expect_equal(nrow(result$sigma), 26L,
                info = 'buildSigma: 26 rows for 8-timepoint OL')
   expect_equal(ncol(result$sigma), 26L,
@@ -56,7 +56,7 @@ make_default_params <- function(c.bm = 0.3, carryover_t1half = 0) {
 {
   td <- make_ol_design()
   p <- make_default_params()
-  result <- pmsimstats:::buildSigma(p$mp, p$rp, p$bp, td$trialpaths[[1]])
+  result <- buildSigma(p$mp, p$rp, p$bp, td$trialpaths[[1]])
   expect_equal(result$labels[1], 'bm',
                info = 'buildSigma label[1] is bm')
   expect_equal(result$labels[2], 'BL',
@@ -74,7 +74,7 @@ make_default_params <- function(c.bm = 0.3, carryover_t1half = 0) {
 {
   td <- make_ol_design()
   p <- make_default_params(c.bm = 0)
-  result <- pmsimstats:::buildSigma(p$mp, p$rp, p$bp, td$trialpaths[[1]])
+  result <- buildSigma(p$mp, p$rp, p$bp, td$trialpaths[[1]])
   bm_idx <- 1
   br_idx <- which(grepl('\\.br$', result$labels))
   for (i in br_idx) {
@@ -89,7 +89,7 @@ make_default_params <- function(c.bm = 0.3, carryover_t1half = 0) {
 {
   td <- make_ol_design()
   p <- make_default_params()
-  result <- pmsimstats:::buildSigma(p$mp, p$rp, p$bp, td$trialpaths[[1]])
+  result <- buildSigma(p$mp, p$rp, p$bp, td$trialpaths[[1]])
   corr <- cov2cor(result$sigma)
   tv1 <- which(result$labels == 'OL1.tv')
   tv2 <- which(result$labels == 'OL2.tv')
@@ -110,7 +110,7 @@ make_default_params <- function(c.bm = 0.3, carryover_t1half = 0) {
     )
   )
   p <- make_default_params(c.bm = 0.3, carryover_t1half = 1.0)
-  result <- pmsimstats:::buildSigma(p$mp, p$rp, p$bp, td$trialpaths[[1]])
+  result <- buildSigma(p$mp, p$rp, p$bp, td$trialpaths[[1]])
   corr <- cov2cor(result$sigma)
   bm_idx <- 1
   br_on <- which(result$labels == 'COa1.br')
@@ -125,7 +125,7 @@ make_default_params <- function(c.bm = 0.3, carryover_t1half = 0) {
 {
   td <- make_ol_design()
   p <- make_default_params()
-  result <- pmsimstats:::buildSigma(p$mp, p$rp, p$bp, td$trialpaths[[1]])
+  result <- buildSigma(p$mp, p$rp, p$bp, td$trialpaths[[1]])
   expect_true(!is.null(result$chol_sigma),
               info = 'buildSigma returns Cholesky factor')
   expect_equal(nrow(result$chol_sigma), 26L,

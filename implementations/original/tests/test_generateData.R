@@ -58,7 +58,7 @@ make_ol_setup <- function(N = 35) {
 
 {
   s <- make_ol_setup(N = 30)
-  sigma_obj <- pmsimstats:::buildSigma(s$mp, s$rp, s$bp, s$td$trialpaths[[1]])
+  sigma_obj <- buildSigma(s$mp, s$rp, s$bp, s$td$trialpaths[[1]])
   set.seed(99)
   dat1 <- generateData(s$mp, s$rp, s$bp, s$td$trialpaths[[1]],
                        empirical = FALSE, makePositiveDefinite = TRUE,

@@ -181,8 +181,7 @@ meta <- list(
   )
 )
 
-out_file <- if (dev_mode) '04-sensitivity-dev.rds'
-            else          '04-sensitivity.rds'
+out_file <- if (dev_mode) '04-sensitivity-dev.rds' else '04-sensitivity.rds'
 saveRDS(list(results = results, grid = grid, meta = meta),
         file.path(out_dir, out_file))
 

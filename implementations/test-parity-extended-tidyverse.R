@@ -47,6 +47,47 @@ MODE <- if ('--quick' %in% args) {
   'default'
 }
 
+# ---- Divergence annotations ----------------------------------------------
+
+DIV_PATH <- 'implementations/parity_divergences.csv'
+load_divergences <- function(path) {
+  if (!file.exists(path)) {
+    return(tibble::tibble(design = character(), arch = character(),
+                          t_half = numeric(), c_bm = numeric(),
+                          seed = integer(), layer = character(),
+                          reason = character()))
+  }
+  lines <- readLines(path)
+  lines <- lines[!grepl('^\\s*(#|$)', lines)]
+  if (length(lines) <= 1) {
+    return(tibble::tibble(design = character(), arch = character(),
+                          t_half = numeric(), c_bm = numeric(),
+                          seed = integer(), layer = character(),
+                          reason = character()))
+  }
+  con <- textConnection(paste(lines, collapse = '\n'))
+  on.exit(close(con))
+  read.csv(con, stringsAsFactors = FALSE,
+           colClasses = c(design = 'character', arch = 'character',
+                          t_half = 'numeric', c_bm = 'numeric',
+                          seed = 'integer', layer = 'character',
+                          reason = 'character')) |>
+    tibble::as_tibble()
+}
+DIVERGENCES <- load_divergences(DIV_PATH)
+
+is_expected_divergence <- function(design, arch, t_half, c_bm, seed,
+                                    layer) {
+  if (nrow(DIVERGENCES) == 0) return(FALSE)
+  matches <- DIVERGENCES$design == design &
+             DIVERGENCES$arch == arch &
+             (DIVERGENCES$layer == 'any' | DIVERGENCES$layer == layer) &
+             (is.na(DIVERGENCES$t_half) | DIVERGENCES$t_half == t_half) &
+             (is.na(DIVERGENCES$c_bm)   | DIVERGENCES$c_bm == c_bm) &
+             (is.na(DIVERGENCES$seed)   | DIVERGENCES$seed == seed)
+  any(matches)
+}
+
 # ---- 1. Source both implementations into separate environments ------------
 
 here <- function(...) file.path('implementations', ...)
@@ -391,30 +432,66 @@ sigma_pass <- sum(grid$sigma_labels & grid$sigma_means & grid$sigma_sigma)
 data_pass <- sum(grid$data_pass == grid$data_total)
 an_pass <- sum(analysis_grid$beta_ok & analysis_grid$se_ok &
                analysis_grid$p_ok)
-cat(sprintf('Sigma   : %3d / %3d cells PASS\n', sigma_pass, n_grid))
-cat(sprintf('Data    : %3d / %3d cells PASS\n', data_pass, n_grid))
-cat(sprintf('Analysis: %3d / %3d cells PASS\n', an_pass, nrow(analysis_grid)))
+
+# Classify failures as expected (matched by parity_divergences.csv) vs
+# unexpected (regressions). Expected divergences do not contribute to
+# exit status.
+classify <- function(df, layer, pass_col_fn) {
+  fails <- df[!pass_col_fn(df), , drop = FALSE]
+  if (nrow(fails) == 0) return(list(expected = 0, unexpected = 0,
+                                     unexp_rows = fails))
+  exp <- mapply(is_expected_divergence,
+                fails$design, fails$arch, fails$t_half, fails$c_bm,
+                fails$seed, MoreArgs = list(layer = layer))
+  list(expected = sum(exp), unexpected = sum(!exp),
+       unexp_rows = fails[!exp, , drop = FALSE])
+}
+sigma_class <- classify(grid, 'sigma',
+  function(d) d$sigma_labels & d$sigma_means & d$sigma_sigma)
+data_class <- classify(grid, 'data',
+  function(d) d$data_pass == d$data_total)
+an_class <- classify(analysis_grid, 'analysis',
+  function(d) d$beta_ok & d$se_ok & d$p_ok)
+
+cat(sprintf('Sigma   : %3d / %3d cells PASS  (%d expected divergence)\n',
+            sigma_pass, n_grid, sigma_class$expected))
+cat(sprintf('Data    : %3d / %3d cells PASS  (%d expected divergence)\n',
+            data_pass, n_grid, data_class$expected))
+cat(sprintf('Analysis: %3d / %3d cells PASS  (%d expected divergence)\n',
+            an_pass, nrow(analysis_grid), an_class$expected))
+if (nrow(DIVERGENCES) > 0) {
+  cat(sprintf('\nDivergence annotations loaded: %d rows from %s\n',
+              nrow(DIVERGENCES), DIV_PATH))
+}
 
 report_path <- here('parity_report.rds')
 saveRDS(list(mode = MODE, grid = grid, analysis = analysis_grid,
              edge = edge_cells, timestamp = Sys.time()), report_path)
 cat(sprintf('\nReport written to %s\n', report_path))
 
-all_ok <- (sigma_pass == n_grid) && (data_pass == n_grid) &&
-          (an_pass == nrow(analysis_grid))
-if (all_ok) {
-  cat('\nALL PARITY CHECKS PASSED\n')
+total_unexpected <- sigma_class$unexpected + data_class$unexpected +
+                    an_class$unexpected
+if (total_unexpected == 0) {
+  if (sigma_class$expected + data_class$expected +
+      an_class$expected == 0) {
+    cat('\nALL PARITY CHECKS PASSED\n')
+  } else {
+    cat('\nALL PARITY CHECKS PASSED (with annotated expected divergences)\n')
+  }
   quit(status = 0)
 } else {
-  cat('\nPARITY FAILURES DETECTED. See report for details.\n')
-  if (nrow(sigma_failures) > 0) {
-    cat('Sigma failures:\n'); print(sigma_failures)
+  cat(sprintf('\nUNEXPECTED PARITY REGRESSIONS: %d cells.\n',
+              total_unexpected))
+  if (nrow(sigma_class$unexp_rows) > 0) {
+    cat('\nSigma regressions:\n'); print(sigma_class$unexp_rows)
   }
-  if (nrow(data_failures) > 0) {
-    cat('Data failures:\n'); print(data_failures)
+  if (nrow(data_class$unexp_rows) > 0) {
+    cat('\nData regressions:\n'); print(data_class$unexp_rows)
   }
-  if (nrow(analysis_failures) > 0) {
-    cat('Analysis failures:\n'); print(analysis_failures)
+  if (nrow(an_class$unexp_rows) > 0) {
+    cat('\nAnalysis regressions:\n'); print(an_class$unexp_rows)
   }
+  cat('\nIf a regression is intentional, annotate it in ',
+      DIV_PATH, '\n', sep = '')
   quit(status = 1)
 }

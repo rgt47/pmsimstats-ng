@@ -15,6 +15,65 @@ csl: statistics-in-medicine.csl
 link-citations: true
 ---
 
+<!--
+  Build pipeline for this manuscript
+  ==================================
+
+  This Rmd does NOT run any simulation code. It loads pre-computed
+  summaries and figures produced by the scripts below. Re-run the
+  relevant steps when the DGP, analysis specs, or parameter grid
+  change. All paths are relative to the repo root.
+
+  1. Tier 1 principal factorial (heaviest step, ~85 min on 8 cores):
+       Rscript analysis/02-carryover-sensitivity/01-run-factorial.R
+     Writes: analysis/02-carryover-sensitivity/output/01-factorial.rds
+
+  2. Tier 2 sensitivity blocks S1..S5 (~4 min on 8 cores; requires
+     Tier 1 not to be running concurrently - both request all cores):
+       Rscript analysis/02-carryover-sensitivity/04-run-sensitivity-blocks.R
+     Writes: analysis/02-carryover-sensitivity/output/04-sensitivity.rds
+
+  3. Summarise both tiers into cell-level power/bias/convergence.
+     Step 3 is cheap (~seconds) and should be re-run after either 1
+     or 2 changes. It mirrors the summaries to manuscripts/data/:
+       Rscript analysis/02-carryover-sensitivity/02-summarise-grid.R
+     Writes:
+       manuscripts/data/02-grid-summary.rds        (from Tier 1)
+       manuscripts/data/02-sensitivity-summary.rds (from Tier 2, if present)
+
+  4. Render Tier 1 figures (reads 02-grid-summary.rds):
+       Rscript analysis/02-carryover-sensitivity/03-render-figures.R
+     Writes:
+       manuscripts/figures/02-power-by-spec.pdf
+       manuscripts/figures/02-heatmap-matched-vs-mismatched.pdf
+       manuscripts/figures/02-type1-boxplots.pdf
+
+  5. Render Tier 2 sensitivity figures (reads 02-sensitivity-summary.rds;
+     writes placeholder PDFs with "Pending Tier 2 production run" when
+     the summary is absent, so this manuscript always knits cleanly):
+       Rscript analysis/02-carryover-sensitivity/04-sensitivity-figures.R
+     Writes:
+       manuscripts/figures/02-sens-S1.pdf
+       manuscripts/figures/02-sens-S2.pdf
+       manuscripts/figures/02-sens-S3.pdf
+       manuscripts/figures/02-sens-S4.pdf
+       manuscripts/figures/02-sens-S5.pdf
+
+  6. Knit this Rmd (this step; ~1 min; no simulation code runs):
+       Rscript -e "rmarkdown::render('manuscripts/02-carryover-sensitivity/report.Rmd')"
+
+  Full-rebuild one-liner (after any change to the grid or DGP):
+    Rscript analysis/02-carryover-sensitivity/01-run-factorial.R && \
+    Rscript analysis/02-carryover-sensitivity/04-run-sensitivity-blocks.R && \
+    Rscript analysis/02-carryover-sensitivity/02-summarise-grid.R && \
+    Rscript analysis/02-carryover-sensitivity/03-render-figures.R && \
+    Rscript analysis/02-carryover-sensitivity/04-sensitivity-figures.R && \
+    Rscript -e "rmarkdown::render('manuscripts/02-carryover-sensitivity/report.Rmd')"
+
+  Grid design and rationale:
+    analysis/02-carryover-sensitivity/simulation-grid-plan.md
+-->
+
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   echo = FALSE,
@@ -26,6 +85,18 @@ knitr::opts_chunk$set(
 library(tibble)
 library(dplyr)
 library(knitr)
+```
+
+```{r source-helpers, eval = FALSE, include = FALSE}
+## Source the simulation helpers when you want to step through
+## the preliminary code interactively in RStudio (e.g., to inspect
+## the grid tibbles, rerun a single cell, or diagnose a failing
+## fit). Production runs go through the shell pipeline described
+## in the HTML comment at the top of this file; nothing in this
+## chunk is evaluated during knit.
+source(here::here('implementations/tidyverse/R/functions.R'))
+source(here::here(
+  'analysis/02-carryover-sensitivity/simulation-core.R'))
 ```
 
 # Abstract

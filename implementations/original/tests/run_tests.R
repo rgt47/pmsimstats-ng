@@ -33,5 +33,5 @@ results <- tinytest::run_test_dir(
 
 print(summary(results))
 
-n_fail <- sum(!results$result, na.rm = TRUE)
+n_fail <- sum(!as.logical(results))
 quit(status = if (n_fail > 0) 1 else 0)

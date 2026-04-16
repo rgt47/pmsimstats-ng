@@ -3,7 +3,7 @@ make_ol_setup <- function(N = 35) {
     name_longform = 'open label',
     name_shortform = 'OL',
     timepoints = cumulative(rep(2.5, 8)),
-    timeptname = paste0('OL', 1:8),
+    timeptnames = paste0('OL', 1:8),
     expectancies = rep(1, 8),
     ondrug = list(pathA = rep(1, 8))
   )
@@ -28,28 +28,35 @@ make_ol_setup <- function(N = 35) {
   list(td = td, mp = mp, rp = rp, bp = bp)
 }
 
-test_that('generateData returns data.table with correct rows', {
+{
   s <- make_ol_setup(N = 50)
   set.seed(42)
   dat <- generateData(s$mp, s$rp, s$bp, s$td$trialpaths[[1]],
                       empirical = FALSE, makePositiveDefinite = TRUE)
-  expect_s3_class(dat, 'data.table')
-  expect_equal(nrow(dat), 50)
-})
+  expect_true(inherits(dat, 'data.table'),
+              info = 'generateData returns data.table')
+  expect_equal(nrow(dat), 50L,
+               info = 'generateData row count matches N')
+}
 
-test_that('generateData has expected columns', {
+{
   s <- make_ol_setup(N = 20)
   set.seed(42)
   dat <- generateData(s$mp, s$rp, s$bp, s$td$trialpaths[[1]],
                       empirical = FALSE, makePositiveDefinite = TRUE)
-  expect_true('bm' %in% names(dat))
-  expect_true('BL' %in% names(dat))
-  expect_true('ptID' %in% names(dat))
-  expect_true('OL1' %in% names(dat))
-  expect_true('OL8' %in% names(dat))
-})
+  expect_true('bm' %in% names(dat),
+              info = 'generateData produces bm column')
+  expect_true('BL' %in% names(dat),
+              info = 'generateData produces BL column')
+  expect_true('ptID' %in% names(dat),
+              info = 'generateData produces ptID column')
+  expect_true('OL1' %in% names(dat),
+              info = 'generateData produces first outcome column')
+  expect_true('OL8' %in% names(dat),
+              info = 'generateData produces last outcome column')
+}
 
-test_that('generateData with cached_sigma matches direct call', {
+{
   s <- make_ol_setup(N = 30)
   sigma_obj <- buildSigma(s$mp, s$rp, s$bp, s$td$trialpaths[[1]])
   set.seed(99)
@@ -60,15 +67,18 @@ test_that('generateData with cached_sigma matches direct call', {
   dat2 <- generateData(s$mp, s$rp, s$bp, s$td$trialpaths[[1]],
                        empirical = FALSE, makePositiveDefinite = TRUE,
                        cached_sigma = sigma_obj)
-  expect_equal(dat1$bm, dat2$bm)
-  expect_equal(dat1$OL1, dat2$OL1)
-})
+  expect_equal(dat1$bm, dat2$bm,
+               info = 'cached_sigma path matches direct call: bm column')
+  expect_equal(dat1$OL1, dat2$OL1,
+               info = 'cached_sigma path matches direct call: OL1 outcome')
+}
 
-test_that('generateData outcome columns equal BL minus factor sums', {
+{
   s <- make_ol_setup(N = 10)
   set.seed(42)
   dat <- generateData(s$mp, s$rp, s$bp, s$td$trialpaths[[1]],
                       empirical = FALSE, makePositiveDefinite = TRUE)
   factor_sum <- dat$OL1.tv + dat$OL1.pb + dat$OL1.br
-  expect_equal(dat$OL1, dat$BL - factor_sum, tolerance = 1e-10)
-})
+  expect_equal(dat$OL1, dat$BL - factor_sum, tolerance = 1e-10,
+               info = 'outcome column equals BL minus factor sum')
+}

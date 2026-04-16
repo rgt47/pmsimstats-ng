@@ -130,7 +130,14 @@ generate_data_multi_path <- function(model_param, resp_param,
   })
 }
 
-## `%||%` operator for default values
+## default operator: returns y when x is NULL or NA (scalar)
+default_val <- function(x, y) {
+  if (is.null(x) || length(x) == 0) return(y)
+  if (is.na(x)) return(y)
+  x
+}
+
+## `%||%` operator for NULL-only defaults (base-R convention)
 `%||%` <- function(x, y) if (is.null(x)) y else x
 
 ## -----------------------------------------------------------------
@@ -277,17 +284,17 @@ simulate_cell <- function(cell, n_reps) {
 
   ## rho: common within-factor AR(1) autocorrelation. Falls back
   ## to 0.7 if not provided (Tier 1 default).
-  rho <- cell$rho %||% 0.7
+  rho <- default_val(cell$rho, 0.7)
 
   ## analyst-assumed carryover parameters for the A2 analysis
   ## predictor. Default to DGP truth (perfectly specified).
-  analysis_t1half <- cell$analysis_t1half %||% cell$t1half
-  analysis_form   <- cell$analysis_form   %||% cell$carryover_form
-  analysis_shape  <- cell$analysis_shape  %||% cell$weibull_shape
+  analysis_t1half <- default_val(cell$analysis_t1half, cell$t1half)
+  analysis_form   <- default_val(cell$analysis_form,   cell$carryover_form)
+  analysis_shape  <- default_val(cell$analysis_shape,  cell$weibull_shape)
 
   ## optional dropout block (S3)
-  dropout_rate <- cell$dropout_rate %||% 0
-  dropout_mech <- cell$dropout_mech %||% 'MCAR'
+  dropout_rate <- default_val(cell$dropout_rate, 0)
+  dropout_mech <- default_val(cell$dropout_mech, 'MCAR')
 
   model_param <- list(
     N = cell$N,

@@ -1,0 +1,425 @@
+\documentclass[11pt]{article}
+\newcommand{\doctitle}{pmsimstats-ng Codebase Overview}
+\newcommand{\shorttitle}{Codebase Overview}
+\newcommand{\docdate}{2026-04-09}
+\input{pmsimstats-preamble}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+\tableofcontents
+
+The \texttt{pmsimstats-ng} R package implements Monte Carlo
+simulation-based power analysis for aggregated N-of-1 clinical
+trial designs, comparing four trial designs on their ability to
+detect a biomarker-treatment interaction. The package descends
+from the publication code of Hendrickson et al.\ (2020),
+\textit{Frontiers in Digital Health} 2:13. Since the merge on
+2026-04-08, the package supports two data-generating-process
+architectures: Architecture~B (multivariate normal differential
+correlation, the original Hendrickson approach) and
+Architecture~A (direct mean moderation), selectable via the
+\texttt{dgp\_architecture} parameter. The dual-architecture
+distinction is the subject of the white paper
+\texttt{02-dgp-mean-moderation-vs-mvn.tex}.
+
+\section{Core R Package Files (\texttt{R/})}
+
+\subsection{generateData.R}
+
+The data-generating process (DGP). Three exported functions:
+
+\begin{itemize}
+  \item \textbf{\texttt{generateData()}} -- Draws simulated
+    participant data from a multivariate normal distribution.
+    Accepts a pre-built covariance matrix
+    (\texttt{cached\_sigma}) or builds one via
+    \texttt{buildSigma()}. Uses a pre-computed Cholesky factor
+    for efficient MVN draws (\texttt{L \%*\% Z + mu}). Computes
+    outcome columns via vectorized \texttt{data.table}
+    operations. The \texttt{dgp\_architecture} parameter
+    selects between Architecture~B (\texttt{"mvn"}, default)
+    and Architecture~A (\texttt{"mean\_moderation"}); under
+    Architecture~A, the BM-BR correlation block is omitted
+    from $\Sigma$ and the biomarker-treatment interaction is
+    applied as an additive post-draw step
+    $\text{BR}_{it} \mathrel{+}= c_{bm} \cdot B_i^{*} \cdot
+    \mathbf{1}[\text{on drug}] \cdot \sigma_{\text{BR}}$,
+    where $B_i^{*}$ is the standardized biomarker.
+
+  \item \textbf{\texttt{buildSigma()}} -- Constructs the 26x26
+    covariance matrix for a single trial path. Also accepts
+    \texttt{dgp\_architecture}: under Architecture~A the BM-BR
+    correlation block is set to zero. Implements:
+    \begin{itemize}
+      \item AR(1) within-factor autocorrelation: $\rho^{|t_i - t_j|}$
+      \item Cross-factor correlations (same-time and different-time
+        with AR(1) decay)
+      \item Biomarker-BR correlation with exponential decay during
+        off-drug periods: $c_{bm} \cdot \exp(-\lambda_{cor} \cdot t_{sd})$
+        (Architecture~B only)
+      \item Auto-derives $\lambda_{cor} = \ln(2) / \texttt{carryover\_t1half}$
+      \item Positive definiteness check with verbose warning
+      \item Pre-computes Cholesky factor for caching
+    \end{itemize}
+
+  \item \textbf{\texttt{validateParameterGrid()}} -- Tests all
+    parameter combinations for positive definiteness before
+    simulation begins, reporting failures upfront. Note: this
+    function currently builds sigma matrices with Architecture~B's
+    BM-BR correlation block regardless of the simulation's actual
+    \texttt{dgp\_architecture} setting, so it may report spurious
+    PD failures when running Architecture~A with high
+    \texttt{c.bm}. The data generation itself is unaffected; the
+    warning can be safely ignored under Architecture~A. See doc
+    \texttt{19} for the full discussion.
+\end{itemize}
+
+\subsection{generateSimulatedResults.R}
+
+The simulation loop. Single exported function:
+
+\begin{itemize}
+  \item \textbf{\texttt{generateSimulatedResults()}} -- Orchestrates the full
+    parameter sweep:
+    \begin{enumerate}
+      \item PD pre-validation of all parameter combinations
+      \item Sigma matrix caching (builds all unique matrices once)
+      \item Parameter grid expansion across designs, response
+        params, baseline params, and model params
+      \item Per-parameter-set worker function
+        (\texttt{run\_one\_paramset}) that generates data, fits LME,
+        applies censoring, and collects results
+      \item Parallel execution via \texttt{furrr::future\_map()} with
+        closure-based function passing to workers
+      \item Progressive save support for long runs
+    \end{enumerate}
+
+    Key parameters:
+    \begin{itemize}
+      \item \texttt{dgp\_architecture}: \texttt{"mvn"} (default)
+        or \texttt{"mean\_moderation"}.
+      \item \texttt{lambda\_cor}: correlation decay rate;
+        default \texttt{NA} (auto-derived from
+        \texttt{carryover\_t1half}).
+      \item \texttt{n\_cores}: parallelism; default
+        auto-detect.
+    \end{itemize}
+\end{itemize}
+
+\subsection{lme\_analysis.R}
+
+The analysis model. Single exported function:
+
+\begin{itemize}
+  \item \textbf{\texttt{lme\_analysis()}} -- Fits a linear mixed-effects model
+    to simulated or actual trial data:
+    \begin{itemize}
+      \item Uses \texttt{nlme::lme} with \texttt{corCAR1(form = \~{}t|ptID)} for
+        continuous-time AR(1) residual correlation
+      \item Dynamic formula selection: \texttt{Sx \~{} bm + t + Dbc +
+        bm:Dbc} when within-subject drug variation exists;
+        \texttt{Sx \~{} bm + t + bm:t} for open-label
+      \item \texttt{Dbc} is a continuous drug indicator (1 when on drug,
+        exponential decay when off drug)
+      \item Graceful handling of rank-deficient models (returns NA)
+      \item Fallback to \texttt{lme} without \texttt{corCAR1} if optimization
+        fails
+      \item Extracts interaction coefficient from \texttt{nlme} tTable
+    \end{itemize}
+\end{itemize}
+
+\subsection{carryover\_analysis.R}
+
+Extended analysis functions for actual trial data:
+
+\begin{itemize}
+  \item \textbf{\texttt{characterize\_carryover()}} -- Sweeps candidate
+    carryover half-lives (default 0.1 to 8 weeks), fits
+    \texttt{nlme::lme} at each, compares AIC/BIC to identify the
+    best-fitting half-life. Returns drug effect, interaction,
+    AR(1) phi at each half-life.
+
+  \item \textbf{\texttt{analyze\_trial\_extended()}} -- Extracts both the main
+    drug effect (\texttt{Dbc}) and biomarker interaction (\texttt{bm:Dbc})
+    with 95\% CIs. Computes variance components, predicted
+    drug effect as a function of biomarker value, and
+    clinical decision threshold.
+
+  \item \textbf{\texttt{print\_carryover\_summary()}} / \textbf{\texttt{print\_trial\_summary()}}
+    -- Clinical reporting summaries.
+\end{itemize}
+
+\subsection{buildtrialdesign.R}
+
+Trial design specification:
+
+\begin{itemize}
+  \item \textbf{\texttt{buildtrialdesign()}} -- Constructs trial paths from
+    intuitive inputs (timepoints, expectancies, on-drug
+    vectors). Computes derived timing variables: \texttt{tod}
+    (time on drug), \texttt{tsd} (time since discontinuation),
+    \texttt{tpb} (time in positive belief).
+\end{itemize}
+
+\subsection{utilities.R}
+
+Helper functions:
+
+\begin{itemize}
+  \item \textbf{\texttt{modgompertz()}} -- Modified Gompertz function for
+    response trajectories. Passes through origin, asymptotes
+    at \texttt{maxr}.
+  \item \textbf{\texttt{cumulative()}} -- Converts interval durations to
+    cumulative time.
+  \item \textbf{\texttt{reknitsimresults()}} -- Recombines progressive save
+    chunks.
+\end{itemize}
+
+\subsection{censordata.R}
+
+Dropout simulation:
+
+\begin{itemize}
+  \item \textbf{\texttt{censordata()}} -- Two-component dropout: time-dependent
+    (flat rate) and outcome-dependent (biased by symptom
+    change). Implements last-observation-carried-forward
+    censoring.
+\end{itemize}
+
+\subsection{plottingfunctions.R}
+
+Visualization:
+
+\begin{itemize}
+  \item \textbf{\texttt{PlotModelingResults()}} -- Power heatmaps across
+    4-dimensional parameter grids with \texttt{ggplot2 geom\_tile}
+    and \texttt{facet\_grid}.
+  \item \textbf{\texttt{plotfactortrajectories()}} -- Factor trajectory plots
+    by trial path.
+\end{itemize}
+
+\section{Implementation Collections (\texttt{implementations/})}
+\label{sec:impl}
+
+In addition to the active package code in \texttt{R/}, the
+repository contains three parallel implementations of the
+simulation framework, each supporting different DGP
+architectures and coding styles. The active \texttt{R/}
+directory mirrors \texttt{implementations/original-extended/}.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+Collection & Architectures & Style \\
+\midrule
+\texttt{original} & B (MVN) only & data.table \\
+\texttt{original-extended} & A + B & data.table \\
+\texttt{tidyverse} & A + B & tidyverse \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{itemize}
+  \item \textbf{\texttt{original}} -- Corrected Hendrickson
+    publication code, restricted to Architecture~B. Useful as
+    a backward-compatibility baseline and for testing the
+    Hendrickson et al.\ (2020) specification in isolation. Has
+    no \texttt{dgp\_architecture} parameter.
+
+  \item \textbf{\texttt{original-extended}} -- Production
+    implementation. Adds the \texttt{dgp\_architecture}
+    parameter to all relevant functions, supporting both
+    Architecture~A (\texttt{"mean\_moderation"}) and
+    Architecture~B (\texttt{"mvn"}, default). The active
+    \texttt{R/} package directory matches this collection
+    file-for-file.
+
+  \item \textbf{\texttt{tidyverse}} -- Complete tidyverse
+    reimplementation. All routines live in a single
+    \texttt{functions.R} file and use snake\_case names
+    (e.g., \texttt{generate\_data},
+    \texttt{build\_sigma\_matrix}, \texttt{lme\_analysis}).
+    Supports both architectures via the same
+    \texttt{dgp\_architecture} parameter.
+\end{itemize}
+
+Each collection has its own \texttt{README.md} documenting
+parameter usage, validation results, and any
+collection-specific behavior. All three accept the same core
+parameters (\texttt{c.bm}, \texttt{carryover\_t1half},
+\texttt{lambda\_cor}); only \texttt{original-extended} and
+\texttt{tidyverse} accept the \texttt{dgp\_architecture}
+parameter.
+
+\section{Analysis Scripts}
+
+\subsection{Figure 4 (\texttt{analysis/scripts/figure4/})}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{ll}
+\toprule
+Script & Purpose \\
+\midrule
+\texttt{01-generate-power-sweep.R} & Figure 4: current code, sequential \\
+\texttt{02-generate-power-sweep-original.R} & Figure 4: original commit code \\
+\texttt{03-generate-power-by-commit.R} & Figure 4: parameterized by commit \\
+\texttt{04-generate-power-head.R} & Figure 4: current code, parallel, c.bm=\{0,0.25,0.45\} \\
+\texttt{05-pd-diagnostics.R} & PD failure rate instrumentation \\
+\texttt{06-plot-power-heatmaps.R} & Heatmap plotting with provenance \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Figure 5 (\texttt{analysis/figure5/})}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{ll}
+\toprule
+Script & Purpose \\
+\midrule
+\texttt{01-generate-parameter-sensitivity.R} & Figure 5: revised code \\
+\texttt{02-generate-parameter-sensitivity-original.R} & Figure 5: original code \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Extracted Code by Commit}
+
+Code from each historical commit extracted for comparison.
+Following the 2026-04-08 reorganization, these snapshots live
+in \texttt{analysis/archive/}:
+
+\begin{verbatim}
+analysis/archive/commit_42ac030/   # Initial (publication)
+analysis/archive/commit_8609f12/   # Ron Thomas edits
+analysis/archive/commit_f6ee86d/   # Autocorrelation typo fix
+analysis/archive/commit_f70f86d/   # Carryover added
+analysis/archive/commit_325314f/   # Modified Db (broken)
+analysis/archive/original_R/       # Copy of 42ac030
+\end{verbatim}
+
+The earlier exploratory tidyverse pipeline (\texttt{analysis/2025/})
+has been moved to an external archive at
+\texttt{\textasciitilde/Dropbox/prj/alz/10-pmsimstats-ng/archive/2025/}
+and is no longer part of the working repository. Its successor
+is the maintained tidyverse implementation in
+\texttt{implementations/tidyverse/} (see Section~\ref{sec:impl}).
+
+\section{Documentation (\texttt{docs/})}
+
+The full documentation index is in
+\texttt{00-documentation-index.tex}; the table below summarizes
+each document by number. Sources are in \texttt{docs/}; rendered
+PDFs are in \texttt{docs/pdf/}.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{rll}
+\toprule
+\# & Document & Content \\
+\midrule
+01 & Codebase Overview & Package structure, parameters, dependencies (this doc) \\
+02 & Two DGP Architectures & White paper: Architecture~A vs.\ B power under carryover \\
+03 & Audit and Revision Report & Seven DGP corrections, PD resolution, deliverables \\
+04 & Revised Power Analysis & Architecture~B problems, fixes, validated results \\
+06 & AR(1) Residual Correlation & \texttt{lmer} to \texttt{nlme} transition with Type I validation \\
+07 & Positive Definiteness Failures & PD failure prevalence and causes (Arch~B) \\
+08 & BM-BR Correlation Decay & Pharmacokinetic derivation of $\lambda_{\text{cor}}$ (Arch~B) \\
+09 & Carryover Correlation Artifact & BM-BR correlation artifact analysis (Arch~B) \\
+10 & Carryover Analysis Assessment & Carryover characterization in actual data \\
+13 & Figure 4 Walkthrough & Pre-audit methodology reference (historical) \\
+14 & Trial Analysis Guide & Collaborator goal implementation \\
+15 & Tidyverse Alignment Plan & Planning record (largely executed in April 8 merge) \\
+16 & Tidyverse Code Review & Review of pre-merge \texttt{analysis/2025/} code (historical) \\
+17 & Simplification Plan & Exploratory; not adopted in April 8 refactor \\
+18 & Response Parameter Sensitivity & Figure 5 sensitivity before/after (Arch~B) \\
+19 & Mean Moderation Implementation & Architecture~A derivation (\texttt{.tex} canonical, \texttt{.md} summary) \\
+20 & Annotated Bibliography & N-of-1 simulation methodology literature \\
+21 & Architecture Comparison Summary & Brief empirical contrast of Arch~A vs.\ B \\
+22 & Journal Target Recommendation & Publication strategy for white paper \texttt{02} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Bundled Data (\texttt{data/})}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{ll}
+\toprule
+File & Content \\
+\midrule
+\texttt{results\_core.rda} & Published Figure 4 results (initial commit, 500 reps) \\
+\texttt{extracted\_bp.rda} & Baseline parameters (BP mean/SD, CAPS mean/SD) \\
+\texttt{extracted\_rp.rda} & Response parameters (Gompertz max/disp/rate/sd) \\
+\texttt{CTdata.rda} & Actual clinical trial data \\
+\texttt{results\_maxes.rda} & Figure 5A results (response maxima) \\
+\texttt{results\_rates.rda} & Figure 5B results (response rates) \\
+\texttt{results\_trajectories.rda} & Factor trajectory data \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Key Parameters}
+
+\subsection{Current Configuration (Revised Code)}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+Parameter & Value & Rationale \\
+\midrule
+\texttt{dgp\_architecture} & \texttt{"mvn"} (default) & Architecture~B; \texttt{"mean\_moderation"} for A \\
+Autocorrelation & AR(1), $\rho = 0.7$ & PD-feasible, clinically realistic \\
+\texttt{c.bm} (Arch~B) & $\{0, 0.25, 0.45\}$ & Max PD-feasible $\approx 0.45$ (OL+BDC) \\
+\texttt{c.bm} (Arch~A) & up to $0.95$ & PD constraint absent under Arch~A \\
+Carryover $t_{1/2}$ & $\{0, 0.5, 1.0\}$ weeks & Clinically realistic \\
+\texttt{lambda\_cor} & $\ln 2 / t_{1/2}$ (auto) & Pharmacokinetic derivation \\
+Cross-factor (same $t$) & \texttt{c.cf1t} $= 0.2$ & Unchanged from publication \\
+Cross-factor (diff $t$) & \texttt{c.cfct} $\cdot \rho^{|t_i-t_j|}$ & AR(1) decay applied \\
+Analysis model & \texttt{nlme::lme} + \texttt{corCAR1} & Required for AR(1) Type I control \\
+PD corrections & 0/162 (0\%) & All matrices valid \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Publication Configuration (Original Code)}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+Parameter & Value & Issue \\
+\midrule
+Autocorrelation & CS, rho = 0.8 & PD failures at c.bm > 0.25 \\
+c.bm & \{0, 0.3, 0.6\} & 0.6 exceeds PD-feasible range \\
+Carryover t\_half & \{0, 0.1, 0.2\} weeks & Too short for genuine effects \\
+BM-BR correlation & Step function & Power drop artifact \\
+Analysis model & lmer (no corCAR1) & Correct under CS \\
+PD corrections & 40/162 (24.7\%) & Silent, uncontrolled \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Dependencies}
+
+Core: \texttt{data.table}, \texttt{nlme}, \texttt{lme4}, \texttt{lmerTest}, \texttt{corpcor},
+\texttt{MASS}, \texttt{ggplot2}
+
+Performance: \texttt{furrr}, \texttt{future} (parallel processing)
+
+Legacy (in DESCRIPTION but used minimally): \texttt{svMisc},
+\texttt{tictoc}, \texttt{ggpubr}, \texttt{gridExtra}
+
+\vfill
+\noindent\rule{\textwidth}{0.4pt}
+{\footnotesize
+Rendered on 2026-04-09 at 18:27 PDT.\\
+Source: \textasciitilde/prj/alz/10-pmsimstats-ng/pmsimstats-ng/docs/01-codebase-overview.tex}
+\end{document}

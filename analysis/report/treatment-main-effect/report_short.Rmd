@@ -1,0 +1,597 @@
+---
+title: "Comparative Statistical Power of N-of-1 Trials versus Randomized Controlled Trials: A Simulation Study of Prazosin for PTSD Nightmares (Short Report)"
+author:
+  - name: "[Author Name]"
+    affiliation: "[Institution]"
+    email: "[email@institution.edu]"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    keep_tex: true
+    number_sections: true
+    toc: false
+    highlight: tango
+    fig_caption: true
+bibliography: "nof1-pgt.bib"
+csl: statistics-in-medicine.csl
+link-citations: true
+fontsize: 11pt
+geometry: "left=2.5cm,right=2.5cm,top=2cm,bottom=2cm"
+header-includes:
+  - \usepackage{amsmath}
+  - \usepackage{amsfonts}
+  - \usepackage{amssymb}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{array}
+  - \usepackage{threeparttable}
+  - \usepackage{threeparttablex}
+  - \usepackage{makecell}
+  - \usepackage{float}
+abstract: |
+  **Background:** N-of-1 trials evaluate treatment effects within
+  individual patients through crossover designs and may offer
+  statistical-efficiency advantages over parallel-group randomized
+  controlled trials (RCTs), but their relative power under realistic
+  carryover, variance, and serial-correlation conditions is
+  incompletely characterised. **Methods:** We conducted a Monte
+  Carlo simulation study comparing aggregated N-of-1 trials with
+  parallel-group RCTs for detecting treatment effects of prazosin
+  on PTSD nightmares. Carryover was modelled with first-order
+  pharmacokinetics at half-lives of 0.5 to 7 days. The primary
+  comparison used 1,000 replicates; twelve sensitivity sweeps
+  (S1-S12) probed effect size, carryover, variance components,
+  cycles, AR(1) correlation, biomarker interaction, and Type I
+  error. Reporting follows Morris, White, and Crowther (2019) ADEMP
+  guidance with Monte Carlo standard errors for every performance
+  measure. **Results:** At the baseline scenario (true effect
+  -2.0 nightmares/week, carryover half-life 3 days), the aggregated
+  N-of-1 design achieved higher power than the matched parallel
+  RCT with unbiased effect estimation in both designs and Type I
+  error near nominal. Across the sensitivity sweeps the hybrid
+  N-of-1 reached 80% power at roughly one-third to one-half the
+  sample size required by the parallel RCT, absorbed
+  between-patient and within-patient variance efficiently, and
+  retained nominal Type I error under AR(1) residual correlation
+  where the parallel-group analysis showed Type I inflation.
+  **Conclusions:** Aggregated N-of-1 designs, particularly the
+  Hendrickson (2020) hybrid, provide a statistically efficient
+  alternative to parallel-group RCTs for continuous outcomes with
+  substantial individual variability and manageable carryover. The
+  parallel RCT remains preferable when carryover exceeds the
+  within-subject period length or when serial correlation is
+  negligible. **Keywords:** N-of-1 trials; randomized controlled
+  trials; statistical power; crossover design; carryover effects;
+  PTSD; prazosin; precision medicine.
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 7,
+  fig.height = 4.5,
+  dpi = 300,
+  fig.pos = "H",
+  eval = TRUE
+)
+
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+
+# Load the simulation workspace produced by
+# analysis/scripts/simulation.R (via tools/run_sim_save.R).
+sim_workspace <- here::here(
+  "analysis", "data", "derived_data", "sim_workspace.RData"
+)
+if (file.exists(sim_workspace)) {
+  load(sim_workspace)
+} else {
+  stop(sprintf(
+    "Simulation workspace not found at %s. Run `Rscript -e \"source('tools/run_sim_save.R')\"` first.",
+    sim_workspace
+  ))
+}
+
+# Morris MCSE helper (also available in the loaded workspace, but
+# redeclared here so inline expressions are self-contained).
+calculate_mcse_proportion <- function(p, n_sim) {
+  sqrt(p * (1 - p) / n_sim)
+}
+
+rct_power_mcse <- calculate_mcse_proportion(rct_power, n_simulations)
+n_of_1_power_mcse <- calculate_mcse_proportion(n_of_1_power,
+                                               n_simulations)
+i_squared_mean <- round(mean(i_squared_values, na.rm = TRUE), 1)
+tau_squared_mean <- round(mean(tau_squared_values, na.rm = TRUE), 3)
+```
+
+# Introduction
+
+The clinical research landscape is moving toward personalised
+medicine approaches that recognise substantial inter-individual
+variation in treatment response
+[@lillieNof1ClinicalTrial2011; @nam2021expanding]. Parallel-group
+randomized controlled trials (RCTs) remain the gold standard for
+establishing population-level treatment effects but may not
+optimally capture individual-level heterogeneity
+[@kravitzSinglepatientNof1Trials2014;
+@marshallScopingReviewRandomized2022]. N-of-1 trials, in which
+each patient serves as their own control across repeated
+crossover periods, can reduce between-patient confounding while
+providing both individual and population-level inference when
+aggregated via meta-analysis
+[@zuckerIndividualNof1Trials2010;
+@chenComparisonAggregatedNof12020;
+@vohraCONSORTExtensionReporting2015].
+
+The statistical power of aggregated N-of-1 designs depends on a
+different variance decomposition than parallel-group RCTs. Under
+the Senn [-@sennSampleSizeConsiderations2019] Normal-Normal
+mixture model with $n$ patients each completing $k$ paired
+cycles, the population treatment estimator $\hat{\Delta}$ has
+variance
+
+$$\operatorname{Var}(\hat{\Delta}) =
+  \frac{\tau^{2} + 2\sigma^{2}/k}{n},$$
+
+where $\tau^{2}$ is the between-patient variance of individual
+treatment effects and $\sigma^{2}$ is the within-patient,
+within-period variance. Increasing $k$ reduces only the
+$2\sigma^{2}/k$ component, whereas increasing $n$ reduces the
+entire expression proportionally
+[@zuckerIndividualNof1Trials2010;
+@sennSampleSizeConsiderations2019;
+@arendsSampleSizeConsiderations2019]. Because the between-patient
+variance is absorbed by the within-subject contrast, the N-of-1
+advantage is largest when between-patient heterogeneity is
+non-negligible.
+
+Closed-form power formulas rest on assumptions of negligible
+carryover, independent within-patient observations, balanced
+period structure, and Gaussian outcomes. In practice these
+assumptions may fail: prazosin's neuroadaptive effects produce
+partial carryover [@yapBehavioralCarryoverEffect2024],
+within-patient series are typically serially correlated
+[@tangTtestsNof1Trials2020; @wangPowerDesignIssues2019], and
+period lengths and schedules are often constrained by clinical
+feasibility
+[@liuConsiderationsCrossoverDesign2021]. Prior simulation
+comparisons report an N-of-1 efficiency advantage under moderate
+heterogeneity and modest carryover
+[@blackstonComparisonAggregatedNof12019;
+@carrozzoTwoArm2025; @hendricksonOptimizing2020], with the
+advantage eroded by long carryover or uncorrected AR(1)
+structure [@gaertnerCarryover2023; @wangPowerDesignIssues2019].
+A structured review of this corpus is provided in
+`docs/literature-review-nof1-vs-parallel-2026-04-17.md` and is
+summarised here for context.
+
+Prazosin for PTSD nightmares is a suitable evaluation scenario
+because it combines substantial individual variation in response
+[@raskindReductionNightmaresOther2003;
+@raskindTrialPrazosinPostTraumatic2018], a short pharmacokinetic
+half-life compatible with crossover
+[@Khazaie2016Prazosin; @mayerRandomizedControlledPilot2023], and
+a continuous weekly outcome amenable to repeated assessment.
+
+**Objectives.** We compare the statistical power of aggregated
+N-of-1 trials with parallel-group RCTs for detecting treatment
+effects in a prazosin-for-PTSD scenario. Secondary objectives
+are: (1) to quantify the impact of carryover half-life on power
+under both designs, (2) to identify the design and analysis
+parameter ranges in which each design is preferred, and (3) to
+evaluate Type I error control under potential analysis
+misspecification.
+
+# Methods
+
+We conducted a Monte Carlo simulation in R 4.4 following the
+Morris, White, and Crowther [-@morris2019using] ADEMP structure.
+The primary scenario compares a parallel-group RCT (100
+participants, 50 per arm) with an aggregated N-of-1 design
+(`r sprintf('%d', n_of_1_individuals)` patients each observed
+over `r sprintf('%d', n_of_1_periods)` weekly crossover periods,
+giving 40 prazosin and 40 placebo observations). Weekly
+nightmare frequency is the continuous outcome, with baseline
+frequency 8/week, a true treatment effect of
+`r sprintf('%.1f', true_effect)` nightmares/week, between-patient
+SD 1.5, and within-patient SD 1.0 calibrated to published
+prazosin trials [@Raskind2013Trial;
+@raskindTrialPrazosinPostTraumatic2018].
+
+**Data-generating mechanism.** Carryover is modelled with
+first-order elimination kinetics:
+
+$$\text{Carryover} =
+  \text{Treatment Effect}\times
+  \exp\!\left(-\frac{\ln 2 \times
+  \text{Period Length}}{\text{Half-life}}\right).$$
+
+Six half-lives are evaluated (0.5, 1, 2, 3, 5, 7 days), spanning
+minimal carryover through half-life equal to the period length.
+The 3-day half-life is the primary scenario, consistent with
+prazosin's neuroadaptive effects on sleep architecture
+[@Khazaie2016Prazosin]. Across sensitivity sweeps the framework
+also varies between-patient heterogeneity, within-patient
+variance, cycles per patient $k$, participant count $n$, AR(1)
+residual correlation $\rho$, period length, decay form
+(exponential, linear, Weibull, power), and biomarker interaction
+strength under two data-generating architectures
+(covariance-encoded and mean-moderation) following
+[@hendricksonOptimizing2020].
+
+**Estimands and analysis.** RCT simulations use independent-
+samples $t$-tests on end-of-study means. N-of-1 trials are
+analysed by restricting to on-drug and pure-placebo periods, with
+carryover-affected placebo periods excluded from the primary
+analysis [@yapBehavioralCarryoverEffect2024]. Individual
+patient-level treatment estimates are combined by
+DerSimonian-Laird random-effects meta-analysis
+[@zuckerIndividualNof1Trials2010], with
+$w_{i} = 1/(\hat{\sigma}_{i}^{2} + \tau^{2})$ and heterogeneity
+quantified by $\tau^{2}$ and $I^{2}$. Sensitivity sweeps use
+the Hendrickson hybrid (open-label titration, blinded
+discontinuation, brief crossover) as the primary N-of-1 design,
+with an alternating A/B/A/B variant as comparator. All hybrid
+analyses use an `nlme::lme` model with random intercept per
+patient and `corCAR1(form = ~t | ptID)` residual correlation;
+the target of inference is the main drug effect coefficient
+`Dbc`.
+
+**Performance measures.** Following Morris et al.
+[-@morris2019using] we report power, bias, empirical standard
+error, mean squared error, and Type I error, each with Monte
+Carlo standard error (MCSE). For power near 75%, the primary
+simulation with $n_{\text{sim}} = 1{,}000$ gives MCSE
+$\approx 1.4\%$ (required precision
+$n_{\text{sim}} = 0.75(0.25)/0.015^{2} \approx 833$). Type I
+error is evaluated under the null hypothesis with 500 replicates
+(MCSE $\approx 1.0\%$). Scenario-grid power uses
+$n_{\text{sim}} = 100$ (MCSE $\approx 4.3\%$) and the null
+calibration sweep (S12) uses 2,000 replicates for MCSE $\approx
+0.5\%$. Seeds are set at simulation entry
+(`set.seed(42 + sweep_id)`) and per-replicate results are stored
+so that all performance measures can be recomputed with MCSE at
+render time. Complete code is in the accompanying repository.
+
+# Results
+
+## Primary power comparison
+
+At the primary scenario the empirical power was
+`r sprintf('%.1f%%', rct_power * 100)` for the RCT
+(MCSE `r sprintf('%.1f pp', rct_power_mcse * 100)`)
+and `r sprintf('%.1f%%', n_of_1_power * 100)` for the
+aggregated N-of-1 study (MCSE
+`r sprintf('%.1f pp', n_of_1_power_mcse * 100)`).
+Under the Morris §5.4 paired design, the within-replicate power
+difference was `r sprintf('%.3f', paired_power_diff)` (paired
+MCSE `r sprintf('%.4f', paired_power_diff_mcse)`) -- smaller
+than the square-root-sum of the two marginal MCSEs, reflecting
+the variance reduction from applying both designs to the same
+simulated patient pool.
+
+```{r primary-results-table}
+rct_bias <- mean(rct_effects) - true_effect
+n_of_1_bias <- mean(n_of_1_effects) - true_effect
+
+primary_results <- data.frame(
+  Design = c("RCT", "N-of-1"),
+  `Sample Size` = c(
+    "100 (50 per group)",
+    "10 individuals x 8 periods"
+  ),
+  `Power (\\%)` = c(
+    sprintf("%.1f (%.1f)", rct_power * 100,
+            rct_power_mcse * 100),
+    sprintf("%.1f (%.1f)", n_of_1_power * 100,
+            n_of_1_power_mcse * 100)
+  ),
+  `Mean Effect` = c(round(mean(rct_effects), 2),
+                    round(mean(n_of_1_effects), 2)),
+  `Bias` = c(round(rct_bias, 3), round(n_of_1_bias, 3)),
+  `Emp. SE` = c(round(sd(rct_effects), 2),
+                round(sd(n_of_1_effects), 2)),
+  check.names = FALSE
+)
+
+kable(primary_results,
+      caption = paste(
+        "Primary simulation results (n\\_sim = 1000).",
+        "Power values show estimate (MCSE).",
+        "True effect = -2.0 nightmares/week,",
+        "carryover half-life = 3 days."),
+      booktabs = TRUE) |>
+  kable_styling(latex_options = c("hold_position")) |>
+  footnote(general = paste(
+    "MCSE = Monte Carlo standard error;",
+    "Emp. SE = empirical SE of effect estimates",
+    "across simulations."),
+    footnote_as_chunk = TRUE)
+```
+
+Effect estimates were essentially unbiased in both designs
+(|bias| < 0.01), and the N-of-1 design showed lower empirical
+standard error than the RCT, corresponding to the expected
+precision gain from the within-subject contrast.
+
+## Power across effect sizes and carryover
+
+```{r power-curves, fig.cap="Statistical power by effect size and carryover half-life. Dotted line: 5\\% (nominal Type I); dashed line: 80\\% (conventional adequate power)."}
+pc_df <- power_results
+pc_df$Halflife_Label <- factor(
+  sprintf("Half-life: %g d", pc_df$Halflife_Days),
+  levels = sprintf("Half-life: %g d",
+                   sort(unique(pc_df$Halflife_Days)))
+)
+
+ggplot(pc_df, aes(x = Effect_Size, y = Power * 100,
+                  colour = Study_Type, shape = Study_Type)) +
+  geom_hline(yintercept = 5, linetype = "dotted",
+             colour = "grey40") +
+  geom_hline(yintercept = 80, linetype = "dashed",
+             colour = "grey40") +
+  geom_line(linewidth = 0.6) +
+  geom_point(size = 1.8) +
+  geom_errorbar(
+    aes(ymin = pmax(0, (Power - 1.96 * Power_MCSE) * 100),
+        ymax = pmin(100, (Power + 1.96 * Power_MCSE) * 100)),
+    width = 0.05, alpha = 0.7
+  ) +
+  facet_wrap(~ Halflife_Label, ncol = 3) +
+  scale_colour_manual(values = c("RCT" = "#2E86AB",
+                                 "N-of-1" = "#A23B72")) +
+  scale_x_continuous(breaks = sort(unique(pc_df$Effect_Size))) +
+  labs(x = "True effect (nightmares/week)",
+       y = "Statistical power (%)",
+       colour = "Design", shape = "Design") +
+  theme_bw(base_size = 9) +
+  theme(legend.position = "bottom",
+        panel.grid.minor = element_blank())
+```
+
+Power varied systematically with effect size and carryover
+half-life. The N-of-1 design maintained a power advantage
+across most scenarios, particularly at moderate effects (-1.5 to
+-2.5 nightmares/week) and half-lives $\le 3$ days, where the
+advantage was approximately 10-15 percentage points. The RCT
+power was invariant to carryover by construction. The crossover
+point at which the RCT exceeded the N-of-1 power occurred when
+carryover half-life approached or exceeded the period length
+(7 days) for small effects ($|\Delta| < 1.5$), because the loss
+of analysable periods in N-of-1 trials outweighed the
+within-subject efficiency gain.
+
+## Type I error and Morris (2019) performance summary
+
+```{r type-i-error}
+type1_results <- data.frame(
+  Design = c("RCT", "N-of-1"),
+  `Type I Error (\\%)` = c(
+    sprintf("%.1f (%.1f)", rct_type1 * 100,
+            rct_type1_mcse * 100),
+    sprintf("%.1f (%.1f)", n_of_1_type1 * 100,
+            n_of_1_type1_mcse * 100)
+  ),
+  `95\\% CI` = c(
+    sprintf("%.1f--%.1f",
+            (rct_type1 - 1.96 * rct_type1_mcse) * 100,
+            (rct_type1 + 1.96 * rct_type1_mcse) * 100),
+    sprintf("%.1f--%.1f",
+            (n_of_1_type1 - 1.96 * n_of_1_type1_mcse) * 100,
+            (n_of_1_type1 + 1.96 * n_of_1_type1_mcse) * 100)
+  ),
+  check.names = FALSE
+)
+
+kable(type1_results,
+      caption = paste(
+        "Type I error under the null hypothesis",
+        "(n\\_sim = 500). Values show estimate (MCSE).",
+        "Nominal level = 5\\%."),
+      booktabs = TRUE) |>
+  kable_styling(latex_options = c("hold_position"))
+```
+
+Both designs controlled Type I error at the nominal level under
+the null, supporting the validity of the observed power
+differences. Full Morris (2019) performance measures
+(bias, bias MCSE, empirical SE, emp-SE MCSE, MSE, power with
+MCSE and 95% CI, and Type I error with 95% CI) are tabulated in
+the accompanying full report (`report.Rmd` §Results).
+
+## Sensitivity synthesis (S1-S12)
+
+The twelve sensitivity sweeps (each sourcing `00-common.R` with
+seed `42 + sweep_id`, storing per-replicate rows in
+`analysis/data/derived_data/sensitivity/`) yielded five main
+findings; per-sweep figures and tables are in the full report
+(§Sensitivity Analyses).
+
+1. **Sample-size advantage.** At the prazosin-calibrated
+   baseline, the hybrid N-of-1 reached 95% power at $N = 16$
+   participants while the parallel RCT required approximately
+   $N = 40$ for the same power. The hybrid reached 80% power at
+   a minimum detectable effect of roughly -1.0 nightmares/week
+   versus roughly -1.5 for the RCT, a one-third reduction.
+
+2. **Robustness to variance components.** Across the $\tau$
+   sweep (S4, between-patient SD from 0.5 to 2.0) and the
+   $\sigma$ sweep (S5, within-patient SD from 0.5 to 1.5), the
+   hybrid stayed at or near 1.00 power while the parallel RCT
+   lost approximately 12 and 18 percentage points of power
+   respectively, reproducing the Senn
+   [-@sennSampleSizeConsiderations2019] variance-decomposition
+   prediction that the within-subject contrast absorbs both
+   nuisance components.
+
+3. **Carryover depends on design flavour.** The hybrid's
+   open-label titration phase retained 100% power up to
+   $t_{1/2} = 5$ days and 74% at $t_{1/2} = 14$ days (S2). The
+   alternating A/B/A/B variant eroded from 90% at $t_{1/2} = 0$
+   to 30% at 14 days. The parallel RCT was essentially
+   unaffected by carryover (0.92-0.96 flat across the grid). A
+   pragmatic rule: when carryover is expected to exceed the
+   within-subject period length, prefer the hybrid over the
+   alternating variant; when it approaches the trial duration,
+   the parallel RCT becomes the reasonable default.
+
+4. **AR(1) serial correlation.** Under
+   $\rho \in \{0, 0.3, 0.5, 0.7, 0.9\}$ (S8), the hybrid stayed
+   saturated at 100% power while the parallel RCT dropped from
+   98% to 75%. The S11 misspecification factorial showed
+   parallel-RCT Type I error inflating to 0.11-0.13 under
+   $\rho = 0.7$ whereas the hybrid remained in [0.036, 0.056]
+   across the four null cells. This reproduces the
+   Wang-Schork [-@wangPowerDesignIssues2019] finding that
+   within-subject designs absorb serial correlation via
+   `corCAR1` efficiently while between-subject designs require
+   a more elaborate residual specification (subject-specific
+   AR(1) or a between-subject random slope).
+
+5. **Type I error control (S12 null calibration,
+   $n_{\text{sim}} = 2{,}000$).** Hybrid N-of-1 in [0.056, 0.062],
+   alternating N-of-1 in [0.057, 0.064], parallel RCT in
+   [0.029, 0.060] (three configurations conservative, one
+   nominal), and the two-period crossover modestly inflated in
+   [0.100, 0.130]. Two-period crossovers should therefore be
+   analysed without a serial-correlation structure (paired
+   $t$-test on change scores, or `lme` with unstructured
+   residuals).
+
+Decay-form misspecification (S3) produced a power range of
+roughly 15 percentage points for the alternating N-of-1 and
+essentially no change for the parallel RCT
+[@gaertnerCarryover2023], confirming that decay-form
+misspecification has a within-subject cost only. The biomarker
+sweep (S10) showed main-effect power to be invariant to
+biomarker coupling strength and DGP architecture (covariance
+vs. mean-moderation), as expected when the estimand is the main
+drug effect rather than the biomarker-by-treatment interaction.
+
+# Discussion
+
+Aggregated N-of-1 trials provided superior statistical power
+relative to parallel-group RCTs at the prazosin-calibrated
+baseline, with the Hendrickson [-@hendricksonOptimizing2020]
+hybrid design reaching 80% power at roughly one-third to
+one-half the sample size required by the parallel RCT. The
+direction and magnitude match Blackston
+[-@blackstonComparisonAggregatedNof12019] and Carrozzo
+[-@carrozzoTwoArm2025], and the variance-decomposition pattern
+across the $\tau$ and $\sigma$ sweeps reproduces the Senn
+[-@sennSampleSizeConsiderations2019] prediction that the
+within-subject contrast absorbs both nuisance components.
+
+**Carryover and design selection.** Modest carryover (half-lives
+1-3 days) could be managed by period exclusion without
+substantially compromising power. The hybrid's multi-phase
+structure confers additional carryover robustness via signal
+accumulation in the open-label titration phase. When carryover
+half-life exceeds the within-subject period length, or when the
+investigator cannot commit to a hybrid schedule, the parallel
+RCT remains preferable. Explicit carryover modelling in the
+analysis is a viable alternative to period exclusion and can
+retain more information when the carryover structure is
+correctly specified
+[@tangTtestsNof1Trials2020; @schmidBayesianModelsNof12021];
+however, the decay-form misspecification sweep (S3) shows that
+within-subject analyses pay a design-specific cost when the
+assumed decay form is wrong, whereas the parallel RCT does not.
+
+**Serial correlation.** The S8 and S11 sweeps confirm that the
+within-subject design with `corCAR1` residual structure absorbs
+AR(1) correlation efficiently, whereas the parallel-group
+analysis with a standard random-intercept-plus-`corCAR1`
+specification loses power and inflates Type I error under high
+$\rho$. Trials with expected strong autocorrelation and a
+parallel-group analysis plan should either pre-specify a
+subject-specific AR(1) residual, add a between-subject random
+slope on time, or use a pre-estimated $\rho$ from pilot data.
+
+**Clinical context and generalisability.** Prazosin for PTSD
+nightmares was chosen because it combines substantial individual
+variability, a short pharmacokinetic half-life, and a continuous
+outcome. These features are shared by many precision-medicine
+settings: chronic symptom-based conditions with heterogeneous
+response, medications with manageable pharmacokinetics, and
+outcomes amenable to repeated assessment. Generalisation to
+settings with binary outcomes, long half-lives relative to
+period length, or active compliance challenges would require
+re-evaluation.
+
+**Limitations.** Our simulation assumes perfect compliance, no
+missing data, and a single continuous outcome. The Hendrickson
+hybrid saturates at 1.00 power across several sensitivity
+sweeps at the prazosin-calibrated effect size, so the sensitivity
+direction in those cells is bounded rather than quantified;
+follow-up sweeps at half the baseline effect would resolve the
+saturation. The S11 parallel-RCT Type I inflation under high
+$\rho$ reflects a small-sample instability in the `corCAR1`
+correlation estimate and is best read as a caution about default
+specifications rather than a structural failure of the design.
+Finally, several N-of-1 design variants (single-subject,
+open-label only, OL+BDC without crossover, multi-cycle
+crossover, complete designs, sequential-monitoring variants,
+randomised-block N-of-1) were not evaluated; their anticipated
+ordering relative to the present results is documented in the
+full report.
+
+**Future work.** Empirical head-to-head validation of the
+simulation predictions, adaptive N-of-1 schedules with
+sequential stopping [@jiangDesignAnalysis2025;
+@selukarFrameworkSequential2025], Bayesian hierarchical analysis
+variants [@schmidBayesianModelsNof12021], and hybrid designs
+that retain N-of-1 efficiency while accommodating
+implementation constraints [@mcdonaldMakingSwitchCase2019] are
+the natural extensions.
+
+# Conclusions
+
+Aggregated N-of-1 trials, and the Hendrickson
+[-@hendricksonOptimizing2020] hybrid design in particular,
+provide a statistically efficient alternative to parallel-group
+RCTs for continuous outcomes with substantial individual
+variability and manageable carryover. They retain nominal Type I
+error under realistic AR(1) residual correlation where the
+standard parallel-group analysis does not, and they reach 80%
+power at roughly one-third to one-half the sample size required
+by the parallel RCT at the prazosin-calibrated baseline. The
+parallel RCT remains preferable when carryover half-life
+exceeds the within-subject period length, when serial
+correlation is weak, or when operational constraints preclude
+the hybrid schedule. These findings support the expanded use of
+N-of-1 methodology in precision-medicine applications while
+clarifying the parameter regions in which each design is
+preferred.
+
+This short report summarises the full manuscript (`report.Rmd`);
+the twelve sensitivity sweeps, per-sweep figures, Morris (2019)
+ADEMP audit details, and extended methodological derivations
+are documented there and in the accompanying repository.
+
+# Acknowledgments
+
+We thank the clinical researchers whose published work on
+prazosin for PTSD provided the empirical foundation for our
+simulation parameters, and the N-of-1 trials research community
+for the analytical frameworks that made this work possible.
+
+# References
+
+<div id="refs"></div>
+
+---
+
+**Competing Interests:** The authors declare no competing
+interests.
+
+**Data Availability:** All simulation code and results are
+available at the project repository. No human subjects data were
+collected.
+
+**Funding:** [To be filled in based on actual funding sources]

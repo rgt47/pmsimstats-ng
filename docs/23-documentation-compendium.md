@@ -36,7 +36,6 @@ than those files.
 |---|---|---|
 | 00-documentation-index.tex | Navigation index | Current |
 | 01-codebase-overview.tex | Package structure and parameter table | Current |
-| 02-dgp-mean-moderation-vs-mvn.tex | Dual architecture white paper | Current |
 | 02-revision-response-latent-class-expanded.md | Psychometric connection | Current |
 | 02-revision-response-to-reviewer.md | Editorial revision log | Current |
 | 03-audit-and-revision-report.tex | Seven DGP corrections | Current (foundational) |

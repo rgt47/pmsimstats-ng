@@ -1,0 +1,424 @@
+---
+title: "Extended Comparison of Clinical Trial Designs"
+author: "nof1power"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    fig_width: 7
+    fig_height: 5
+    extra_dependencies: ["booktabs", "float"]
+    keep_tex: true
+vignette: >
+  %\VignetteIndexEntry{Extended Comparison of Clinical Trial Designs}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include=FALSE}
+# Install TinyTeX if needed for the LaTeX packages
+if (!requireNamespace("tinytex", quietly = TRUE)) {
+  install.packages("tinytex")
+}
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 7,   # Adjusted for PDF output
+  fig.height = 5,  # Adjusted for PDF output
+  out.width = "100%"
+)
+
+# Load the necessary packages
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(rlang)
+library(nlme)
+library(knitr)
+library(kableExtra)
+
+# Try to load the package functions
+tryCatch({
+  library(nof1power)
+  cat("Successfully loaded nof1power library\n")
+}, error = function(e) {
+  cat("Failed to load nof1power: ", conditionMessage(e), "\n")
+  stop("Required package not found. Please ensure nof1power is installed.")
+})
+```
+
+# Introduction
+
+This vignette demonstrates how to use the `nof1power` package to compare different clinical trial designs. We'll simulate data for two different designs and compare their ability to detect the relationship between a biomarker and treatment response, based on the research by Hendrickson et al. (2020) "Optimizing Aggregated N-Of-1 Trial Designs for Predictive Biomarker Validation: Statistical Methods and Theoretical Findings" published in Frontiers in Digital Health.
+
+## Performance Optimizations
+
+The `nof1power` package has been optimized for improved performance in several key ways:
+
+1. **Vectorized Operations**: Replaced nested loops with efficient vectorized operations for faster matrix calculations
+2. **Parallel Processing**: Enabled multi-core parallel processing for generating and analyzing data
+3. **Memory Efficiency**: Implemented pre-allocation of data structures and chunking to reduce memory usage
+4. **Cached Calculations**: Added caching of empirical true beta calculations to avoid redundant calculations
+5. **Matrix Operations**: Optimized handling of large correlation and covariance matrices with faster algorithms
+6. **Function Call Reduction**: Eliminated redundant function calls in simulation loops
+
+These optimizations allow for larger simulations with more Monte Carlo replications while using less computational resources. This vignette demonstrates these improvements with a realistic clinical trial design comparison.
+
+## Design Comparison: Hybrid N-of-1 vs Traditional Crossover Design
+
+We'll compare two clinical trial designs as described in Hendrickson et al. (2020):
+
+1. **Hybrid N-of-1 design (Design 4)**: Open-label + blinded discontinuation + crossover, where each participant starts with an 8-week open-label phase (active treatment), followed by a 4-week blinded discontinuation, and then an 8-week crossover phase (4 weeks active, 4 weeks placebo)
+2. **Traditional crossover design (Design 3)**: A standard crossover trial where participants are randomly assigned to either receive 10 weeks of treatment followed by 10 weeks of placebo, or 10 weeks of placebo followed by 10 weeks of treatment
+
+## Step 1: Define Model Parameters
+
+First, we'll set up the parameters for our simulation:
+
+```{r params}
+# Number of participants
+n_participants <- 30
+
+# Set up model parameters
+model_params <- tibble(
+  N = n_participants,
+  c.bm = 0.7,           # Correlation between biomarker and response
+  carryover_t1half = 1, # Halflife of carryover effect in weeks
+  c.tv = 0.9,           # Time-varying factor autocorrelation
+  c.pb = 0.8,           # Pharmacodynamic biomarker autocorrelation
+  c.br = 0.85,          # Biologic response autocorrelation
+  c.cf1t = 0.3,         # Cross-factor correlation (same timepoint)
+  c.cfct = 0.1          # Cross-factor correlation (different timepoints)
+)
+
+# Response parameters for the three factors
+resp_params <- tibble(
+  cat = c("time_variant", "pharm_biomarker", "bio_response"),
+  max = c(5, 10, 15),   # Maximum response values
+  disp = c(2, 3, 2.5),  # Displacement parameters
+  rate = c(0.2, 0.4, 0.3), # Rate parameters
+  sd = c(1, 1.5, 2)     # Standard deviations
+)
+
+# Baseline parameters
+bl_params <- tibble(
+  cat = c("biomarker", "baseline"),
+  m = c(5, 10),         # Means
+  sd = c(2, 3)          # Standard deviations
+)
+```
+
+## Step 2: Create Trial Designs
+
+Next, we'll manually create the two different trial designs with the correct 20-week duration as described in Hendrickson et al. (2020):
+
+```{r designs}
+# Create a list to store the designs
+designs <- list()
+
+# Create trial design templates for 20 weekly measurements
+timepoint_names <- paste0("t", 1:20)
+weeks <- 1:20
+t_wk <- rep(1, 20)  # weekly measurements
+
+# Create Hybrid N-of-1 design (Design 4 from Hendrickson et al.)
+# Open-label (8 weeks) + blinded discontinuation (4 weeks) + crossover (8 weeks: 4wk active, 4wk placebo)
+hybrid_treatment <- c(rep(1, 8), rep(0, 4), rep(1, 4), rep(0, 4))
+hybrid_periods <- c(rep(1, 8), rep(2, 4), rep(3, 8))
+
+# Calculate tod (time on drug)
+hybrid_tod <- rep(0, 20)
+for (i in 1:20) {
+  if (hybrid_treatment[i] == 1) {
+    hybrid_tod[i] <- i
+  }
+}
+
+# Calculate tpb (time post baseline)
+hybrid_tpb <- c()
+tpb <- 0
+for (i in 1:20) {
+  if (hybrid_tod[i] > 0) {
+    tpb <- 0
+  } else {
+    tpb <- tpb + 1
+  }
+  hybrid_tpb[i] <- tpb
+}
+
+# Calculate tsd (time since discontinuation)
+hybrid_tsd <- c()
+tsd <- 0
+for (i in 1:20) {
+  if (i > 1) {
+    if (hybrid_treatment[i-1] == 1 && hybrid_treatment[i] == 0) {
+      tsd <- 1
+    } else if (hybrid_treatment[i] == 0) {
+      tsd <- tsd + 1
+    } else {
+      tsd <- 0
+    }
+  } else {
+    tsd <- 0
+  }
+  hybrid_tsd[i] <- tsd
+}
+
+# Create effect size (all 1 for this example)
+hybrid_e <- rep(1, 20)
+
+# Create complete Hybrid N-of-1 design dataframe
+hybrid_n_of_1_design <- data.frame()
+for (p in 1:n_participants) {
+  participant_id <- rep(p, 20)
+  df <- tibble(
+    participant_id = participant_id,
+    week = weeks,
+    period = hybrid_periods,
+    treatment = hybrid_treatment,
+    timepoint_name = timepoint_names,
+    t_wk = t_wk,
+    tod = hybrid_tod,
+    tpb = hybrid_tpb,
+    tsd = hybrid_tsd,
+    e = hybrid_e
+  )
+  hybrid_n_of_1_design <- bind_rows(hybrid_n_of_1_design, df)
+}
+
+# Create Traditional Crossover design (Design 3 from Hendrickson et al.)
+# Half start with 10 weeks active then 10 weeks placebo
+# Half start with 10 weeks placebo then 10 weeks active
+crossover_design <- data.frame()
+
+# First group: Active first, then placebo
+for (p in 1:(n_participants/2)) {
+  treatment <- c(rep(1, 10), rep(0, 10))
+  periods <- c(rep(1, 10), rep(2, 10))
+  
+  # Calculate tod (time on drug)
+  tod <- rep(0, 20)
+  for (i in 1:20) {
+    if (treatment[i] == 1) {
+      tod[i] <- i
+    }
+  }
+  
+  # Calculate tpb (time post baseline)
+  tpb <- c()
+  time_pb <- 0
+  for (i in 1:20) {
+    if (tod[i] > 0) {
+      time_pb <- 0
+    } else {
+      time_pb <- time_pb + 1
+    }
+    tpb[i] <- time_pb
+  }
+  
+  # Calculate tsd (time since discontinuation)
+  tsd <- c()
+  time_sd <- 0
+  for (i in 1:20) {
+    if (i > 1) {
+      if (treatment[i-1] == 1 && treatment[i] == 0) {
+        time_sd <- 1
+      } else if (treatment[i] == 0) {
+        time_sd <- time_sd + 1
+      } else {
+        time_sd <- 0
+      }
+    } else {
+      time_sd <- 0
+    }
+    tsd[i] <- time_sd
+  }
+  
+  # Add to design dataframe
+  participant_id <- rep(p, 20)
+  df <- tibble(
+    participant_id = participant_id,
+    week = weeks,
+    period = periods,
+    treatment = treatment,
+    timepoint_name = timepoint_names,
+    t_wk = t_wk,
+    tod = tod,
+    tpb = tpb,
+    tsd = tsd,
+    e = hybrid_e,  # Same effect size as hybrid design
+    sequence = "AB"  # Active first, then placebo
+  )
+  crossover_design <- bind_rows(crossover_design, df)
+}
+
+# Second group: Placebo first, then active
+for (p in ((n_participants/2) + 1):n_participants) {
+  treatment <- c(rep(0, 10), rep(1, 10))
+  periods <- c(rep(1, 10), rep(2, 10))
+  
+  # Calculate tod (time on drug)
+  tod <- rep(0, 20)
+  for (i in 1:20) {
+    if (treatment[i] == 1) {
+      tod[i] <- i
+    }
+  }
+  
+  # Calculate tpb (time post baseline)
+  tpb <- c()
+  time_pb <- 0
+  for (i in 1:20) {
+    if (tod[i] > 0) {
+      time_pb <- 0
+    } else {
+      time_pb <- time_pb + 1
+    }
+    tpb[i] <- time_pb
+  }
+  
+  # Calculate tsd (time since discontinuation)
+  tsd <- c()
+  time_sd <- 0
+  for (i in 1:20) {
+    if (i > 1) {
+      if (treatment[i-1] == 1 && treatment[i] == 0) {
+        time_sd <- 1
+      } else if (treatment[i] == 0) {
+        time_sd <- time_sd + 1
+      } else {
+        time_sd <- 0
+      }
+    } else {
+      time_sd <- 0
+    }
+    tsd[i] <- time_sd
+  }
+  
+  # Add to design dataframe
+  participant_id <- rep(p, 20)
+  df <- tibble(
+    participant_id = participant_id,
+    week = weeks,
+    period = periods,
+    treatment = treatment,
+    timepoint_name = timepoint_names,
+    t_wk = t_wk,
+    tod = tod,
+    tpb = tpb,
+    tsd = tsd,
+    e = hybrid_e,  # Same effect size as hybrid design
+    sequence = "BA"  # Placebo first, then active
+  )
+  crossover_design <- bind_rows(crossover_design, df)
+}
+
+# Add metadata to designs
+hybrid_metadata <- list(
+  name = "Hybrid N-of-1 Design",
+  name_shortform = "Hybrid N-of-1"
+)
+
+crossover_metadata <- list(
+  name = "Traditional Crossover Design",
+  name_shortform = "Crossover"
+)
+
+# Store designs with their metadata - format properly for simulation
+designs[[1]] <- list(metadata = hybrid_metadata, design = hybrid_n_of_1_design)
+designs[[2]] <- list(metadata = crossover_metadata, design = crossover_design)
+
+# Display the first few rows of each design
+kable(head(hybrid_n_of_1_design)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+kable(head(crossover_design)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+## Step 3: Prepare Simulation Parameters
+
+Now we'll prepare the simulation parameters and run a simple comparison:
+
+```{r prepare_sim}
+# Set seed for reproducibility
+set.seed(123)
+
+# Prepare the response parameter sets
+resp_param_sets <- list()
+resp_param_sets[[1]] <- list(
+  name = "Standard Response",
+  param = resp_params
+)
+
+# Prepare the baseline parameter sets
+bl_param_sets <- list()
+bl_param_sets[[1]] <- list(
+  name = "Standard Baseline",
+  param = bl_params
+)
+
+# Prepare censoring parameters (None for this example)
+censor_params <- NA
+
+# Options for simulation
+sim_options <- list(
+  n_reps = 50,  # Increased from 20 to demonstrate performance improvements
+  progressive_save = FALSE,
+  base_save_name = "design_comparison_extended",
+  n_rep_to_save = 1,
+  save_unit_to_start = 1,
+  save_dir = NULL
+)
+
+# Analysis options for both designs
+analysis_options <- tibble(
+  use_expectancy = TRUE,
+  random_slope = FALSE,
+  full_output = FALSE
+)
+```
+
+## Step 4: Generate and Analyze the Simulated Data
+
+Now we'll use the full simulation pipeline to generate and analyze data for both designs:
+
+```{r simulate, eval=TRUE, cache=TRUE}
+# Display key simulation parameters for reference
+param_table <- tibble(
+  Parameter = c(
+    "Number of Monte Carlo Replicates",
+    "Biomarker-Response Correlation",
+    "Carryover Half-life",
+    "Participant Count per Design",
+    "Study Duration",
+    "Analysis Method",
+    "Parallel Processing",
+    "Performance Optimizations"
+  ),
+  Value = c(
+    sim_options$n_reps,
+    model_params$c.bm,
+    paste0(model_params$carryover_t1half, " weeks"),
+    model_params$N,
+    "20 weeks",
+    "Linear Mixed Effects Model",
+    "Enabled",
+    "All 8 optimization strategies"
+  )
+)
+
+# Print the simulation parameters
+kable(param_table,
+      caption = "Key Simulation Parameters",
+      align = c("l", "c"))
+
+# Add a note about parallel processing
+cat("**Note on Parallel Processing:** The simulation automatically detects the number of CPU cores available and uses them for parallel processing (leaving one core free for system tasks). This significantly improves performance for generating data and analyzing multiple repetitions. The optimized data structures and vectorized operations further enhance performance even in single-core mode.")
+
+# First, let's create a helper function to run our simulations for each design

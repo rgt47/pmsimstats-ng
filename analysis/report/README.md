@@ -25,9 +25,11 @@ the canonical source.
 
 | Slug                                    | Title (working)                                                                                  |
 |----------------------------------------|--------------------------------------------------------------------------------------------------|
-| `dgp-mean-moderation-vs-mvn`           | Two data-generating architectures for biomarker-treatment interaction in N-of-1 trials          |
-| `carryover-sensitivity`                 | Robustness of carryover-mitigation analysis strategies for biomarker-treatment interaction       |
+| `dgp-mean-moderation-vs-mvn`           | Two data-generating architectures for biomarker-treatment interaction in N-of-1 trials (with `longform.tex` companion: 'Two Architectures for Simulating ...') |
 | `carryover-analysis-model-assessment`   | Assessing carryover in the analysis model: standard methodology and application to pmsimstats    |
+| `carryover-sensitivity`                 | Robustness of carryover-mitigation analysis strategies for biomarker-treatment interaction       |
+| `treatment-main-effect`                 | Power comparison of N-of-1 and parallel-group designs for detecting the treatment main effect (migrated from `~/prj/res/06-nof1-power/` on 2026-05-06; depends on installed `nof1power` package) |
+| `latent-class-mixture-application`      | Latent-class and mixture-model formulations for biomarker-treatment interaction in N-of-1 trials (scaffolded 2026-05-06; addresses reviewer question on the dgp-mean-moderation-vs-mvn paper) |
 
 ## Reproducibility
 

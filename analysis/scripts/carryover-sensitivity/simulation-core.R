@@ -233,6 +233,7 @@ fit_spec <- function(dat_long, spec) {
 
   if (is.null(fit)) {
     return(tibble(spec = spec, estimate = NA_real_,
+                  std_error = NA_real_,
                   p_value = NA_real_, converged = FALSE))
   }
 
@@ -245,12 +246,14 @@ fit_spec <- function(dat_long, spec) {
 
   if (length(target) == 0) {
     return(tibble(spec = spec, estimate = NA_real_,
+                  std_error = NA_real_,
                   p_value = NA_real_, converged = FALSE))
   }
 
   tibble(spec = spec,
-         estimate = cc[target[1], 'Value'],
-         p_value  = cc[target[1], 'p-value'],
+         estimate  = cc[target[1], 'Value'],
+         std_error = cc[target[1], 'Std.Error'],
+         p_value   = cc[target[1], 'p-value'],
          converged = TRUE)
 }
 
@@ -259,6 +262,7 @@ fit_three_specs <- function(dat_long) {
   has_lagged   <- any(dat_long$L  == 1)
   na_row <- function(spec, reason) {
     tibble(spec = spec, estimate = NA_real_,
+           std_error = NA_real_,
            p_value = NA_real_, converged = FALSE,
            reason = reason)
   }
@@ -315,7 +319,9 @@ simulate_cell <- function(cell, n_reps) {
     )
     if (is.null(dat) || nrow(dat) == 0) {
       return(tibble(rep = rep_i, spec = c('A1', 'A2', 'A3'),
-                    estimate = NA_real_, p_value = NA_real_,
+                    estimate = NA_real_,
+                    std_error = NA_real_,
+                    p_value = NA_real_,
                     converged = FALSE))
     }
 

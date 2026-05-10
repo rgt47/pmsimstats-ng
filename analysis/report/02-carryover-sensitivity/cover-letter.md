@@ -38,7 +38,7 @@ power at the prazosin-calibrated reference cell, with the
 ranking robust to decay-form mis-specification and
 analyst-versus-truth half-life mismatch. A high-precision rerun
 at 600 replicates per cell on a 24-cell expansion confirms the
-ranking with paired McNemar $p < 10^{-13}$ at the
+ranking with paired McNemar $p = 6.6 \times 10^{-17}$ at the
 highest-leverage cell. The work also addresses the comparison
 against prior methodological work, including Hendrickson and
 colleagues (2020), Jones and Kenward (2014), and Senn (2016).
@@ -61,12 +61,7 @@ paths are documented in the Reproducibility section of the
 manuscript and an ADEMP pre-registration document is committed at
 `analysis/scripts/carryover-sensitivity/00-ademp-pre-registration.md`.
 
-**Suggested reviewers** (to be confirmed by the corresponding
-author):
-
-- [TODO: name 1, affiliation, email]
-- [TODO: name 2, affiliation, email]
-- [TODO: name 3, affiliation, email]
+<!-- Reviewer suggestions to be added at submission. -->
 
 Thank you for considering our submission.
 

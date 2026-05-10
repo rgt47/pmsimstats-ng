@@ -157,6 +157,13 @@ family specifically.
 
 ## Aims
 
+We follow the ADEMP framework of Morris, White, and Crowther
+(2019) [@morris2019using]: Aims, Data-generating mechanisms,
+Estimands, Methods, Performance measures. The subsections of this
+Simulation design section map to these five components, although
+the section headers are organised by topic rather than relabelled
+to the ADEMP acronym.
+
 The simulation study has three aims. First, to characterise the
 power profile of the Hendrickson 2020 hybrid aggregated-N-of-1
 design [@hendricksonOptimizing2020] under systematic perturbation
@@ -239,7 +246,8 @@ differential correlation described above. Non-positive-definite
 matrices are corrected via
 `corpcor::make.positive.definite(tol = 1e-3)` with a per-cell flag
 returned. The analysis model fits the `nlme::lme` linear
-mixed-effects formula with fixed effects
+mixed-effects formula [@pinheirobates2000; @verbekemolenberghs2000]
+with fixed effects
 `Sx ~ bm + t + Dbc + bm:Dbc` (or the fallback `bm + t + bm:t`
 when the drug indicator does not vary within participant), a
 random intercept per participant, and `corCAR1(form = ~t | ptID)`
@@ -881,7 +889,15 @@ to trial planning.
   yielding an unstable correlation parameter estimate. A
   better-specified parallel-RCT analysis (subject-specific
   random slope on time, or fixed within-subject $\rho$ of
-  known magnitude) would likely restore nominal Type I.
+  known magnitude) would likely restore nominal Type I. The
+  S11 RCT Type I range (0.112-0.126) and the S12 RCT Type I
+  range (0.029-0.060) are not in contradiction: S11 crosses
+  carryover presence with high DGP AR(1) under analysis-side
+  `corCAR1` misspecification, whereas S12 is a pure null
+  calibration with no carryover and a more benign correlation
+  regime, so the two ranges reflect different
+  data-generating-mechanism regimes rather than inconsistent
+  estimates of a common quantity.
 
 ## N-of-1 design variants not evaluated
 
@@ -1008,10 +1024,15 @@ linear-mixed analysis with `corCAR1` residual correlation),
 `furrr` and `purrr` (the `tidyverse` simulation collection), and
 `rmarkdown` plus `bookdown` for the manuscript build.
 
-**Random-number generator.** Each simulation driver sets
+**Random-number generator.** Seeding operates at two levels.
+First, at the driver level each sweep calls
+`set.seed(42 + sweep_id)` before constructing its parameter grid,
+so the parameter grid and any pre-loop draws are reproducible per
+sweep. Second, at the replicate level each driver sets
 `set.seed(20260507)` at the top of the replicate loop and uses
-`parallel::mc.set.seed` inside `mclapply`. Per-replicate seeds
-derive from the master seed by `+ rep_idx`.
+`parallel::mc.set.seed` inside `mclapply`; per-replicate seeds
+derive from this master seed by `+ rep_idx`. These two seedings
+operate at distinct stages of the pipeline and do not collide.
 
 **Data and code availability.** Per-replicate simulation
 outputs are checkpointed at

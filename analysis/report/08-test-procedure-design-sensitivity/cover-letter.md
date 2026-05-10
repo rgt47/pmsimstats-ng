@@ -72,9 +72,7 @@ inline in the simulation driver.
 **Suggested reviewers** (to be confirmed by the corresponding
 author):
 
-- [TODO: name 1, affiliation, email]
-- [TODO: name 2, affiliation, email]
-- [TODO: name 3, affiliation, email]
+<!-- Reviewer suggestions to be added at submission. -->
 
 Thank you for considering our submission.
 

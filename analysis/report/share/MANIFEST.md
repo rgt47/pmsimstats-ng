@@ -39,3 +39,4 @@
 | `04-treatment-main-effect-2026-05-08-d6.pdf` | `~/Dropbox/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/report/04-treatment-main-effect/report.Rmd` | 2026-05-08 20:01:00 PDT |
 | `07-gompertz-evaluation-2026-05-09-d1.pdf` | `~/Dropbox/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | 2026-05-09 12:12:15 PDT |
 | `01-dgp-mean-moderation-vs-mvn-2026-05-09-d1.pdf` | `~/Dropbox/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | 2026-05-09 12:19:12 PDT |
+| `02-carryover-sensitivity-2026-05-10-d1.pdf` | `~/Dropbox/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report.Rmd` | 2026-05-10 15:43:53 PDT |

@@ -1,6 +1,6 @@
 # pmsimstats Implementations
 
-This directory contains four implementations of the pmsimstats-ng simulation framework. Three (`original`, `original-extended`, `tidyverse`) are parallel, complete implementations that support the full power-analysis pipeline with different coding styles and architecture coverage. The fourth (`simple`) is a reduced-complexity sandbox for pedagogical demonstrations and exploratory design prototyping.
+This directory contains five implementations of N-of-1 trial simulation. The first four (`original`, `original-extended`, `tidyverse`, `simple`) are alternative codings of the biomarker-treatment-interaction simulation framework. The fifth (`nof1power`) is a vendored R package supporting the treatment-main-effect comparison in paper 04 — see notes below.
 
 ## Quick Reference
 
@@ -10,6 +10,7 @@ This directory contains four implementations of the pmsimstats-ng simulation fra
 | **original-extended/** | A + B (dual) | data.table | Production use, default choice |
 | **tidyverse/** | A + B (dual) | tidyverse | Modern alternative, type-stable code |
 | **simple/** | A only | base R | Reduced-complexity sandbox, pedagogical reference, design prototyping |
+| **nof1power/** | A only | R package | Vendored simulation engine for paper 04 (`treatment-main-effect`); installable as a local package |
 
 ## Architecture Definitions
 
@@ -108,6 +109,24 @@ simple/
   docs/               # Design-variant notes
   README.md           # Sandbox usage and workflow
 ```
+
+The `nof1power/` collection is a vendored R package (full
+DESCRIPTION/NAMESPACE/R/ skin) rather than a `source()`-able
+script collection. It was vendored on 2026-05-08 from the
+`~/prj/res/06-nof1-power/nof1_power/` external compendium so
+that paper 04 (`treatment-main-effect`) is no longer dependent
+on the external location. Install with:
+
+```r
+devtools::install_local('implementations/nof1power')
+library(nof1power)
+```
+
+`nof1power` and the main `pmsimstats` package both export
+`lme_analysis`, `modgompertz`, and `cumulative`; whichever is
+loaded second masks the first three. Drivers attached to paper
+04 should call only `library(nof1power)` and qualify any
+`pmsimstats` symbols explicitly with `pmsimstats::` if needed.
 
 ## Validation & Testing
 

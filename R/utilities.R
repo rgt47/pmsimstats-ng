@@ -42,6 +42,123 @@ modgompertz<-function(t,maxr,disp,rate){
   return(y)
 }
 
+# -----------------------------------------------------------------
+# Trajectory family dispatch
+# -----------------------------------------------------------------
+#
+# Three additional monotone-saturating families share modGompertz's
+# vertical-offset convention, that is, y(0)=0 and y(t -> infty) = maxr.
+# Each family is a 3-parameter form (matching modGompertz's three free
+# parameters: maxr, disp/rate-equivalent, rate/breakpoint-equivalent).
+# Calibration of the secondary parameters to match cross-family asymp-
+# tote and rise time is the caller's responsibility (see, e.g.,
+# analysis/scripts/gompertz-evaluation/01-architecture-a-trajectory-
+# sweep.R for the canonical week-8 anchor calibration).
+#
+# Logistic: y(t) = maxr / (1 + exp(-log_rate*(t - t0))), with vertical
+# offset subtracted and asymptote rescaled so y(0)=0 and y(infty)=maxr,
+# in direct analogy to modGompertz. Free parameters: maxr, log_rate, t0.
+#
+# Hyperbolic tangent: y(t) = (maxr/2)*(1 + tanh(rate*(t - t0))), with
+# vertical offset adjustment. Free parameters: maxr, rate, t0. The
+# dispersion-equivalent here is t0, which controls the inflection
+# location and therefore the rise sharpness for fixed rate.
+#
+# Piecewise linear with breakpoint: a linear ramp from 0 to maxr over
+# [0, t_breakpoint], then a slow post-breakpoint slope. Free parameters:
+# maxr, t_breakpoint, post_slope. The smooth limit (post_slope=0) is a
+# pure ramp-then-flat function. y(0)=0 already, no offset adjustment.
+
+#' Logistic trajectory (vertical-offset adjusted)
+#'
+#' Logistic curve with the same vertical-offset convention as
+#' \link{modgompertz}: y(0)=0 and y(t->infty)=maxr.
+#'
+#' @param t time
+#' @param maxr asymptotic maximum response
+#' @param log_rate steepness parameter (analog of Gompertz rate)
+#' @param t0 inflection-point time (analog of Gompertz dispersion)
+#' @return numeric vector of length(t)
+#' @export
+shape_logistic <- function(t, maxr, log_rate, t0) {
+  if (isTRUE(all.equal(maxr, 0))) return(rep(0, length(t)))
+  y <- maxr / (1 + exp(-log_rate * (t - t0)))
+  vert_offset <- maxr / (1 + exp(-log_rate * (0 - t0)))
+  y <- y - vert_offset
+  y <- y * (maxr / (maxr - vert_offset))
+  y
+}
+
+#' Hyperbolic-tangent trajectory (vertical-offset adjusted)
+#'
+#' Hyperbolic tangent curve with the same vertical-offset convention
+#' as \link{modgompertz}: y(0)=0 and y(t->infty)=maxr.
+#'
+#' @param t time
+#' @param maxr asymptotic maximum response
+#' @param rate steepness (analog of Gompertz rate)
+#' @param t0 inflection-point time (analog of Gompertz dispersion)
+#' @return numeric vector of length(t)
+#' @export
+shape_hyperbolic_tangent <- function(t, maxr, rate, t0) {
+  if (isTRUE(all.equal(maxr, 0))) return(rep(0, length(t)))
+  y <- (maxr / 2) * (1 + tanh(rate * (t - t0)))
+  vert_offset <- (maxr / 2) * (1 + tanh(rate * (0 - t0)))
+  y <- y - vert_offset
+  y <- y * (maxr / (maxr - vert_offset))
+  y
+}
+
+#' Piecewise-linear breakpoint trajectory
+#'
+#' A linear ramp from 0 at t=0 to maxr at t=t_breakpoint, then a
+#' (typically mild) post-breakpoint slope. y(0)=0 by construction.
+#'
+#' @param t time
+#' @param maxr value attained at the breakpoint
+#' @param t_breakpoint week at which the rise saturates
+#' @param post_slope post-breakpoint slope (default 0 = flat)
+#' @return numeric vector of length(t)
+#' @export
+shape_piecewise_linear_breakpoint <- function(t, maxr, t_breakpoint,
+                                              post_slope = 0) {
+  if (isTRUE(all.equal(maxr, 0))) return(rep(0, length(t)))
+  ramp <- maxr * pmin(1, t / t_breakpoint)
+  tail <- post_slope * pmax(0, t - t_breakpoint)
+  ramp + tail
+}
+
+#' Trajectory family dispatch
+#'
+#' Single entry point that returns a trajectory of the requested
+#' family. Each family has the modGompertz vertical-offset convention
+#' (y(0)=0 and y(t->infty)=maxr) except piecewise_linear_breakpoint,
+#' which is exactly zero at t=0 by construction.
+#'
+#' @param family one of "gompertz", "logistic", "hyperbolic_tangent",
+#'   "piecewise_linear_breakpoint"
+#' @param t time vector
+#' @param maxr asymptotic maximum response
+#' @param p2,p3 family-specific shape parameters (see Details)
+#' @details
+#' For "gompertz", \code{p2 = disp} and \code{p3 = rate}.
+#' For "logistic", \code{p2 = log_rate} and \code{p3 = t0}.
+#' For "hyperbolic_tangent", \code{p2 = rate} and \code{p3 = t0}.
+#' For "piecewise_linear_breakpoint", \code{p2 = t_breakpoint} and
+#'   \code{p3 = post_slope}.
+#' @return numeric vector of length(t)
+#' @export
+trajectoryShape <- function(family, t, maxr, p2, p3) {
+  switch(family,
+    gompertz                    = modgompertz(t, maxr, p2, p3),
+    logistic                    = shape_logistic(t, maxr, p2, p3),
+    hyperbolic_tangent          = shape_hyperbolic_tangent(t, maxr, p2, p3),
+    piecewise_linear_breakpoint = shape_piecewise_linear_breakpoint(
+                                    t, maxr, p2, p3),
+    stop(sprintf("Unknown trajectory family: '%s'", family))
+  )
+}
+
 #' Reknit simulated results
 #'
 #' \code{reknitsimresults} recombines the results of simulations that have the

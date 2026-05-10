@@ -370,11 +370,16 @@ carryover_effect <- calculate_carryover_effect(
 default_decay_model <- "exponential"
 
 # RCT parameters
-rct_sample_size <- 20  # 10 per group
+# Primary comparison uses per-participant parity at N = 35; the
+# N = 70 cell is a sensitivity row showing what the RCT achieves
+# at twice the participant count (1:2 patient ratio), matching the
+# Hendrickson 2020 reference grid.
+rct_sample_size <- 35  # Per-participant parity vs. N-of-1
+rct_sample_size_sensitivity <- 70  # 1:2 ratio sensitivity row
 
 # N-of-1 parameters
 n_of_1_periods <- 8  # 4 treatment, 4 placebo periods per individual
-n_of_1_individuals <- 20  # Number of N-of-1 trials (same as RCT for fair comparison)
+n_of_1_individuals <- 35  # Per-participant parity with parallel RCT
 
 # Statistical constants
 ALPHA_LEVEL <- 0.05  # Significance level

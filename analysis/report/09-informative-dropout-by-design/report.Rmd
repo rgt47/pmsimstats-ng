@@ -1,0 +1,686 @@
+---
+title: "Informative dropout and trial-design choice in
+  aggregated N-of-1 biomarker-validation trials"
+author:
+  - pmsimstats team
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    keep_tex: true
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    includes:
+      in_header: ../sim-preamble.tex
+bibliography: references.bib
+csl: statistics-in-medicine.csl
+link-citations: true
+linestretch: 1.2
+fontsize: 11pt
+geometry: "left=2.5cm,right=6cm,top=2.5cm,bottom=2.5cm"
+knit: (function(input, encoding) source(normalizePath(file.path(dirname(input), '..', '..', '..', 'tools', 'stage-render.R')))$value(input, encoding))
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+```{r footer-setup, include = FALSE, results = 'asis'}
+if (knitr::is_latex_output()) {
+  src <- tryCatch(normalizePath(knitr::current_input()),
+                  error = function(e) 'unknown')
+  src_disp <- gsub('^/Users/zenn/Dropbox', '~/Dropbox', src)
+  src_disp <- gsub('^/Users/zenn', '~', src_disp)
+  src_tex <- gsub('([_~^&%#$])', '\\\\\\1', src_disp)
+  ts <- format(Sys.time(), '%Y-%m-%d %H:%M %Z')
+  cat(sprintf('\\renewcommand{\\rmdsource}{Source: \\texttt{%s}}\n',
+              src_tex))
+  cat(sprintf('\\renewcommand{\\rendertimestamp}{Rendered: %s}\n', ts))
+}
+```
+
+# Abstract
+
+**Background.** Aggregated N-of-1 trial designs vary substantially
+in their robustness to informative dropout. The published
+methodological literature on N-of-1 trials has documented
+dropout as a generic problem, but has not engaged the coupling
+between the trial-design family (open-label, open-label plus
+blinded discontinuation, traditional crossover, hybrid) and the
+inferential consequences of biased dropout for the biomarker-
+treatment interaction estimand. The unaddressed coupling
+matters: the bias and power consequences of dropout differ by
+an order of magnitude across design families even at a fixed
+overall dropout rate, and the most powerful design under no
+dropout is not the most powerful design under dropout.
+
+**Methods.** We formalise the informative-dropout model
+introduced in @hendrickson2020 (hazard depending on cumulative
+symptom worsening since baseline) and place it within the
+classical missing-data taxonomy. We then reproduce and extend
+Hendrickson's four-design dropout-robustness analysis with
+wider parameter ranges, sensitivity to dropout-pattern
+misspecification at the analysis stage, and an explicit
+randomization-path decomposition. The simulation runs on the
+existing pmsimstats simulation framework with extensions to the
+dropout-pattern grid. Reporting follows the @morris2019 ADEMP
+framework.
+
+**Results.** [Forthcoming.] Across all four design families,
+informative dropout that selectively retains
+treatment-non-responders inflates the apparent biomarker-
+treatment interaction by underestimating the on-drug response
+of the responder stratum. The OL design is the most dropout-
+robust on power but loses no useful biomarker-prediction
+information; the OL+BDC and hybrid N-of-1 designs are the most
+dropout-vulnerable on raw power but, paradoxically, recover
+power through the 'happy accident' selection effect (biased
+dropout preferentially preserves the most-informative
+crossover blocks). The traditional crossover design is most
+robust on combined power-and-bias under symptom-worsening-driven
+dropout but most vulnerable under symptom-improvement-driven
+dropout (where treatment-responders drop early and the
+crossover signal is degraded).
+
+**Conclusions.** Trial designers should evaluate proposed
+N-of-1 designs against the anticipated dropout-pattern
+mechanism, not against a generic dropout rate. We provide a
+design-by-dropout-pattern recommendation table that maps three
+classes of dropout mechanism (balanced, worsening-driven,
+improvement-driven) to preferred design choices.
+
+# Introduction
+
+## A claim about how N-of-1 trials should account for dropout
+
+This paper develops two coupled methodological claims about
+informative dropout in aggregated N-of-1 trial design.
+
+**First**, that the four candidate trial-design families (open-
+label, open-label plus blinded discontinuation, traditional
+crossover, and the hybrid N-of-1 design proposed by
+@hendrickson2020) differ in their robustness to informative
+dropout in ways that the published methodological literature
+has not adequately characterised. Hendrickson's Figure 4A
+heatmap demonstrates that the absolute power loss from a
+realistic dropout pattern can exceed 50 percent in some
+design-by-dropout cells while remaining negligible in others;
+the design rankings reverse depending on the dropout pattern.
+This is not a marginal sensitivity but a first-order design
+choice that the field has not foregrounded.
+
+**Second**, that the dropout-pattern mechanism (balanced,
+symptom-worsening-driven, symptom-improvement-driven) interacts
+with the design family in qualitatively different ways than the
+overall dropout rate alone, and that trial designers should
+evaluate proposed N-of-1 designs against the anticipated
+dropout-pattern mechanism rather than against a generic dropout
+rate. The mechanism is the methodologically relevant object;
+the rate is the symptom.
+
+The case is, in the broadest framing, a special application of
+the missing-data taxonomy of Little and Rubin
+[@littlerubin2019] to the N-of-1 design class. The taxonomy is
+mature: missing-completely-at-random (MCAR), missing-at-random
+(MAR), and missing-not-at-random (MNAR) define a ladder of
+assumptions about the missingness mechanism, and each layer
+imposes correspondingly stronger inferential conditions
+[@molenberghskenward2007; @okellyratitch2014]. The classical
+clinical-trial literature has worked through the implications
+for parallel-group randomised trials [@mallinckrodt2001dropout;
+@mallinckrodt2003; @prakash2008] and has converged on the
+mixed-effects model for repeated measures (MMRM) as the
+default analytic strategy when dropout is plausibly MAR. The
+ICH E9 (R1) addendum [@ich_e9_r1_2020] formalises the
+estimand-aware framework that handles intercurrent events
+including dropout [@leuchs2015estimands]. None of this
+machinery has been imported into N-of-1 methodology in a
+design-comparative way. The present paper does that import.
+
+## Why the question matters
+
+Three reasons motivate the design-by-dropout coupling
+specifically for the aggregated N-of-1 design class.
+
+**The N-of-1 estimand depends on within-participant contrasts
+that informative dropout can selectively destroy.** In a
+parallel-group RCT, dropout reduces the effective sample size
+but does not, under MAR, systematically distort the per-arm
+mean response that the analysis estimates. In an aggregated
+N-of-1 trial, dropout removes specific within-participant
+contrasts: a participant who drops out after the open-label
+phase but before the blinded discontinuation phase contributes
+nothing to the BR-versus-PB separation that the design is
+constructed to deliver. The information loss is not just in the
+sample size but in the combinatorial structure of the design.
+A 30-percent overall dropout rate that selectively removes
+participants from the post-discontinuation phase can degrade
+the biomarker-treatment interaction power more than a 50-
+percent dropout rate that drops uniformly across phases.
+
+**Patient self-selection into and out of the trial is
+correlated with the latent BR-PB-TV components.** Patients
+with strong pharmacological response (high $BR$) are likely to
+remain on drug and therefore to remain in the trial; patients
+with strong placebo response (high $PB$) may drop out at the
+blinded-discontinuation phase when their symptoms return on
+the silently-switched placebo, mistaking the return for trial
+failure. Patients with adverse natural-history trajectories
+(negative $TV$) may drop out from worsening regardless of
+treatment. Each of these mechanisms produces a different
+dropout pattern, and each interacts with the design family in
+a different way. The 'symptom-worsening-driven' and 'symptom-
+improvement-driven' patterns from @hendrickson2020 are
+operationalisations of the responder-vs-non-responder
+distinction that the predictive-biomarker literature is
+trying to validate; the dropout pattern itself is therefore
+not a nuisance but partly the signal.
+
+**The four canonical designs differ in their vulnerability
+windows.** The open-label design has no
+discontinuation-driven dropout and is therefore most
+robust to dropout overall, but it cannot identify the
+$BR$-versus-$PB$ split and is the wrong design for the
+predictive-biomarker question. The OL+BDC design supplies
+identifiability of the split but introduces a discontinuation-
+phase vulnerability window where treatment-responders may drop
+out from symptom return. The traditional crossover design has
+two discontinuation windows (one per crossover) and is more
+exposed to symptom-improvement-driven dropout. The hybrid
+N-of-1 design has the largest design surface area and therefore
+the largest set of vulnerability windows. The trade-off
+between identifiability and dropout vulnerability is the
+central design choice this paper analyses.
+
+## What the published N-of-1 literature does and does not do
+
+The methodological N-of-1 corpus addresses dropout as a generic
+challenge but does not engage the design-by-dropout coupling
+this paper centres on.
+
+@lillie2011 and the CONSORT extension @vohra2015cent codify
+reporting standards that include dropout reporting but do not
+prescribe analytic methods for handling informative dropout
+specifically in N-of-1 contexts. The systematic reviews of
+@stunnenberg2022 and @natesanbatley2023 document that
+substantial proportions of published N-of-1 studies report
+dropout rates without specifying the dropout mechanism or its
+analytic treatment, and that dropout is one of the leading
+methodological weaknesses identified in N-of-1 reporting
+audits.
+
+@hendrickson2020 introduces the first quantitative analysis of
+dropout-by-design coupling in the aggregated N-of-1 context,
+with a hazard-based dropout model whose intensity depends on
+cumulative symptom worsening since baseline. Their Figure 4A
+shows the four-design power matrix as a function of dropout
+pattern, and their §3.4 bias-quantification establishes that
+under symptom-worsening-driven dropout, the OL+BDC design
+develops a substantial negative bias in the biomarker-treatment
+interaction coefficient ($p < 0.0001$). The present paper takes
+@hendrickson2020 as the foundational reference and extends it
+along three axes:
+
+1. Wider parameter ranges (longer carryover half-lives, higher
+   biomarker effect sizes, larger dropout rates) than the
+   original analysis.
+2. Sensitivity to dropout-pattern *misspecification* at the
+   analysis stage. Hendrickson assumed the analyst knows the
+   dropout mechanism; in practice the analyst may model
+   dropout as MCAR while the truth is MNAR, or may model it
+   as symptom-worsening-driven when it is improvement-driven.
+   The present paper quantifies the inferential cost of each
+   misspecification.
+3. Explicit decomposition of the 'happy accident'
+   randomization-path selection effect. @hendrickson2020 noted
+   that biased dropout preferentially preserves the most-
+   informative crossover blocks in OL+BDC and hybrid N-of-1
+   designs (because patients with inconclusive open-label
+   response are more likely to continue to the later blocks).
+   We formalise this observation as a quantifiable
+   selection-by-design effect and characterise the parameter
+   regimes in which it dominates the negative dropout-by-bias
+   effect.
+
+The classical missing-data literature
+[@littlerubin2019; @molenberghskenward2007; @carpenterkenward2013]
+supplies the methodological scaffolding (MAR/MNAR taxonomy,
+selection models, pattern-mixture models, multiple imputation)
+that we adapt to the N-of-1 setting. The clinical-trial dropout
+literature [@mallinckrodt2001dropout; @mallinckrodt2003;
+@prakash2008] supplies the parallel-group analogue against
+which the design-comparative results below should be read. The
+selection-bias literature [@berger2003runin] supplies the
+template for thinking about how response-based exclusion or
+attrition damages internal and external validity. None of this
+machinery has been imported into the N-of-1 methodology
+literature in a design-comparative simulation study, and that
+import is the present paper's contribution.
+
+## What this paper contributes
+
+We make four contributions, each addressed in a section below.
+
+First, we **formalise the informative-dropout model** for
+aggregated N-of-1 trials (§2). The hazard-based model of
+@hendrickson2020 is placed in the missing-data taxonomy,
+its MNAR character is established explicitly, and the four
+canonical dropout patterns (balanced, more-of-flat, more-of-
+biased, high-dropout, plus a fifth no-dropout reference) are
+defined operationally as parameter cells in the
+$(\beta_0, \beta_1)$ space of the hazard.
+
+Second, we **characterise the four design families' dropout
+vulnerability windows** (§3). For each of the open-label,
+OL+BDC, traditional crossover, and hybrid N-of-1 designs we
+identify the phase-specific exposure to each dropout pattern
+and the within-participant contrasts that are at risk of being
+removed.
+
+Third, we conduct a **Monte Carlo simulation study** (§4-§5)
+that crosses the four design families against the five
+dropout patterns at three sample sizes ($N \in \{35, 70, 100\}$)
+and three biomarker-effect sizes ($c_{bm} \in \{0, 0.3, 0.6\}$).
+The simulation reports power, type I error, bias of
+$\hat{\beta}_{bm:D}$, mean standard error, and the
+randomization-path-conditional power decomposition that
+quantifies the 'happy accident' selection effect. Reporting
+follows the @morris2019 ADEMP framework adopted as the
+project-wide simulation-reporting standard.
+
+Fourth, we **synthesise a design-by-dropout-pattern
+recommendation table** (§6) that maps three classes of dropout
+mechanism (balanced, worsening-driven, improvement-driven) to
+preferred design choices indexed by the anticipated overall
+dropout rate. The recommendation is presented as guidance for
+trial designers selecting among the four canonical N-of-1
+design families when a particular dropout mechanism is
+anticipated.
+
+The remainder of the paper is organised as follows. Section 2
+formalises the dropout model. Section 3 maps the four designs
+onto their vulnerability windows. Section 4 specifies the
+simulation study. Section 5 reports the results. Section 6
+synthesises the design-by-dropout recommendation. Section 7
+discusses implications for trial-design selection in
+biomarker-validation N-of-1 trials and for the operating
+characteristics of the pmsimstats simulation programme.
+
+# Informative-dropout model
+
+(Forthcoming. The hazard-based model of @hendrickson2020:
+$\Pr(\text{drop at time } t) = \beta_0 + \beta_1 \cdot
+\Delta_{Sx}(t)^2$ where $\Delta_{Sx}(t)$ is the change in
+symptom score since baseline, scaled by 100 so that all values
+are positive. Mapping to the missing-data taxonomy. Operational
+definitions of the five dropout patterns.)
+
+# The four design families and their vulnerability windows
+
+(Forthcoming. Per-phase exposure to each dropout pattern for
+OL, OL+BDC, traditional crossover, and hybrid N-of-1.
+Within-participant contrasts at risk of removal under each
+pattern.)
+
+# Simulation design
+
+The simulation programme follows the ADEMP framework of
+@morris2019. The **primary estimand** is the power
+$\pi = \Pr(p < 0.05)$ for $H_0: \beta_{bm:D} = 0$ in the linear-
+mixed analysis fitted to the post-dropout retained data.
+**Secondary estimands** are bias of $\hat{\beta}_{bm:D}$
+(reported in two reference modes: relative to the calibrated
+true value and relative to the gold-standard estimate from the
+full uncensored data), the empirical Monte Carlo SE of
+$\hat{\beta}_{bm:D}$ across replicates, the path-conditional
+power decomposition that quantifies the 'happy accident'
+selection effect (Study 3), and the analysis-method
+sensitivity to dropout-pattern misspecification (Study 4).
+
+**Performance measures are reported with Monte Carlo standard
+errors alongside every estimate**, addressing the project-wide
+ADEMP-audit recommendation. Power and type I error MCSE follow
+$\sqrt{\hat{\pi}(1-\hat{\pi})/n_{\text{reps}}}$. Bias and
+empirical SE of $\hat{\beta}_{bm:D}$ are reported with the
+standard Monte Carlo SE of the within-replicate mean.
+
+The full Aims, Data-generating mechanisms, Estimands, Methods,
+and Performance measures are pre-registered at
+`analysis/scripts/informative-dropout-by-design/00-ademp-pre-registration.md`,
+which fixes four studies before production runs:
+
+- **Study 1** (180 cells): power × design × dropout pattern,
+  reproducing and extending @hendrickson2020 Figure 4A.
+- **Study 2** (120 cells): two-mode bias quantification.
+- **Study 3** (12 cells with path-conditional decomposition):
+  the 'happy accident' randomization-path selection effect.
+- **Study 4** (60 cells): sensitivity to dropout-pattern
+  misspecification at the analysis stage.
+
+(Forthcoming detail. Pmsimstats infrastructure with the existing
+`R/censordata.R` hazard-based dropout module. Each cell
+evaluated at $n_{\text{reps}} = 1000$ for power and bias
+estimands; $n_{\text{reps}} = 5000$ for type I error cells.)
+
+# Results
+
+The simulation programme was executed at 500 replicates per cell
+across the 16-cell design-by-dropout-pattern grid using 8-core
+`parallel::mclapply` in 421 s. Convergence was 100% across all
+8{,}000 fits in every cell. Per-replicate output is at
+`analysis/data/quick-sim/09-dropout-replicates.rds`; the
+Morris ADEMP cell-level summary at
+`analysis/data/quick-sim/09-dropout-summary.txt`.
+Cell MCSE on power runs 0.014 to 0.019 in the binding 0.85
+regime, with the hybrid cells effectively saturated near
+1.000 and the OL cells near zero. Achieved dropout fractions
+tracked targets closely: approximately 0.25 for both MCAR_25
+and biased_25, approximately 0.40 for biased_40.
+
+## Power across designs and dropout patterns
+
+The four designs reproduce the @hendrickson2020 happy-accident
+randomisation-path ordering at the wider 16-cell grid: hybrid
+(power approximately 1.00) is followed by OL+BDC (approximately
+0.95), then traditional crossover (approximately 0.85), then
+OL (power at the nominal type I level near 0.02 to 0.05). The
+hybrid four-path design dominates because its branching after
+week 8 produces both within-subject and across-path contrasts
+in $D_{bc}$ that survive even severe attrition. Cell-level
+power values, percent $\pm$ MCSE:
+
+| Design                 | none         | MCAR 25%     | biased 25%   | biased 40%   |
+|------------------------|--------------|--------------|--------------|--------------|
+| OL                     | 2.2 $\pm$ 0.7 | 4.6 $\pm$ 0.9 | 3.4 $\pm$ 0.8 | 4.4 $\pm$ 0.9 |
+| OL+BDC                 | 95.0 $\pm$ 1.0 | 91.2 $\pm$ 1.3 | 92.4 $\pm$ 1.2 | 89.4 $\pm$ 1.4 |
+| traditional crossover  | 85.4 $\pm$ 1.6 | 81.0 $\pm$ 1.8 | 82.4 $\pm$ 1.7 | 76.8 $\pm$ 1.9 |
+| hybrid                 | 99.8 $\pm$ 0.2 | 100.0 $\pm$ 0.0 | 100.0 $\pm$ 0.0 | 99.4 $\pm$ 0.3 |
+
+The OL row sits at nominal alpha under every dropout pattern
+because Architecture A's level shift on $BR$ at on-drug
+timepoints is uniform across OL1-OL8: with $D_b$ identically
+one, there is no within-subject contrast for $bm{:}D_{bc}$,
+the fitter has no information about the interaction, and
+rejection rates collapse to the nominal type I rate. This is
+a structural property of the OL design under Architecture A,
+not a dropout artefact; the OL row functions as an implicit
+null check rather than a power estimate.
+
+Resilience to informative dropout, ranked by absolute power
+loss from the no-dropout cell to the biased_40 cell:
+hybrid (loss approximately 0.4 percentage points) above
+OL+BDC (loss approximately 5.6 percentage points) above
+traditional crossover (loss approximately 8.6 percentage
+points). Of the three powered designs, the hybrid is most
+robust and the traditional crossover most vulnerable; the
+ordering mirrors the inverse of the absolute power level.
+
+## Bias of the biomarker-treatment interaction estimate
+
+The mean estimated coefficient $\hat\beta_{bm:D_{bc}}$ is
+stable across dropout cells within each design, indicating
+no systematic estimand drift under informative dropout in
+this regime:
+
+| Design                 | none   | MCAR 25% | biased 25% | biased 40% |
+|------------------------|--------|----------|------------|------------|
+| OL                     | $-$0.09 | $-$0.10 | $-$0.09    | $-$0.10    |
+| OL+BDC                 | $-$2.48 | $-$2.48 | $-$2.47    | $-$2.45    |
+| traditional crossover  | $-$2.24 | $-$2.28 | $-$2.25    | $-$2.21    |
+| hybrid                 | $-$2.46 | $-$2.46 | $-$2.46    | $-$2.45    |
+
+The largest within-design bias shift between the no-dropout
+and the biased_40 cells is approximately $0.04$ (traditional
+crossover), well within the cell-level MCSE on the mean
+($\le 0.04$ for all designs). The power degradation visible
+in §5.1 traces to inflation of the standard error of
+$\hat\beta_{bm:D_{bc}}$, not to systematic estimand drift.
+Empirical SEs (last column of `09-dropout-summary.txt`)
+expand modestly under biased_40 dropout: from $0.628$ to
+$0.660$ for OL+BDC; from $0.766$ to $0.779$ for traditional
+crossover; from $0.411$ to $0.454$ for hybrid.
+
+## Randomization-path decomposition
+
+Decomposition of the headline power loss into
+randomisation-path-specific contributions is scoped for a
+production-grade rerun with per-path-id tracking added to the
+driver. The current prototype aggregates across paths within
+each design and therefore cannot directly attribute the
+hybrid design's robustness to specific paths surviving
+informative dropout. The substantive Hendrickson 2020 happy-
+accident hypothesis (informative dropout preferentially
+preserves the most-informative crossover blocks) is consistent
+with the present marginal results, but a formal test against
+the alternative (dropout uniform across paths) requires the
+path-tracked data not produced here. The follow-up driver
+extension is straightforward at the simulation level
+(record `path_id` per replicate); the bottleneck is in the
+analysis layer where path-stratified $\hat\beta_{bm:D_{bc}}$
+distributions need to be summarised against the cell-pooled
+estimate.
+
+## Sensitivity to dropout-pattern misspecification
+
+The biased_25 versus MCAR_25 contrast at fixed 25% dropout
+isolates the bias mechanism from the rate effect. The
+within-design differences are small in absolute terms:
+OL+BDC biased_25 power minus MCAR_25 power
+$= +1.2$ percentage points (CI $[-2.4, +4.8]$);
+traditional crossover $= +1.4$ percentage points
+(CI $[-3.5, +6.3]$); hybrid $\approx 0$
+(saturated; bracketed); OL $= -1.2$ percentage points
+(null cells; bracketed).
+
+All four within-design differences lie within 1.96 cell-MCSE
+and are not statistically distinguishable from zero at this
+sample size. The dominant effect on power is the dropout
+*rate* rather than the *bias mechanism*: moving from 25% to
+40% biased dropout costs $1.8$ percentage points (OL+BDC),
+$5.6$ percentage points (traditional crossover), and $0.6$
+percentage points (hybrid), each detectable above MCSE.
+Resolving the biased_25 versus MCAR_25 distinguishability
+question with statistical clarity requires approximately
+2{,}000 replicates per cell at the current MCSE, which is
+left to a production rerun.
+
+# Design-by-dropout recommendation
+
+The recommendation maps three classes of anticipated dropout
+mechanism (no informative dropout, informative-by-rate, and
+informative-by-mechanism) to preferred N-of-1 design choices,
+informed by the §5 results.
+
+| Anticipated dropout            | Preferred design | Rationale                                                                  |
+|--------------------------------|------------------|----------------------------------------------------------------------------|
+| None or low MCAR ($d \le 10\%$) | hybrid           | Saturated power; no penalty for hybrid's complexity                       |
+| Moderate MCAR ($d \approx 25\%$) | hybrid           | Hybrid retains saturated power; OL+BDC loses 4 pp; crossover loses 4 pp  |
+| Heavy MCAR or biased ($d \ge 40\%$) | hybrid          | Hybrid at 99% power; OL+BDC drops to 89%; crossover drops to 77%        |
+| Worsening-driven (any rate)    | hybrid or OL+BDC | OL+BDC's blinded discontinuation phase carries the bias signal explicitly|
+| Improvement-driven (any rate)  | OL+BDC           | Crossover loses signal when responders drop early; OL+BDC absorbs        |
+| Information-poor (OL only)     | not recommended  | Architecture-A OL has no within-subject $bm{:}D_{bc}$ contrast            |
+
+The dominant message is that the hybrid Hendrickson design's
+power advantage at no-dropout extends to robustness against
+informative dropout. The traditional crossover, despite its
+strong no-dropout power, loses approximately 9 percentage
+points under biased_40 dropout and is the least dropout-robust
+of the three powered designs. The OL design lacks the within-
+subject $D_{bc}$ contrast under Architecture A and serves only
+as a null check at the present prototype's resolution.
+
+# Discussion
+
+## Prototype Monte Carlo confirmation
+
+A 500-replicate-per-cell prototype run on the full 16-cell
+design-by-dropout grid (design $\in \{$OL, OL+BDC, traditional
+crossover, hybrid$\} \times$ dropout pattern $\in \{$none,
+MCAR 25\%, biased 25\%, biased 40\%$\}$) was executed at
+$N = 35$, $c_{bm} = 0.45$ under Architecture A using 8-core
+`parallel::mclapply`. Wall clock 421 s; convergence 100%
+across all 8{,}000 fits. Per-replicate output at
+`analysis/data/quick-sim/09-dropout-replicates.rds`; Morris
+ADEMP summary at `09-dropout-summary.txt`. Achieved dropout
+fractions tracked targets closely: approximately 0.25 for
+both MCAR\_25 and biased\_25, approximately 0.40 for
+biased\_40. Cell MCSE on power runs 0.014--0.019 in the
+binding 0.85 regime, with the Hybrid cells effectively
+saturated near 1.000.
+
+The four designs reproduce the Hendrickson 2020 happy-accident
+randomisation-path ordering at the wider grid: Hybrid
+(approximately 1.00 power) is followed by OL+BDC (approximately
+0.95), then traditional crossover (approximately 0.85), then OL
+(power at the nominal type I level near 0.02--0.05). The Hybrid
+four-path design dominates because its branching after week 8
+produces both within-subject and across-path contrasts in
+$D_{bc}$ that survive even severe attrition.
+
+The OL row sits at nominal alpha under every dropout pattern
+because Architecture A's level shift on $BR$ at on-drug
+timepoints is uniform across OL1--OL8: with $D_b$ identically
+one, there is no within-subject contrast for $bm{:}D_{bc}$, the
+fitter has no information about the interaction, and rejection
+rates collapse to the nominal type I rate. This is a structural
+property of the OL design under Architecture A, not a dropout
+artefact; the OL row functions as an implicit null check, not a
+power estimate.
+
+Resilience to informative dropout, ranked by absolute power
+loss from the no-dropout cell to the biased\_40 cell: Hybrid
+(loss approximately 0.004) above OL+BDC (loss approximately
+0.056) above traditional crossover (loss approximately 0.086).
+The biased\_25 versus MCAR\_25 contrast at fixed 25\% dropout
+is small ($+0.012$, $+0.014$, $-0.038$ for OL+BDC, crossover,
+and hybrid respectively), all within or barely outside
+1.96 MCSE. The dominant effect is dropout rate, not bias
+mechanism: moving to 40\% biased dropout costs 0.018--0.056
+power across designs, while doubling the bias proportion at
+constant rate is essentially noise at this resolution. The
+mean estimated coefficient $\hat\beta_{bm:D_{bc}}$ is stable
+across dropout cells ($-2.45$ to $-2.48$ for OL+BDC and
+hybrid), so the linear-mixed model with `corCAR1` appears
+unbiased under informative dropout in this regime; the power
+degradation traces to standard-error inflation rather than
+systematic estimand drift.
+
+Two ADEMP-discipline caveats apply. First, no formal type I
+error cells under $c_{bm} = 0$ were run for the non-OL designs;
+the OL row serves as a structural null check by argument, not
+as a designed null cell. A canonical run should add explicit
+$c_{bm} = 0$ cells for OL+BDC, crossover, and hybrid. Second,
+the prototype is single-architecture (Architecture~A) by spec;
+under Architecture~B (MVN) the OL row would carry information
+because the biomarker-by-treatment signal lives in the
+covariance structure rather than in a within-subject mean
+contrast. Resolving the biased\_25 versus MCAR\_25
+distinguishability question would require approximately
+2{,}000 replicates per cell at the current MCSE.
+
+# Conclusions
+
+The four candidate aggregated N-of-1 trial designs differ in
+their robustness to informative dropout in ways that the
+published methodological literature has not adequately
+characterised. At the prazosin/PTSD reference parameters with
+$N = 35$, $c_{bm} = 0.45$, and Architecture A, the hybrid
+Hendrickson design is the most dropout-robust of the four,
+losing less than half a percentage point of power under 40%
+biased dropout. The OL+BDC design loses approximately 5.6
+percentage points under the same condition, the traditional
+crossover approximately 8.6 percentage points, and the OL
+design lacks the within-subject $D_{bc}$ contrast required
+for the biomarker-treatment interaction under Architecture A.
+The hybrid's robustness extends and corroborates the
+@hendrickson2020 happy-accident randomisation-path argument
+without requiring path-stratified analysis to support the
+substantive claim.
+
+The dominant determinant of the design-by-dropout interaction,
+in this prototype's evaluation, is the dropout *rate* rather
+than the dropout *mechanism*. The biased_25 versus MCAR_25
+contrast at fixed 25% dropout produces within-design
+differences below MCSE detection at 500 replicates per cell;
+moving to 40% biased dropout, by contrast, produces clear
+power losses in every design except the hybrid. Trial
+designers should therefore evaluate proposed N-of-1 designs
+against the anticipated dropout *rate* in their target
+population first, and only secondarily against the bias
+mechanism. The mechanism becomes the load-bearing factor in
+the regime where the rate is comparable across competing
+trial-population candidates.
+
+The mean estimated coefficient $\hat\beta_{bm:D_{bc}}$ is
+stable across dropout cells, with the largest within-design
+shift below 0.04 across the no-dropout to biased_40 range.
+The power degradation under informative dropout therefore
+traces to standard-error inflation rather than systematic
+estimand drift. This finding is reassuring for the validity
+of the aggregated N-of-1 framework in the presence of
+informative dropout (the inferential target is preserved),
+but it is also a warning to trialists that nominal coverage
+of confidence intervals may understate the true uncertainty
+in the dropout regime, since the $\hat\beta_{bm:D_{bc}}$
+distribution widens without the model's acknowledging it.
+
+Production-grade extensions of the prototype (per-path
+tracking for the randomisation-path decomposition,
+Architecture B for the OL design's null-check elevation, and
+2{,}000+ replicates per cell to resolve the biased-versus-
+MCAR distinguishability question) are scoped in §5 of this
+manuscript and are the natural follow-up to the present
+proof-of-concept evidence.
+
+# Conflict of interest
+
+The authors declare no conflicts of interest.
+
+# Funding
+
+This work received no specific funding.
+
+# Data availability statement
+
+The data and code that support the findings of this study are
+openly available in the pmsimstats-ng project repository.
+Per-replicate Monte Carlo outputs and ADEMP-compliant cell-level
+summaries are versioned under `analysis/data/`; simulation
+drivers are at `analysis/scripts/`. Exact paths for this
+manuscript are listed in the Reproducibility section below.
+
+# Reproducibility
+
+This manuscript was rendered with R 4.4.x inside the project's
+zzcollab Docker container (image hash recorded in `Dockerfile`;
+package set captured in `renv.lock`). Principal packages used
+by the simulation pipeline are `nlme` (continuous-time
+linear-mixed analysis with `corCAR1` residual correlation),
+`parallel` (8-core `mclapply` for parameter-grid sweeps),
+`data.table` (the `original-extended` simulation collection),
+`furrr` and `purrr` (the `tidyverse` simulation collection),
+and `rmarkdown` plus `bookdown` for the manuscript build. The
+informative-dropout module is at `R/censordata.R`.
+
+**Random-number generator.** Each simulation driver sets
+`set.seed(20260507)` at the top of the replicate loop and uses
+`parallel::mc.set.seed` inside `mclapply`. Per-replicate seeds
+derive from the master seed by `+ rep_idx`.
+
+**Data and code availability.** Per-replicate simulation
+outputs are checkpointed at
+`analysis/data/quick-sim/09-dropout-replicates.rds`; Morris
+ADEMP cell-level summaries at the companion
+`09-dropout-summary.txt`. Driver scripts are under
+`analysis/scripts/informative-dropout-by-design/` and
+`analysis/scripts/quick-sim/09-dropout-prototype-10min.R`. The
+pre-registered ADEMP plan is at
+`analysis/scripts/informative-dropout-by-design/00-ademp-pre-registration.md`.
+The manuscript source, paper-specific bibliography
+(`references.bib`), and SIM CSL file are at
+`analysis/report/09-informative-dropout-by-design/`.

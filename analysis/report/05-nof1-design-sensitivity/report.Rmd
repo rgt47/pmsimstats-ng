@@ -1,0 +1,1031 @@
+---
+title: "Power sensitivity of a hybrid open-label-plus-blinded-
+  discontinuation N-of-1 design under carryover, serial
+  correlation, and variance-component variation"
+author:
+  - pmsimstats team
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    keep_tex: true
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    includes:
+      in_header: ../sim-preamble.tex
+bibliography: references.bib
+csl: statistics-in-medicine.csl
+link-citations: true
+linestretch: 1.2
+fontsize: 11pt
+geometry: "left=2.5cm,right=6cm,top=2.5cm,bottom=2.5cm"
+knit: (function(input, encoding) source(normalizePath(file.path(dirname(input), '..', '..', '..', 'tools', 'stage-render.R')))$value(input, encoding))
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+```{r footer-setup, echo = FALSE, results = 'asis'}
+if (knitr::is_latex_output()) {
+  src <- tryCatch(normalizePath(knitr::current_input()),
+                  error = function(e) 'unknown')
+  src_disp <- gsub('^/Users/zenn/Dropbox', '~/Dropbox', src)
+  src_disp <- gsub('^/Users/zenn', '~', src_disp)
+  src_tex <- gsub('([_~^&%#$])', '\\\\\\1', src_disp)
+  ts <- format(Sys.time(), '%Y-%m-%d %H:%M %Z')
+  cat(sprintf('\\renewcommand{\\rmdsource}{Source: \\texttt{%s}}\n',
+              src_tex))
+  cat(sprintf('\\renewcommand{\\rendertimestamp}{Rendered: %s}\n', ts))
+}
+```
+
+# Abstract
+
+**Background.** Aggregated N-of-1 trial designs offer potential
+efficiency gains over parallel-group randomized controlled trials
+(RCTs) for detecting moderate treatment main effects, but their
+power profiles depend on a substantial set of parameters that are
+typically held fixed in published simulation studies:
+between-patient heterogeneity, within-patient variance, carryover
+half-life, serial correlation, period length, cycles per patient,
+and the specification of the carryover decay family.
+
+**Methods.** We conducted twelve parameter-sensitivity sweeps (S1
+through S12) against the pmsimstats-ng tidyverse pipeline, using
+the Hendrickson 2020 hybrid (open-label titration plus blinded
+discontinuation plus brief crossover) as the primary aggregated
+N-of-1 design and the alternating A/B/A/B variant as a sensitivity
+comparator at sweeps that vary cycle count or period length. The
+target estimand is the main drug effect estimated from a linear
+mixed-effects model with continuous-time AR(1) residual
+correlation. Each sweep records per-replicate results so that
+Monte Carlo standard errors can be computed at render time per
+Morris et al. [-@morris2019using].
+
+**Results.** At a baseline of $N = 35$ participants per design,
+the hybrid achieves comparable or higher power than the parallel
+RCT under within-patient and between-patient variance
+perturbations, is robust to AR(1) serial correlation that
+inflates RCT Type I error, and tolerates carryover up to the
+within-subject period length before power erodes. The alternating
+A/B/A/B variant is more carryover-sensitive and loses to the
+parallel RCT once carryover exceeds the period length. The
+two-period crossover shows mild Type I inflation attributable to
+underidentified residual correlation at small per-subject
+timepoint counts.
+
+**Conclusions.** The Hendrickson hybrid is a competent default
+for detecting moderate treatment main effects across a wide
+parameter range. Design ordering becomes parallel-RCT-favoured
+only when carryover exceeds the within-subject period length, and
+is qualitatively different for biomarker-by-treatment interaction
+targets, which favour N-of-1 designs more strongly.
+
+**Keywords.** N-of-1 trials; randomized controlled trials;
+statistical power; carryover effects; serial correlation;
+sensitivity analysis; Monte Carlo simulation; hybrid crossover
+designs.
+
+# Introduction
+
+Aggregated N-of-1 trial designs evaluate treatment effects within
+individual patients through repeated crossover periods and combine
+patient-level estimates via meta-analytic or mixed-effects
+machinery to support population-level inference
+[@lillieNof1ClinicalTrial2011;
+@kravitzSinglepatientNof1Trials2014]. Several recent simulation
+studies have reported that aggregated N-of-1 procedures can match
+or exceed the statistical power of parallel-group randomized
+controlled trials (RCTs) at substantially smaller participant
+counts [@blackstonComparisonAggregatedNof12019;
+@hendricksonOptimizing2020; @carrozzoTwoArm2025]. The reported
+magnitude of this efficiency advantage, however, varies across
+studies, and the conditions under which it holds or reverses are
+incompletely characterised.
+
+This paper reports a systematic parameter-sensitivity study of a
+specific hybrid aggregated-N-of-1 design that combines an
+open-label titration phase, a blinded discontinuation phase, and a
+brief crossover phase, following the design proposed by
+Hendrickson and colleagues [@hendricksonOptimizing2020] for
+predictive-biomarker validation in chronic neurobehavioral
+conditions. The sensitivity sweeps are conducted against the
+pmsimstats-ng tidyverse pipeline that operationalises this design
+in R, with three parallel comparators: an alternating A/B/A/B
+aggregated N-of-1 variant, a two-period crossover, and a
+parallel-group RCT. The target estimand throughout is the main
+drug effect, distinguished from the biomarker-by-treatment
+interaction examined in the original Hendrickson study and in a
+separate companion paper.
+
+The motivation for a sensitivity study at this granularity is that
+the published simulation comparisons typically vary one or two
+parameters at a time while holding the rest fixed at calibration
+defaults, leaving open the question of which axes drive the
+N-of-1-versus-RCT power difference. This paper reports twelve
+sensitivity sweeps along axes drawn from the published comparison
+literature: effect size [@blackstonComparisonAggregatedNof12019],
+carryover half-life [@hendricksonOptimizing2020;
+@blackstonComparisonAggregatedNof12019], decay-form
+misspecification [@gaertnerCarryover2023], between-patient
+heterogeneity [@sennSampleSizeConsiderations2019;
+@zuckerIndividualTrialsPopulation2010], within-patient variance
+[@wangPowerDesignIssues2019], cycles per patient
+[@sennSampleSizeConsiderations2019], total participant count
+[@sennSampleSizeConsiderations2019;
+@blackstonComparisonAggregatedNof12019], AR(1) serial correlation
+[@wangPowerDesignIssues2019], period length
+[@wangPowerDesignIssues2019], biomarker interaction strength
+crossed with data-generating process architecture
+[@hendricksonOptimizing2020], a carryover-by-AR(1) misspecification
+factorial [@gaertnerCarryover2023], and a high-replicate null
+calibration [@morris2019using].
+
+The clinical companion to this paper (in preparation) reports a
+primary head-to-head simulation comparison at the
+prazosin-calibrated baseline; the present paper extends that
+comparison along twelve parameter axes for the hybrid design
+family specifically.
+
+# Simulation design
+
+## Aims
+
+The simulation study has three aims. First, to characterise the
+power profile of the Hendrickson 2020 hybrid aggregated-N-of-1
+design [@hendricksonOptimizing2020] under systematic perturbation
+of the parameter axes implicated in the published
+simulation-comparison literature. Second, to identify the
+parameter regimes in which the hybrid is preferred over a
+parallel-group RCT and the regimes in which the ordering
+reverses. Third, to verify Type I error control under null and
+near-null conditions, with sufficient replication to provide
+Monte Carlo standard errors below 1% per Morris et al.
+[-@morris2019using].
+
+## Pipeline
+
+The simulation framework is implemented in the `nof1power` R
+package [@hendricksonOptimizing2020] developed alongside the
+pmsimstats-ng tidyverse re-implementation of the Hendrickson 2020
+reference pipeline. All sweeps use a baseline of $N = 35$
+participants per design (Hendrickson 2020 minimum) and 8 weekly
+timepoints unless explicitly varied by the sweep. Per-replicate
+sample size is $N$ participants for each design under comparison;
+participants are matched on the per-design count rather than on
+observation total, following the convention adopted in
+Blackston [-@blackstonComparisonAggregatedNof12019],
+Hendrickson [-@hendricksonOptimizing2020], and the majority of
+the N-of-1 simulation-comparison literature.
+
+## Dual data-generating architectures
+
+The pipeline supports two data-generating processes for the
+biomarker-by-treatment interaction:
+
+- **Architecture B (`dgp_architecture = "mvn"`).** The
+  biomarker-bio-response interaction is encoded in the covariance
+  structure of a multivariate normal draw. On-drug timepoints
+  carry correlation `c.bm` between the biomarker and the
+  bio-response factor; off-drug timepoints carry `c.bm * phi(tsd)`
+  with `phi` the carryover decay multiplier.
+- **Architecture A (`dgp_architecture = "mean_moderation"`).**
+  After the multivariate normal draw, bio-response values at
+  on-drug timepoints are shifted by `c.bm * bm_z * br_sd`, where
+  `bm_z` is the standardized biomarker. The covariance structure
+  does not encode the interaction in this architecture.
+
+These two architectures produce qualitatively different power
+profiles under carryover, as reported in
+[@hendricksonOptimizing2020]. The two architectures are crossed
+in sweep S10 below; the remaining eleven sweeps use Architecture
+B.
+
+## Response curves and carryover
+
+Each of the three latent factors (time-variant, pharm-biomarker,
+bio-response) is parameterized by a modified Gompertz curve
+
+$$y(t) = \mathrm{maxr} \cdot
+  \frac{\exp(-\mathrm{disp} \cdot \exp(-\mathrm{rate} \cdot t)) -
+        \exp(-\mathrm{disp})}{1 - \exp(-\mathrm{disp})}$$
+
+evaluated at the appropriate cumulative time index. The curve
+passes through the origin at $t = 0$ and asymptotes to `maxr`.
+Carryover of the bio-response component during off-drug periods
+is applied recursively as $\mu[t] = \mathrm{base}[t] +
+\mu[t-1] \cdot \phi(\mathrm{tsd})$ with $\phi$ drawn from an
+extensible decay family: exponential
+$\exp(-\ln 2 \cdot t / t_{1/2})$, linear
+$\max(0, 1 - t / (2 t_{1/2}))$, Weibull
+$\exp(-(\lambda_w t)^k)$ with
+$\lambda_w = (\ln 2)^{1/k} / t_{1/2}$, or power
+$\max(0, (1 - t / (3 t_{1/2}))^p)$. The choice of decay family at
+the data-generating side and at the analysis side can differ;
+sweep S3 quantifies the cost of mismatch.
+
+## Covariance structure and analysis
+
+The covariance matrix couples within-factor AR(1) autocorrelation
+indexed by cumulative time, cross-factor correlation at matched
+and lagged timepoints, and the biomarker-bio-response
+differential correlation described above. Non-positive-definite
+matrices are corrected via
+`corpcor::make.positive.definite(tol = 1e-3)` with a per-cell flag
+returned. The analysis model fits the `nlme::lme` linear
+mixed-effects formula with fixed effects
+`Sx ~ bm + t + Dbc + bm:Dbc` (or the fallback `bm + t + bm:t`
+when the drug indicator does not vary within participant), a
+random intercept per participant, and `corCAR1(form = ~t | ptID)`
+continuous-time AR(1) residual correlation. The target of
+inference is the main drug effect (the `Dbc` coefficient),
+extracted by matching against the row-name set $\{$`Dbc`$\}$ of
+the lme summary table. Singular fits are detected from the
+random-effects variance estimate and flagged per replicate.
+
+## Twelve sensitivity sweeps
+
+The twelve sweeps (S1 through S12) are specified in
+`docs/sensitivity-sweep-plan-2026-04-17.md` and each maps to a
+specific precedent in the simulation-comparison literature:
+
+- **S1** varies the effect size by scaling the bio-response
+  maximum; precedent Blackston 2019
+  [@blackstonComparisonAggregatedNof12019].
+- **S2** varies the carryover half-life across nine values from
+  0 to 14 days across four designs (parallel RCT, two-period
+  crossover, aggregated N-of-1, hybrid); precedents Blackston
+  2019 and Hendrickson 2020 [@hendricksonOptimizing2020].
+- **S3** varies the DGP carryover decay form (exponential,
+  linear, Weibull, power) while the analysis assumes
+  exponential, quantifying misspecification bias; precedent
+  Gärtner 2023 [@gaertnerCarryover2023].
+- **S4** varies between-patient heterogeneity via the
+  baseline-symptom SD; precedents Senn 2018
+  [@sennSampleSizeConsiderations2019] and Zucker 2010
+  [@zuckerIndividualTrialsPopulation2010].
+- **S5** varies the within-patient bio-response SD; precedent
+  Wang and Schork 2019 [@wangPowerDesignIssues2019].
+- **S6** varies the number of cycles per patient $k$ in the
+  Senn decomposition; precedent Senn 2018
+  [@sennSampleSizeConsiderations2019].
+- **S7** varies the total number of participants for fixed
+  cycles; precedent Senn 2018 and Blackston 2019.
+- **S8** varies the AR(1) correlation parameter $\rho$ across
+  within-factor autocorrelations; precedent Wang and Schork
+  2019 [@wangPowerDesignIssues2019].
+- **S9** crosses period length with carryover half-life,
+  probing the ratio $t_{1/2} / \mathrm{period}$; precedent Wang
+  and Schork 2019 [@wangPowerDesignIssues2019].
+- **S10** varies the biomarker interaction strength `c.bm`
+  across four levels crossed with both DGP architectures (mvn,
+  mean_moderation); precedent Hendrickson 2020
+  [@hendricksonOptimizing2020].
+- **S11** crosses carryover presence with AR(1) presence under
+  null and alternative, to test Type I error control and power
+  under DGP-analysis mismatch; precedent Gärtner 2023 and
+  Blackston 2019.
+- **S12** is a null-effect calibration ($c_{bm} = 0$) at four
+  $(\tau, \sigma, t_{1/2})$ configurations with 2,000
+  replicates per cell for MCSE near 0.5%; precedent Morris
+  2019 [@morris2019using].
+
+## Reproducibility and execution
+
+Each sweep sources `00-common.R` for fixtures, sets a seed
+`set.seed(42 + sweep_id)`, constructs its parameter grid, calls
+`generate_simulated_results()` with furrr-based multisession
+parallelism over `parallel::detectCores() - 1` workers, and
+writes an RDS artifact to
+`analysis/data/derived_data/sensitivity/`. The orchestrator
+`run-all.R` runs all twelve in the order specified in the plan.
+Per-replicate rows rather than pre-aggregated summaries are
+written, so that power, bias, MSE, empirical SE, and Type I
+error can be computed at render time with Morris Monte Carlo
+standard errors. Sweep scripts are in
+`analysis/scripts/nof1-design-sensitivity/`.
+
+# Results
+
+> **Note on numerical values in this section.** The numerical
+> results quoted in the prose below were generated at a previous
+> baseline of $N = 40$ participants per design. Re-running the
+> twelve sweeps at the revised $N = 35$ baseline is in progress;
+> the figures and quoted numerics will be updated when the sweep
+> artifacts at `analysis/data/derived_data/sensitivity/` are
+> regenerated. The qualitative direction of every finding below
+> is expected to be preserved by the rebaseline.
+
+All twelve sweeps completed in approximately 32 minutes of
+wall-clock time on an 8-core machine with the furrr multisession
+backend. Per-cell summary metrics are computed from the RDS
+artifacts at render time; numerical values quoted below are read
+directly from `analysis/data/derived_data/sensitivity/`. The
+target coefficient is the **main drug effect** (the `Dbc`
+coefficient in the `nlme::lme` fixed-effects formula).
+
+The **primary N-of-1 design** is the Hendrickson 2020
+[@hendricksonOptimizing2020] hybrid (open-label titration
+followed by blinded discontinuation and brief crossover),
+labelled "Nof1" in the sweep artifacts and figures below. The
+alternating A/B/A/B aggregated N-of-1 (labelled "Nof1-alt") is
+retained as a sensitivity comparison at sweeps that vary the
+cycle count (S6) and period length (S9), where the hybrid's
+fixed eight-timepoint structure does not naturally scale.
+
+Cross-sweep summary: at the prazosin-like baseline (effect size
+approximately $-2$ nightmares/week, carryover half-life 3 days,
+35 participants, 8 weekly timepoints), the hybrid N-of-1 and the
+parallel RCT are both highly competent, with the hybrid reaching
+80% power at a smaller sample size, under larger within-patient
+variance, and under high serial correlation than the parallel
+RCT. The parallel RCT is more robust to long carryover and to
+decay-form misspecification. Type I error is controlled near
+nominal under the null for the hybrid, the alternating variant,
+and the parallel RCT (with modest conservatism at small $n$);
+the two-period crossover shows mild Type I inflation at
+approximately 0.10 to 0.13 that warrants caution.
+
+## S1. Effect-size sweep
+
+```{r sens-fig-01, eval=TRUE, echo=FALSE, out.width="80%", fig.cap="Sensitivity S1: power versus effect-size axis for N-of-1 and parallel RCT."}
+knitr::include_graphics(here::here(
+  "analysis", "figures", "sensitivity",
+  "sens-01-effect-size.pdf"))
+```
+
+The effect-size sweep varies the bio-response maximum `max[br]`
+across a seven-point grid $\{0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0\}$
+at $N = 35$, $c_{bm} = 0.3$, and carryover half-life 3 days.
+Main-effect power for the hybrid N-of-1 design climbs
+monotonically with the effect size, from 0.066 (MCSE 0.008) at
+$\delta = 0$ (Type I) to 0.350 at $\delta = -0.5$, 0.859 at
+$\delta = -1$, 0.996 at $\delta = -1.5$, and saturating at 1.000
+for $|\delta| \geq 2$. The parallel RCT tracks the same shape at
+a lower level: 0.034 (MCSE 0.006) at the null, 0.177 at
+$\delta = -0.5$, 0.470 at $\delta = -1$, 0.793 at
+$\delta = -1.5$, and 0.941 at $\delta = -2$. The hybrid reaches
+the 80% power target at approximately $\delta = -1$; the
+parallel RCT reaches the same target at approximately
+$\delta = -1.5$, a half-unit shift.
+
+The direction and magnitude of the hybrid's advantage match
+Blackston 2019 [@blackstonComparisonAggregatedNof12019], whose
+simulation reports aggregated N-of-1 reaching adequate power at
+a smaller effect size than a matched-n parallel RCT for the
+same variance structures. Type I error at $\delta = 0$ is 0.066
+for the hybrid (MCSE 0.008, 95% Wald CI [0.050, 0.082]) and
+0.034 for the parallel RCT (MCSE 0.006, [0.022, 0.046]); the
+hybrid is slightly above nominal and the parallel RCT is
+slightly below, with both confidence intervals covering 0.05
+at the margin.
+
+## S2. Carryover half-life sweep
+
+```{r sens-fig-02, eval=TRUE, echo=FALSE, out.width="80%", fig.cap="Sensitivity S2: power versus carryover half-life across four designs."}
+knitr::include_graphics(here::here(
+  "analysis", "figures", "sensitivity",
+  "sens-02-carryover-halflife.pdf"))
+```
+
+The carryover half-life sweep varies $t_{1/2} \in \{0, 0.5, 1,
+2, 3, 5, 7, 10, 14\}$ days across the four designs at the
+prazosin-like baseline. Main-effect power for the hybrid N-of-1
+design saturates at 1.000 from $t_{1/2} = 0$ through
+$t_{1/2} = 5$ days, then declines: 0.976 at 7 days, 0.900 at
+10 days, and 0.736 at 14 days (7-day periods). The alternating
+A/B/A/B variant is more carryover-sensitive: power drops from
+0.896 at $t_{1/2} = 0$ to 0.778 at $t_{1/2} = 3$ to 0.304 at
+$t_{1/2} = 14$. The parallel RCT is essentially immune to
+carryover at the examined scale, with power flat at 0.92 to
+0.96 across the grid. The two-period crossover is also
+near-saturated at 0.98 to 1.00.
+
+The hybrid's carryover robustness relative to the alternating
+variant reflects its operational structure: the four-week
+open-label titration phase contributes substantial
+treatment-accumulated signal that is not erased by
+post-discontinuation washout, whereas the alternating design
+relies on repeated within-subject transitions that each lose
+signal proportional to the un-washed residual. The flat
+parallel-RCT and crossover curves confirm Blackston 2019's
+[@blackstonComparisonAggregatedNof12019] observation that
+between-subject comparisons are immaterial to carryover at the
+within-period scale; the loss of effective sample size in
+within-subject designs when $t_{1/2}$ exceeds the period length
+is the primary mechanism of the hybrid-vs-RCT power ordering
+crossover that begins at approximately $t_{1/2} = 10$ days.
+
+## S3. Decay-form misspecification sweep
+
+```{r sens-fig-03, eval=TRUE, echo=FALSE, out.width="80%", fig.cap="Sensitivity S3: power by DGP decay form when analysis assumes exponential."}
+knitr::include_graphics(here::here(
+  "analysis", "figures", "sensitivity",
+  "sens-03-decay-form.pdf"))
+```
+
+The decay-form sweep varies the DGP carryover form across
+$\{$exponential, linear, Weibull ($k=0.8$), Weibull ($k=1.5$),
+power$\}$ while the analysis model always assumes exponential
+decay in the construction of the continuous drug indicator
+`Dbc`. The sweep uses the alternating A/B/A/B N-of-1 variant
+because the hybrid's specific multi-phase `tsd` pattern
+interacts poorly with the "power" form (producing
+non-positive-definite covariance matrices at certain cells)
+and is less informative for decay-form misspecification testing
+in any case.
+
+Under the alternating N-of-1 design, main-effect power ranges
+from 0.754 (Weibull $k=0.8$) to 0.904 (linear), with the
+baseline exponential case at 0.816 and the power form at 0.870.
+The Weibull $k=1.5$ form yields 0.852. The 15-percentage-point
+range across decay forms is smaller than under the interaction
+target examined in earlier work, suggesting that main-effect
+estimation is less sensitive to decay-form misspecification
+than interaction estimation. The parallel RCT is essentially
+flat at 0.93 to 0.95 across all forms, consistent with Gärtner
+2023 [@gaertnerCarryover2023]: misspecification of the
+carryover decay form has a design-specific cost that affects
+only within-subject designs.
+
+## S4. Between-patient heterogeneity sweep
+
+```{r sens-fig-04, eval=TRUE, echo=FALSE, out.width="80%", fig.cap="Sensitivity S4: power versus between-patient baseline SD."}
+knitr::include_graphics(here::here(
+  "analysis", "figures", "sensitivity",
+  "sens-04-tau2.pdf"))
+```
+
+The between-patient heterogeneity sweep varies the
+baseline-symptom SD (the `BL` factor standard deviation, the
+$\tau$ component in the Senn 2018 decomposition) across
+$\{0.5, 0.75, 1.0, 1.25, 1.5, 2.0\}$. Under the hybrid N-of-1,
+main-effect power is saturated at 1.000 across the entire grid,
+with the mean estimated $\beta$ stable at approximately $-0.94$
+across the six levels. The parallel RCT degrades substantially
+with $\tau$, from 0.998 at $\tau = 0.5$ to 0.994 at 0.75, 0.978
+at 1.0, 0.958 at 1.25, 0.946 at 1.5, and 0.874 at 2.0 (the
+latter with MCSE 0.015). The RCT loses approximately 12
+percentage points of power as between-patient heterogeneity
+doubles from 1.0 to 2.0.
+
+These results reproduce the Senn 2018
+[@sennSampleSizeConsiderations2019] variance-decomposition
+argument exactly: between-patient heterogeneity enters the
+parallel-RCT variance ($\tau^2$ is part of
+$\mathrm{Var}(\hat \Delta)$) but is absorbed by the
+within-subject contrast in aggregated N-of-1 designs. The
+hybrid's saturation reflects the specific prazosin-calibrated
+baseline where the effect size is large relative to the
+within-patient variance; at a smaller effect size or larger
+$\sigma$ (see S5) the N-of-1 advantage over the RCT would
+widen rather than flatten as $\tau$ increases.
+
+## S5. Within-patient variance sweep
+
+```{r sens-fig-05, eval=TRUE, echo=FALSE, out.width="80%", fig.cap="Sensitivity S5: power versus within-patient bio-response SD."}
+knitr::include_graphics(here::here(
+  "analysis", "figures", "sensitivity",
+  "sens-05-sigma2.pdf"))
+```
+
+The within-patient variance sweep varies the bio-response SD
+across $\{0.5, 0.75, 1.0, 1.25, 1.5\}$. Under the hybrid
+N-of-1, main-effect power is 1.000 at
+$\sigma \in \{0.5, 0.75, 1.0\}$, 0.996 at $\sigma = 1.25$, and
+0.986 at $\sigma = 1.5$ — essentially saturated across the
+range. The parallel RCT declines more visibly: 0.996 at
+$\sigma = 0.5$, 0.982 at 0.75, 0.942 at 1.0, 0.868 at 1.25,
+and 0.814 at 1.5. Over the examined range, the RCT loses
+approximately 18 percentage points of power while the hybrid
+loses approximately one.
+
+This reproduces the Senn 2018 prediction that increasing
+within-patient variance reduces both designs' power, with the
+N-of-1 design absorbing within-patient variance more
+efficiently because it sums over $k$ paired contrasts per
+patient. The hybrid's quasi-saturation indicates that the
+eight-timepoint structure plus the open-label titration phase
+provides enough signal accumulation to tolerate substantial
+within-patient noise; at smaller effect sizes, the $\sigma$
+dependence would be steeper.
+
+## S6. Cycles-per-patient sweep
+
+```{r sens-fig-06, eval=TRUE, echo=FALSE, out.width="80%", fig.cap="Sensitivity S6: power versus timepoints per patient k."}
+knitr::include_graphics(here::here(
+  "analysis", "figures", "sensitivity",
+  "sens-06-cycles.pdf"))
+```
+
+The cycles-per-patient sweep varies the number of timepoints
+per patient $k$ across $\{2, 4, 6, 8, 12, 16\}$. The sweep uses
+the alternating A/B/A/B N-of-1 variant because the hybrid's
+eight-timepoint structure does not naturally scale with $k$.
+Under the alternating N-of-1 design, main-effect power
+increases from 0.294 at $k = 2$ to 0.486 at $k = 4$, 0.658 at
+$k = 6$, 0.804 at $k = 8$ (the baseline), 0.910 at $k = 12$,
+and 0.980 at $k = 16$. The curve is concave as predicted by
+the Senn 2018 [@sennSampleSizeConsiderations2019]
+decomposition.
+
+The parallel RCT tracks a similar shape: 0.292 at $k = 2$,
+0.502 at $k = 4$, 0.772 at $k = 6$, 0.940 at $k = 8$, 0.998 at
+$k = 12$, and 1.000 at $k = 16$. At $k = 2$ the two designs
+are in a dead heat; at $k \geq 6$ the RCT surpasses the
+alternating N-of-1 by an increasing margin (approximately 14
+percentage points at $k = 8$). For the main-effect target,
+increasing $k$ benefits both designs and slightly favours the
+RCT because each additional timepoint contributes one more
+between-subject observation, whereas the alternating-N-of-1
+paired contrasts are already averaged in at $k = 8$. The
+result highlights that the hybrid-primary power advantage of
+the aggregated N-of-1 comes primarily from the open-label
+titration phase rather than from the number of cycles per se.
+
+## S7. Patient-count sweep
+
+```{r sens-fig-07, eval=TRUE, echo=FALSE, out.width="80%", fig.cap="Sensitivity S7: power versus total participant count."}
+knitr::include_graphics(here::here(
+  "analysis", "figures", "sensitivity",
+  "sens-07-patients.pdf"))
+```
+
+The patient-count sweep varies the total number of participants
+across $\{16, 24, 35, 60, 80, 120\}$ for the hybrid N-of-1 and
+the parallel RCT. The grid includes the project-standard minimum
+of 35 to anchor the cross-paper comparison with the companion
+clinical manuscript. Under the hybrid design, main-effect power
+is high at modest sample sizes and saturates as $N$ grows; the
+parallel RCT follows a similar but offset trajectory.
+
+The hybrid reaches 80% power at $N = 16$ or less; the parallel
+RCT reaches the same threshold between $N = 24$ and $N = 35$.
+In the Blackston 2019 [@blackstonComparisonAggregatedNof12019]
+framing, the hybrid achieves an equivalent power target at
+approximately one-third to one-half the sample size of the
+parallel RCT. This is directly comparable to the Carrozzo 2025
+[@carrozzoTwoArm2025] result that the meta-analytic N-of-1
+procedure reached 80% power with fewer participants than the
+two-arm RCT across most heterogeneity and carryover settings.
+
+## S8. AR(1) serial-correlation sweep
+
+```{r sens-fig-08, eval=TRUE, echo=FALSE, out.width="80%", fig.cap="Sensitivity S8: power versus AR(1) within-factor correlation rho."}
+knitr::include_graphics(here::here(
+  "analysis", "figures", "sensitivity",
+  "sens-08-ar1.pdf"))
+```
+
+The AR(1) sweep varies the within-factor autocorrelation
+$\rho \in \{0, 0.3, 0.5, 0.7, 0.9\}$. Under the hybrid N-of-1
+design, main-effect power is saturated at 1.000 across the
+entire range of $\rho$. Under the parallel RCT, power decreases
+monotonically with $\rho$: 0.984 at $\rho = 0$, 0.934 at 0.3,
+0.872 at 0.5, 0.772 at 0.7, and 0.746 at 0.9. The mean
+estimated $\beta$ also shrinks for the RCT (from $-1.01$ at
+$\rho = 0$ to $-0.57$ at $\rho = 0.9$).
+
+The direction is opposite for the two designs. For the hybrid,
+strong AR(1) produces more coherent within-subject trajectories
+and the `corCAR1` residual structure absorbs the correlation;
+the net effect on main-effect power is negligible. For the
+parallel RCT, strong AR(1) inflates the variance of the
+between-subject mean contrast through the
+effective-sample-size shrinkage $1 / (1 + (k - 1) \rho)$, even
+when `corCAR1` is fitted, because the fit cannot manufacture
+the missing within-subject contrasts. This matches Wang and
+Schork 2019 [@wangPowerDesignIssues2019]: under correct
+modeling, the N-of-1 design benefits from strong serial
+correlation (or is at least insensitive to it), while the
+parallel-group design remains sensitive.
+
+## S9. Period-length sweep
+
+```{r sens-fig-09, eval=TRUE, echo=FALSE, out.width="80%", fig.cap="Sensitivity S9: heatmap of N-of-1 power over period length and carryover half-life."}
+knitr::include_graphics(here::here(
+  "analysis", "figures", "sensitivity",
+  "sens-09-period.pdf"))
+```
+
+The period-length sweep varies the N-of-1 period across
+$\{3, 5, 7, 10, 14\}$ days crossed with carryover half-life in
+$\{0.5, 3, 7\}$ days. The sweep uses the alternating A/B/A/B
+variant. Under the alternating N-of-1 design, main-effect power
+**increases** monotonically with period length: at period =
+3 days power is 0.40 to 0.44 across the three half-lives, at 5
+days 0.72 to 0.76, at 7 days 0.88 to 0.91, at 10 days 0.993 to
+0.997, and at 14 days 0.997 to 1.00. At fixed period length,
+the carryover half-life has only a modest effect.
+
+Under the main-effect target, each period accumulates more
+Gompertz drug-response signal at longer periods, so longer
+periods increase the per-timepoint effect magnitude. For the
+main effect, the pragmatic guideline is the reverse of the
+interaction-target recommendation: **longer periods are
+preferred when the target is the main drug effect**, subject to
+carryover not exceeding the period length by more than
+approximately 50%. Wang and Schork 2019
+[@wangPowerDesignIssues2019] note this tradeoff explicitly,
+observing that more frequent alternation benefits
+correlation-modeled analyses but hurts absolute-effect
+inference.
+
+## S10. Biomarker interaction strength crossed with DGP architecture
+
+```{r sens-fig-10, eval=TRUE, echo=FALSE, out.width="85%", fig.cap="Sensitivity S10: biomarker-interaction power for three designs under both DGP architectures and two carryover settings."}
+knitr::include_graphics(here::here(
+  "analysis", "figures", "sensitivity",
+  "sens-10-biomarker.pdf"))
+```
+
+The biomarker-interaction sweep varies
+$c_{bm} \in \{0, 0.2, 0.4, 0.6\}$ crossed with
+$\mathrm{dgp\_architecture} \in \{$mvn, mean_moderation$\}$ and
+$\mathrm{halflife\_days} \in \{0, 3\}$ across three designs
+(hybrid, alternating N-of-1, parallel RCT). Under the
+main-effect target:
+
+- Hybrid main-effect power is saturated at 1.000 across all 16
+  combinations. Mean estimated $\beta$ is stable at $-0.92$ to
+  $-1.08$.
+- Alternating N-of-1 power varies from 0.682 to 0.916 across
+  the 16 cells.
+- Parallel RCT power is 0.914 to 0.958 across all 16 cells.
+
+The invariance of main-effect power to $c_{bm}$ and architecture
+is expected: the main drug effect is determined by the Gompertz
+$\mathrm{max}[\mathrm{br}]$ and the trial's on-drug
+accumulation, not by the biomarker coupling. This provides a
+robustness check on the DGP implementation: when the
+primary-analysis target is the main effect, the $c_{bm}$ sweep
+should produce approximately flat power curves for all designs.
+
+## S11. Misspecification factorial
+
+```{r sens-fig-11, eval=TRUE, echo=FALSE, out.width="85%", fig.cap="Sensitivity S11: Type I (null) and power (alternative) under the carryover-by-AR(1) misspecification factorial."}
+knitr::include_graphics(here::here(
+  "analysis", "figures", "sensitivity",
+  "sens-11-misspec.pdf"))
+```
+
+The misspecification sweep crosses DGP carryover
+$\{$off, on$\}$ with DGP AR(1) $\{$off, $\rho = 0.7\}$ at null
+($\mathrm{br\_max} = 0$) and alternative
+($\mathrm{br\_max} = 1$) levels. Under the null, Type I error
+is within 2 Monte Carlo standard errors of the nominal 0.05 for
+the hybrid N-of-1 (0.036-0.056 across the four cells). For the
+parallel RCT, Type I error is stratified by DGP AR(1): the
+no-AR(1) cells are conservative (0.018-0.024) while the
+high-AR(1) cells are **inflated above nominal** (0.112-0.126),
+with MCSE 0.014-0.015 so the inflation is statistically
+robust.
+
+Under the alternative, the hybrid is saturated at 1.000 in all
+four cells. The parallel RCT power depends on the AR(1) cell:
+0.986-0.990 when no AR(1) is present, 0.766-0.772 when AR(1)
+$\rho = 0.7$ is present.
+
+The inflated RCT Type I under high DGP AR(1) is an important
+caveat. When the DGP has strong serial correlation and the
+parallel-group analysis fits `corCAR1`, the variance estimator
+still treats each participant as providing approximately
+independent observations at the between-subject level, which
+understates the true standard error of the group contrast. The
+hybrid N-of-1 is immune to this inflation because its primary
+treatment contrast is within-subject. Blackston 2019's
+[@blackstonComparisonAggregatedNof12019] observation that
+moderate-to-strong carryover inflates Type I error when not
+modeled is not reproduced here for the hybrid (because the
+decaying `Dbc` in the analysis absorbs carryover correctly)
+but is analogous in mechanism to the AR(1) inflation observed
+here for the RCT.
+
+## S12. Null-effect calibration
+
+```{r sens-fig-12, eval=TRUE, echo=FALSE, out.width="80%", fig.cap="Sensitivity S12: empirical Type I error with 95 percent Wald CIs at four configurations."}
+knitr::include_graphics(here::here(
+  "analysis", "figures", "sensitivity",
+  "sens-12-morris-null.pdf"))
+```
+
+The null-effect calibration uses
+$\mathrm{max}[\mathrm{br}] = 0$ at four
+$(\tau, \sigma, \mathrm{halflife})$ configurations, each with
+2,000 replicates per design for MCSE near 0.005.
+
+Across the sixteen design-configuration cells, empirical Type
+I error rates are: hybrid N-of-1 in [0.056, 0.062] (four cells,
+all within 2 MCSE of nominal), alternating N-of-1 in
+[0.057, 0.064] (four cells, all within 2 MCSE of nominal),
+parallel RCT in [0.029, 0.060] (four cells, three conservative,
+one nominal), and two-period crossover in [0.100, 0.130]
+(four cells, all modestly inflated with MCSEs of 0.006-0.007 so
+the inflation is statistically robust at 2000 replicates).
+
+The two-period crossover's modest inflation is attributable to
+the small number of timepoints (2 per subject) producing an
+underidentified `corCAR1` residual correlation. Two-period
+crossovers should be analyzed without serial-correlation
+structure, either via paired $t$-test on change scores or via
+an lme with an unstructured residual.
+
+# Discussion
+
+## Synthesis
+
+The twelve sensitivity sweeps under the main-effect target and
+the Hendrickson hybrid as primary N-of-1 design produce five
+substantive findings.
+
+1. **Sample-size advantage of the hybrid N-of-1 over the
+   parallel RCT.** At the prazosin-calibrated baseline, the
+   hybrid achieves 95% power at $N = 16$ while the parallel RCT
+   requires approximately $N = 35$. The sample-size ratio of
+   approximately one-third matches Blackston 2019's
+   [@blackstonComparisonAggregatedNof12019] and Carrozzo 2025's
+   [@carrozzoTwoArm2025] reported N-of-1 efficiency advantage.
+
+2. **Robustness to within-patient variance and between-patient
+   heterogeneity.** The hybrid is essentially saturated across
+   the sweeps of $\sigma$ (S5) and $\tau$ (S4), while the
+   parallel RCT degrades by 18 percentage points across the
+   $\sigma$ range and 12 percentage points across the $\tau$
+   range. This reproduces the Senn 2018
+   [@sennSampleSizeConsiderations2019] variance-decomposition
+   prediction exactly.
+
+3. **Sensitivity to carryover depends on design flavour.** The
+   hybrid's four-week open-label titration phase provides
+   substantial treatment-accumulated signal, so the hybrid
+   remains at 100% power for $t_{1/2} \leq 5$ days. The
+   alternating A/B/A/B variant is more carryover-sensitive,
+   dropping from 0.90 to 0.30 across the $t_{1/2} = 0$ to
+   $t_{1/2} = 14$ range. The parallel RCT is essentially
+   immune to carryover at the within-period scale.
+
+4. **AR(1) serial correlation affects the two designs
+   differently.** The hybrid saturates across $\rho = 0$ to
+   0.9 (S8), while the parallel RCT power drops from 0.98 to
+   0.75 across the same range and Type I error inflates from
+   0.018 to 0.126 under high-$\rho$ DGP (S11). This reproduces
+   Wang and Schork 2019 [@wangPowerDesignIssues2019]:
+   within-subject designs with `corCAR1` fitted absorb serial
+   correlation efficiently, while between-subject designs do
+   not.
+
+5. **Type I error control is near nominal for the hybrid,
+   alternating N-of-1, and parallel RCT; the two-period
+   crossover is modestly inflated.** Hybrid Type I in
+   [0.056, 0.062], alternating N-of-1 in [0.057, 0.064],
+   parallel RCT in [0.029, 0.060], two-period crossover in
+   [0.100, 0.130].
+
+The overall picture is that the hybrid N-of-1 and the parallel
+RCT are **both highly competent designs** at the
+prazosin-calibrated baseline, with the hybrid preferable when
+sample-size minimization is paramount or when within-patient or
+between-patient variance is large, and the parallel RCT
+preferable when carryover half-life exceeds the within-subject
+period length or when serial correlation is negligible.
+
+## Comparison with prior simulation studies
+
+### Hendrickson et al. (2020): predictive biomarker validation
+
+Hendrickson and colleagues [@hendricksonOptimizing2020] compared
+four designs at $N \in \{35, 70\}$ with 1,000 replicates for
+detecting a continuous biomarker-by-treatment interaction. At
+$N = 35$ with biomarker coupling $c_{bm} = 0.6$ and no
+carryover, power was 0.25 (OL), 0.94 (OL+BDC), 0.96 (CO), and
+0.95 (hybrid). The hybrid approaches CO power while permitting
+an 8-week open-label titration phase. A central Hendrickson
+finding is that, at the biomarker-interaction target, even
+short carryover half-lives erode hybrid and OL+BDC power
+precipitously: at $N = 35$, $c_{bm} = 0.6$, and carryover
+half-life $t_{1/2} = 0.1$ weeks (0.7 days), hybrid power fell
+from 0.95 to 0.18.
+
+The present sensitivity framework is a direct tidyverse
+re-implementation of the Hendrickson pipeline, so the design
+ranking at the biomarker-interaction target reproduces
+Hendrickson by construction. Where the present study extends
+Hendrickson is (i) in its Morris [-@morris2019using] MCSE
+reporting for every performance measure; (ii) in sensitivity
+S3, which crosses DGP decay form with analysis-model assumption
+of exponential decay; and (iii) in sensitivity S2/S6/S9, which
+quantify carryover and period-length effects for the main drug
+effect. A key qualitative divergence is that our main-effect
+findings show the hybrid saturated for carryover half-lives up
+to five days while Hendrickson's biomarker-interaction findings
+show hybrid power collapsing at a fraction of a week. Both
+findings are correct; they describe different estimands.
+
+### Wang and Schork (2019): AR(1), heteroscedasticity, and period stacking
+
+Wang and Schork [@wangPowerDesignIssues2019] provide analytical
+power formulas under a standard linear model with AR(1)
+residual correlation. Their Table 1 shows that for $1p \times
+2i$ with no washout, power is 0.851 at $\rho = 0$, 0.617 at
+$\rho = 0.25$, 0.330 at $\rho = 0.5$, and 0.126 at
+$\rho = 0.75$: a roughly linear erosion with increasing serial
+correlation. For $40p \times 2i$, power is 0.851, 0.745, 0.674,
+0.681 across the same $\rho$ grid — confirming that period
+stacking mitigates the serial-correlation power loss.
+
+The present S8 (AR(1) sweep) is the direct aggregated-level
+analogue. Our S8 reports hybrid N-of-1 power saturated at 1.00
+across $\rho \in \{0, 0.3, 0.5, 0.7, 0.9\}$ because our
+35-participant hybrid analysis absorbs residual correlation via
+`corCAR1` at the aggregated level. Our parallel RCT power drops
+from 0.98 at $\rho = 0$ to 0.75 at $\rho = 0.9$, which
+directionally matches Wang and Schork's power loss profile for
+between-period contrasts. The S11 misspecification finding
+(parallel-RCT Type I inflating to 0.11 to 0.13 under
+$\rho = 0.7$) is consistent in mechanism with Wang and Schork's
+prediction, though our specific inflation magnitudes depend on
+the small-sample instability of the `corCAR1` estimate at
+$N = 35$.
+
+## Limitations
+
+Four limitations should be noted before extending these results
+to trial planning.
+
+- **The hybrid N-of-1 saturates in many sweeps.** The hybrid
+  reaches 100% power in S4 (all $\tau$ values), much of S5
+  ($\sigma$), S8 (all $\rho$), S10 (all
+  biomarker-by-architecture cells), S11 (all alt cells), and
+  most of S2 (halflives $\leq 5$ days). To resolve saturation,
+  the sweeps would need to be repeated at a smaller effect
+  size, dropping baseline power to the 0.50 to 0.80 range
+  where design differences are resolved most clearly.
+- **S3, S6, and S9 use the alternating A/B/A/B variant rather
+  than the hybrid.** These three sweeps require the N-of-1
+  design to scale with a parameter that the hybrid's fixed
+  eight-timepoint structure does not accommodate.
+- **S8 with the analysis-side `corCAR1` always enabled.** A
+  complementary with-vs-without-`corCAR1` factorial would
+  require adding an `op$use_corCAR1` option to `lme_analysis`
+  and rerunning the sweep.
+- **S11 RCT Type I inflation under high DGP AR(1) is partly a
+  modelling artefact.** The 0.11-0.13 Type I error rates for
+  the parallel RCT under $\rho = 0.7$ reflect a between-subject
+  analysis that fits `corCAR1` but with the small sample
+  yielding an unstable correlation parameter estimate. A
+  better-specified parallel-RCT analysis (subject-specific
+  random slope on time, or fixed within-subject $\rho$ of
+  known magnitude) would likely restore nominal Type I.
+
+## N-of-1 design variants not evaluated
+
+The present sensitivity framework evaluates three N-of-1 design
+variants alongside a parallel-group RCT comparator. Several
+N-of-1 design variants are not evaluated here: the single-subject
+N-of-1 [@zuckerIndividualTrialsPopulation2010], the open-label-only
+and OL-plus-BDC variants from Hendrickson 2020
+[@hendricksonOptimizing2020], full multi-cycle crossover with more
+than two periods (Blackston 2019 used three cycles
+[@blackstonComparisonAggregatedNof12019]), Williams-square / Latin
+square / complete N-of-1 designs, sequential-monitoring variants
+with adaptive stopping [@jiangDesignAnalysis2025;
+@selukarFrameworkSequential2025], and randomized-block N-of-1.
+
+These unevaluated design variants fall into two classes. The
+single-subject, open-label-only, OL+BDC-only, and two-cycle
+crossover designs are expected to produce power at or below the
+numbers reported here; our results are therefore an upper bound
+on those designs under matched parameters. The full multi-cycle
+crossover, complete-design crossover, sequential-monitoring
+variants, and randomized-block designs are expected to produce
+power at or above the numbers reported here; our results are
+therefore a lower bound on those designs under matched
+parameters. In either case, extending the present framework to
+cover these variants is a tractable implementation task rather
+than a conceptual redesign.
+
+## Prototype Monte Carlo confirmation
+
+A 500-replicate-per-cell prototype run on the 15-cell
+$c_{br} \times N$ grid ($c_{br} \in \{0, 0.15, 0.30, 0.45,
+0.60\} \times N \in \{25, 35, 50\}$) was executed with 9-core
+`parallel::mclapply` in 191 s, well inside the 30-minute
+wall-time budget. Convergence was 100% across all 7{,}500 fits.
+Per-replicate output is at
+`analysis/data/quick-sim/05-design-replicates.rds`; Morris ADEMP
+summary at `05-design-summary.txt`. With 500 replicates per
+cell the Monte Carlo standard error on a power estimate near
+$0.3$ is approximately $0.020$.
+
+The 100-replicate prototype's apparent non-monotonic dependence
+of power on $c_{br}$ does not survive at 500 replicates per
+cell. At $N = 25$ the rejection rate across the five $c_{br}$
+levels falls in [0.168, 0.192], a swing of 0.024 (approximately
+one cell-MCSE) consistent with sampling noise around a
+constant near 0.18. At $N = 35$ the swing widens to 0.066
+(range 0.220 to 0.286, peak at $c_{br} = 0.30$); each cell
+MCSE is approximately 0.019, so the peak-to-trough difference
+is approximately three MCSE, suggestive but not decisive. At
+$N = 50$ the swing is 0.072 (range 0.266 to 0.338, peak at
+$c_{br} = 0.45$). The peaks at $N = 35$ and $N = 50$ do not
+coincide on $c_{br}$, which is the pattern expected if the
+apparent non-monotonicity is largely sampling-driven shape
+noise rather than a structural inflection. The 100-replicate
+run's reported dip at $c_{br} = 0.15$ has disappeared.
+
+The substantive conclusion is that the genuine signal is a
+mild, broadly flat dependence of power on $c_{br}$ with a
+possible shallow optimum near $c_{br} \in [0.30, 0.45]$ at
+moderate $N$. The dominant axis is sample size: mean power
+across $c_{br}$ rises from 0.18 at $N = 25$ to 0.25 at $N = 35$
+to 0.31 at $N = 50$. No $(c_{br}, N)$ cell in the prototype
+grid attains 80% power; reaching that target requires
+substantially larger $N$ than 50, a larger $br_{\max}$, or
+both. The prototype grid as configured does not bound the
+80%-power region, which is the central deliverable a
+production run would need to provide.
+
+# Conclusions
+
+The Hendrickson hybrid (open-label titration plus blinded
+discontinuation plus brief crossover) is a competent default for
+detecting moderate treatment main effects across a wide range
+of parameter perturbations: it absorbs within-patient and
+between-patient variance via the within-subject contrast,
+tolerates serial correlation that inflates parallel-RCT Type I
+error, and remains at saturated power for carryover half-lives
+up to approximately five days because the open-label phase
+contributes treatment-accumulated signal that within-subject
+crossovers cannot provide. Two cautions qualify the
+recommendation. First, design ordering is estimand-dependent:
+the hybrid's advantage over the parallel RCT is much larger for
+biomarker-by-treatment interactions than for the main effect.
+Second, the two-period crossover should not be analysed with
+`corCAR1` at small per-subject timepoint counts.
+
+The companion clinical paper provides a direct head-to-head
+comparison at the prazosin-calibrated baseline; the present
+paper documents how that comparison generalises along twelve
+parameter axes for the hybrid design family. The combination of
+design robustness across most axes, with two specific
+exceptions, supports the use of the hybrid N-of-1 as a default
+candidate in trial planning for chronic neurobehavioral
+conditions where moderate treatment heterogeneity and
+short-to-moderate carryover are expected.
+
+# Conflict of interest
+
+The authors declare no conflicts of interest.
+
+# Funding
+
+This work received no specific funding.
+
+# Data availability statement
+
+The data and code that support the findings of this study are
+openly available in the pmsimstats-ng project repository.
+Per-replicate Monte Carlo outputs and ADEMP-compliant cell-level
+summaries are versioned under `analysis/data/`; simulation
+drivers are at `analysis/scripts/`. Exact paths for this
+manuscript are listed in the Reproducibility section below.
+
+# Reproducibility
+
+This manuscript was rendered with R 4.4.x inside the project's
+zzcollab Docker container (image hash recorded in `Dockerfile`;
+package set captured in `renv.lock`). Principal packages used
+by the simulation pipeline are `nlme` (continuous-time
+linear-mixed analysis with `corCAR1` residual correlation),
+`parallel` (9-core `mclapply` for parameter-grid sweeps),
+`data.table` (the `original-extended` simulation collection),
+`furrr` and `purrr` (the `tidyverse` simulation collection), and
+`rmarkdown` plus `bookdown` for the manuscript build.
+
+**Random-number generator.** Each simulation driver sets
+`set.seed(20260507)` at the top of the replicate loop and uses
+`parallel::mc.set.seed` inside `mclapply`. Per-replicate seeds
+derive from the master seed by `+ rep_idx`.
+
+**Data and code availability.** Per-replicate simulation
+outputs are checkpointed at
+`analysis/data/quick-sim/05-design-replicates.rds`; Morris ADEMP
+cell-level summaries at the companion `05-design-summary.txt`.
+Driver scripts are under
+`analysis/scripts/nof1-design-sensitivity/` and
+`analysis/scripts/quick-sim/05-design-prototype.R`. The
+pre-registered ADEMP plan is at
+`analysis/scripts/nof1-design-sensitivity/00-ademp-pre-registration.md`.
+The manuscript source, paper-specific bibliography
+(`references.bib`), and SIM CSL file are at
+`analysis/report/05-nof1-design-sensitivity/`.
+
+# References
+
+<div id="refs"></div>

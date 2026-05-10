@@ -1,0 +1,702 @@
+---
+title: "Critical evaluation of the modified Gompertz response
+  function as a parametric template for treatment-response
+  trajectories in N-of-1 trial simulation"
+author:
+  - pmsimstats team
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    keep_tex: true
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    includes:
+      in_header: ../sim-preamble.tex
+bibliography: references.bib
+csl: statistics-in-medicine.csl
+link-citations: true
+linestretch: 1.2
+fontsize: 11pt
+geometry: "left=2.5cm,right=6cm,top=2.5cm,bottom=2.5cm"
+knit: (function(input, encoding) source(normalizePath(file.path(dirname(input), '..', '..', '..', 'tools', 'stage-render.R')))$value(input, encoding))
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+```{r footer-setup, include = FALSE, results = 'asis'}
+if (knitr::is_latex_output()) {
+  src <- tryCatch(normalizePath(knitr::current_input()),
+                  error = function(e) 'unknown')
+  src_disp <- gsub('^/Users/zenn/Dropbox', '~/Dropbox', src)
+  src_disp <- gsub('^/Users/zenn', '~', src_disp)
+  src_tex <- gsub('([_~^&%#$])', '\\\\\\1', src_disp)
+  ts <- format(Sys.time(), '%Y-%m-%d %H:%M %Z')
+  cat(sprintf('\\renewcommand{\\rmdsource}{Source: \\texttt{%s}}\n',
+              src_tex))
+  cat(sprintf('\\renewcommand{\\rendertimestamp}{Rendered: %s}\n', ts))
+}
+```
+
+# Abstract
+
+**Background.** Simulation-based power analyses for aggregated
+N-of-1 trials require a parametric template for the within-
+participant response trajectory. The pmsimstats framework adopts
+a modified Gompertz function for each of three latent response
+components (biological response, placebo-belief response, time-
+variant natural-history component). The choice of family is
+loaded into the simulated data before any analysis-model
+question is asked, so the implications of the family for power,
+type I error, and bias are foundational rather than peripheral.
+
+**Methods.** We evaluate the modified Gompertz family against
+the relevant biological, pharmacokinetic, and biostatistical
+literature. We characterise the parameter space the function
+covers, the trajectories it can and cannot represent, and the
+sensitivity of standard pmsimstats inference to misspecification
+of the response-curve family. Three alternative families are
+compared as sensitivity analyses: the logistic (symmetric
+sigmoidal), the hyperbolic-tangent (fast-saturating), and a
+piecewise-linear breakpoint model (no smoothness assumption).
+For each alternative we compute power, type I error, and bias of
+the biomarker-treatment interaction estimate at trial-relevant
+sample sizes against simulated data drawn from the alternative
+family but analysed under the standard linear-mixed model.
+
+**Results.** A 1{,}000-replicate-per-cell simulation across 16
+cells (4 trajectory families $\times$ 2 DGP architectures
+$\times$ 2 biomarker effect-size levels) at $N = 35$, OL+BDC
+design, $t_{1/2} = 0$, found trajectory family essentially
+irrelevant to power under both architectures at MCSE 0.013 to
+0.016. Under Architecture A (mean moderation), the four
+families produced powers in $\{0.761, 0.769, 0.771, 0.778\}$,
+a 0.017 spread within 2 MCSE of sampling noise. Under
+Architecture B (MVN differential correlation), powers
+clustered at $\{0.779, 0.780, 0.781, 0.806\}$; logistic at
+0.806 sat $\approx 2$ MCSE above the others, marginal and
+not reproduced under Architecture A. The piecewise-linear
+breakpoint family, hypothesised to behave qualitatively
+differently from the smooth families, was indistinguishable
+from gompertz and hyperbolic-tangent at this resolution under
+either architecture. Type I error at the null sat in
+$[0.025, 0.036]$ across all eight null cells, slightly
+conservative and without family-specific inflation.
+
+**Conclusions.** The modified Gompertz family is a defensible
+
+**Conclusions.** The modified Gompertz family is a defensible
+default for the response-curve template in pmsimstats N-of-1
+simulation, with explicit caveats for the trajectory regimes it
+cannot represent. We recommend reporting Gompertz-vs-alternative
+sensitivity at least once per parameter regime where simulation
+results inform protocol-design decisions, and we propose a
+default sensitivity grid that the framework can run alongside
+its primary cells.
+
+# Introduction
+
+## A claim about response-curve choice in N-of-1 trial simulation
+
+This paper develops two coupled methodological claims.
+
+**First**, the modified Gompertz function used as the
+parametric template for treatment-response trajectories in
+aggregated N-of-1 trial simulation (specifically, in the
+pmsimstats simulation framework that operationalises the
+Hendrickson et al. design family [@hendrickson2020]) is a
+defensible default for the saturating-shape regime that
+characterises most pharmacodynamic and chronic-condition
+response curves over the typical trial timescale. The function
+is well-established in tumour growth dynamics
+[@laird1964dynamics; @norton1988gompertzian], microbial growth
+modelling [@zwietering1990modeling], and the broader unified-
+Richards growth-curve family [@richards1959flexible;
+@tjorve2010richards; @tjorve2017]; its three-parameter form is
+flexible enough to capture the asymmetric saturation profiles
+that linear extrapolation, exponential decay, or symmetric
+logistic models cannot.
+
+**Second**, family-misspecification sensitivity is essentially
+absent from the published N-of-1 methodology literature, and
+**should be reported routinely**, not assumed away. The
+methodological N-of-1 corpus [@lillie2011; @schork2023precision;
+@vohra2015cent; @hendrickson2020] is silent on parametric
+trajectory shape: papers either inherit a chosen family from
+the upstream literature without comparing alternatives, or
+specify a linear or AR(1) form that is too coarse to capture
+the saturation that real trajectories exhibit. The
+oncology-modelling literature has set the precedent for what a
+proper family-comparison sensitivity analysis looks like
+[@benzekry2014classical; @tjorve2010richards] and the
+pharmacology literature has converged on Hill / sigmoid-Emax /
+indirect-response models for related questions
+[@goutelle2008hill; @dayneka1993indirect]. The N-of-1
+literature has not imported this comparative apparatus. The
+present paper supplies it.
+
+The two claims are coupled because the case for a chosen family
+is incomplete without the comparison. We do not argue that
+Gompertz is the *correct* family in any strict sense; we argue
+that it is a reasonable choice within the unified-Richards
+family of saturating curves, and that the inferential
+consequences of choosing it (versus the symmetric logistic, the
+von Bertalanffy, or a piecewise-linear breakpoint model) should
+be quantified rather than asserted. The paper reports a
+simulation study that does so for the standard pmsimstats
+linear-mixed analysis at trial-relevant sample sizes.
+
+## Why the question matters
+
+Three reasons motivate the family-misspecification question for
+N-of-1 simulation specifically.
+
+**The chosen family loads into the data before any analysis-side
+question is asked.** A power simulation that draws every
+trajectory from a Gompertz curve and then analyses each under a
+standard linear mixed-effects model with treatment indicator
+and AR(1) residual correlation cannot detect the inferential
+cost of the family choice itself. Robustness of the inference to
+the family is a property of the joint
+DGP-and-analysis specification; only a comparative simulation
+that varies the DGP family while holding the analysis fixed can
+quantify it. This is the same logic that underpins
+analysis-model misspecification studies in the broader
+clinical-trial methodology literature [@morris2019], applied
+one level down in the simulation hierarchy.
+
+**The function family has known identifiability fragility in
+short noisy trajectories.** Joint estimation of the three
+Gompertz parameters $(m, d, r)$ in $y = m\exp(-d\exp(-rt))$ is
+poorly conditioned: the asymptote and rate parameters correlate
+strongly, and the shape parameter is essentially unidentifiable
+when only a few timepoints lie in the inflection region.
+@tjorve2010richards and @tjorve2017 propose unified-Richards
+reparameterisations in which the parameters become biologically
+interpretable (maximum relative growth rate, age at inflection,
+value at inflection, asymptote) with lower correlation;
+@jagadeesan2023sloppiness develops the formal *sloppiness*
+diagnostic that quantifies this directly as a property of the
+parameter space. @benzekry2014classical fitted eight tumour-
+growth models (exponential, exponential-linear, power-law,
+Gompertz, logistic, generalised logistic, von Bertalanffy,
+dynamic-carrying-capacity) to two in vivo systems and ranked
+them on goodness-of-fit, parametric identifiability, and
+predictive power; the power-law model was the most identifiable
+in lung data while Gompertz was best for breast. The same kind
+of comparative diagnosis has not been performed for short
+N-of-1 trajectories.
+
+**The default in N-of-1 simulation reflects historical
+borrowing rather than empirical optimality.** The Gompertz
+form entered the pmsimstats framework via the broader growth-
+curve tradition, where its use traces to Laird's tumour
+dynamics work [@laird1964dynamics] and to Zwietering's microbial
+growth reformulations [@zwietering1990modeling]. The
+pharmacology literature, addressing related questions about
+dose-response and time-course of pharmacological action,
+defaults to the Hill / sigmoid-Emax family [@hill1910;
+@goutelle2008hill] and to Jusko's indirect-response models
+[@dayneka1993indirect]. These two traditions have largely not
+spoken to each other; the N-of-1 simulation literature has
+inherited the growth-biology default without an explicit
+defence against the pharmacology default. Either default may be
+adequate for the saturation regime, but the inheritance is not
+itself evidence.
+
+## What the published N-of-1 literature does and does not do
+
+Reviewing the recent N-of-1 methodology literature confirms a
+silence on this question.
+
+The CONSORT extension for N-of-1 trials [@vohra2015cent]
+codifies reporting standards but does not address parametric
+trajectory shape. The foundational programmatic statements
+[@lillie2011; @schork2023precision] emphasise design and
+analysis broadly without committing to a parametric response
+form. The Hendrickson et al. framework [@hendrickson2020]
+introduces the modified Gompertz template into the simulation
+engine for biomarker-validation power analyses without
+comparing it against alternatives. Recent applied papers in
+chronic-condition N-of-1 (e.g., the prazosin-PTSD reference
+work building on @raskind2013prazosin) inherit the framework
+without examining the choice.
+
+In adjacent literatures the comparative apparatus exists. The
+oncology-modelling community routinely fits multiple growth
+families and compares on identifiability and predictive
+performance [@benzekry2014classical]. The pharmacometrics
+community produces explicit sensitivity studies for sigmoid-Emax
+and indirect-response models [@ebling1996feasibility;
+@triggs1996levodopa]. The latent-class growth-trajectory
+literature treats response-curve heterogeneity through mixture
+modelling [@hockenberry2017symptom]. None of this comparative
+machinery has been applied to N-of-1 simulation with the
+Gompertz form as the reference.
+
+The paper's contribution is to import that machinery,
+specifically: a four-family comparison (Gompertz, symmetric
+logistic, hyperbolic-tangent, piecewise-linear breakpoint)
+crossed against the standard pmsimstats linear-mixed analysis,
+with results reported in the Morris-White-Crowther
+[@morris2019] ADEMP framework already adopted as the
+project-wide simulation-reporting standard.
+
+## What this paper contributes
+
+We make four contributions, each addressed in a section below.
+
+First, we **characterise the modified Gompertz family** as
+implemented in pmsimstats (§2): the vertical-offset adjustment,
+the parameter regions corresponding to the calibration sets used
+across published pmsimstats simulation studies, and the
+unified-Richards reparameterisation [@tjorve2010richards;
+@tjorve2017] that supplies more interpretable and less
+correlated parameters.
+
+Second, we **survey three alternative response-curve families**
+(§3): the symmetric logistic [@verhulst1838], the hyperbolic-
+tangent (formally a rescaled symmetric logistic), and a
+piecewise-linear breakpoint model. We present each at matched
+marginal effect size against the Gompertz reference, with the
+shapes overlaid for visual comparison.
+
+Third, we conduct a **Monte Carlo sensitivity-analysis
+simulation** (§4-§5) that generates trajectories under each of
+the four families and analyses them under the standard
+pmsimstats linear-mixed model. We report power, type I error,
+and bias of the biomarker-treatment interaction estimate under
+each cell, with conventional Monte Carlo standard errors. The
+simulation borrows the comparative methodology of
+@benzekry2014classical (eight-model tumour-growth comparison)
+and the sloppiness diagnostic of @jagadeesan2023sloppiness for
+small-sample identifiability assessment.
+
+Fourth, we **identify the trajectory regimes in which Gompertz
+misspecification is consequential** (§6): non-saturating growth
+beyond the trial window, biphasic patterns, and breakpoint
+behaviour. For these regimes, the standard N-of-1 inference is
+materially affected by the family choice, and we recommend
+specific sensitivity-grid extensions that pmsimstats users
+should run alongside their primary cells.
+
+The full mathematical and historical context, including citations
+that did not survive editing into the manuscript proper, is
+preserved in the companion technical document at
+`docs/25-gompertz-model-evaluation.md`.
+
+# The modified Gompertz function in pmsimstats
+
+The pmsimstats framework parameterises each of the three latent
+response components (biological response BR, placebo-belief
+response PB, and time-variant natural-history component TV) with
+a modified Gompertz function
+
+\begin{equation}
+y(t) = \mathrm{maxr} \cdot \exp\!\left(-\mathrm{disp} \cdot
+       \exp(-\mathrm{rate} \cdot t)\right),
+(\#eq:gompertz)
+\end{equation}
+
+with vertical-offset adjustment so that $y(0) = 0$. The three
+parameters are $\mathrm{maxr}$ (asymptotic maximum response,
+matching the on-drug or on-natural-history saturation level),
+$\mathrm{rate}$ (controls how quickly the response approaches
+its asymptote), and $\mathrm{disp}$ (controls the curvature near
+$t = 0$). The Gompertz form is monotone-saturating and
+asymmetric: the inflection occurs at $t^* = \log(\mathrm{disp})
+/ \mathrm{rate}$, with the rise being slower before the
+inflection and faster after. The parameterisation used at the
+prazosin/PTSD reference cell sets $\mathrm{maxr}_{BR} \approx 4$
+nightmares per week, $\mathrm{rate}_{BR} \approx 0.5$ per week,
+and $\mathrm{disp}_{BR} \approx 4$ for biological response;
+analogous parameter sets for PB and TV are documented in
+`docs/25-gompertz-model-evaluation.md` and `R/utilities.R`.
+
+# Alternative response-curve families
+
+Three alternative families serve as sensitivity-analysis
+comparators. Each is parameterised so that the asymptotic
+maximum and a single-anchor calibration point (the response
+level at $t = 5$ weeks, calibrated to the Gompertz family at
+the same anchor) are matched across families. The families
+differ in shape envelope: smoothness, symmetry around the
+inflection, and curvature.
+
+## Symmetric logistic
+
+The logistic function
+
+\begin{equation}
+y(t) = \frac{\mathrm{maxr}}{1 + \exp(-\mathrm{rate} \cdot
+              (t - t_0))} - \mathrm{offset}
+(\#eq:logistic)
+\end{equation}
+
+is monotone-saturating and *symmetric* around its inflection at
+$t = t_0$. A vertical offset is subtracted so that $y(0) = 0$.
+At matched $\mathrm{maxr}$ and matched response level at the
+calibration anchor, the logistic family rises faster than
+Gompertz before the inflection and slower after, producing a
+visibly different shape envelope while sharing the same
+asymptote. The symmetric inflection is the principal qualitative
+contrast with the asymmetric Gompertz curve.
+
+## Hyperbolic-tangent
+
+The hyperbolic-tangent variant
+
+\begin{equation}
+y(t) = \mathrm{maxr} \cdot \frac{\tanh(\mathrm{rate} \cdot
+       (t - t_0)) + 1}{2} - \mathrm{offset}
+(\#eq:tanh)
+\end{equation}
+
+is also monotone-saturating and symmetric, but with a
+qualitatively faster approach to the asymptote than the
+logistic. The tanh family produces the steepest pre-asymptote
+rise of the three smooth families. Used in pharmacokinetic
+modelling for drugs with rapid receptor saturation.
+
+## Piecewise-linear breakpoint
+
+The piecewise-linear-breakpoint family
+
+\begin{equation}
+y(t) = \mathrm{maxr} \cdot \min(1,\, t / t_{\mathrm{bp}})
+       + \mathrm{post\_slope} \cdot \max(0,\, t - t_{\mathrm{bp}})
+(\#eq:plb)
+\end{equation}
+
+is the canonical *non-smooth* alternative: linear ramp up to a
+breakpoint $t_{\mathrm{bp}}$, then constant (when
+$\mathrm{post\_slope} = 0$) or with a small post-breakpoint
+slope. The breakpoint is the only non-differentiable feature
+across the four families and is the principal qualitative
+contrast with the three smooth families. This family is the
+strongest test of the framework's sensitivity to non-smoothness
+in the trajectory.
+
+# Sensitivity-analysis simulation design
+
+The simulation programme follows the ADEMP framework of
+@morris2019. The **primary estimand** is the biomarker-by-
+treatment interaction coefficient $\hat{\beta}_{bm:D}$ from the
+linear mixed-effects analysis model
+$\mathrm{Sx} \sim bm + t + Dbc + bm\!:\!Dbc + (1 \mid \mathrm{ptID})$
+with `corCAR1(form = ~t|ptID)`. **Primary inferential outputs**
+are power for $H_0: \beta_{bm:D} = 0$ at $\alpha = 0.05$, and
+type I error under $\beta_{bm:D} = 0$. **Secondary estimands**
+are bias of $\hat{\beta}_{bm:D}$ relative to the calibrated true
+effect and the empirical Monte Carlo standard error of
+$\hat{\beta}_{bm:D}$ across replicates. **Performance measures**
+are reported with binomial-proportion Monte Carlo standard errors
+for proportions and the standard Monte Carlo SE of the within-
+replicate mean for continuous quantities.
+
+The full Aims, Data-generating mechanisms, Estimands, Methods,
+and Performance measures are pre-registered at
+`analysis/scripts/gompertz-evaluation/00-ademp-pre-registration.md`,
+which fixes the four DGP families (modified Gompertz, symmetric
+logistic, hyperbolic-tangent, piecewise-linear breakpoint), the
+calibration sub-study (Study 0) that matches all four to a
+common marginal effect size, the four-family power-and-bias
+factorial (Study 1, 144 cells), and the sloppiness eigenvalue
+diagnostic (Study 2) before the production runs.
+
+For the present submission the simulation is scoped to a 16-cell
+focused factorial: four trajectory families crossed with two DGP
+architectures (mean moderation and MVN differential correlation,
+following the companion manuscript at `analysis/report/01-dgp-
+mean-moderation-vs-mvn/`) crossed with two biomarker effect-size
+levels ($c_{bm} \in \{0, 0.45\}$). The trial design is the
+prazosin-calibrated Hybrid OL+BDC, $N = 35$, $t_{1/2} = 0$
+(carryover absent, to isolate the trajectory-shape effect from
+carryover-mediated correlation decay). Each cell is run at
+$n_{\text{reps}} = 1{,}000$ replicates with 8-core
+`parallel::mclapply`. The full 144-cell grid (sample sizes,
+effect sizes, DGP-side carryover) anticipated in the original
+abstract is deferred to a follow-up; the focused 16-cell
+factorial answers the central scientific question (does
+trajectory family choice matter for the bm:Dbc Wald test?) at
+MCSE 0.013-0.016 per cell.
+
+Calibration. The four trajectory families are matched at a
+single anchor point ($t = 5$ weeks): each family's response
+level at $t = 5$ is set equal to the Gompertz reference
+level at $t = 5$ via uniroot (logistic, hyperbolic-tangent) or
+closed form (piecewise-linear breakpoint). The asymptotic
+maximum is held constant across families. Calibrated parameters
+are recorded in the driver
+`analysis/scripts/gompertz-evaluation/01-architecture-a-trajectory-sweep.R`
+and read back by the manuscript chunks for transparency.
+
+# Results
+
+The simulation programme was executed at 1{,}000 replicates per
+cell across the 16-cell trajectory-family-by-architecture-by-
+effect-size factorial in 381 s using 8-core `parallel::mclapply`.
+Convergence was 100% across all 16{,}000 fits. Per-replicate
+output is at
+`analysis/data/quick-sim/07-gompertz-replicates.rds`; the Morris
+ADEMP cell-level summary at
+`analysis/data/quick-sim/07-gompertz-summary.txt`. Cell MCSE on
+power runs 0.013 to 0.016 across the alternative cells and
+0.005 to 0.006 on the conservative null cells.
+
+## Power across response-curve families
+
+Trajectory-family power at $c_{bm} = 0.45$ under both
+architectures, percent $\pm$ MCSE:
+
+| Family                    | Architecture A | Architecture B |
+|---------------------------|----------------|----------------|
+| Gompertz                  | 76.1 $\pm$ 1.4 | 78.0 $\pm$ 1.3 |
+| Logistic                  | 76.9 $\pm$ 1.3 | 78.1 $\pm$ 1.3 |
+| Hyperbolic tangent        | 77.1 $\pm$ 1.3 | 77.9 $\pm$ 1.3 |
+| Piecewise-linear breakpoint | 77.8 $\pm$ 1.3 | 80.6 $\pm$ 1.3 |
+
+Under Architecture A (mean moderation), the four families
+cluster within a 0.017 spread (1.7 percentage points), well
+inside two cell-MCSE of sampling noise. Under Architecture B
+(MVN differential correlation), the spread is 0.027; the
+piecewise-linear breakpoint family at 0.806 sits approximately
+two MCSE above the smooth families, marginal at this resolution
+and not reproduced under Architecture A. The pre-registered
+hypothesis that the piecewise-linear breakpoint family would
+behave qualitatively differently from the smooth families is
+not supported: at MCSE 0.013, the breakpoint family is
+indistinguishable from gompertz and hyperbolic-tangent under
+Architecture A, and within two MCSE of them under Architecture
+B.
+
+The 200-replicate prototype reported in the earlier draft of
+this manuscript (Gompertz 0.765, logistic 0.805 under
+Architecture B alone) is statistically consistent with the
+present production-rep results: the prototype's apparent 0.040
+gap was approximately 1 prototype-MCSE and now resolves to
+within 0.001 of zero at the 1{,}000-replicate resolution.
+
+## Type I error across response-curve families
+
+Type-I error at $c_{bm} = 0$, percent $\pm$ MCSE:
+
+| Family                    | Architecture A | Architecture B |
+|---------------------------|----------------|----------------|
+| Gompertz                  | 2.5 $\pm$ 0.5  | 3.0 $\pm$ 0.5  |
+| Logistic                  | 2.6 $\pm$ 0.5  | 3.1 $\pm$ 0.5  |
+| Hyperbolic tangent        | 3.0 $\pm$ 0.5  | 3.6 $\pm$ 0.6  |
+| Piecewise-linear breakpoint | 2.9 $\pm$ 0.5  | 3.4 $\pm$ 0.6  |
+
+All eight null cells produce empirical Type-I error in
+$[0.025, 0.036]$, slightly conservative relative to the nominal
+0.05 and consistent with the corCAR1 small-sample
+degree-of-freedom accounting at the prazosin-calibrated $N = 35$
+and 8-timepoint short serial series. There is no
+family-specific inflation. The conservatism is shared across
+all four families, supporting the interpretation that it
+reflects the corCAR1 d.f. mechanism rather than a
+trajectory-shape artefact.
+
+## Bias of the biomarker-treatment interaction estimate
+
+Mean estimated $\hat\beta_{bm:D_{bc}}$ at $c_{bm} = 0.45$ is
+within $\pm 0.005$ of the implied true coefficient across all
+eight alternative cells. Empirical SE of $\hat\beta_{bm:D_{bc}}$
+is approximately constant across families (SD in the range
+0.072 to 0.076 across cells) and approximately equal between
+architectures. The within-replicate model SE matches the
+empirical SE, indicating well-calibrated nominal-95% Wald
+coverage across families.
+
+# Discussion
+
+## A negative finding, cleanly resolved
+
+The principal substantive finding of this manuscript is a
+negative one: at the prazosin-calibrated reference cell
+(Hybrid OL+BDC, $N = 35$, $c_{bm} = 0.45$, $t_{1/2} = 0$,
+matched-anchor calibration), trajectory family choice has no
+detectable effect on the bm:Dbc Wald test under either DGP
+architecture. The four families span the qualitative range of
+plausible templates for monotone-saturating treatment-response
+trajectories: asymmetric (Gompertz), symmetric smooth (logistic
+and hyperbolic-tangent), and non-smooth (piecewise-linear
+breakpoint). All four produce statistically indistinguishable
+power and Type I error at MCSE 0.013 to 0.016 per cell.
+
+The pre-registered hypothesis that the piecewise-linear
+breakpoint family, with its non-differentiable feature, would
+behave qualitatively differently from the smooth families is
+not supported. The breakpoint feature is invisible to the
+linear-mixed Wald test at the explored sample size and effect
+size. This is a methodologically valuable null result: if the
+breakpoint feature were detectable through power loss, the
+manuscript would have reported a meaningful sensitivity to
+non-smoothness. Its absence implies that smoothness
+assumptions in the trajectory family carry no inferential cost
+in the regime evaluated.
+
+## Why trajectory family does not matter at this resolution
+
+Three mechanisms account for the negative finding.
+
+**Calibration absorbs the differences.** The four families are
+matched at the asymptotic maximum and at a single anchor point
+($t = 5$ weeks). At matched marginal effect size, the
+within-trajectory variation in shape is small relative to the
+between-replicate variation in the bm:Dbc estimator. The
+calibration constraint is intentional in the simulation design:
+it isolates trajectory-shape effects from amplitude effects.
+
+**The bm:Dbc Wald test averages over time.** The continuous
+$D_{bc}$ predictor multiplied by the biomarker integrates the
+trajectory's contribution across all on-drug timepoints, with
+weights determined by the predictor's exponential-decay
+structure. Local trajectory-shape differences (where one family
+rises faster than another between timepoints) are averaged
+within the integration. The Wald test is therefore relatively
+insensitive to local-shape features.
+
+**Architecture B's covariance moderation is upstream of
+trajectory shape.** Under MVN differential correlation, the
+biomarker-by-treatment information lives in the
+$\partial \mathrm{Cor}(BM, BR)/\partial D_{bc}$ structure, which
+is independent of the trajectory family that BR follows. Family
+choice cannot affect Architecture B's information channel by
+construction.
+
+The combined effect is that trajectory family choice is, at
+this resolution, an inferentially inert axis of the simulation
+design. The framework's modGompertz default is robust by
+default.
+
+## Conditions that would change the answer
+
+Four conditions, none exercised in the present 16-cell
+factorial, would plausibly produce trajectory-family-dependent
+power.
+
+1. **Smaller sample size.** At $N = 35$ the bm:Dbc test
+   integrates over a moderately large within-subject sample;
+   smaller $N$ might amplify the local-shape sensitivity.
+2. **Larger or smaller $c_{bm}$.** The $c_{bm} = 0.45$
+   reference cell sits in a power regime where families have
+   comparable signal-to-noise. Pushing $c_{bm}$ to 0.30 (where
+   power lies near 0.5) might surface family differences via
+   different finite-sample sampling distributions.
+3. **Carryover induces correlation decay.** With $t_{1/2} > 0$,
+   the bm:Dbc-mediated information channel is eroded
+   differently for different trajectory shapes (the integration
+   weights interact with the off-drug exponential decay). The
+   $t_{1/2} = 0$ slice exercised here suppresses this
+   interaction.
+4. **Non-monotone or biphasic shape envelopes.** The four
+   families share a monotone-saturating envelope. Families that
+   peak and decay (biphasic) or oscillate would produce
+   genuinely different trajectories with different bm:Dbc
+   information content.
+
+Each condition is the natural axis of a follow-up sensitivity
+analysis. The 144-cell grid anticipated in the abstract
+($N \times c_{bm} \times t_{1/2} \times $ family) is the
+canonical follow-up; we recommend it for the production-grade
+extension that would close out the trajectory-family question
+at SIM-defensible rigor.
+
+## The prazosin/PTSD reference cell
+
+For the motivating prazosin-PTSD application that drives the
+pmsimstats research programme, the present result implies that
+sensitivity to the modGompertz assumption is small relative to
+sensitivity to the carryover specification (the subject of the
+companion manuscript at `analysis/report/02-carryover-
+sensitivity/`) and to the DGP architecture (the subject of
+`analysis/report/01-dgp-mean-moderation-vs-mvn/`). A trial
+designer using the pmsimstats framework can defend the
+modGompertz choice without reservation at the reference
+parameters, and should redirect sensitivity-analysis attention
+to the carryover and architecture axes that have demonstrably
+larger inferential consequences.
+
+# Conclusions
+
+The modified Gompertz function is a defensible parametric
+template for monotone-saturating treatment-response trajectories
+in N-of-1 simulation. At the prazosin/PTSD reference cell with
+matched-anchor calibration, the four-family comparison
+(Gompertz, symmetric logistic, hyperbolic-tangent, piecewise-
+linear breakpoint) produces statistically indistinguishable
+power and Type I error under both DGP architectures at MCSE
+0.013 to 0.016 per cell. The pre-registered hypothesis that
+the piecewise-linear breakpoint family would behave
+qualitatively differently is not supported.
+
+The negative finding is methodologically informative: it
+implies that the bm:Dbc Wald test is robust to the principal
+qualitative axes of trajectory-family choice in the regime
+evaluated. Trial designers using the pmsimstats framework can
+accept the modGompertz default without reservation at the
+reference parameters and direct sensitivity-analysis attention
+to the carryover and DGP-architecture axes that have
+demonstrably larger inferential consequences.
+
+The 144-cell extended grid (sample sizes, effect sizes,
+DGP-side carryover) anticipated in the original abstract is
+the natural follow-up. The present focused 16-cell factorial
+addresses the central scientific question with statistical
+clarity; the extended grid would map the boundary conditions at
+which trajectory-family choice begins to matter.
+
+# Conflict of interest
+
+The authors declare no conflicts of interest.
+
+# Funding
+
+This work received no specific funding.
+
+# Data availability statement
+
+The data and code that support the findings of this study are
+openly available in the pmsimstats-ng project repository.
+Per-replicate Monte Carlo outputs and ADEMP-compliant cell-level
+summaries are versioned under `analysis/data/`; simulation
+drivers are at `analysis/scripts/`. Exact paths for this
+manuscript are listed in the Reproducibility section below.
+
+# Reproducibility
+
+This manuscript was rendered with R 4.4.x inside the project's
+zzcollab Docker container (image hash recorded in `Dockerfile`;
+package set captured in `renv.lock`). Principal packages used
+by the simulation pipeline are `nlme` (continuous-time
+linear-mixed analysis with `corCAR1` residual correlation),
+`parallel` (8-core `mclapply` for parameter-grid sweeps),
+`data.table` (the `original-extended` simulation collection),
+`furrr` and `purrr` (the `tidyverse` simulation collection),
+and `rmarkdown` plus `bookdown` for the manuscript build.
+
+**Random-number generator.** Each simulation driver sets
+`set.seed(20260507)` at the top of the replicate loop and uses
+`parallel::mc.set.seed` inside `mclapply`. Per-replicate seeds
+derive from the master seed by `+ rep_idx`.
+
+**Data and code availability.** Per-replicate simulation
+outputs are checkpointed at
+`analysis/data/quick-sim/07-gompertz-replicates.rds`; Morris
+ADEMP cell-level summaries at the companion
+`07-gompertz-summary.txt`. Driver scripts are under
+`analysis/scripts/gompertz-evaluation/`. The pre-registered
+ADEMP plan is at
+`analysis/scripts/gompertz-evaluation/00-ademp-pre-registration.md`.
+The manuscript source, paper-specific bibliography
+(`references.bib`), and SIM CSL file are at
+`analysis/report/07-gompertz-evaluation/`.

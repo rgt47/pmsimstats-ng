@@ -3,14 +3,16 @@
 *2026-05-06 10:17 PDT*
 
 Driver scripts for the manuscript at
-`analysis/report/treatment-main-effect/`.
+`analysis/report/04-treatment-main-effect/`.
 
 ## Provenance
 
 Migrated on 2026-05-06 from
-`~/prj/res/06-nof1-power/nof1_power/analysis/scripts/`. The
-simulation engine these drivers exercise is the installed
-`nof1power` package, sourced from the same upstream compendium.
+`~/prj/res/06-nof1-power/nof1_power/analysis/scripts/`. On
+2026-05-08 the simulation engine (the `nof1power` R package) was
+vendored into `pmsimstats-ng` at `implementations/nof1power/`.
+Drivers source the vendored package; the external compendium is
+no longer required for re-execution.
 
 ## Directory contents
 
@@ -63,7 +65,7 @@ library(nof1power)
 ```
 
 Install instructions are in
-`analysis/report/treatment-main-effect/README.md`.
+`analysis/report/04-treatment-main-effect/README.md`.
 
 ## Path adjustments after migration
 
@@ -72,7 +74,12 @@ The source compendium rooted paths at
 resolves to the `pmsimstats-ng` root. Each driver should be
 reviewed for hard-coded paths to `analysis/data/`,
 `analysis/figures/`, or `analysis/tables/` before being run, and
-those paths reconciled with the `pmsimstats-ng` layout.
+those paths reconciled with the `pmsimstats-ng` layout. The
+vendored `nof1power` package source at
+`implementations/nof1power/` does not include the original
+compendium's `analysis/` tree; only the package skin
+(DESCRIPTION, NAMESPACE, R/, man/, inst/, tests/, vignettes/)
+was vendored.
 
 ## Author
 

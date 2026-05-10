@@ -1,7 +1,7 @@
 # Carryover sensitivity simulation
 
 Orchestration for the carryover-sensitivity manuscript at
-`analysis/report/carryover-sensitivity/`.
+`analysis/report/02-carryover-sensitivity/`.
 
 ## Scope
 

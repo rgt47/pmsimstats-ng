@@ -1,43 +1,42 @@
 # syntax=docker/dockerfile:1.4
-# zzcollab Dockerfile v2.4.0
+# zzcollab manuscript-package profile
+#======================================================================
+# Purpose: R package development + Rmd manuscript PDF rendering
+# Base:    rocker/verse:4.4.2 (R + tidyverse + pandoc + tinytex)
+# Profile: manuscript-package
+#
+# Build: DOCKER_BUILDKIT=1 docker build -t compendium-env .
+# Run:   docker run --rm -v $(pwd):/project -w /project compendium-env Rscript -e '...'
+#======================================================================
 
-ARG BASE_IMAGE=rocker/tidyverse
-ARG R_VERSION=4.5.3
-ARG USERNAME=analyst
+FROM rocker/verse:4.4.2
 
-FROM ${BASE_IMAGE}:${R_VERSION}
-
-ARG USERNAME=analyst
 ARG DEBIAN_FRONTEND=noninteractive
 
-# RENV_CONFIG_REPOS_OVERRIDE forces renv to use Posit PPM binaries
-ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 TZ=UTC \
-    RENV_PATHS_CACHE=/home/${USERNAME}/.cache/R/renv \
+ENV LANG=en_US.UTF-8 \
+    LC_ALL=en_US.UTF-8 \
+    TZ=UTC \
+    OMP_NUM_THREADS=1 \
+    RENV_PATHS_CACHE=/root/.cache/R/renv \
     RENV_CONFIG_REPOS_OVERRIDE="https://packagemanager.posit.co/cran/__linux__/noble/latest" \
     ZZCOLLAB_CONTAINER=true
 
-# No additional system dependencies required
+# jq: used by zzcollab CI scripts
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends jq
 
-# Configure R to use Posit Package Manager for pre-compiled binaries
-RUN echo 'options(repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/noble/latest"))' \
-        >> /usr/local/lib/R/etc/Rprofile.site && \
-    echo 'options(HTTPUserAgent = sprintf("R/%s R (%s)", getRversion(), paste(getRversion(), R.version["platform"], R.version["arch"], R.version["os"])))' \
-        >> /usr/local/lib/R/etc/Rprofile.site
-
-# Install renv and restore packages from lockfile (using PPM binaries)
 RUN R -e "install.packages('renv')"
-RUN mkdir -p /home/${USERNAME}/.cache/R/renv && chmod 777 /home/${USERNAME}/.cache/R/renv
+
+# LaTeX packages required by manuscripts.
+# Must be installed as root; tlmgr auto-install fails for non-root processes.
+RUN R -e "tinytex::tlmgr_install(c('unicode-math', 'fontspec', 'euenc', 'l3packages', 'tipa', 'xunicode', 'lineno'))"
+
+# Pre-install project package library into the image layer.
 COPY renv.lock renv.lock
-RUN R -e "renv::restore()"
+RUN Rscript -e "renv::restore(prompt = FALSE)"
 
-# Install languageserver for IDE support
-RUN R -e "install.packages('languageserver')"
-
-# Create non-root user
-RUN useradd --create-home --shell /bin/bash ${USERNAME} && \
-    chown -R ${USERNAME}:${USERNAME} /usr/local/lib/R/site-library
-
-USER ${USERNAME}
-WORKDIR /home/${USERNAME}/project
+WORKDIR /project
 
 CMD ["R", "--quiet"]

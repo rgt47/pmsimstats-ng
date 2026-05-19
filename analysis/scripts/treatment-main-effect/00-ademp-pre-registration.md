@@ -33,13 +33,17 @@ the Raskind 2013 PG-RCT and the @hendrickson2020 N-of-1 reference.
 at the baseline cell, varied across $t_{1/2} \in \{0.5, 1, 3, 5,
 7\}$ days in the carryover sweep.
 
-**Replicates.** $n_{\text{reps}} = 1000$ per cell for power and
-bias estimands; $n_{\text{reps}} = 5000$ for Type I error and
-null-calibration cells.
+**Replicates.** $n_{\text{reps}} = 2000$ per cell, applied
+uniformly to power, bias, Type I error, and all sensitivity
+sweep cells. The pre-specified target is MCSE $\leq 1.1\%$ on
+a power estimate near $0.75$ and MCSE $\leq 0.5\%$ on a Type I
+estimate near $0.05$; $n_{\text{reps}} = 2000$ satisfies both.
 
-**Random-number control.** Per-replicate seed derived from the
-cell descriptor hash and a base seed fixed at study commencement
-in `01-base-seed.txt`.
+**Random-number control.** `RNGkind("L'Ecuyer-CMRG")` set once
+at program entry; `set.seed(2024L)` immediately after. Per-
+replicate `.Random.seed` state is captured before each replicate
+so that any anomalous result can be reproduced exactly. No
+`set.seed()` calls appear inside simulation functions.
 
 **Reporting standard.** Morris, White and Crowther (2019) ADEMP
 with Monte Carlo standard errors for every reported performance

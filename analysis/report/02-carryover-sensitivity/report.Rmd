@@ -6,7 +6,7 @@ author:
   - pmsimstats team
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
-  pdf_document:
+  bookdown::pdf_document2:
     latex_engine: xelatex
     toc: true
     number_sections: true
@@ -395,6 +395,87 @@ magnitude is estimated rather than assumed and does not
 require the analyst to posit a decay form. Follows the
 classical crossover-trial approach surveyed in
 [@jones2014crossover].
+
+### Construction of $D_{bc}$ and the role of the analyst's assumed half-life
+
+We begin with an observation that is easy to overlook in the
+formal model statement above: the analyst's assumed half-life
+$\hat{t}_{1/2}$ does not appear as a parameter in the `lme`
+call. It enters the analysis at an earlier stage, during the
+construction of the $D_{bc}$ predictor column, and is
+invisible to the model-fitting routine thereafter.
+
+At on-drug timepoints, $D_{bc,it} = 1$ regardless of any
+half-life assumption. At off-drug timepoints, the predictor
+decays as a function of $t_{sd}$, the time in weeks since
+drug discontinuation:
+
+$$
+D_{bc,it} \;=\; \exp\!\left(-\frac{\ln 2}{\hat{t}_{1/2}}
+  \, t_{sd,it}\right)
+  \;=\; \left(\tfrac{1}{2}\right)^{t_{sd,it}/\hat{t}_{1/2}}
+$$
+
+That is, $D_{bc}$ loses exactly half its value for every
+$\hat{t}_{1/2}$ weeks of time since discontinuation. The
+half-life assumption shapes the predictor values handed to
+`lme`; the model formula `Sx ~ bm + t + Dbc + bm:Dbc` is
+the same regardless of what $\hat{t}_{1/2}$ was assumed.
+
+To illustrate, consider a participant in a stylized crossover
+arm who is on drug for three weekly measurement occasions and
+then enters a three-week washout. Table~\@ref(tab:toy-dbc)
+shows the $D_{bc}$ values at the three off-drug timepoints
+under three analyst assumptions, holding the true DGP
+half-life fixed at one week.
+
+```{r toy-dbc, echo = FALSE}
+toy <- tibble::tribble(
+  ~`$t_{sd}$ (wk)`,
+    ~`$\\hat{t}_{1/2} = 0.5$ wk`,
+    ~`$\\hat{t}_{1/2} = 1.0$ wk (truth)`,
+    ~`$\\hat{t}_{1/2} = 2.0$ wk`,
+  "1",  "0.250",  "0.500",  "0.707",
+  "2",  "0.063",  "0.250",  "0.500",
+  "3",  "0.016",  "0.125",  "0.354"
+)
+knitr::kable(
+  toy, booktabs = TRUE, escape = FALSE,
+  caption = paste0(
+    'Illustrative $D_{bc}$ values at three off-drug timepoints ',
+    'under three analyst-assumed half-lives, exponential decay, ',
+    'true $t_{1/2} = 1.0$ week. ',
+    'On-drug timepoints have $D_{bc} = 1$ under all assumptions. ',
+    'Row values are $(1/2)^{t_{sd}/\\hat{t}_{1/2}}$.'
+  )
+)
+```
+
+When the analyst assumes $\hat{t}_{1/2} = 0.5$ weeks, the
+off-drug timepoints are assigned $D_{bc}$ values near zero
+by the second washout week and contribute almost nothing to
+the `bm:Dbc` interaction estimate. When the analyst assumes
+$\hat{t}_{1/2} = 2.0$ weeks, those same timepoints retain
+substantial weight throughout the washout, and the predictor
+is closer in shape to a continuous version of the binary
+on-drug indicator.
+
+We note two consequences for interpreting the S2 sensitivity
+block. First, A2 is effectively a different model for each
+value of $\hat{t}_{1/2}$: the predictor values given to
+`lme` change with the analyst's assumption, even though the
+formula is identical. Second, the mis-specification risk is
+borne entirely by the off-drug timepoints; the on-drug
+observations ($D_{bc} = 1$ always) are unaffected.
+Specifications A1 and A3 use the binary indicator $D_b$ and
+the lagged indicator $L$, neither of which involves a
+half-life parameter. They are therefore invariant to
+$\hat{t}_{1/2}$ by construction. The S2 contrast is thus
+not a comparison of a well-specified against a mis-specified
+model in the usual sense; it is a comparison of one model
+family, indexed by the analyst's assumed half-life, against
+two reference specifications that are simply not members of
+that family.
 
 ## Factorial grid
 

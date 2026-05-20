@@ -4,9 +4,10 @@
 ## configuration specified in simulation-grid-plan.md.
 ##
 ## Usage:
-##   Rscript analysis/scripts/carryover-sensitivity/04-run-sensitivity-blocks.R [--dev]
+##   Rscript analysis/scripts/carryover-sensitivity/04-run-sensitivity-blocks.R [--dev] [--reps N]
 ##
-## --dev : 50 reps/cell (development); default is 500 (production).
+## --dev    : 50 reps/cell (development); default is 500 (production).
+## --reps N : override the rep count for the current mode.
 
 suppressPackageStartupMessages({
   library(tibble)
@@ -24,7 +25,11 @@ source(file.path(repo_root,
 
 args <- commandArgs(trailingOnly = TRUE)
 dev_mode <- '--dev' %in% args
-n_reps <- if (dev_mode) 50 else 500
+reps_idx <- which(args == '--reps')
+n_reps_override <- if (length(reps_idx) && reps_idx < length(args))
+  as.integer(args[reps_idx + 1]) else NA_integer_
+n_reps <- if (!is.na(n_reps_override)) n_reps_override else
+          if (dev_mode) 50 else 500
 
 seed <- 20260415L
 set.seed(seed)

@@ -5,14 +5,16 @@
 ## writes replicate-level results to output/01-factorial.rds.
 ##
 ## Usage:
-##   Rscript analysis/scripts/carryover-sensitivity/01-run-factorial.R [--dev] [--smoke]
+##   Rscript analysis/scripts/carryover-sensitivity/01-run-factorial.R [--dev] [--smoke] [--reps N]
 ##
-## --dev   : 50 reps, reduced grid (96 cells). Keeps all DGP forms and
-##           both architectures; trims t1half to {0, 1}, design to
-##           {CO, Hybrid}, c_bm to {0, 0.45}, weibull_shape to 0.7.
-##           Writes output/01-dev.rds (does not overwrite production).
-## --smoke : 2 replicates, one cell per design (pipeline sanity only)
-## default : 500 replicates, full 540-cell grid (production)
+## --dev      : reduced grid (96 cells). Keeps all DGP forms and both
+##              architectures; trims t1half to {0, 1}, design to
+##              {CO, Hybrid}, c_bm to {0, 0.45}, weibull_shape to 0.7.
+##              Writes output/01-dev.rds (does not overwrite production).
+##              Default reps in this mode: 50.
+## --smoke    : 2 replicates, one cell per design (pipeline sanity only)
+## --reps N   : override the rep count for the current mode
+## default    : 500 replicates, full 540-cell grid (production)
 
 suppressPackageStartupMessages({
   library(tibble)
@@ -31,7 +33,11 @@ source(file.path(repo_root,
 args <- commandArgs(trailingOnly = TRUE)
 dev_mode <- '--dev' %in% args
 smoke_mode <- '--smoke' %in% args
-n_reps <- if (smoke_mode) 2 else if (dev_mode) 50 else 500
+reps_idx <- which(args == '--reps')
+n_reps_override <- if (length(reps_idx) && reps_idx < length(args))
+  as.integer(args[reps_idx + 1]) else NA_integer_
+n_reps <- if (!is.na(n_reps_override)) n_reps_override else
+          if (smoke_mode) 2 else if (dev_mode) 50 else 500
 
 seed <- 20260415L
 set.seed(seed)

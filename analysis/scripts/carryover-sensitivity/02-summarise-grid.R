@@ -5,6 +5,16 @@
 ## standard errors. Writes both an analysis-side copy and a
 ## manuscript-side mirror.
 ##
+## Usage:
+##   Rscript analysis/scripts/carryover-sensitivity/02-summarise-grid.R [--dev]
+##
+## --dev : read from 01-dev.rds / 04-sensitivity-dev.rds and write
+##         the summaries to the standard manuscript data paths
+##         (analysis/data/02-grid-summary.rds etc.), overwriting
+##         production summaries. Use for review renders only; restore
+##         production summaries with git checkout analysis/data/ when
+##         done.
+##
 ## Reporting follows Morris, White, and Crowther (2019), 'Using
 ## simulation studies to evaluate statistical methods', Statistics
 ## in Medicine 38(11):2074-2102, doi 10.1002/sim.8086. Per-cell
@@ -21,10 +31,17 @@ suppressPackageStartupMessages({
   library(tibble)
 })
 
+args <- commandArgs(trailingOnly = TRUE)
+dev_mode <- '--dev' %in% args
+
 repo_root <- here::here()
 
+tier1_file <- if (dev_mode) '01-dev.rds' else '01-factorial.rds'
+if (dev_mode) message('Dev mode: reading ', tier1_file,
+                      ' (production summaries will be overwritten)')
+
 raw <- readRDS(file.path(repo_root,
-  'analysis/scripts/carryover-sensitivity/output/01-factorial.rds'))
+  'analysis/scripts/carryover-sensitivity/output', tier1_file))
 
 alpha <- 0.05
 
@@ -136,8 +153,9 @@ message('Wrote ', out_manuscript)
 ## and mirror to analysis/data/02-sensitivity-summary.rds.
 ## -----------------------------------------------------------------
 
+tier2_file <- if (dev_mode) '04-sensitivity-dev.rds' else '04-sensitivity.rds'
 tier2_path <- file.path(repo_root,
-  'analysis/scripts/carryover-sensitivity/output/04-sensitivity.rds')
+  'analysis/scripts/carryover-sensitivity/output', tier2_file)
 
 if (file.exists(tier2_path)) {
   raw2 <- readRDS(tier2_path)

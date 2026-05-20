@@ -288,17 +288,17 @@ simulate_cell <- function(cell, n_reps) {
 
   ## rho: common within-factor AR(1) autocorrelation. Falls back
   ## to 0.7 if not provided (Tier 1 default).
-  rho <- default_val(cell$rho, 0.7)
+  rho <- default_val(cell[['rho']], 0.7)
 
   ## analyst-assumed carryover parameters for the A2 analysis
   ## predictor. Default to DGP truth (perfectly specified).
-  analysis_t1half <- default_val(cell$analysis_t1half, cell$t1half)
-  analysis_form   <- default_val(cell$analysis_form,   cell$carryover_form)
-  analysis_shape  <- default_val(cell$analysis_shape,  cell$weibull_shape)
+  analysis_t1half <- default_val(cell[['analysis_t1half']], cell$t1half)
+  analysis_form   <- default_val(cell[['analysis_form']],   cell$carryover_form)
+  analysis_shape  <- default_val(cell[['analysis_shape']],  cell$weibull_shape)
 
   ## optional dropout block (S3)
-  dropout_rate <- default_val(cell$dropout_rate, 0)
-  dropout_mech <- default_val(cell$dropout_mech, 'MCAR')
+  dropout_rate <- default_val(cell[['dropout_rate']], 0)
+  dropout_mech <- default_val(cell[['dropout_mech']], 'MCAR')
 
   model_param <- list(
     N = cell$N,

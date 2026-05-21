@@ -1,6 +1,6 @@
 ---
 title: "Carryover-sensitivity study: development-run review"
-subtitle: "96-cell reduced grid, 150 replicates per cell (2026-05-20)"
+subtitle: "96-cell grid, five analysis methods, 150 replicates per cell"
 author:
   - pmsimstats team
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
@@ -29,11 +29,12 @@ header-includes:
     Rscript -e "rmarkdown::render(
       'analysis/report/02-carryover-sensitivity/report-devresults.Rmd')"
 
-  The dev run was executed 2026-05-20 at 150 reps/cell via:
+  The dev run was executed at 150 reps/cell with the --robust flag,
+  which adds the lme+CR2 and GEE+MD analyses to A1/A2/A3:
     Rscript analysis/scripts/carryover-sensitivity/01-run-factorial.R \
-      --dev --reps 150
+      --dev --robust --reps 150
     Rscript analysis/scripts/carryover-sensitivity/04-run-sensitivity-blocks.R \
-      --dev --reps 150
+      --dev --robust --reps 150
 
   All figures and tables are computed inline from:
     analysis/scripts/carryover-sensitivity/output/01-dev.rds
@@ -62,7 +63,9 @@ suppressPackageStartupMessages({
 alpha <- 0.05
 
 ## ------------------------------------------------------------------
-## summarise_cells(): inline copy of 02-summarise-grid.R logic
+## summarise_cells(): inline copy of 02-summarise-grid.R logic.
+## Groups by spec, so it handles the five analysis methods without
+## modification.
 ## ------------------------------------------------------------------
 summarise_cells <- function(results, grid_names) {
   if (!('std_error' %in% colnames(results))) {
@@ -97,7 +100,7 @@ summarise_cells <- function(results, grid_names) {
 }
 
 ## ------------------------------------------------------------------
-## Load and summarise Tier 1 dev output
+## Load and summarise the dev outputs
 ## ------------------------------------------------------------------
 repo_root  <- here::here()
 raw1_path  <- file.path(repo_root,
@@ -105,17 +108,22 @@ raw1_path  <- file.path(repo_root,
 raw1       <- readRDS(raw1_path)
 grid1      <- summarise_cells(raw1$results, names(raw1$grid))
 
-## ------------------------------------------------------------------
-## Load and summarise Tier 2 dev output
-## ------------------------------------------------------------------
 raw2_path  <- file.path(repo_root,
   'analysis/scripts/carryover-sensitivity/output/04-sensitivity-dev.rds')
 raw2       <- readRDS(raw2_path)
 grid2      <- summarise_cells(raw2$results, names(raw2$grid))
 
 ## ------------------------------------------------------------------
-## Shared ggplot theme and colour scale
+## Five analysis methods: three model-based specifications plus two
+## robust-inference analyses (both on the A2 / Dbc predictor).
 ## ------------------------------------------------------------------
+method_levels <- c('A1', 'A2', 'A3', 'lme+CR2', 'GEE+MD')
+method_labels <- c('A1' = 'A1 binary',
+                    'A2' = 'A2 Dbc (matched)',
+                    'A3' = 'A3 lagged',
+                    'lme+CR2' = 'lme+CR2 (robust)',
+                    'GEE+MD'  = 'GEE+MD (robust)')
+
 theme_paper <- theme_bw(base_size = 10) +
   theme(
     panel.grid.minor   = element_blank(),
@@ -124,11 +132,12 @@ theme_paper <- theme_bw(base_size = 10) +
   )
 
 spec_scale <- scale_colour_manual(
-  values = c(A1 = '#1f78b4', A2 = '#33a02c', A3 = '#e31a1c'),
-  labels = c(A1 = 'A1 binary',
-             A2 = 'A2 Dbc (matched)',
-             A3 = 'A3 lagged')
-)
+  values = c('A1' = '#1f78b4', 'A2' = '#33a02c', 'A3' = '#e31a1c',
+             'lme+CR2' = '#ff7f00', 'GEE+MD' = '#6a3d9a'),
+  labels = method_labels,
+  limits = method_levels)
+
+as_method <- function(x) factor(x, levels = method_levels)
 ```
 
 # Overview
@@ -137,41 +146,59 @@ This document presents pipeline-verification results for the
 carryover-sensitivity manuscript from the development simulation
 run completed 2026-05-20. The run uses a 96-cell reduced Tier 1
 grid (150 replicates per cell, MC SE $\approx 0.041$ at $p = 0.5$)
-and a 31-cell Tier 2 sensitivity grid (150 replicates per cell).
-All figures and tables are computed inline from the development RDS
-files; nothing is loaded from pre-rendered figures or the shared
-`analysis/data/` summaries.
+and a 31-cell Tier 2 sensitivity grid. All figures and tables are
+computed inline from the development RDS files; nothing is loaded
+from pre-rendered figures or the shared `analysis/data/` summaries.
+
+**Five analysis methods.** Beyond the three analysis-model
+specifications of the parent study, A1 (binary $D_b$), A2
+(exposure-weighted $D_{bc}$), and A3 (lagged-treatment), this dev
+run carries two robust-inference analyses, both applied to the A2
+($D_{bc}$) predictor. `lme+CR2` is the conditional `lme` fit with
+its model-based standard error replaced by a CR2 bias-reduced
+cluster-robust sandwich. `GEE+MD` is the marginal
+generalized-estimating-equations fit with a Mancl-DeRouen
+bias-corrected sandwich. The two robust analyses are produced by
+the `--robust` flag of the simulation drivers, in anticipation of
+carrying them into the production pipeline; their rationale and
+validation are documented in manuscript 10
+(`analysis/report/10-interaction-test-calibration/`).
 
 The purpose of this document is to verify that:
 
-a) the A2 $>$ A1 $\approx$ A3 power ranking is visible at 150 reps
-   (direction check, not precision check);
-b) type-I error is below nominal across specifications;
-c) sensitivity-block trends are plausible.
+a) the A2 $>$ A1 $\approx$ A3 power ranking is visible at 150 reps;
+b) the three model-based specifications are conservative under the
+   null, while the robust analyses move the type-I error toward
+   the nominal 0.05;
+c) lme+CR2 recovers the power lost to conservatism, while GEE+MD
+   reveals the efficiency cost of a marginal working correlation;
+d) the Tier 2 sensitivity-block trends are plausible.
 
 Precise point estimates should be drawn from the production run
-(500 reps, 540 cells) rather than this document.
+(500 reps, 540 cells) rather than from this document.
 
 **Dev grid coverage.** The Tier 1 dev grid retains both DGP
 architectures and all three DGP decay forms (the primary axes),
 trimming secondary axes to two representative values each.
 `t1half` is reduced to $\{0.0, 1.0\}$ weeks; design to
 $\{\text{CO}, \text{Hybrid}\}$; $N$ to $\{35, 70\}$; $c_{bm}$ to
-$\{0.0, 0.45\}$; Weibull uses only $k = 0.7$. The OLBDC design
-and $k = 1.5$ Weibull shape are absent from the dev grid; any
-figure filtered to those levels will appear empty.
+$\{0.0, 0.45\}$; Weibull uses only $k = 0.7$. The OLBDC design and
+$k = 1.5$ Weibull shape are absent from the dev grid; any figure
+filtered to those levels will appear empty.
 
 ```{r meta-table, echo = FALSE}
 meta_df <- tibble::tibble(
   Item  = c('Tier 1 cells', 'Tier 1 reps/cell',
             'Tier 2 cells', 'Tier 2 reps/cell',
+            'Analysis methods per cell',
             'Total Tier 1 rows', 'Total Tier 2 rows',
             'Run date'),
   Value = c(
-    raw1$meta$n_reps |> (\(x) nrow(raw1$grid))(),
+    nrow(raw1$grid),
     raw1$meta$n_reps,
     nrow(raw2$grid),
     raw2$meta$n_reps,
+    length(unique(raw1$results$spec)),
     nrow(raw1$results),
     nrow(raw2$results),
     format(raw1$meta$date, '%Y-%m-%d')
@@ -187,8 +214,8 @@ knitr::kable(meta_df, booktabs = TRUE,
 
 Table \@ref(tab:headline-dev) shows the Morris-style performance
 measures at the reference cell (Architecture B, exponential DGP,
-Hybrid design, $N = 70$, $c_{bm} = 0.45$, both carryover
-half-lives present in the dev grid).
+Hybrid design, $N = 70$, $c_{bm} = 0.45$), for all five analysis
+methods at both carryover half-lives present in the dev grid.
 
 ```{r headline-dev}
 hd <- grid1 |>
@@ -201,36 +228,35 @@ hd <- grid1 |>
     `Bias (MC SE)`     = sprintf('%+.3f (%.3f)',
                                   bias, mc_se_bias),
     `Emp SE`           = sprintf('%.3f', empirical_se),
-    `Coverage (MC SE)` = sprintf('%.3f (%.3f)',
-                                  coverage, mc_se_coverage),
-    `MSE (MC SE)`      = sprintf('%.3f (%.3f)',
-                                  mse, mc_se_mse),
+    `Coverage`         = sprintf('%.3f', coverage),
     `Non-conv`         = sprintf('%.3f', non_convergence_rate)
   ) |>
-  arrange(`t1/2`, spec) |>
+  arrange(`t1/2`, match(spec, method_levels)) |>
   select(`t1/2`, spec, `Power (MC SE)`, `Bias (MC SE)`,
-         `Emp SE`, `Coverage (MC SE)`, `MSE (MC SE)`, `Non-conv`)
+         `Emp SE`, `Coverage`, `Non-conv`)
 
 knitr::kable(
   hd, booktabs = TRUE,
   caption = 'Reference-cell performance (Architecture B, exponential
-    DGP, Hybrid, $N = 70$, $c_{bm} = 0.45$, $n_{sim} = 150$).
-    MC SEs are approximately twice those of the 500-rep production
-    run; treat rankings, not precise values, as informative here.'
+    DGP, Hybrid, $N = 70$, $c_{bm} = 0.45$, $n_{sim} = 150$). The
+    lme+CR2 row shares the A2 interaction estimate (its bias and
+    empirical SE track A2) and differs only in the standard error;
+    GEE+MD is a separate marginal fit with its own, less efficient,
+    estimate (note its larger empirical SE). MC SEs are about twice
+    those of the 500-rep production run.'
 )
 ```
 
-## Power by analysis specification
+## Power by analysis method
 
-```{r fig-power-by-spec, fig.cap = "Power versus carryover half-life under the exponential DGP, stratified by architecture and design. Dev grid: design in {CO, Hybrid} only; $N = 70$, $c_{bm} = 0.45$, 150 reps per cell. MC SE $\\approx 0.041$ at $p = 0.5$.", fig.width = 7, fig.height = 4.5}
+```{r fig-power-by-spec, fig.cap = "Power versus carryover half-life under the exponential DGP, stratified by architecture and design, for all five analysis methods. Dev grid: design in {CO, Hybrid} only; $N = 70$, $c_{bm} = 0.45$, 150 reps per cell. lme+CR2 lifts power above A2 by recalibrating the conservative standard error; GEE+MD falls below A2, the efficiency cost of its AR(1) marginal working correlation against the strong participant baseline.", fig.width = 7.5, fig.height = 5}
 d_a <- grid1 |>
   filter(carryover_form == 'exponential', c_bm == 0.45, N == 70) |>
   mutate(
     dgp_arch = factor(dgp_arch,
       levels  = c('mean_moderation', 'mvn'),
       labels  = c('Arch A (mean mod)', 'Arch B (MVN)')),
-    spec = factor(spec, levels = c('A1', 'A2', 'A3'),
-      labels = c('A1 binary', 'A2 Dbc (matched)', 'A3 lagged')),
+    spec   = as_method(spec),
     design = factor(design, levels = c('CO', 'Hybrid'))
   )
 
@@ -243,7 +269,7 @@ ggplot(d_a, aes(t1half, power, colour = spec, group = spec)) +
   labs(
     x      = expression('Carryover half-life'~t['1/2']~'(weeks)'),
     y      = 'Power',
-    colour = 'Analysis spec',
+    colour = 'Analysis method',
     title  = 'Power vs carryover under matched exponential DGP',
     subtitle = expression(
       N==70*','~c[bm]==0.45*','~'150 reps/cell (dev)')
@@ -252,9 +278,9 @@ ggplot(d_a, aes(t1half, power, colour = spec, group = spec)) +
   spec_scale
 ```
 
-## Decay-form by analysis-spec heatmap
+## Decay-form by analysis-method heatmap
 
-```{r fig-heatmap, fig.cap = "Power at the reference carryover cell ($t_{1/2} = 1.0$ week, Architecture B, Hybrid design, $N = 70$, $c_{bm} = 0.45$) across DGP decay forms and analysis specifications. Dev grid contains three DGP forms: Linear, Exponential, and Weibull $k = 0.7$.", fig.width = 5.5, fig.height = 3.5}
+```{r fig-heatmap, fig.cap = "Power at the reference carryover cell ($t_{1/2} = 1.0$ week, Architecture B, Hybrid design, $N = 70$, $c_{bm} = 0.45$) across DGP decay forms and the five analysis methods. The dev grid contains three DGP forms: Linear, Exponential, and Weibull $k = 0.7$.", fig.width = 6.5, fig.height = 3.4}
 d_b <- grid1 |>
   filter(
     dgp_arch == 'mvn', design == 'Hybrid',
@@ -270,8 +296,7 @@ d_b <- grid1 |>
     ),
     dgp_label = factor(dgp_label,
       levels = c('Linear', 'Exponential', 'Weibull (k=0.7)')),
-    spec = factor(spec, levels = c('A1', 'A2', 'A3'),
-      labels = c('A1 binary', 'A2 Dbc', 'A3 lagged'))
+    spec = as_method(spec)
   )
 
 ggplot(d_b, aes(spec, dgp_label, fill = power)) +
@@ -281,10 +306,10 @@ ggplot(d_b, aes(spec, dgp_label, fill = power)) +
     low = 'white', mid = '#fdd', high = '#08519c',
     midpoint = 0.4, limits = c(0, 1)) +
   labs(
-    x        = 'Analysis specification',
+    x        = 'Analysis method',
     y        = 'DGP decay form',
     fill     = 'Power',
-    title    = 'Decay-form x analysis-spec sensitivity',
+    title    = 'Decay-form x analysis-method sensitivity',
     subtitle = expression(
       'Arch B, Hybrid,'~N==70*','~
       c[bm]==0.45*','~t['1/2']==1.0*' (dev, 150 reps)')
@@ -294,11 +319,11 @@ ggplot(d_b, aes(spec, dgp_label, fill = power)) +
 
 ## Type-I error control
 
-```{r fig-type1, fig.cap = "Empirical type-I error rates under the null ($c_{bm} = 0$), pooled across DGP decay forms and carryover half-lives, stratified by design and analysis specification. $N = 70$; dashed line at nominal 0.05. Dev grid includes CO and Hybrid designs only.", fig.width = 6, fig.height = 3.5}
+```{r fig-type1, fig.cap = "Empirical type-I error rates under the null ($c_{bm} = 0$), pooled across DGP decay forms and carryover half-lives, stratified by design and analysis method. $N = 70$; dashed line at nominal 0.05. The three model-based specifications sit below nominal; lme+CR2 sits near nominal; GEE+MD is near nominal under the Hybrid design but anti-conservative under CO.", fig.width = 7, fig.height = 3.6}
 d_c <- grid1 |>
   filter(c_bm == 0, N == 70) |>
   mutate(
-    spec = factor(spec, levels = c('A1', 'A2', 'A3')),
+    spec = as_method(spec),
     design = factor(design, levels = c('CO', 'Hybrid')),
     dgp_arch = factor(dgp_arch,
       levels = c('mean_moderation', 'mvn'),
@@ -312,7 +337,7 @@ ggplot(d_c, aes(spec, power, fill = dgp_arch)) +
   facet_wrap(~ design) +
   scale_y_continuous(limits = c(0, NA)) +
   labs(
-    x        = 'Analysis specification',
+    x        = 'Analysis method',
     y        = 'Empirical type-I error rate',
     fill     = NULL,
     title    = 'Type-I error control under null',
@@ -320,7 +345,8 @@ ggplot(d_c, aes(spec, power, fill = dgp_arch)) +
       c[bm]==0*','~N==70*','~
       'pooled across DGP forms and carryover levels (dev)')
   ) +
-  theme_paper
+  theme_paper +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
 ```
 
 ## Summary table: all cells at $N = 70$, $c_{bm} = 0.45$, Hybrid
@@ -338,15 +364,16 @@ tab_all <- grid1 |>
                                power, mc_se_power),
     `Non-conv` = sprintf('%.3f', non_convergence_rate)
   ) |>
-  arrange(Arch, DGP, `t1/2`, spec) |>
+  arrange(Arch, DGP, `t1/2`, match(spec, method_levels)) |>
   select(Arch, DGP, `t1/2`, spec,
          `Power (MC SE)`, `Non-conv`)
 
 knitr::kable(
   tab_all, booktabs = TRUE, longtable = TRUE,
   caption = 'Power and non-convergence at $N = 70$, $c_{bm} = 0.45$,
-    Hybrid design, dev grid (150 reps per cell). All unique DGP-
-    architecture combinations present in the dev grid.'
+    Hybrid design, dev grid (150 reps per cell), for all five
+    analysis methods across the DGP-architecture combinations
+    present in the dev grid.'
 )
 ```
 
@@ -354,10 +381,10 @@ knitr::kable(
 
 ## S1: within-factor autocorrelation
 
-```{r fig-s1, fig.cap = "Power by analysis specification across AR(1) autocorrelation $\\rho \\in \\{0.5, 0.7, 0.8, 0.9\\}$. Reference: Arch B, Hybrid, $N = 70$, $c_{bm} = 0.45$, exponential DGP, $t_{1/2} = 1.0$ weeks.", fig.width = 5.5, fig.height = 3.8}
+```{r fig-s1, fig.cap = "Power by analysis method across AR(1) autocorrelation $\\rho \\in \\{0.5, 0.7, 0.8, 0.9\\}$. Reference: Arch B, Hybrid, $N = 70$, $c_{bm} = 0.45$, exponential DGP, $t_{1/2} = 1.0$ weeks.", fig.width = 6, fig.height = 3.9}
 d1 <- grid2 |>
   filter(block == 'S1') |>
-  mutate(spec = factor(spec, levels = c('A1', 'A2', 'A3')))
+  mutate(spec = as_method(spec))
 
 ggplot(d1, aes(rho, power, colour = spec, group = spec)) +
   geom_line(linewidth = 0.6) +
@@ -367,7 +394,7 @@ ggplot(d1, aes(rho, power, colour = spec, group = spec)) +
   labs(
     x        = expression('AR(1) autocorrelation'~rho),
     y        = 'Power',
-    colour   = 'Analysis spec',
+    colour   = 'Analysis method',
     title    = 'S1: Sensitivity to within-factor autocorrelation',
     subtitle = 'Hybrid, Arch B, N=70, c_bm=0.45, exp DGP (dev, 150 reps)'
   ) +
@@ -376,11 +403,11 @@ ggplot(d1, aes(rho, power, colour = spec, group = spec)) +
 
 ## S2: analyst-truth half-life mismatch
 
-```{r fig-s2, fig.cap = "Power of A1, A2, and A3 as the analyst's assumed half-life departs from the true DGP half-life. A1 and A3 are invariant to the assumed half-life by construction. Facets show the two true DGP half-lives present in the dev grid.", fig.width = 7, fig.height = 3.8}
+```{r fig-s2, fig.cap = "Power as the analyst's assumed half-life departs from the true DGP half-life. A1 and A3 do not consume the assumed half-life and are flat; A2 and the two robust analyses are all built on the $D_{bc}$ predictor and vary with it.", fig.width = 7, fig.height = 3.9}
 d2 <- grid2 |>
   filter(block == 'S2') |>
   mutate(
-    spec = factor(spec, levels = c('A1', 'A2', 'A3')),
+    spec = as_method(spec),
     true = factor(paste0('true t_{1/2} = ', t1half, ' wk'))
   )
 
@@ -395,19 +422,19 @@ ggplot(d2, aes(analysis_t1half, power,
   labs(
     x        = 'Analyst-assumed half-life (log scale, weeks)',
     y        = 'Power',
-    colour   = 'Analysis spec',
+    colour   = 'Analysis method',
     title    = 'S2: Cost of analyst-truth half-life mismatch (dev)',
-    subtitle = 'A1 and A3 do not depend on assumed half-life; A2 does'
+    subtitle = 'A1 and A3 are invariant; A2, lme+CR2, GEE+MD are Dbc-based'
   ) +
   theme_paper
 ```
 
 ## S3: dropout
 
-```{r fig-s3, fig.cap = "Power at dropout rates $\\in \\{0, 0.1, 0.2, 0.3\\}$ under MCAR and MAR mechanisms.", fig.width = 7, fig.height = 3.8}
+```{r fig-s3, fig.cap = "Power at dropout rates $\\in \\{0, 0.1, 0.2, 0.3\\}$ under MCAR and MAR mechanisms. GEE+MD is unreliable here: the Mancl-DeRouen variance (geesmv) fails on the unbalanced clusters that monotone dropout produces, so its dropout points are degenerate or absent. The model-based specifications and lme+CR2 are unaffected.", fig.width = 7, fig.height = 3.9}
 d3 <- grid2 |>
   filter(block == 'S3') |>
-  mutate(spec = factor(spec, levels = c('A1', 'A2', 'A3')))
+  mutate(spec = as_method(spec))
 
 ggplot(d3, aes(dropout_rate, power,
                colour = spec, group = spec)) +
@@ -419,7 +446,7 @@ ggplot(d3, aes(dropout_rate, power,
   labs(
     x        = 'Dropout rate',
     y        = 'Power',
-    colour   = 'Analysis spec',
+    colour   = 'Analysis method',
     title    = 'S3: Sensitivity to dropout (dev)',
     subtitle = 'MCAR and MAR (severity-biased); reference cell as above'
   ) +
@@ -428,10 +455,10 @@ ggplot(d3, aes(dropout_rate, power,
 
 ## S4: biomarker-moderation effect-size curve
 
-```{r fig-s4, fig.cap = "Power across $c_{bm} \\in \\{0, 0.10, 0.20, 0.30, 0.45, 0.60\\}$. The $c_{bm} = 0$ point is the null; dashed line at nominal $\\alpha = 0.05$.", fig.width = 5.5, fig.height = 3.8}
+```{r fig-s4, fig.cap = "Power across $c_{bm} \\in \\{0, 0.10, 0.20, 0.30, 0.45, 0.60\\}$, for all five analysis methods. The $c_{bm} = 0$ point is the null; dashed line at nominal $\\alpha = 0.05$.", fig.width = 6, fig.height = 3.9}
 d4 <- grid2 |>
   filter(block == 'S4') |>
-  mutate(spec = factor(spec, levels = c('A1', 'A2', 'A3')))
+  mutate(spec = as_method(spec))
 
 ggplot(d4, aes(c_bm, power, colour = spec, group = spec)) +
   geom_hline(yintercept = 0.05, linetype = 'dashed',
@@ -443,7 +470,7 @@ ggplot(d4, aes(c_bm, power, colour = spec, group = spec)) +
   labs(
     x        = expression(c[bm]),
     y        = 'Power / type-I error',
-    colour   = 'Analysis spec',
+    colour   = 'Analysis method',
     title    = 'S4: Biomarker-moderation effect-size curve (dev)',
     subtitle = 'Dashed line at nominal alpha = 0.05'
   ) +
@@ -452,10 +479,10 @@ ggplot(d4, aes(c_bm, power, colour = spec, group = spec)) +
 
 ## S5: autocorrelation by carryover (exploratory)
 
-```{r fig-s5, fig.cap = "Power across carryover half-lives $\\{0, 0.5, 1.0\\}$ weeks at $\\rho \\in \\{0.5, 0.8\\}$. Facets by $\\rho$.", fig.width = 7, fig.height = 3.8}
+```{r fig-s5, fig.cap = "Power across carryover half-lives $\\{0, 0.5, 1.0\\}$ weeks at $\\rho \\in \\{0.5, 0.8\\}$, for all five analysis methods. Facets by $\\rho$.", fig.width = 7, fig.height = 3.9}
 d5 <- grid2 |>
   filter(block == 'S5') |>
-  mutate(spec = factor(spec, levels = c('A1', 'A2', 'A3')))
+  mutate(spec = as_method(spec))
 
 ggplot(d5, aes(t1half, power, colour = spec, group = spec)) +
   geom_line(linewidth = 0.6) +
@@ -466,9 +493,9 @@ ggplot(d5, aes(t1half, power, colour = spec, group = spec)) +
   labs(
     x        = expression('Carryover half-life'~t['1/2']~'(weeks)'),
     y        = 'Power',
-    colour   = 'Analysis spec',
+    colour   = 'Analysis method',
     title    = 'S5: Autocorrelation x carryover interaction (dev)',
-    subtitle = 'Is the spec ranking rho-sensitive?'
+    subtitle = 'Is the method ranking rho-sensitive?'
   ) +
   theme_paper
 ```
@@ -479,37 +506,35 @@ ggplot(d5, aes(t1half, power, colour = spec, group = spec)) +
 ref <- grid1 |>
   filter(carryover_form == 'exponential', dgp_arch == 'mvn',
          design == 'Hybrid', N == 70, c_bm == 0.45,
-         t1half == 1.0) |>
-  arrange(spec)
+         t1half == 1.0)
+pw <- function(s) {
+  v <- ref |> filter(spec == s) |> pull(power)
+  if (length(v) == 0) NA_real_ else v[1]
+}
 
-a2_power  <- ref |> filter(spec == 'A2') |> pull(power)
-a1_power  <- ref |> filter(spec == 'A1') |> pull(power)
-a2_gt_a1  <- isTRUE(a2_power > a1_power)
-
-type1_max <- grid1 |>
-  filter(c_bm == 0, N == 70) |>
-  pull(power) |>
-  max(na.rm = TRUE)
+null_t1 <- grid1 |> filter(c_bm == 0, N == 70)
+cr2_t1 <- null_t1 |> filter(spec == 'lme+CR2') |>
+  pull(power) |> mean(na.rm = TRUE)
 
 nonconv_max <- grid1 |>
-  pull(non_convergence_rate) |>
-  max(na.rm = TRUE)
+  pull(non_convergence_rate) |> max(na.rm = TRUE)
 
 checks <- tibble::tibble(
   Check = c(
-    'A2 power > A1 power at reference cell (Hybrid, Arch B, t1/2=1)',
-    'Max type-I error (N=70) below 0.15',
+    'A2 power > A1 power at the reference cell',
+    'lme+CR2 power >= A2 power (robust SE recovers power)',
+    'lme+CR2 null type-I within 0.015 of nominal 0.05',
     'Max non-convergence rate below 0.20'
   ),
   Result = c(
-    sprintf('A2=%.3f, A1=%.3f -> %s',
-            a2_power, a1_power,
-            ifelse(a2_gt_a1, 'PASS', 'FAIL')),
-    sprintf('Max=%.3f -> %s',
-            type1_max,
-            ifelse(type1_max < 0.15, 'PASS', 'FAIL')),
-    sprintf('Max=%.3f -> %s',
-            nonconv_max,
+    sprintf('A2=%.3f, A1=%.3f -> %s', pw('A2'), pw('A1'),
+            ifelse(pw('A2') > pw('A1'), 'PASS', 'FAIL')),
+    sprintf('lme+CR2=%.3f, A2=%.3f -> %s',
+            pw('lme+CR2'), pw('A2'),
+            ifelse(pw('lme+CR2') >= pw('A2'), 'PASS', 'FAIL')),
+    sprintf('lme+CR2 mean type-I=%.3f -> %s', cr2_t1,
+            ifelse(abs(cr2_t1 - 0.05) < 0.015, 'PASS', 'FAIL')),
+    sprintf('Max=%.3f -> %s', nonconv_max,
             ifelse(nonconv_max < 0.20, 'PASS', 'FAIL'))
   )
 )

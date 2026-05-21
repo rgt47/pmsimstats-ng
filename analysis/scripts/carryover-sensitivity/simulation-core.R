@@ -257,7 +257,99 @@ fit_spec <- function(dat_long, spec) {
          converged = TRUE)
 }
 
-fit_three_specs <- function(dat_long) {
+## -----------------------------------------------------------------
+## Robust-inference fitters (used when robust = TRUE)
+##
+## Both apply a working-covariance-agnostic standard error to the A2
+## (exposure-weighted Dbc) interaction. fit_cr2 keeps the conditional
+## lme fit and replaces its standard error with a CR2 bias-reduced
+## cluster-robust sandwich (clubSandwich). fit_gee_md fits the
+## marginal GEE counterpart and uses the Mancl-DeRouen bias-corrected
+## sandwich (geesmv). See analysis/report/
+## 10-interaction-test-calibration/ for the rationale and validation.
+## -----------------------------------------------------------------
+
+fit_cr2 <- function(dat_long) {
+  na_out <- tibble(spec = 'lme+CR2', estimate = NA_real_,
+                   std_error = NA_real_, p_value = NA_real_,
+                   converged = FALSE)
+  fit <- tryCatch(
+    nlme::lme(Sx ~ bm + t + Dbc + bm:Dbc, random = ~1 | ptID,
+              correlation = nlme::corCAR1(form = ~t | ptID),
+              data = dat_long,
+              control = nlme::lmeControl(
+                opt = 'optim', maxIter = 200, msMaxIter = 200)),
+    error = function(e) NULL)
+  if (is.null(fit)) return(na_out)
+  cc <- summary(fit)$tTable
+  tgt <- intersect(c('bm:Dbc', 'Dbc:bm'), rownames(cc))
+  if (length(tgt) == 0) return(na_out)
+  tgt <- tgt[1]
+  ct <- tryCatch(
+    clubSandwich::coef_test(fit, vcov = 'CR2',
+                            cluster = dat_long$ptID,
+                            test = 'Satterthwaite'),
+    error = function(e) NULL)
+  if (is.null(ct)) return(na_out)
+  cf  <- if (!is.null(ct$Coef)) as.character(ct$Coef)
+         else rownames(ct)
+  idx <- which(cf == tgt)
+  if (length(idx) == 0) return(na_out)
+  row  <- ct[idx[1], , drop = FALSE]
+  grab <- function(patterns) {
+    for (p in patterns) {
+      hit <- grep(p, names(row), value = TRUE, ignore.case = TRUE)
+      if (length(hit)) return(as.numeric(row[[hit[1]]]))
+    }
+    NA_real_
+  }
+  tibble(spec = 'lme+CR2',
+         estimate  = cc[tgt, 'Value'],
+         std_error = grab('^SE$'),
+         p_value   = grab(c('^p_Satt', '^p_val', '^p\\.',
+                            '^p$', '^p')),
+         converged = TRUE)
+}
+
+fit_gee_md <- function(dat_long) {
+  na_out <- tibble(spec = 'GEE+MD', estimate = NA_real_,
+                   std_error = NA_real_, p_value = NA_real_,
+                   converged = FALSE)
+  ## geeglm/geesmv need contiguous, time-ordered clusters, a numeric
+  ## cluster id, and a plain data frame.
+  dl <- dat_long[order(dat_long$ptID, dat_long$t), ]
+  dl$id <- as.integer(factor(dl$ptID))
+  dl <- as.data.frame(dl)
+  fit <- tryCatch(
+    geepack::geeglm(Sx ~ bm + t + Dbc + bm:Dbc, family = gaussian,
+                    data = dl, id = id, corstr = 'ar1'),
+    error = function(e) NULL)
+  if (is.null(fit)) return(na_out)
+  sm  <- summary(fit)$coefficients
+  tgt <- intersect(c('bm:Dbc', 'Dbc:bm'), rownames(sm))
+  if (length(tgt) == 0) return(na_out)
+  tgt <- tgt[1]
+  est <- sm[tgt, 'Estimate']
+  md <- tryCatch({
+    utils::capture.output(
+      m <- geesmv::GEE.var.md(Sx ~ bm + t + Dbc + bm:Dbc,
+                              id = 'id', family = gaussian,
+                              data = dl, corstr = 'AR-M'))
+    m
+  }, error = function(e) NULL)
+  if (is.null(md)) return(na_out)
+  idx <- match(tgt, names(coef(fit)))
+  if (is.na(idx)) return(na_out)
+  md_se <- sqrt(md$cov.beta[idx])
+  n_id  <- length(unique(dl$id))
+  df    <- n_id - length(coef(fit))
+  tibble(spec = 'GEE+MD', estimate = est,
+         std_error = md_se,
+         p_value   = 2 * pt(-abs(est / md_se), df),
+         converged = TRUE)
+}
+
+fit_three_specs <- function(dat_long, robust = FALSE) {
   has_off_drug <- any(dat_long$Db == 0)
   has_lagged   <- any(dat_long$L  == 1)
   na_row <- function(spec, reason) {
@@ -266,7 +358,7 @@ fit_three_specs <- function(dat_long) {
            p_value = NA_real_, converged = FALSE,
            reason = reason)
   }
-  bind_rows(
+  out <- bind_rows(
     if (has_off_drug) fit_spec(dat_long, 'A1') |>
       mutate(reason = NA_character_)
     else na_row('A1', 'no off-drug observations'),
@@ -275,13 +367,21 @@ fit_three_specs <- function(dat_long) {
       mutate(reason = NA_character_)
     else na_row('A3', 'no lagged-on timepoints')
   )
+  if (robust) {
+    out <- bind_rows(
+      out,
+      fit_cr2(dat_long)    |> mutate(reason = NA_character_),
+      fit_gee_md(dat_long) |> mutate(reason = NA_character_)
+    )
+  }
+  out
 }
 
 ## -----------------------------------------------------------------
 ## Single-cell simulator
 ## -----------------------------------------------------------------
 
-simulate_cell <- function(cell, n_reps) {
+simulate_cell <- function(cell, n_reps, robust = FALSE) {
   design_set <- build_design_set(cell$design)
   resp_param <- default_resp_param()
   baseline_param <- default_baseline_param()
@@ -318,7 +418,10 @@ simulate_cell <- function(cell, n_reps) {
       error = function(e) NULL
     )
     if (is.null(dat) || nrow(dat) == 0) {
-      return(tibble(rep = rep_i, spec = c('A1', 'A2', 'A3'),
+      specs <- if (robust)
+        c('A1', 'A2', 'A3', 'lme+CR2', 'GEE+MD')
+      else c('A1', 'A2', 'A3')
+      return(tibble(rep = rep_i, spec = specs,
                     estimate = NA_real_,
                     std_error = NA_real_,
                     p_value = NA_real_,
@@ -341,7 +444,7 @@ simulate_cell <- function(cell, n_reps) {
       analysis_shape = analysis_shape
     )
 
-    fit_three_specs(dat_long) |>
+    fit_three_specs(dat_long, robust = robust) |>
       mutate(rep = rep_i, .before = 1)
   })
 }

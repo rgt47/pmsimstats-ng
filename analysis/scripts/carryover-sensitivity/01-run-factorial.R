@@ -5,7 +5,7 @@
 ## writes replicate-level results to output/01-factorial.rds.
 ##
 ## Usage:
-##   Rscript analysis/scripts/carryover-sensitivity/01-run-factorial.R [--dev] [--smoke] [--reps N]
+##   Rscript analysis/scripts/carryover-sensitivity/01-run-factorial.R [--dev] [--smoke] [--reps N] [--robust]
 ##
 ## --dev      : reduced grid (96 cells). Keeps all DGP forms and both
 ##              architectures; trims t1half to {0, 1}, design to
@@ -14,6 +14,10 @@
 ##              Default reps in this mode: 50.
 ## --smoke    : 2 replicates, one cell per design (pipeline sanity only)
 ## --reps N   : override the rep count for the current mode
+## --robust   : additionally fit the lme+CR2 and GEE+MD robust
+##              analyses alongside A1/A2/A3 (cluster-robust
+##              calibration; see analysis/report/
+##              10-interaction-test-calibration/)
 ## default    : 500 replicates, full 540-cell grid (production)
 
 suppressPackageStartupMessages({
@@ -33,6 +37,7 @@ source(file.path(repo_root,
 args <- commandArgs(trailingOnly = TRUE)
 dev_mode <- '--dev' %in% args
 smoke_mode <- '--smoke' %in% args
+robust_mode <- '--robust' %in% args
 reps_idx <- which(args == '--reps')
 n_reps_override <- if (length(reps_idx) && reps_idx < length(args))
   as.integer(args[reps_idx + 1]) else NA_integer_
@@ -91,6 +96,8 @@ if (smoke_mode) {
 stopifnot(nrow(grid) > 0)
 cat(sprintf('Grid cells: %d, n_reps per cell: %d\n',
             nrow(grid), n_reps))
+if (robust_mode)
+  cat('Robust mode: also fitting lme+CR2 and GEE+MD.\n')
 
 plan(
   if (smoke_mode) sequential else multicore,
@@ -104,7 +111,7 @@ results <- future_map_dfr(
   seq_len(nrow(grid)),
   function(i) {
     cell <- grid[i, ]
-    cell_result <- simulate_cell(cell, n_reps)
+    cell_result <- simulate_cell(cell, n_reps, robust = robust_mode)
     bind_cols(
       cell[rep(1, nrow(cell_result)), ],
       cell_result
@@ -129,6 +136,7 @@ meta <- list(
   n_reps = n_reps,
   dev_mode = dev_mode,
   smoke_mode = smoke_mode,
+  robust = robust_mode,
   elapsed_secs = as.numeric(t_elapsed, units = 'secs'),
   r_version = R.version.string,
   git_sha = tryCatch(

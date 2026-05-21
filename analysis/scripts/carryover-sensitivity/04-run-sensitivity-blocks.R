@@ -4,10 +4,12 @@
 ## configuration specified in simulation-grid-plan.md.
 ##
 ## Usage:
-##   Rscript analysis/scripts/carryover-sensitivity/04-run-sensitivity-blocks.R [--dev] [--reps N]
+##   Rscript analysis/scripts/carryover-sensitivity/04-run-sensitivity-blocks.R [--dev] [--reps N] [--robust]
 ##
 ## --dev    : 50 reps/cell (development); default is 500 (production).
 ## --reps N : override the rep count for the current mode.
+## --robust : additionally fit the lme+CR2 and GEE+MD robust
+##            analyses alongside A1/A2/A3.
 
 suppressPackageStartupMessages({
   library(tibble)
@@ -25,6 +27,7 @@ source(file.path(repo_root,
 
 args <- commandArgs(trailingOnly = TRUE)
 dev_mode <- '--dev' %in% args
+robust_mode <- '--robust' %in% args
 reps_idx <- which(args == '--reps')
 n_reps_override <- if (length(reps_idx) && reps_idx < length(args))
   as.integer(args[reps_idx + 1]) else NA_integer_
@@ -153,7 +156,7 @@ results <- future_map_dfr(
   seq_len(nrow(grid)),
   function(i) {
     cell <- grid[i, ]
-    cell_result <- simulate_cell(cell, n_reps)
+    cell_result <- simulate_cell(cell, n_reps, robust = robust_mode)
     dplyr::bind_cols(
       cell[rep(1, nrow(cell_result)), ],
       cell_result
@@ -177,6 +180,7 @@ meta <- list(
   seed = seed,
   n_reps = n_reps,
   dev_mode = dev_mode,
+  robust = robust_mode,
   reference = as.list(ref),
   elapsed_secs = as.numeric(t_elapsed, units = 'secs'),
   r_version = R.version.string,

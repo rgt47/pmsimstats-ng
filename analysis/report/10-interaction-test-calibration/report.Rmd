@@ -47,8 +47,10 @@ header-includes:
       diagnose-null-type1-cr2.R
     Rscript analysis/scripts/carryover-sensitivity/\
       diagnose-alt-cell-cr2.R
+    Rscript analysis/scripts/carryover-sensitivity/\
+      diagnose-null-type1-gee.R
 
-  These write the five .rds files read below into
+  These write diagnostic .rds files into
   analysis/scripts/carryover-sensitivity/output/. Then knit:
 
     Rscript -e "rmarkdown::render(
@@ -811,6 +813,43 @@ working covariance be accompanied either by a calibration check of
 this kind or by a cluster-robust standard error, which removes the
 question by being agnostic to the working covariance.
 
+## The marginal-model alternative
+
+The remedy adopted above keeps the conditional mixed model and adds
+a cluster-robust standard error after the fact. A reader may
+reasonably ask whether the marginal route, generalized estimating
+equations, would not be more natural, since the method carries the
+sandwich variance from the outset rather than bolting it on
+[@liang1986]. It would. For a linear model with an identity link
+the marginal and conditional fixed-effect coefficients coincide, so
+a generalized estimating equations analysis estimates the same
+interaction and answers the same question; the working correlation,
+exchangeable or autoregressive, governs only the efficiency of the
+point estimate and not the validity of the inference.
+
+We checked the marginal route at the primary null cell, fitting the
+generalized estimating equations counterpart of the analysis model
+with an AR(1) working correlation. The naive sandwich standard
+error proved mildly anti-conservative, the small-sample behaviour
+the literature describes for a moderate number of clusters: across
+the three specifications it under-estimated the sampling standard
+deviation by roughly four percent, and the realised type-I error
+was 0.067 to 0.069. A bias-corrected sandwich of the kind
+introduced by Mancl and DeRouen [-@mancl2001] removed most of the
+discrepancy, bringing the standard-error ratio to within one
+percent of one and the type-I error to 0.055 to 0.058. The marginal
+route is therefore viable, but it carries the same lesson as the
+conditional one: at the cluster counts typical of aggregated N-of-1
+work the sandwich variance itself needs a small-sample correction.
+The two corrected tests err in opposite and modest directions, the
+conditional CR2 test slightly conservative and the marginal
+Mancl-DeRouen test slightly anti-conservative, and either is a
+defensible calibrated analysis. The choice between them is
+practical rather than principled: the conditional route preserves
+an existing mixed-model pipeline and changes only the standard
+error, while the marginal route is conceptually cleaner but a more
+thoroughgoing change of model.
+
 ## Limitations
 
 Several limitations bound the scope of the evidence. The diagnosis
@@ -875,13 +914,14 @@ might characterise.
 
 # Reproducibility
 
-The diagnosis is driven by five scripts under
+The diagnosis is driven by six scripts under
 `analysis/scripts/carryover-sensitivity/`:
 `diagnose-null-type1.R` for the four-channel decomposition,
 `diagnose-null-type1-stages46.R` for the model ladder and the
 sample-size gradient, `diagnose-null-type1-cr2.R` for the
-cluster-robust verification at the null, and
-`diagnose-alt-cell-cr2.R` for the alternative-cell check, with
+cluster-robust verification at the null,
+`diagnose-alt-cell-cr2.R` for the alternative-cell check, and
+`diagnose-null-type1-gee.R` for the GEE marginal-model check, with
 `check-null-architecture-equivalence.R` establishing the
 architecture-invariance of the null. Each writes a replicate-level
 `.rds` file into the `output/` subdirectory, and this manuscript

@@ -112,8 +112,12 @@ fit_gee <- function(dl, spec) {
 
   ## Mancl-DeRouen bias-corrected sandwich (geesmv).
   md <- tryCatch(
-    geesmv::GEE.var.md(form, id = 'id', family = gaussian,
-                       data = dl, corstr = 'AR-M'),
+    {
+      utils::capture.output(
+        m <- geesmv::GEE.var.md(form, id = 'id', family = gaussian,
+                                data = dl, corstr = 'AR-M'))
+      m
+    },
     error = function(e) NULL)
   if (is.null(md)) {
     md_se <- NA_real_; md_p <- NA_real_

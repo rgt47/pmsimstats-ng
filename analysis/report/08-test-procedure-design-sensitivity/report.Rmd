@@ -7,7 +7,7 @@ author:
   - pmsimstats team
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
-  pdf_document:
+  bookdown::pdf_document2:
     latex_engine: xelatex
     toc: true
     number_sections: true
@@ -71,28 +71,34 @@ Wald $t$-test for the corresponding fixed-effects coefficient in
 a linear mixed model with continuous-time AR(1) residual
 correlation. We then conduct a Monte Carlo simulation study,
 designed and reported under the @morris2019 ADEMP framework,
-that crosses three test procedures (strict RM-ANOVA, the
-standard pmsimstats linear-mixed analysis, and a generalised
-estimating equations comparator) against a grid of design
-parameters: number of cycles $k \in \{1, 2, 3, 4, 6\}$, on-drug
-period length in weeks, off-drug period length, and on/off
-symmetry. Each cell is simulated at the prazosin-PTSD reference
-parameters with $n_{\text{reps}} = 1000$.
+that crosses four test procedures (strict RM-ANOVA, the
+standard pmsimstats linear-mixed analysis with `corCAR1`, and a
+generalised estimating equations comparator with naive and with
+Mancl-DeRouen small-sample sandwich variance) against the
+biomarker-moderation coefficient $c_{bm} \in \{0, 0.45\}$ and
+sample size $N \in \{25, 35\}$, a 16-cell factorial at the
+prazosin-PTSD reference design with $n_{\text{reps}} = 800$ per
+cell. The cycle-by-period design grid that varies cycle count
+$k \in \{1, 2, 3, 4, 6\}$, on-drug and off-drug period lengths,
+and on/off symmetry is specified here but its empirical sweep is
+deferred to a companion paper.
 
-**Results.** [Forthcoming.] The closed-form strict RM-ANOVA test
+**Results.** The closed-form strict RM-ANOVA test
 agrees with the linear-mixed Wald test under sphericity and
 balanced design but loses statistical efficiency when within-
-participant residuals are autocorrelated. Per-participant power
-for the biomarker-treatment interaction is monotone in cycle
-count $k$ across all three test procedures, with diminishing
-returns above $k = 4$. On-drug period length matters more for
-power than off-drug period length once carryover is accounted
-for. Asymmetric on/off splits (longer on-drug than off-drug) are
-preferable when carryover is non-trivial. The mixed-effects test
-dominates the strict RM-ANOVA test in every cell where the
-within-participant residual correlation departs from compound
-symmetry; the strict RM-ANOVA test is competitive only at the
-sphericity boundary.
+participant residuals are autocorrelated. In the simulation
+study reported here, the linear-mixed analysis dominates
+strict RM-ANOVA on power for the biomarker-treatment
+interaction at both sample sizes evaluated, with the power gap
+widening from approximately 0.19 at $N = 25$ to 0.28 at
+$N = 35$, while holding nominal or sub-nominal type I error.
+The generalised estimating equations comparator with the naive
+sandwich variance inflates type I error to approximately
+$2.4\times$ nominal at $N = 25$ and $1.5\times$ at $N = 35$;
+the Mancl-DeRouen small-sample sandwich correction restores
+nominal control at a moderate power cost. The cycle-by-period
+design grid that crosses cycle count against period length is
+specified here and reported in a companion paper.
 
 **Conclusions.** Trial designers should choose cycle count and
 period length jointly with the analysis-method choice rather than
@@ -585,7 +591,7 @@ up to small-sample correction factors. When any fails, the
 mixed-model test extracts more information than the strict
 RM-ANOVA: the continuous biomarker contributes within-stratum
 variation, the AR(1) covariance is modelled directly, and the
-continuous exposure-decay predictor leverages the off-drug
+continuous exposure-decay predictor draws on the off-drug
 trajectory.
 
 The compound-symmetry condition is the binding one in the
@@ -807,7 +813,7 @@ output is at
 ADEMP cell-level summary at
 `analysis/data/quick-sim/08-test-summary.txt`. With 800
 replicates per cell the Monte Carlo standard error on a power
-estimate near $0.5$ is approximately $0.014$ and on a type I
+estimate near $0.5$ is approximately $0.018$ and on a type I
 error rate near $0.05$ is approximately $0.008$.
 
 ## Test-procedure comparison at fixed design
@@ -840,7 +846,7 @@ type I error is $0.076$ (95% CI $[0.058, 0.094]$), approximately
 $1.5\times$ the nominal $0.05$; at $N = 25$ the rate climbs to
 $0.119$ ($[0.097, 0.141]$), approximately $2.4\times$ nominal.
 The gap between the two $N$ levels is $0.043$, approximately
-$2.9$ MCSE, not chance.
+$2.9$ standard errors of the difference, not chance.
 
 Second, **the Mancl-DeRouen 2001 small-sample sandwich
 correction brings GEE within the nominal range, with most of
@@ -848,7 +854,7 @@ the correction concentrated at small $N$.** At $N = 25$ the
 corrected procedure rejects at $0.078$ ($[0.059, 0.097]$,
 brushing $0.05$); at $N = 35$ it rejects at $0.045$
 ($[0.031, 0.059]$, covering the nominal). The correction
-removes approximately two-thirds of the small-$N$ inflation at
+removes roughly three-fifths of the small-$N$ inflation at
 $N = 25$ and essentially all of it at $N = 35$. The cost in
 power is moderate: $0.539$ versus $0.630$ at $N = 25$, and
 $0.736$ versus $0.790$ at $N = 35$.
@@ -857,9 +863,10 @@ Third, **the linear-mixed procedure's power dominance over
 strict RM-ANOVA is robust across both sample sizes and widens
 at the larger sample.** At $N = 25$ the linear-mixed power is
 $0.533$ versus RM-ANOVA $0.340$ (gap $0.193$, approximately
-$11$ MCSE); at $N = 35$ the gap widens to $0.284$
-(approximately $16$ MCSE). The dominance is not artefactual
-and is preserved across both $N$ levels.
+$8$ standard errors of the difference); at $N = 35$ the gap
+widens to $0.284$ (approximately $12$ standard errors of the
+difference). The dominance is not artefactual and is preserved
+across both $N$ levels.
 
 A subsidiary observation: the linear-mixed procedure's
 type I error rate is below nominal at both $N$ levels ($0.025$
@@ -904,19 +911,20 @@ substantially eroding its power advantage.
 
 # Discussion
 
-## Prototype Monte Carlo confirmation
+## What the Monte Carlo study settles
 
-An 800-replicate-per-cell prototype run on a 16-cell slice
-(procedure $\in \{$strict RM-ANOVA, linear-mixed with corCAR1,
-GEE with naive sandwich, GEE with Mancl-DeRouen small-sample
-correction$\}$ $\times c_{bm} \in \{0, 0.45\} \times N \in
-\{25, 35\}$) was executed in 361 s, well inside the 30-minute
-wall-time budget. Convergence was 100% across all 12{,}800
-fits. Per-replicate output is at
+We recall that the 800-replicate-per-cell run on the 16-cell
+test-procedure factorial (procedure $\in \{$strict RM-ANOVA,
+linear-mixed with corCAR1, GEE with naive sandwich, GEE with
+Mancl-DeRouen small-sample correction$\}$ $\times c_{bm} \in
+\{0, 0.45\} \times N \in \{25, 35\}$) was executed in 361 s,
+well inside the 30-minute wall-time budget, with 100%
+convergence across all 12{,}800 fits. Per-replicate output is
+at
 `analysis/data/quick-sim/08-test-replicates.rds`; Morris ADEMP
 summary at `08-test-summary.txt`. With 800 replicates per cell
 the Monte Carlo standard error on a power estimate near $0.5$
-is approximately $0.014$ and on a type I error rate near $0.05$
+is approximately $0.018$ and on a type I error rate near $0.05$
 is approximately $0.008$. The Mancl-DeRouen 2001
 [@mancl2001covariance] correction was implemented inline by
 inflating each cluster's residual via $(I - H_{ii})^{-1} r_i$
@@ -928,7 +936,7 @@ benchmarked against an independent reference such as
 should be regarded as plausible rather than externally
 validated.
 
-The prototype resolves three substantive questions cleanly at
+The study resolves three substantive questions cleanly at
 this resolution. First, GEE small-$N$ type I error inflation
 worsens at $N = 25$. The naive GEE rejection rate at the null
 is $0.119$ (95% binomial CI $[0.097, 0.141]$) at $N = 25$
@@ -936,14 +944,15 @@ versus $0.076$ ($[0.058, 0.094]$) at $N = 35$, both above the
 nominal $0.05$. The $N = 25$ inflation is approximately
 $2.4\times$ nominal; the $N = 35$ inflation is approximately
 $1.5\times$. The gap of $0.043$ between the two $N$ levels is
-approximately $2.9$ MCSE, not chance.
+approximately $2.9$ standard errors of the difference, not
+chance.
 
 Second, the Mancl-DeRouen correction brings GEE within the
 nominal range, with most of the correction concentrated at
 $N = 25$. At $N = 25$ the corrected procedure rejects at
 $0.078$ (CI $[0.059, 0.097]$, brushing $0.05$); at $N = 35$ it
 rejects at $0.045$ (CI $[0.031, 0.059]$, covering the nominal
-$0.05$). The correction removes approximately two-thirds of
+$0.05$). The correction removes roughly three-fifths of
 the small-$N$ inflation at $N = 25$ and essentially all of it
 at $N = 35$. The power cost is moderate: $0.539$ versus
 $0.630$ at $N = 25$, and $0.736$ versus $0.790$ at $N = 35$.
@@ -951,10 +960,10 @@ $0.630$ at $N = 25$, and $0.736$ versus $0.790$ at $N = 35$.
 Third, the linear-mixed procedure's power dominance over
 strict RM-ANOVA is robust across both sample sizes. At
 $N = 25$, LME power is $0.533$ versus RM-ANOVA $0.340$ (gap
-$0.193$, approximately $11$ MCSE); at $N = 35$, LME is
-$0.754$ versus $0.470$ (gap $0.284$, approximately $16$
-MCSE). The dominance is not artefactual and widens at the
-larger sample.
+$0.193$, approximately $8$ standard errors of the difference);
+at $N = 35$, LME is $0.754$ versus $0.470$ (gap $0.284$,
+approximately $12$ standard errors of the difference). The
+dominance is not artefactual and widens at the larger sample.
 
 One ADEMP-discipline caveat applies. The LME procedure's
 type I error rate at the null is $0.025$ to $0.031$ across

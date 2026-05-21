@@ -45,8 +45,10 @@ header-includes:
       diagnose-null-type1-stages46.R --stage 6
     Rscript analysis/scripts/carryover-sensitivity/\
       diagnose-null-type1-cr2.R
+    Rscript analysis/scripts/carryover-sensitivity/\
+      diagnose-alt-cell-cr2.R
 
-  These write the four .rds files read below into
+  These write the five .rds files read below into
   analysis/scripts/carryover-sensitivity/output/. Then knit:
 
     Rscript -e "rmarkdown::render(
@@ -75,6 +77,7 @@ d13 <- readRDS(file.path(out_dir, 'diag-null-type1.rds'))
 d4  <- readRDS(file.path(out_dir, 'diag-null-type1-stage4.rds'))
 d6  <- readRDS(file.path(out_dir, 'diag-null-type1-stage6.rds'))
 dcr <- readRDS(file.path(out_dir, 'diag-null-type1-cr2.rds'))
+dalt <- readRDS(file.path(out_dir, 'diag-alt-cell-cr2.rds'))
 
 theme_paper <- theme_bw(base_size = 10) +
   theme(panel.grid.minor = element_blank(),
@@ -116,7 +119,10 @@ random intercept alone is well calibrated. The sample-size gradient
 shows the bias is asymptotic, not a moderate-sample artefact: it
 does not attenuate from $N = 35$ to $N = 280$. A CR2 bias-reduced
 cluster-robust standard error restores the standard-error ratio to
-approximately one and the type-I error to approximately 0.05.
+approximately one and the type-I error to approximately 0.05. At an
+alternative cell with a non-null effect the recalibration raises
+power by a near-uniform increment and leaves the ranking of
+analysis specifications unchanged.
 
 **Conclusions.** A mis-specified parametric working covariance can
 bias the model-based standard error of a mixed-model interaction
@@ -651,6 +657,84 @@ The point estimate and the corCAR1 model are unchanged; only the
 standard error of the interaction, and the reference against which
 it is tested, are replaced.
 
+## The remedy at an alternative cell
+
+The diagnosis to this point has been conducted under the null,
+where calibration is defined. A reader of a comparative study,
+however, will press a further question. The purpose of the parent
+study is to rank analysis specifications by power, and if a
+recalibration of the standard error raises the power of every
+specification, does it also disturb their order? We checked this
+directly at one alternative cell, the parent study's reference
+configuration with a non-null biomarker moderation,
+$c_{bm} = 0.45$, retaining the Architecture-B Hybrid design at
+$N = 70$.
+
+```{r tab-alt}
+t5 <- dalt$summary |>
+  transmute(
+    Spec = spec,
+    `$r$ model-based` = sprintf('%.3f', mod_se_ratio),
+    `$r$ CR2`         = sprintf('%.3f', cr2_se_ratio),
+    `Power model`     = sprintf('%.3f', power_mod),
+    `Power CR2`       = sprintf('%.3f', power_cr2))
+kable(t5, booktabs = TRUE, escape = FALSE,
+  caption = 'The cluster-robust remedy at an alternative cell
+    (Architecture B, Hybrid design, $N = 70$, $c_{bm} = 0.45$,
+    exponential DGP, 3000 replicates). Power is the rejection rate
+    of the interaction test; the standard-error ratio $r$ is as
+    defined for the null. The model-based test is conservative
+    here too, and the CR2 test recalibrates it.')
+```
+
+Three things follow from Table \@ref(tab:tab-alt). First, the
+standard-error over-estimation is not confined to the null: at the
+alternative cell the model-based ratio is 1.12 to 1.15, if anything
+slightly larger than the 1.06 to 1.10 seen under the null. Second,
+the CR2 cluster-robust standard error recalibrates the alternative
+cell as it did the null, bringing the ratio to 0.99 for all three
+specifications. Third, and most consequential for a comparative
+study, the recalibration is close to a uniform level shift. It
+raises the power of every specification by roughly three to four
+percentage points, and the gaps between specifications are left
+intact: the advantage of the leading specification A2 over A1 is
+$+0.086$ under the model-based test and $+0.082$ under the
+cluster-robust test, and over A3 it is $+0.088$ and $+0.089$. The
+ranking, and the magnitude of the leading specification's
+advantage, survive the recalibration unchanged.
+
+```{r fig-alt, fig.width = 6, fig.height = 3.6, out.width = "75%", fig.cap = "Power of the three analysis specifications at the alternative cell, under the model-based and CR2 cluster-robust tests. The recalibration raises every specification by a near-uniform increment and preserves their order."}
+dalt$summary |>
+  select(spec, power_mod, power_cr2) |>
+  pivot_longer(c(power_mod, power_cr2), names_to = 'method',
+               values_to = 'power') |>
+  mutate(method = recode(method,
+    power_mod = 'Model-based Wald',
+    power_cr2 = 'CR2 cluster-robust')) |>
+  ggplot(aes(spec, power, fill = method)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
+  geom_text(aes(label = sprintf('%.3f', power)),
+            position = position_dodge(width = 0.7),
+            vjust = -0.4, size = 3) +
+  scale_fill_manual(values = c(
+    'Model-based Wald' = '#e31a1c',
+    'CR2 cluster-robust' = '#1f78b4')) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(x = 'Analysis specification', y = 'Power', fill = NULL) +
+  theme_paper
+```
+
+The lesson generalises beyond the example. A cluster-robust
+standard error corrects the absolute error rate, the type-I error
+under the null and the power under the alternative alike, but
+because the correction acts on the standard error and not on the
+point estimate, and because the standard-error mis-calibration here
+is similar across the specifications being compared, it shifts the
+level without reordering the contrast. A comparative study whose
+claim is a ranking is therefore robust to the recalibration, even
+where its absolute power figures, as reported under the
+model-based test, are mildly pessimistic.
+
 # Discussion
 
 ## The result is not about autoregressive correlation
@@ -741,11 +825,13 @@ general claim, and is a natural extension. The cluster-robust remedy is not
 without cost: the Satterthwaite degrees of freedom for the CR2 test
 are approximately 24 against a model-based 487, so the robust test
 spends precision to buy validity, and at a genuinely small number
-of clusters that price would rise. The diagnosis was conducted at
-the null; the consequence for power, namely that the power
-estimates of the parent study are mildly pessimistic rather than
-optimistic, follows from the direction of the standard-error error
-but was not measured directly here. Finally, the small positive
+of clusters that price would rise. The principal diagnosis was
+conducted at the null, where calibration is defined; the
+consequence for power was checked at a single alternative cell
+(Section 4.5), where the recalibration proved a near-uniform level
+shift that preserved the ranking of specifications. Whether that
+uniformity holds across the whole factorial, rather than at the one
+cell examined, was not established. Finally, the small positive
 point-estimate bias noted in Section 4.1, while negligible in
 magnitude and irrelevant to the conservatism, is a genuine
 finite-sample feature of the estimator that a separate examination
@@ -776,7 +862,9 @@ might characterise.
    participant and referred to a Satterthwaite distribution,
    restores the standard-error ratio to approximately one and the
    type-I error to approximately 0.05, without altering the point
-   estimate or the analysis model.
+   estimate or the analysis model. At an alternative cell the same
+   recalibration is a near-uniform level shift in power that
+   preserves the comparative ranking of specifications.
 6. The staged protocol, the four-channel decomposition, the model
    ladder, and the sample-size gradient, is a reusable instrument
    for any mixed-model interaction test whose calibration is in
@@ -787,12 +875,13 @@ might characterise.
 
 # Reproducibility
 
-The diagnosis is driven by four scripts under
+The diagnosis is driven by five scripts under
 `analysis/scripts/carryover-sensitivity/`:
 `diagnose-null-type1.R` for the four-channel decomposition,
 `diagnose-null-type1-stages46.R` for the model ladder and the
-sample-size gradient, and `diagnose-null-type1-cr2.R` for the
-cluster-robust verification, with
+sample-size gradient, `diagnose-null-type1-cr2.R` for the
+cluster-robust verification at the null, and
+`diagnose-alt-cell-cr2.R` for the alternative-cell check, with
 `check-null-architecture-equivalence.R` establishing the
 architecture-invariance of the null. Each writes a replicate-level
 `.rds` file into the `output/` subdirectory, and this manuscript

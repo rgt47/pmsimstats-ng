@@ -264,9 +264,13 @@ fit_spec <- function(dat_long, spec) {
 ## (exposure-weighted Dbc) interaction. fit_cr2 keeps the conditional
 ## lme fit and replaces its standard error with a CR2 bias-reduced
 ## cluster-robust sandwich (clubSandwich). fit_gee_md fits the
-## marginal GEE counterpart and uses the Mancl-DeRouen bias-corrected
-## sandwich (geesmv). See analysis/report/
-## 10-interaction-test-calibration/ for the rationale and validation.
+## marginal GEE counterpart, with an unstructured working
+## correlation, and uses the Mancl-DeRouen bias-corrected sandwich
+## (geesmv). The unstructured working correlation is used because an
+## AR(1) form is inefficient against the participant-baseline
+## component and fails under the unbalanced clusters dropout
+## produces. See analysis/report/10-interaction-test-calibration/
+## for the rationale and validation.
 ## -----------------------------------------------------------------
 
 fit_cr2 <- function(dat_long) {
@@ -322,7 +326,7 @@ fit_gee_md <- function(dat_long) {
   dl <- as.data.frame(dl)
   fit <- tryCatch(
     geepack::geeglm(Sx ~ bm + t + Dbc + bm:Dbc, family = gaussian,
-                    data = dl, id = id, corstr = 'ar1'),
+                    data = dl, id = id, corstr = 'unstructured'),
     error = function(e) NULL)
   if (is.null(fit)) return(na_out)
   sm  <- summary(fit)$coefficients
@@ -334,7 +338,7 @@ fit_gee_md <- function(dat_long) {
     utils::capture.output(
       m <- geesmv::GEE.var.md(Sx ~ bm + t + Dbc + bm:Dbc,
                               id = 'id', family = gaussian,
-                              data = dl, corstr = 'AR-M'))
+                              data = dl, corstr = 'unstructured'))
     m
   }, error = function(e) NULL)
   if (is.null(md)) return(na_out)

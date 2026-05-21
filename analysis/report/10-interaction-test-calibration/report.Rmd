@@ -1,0 +1,804 @@
+---
+title: "Type-I calibration of fixed-effect interaction tests in
+  linear mixed models: a staged diagnosis of working-covariance
+  mis-specification and a cluster-robust remedy"
+author:
+  - pmsimstats team
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    toc: true
+    number_sections: true
+    keep_tex: false
+    highlight: tango
+fontsize: 11pt
+geometry: "left=3cm,right=3cm,top=2.5cm,bottom=2.5cm"
+bibliography: references.bib
+csl: statistics-in-medicine.csl
+link-citations: true
+header-includes:
+  - \usepackage{amsmath}
+  - \usepackage{amssymb}
+  - \usepackage{lineno}
+  - \linenumbers
+  - \usepackage{setspace}
+  - \setstretch{1.1}
+---
+
+<!--
+  Build pipeline for this manuscript
+  ==================================
+
+  This Rmd loads the diagnostic outputs produced by the staged
+  examination of type-I conservatism in the carryover-sensitivity
+  study. It does not itself run any simulation. Regenerate the
+  inputs with, from the repository root:
+
+    Rscript analysis/scripts/carryover-sensitivity/\
+      check-null-architecture-equivalence.R
+    Rscript analysis/scripts/carryover-sensitivity/\
+      diagnose-null-type1.R
+    Rscript analysis/scripts/carryover-sensitivity/\
+      diagnose-null-type1-stages46.R --stage 4
+    Rscript analysis/scripts/carryover-sensitivity/\
+      diagnose-null-type1-stages46.R --stage 6
+    Rscript analysis/scripts/carryover-sensitivity/\
+      diagnose-null-type1-cr2.R
+
+  These write the four .rds files read below into
+  analysis/scripts/carryover-sensitivity/output/. Then knit:
+
+    Rscript -e "rmarkdown::render(
+      'analysis/report/10-interaction-test-calibration/report.Rmd')"
+
+  The examination plan that preceded this manuscript is retained
+  alongside it as type1-examination-plan.md.
+-->
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE, warning = FALSE, message = FALSE,
+  fig.align = 'center'
+)
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(tidyr)
+  library(tibble)
+  library(ggplot2)
+  library(knitr)
+})
+
+out_dir <- here::here(
+  'analysis/scripts/carryover-sensitivity/output')
+d13 <- readRDS(file.path(out_dir, 'diag-null-type1.rds'))
+d4  <- readRDS(file.path(out_dir, 'diag-null-type1-stage4.rds'))
+d6  <- readRDS(file.path(out_dir, 'diag-null-type1-stage6.rds'))
+dcr <- readRDS(file.path(out_dir, 'diag-null-type1-cr2.rds'))
+
+theme_paper <- theme_bw(base_size = 10) +
+  theme(panel.grid.minor = element_blank(),
+        strip.background = element_rect(fill = 'grey92',
+                                        colour = NA),
+        legend.position = 'top')
+
+spec_cols <- c(A1 = '#1f78b4', A2 = '#33a02c', A3 = '#e31a1c')
+```
+
+# Abstract {-}
+
+**Background.** The linear mixed model is the standard tool for
+testing a fixed-effect interaction in longitudinal and clustered
+data. The model-based Wald test of that interaction is exact only
+when the working within-cluster covariance is correctly specified.
+In practice an analyst chooses a convenient parametric residual
+structure, a continuous-time autoregressive correlation, compound
+symmetry, or an unstructured form, and then trusts the model-based
+standard error. The direction and the magnitude of the
+mis-calibration that follows when the working covariance is wrong
+are rarely checked.
+
+**Methods.** We set out a staged diagnostic protocol, a
+four-channel decomposition of the test statistic, a
+working-covariance model ladder, and a sample-size gradient, and
+apply it to a worked example: the test of a biomarker-by-treatment
+interaction in an aggregated N-of-1 carryover simulation, analysed
+with an `lme` model carrying a random intercept and a corCAR1
+residual correlation.
+
+**Results.** At the null the model-based standard error of the
+interaction is over-estimated by 6 to 10 percent, and the realised
+type-I error is approximately 0.03 against a nominal 0.05. The
+degrees-of-freedom rule, the positive-definiteness correction, and
+point-estimate bias are excluded as causes. The model ladder
+localises the mis-calibration to the corCAR1 residual layer: a
+random intercept alone is well calibrated. The sample-size gradient
+shows the bias is asymptotic, not a moderate-sample artefact: it
+does not attenuate from $N = 35$ to $N = 280$. A CR2 bias-reduced
+cluster-robust standard error restores the standard-error ratio to
+approximately one and the type-I error to approximately 0.05.
+
+**Conclusions.** A mis-specified parametric working covariance can
+bias the model-based standard error of a mixed-model interaction
+test asymptotically, in either direction. Cluster-robust standard
+errors are a general remedy, and the staged diagnostic is a
+reusable instrument for detecting the problem.
+
+# Introduction
+
+The linear mixed model is, by a wide margin, the most common
+vehicle for testing whether an effect is moderated by a covariate
+in longitudinal or clustered data [@laird1982; @diggle2002]. The
+quantity of interest is a fixed-effect interaction coefficient, and
+the inference almost always proceeds through a Wald test: the
+coefficient estimate is divided by a model-based standard error and
+referred to a $t$ distribution. That procedure is exact only under
+a condition that is easy to state and easy to forget. The working
+covariance, the random-effects structure together with the
+parametric residual correlation the analyst has assumed, must be
+correct.
+
+It has been understood since the work of Eicker, Huber, and White
+that this condition is more demanding than it appears
+[@eicker1967; @huber1967; @white1980]. When the working covariance
+is mis-specified, the model-based standard error is no longer a
+consistent estimator of the true sampling variability of the
+fixed-effect estimate. Liang and Zeger [-@liang1986] carried this
+insight into longitudinal data analysis: their generalized
+estimating equations decouple the point estimate, computed under a
+convenient working correlation, from the variance estimate,
+computed by an empirical sandwich that remains consistent whatever
+the working correlation. The sandwich, or cluster-robust, variance
+estimator has since become a standard instrument, and a substantial
+literature has refined it for the small-sample case
+[@mancl2001; @bell2002; @cameron2015; @pustejovsky2018].
+
+Yet in routine mixed-model practice the working covariance is still
+trusted. An analyst fitting longitudinal data with `nlme` or a
+comparable package will choose a residual correlation, very often a
+continuous-time first-order autoregressive form, because it is
+pharmacokinetically or biologically plausible
+[@pinheiro2000], and will then report the model-based standard
+error of the interaction without asking what happens if the chosen
+form is not exactly the form the data follow. This is not
+negligence so much as a reasonable working assumption that is
+seldom audited. But how large is the error when the assumption
+fails? Is the resulting test conservative or anti-conservative? Does
+the mis-calibration diminish as the sample grows, so that it can be
+dismissed as a small-sample nuisance, or does it persist? These
+questions do not have a single answer, because the answer depends
+on the interaction being tested and on the way the working
+covariance departs from the truth. They have to be asked of a
+particular analysis.
+
+This paper does exactly that for one analysis, and in doing so
+offers two contributions that we believe are more general than the
+single case. The first is a diagnostic protocol. We decompose the
+Wald statistic into four channels through which mis-calibration can
+enter, and we add two further instruments, a working-covariance
+model ladder that localises the cause and a sample-size gradient
+that separates a finite-sample artefact from an asymptotic one. The
+protocol is not specific to the example and can be applied to any
+mixed-model interaction test whose calibration is in doubt. The
+second contribution is the finding the protocol produced. In our
+worked example the model-based interaction test is conservative,
+not anti-conservative as the sandwich literature's emphasis on
+under-estimated standard errors might lead one to expect; the
+conservatism is material, on the order of ten percent in
+standard-error terms; and it is asymptotic, persisting undiminished
+across an eightfold range of sample size. We trace it to a single
+component of the working covariance, and we show that a
+cluster-robust standard error removes it.
+
+The worked example is drawn from the pmsimstats-ng project, a
+simulation study of power to detect biomarker-treatment
+interactions in aggregated N-of-1 trials under carryover
+[@hendrickson2020]. The example is incidental to the argument. The
+phenomenon, a parametric working covariance that biases a
+fixed-effect interaction test asymptotically, and the remedy are
+not properties of that simulation; they are properties of the
+mixed-model Wald test, and the example serves only to make them
+concrete and quantified. We begin in Section 2 with the diagnostic
+protocol. Section 3 describes the worked example. Section 4 reports
+the staged diagnosis and the cluster-robust remedy. Section 5
+discusses the generality of the result and its limits.
+
+# A staged diagnostic protocol
+
+Consider a fixed-effect interaction coefficient $\theta$ estimated
+by $\hat\theta$, with a model-based standard error
+$\widehat{\mathrm{SE}}$ and an assigned degrees of freedom $\nu$.
+The Wald test rejects the null $H_0: \theta = 0$ at level $\alpha$
+when the statistic $T = \hat\theta / \widehat{\mathrm{SE}}$ exceeds
+the critical value $t_{\nu, 1-\alpha/2}$ in absolute value. The
+test is correctly calibrated when the realised rejection rate under
+$H_0$ equals $\alpha$. When it does not, the discrepancy must enter
+through one of exactly four channels, and the channels are
+separable by simulation.
+
+## The four-channel decomposition
+
+1. **Point-estimate bias.** If $\mathrm{E}(\hat\theta) \neq 0$
+   under $H_0$, the statistic is decentred. We measure this by the
+   mean of $\hat\theta$ across null replicates.
+2. **Standard-error calibration.** If the model-based
+   $\widehat{\mathrm{SE}}$ does not estimate the true sampling
+   standard deviation of $\hat\theta$, the statistic is rescaled.
+   We measure this by the ratio
+   $$
+   r \;=\; \frac{\overline{\widehat{\mathrm{SE}}}}
+                 {\mathrm{SD}(\hat\theta)},
+   $$
+   the mean model-reported standard error over the empirical
+   standard deviation of the estimate across replicates. A ratio
+   above one indicates an over-stated standard error and a
+   conservative test; a ratio below one the reverse.
+3. **Degrees of freedom.** If $\nu$ is too small, the $t$
+   reference has tails too heavy and the test is conservative;
+   if too large, the reverse. We measure this by recomputing the
+   p-values against a normal reference and comparing the realised
+   type-I error.
+4. **Reference-distribution shape.** Even with $\hat\theta$
+   unbiased, $\widehat{\mathrm{SE}}$ calibrated, and $\nu$ correct,
+   the statistic may not follow a $t$ distribution. We measure this
+   by the standard deviation of $T$ under $H_0$, which should be
+   approximately one, and by the empirical distribution function of
+   the p-values, which should be Uniform$(0,1)$.
+
+The four channels are not merely a checklist. They are close to
+exhaustive: a Wald test is a centred statistic, a scale, a
+reference distribution, and a degrees-of-freedom choice, and
+nothing else. Locating the discrepancy in one channel rather than
+another is the first and most informative step of a diagnosis,
+because the channels have different causes and different remedies.
+
+## The working-covariance model ladder
+
+The four-channel decomposition says *how* a test is mis-calibrated.
+It does not say *why*. When the decomposition points to the
+standard-error channel, the natural follow-up is to ask which part
+of the fitted model is responsible. We answer this with a model
+ladder: the same datasets are refitted under a graded sequence of
+working covariances, from the simplest to the production model,
+and the standard-error ratio is tracked along the sequence. The
+rung at which the ratio departs from one identifies the component
+that introduces the mis-calibration. Because every rung is fitted
+to the same simulated data, the comparison is free of Monte Carlo
+noise between models.
+
+## The sample-size gradient
+
+A standard-error mis-calibration may be one of two qualitatively
+different things. It may be a finite-sample artefact, in which case
+it attenuates as the sample grows and the working-covariance
+parameters are estimated more sharply; the small-sample corrections
+of Kenward and Roger [-@kenward1997; -@kenward2009] address
+mis-calibration of this kind. Or it may be asymptotic, a
+consequence of a working covariance that does not match the
+data-generating covariance no matter how much data is collected, in
+which case it persists. The two are distinguished by running the
+decomposition across a range of sample sizes. Attenuation toward
+nominal calibration marks the finite-sample case; a flat profile
+marks the asymptotic case. The distinction matters, because a
+finite-sample artefact at a realistic sample size may be tolerable,
+whereas an asymptotic bias is a property of the method and will not
+be outgrown.
+
+# Worked example: an interaction test under carryover
+
+The example is the test of a biomarker-by-treatment interaction in
+the carryover-sensitivity simulation study of the pmsimstats-ng
+project. Aggregated N-of-1 trials repeatedly cross each participant
+between an active treatment and a control condition, and the
+scientific question is whether a baseline biomarker moderates the
+treatment effect. Carryover, the persistence of drug effect into a
+washout period, complicates the analysis, and the study compares
+analysis-model strategies for accommodating it
+[@morris2019simulation]. The reporting follows the ADEMP structure
+of Morris, White, and Crowther [-@morris2019simulation].
+
+## The analysis model
+
+For a symptom score $S_{x,it}$ on participant $i$ at timepoint $t$,
+the analysis model is the linear mixed model
+$$
+S_{x,it} \;=\; \beta_0 + \beta_1\,\mathrm{bm}_i
+  + \beta_2\,t + \beta_3\,X_{it}
+  + \theta\,(\mathrm{bm}_i \times X_{it}) + b_i + \varepsilon_{it},
+$$
+fitted by `nlme::lme` with a participant random intercept
+$b_i \sim \mathrm{N}(0, \sigma_b^2)$ and a continuous-time
+first-order autoregressive residual correlation,
+$\mathrm{corCAR1}(\mathrm{form} = \sim t \mid \mathrm{ptID})$. Here
+$\mathrm{bm}_i$ is the standardised biomarker, $X_{it}$ a
+drug-exposure predictor, and $\theta$ the interaction coefficient
+of interest. The continuous-time autoregressive residual was adopted
+in the project for its clinical realism, nearby measurements being
+more strongly correlated than distant ones, and for the numerical
+range it affords [@pinheiro2000]. The Wald test of $\theta$ is the
+object of this paper.
+
+## The null configuration
+
+Calibration is a null-hypothesis property, so the diagnosis is run
+where the biomarker exerts no moderation, $c_{bm} = 0$, and the
+true interaction is therefore $\theta = 0$. The primary cell is the
+reference configuration of the parent study: the Hybrid N-of-1
+design, $N = 70$ participants, an exponential carryover form with a
+one-week half-life, and an autoregressive parameter of 0.7. A
+preliminary check established that at $c_{bm} = 0$ the study's two
+data-generating architectures collapse to a bit-identical process,
+so the diagnosis need not stratify by architecture.
+
+The feature of the example that matters for the argument is the
+relationship between the working covariance and the truth. The
+simulated symptom score is a sum of three latent factors, each
+following its own autoregressive process, with timepoint-dependent
+variances, plus a participant-level baseline term. The working
+covariance of the analysis model, one random intercept and one
+single-parameter corCAR1 residual, cannot reproduce that structure
+exactly. The example is therefore an instance of the general
+situation the protocol is designed for: a parametric working
+covariance that is plausible, conventional, and not exactly
+correct.
+
+# Results
+
+The diagnosis was carried out at 5000 null replicates for the
+four-channel decomposition and the model ladder, and at 1500
+replicates per point for the sample-size gradient. The
+cluster-robust remedy was verified at 3000 replicates. All
+replicate-level outputs are retained for inspection.
+
+## The conservatism is standard-error over-estimation
+
+```{r tab-decomp}
+t1 <- d13$decomp |>
+  left_join(d13$stage3 |> select(spec, mean_df, type1_05_z),
+            by = 'spec') |>
+  transmute(
+    Spec = spec,
+    `Mean estimate` = sprintf('%+.3f', mean_est),
+    `SE ratio $r$`  = sprintf('%.3f', se_ratio),
+    `SD($T$)`       = sprintf('%.3f', sd_tstat),
+    `Type I ($t$)`  = sprintf('%.3f', type1_05),
+    `Type I ($z$)`  = sprintf('%.3f', type1_05_z),
+    `Mean DF`       = sprintf('%.0f', mean_df))
+kable(t1, booktabs = TRUE, escape = FALSE,
+  caption = 'Four-channel decomposition at the primary null cell
+    (Hybrid design, $N = 70$, $c_{bm} = 0$, 5000 replicates), for
+    the three analysis specifications A1, A2, A3. The interaction
+    estimate is effectively unbiased; the SE ratio exceeds one; the
+    statistic is correspondingly compressed; the $t$ and $z$
+    references coincide because the degrees of freedom are large.')
+```
+
+Table \@ref(tab:tab-decomp) reports the decomposition for the
+three analysis specifications carried by the parent study, which
+differ only in the drug-exposure predictor $X_{it}$ and are treated
+here as three instances of the same interaction test. The reading
+is consistent across all three. The interaction estimate is
+effectively unbiased: the null mean is approximately $+0.03$ on a
+coefficient whose sampling standard deviation is near unity, a
+displacement of about 0.04 of a standard deviation. A displacement
+of that size is statistically detectable at 5000 replicates but is
+negligible in magnitude, and in any case it points toward rejection
+and so cannot produce a conservative test. The degrees-of-freedom
+channel is excluded directly: the model assigns approximately 487
+degrees of freedom to the interaction term, and recomputing the
+p-values against a normal reference moves the realised type-I error
+by about 0.001, as the near-identical $t$- and $z$-reference
+columns show.
+
+The discrepancy is in the standard-error channel. The model-based
+standard error exceeds the empirical sampling standard deviation of
+the estimate by 6 to 10 percent. This single fact accounts for the
+whole of the conservatism: the standard deviation of the test
+statistic equals the reciprocal of the standard-error ratio to
+three significant figures, so the statistic is compressed by
+exactly the factor by which the standard error is inflated, and no
+residual reference-distribution anomaly remains to be explained.
+The realised type-I error at $\alpha = 0.05$ is 0.029 to 0.035
+against the nominal 0.05.
+
+```{r fig-ecdf, fig.width = 5.6, fig.height = 5.2, out.width = "62%", fig.cap = "Empirical distribution function of the null p-values at the primary cell, against the Uniform(0,1) diagonal. All three specifications bow uniformly below the diagonal, the signature of a global scale compression rather than a tail anomaly."}
+d13$results |>
+  filter(converged) |>
+  ggplot(aes(p_value, colour = spec)) +
+  stat_ecdf(geom = 'step', linewidth = 0.6) +
+  geom_abline(slope = 1, intercept = 0, linetype = 'dashed',
+              colour = 'grey50') +
+  coord_equal(xlim = c(0, 1), ylim = c(0, 1)) +
+  scale_colour_manual(values = spec_cols) +
+  labs(x = 'Null p-value', y = 'Empirical CDF', colour = 'Spec') +
+  theme_paper
+```
+
+Figure \@ref(fig:fig-ecdf) confirms the nature of the
+mis-calibration. The empirical distribution function of the null
+p-values lies below the diagonal across the whole unit interval and
+for all three specifications. A test that failed only in its tails
+would depart from the diagonal only near zero; the uniform bowing
+seen here is the signature of a global scale compression, which is
+what an inflated standard error produces. The positive-definiteness
+correction available to the data generator was not triggered in any
+of the cell's paths and is excluded as a contributor.
+
+## The corCAR1 residual layer is the cause
+
+```{r tab-ladder}
+lab <- c(M0 = 'OLS, no within-cluster correlation',
+         M1 = 'Random intercept only',
+         M2 = 'corCAR1 residual only',
+         M3 = 'Random intercept + corCAR1 (production)')
+t2 <- d4$summary |>
+  select(spec, model, se_ratio, type1_05) |>
+  pivot_wider(names_from = spec,
+              values_from = c(se_ratio, type1_05)) |>
+  arrange(model) |>
+  transmute(
+    Model = as.character(model),
+    Structure = lab[as.character(model)],
+    `$r$ (A1)` = sprintf('%.3f', se_ratio_A1),
+    `$r$ (A2)` = sprintf('%.3f', se_ratio_A2),
+    `Type I (A1)` = sprintf('%.3f', type1_05_A1),
+    `Type I (A2)` = sprintf('%.3f', type1_05_A2))
+kable(t2, booktabs = TRUE, escape = FALSE,
+  caption = 'Working-covariance model ladder at the primary null
+    cell (5000 replicates), for specifications A1 and A2. The same
+    datasets are refitted under each structure. M1, a random
+    intercept alone, is well calibrated; M3, the production model,
+    adds a corCAR1 residual and is conservative.')
+```
+
+The decomposition says the standard error is over-estimated. The
+model ladder, Table \@ref(tab:tab-ladder), says which part of the
+model does the over-estimating. Four working covariances were
+fitted to the identical null datasets: ordinary least squares with
+no within-cluster term (M0), a random intercept alone (M1), a
+corCAR1 residual alone (M2), and the production combination of a
+random intercept with a corCAR1 residual (M3).
+
+The result is unambiguous. M1, the random intercept with no
+residual correlation, is well calibrated: its standard-error ratio
+sits between 0.97 and 0.99 and its type-I error between 0.049 and
+0.055. M3, which adds the corCAR1 residual on top of that random
+intercept, is conservative: the ratio rises to between 1.07 and
+1.10 and the type-I error falls to between 0.029 and 0.033. The
+corCAR1 residual-correlation layer is therefore the proximate cause
+of the conservatism. It is worth being precise about what this does
+and does not say. It does not say that the corCAR1 residual is
+wrong in any absolute sense; the simulated factors are genuinely
+autocorrelated, so a residual correlation term is capturing a real
+feature of the data. It says that adding that term to a model that
+already carries a random intercept degrades the calibration of the
+fixed-effect interaction test.
+
+```{r fig-ladder, fig.width = 7, fig.height = 3.5, out.width = "100%", fig.cap = "Interaction standard-error calibration across the model ladder. Left, the ratio of model-reported to empirical standard error; right, the realised type-I error. The dashed lines mark perfect calibration. The random intercept alone (M1) sits on both reference lines; the production model (M3) does not."}
+ref <- tibble(metric = c('se_ratio', 'type1_05'),
+              yint = c(1.0, 0.05))
+d4$summary |>
+  select(spec, model, se_ratio, type1_05) |>
+  pivot_longer(c(se_ratio, type1_05), names_to = 'metric',
+               values_to = 'value') |>
+  ggplot(aes(model, value, colour = spec, group = spec)) +
+  geom_hline(data = ref, aes(yintercept = yint),
+             linetype = 'dashed', colour = 'grey50') +
+  geom_line(linewidth = 0.6) + geom_point(size = 2) +
+  facet_wrap(~ metric, scales = 'free_y') +
+  scale_colour_manual(values = spec_cols) +
+  labs(x = 'Working covariance', y = NULL, colour = 'Spec') +
+  theme_paper
+```
+
+Two further features of the ladder, visible in
+Figure \@ref(fig:fig-ladder), are worth recording. The first is
+that M0, ordinary least squares, is not anti-conservative, as the
+familiar warning that ignoring positive within-cluster correlation
+under-states standard errors would suggest. It is strongly
+conservative, with a standard-error ratio near 1.3. The reason is
+instructive: the interaction here is a within-participant contrast,
+and ordinary least squares charges it the full residual variance,
+between-participant and within-participant combined, when the error
+relevant to a within-participant contrast is only the
+within-participant part. The familiar warning concerns
+between-cluster effects; for a within-cluster effect the sign of
+the OLS error is reversed. The second feature is that the corCAR1
+residual without a random intercept (M2) is intermediate. Taken
+together the ladder shows that calibration is recovered by the
+random intercept alone and removed by the corCAR1 addition, and
+that the magnitude and even the sign of the mis-calibration is a
+property of the working covariance, not a universal constant.
+
+## The conservatism is asymptotic, not a small-sample artefact
+
+```{r tab-grad}
+t3 <- d6$summary |>
+  select(N, spec, se_ratio, type1_05) |>
+  pivot_wider(names_from = spec,
+              values_from = c(se_ratio, type1_05)) |>
+  arrange(N) |>
+  transmute(
+    `$N$` = N,
+    `$r$ A1` = sprintf('%.3f', se_ratio_A1),
+    `$r$ A2` = sprintf('%.3f', se_ratio_A2),
+    `$r$ A3` = sprintf('%.3f', se_ratio_A3),
+    `T1 A1` = sprintf('%.3f', type1_05_A1),
+    `T1 A2` = sprintf('%.3f', type1_05_A2),
+    `T1 A3` = sprintf('%.3f', type1_05_A3))
+kable(t3, booktabs = TRUE, escape = FALSE,
+  caption = 'Sample-size gradient under the production model M3
+    (1500 replicates per point). The standard-error ratio $r$ and
+    the type-I error (T1) are shown for each specification. Neither
+    trends toward its nominal value as $N$ increases.')
+```
+
+If the conservatism were a finite-sample artefact, it would
+diminish as the sample grew and the working-covariance parameters
+were estimated more precisely. Table \@ref(tab:tab-grad) and
+Figure \@ref(fig:fig-grad) show that it does not. Across an
+eightfold range of sample size, from $N = 35$ to $N = 280$
+participants, the standard-error ratio holds between 1.05 and 1.10
+with no trend toward one, and the type-I error holds between 0.028
+and 0.045 with no trend toward 0.05. At the largest sample size the
+production specification still rejects the true null at 0.028. The
+conservatism is asymptotic. It is a property of the M3 working
+covariance and will not be outgrown.
+
+```{r fig-grad, fig.width = 7, fig.height = 3.5, out.width = "100%", fig.cap = "Type-I error and standard-error ratio against sample size under the production model M3. Neither panel trends toward its dashed reference line as the number of participants increases from 35 to 280."}
+ref2 <- tibble(metric = c('se_ratio', 'type1_05'),
+               yint = c(1.0, 0.05))
+d6$summary |>
+  select(N, spec, se_ratio, type1_05) |>
+  pivot_longer(c(se_ratio, type1_05), names_to = 'metric',
+               values_to = 'value') |>
+  ggplot(aes(N, value, colour = spec, group = spec)) +
+  geom_hline(data = ref2, aes(yintercept = yint),
+             linetype = 'dashed', colour = 'grey50') +
+  geom_line(linewidth = 0.6) + geom_point(size = 2) +
+  facet_wrap(~ metric, scales = 'free_y') +
+  scale_x_continuous(breaks = c(35, 70, 140, 280)) +
+  scale_colour_manual(values = spec_cols) +
+  labs(x = 'Sample size N', y = NULL, colour = 'Spec') +
+  theme_paper
+```
+
+The explanation that is consistent with all three results is a
+working-covariance mismatch rather than a small-sample effect. The
+simulated symptom score is a mixture of autoregressive factors with
+unequal, timepoint-dependent variances, plus a participant baseline
+term. The M3 working covariance, a single random intercept and a
+single-parameter corCAR1 residual, cannot match a mixture of
+autoregressive processes exactly. Increasing the number of
+participants estimates the parameters of that working covariance
+ever more sharply, but it does not change the fact that the
+covariance being estimated is the wrong one, and so the
+model-based standard error converges to a biased target. The bias
+persists because it is a bias of the model, not of the estimate of
+the model.
+
+## A cluster-robust standard error restores calibration
+
+```{r tab-cr2}
+t4 <- dcr$summary |>
+  transmute(
+    Spec = spec,
+    `$r$ model-based` = sprintf('%.3f', mod_se_ratio),
+    `$r$ CR2`         = sprintf('%.3f', cr2_se_ratio),
+    `Type I model`    = sprintf('%.3f', type1_mod),
+    `Type I CR2`      = sprintf('%.3f', type1_cr2),
+    `CR2 df`          = sprintf('%.1f', cr2_df))
+kable(t4, booktabs = TRUE, escape = FALSE,
+  caption = 'Cluster-robust remedy at the primary null cell (3000
+    replicates). The model-based standard error of the production
+    model is replaced by a CR2 bias-reduced cluster-robust standard
+    error clustered on participant, with Satterthwaite degrees of
+    freedom. The CR2 standard-error ratio is approximately one and
+    the type-I error approximately 0.05.')
+```
+
+The diagnosis points to a remedy that does not require abandoning
+the corCAR1 model. If the model-based standard error is biased
+because the working covariance is wrong, the natural replacement is
+a standard error that is consistent whatever the working covariance
+[@white1980; @liang1986]. We replace the model-based standard error
+of the interaction with a cluster-robust sandwich standard error,
+clustered on participant, in the bias-reduced CR2 form of Bell and
+McCaffrey [-@bell2002], with the Satterthwaite degrees of freedom
+of Pustejovsky and Tipton [-@pustejovsky2018; @satterthwaite1946].
+The CR2 adjustment and its associated small-sample test were
+designed for precisely the regime here, a moderate number of
+clusters, and are implemented for `lme` objects in the
+`clubSandwich` package [@tipton2015; @tipton2015moderators].
+
+Table \@ref(tab:tab-cr2) reports the verification. The model-based
+standard-error ratio reproduces the conservatism, between 1.05 and
+1.10. The CR2 cluster-robust ratio is between 0.98 and 1.00, and
+the realised type-I error rises from approximately 0.03 under the
+model-based test to between 0.045 and 0.049 under the CR2 test,
+within Monte Carlo error of the nominal 0.05. The Satterthwaite
+degrees of freedom for the cluster-robust test are approximately
+24, far below the model-based 487; the small-sample reference is
+doing real work, and a naive normal reference for the sandwich
+statistic would itself be mildly anti-conservative
+[@cameron2015; @long2000].
+
+```{r fig-cr2, fig.width = 7.5, fig.height = 3.4, out.width = "100%", fig.cap = "Null p-value distribution functions under the model-based and CR2 cluster-robust tests, by specification. The model-based curves bow below the diagonal; the CR2 curves lie on it."}
+dcr$results |>
+  filter(converged, !is.na(cr2_p)) |>
+  select(spec, mod_p, cr2_p) |>
+  pivot_longer(c(mod_p, cr2_p), names_to = 'source',
+               values_to = 'p') |>
+  mutate(source = recode(source,
+    mod_p = 'Model-based Wald', cr2_p = 'CR2 cluster-robust')) |>
+  ggplot(aes(p, colour = source)) +
+  stat_ecdf(geom = 'step', linewidth = 0.6) +
+  geom_abline(slope = 1, intercept = 0, linetype = 'dashed',
+              colour = 'grey50') +
+  facet_wrap(~ spec) +
+  coord_equal(xlim = c(0, 1), ylim = c(0, 1)) +
+  scale_colour_manual(values = c(
+    'Model-based Wald' = '#e31a1c',
+    'CR2 cluster-robust' = '#1f78b4')) +
+  labs(x = 'Null p-value', y = 'Empirical CDF', colour = NULL) +
+  theme_paper
+```
+
+Figure \@ref(fig:fig-cr2) shows the same result as a distribution
+function. The model-based p-values bow below the diagonal, as in
+Figure \@ref(fig:fig-ecdf); the cluster-robust p-values lie on it.
+The point estimate and the corCAR1 model are unchanged; only the
+standard error of the interaction, and the reference against which
+it is tested, are replaced.
+
+# Discussion
+
+## The result is not about autoregressive correlation
+
+It would be a mistake to read this paper as a caution against the
+continuous-time autoregressive residual in particular. The corCAR1
+term is the component the model ladder happened to implicate in
+this example, but the mechanism is general. The model ladder is
+itself the evidence: it fitted four working covariances and
+obtained four different standard-error ratios, from 1.3 under
+ordinary least squares to 1.0 under a random intercept to near 1.1
+under the production model. The mis-calibration is a property of
+the match between the working covariance and the truth, and any
+parametric residual or random-effects structure, compound symmetry,
+an unstructured form, a random slope, a spatial correlation, is
+capable of producing it. That a mis-specified working covariance
+leaves the model-based fixed-effect standard error inconsistent is,
+moreover, not a new claim; it is the Eicker-Huber-White result
+carried into the mixed-model setting [@eicker1967; @huber1967;
+@white1980; @freedman2006]. What the worked example contributes is
+a quantified, decomposed instance in a realistic longitudinal
+interaction test, with two features that are not obvious in
+advance.
+
+## Two features that are not obvious in advance
+
+The first is the direction. The sandwich literature is usually
+motivated by anti-conservative tests: ignored positive correlation
+under-states standard errors, and the robust estimator corrects an
+inflated rejection rate downward. Here the model-based test is
+conservative, and the cluster-robust estimator corrects the
+rejection rate upward. The ladder explains why the intuition can
+mislead. The effect under test is a within-cluster contrast, and
+for a within-cluster contrast the relationship between a
+mis-specified covariance and the standard-error error need not have
+the sign that the between-cluster intuition supplies. An analyst
+who reasons that "my standard errors are conservative because I
+have modelled the correlation" has the logic backward in this case:
+modelling the correlation, through the corCAR1 term, is what
+introduced the conservatism, and the less elaborate model was the
+calibrated one.
+
+The second is that the bias is asymptotic. It would have been
+comfortable to attribute the conservatism to moderate sample size,
+and an earlier informal reading of the parent study did so. The
+sample-size gradient refutes that reading directly. This matters
+for how the problem is classified. The small-sample corrections of
+Kenward and Roger [-@kenward1997; -@kenward2009] adjust the
+fixed-effect standard error and its degrees of freedom for the
+finite-sample uncertainty in the estimated variance parameters;
+they are the right instrument for a finite-sample artefact. They
+are not the right instrument here, because the bias is not a
+finite-sample artefact: it does not vanish as the variance
+parameters are estimated with unlimited precision. A Kenward-Roger
+correction to a mis-specified working covariance corrects the
+finite-sample term and leaves the asymptotic mismatch untouched.
+The cluster-robust standard error addresses the asymptotic mismatch
+directly, which is why it is the appropriate remedy here.
+
+## When the problem should be expected
+
+The conditions for the problem are not exotic. They are a
+fixed-effect interaction tested in a mixed model; a parametric
+working covariance that is plausible but not known to be exactly
+correct,
+which is to say almost every parametric working covariance in
+applied use; and an interaction that is partly or wholly a
+within-cluster contrast. Wherever those conditions hold, the
+calibration of the model-based Wald test is an open question, and
+the staged protocol of Section 2 answers it at the cost of a
+simulation. We would suggest, as a matter of routine practice, that
+an interaction test reported from a mixed model with a non-trivial
+working covariance be accompanied either by a calibration check of
+this kind or by a cluster-robust standard error, which removes the
+question by being agnostic to the working covariance.
+
+## Limitations
+
+Several limitations bound the scope of the evidence. The diagnosis
+was carried out for one data-generating family, one estimand, and
+one production working covariance; the asymptotic conservatism is
+demonstrated for the corCAR1-plus-random-intercept model, and the
+generality beyond that rests on the model ladder and on established
+theory rather than on a sweep of every covariance structure. A
+broader empirical base, fitting an unstructured or
+compound-symmetry analysis to the same data, would strengthen the
+general claim, and is a natural extension. The cluster-robust remedy is not
+without cost: the Satterthwaite degrees of freedom for the CR2 test
+are approximately 24 against a model-based 487, so the robust test
+spends precision to buy validity, and at a genuinely small number
+of clusters that price would rise. The diagnosis was conducted at
+the null; the consequence for power, namely that the power
+estimates of the parent study are mildly pessimistic rather than
+optimistic, follows from the direction of the standard-error error
+but was not measured directly here. Finally, the small positive
+point-estimate bias noted in Section 4.1, while negligible in
+magnitude and irrelevant to the conservatism, is a genuine
+finite-sample feature of the estimator that a separate examination
+might characterise.
+
+# Conclusions
+
+1. The model-based Wald test of a fixed-effect interaction in a
+   linear mixed model can be materially mis-calibrated when the
+   parametric working covariance does not match the data-generating
+   covariance. In the worked example the mis-calibration is a
+   conservative one: the model-based standard error of the
+   interaction is over-estimated by 6 to 10 percent and the
+   realised type-I error is approximately 0.03 against a nominal
+   0.05.
+2. The four-channel decomposition localises the discrepancy to the
+   standard-error channel and excludes point-estimate bias, the
+   degrees-of-freedom rule, and the positive-definiteness
+   correction.
+3. The working-covariance model ladder localises the cause to the
+   corCAR1 residual layer. A random intercept alone is well
+   calibrated; adding the corCAR1 residual removes the calibration.
+4. The sample-size gradient shows the mis-calibration is
+   asymptotic. It does not attenuate from $N = 35$ to $N = 280$,
+   and so it is a property of the working covariance and not a
+   small-sample artefact amenable to a Kenward-Roger correction.
+5. A CR2 bias-reduced cluster-robust standard error, clustered on
+   participant and referred to a Satterthwaite distribution,
+   restores the standard-error ratio to approximately one and the
+   type-I error to approximately 0.05, without altering the point
+   estimate or the analysis model.
+6. The staged protocol, the four-channel decomposition, the model
+   ladder, and the sample-size gradient, is a reusable instrument
+   for any mixed-model interaction test whose calibration is in
+   doubt. We recommend that interaction tests reported from mixed
+   models with a non-trivial working covariance be accompanied by a
+   calibration check of this kind, or by a cluster-robust standard
+   error that is agnostic to the working covariance.
+
+# Reproducibility
+
+The diagnosis is driven by four scripts under
+`analysis/scripts/carryover-sensitivity/`:
+`diagnose-null-type1.R` for the four-channel decomposition,
+`diagnose-null-type1-stages46.R` for the model ladder and the
+sample-size gradient, and `diagnose-null-type1-cr2.R` for the
+cluster-robust verification, with
+`check-null-architecture-equivalence.R` establishing the
+architecture-invariance of the null. Each writes a replicate-level
+`.rds` file into the `output/` subdirectory, and this manuscript
+reads those files and regenerates every table and figure inline.
+The cluster-robust standard errors use the `clubSandwich` package.
+The examination plan that preceded the manuscript is retained
+alongside it as `type1-examination-plan.md`.
+
+# References

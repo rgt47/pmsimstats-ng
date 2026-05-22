@@ -1,59 +1,32 @@
-#!/bin/bash
-# tools/render.sh
-#
-# Render a manuscript and stage the resulting PDF for collaborator
-# distribution. Wraps the R helper at tools/stage-render.R so that
-# terminal-based rendering produces the same staged-PDF output as
-# RStudio's Knit button (which routes through the same helper via
-# the YAML knit: field).
-#
-# Usage:
-#   bash tools/render.sh <paper-slug>
-#   bash tools/render.sh <paper-slug> --short          # for 04-* short variant
-#   bash tools/render.sh <relative-or-absolute-rmd-path>
-#
-# Examples:
-#   bash tools/render.sh 06-component-decomposition
-#   bash tools/render.sh 04-treatment-main-effect --short
-#   bash tools/render.sh analysis/report/03-latent-class-mixture-application/report.Rmd
+#!/usr/bin/env bash
+## tools/render.sh
+##
+## Render a document to a stamped PDF and stage a dated, versioned
+## copy in the project's share/ directory. This is a thin wrapper
+## over tools/stamp-render.R, which does the work for .Rmd, .qmd,
+## and .md documents alike (it dispatches by extension internally
+## and drives rmarkdown, quarto, or pandoc as required).
+##
+## Usage:
+##   bash tools/render.sh <document.Rmd|.qmd|.md>
+##
+## Vendored by zzcollab; this file is not project-specific.
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJ_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-
-if [ $# -lt 1 ]; then
-  echo "usage: $0 <paper-slug> [--short]" >&2
-  echo "       $0 <path-to-rmd>" >&2
+if [[ $# -lt 1 ]]; then
+  echo "usage: $0 <document.Rmd|.qmd|.md>" >&2
   exit 1
 fi
 
-arg="$1"
-shift
-
-# Resolve the input Rmd path. Three accepted forms:
-#   1. A bare slug (e.g. 06-component-decomposition) → reports/<slug>/report.Rmd
-#   2. A bare slug with --short → reports/<slug>/report_short.Rmd
-#   3. An explicit path to an .Rmd file (relative or absolute)
-if [[ "$arg" == *.Rmd ]]; then
-  if [[ "$arg" == /* ]]; then
-    rmd="$arg"
-  else
-    rmd="$PROJ_ROOT/$arg"
-  fi
-else
-  base="report.Rmd"
-  if [ "${1:-}" = "--short" ]; then
-    base="report_short.Rmd"
-    shift
-  fi
-  rmd="$PROJ_ROOT/analysis/report/$arg/$base"
-fi
-
-if [ ! -f "$rmd" ]; then
-  echo "error: input Rmd not found at $rmd" >&2
+input="$1"
+if [[ ! -f "$input" ]]; then
+  echo "error: file not found: $input" >&2
   exit 2
 fi
 
-echo "rendering: $rmd"
-Rscript -e "stage <- source('$PROJ_ROOT/tools/stage-render.R')\$value; stage('$rmd')"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+input_dir="$(cd "$(dirname "$input")" && pwd)"
+abs_input="$input_dir/$(basename "$input")"
+
+Rscript -e "source('$script_dir/stamp-render.R')\$value('$abs_input')"

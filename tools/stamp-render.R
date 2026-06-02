@@ -64,6 +64,12 @@
   }
 }
 
+## Capture the real rmarkdown::render before any namespace shim
+## may replace it (see .Rprofile.local). Using this reference
+## inside stamp_render avoids infinite recursion when the shim
+## routes rmarkdown::render() calls here.
+.rmd_render <- rmarkdown::render
+
 ## --- main --------------------------------------------------------
 
 stamp_render <- function(input, encoding = 'UTF-8', ...) {
@@ -97,7 +103,7 @@ stamp_render <- function(input, encoding = 'UTF-8', ...) {
   ## the document's own configuration is preserved.
   pdf <- switch(
     ext,
-    rmd = rmarkdown::render(
+    rmd = .rmd_render(
       input, encoding = encoding, envir = new.env(), ...,
       output_options = list(pandoc_args = c(
         rbind('--include-in-header', headers)))),

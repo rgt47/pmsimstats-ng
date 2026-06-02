@@ -1,0 +1,39 @@
+# .Rprofile.local -- project-specific R session hooks
+#
+# Intercept rmarkdown::render() so that any call to it in this
+# project automatically routes through stamp_render (stamps a
+# provenance footer and deposits a dated copy in share/).
+#
+# Mechanism: a packageEvent 'onLoad' hook replaces the 'render'
+# binding in the rmarkdown namespace with a thin wrapper. The
+# wrapper calls stamp_render, which internally uses .rmd_render --
+# a reference captured from the real rmarkdown::render *before*
+# the binding was replaced -- so there is no infinite recursion.
+#
+# This covers both interactive (Rscript -e) and programmatic
+# (source-driven) calls. RStudio's Knit button is already handled
+# by the knit: YAML field in each Rmd.
+
+local({
+  tools_script <- file.path(getwd(), 'tools', 'stamp-render.R')
+  if (!file.exists(tools_script)) return(invisible(NULL))
+
+  patch_rmarkdown <- function() {
+    stamp_fn  <- source(tools_script, local = TRUE)$value
+    ns        <- asNamespace('rmarkdown')
+    was_locked <- bindingIsLocked('render', ns)
+    if (was_locked) unlockBinding('render', ns)
+    assign('render',
+           function(input, ...) stamp_fn(input, ...),
+           envir = ns)
+    if (was_locked) lockBinding('render', ns)
+    invisible(NULL)
+  }
+
+  if (isNamespaceLoaded('rmarkdown')) {
+    patch_rmarkdown()
+  } else {
+    setHook(packageEvent('rmarkdown', 'onLoad'),
+            function(...) patch_rmarkdown())
+  }
+})

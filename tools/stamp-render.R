@@ -47,7 +47,7 @@
 .stamp_git_version <- function(root) {
   out <- tryCatch(
     system2('git', c('-C', root, 'describe', '--tags',
-                     '--always', '--dirty'),
+                     '--always', '--dirty=-wip'),
             stdout = TRUE, stderr = FALSE),
     error   = function(e) character(0),
     warning = function(w) character(0))

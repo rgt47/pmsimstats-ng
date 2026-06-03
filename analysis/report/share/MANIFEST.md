@@ -9,3 +9,4 @@
 | `07-gompertz-evaluation-2026-05-22-1215-184e899-dirty.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `184e899-dirty` | 2026-05-22 12:15 PDT |
 | `10-interaction-test-calibration-2026-06-02-1617-0dcc8ba-dirty.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/report.Rmd` | `0dcc8ba-dirty` | 2026-06-02 16:17 PDT |
 | `10-interaction-test-calibration-2026-06-02-1705-3f3db69-dirty.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/report.Rmd` | `3f3db69-dirty` | 2026-06-02 17:05 PDT |
+| `10-interaction-test-calibration-2026-06-02-1717-125108c.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/report.Rmd` | `125108c` | 2026-06-02 17:17 PDT |

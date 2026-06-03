@@ -4,11 +4,11 @@
 
 | Staged PDF | Source | Version | Rendered |
 |---|---|---|---|
-| `03-latent-class-mixture-application-2026-05-22-1214-184e899-dirty.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/03-latent-class-mixture-application/report.Rmd` | `184e899-dirty` | 2026-05-22 12:14 PDT |
-| `05-nof1-design-sensitivity-2026-05-22-1215-184e899-dirty.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/05-nof1-design-sensitivity/report.Rmd` | `184e899-dirty` | 2026-05-22 12:15 PDT |
-| `07-gompertz-evaluation-2026-05-22-1215-184e899-dirty.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `184e899-dirty` | 2026-05-22 12:15 PDT |
-| `10-interaction-test-calibration-2026-06-02-1617-0dcc8ba-dirty.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/report.Rmd` | `0dcc8ba-dirty` | 2026-06-02 16:17 PDT |
-| `10-interaction-test-calibration-2026-06-02-1705-3f3db69-dirty.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/report.Rmd` | `3f3db69-dirty` | 2026-06-02 17:05 PDT |
+| `03-latent-class-mixture-application-2026-05-22-1214-184e899-wip.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/03-latent-class-mixture-application/report.Rmd` | `184e899-wip` | 2026-05-22 12:14 PDT |
+| `05-nof1-design-sensitivity-2026-05-22-1215-184e899-wip.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/05-nof1-design-sensitivity/report.Rmd` | `184e899-wip` | 2026-05-22 12:15 PDT |
+| `07-gompertz-evaluation-2026-05-22-1215-184e899-wip.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `184e899-wip` | 2026-05-22 12:15 PDT |
+| `10-interaction-test-calibration-2026-06-02-1617-0dcc8ba-wip.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/report.Rmd` | `0dcc8ba-wip` | 2026-06-02 16:17 PDT |
+| `10-interaction-test-calibration-2026-06-02-1705-3f3db69-wip.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/report.Rmd` | `3f3db69-wip` | 2026-06-02 17:05 PDT |
 | `10-interaction-test-calibration-2026-06-02-1717-125108c.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/report.Rmd` | `125108c` | 2026-06-02 17:17 PDT |
 | `01-dgp-mean-moderation-vs-mvn-2026-06-02-1724-50e9c1a.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `50e9c1a` | 2026-06-02 17:24 PDT |
 | `02-carryover-sensitivity-2026-06-02-1724-50e9c1a-wip.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report.Rmd` | `50e9c1a-wip` | 2026-06-02 17:24 PDT |

@@ -64,11 +64,20 @@
   }
 }
 
-## Capture the real rmarkdown::render before any namespace shim
-## may replace it (see .Rprofile.local). Using this reference
-## inside stamp_render avoids infinite recursion when the shim
-## routes rmarkdown::render() calls here.
-.rmd_render <- rmarkdown::render
+## Resolve the real rmarkdown::render before any namespace shim can
+## replace it.  .Rprofile.local writes .pmsimstats_real_render to
+## .GlobalEnv *before* patching the namespace, so sourcing this file
+## after that point (including nested sources from the shim itself)
+## still reaches the original function.  When no shim is active the
+## fallback rmarkdown::render is the real one anyway.
+requireNamespace('rmarkdown', quietly = TRUE)
+.rmd_render <- if (
+  exists('.pmsimstats_real_render', envir = .GlobalEnv, inherits = FALSE)
+) {
+  .GlobalEnv$.pmsimstats_real_render
+} else {
+  rmarkdown::render
+}
 
 ## --- main --------------------------------------------------------
 

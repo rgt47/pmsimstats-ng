@@ -4,36 +4,55 @@
 # project automatically routes through stamp_render (stamps a
 # provenance footer and deposits a dated copy in share/).
 #
-# Mechanism: a packageEvent 'onLoad' hook replaces the 'render'
-# binding in the rmarkdown namespace with a thin wrapper. The
-# wrapper calls stamp_render, which internally uses .rmd_render --
-# a reference captured from the real rmarkdown::render *before*
-# the binding was replaced -- so there is no infinite recursion.
+# Mechanism: a packageEvent 'onLoad' hook fires when rmarkdown is
+# first loaded.  It saves the real rmarkdown::render to
+# .GlobalEnv$.pmsimstats_real_render *before* patching the
+# namespace; stamp-render.R checks that name so nested source()
+# calls always bind .rmd_render to the pre-patch function.
 #
-# This covers both interactive (Rscript -e) and programmatic
-# (source-driven) calls. RStudio's Knit button is already handled
-# by the knit: YAML field in each Rmd.
+# Critical constraint: rmarkdown::render's own body does
+#   env <- environment(render)
+# and then manipulates a locked 'metadata' binding in env.  If env
+# is not the rmarkdown namespace, the unlockBinding call errors.
+# We satisfy this by setting environment(wrapper) <- ns.  Since the
+# rmarkdown namespace is locked we cannot add new bindings to it;
+# instead, stamp_fn is stored in .GlobalEnv and the wrapper reaches
+# it via the always-accessible built-in constant .GlobalEnv.
 
 local({
   tools_script <- file.path(getwd(), 'tools', 'stamp-render.R')
   if (!file.exists(tools_script)) return(invisible(NULL))
 
-  patch_rmarkdown <- function() {
-    stamp_fn  <- source(tools_script, local = TRUE)$value
-    ns        <- asNamespace('rmarkdown')
+  install_shim <- function() {
+    ns          <- asNamespace('rmarkdown')
+    real_render <- get('render', envir = ns)
+
+    # Publish both helpers in .GlobalEnv before sourcing
+    # stamp-render.R so that script's .rmd_render assignment
+    # resolves to the pre-patch function.
+    .GlobalEnv$.pmsimstats_real_render <- real_render
+    .GlobalEnv$.pmsimstats_stamp_fn    <-
+      source(tools_script, local = TRUE)$value
+
+    # .GlobalEnv is a built-in constant (R_GlobalEnv) visible in any
+    # scope, so the wrapper can reference it even though its lexical
+    # environment is set to the rmarkdown namespace (required so that
+    # environment(render) == ns and rmarkdown's metadata binding ops
+    # work correctly on the right environment).
+    wrapper <- function(input, ...) .GlobalEnv$.pmsimstats_stamp_fn(input)
+    environment(wrapper) <- ns
+
     was_locked <- bindingIsLocked('render', ns)
     if (was_locked) unlockBinding('render', ns)
-    assign('render',
-           function(input, ...) stamp_fn(input, ...),
-           envir = ns)
+    assign('render', wrapper, envir = ns)
     if (was_locked) lockBinding('render', ns)
     invisible(NULL)
   }
 
   if (isNamespaceLoaded('rmarkdown')) {
-    patch_rmarkdown()
+    install_shim()
   } else {
     setHook(packageEvent('rmarkdown', 'onLoad'),
-            function(...) patch_rmarkdown())
+            function(...) install_shim())
   }
 })

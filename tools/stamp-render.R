@@ -54,14 +54,53 @@
   if (length(out) == 0L || !nzchar(out[[1]])) 'nogit' else out[[1]]
 }
 
-## A path shown with a leading tilde for the home directory.
+## Escape a file-system path for use in a LaTeX \renewcommand body.
+## Handles LaTeX-special characters and inserts \allowbreak{} after
+## each slash so long paths can wrap in the footer parbox.
+.stamp_latex_path <- function(path) {
+  chars <- strsplit(path, '', fixed = TRUE)[[1]]
+  result <- vapply(chars, function(ch) {
+    switch(ch,
+      '~'  = '\\textasciitilde{}',
+      '_'  = '\\_',
+      '#'  = '\\#',
+      '%'  = '\\%',
+      '&'  = '\\&',
+      '$'  = '\\$',
+      '^'  = '\\textasciicircum{}',
+      '\\' = '\\textbackslash{}',
+      '/'  = '/\\allowbreak{}',
+      ch)
+  }, character(1L))
+  paste(result, collapse = '')
+}
+
+## A path shown with the shortest possible tilde-relative form.
+## Checks symlinks in ~ so that e.g. ~/prj (-> ~/Library/CloudStorage/
+## Dropbox/prj) is preferred over the resolved CloudStorage path.
 .stamp_display <- function(path) {
   home <- normalizePath('~', mustWork = FALSE)
-  if (startsWith(path, home)) {
+
+  candidates <- if (startsWith(path, home)) {
     paste0('~', substring(path, nchar(home) + 1L))
   } else {
     path
   }
+
+  for (entry in list.files(home, full.names = TRUE)) {
+    if (!nzchar(Sys.readlink(entry))) next
+    real <- tryCatch(normalizePath(entry, mustWork = FALSE),
+                     error = function(e) '')
+    if (!nzchar(real)) next
+    prefix <- paste0(real, '/')
+    if (startsWith(path, prefix)) {
+      candidates <- c(candidates,
+                      paste0('~/', basename(entry), '/',
+                             substring(path, nchar(prefix) + 1L)))
+    }
+  }
+
+  candidates[[which.min(nchar(candidates))]]
 }
 
 ## Resolve the real rmarkdown::render before any namespace shim can
@@ -101,8 +140,8 @@ stamp_render <- function(input, encoding = 'UTF-8', ...) {
   values_tex <- tempfile(fileext = '.tex')
   on.exit(unlink(values_tex), add = TRUE)
   writeLines(c(
-    sprintf('\\renewcommand{\\stampsource}{\\detokenize{%s}}',
-            src_display),
+    sprintf('\\renewcommand{\\stampsource}{%s}',
+            .stamp_latex_path(src_display)),
     sprintf('\\renewcommand{\\stamptime}{%s}', stamp_time),
     sprintf('\\renewcommand{\\stampversion}{\\detokenize{%s}}',
             version)), values_tex)

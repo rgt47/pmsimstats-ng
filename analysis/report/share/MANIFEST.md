@@ -16,3 +16,5 @@
 | `07-gompertz-evaluation-2026-06-02-1725-50e9c1a-wip.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `50e9c1a-wip` | 2026-06-02 17:25 PDT |
 | `08-test-procedure-design-sensitivity-2026-06-02-1726-50e9c1a-wip.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/08-test-procedure-design-sensitivity/report.Rmd` | `50e9c1a-wip` | 2026-06-02 17:26 PDT |
 | `09-informative-dropout-by-design-2026-06-02-1726-50e9c1a-wip.pdf` | `~/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/09-informative-dropout-by-design/report.Rmd` | `50e9c1a-wip` | 2026-06-02 17:26 PDT |
+| `01-dgp-mean-moderation-vs-mvn-2026-06-09-1617-9ff0a30.pdf` | `~/Library/CloudStorage/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `9ff0a30` | 2026-06-09 16:17 PDT |
+| `01-dgp-mean-moderation-vs-mvn-2026-06-09-1655-9ff0a30-wip.pdf` | `~/Library/CloudStorage/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `9ff0a30-wip` | 2026-06-09 16:55 PDT |

@@ -9,6 +9,11 @@
 # published to ghcr.io/rgt47/rmd-xelatex. It uses system TeX Live rather
 # than TinyTeX for deterministic CI behaviour.
 #
+# The custom knit: hook in some reports (stamp-render.R) always renders to
+# PDF and cannot be redirected via output_format. Both jobs strip the knit:
+# line before rendering so the standard rmarkdown pipeline is used. CI is
+# checking renderability, not producing stamped production copies.
+#
 name: Render Reports
 
 on:
@@ -57,14 +62,21 @@ jobs:
               for (rmd in rmds) {
                 cat("=== HTML:", rmd, "===\n")
                 old_wd <- setwd(dirname(rmd))
+                lines <- readLines(basename(rmd), warn = FALSE)
+                lines <- lines[!grepl("^knit:", lines)]
+                tmp <- tempfile(fileext = ".Rmd")
+                writeLines(lines, tmp)
                 tryCatch(
-                  rmarkdown::render(basename(rmd),
-                                    output_format = "html_document"),
+                  rmarkdown::render(tmp,
+                    output_format = "html_document",
+                    output_file   = sub("[.]Rmd$", ".html", basename(rmd)),
+                    output_dir    = "."),
                   error = function(e) {
                     cat("FAILED:", conditionMessage(e), "\n")
                     failed <<- c(failed, rmd)
                   }
                 )
+                unlink(tmp)
                 setwd(old_wd)
               }
               cat("\n=== summary ===\n")
@@ -119,14 +131,21 @@ jobs:
               for (rmd in rmds) {
                 cat("=== PDF:", rmd, "===\n")
                 old_wd <- setwd(dirname(rmd))
+                lines <- readLines(basename(rmd), warn = FALSE)
+                lines <- lines[!grepl("^knit:", lines)]
+                tmp <- tempfile(fileext = ".Rmd")
+                writeLines(lines, tmp)
                 tryCatch(
-                  rmarkdown::render(basename(rmd),
-                                    output_format = "pdf_document"),
+                  rmarkdown::render(tmp,
+                    output_format = "pdf_document",
+                    output_file   = sub("[.]Rmd$", ".pdf", basename(rmd)),
+                    output_dir    = "."),
                   error = function(e) {
                     cat("FAILED:", conditionMessage(e), "\n")
                     failed <<- c(failed, rmd)
                   }
                 )
+                unlink(tmp)
                 setwd(old_wd)
               }
               cat("\n=== summary ===\n")

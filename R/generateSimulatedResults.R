@@ -46,8 +46,8 @@
 #' @param lambda_cor Correlation decay rate (NA for auto, see
 #'   \link{generateData})
 #' @param dgp_architecture DGP architecture for the biomarker-treatment
-#'   interaction (\code{"mvn"} or \code{"mean_moderation"}). See
-#'   \link{generateData} for details.
+#'   interaction (\code{"mvn"}, \code{"mean_moderation"}, or
+#'   \code{"combined"}). See \link{generateData} for details.
 #' @return Returns a list with three named parts:
 #'   \itemize{
 #'     \item{\code{results}}{  A large data table that tells you the parameters used

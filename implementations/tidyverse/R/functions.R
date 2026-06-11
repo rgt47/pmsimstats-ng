@@ -253,7 +253,11 @@ build_correlation_matrix <- function(
       }
     }
 
-    if (current_factor == "br" && dgp_architecture == "mvn") {
+    # BM-BR differential correlation (Architecture B / MVN and Architecture C)
+    # Under "mvn" the weight is c.bm; under "combined" it is c.bm_b.
+    if (current_factor == "br" && dgp_architecture %in% c("mvn", "combined")) {
+      c_bm_cov <- if (dgp_architecture == "combined") model_param$c.bm_b
+                  else model_param$c.bm
       for (timepoint_idx in seq_len(num_timepoints)) {
         name1 <- paste(trial_design$timepoint_name[
                          timepoint_idx], "br", sep = ".")
@@ -261,8 +265,8 @@ build_correlation_matrix <- function(
         on_drug_now <- trial_data$on_drug[timepoint_idx]
 
         if (on_drug_now) {
-          correlations["bm", name1] <- model_param$c.bm
-          correlations[name1, "bm"] <- model_param$c.bm
+          correlations["bm", name1] <- c_bm_cov
+          correlations[name1, "bm"] <- c_bm_cov
         } else {
           tsd_now <- trial_data$tsd[timepoint_idx]
           if (tsd_now > 0 && lambda_cor > 0) {
@@ -271,10 +275,8 @@ build_correlation_matrix <- function(
               tsd_now, halflife_for_decay,
               form = carryover_form, shape = weibull_shape
             )
-            correlations["bm", name1] <-
-              model_param$c.bm * decay
-            correlations[name1, "bm"] <-
-              model_param$c.bm * decay
+            correlations["bm", name1] <- c_bm_cov * decay
+            correlations[name1, "bm"] <- c_bm_cov * decay
           }
         }
       }
@@ -294,7 +296,7 @@ build_sigma_matrix <- function(model_param, resp_param, baseline_param,
                                dgp_architecture = "mvn",
                                ...) {
 
-  dgp_architecture <- match.arg(dgp_architecture, c("mvn", "mean_moderation"))
+  dgp_architecture <- match.arg(dgp_architecture, c("mvn", "mean_moderation", "combined"))
 
   factors <- c("tv", "pb", "br")
 
@@ -381,7 +383,7 @@ generate_data <- function(
     lambda_cor = NA, verbose = FALSE, track_pd_stats = TRUE,
     cached_sigma = NULL, dgp_architecture = "mvn") {
 
-  dgp_architecture <- match.arg(dgp_architecture, c("mvn", "mean_moderation"))
+  dgp_architecture <- match.arg(dgp_architecture, c("mvn", "mean_moderation", "combined"))
 
   lambda_cor <- resolve_lambda_cor(lambda_cor, model_param)
 
@@ -418,9 +420,12 @@ generate_data <- function(
   participant_data <- as_tibble(participant_data)
   colnames(participant_data) <- labels
 
-  # Architecture A: additive biomarker moderation of BR
-  if (dgp_architecture == "mean_moderation") {
-    beta_bm <- model_param$c.bm
+  # Architecture A / C (mean-moderation channel): additive biomarker
+  # moderation of BR. Under "mean_moderation" weight = c.bm;
+  # under "combined" weight = c.bm_a.
+  if (dgp_architecture %in% c("mean_moderation", "combined")) {
+    beta_bm <- if (dgp_architecture == "combined") model_param$c.bm_a
+               else model_param$c.bm
     bm_mean <- baseline_param |> filter(cat == "bm") |> pull(m)
     bm_sd <- baseline_param |> filter(cat == "bm") |> pull(sd)
     br_sd <- resp_param |> filter(cat == "br") |> pull(sd)
@@ -781,7 +786,7 @@ generate_simulated_results <- function(
     analysisparams, rawdataout = FALSE,
     lambda_cor = NA, n_cores = 1, dgp_architecture = "mvn") {
 
-  dgp_architecture <- match.arg(dgp_architecture, c("mvn", "mean_moderation"))
+  dgp_architecture <- match.arg(dgp_architecture, c("mvn", "mean_moderation", "combined"))
 
   if (missing(analysisparams)) {
     analysisparams <- list(useDE = TRUE, t_random_slope = FALSE,

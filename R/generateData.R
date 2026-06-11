@@ -8,10 +8,19 @@
 #' @param modelparam a datatable with a single entry per named column:
 #' \itemize{
 #'  \item{\code{N}}{  Number of simulated participants}
-#'  \item{\code{c.bm}}{  Biomarker-BR parameter. Under MVN architecture
-#'    (default), this is the correlation between biomarker and biological
-#'    response. Under mean moderation architecture, this is the regression
-#'    coefficient scaling the BR component by centered biomarker value.}
+#'  \item{\code{c.bm}}{  Biomarker-BR parameter for \code{"mvn"} and
+#'    \code{"mean_moderation"} architectures. Under MVN architecture
+#'    (default), this is the BM-BR correlation. Under mean moderation,
+#'    this is the regression coefficient scaling BR by centered biomarker.
+#'    Not used under \code{"combined"} (use \code{c.bm_a} and \code{c.bm_b}
+#'    instead).}
+#'  \item{\code{c.bm_a}}{  Mean-moderation weight for \code{"combined"}
+#'    architecture: regression coefficient scaling the BR mean shift by
+#'    centered biomarker. Ignored under \code{"mvn"} and
+#'    \code{"mean_moderation"}.}
+#'  \item{\code{c.bm_b}}{  Covariance-channel weight for \code{"combined"}
+#'    architecture: BM-BR differential correlation in the MVN covariance
+#'    matrix. Ignored under \code{"mvn"} and \code{"mean_moderation"}.}
 #'  \item{\code{carryover_t1half}}{  Halflife of the carryover effect}
 #'  \item{\code{c.tv}}{  Autocorrelation for the tv factor across timepoints}
 #'  \item{\code{c.pb}}{ Autocorrelation for the pb factor across timepoints}
@@ -56,10 +65,13 @@
 #'   labels, nP, cl, trialdesign components). When provided, skips
 #'   sigma construction entirely. Use \link{buildSigma} to create.
 #' @param dgp_architecture DGP architecture for the biomarker-treatment
-#'   interaction. \code{"mvn"} (default) uses differential correlation
-#'   in the covariance structure (Architecture B). \code{"mean_moderation"}
-#'   uses direct mean scaling of the BR component by the biomarker
-#'   (Architecture A). See the DGP architecture white paper for details.
+#'   interaction. \code{"mvn"} (default) uses differential BM-BR
+#'   correlation in the covariance structure (Architecture B).
+#'   \code{"mean_moderation"} uses direct mean scaling of BR by the
+#'   biomarker (Architecture A). \code{"combined"} activates both
+#'   channels simultaneously using independent weights \code{c.bm_a}
+#'   (mean channel) and \code{c.bm_b} (covariance channel) (Architecture
+#'   C). See the DGP architecture white paper for details.
 #' @returns A \code{dat} file that contains both the total symptom scores at each timepoint
 #'   and also all the individual factors that were used to generate those total scores
 #' @examples
@@ -69,7 +81,7 @@
 
 generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePositiveDefinite,seed=NA,lambda_cor=NA,verbose=FALSE,cached_sigma=NULL,dgp_architecture="mvn"){
 
-  dgp_architecture<-match.arg(dgp_architecture, c("mvn", "mean_moderation"))
+  dgp_architecture<-match.arg(dgp_architecture, c("mvn", "mean_moderation", "combined"))
 
   if(!is.null(cached_sigma)){
     sigma<-cached_sigma$sigma
@@ -100,16 +112,15 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
   dat<-data.table(dat)
   setnames(dat,names(dat),labels)
 
-  # Architecture A: additive biomarker moderation of BR
-  # Each participant's BR is shifted proportionally to their
-  # standardized biomarker value when on drug. The shift magnitude
-  # is c.bm * sigma_br per SD of biomarker, matching the
+  # Architecture A / C (mean-moderation channel): additive biomarker
+  # moderation of BR. Each participant's BR is shifted proportionally
+  # to their standardized biomarker value when on drug. The shift
+  # magnitude is beta_bm * sigma_br per SD of biomarker, matching the
   # conditional expectation under Architecture B's MVN model:
   #   E[BR | bm, on_drug] = mu_BR + c.bm * (sigma_br/sigma_bm) * (bm - mu_bm)
-  # This produces comparable effect sizes between architectures
-  # for the same c.bm value.
-  if(dgp_architecture == "mean_moderation"){
-    beta_bm<-modelparam$c.bm
+  # Under "mean_moderation" beta_bm = c.bm; under "combined" beta_bm = c.bm_a.
+  if(dgp_architecture %in% c("mean_moderation", "combined")){
+    beta_bm<-if(dgp_architecture == "combined") modelparam$c.bm_a else modelparam$c.bm
     bm_mean<-blparam[cat=="bm"]$m
     bm_sd<-blparam[cat=="bm"]$sd
     br_sd<-respparam[cat=="br"]$sd
@@ -159,9 +170,11 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
 #' @param makePositiveDefinite Force positive definiteness?
 #' @param lambda_cor Correlation decay rate (NA for auto)
 #' @param verbose Print diagnostics?
-#' @param dgp_architecture DGP architecture (\code{"mvn"} or
-#'   \code{"mean_moderation"}). Under mean moderation, the BM-BR
-#'   correlation block is omitted from the covariance matrix.
+#' @param dgp_architecture DGP architecture (\code{"mvn"},
+#'   \code{"mean_moderation"}, or \code{"combined"}). The BM-BR
+#'   differential correlation block is included for \code{"mvn"}
+#'   (using \code{c.bm}) and \code{"combined"} (using \code{c.bm_b});
+#'   it is omitted for \code{"mean_moderation"}.
 #' @return List with sigma, means, labels, nP, cl, trialdesign
 #' @export
 buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefinite=TRUE,lambda_cor=NA,verbose=FALSE,dgp_architecture="mvn"){
@@ -259,17 +272,19 @@ buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefini
         }
       }
     }
-    # BM-BR correlation with decay (Architecture B / MVN only)
-    if(cc=="br" && dgp_architecture=="mvn"){
+    # BM-BR differential correlation (Architecture B / MVN and Architecture C)
+    # Under "mvn" the weight is c.bm; under "combined" it is c.bm_b.
+    if(cc=="br" && dgp_architecture %in% c("mvn", "combined")){
+      c_bm_cov<-if(dgp_architecture == "combined") modelparam$c.bm_b else modelparam$c.bm
       for(p in 1:nP){
         n1<-paste(trialdesign$timeptnames[p],"br",sep=".")
         if(d[p]$onDrug){
-          correlations[n1,'bm']<-modelparam$c.bm
-          correlations['bm',n1]<-modelparam$c.bm
+          correlations[n1,'bm']<-c_bm_cov
+          correlations['bm',n1]<-c_bm_cov
         } else if(d[p]$tsd>0 && lambda_cor>0){
           decay<-exp(-lambda_cor * d$tsd[p])
-          correlations[n1,'bm']<-modelparam$c.bm * decay
-          correlations['bm',n1]<-modelparam$c.bm * decay
+          correlations[n1,'bm']<-c_bm_cov * decay
+          correlations['bm',n1]<-c_bm_cov * decay
         }
       }
     }

@@ -405,9 +405,12 @@ simulate_cell <- function(cell, n_reps, robust = FALSE) {
   dropout_rate <- default_val(cell[['dropout_rate']], 0)
   dropout_mech <- default_val(cell[['dropout_mech']], 'MCAR')
 
+  ## For combined architecture, c_bm_a and c_bm_b are supplied
+  ## separately; c_bm is unused. For mvn/mean_moderation the single
+  ## c_bm value is used as before.
+  is_combined <- isTRUE(cell$dgp_arch == 'combined')
   model_param <- list(
     N = cell$N,
-    c.bm = cell$c_bm,
     carryover_t1half = cell$t1half,
     carryover_form = cell$carryover_form,
     weibull_shape = cell$weibull_shape,
@@ -415,6 +418,12 @@ simulate_cell <- function(cell, n_reps, robust = FALSE) {
     c.tv = rho, c.pb = rho, c.br = rho,
     c.cf1t = 0.2, c.cfct = 0.1
   )
+  if (is_combined) {
+    model_param$c.bm_a <- cell$c_bm_a
+    model_param$c.bm_b <- cell$c_bm_b
+  } else {
+    model_param$c.bm <- cell$c_bm
+  }
 
   map_dfr(seq_len(n_reps), function(rep_i) {
     dat <- tryCatch(

@@ -34,3 +34,5 @@
 | `03-latent-class-mixture-application-2026-06-10-1102-fc98c3a-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/03-latent-class-mixture-application/report.Rmd` | `fc98c3a-wip` | 2026-06-10 11:02 PDT |
 | `05-nof1-design-sensitivity-2026-06-10-1102-fc98c3a-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/05-nof1-design-sensitivity/report.Rmd` | `fc98c3a-wip` | 2026-06-10 11:02 PDT |
 | `07-gompertz-evaluation-2026-06-10-1102-fc98c3a-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `fc98c3a-wip` | 2026-06-10 11:02 PDT |
+| `01-dgp-mean-moderation-vs-mvn-2026-06-10-1755-acfb31d-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `acfb31d-wip` | 2026-06-10 17:55 PDT |
+| `01-dgp-mean-moderation-vs-mvn-2026-06-10-1801-acfb31d-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `acfb31d-wip` | 2026-06-10 18:01 PDT |

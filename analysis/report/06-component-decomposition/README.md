@@ -58,8 +58,8 @@ the inferential cost of failing to decompose.
 
 ## Driver scripts
 
-A driver directory at `analysis/scripts/06-component-
-decomposition/` will be created when the simulation study
+A driver directory at `analysis/scripts/component-decomposition/`
+will be created when the simulation study
 underlying §5 of the manuscript is implemented. It does not yet
 exist.
 

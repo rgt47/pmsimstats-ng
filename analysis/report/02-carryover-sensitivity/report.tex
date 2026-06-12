@@ -101,10 +101,25 @@
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 % Three-part paragraph scaffolding for manuscript revision.
+%
+% bullets  -- boiled-down topic sentence + bullet points
+%             small, sans-serif, dark gray; paragraph number [N] prepended
+% rgt      -- author's rewrite (initially a placeholder)
+%             normal size, dark blue, serif
+% orig     -- original Claude-authored draft
+%             small, italic, light gray
+%
+% Presentation order per paragraph: bullets -> rgt -> orig
+% Strip with: strip-claudecode -i report.Rmd
+
 \usepackage{xcolor}
 
+\newcounter{pgraph}
+
 \newenvironment{bullets}{%
-  \begin{quote}\small\sffamily\color[gray]{0.30}}{%
+  \stepcounter{pgraph}%
+  \begin{quote}\small\sffamily\color[gray]{0.30}%
+  {\normalfont\scriptsize\color[gray]{0.58}[\thepgraph]\enspace}}{%
   \end{quote}}
 
 \newenvironment{rgt}{%
@@ -115,42 +130,8 @@
   \begin{quote}\small\itshape\color[gray]{0.55}}{%
   \end{quote}}
 
+% backward compat alias
 \newenvironment{claudecode}{\begin{orig}}{\end{orig}}
-%% tools/stamp.tex
-%% Provenance footer for PDFs rendered from this project.
-%% Vendored by zzcollab; this file is not project-specific. The
-%% footer prints the source document, the time of rendering, and
-%% the git version. All three values are supplied at render time
-%% by tools/stamp-render.R, which writes a small generated file
-%% that redefines the macros below. The \providecommand defaults
-%% keep a bare LaTeX compile working when the document is built
-%% without the wrapper.
-\usepackage{fancyhdr}
-\usepackage{xcolor}
-\providecommand{\stampsource}{\detokenize{(source not recorded)}}
-\providecommand{\stamptime}{(time not recorded)}
-\providecommand{\stampversion}{\detokenize{(version not recorded)}}
-\setlength{\footskip}{40pt}
-\newcommand{\stampfootcontent}{%
-  \footnotesize\color{gray}%
-  \parbox[b]{\textwidth}{%
-    \stamptime\hfill\thepage\\[2pt]%
-    \ttfamily\raggedright\stampsource}}
-\pagestyle{fancy}
-\fancyhf{}
-\fancyfoot[C]{\stampfootcontent}
-\renewcommand{\headrulewidth}{0pt}
-\renewcommand{\footrulewidth}{0.4pt}
-%% The title page uses the `plain` page style; redefine it so the
-%% stamp appears there too.
-\fancypagestyle{plain}{%
-  \fancyhf{}%
-  \fancyfoot[C]{\stampfootcontent}%
-  \renewcommand{\headrulewidth}{0pt}%
-  \renewcommand{\footrulewidth}{0.4pt}}
-\renewcommand{\stampsource}{\textasciitilde{}/\allowbreak{}prj/\allowbreak{}res/\allowbreak{}36-pmsimstats-ng/\allowbreak{}pmsimstats-ng/\allowbreak{}analysis/\allowbreak{}report/\allowbreak{}02-carryover-sensitivity/\allowbreak{}report.Rmd}
-\renewcommand{\stamptime}{2026-06-10 10:05 PDT}
-\renewcommand{\stampversion}{\detokenize{fc98c3a-wip}}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{lineno}
@@ -170,7 +151,7 @@
 
 \title{Robustness of carryover-mitigation analysis strategies for biomarker-treatment interaction: a factorial simulation study}
 \author{pmsimstats team}
-\date{2026-06-10}
+\date{2026-06-11}
 
 \begin{document}
 \maketitle
@@ -198,10 +179,11 @@ the three analysis-model specifications, under both
 mean-moderation (Architecture\textasciitilde A) and multivariate-normal
 differential-correlation (Architecture\textasciitilde B) biomarker
 data-generating processes. The principal factorial covers
-540 cells at 500 replicates per cell. Five sensitivity blocks
-(S1-S5) vary autocorrelation strength, analyst-versus-DGP
+540 cells at 500 replicates per cell. Six sensitivity blocks
+(S1-S6) vary autocorrelation strength, analyst-versus-DGP
 half-life mismatch, dropout rate, between-subject heterogeneity,
-and biomarker correlation strength. All performance measures are
+and biomarker correlation strength, and recalibrate the test with
+a cluster-robust standard error. All performance measures are
 reported with Monte Carlo standard errors per Morris et al.
 (2019).
 
@@ -219,10 +201,15 @@ departed from the true half-life by a factor of two or four.
 A high-precision rerun at \(N \in \{35, 70\}\) and
 \(t_{1/2}^{\text{DGP}} \in \{0.5, 1.0\}\) confirmed the ranking
 at MCSE \(0.020\) with a paired McNemar test
-\(p = 6.6 \times 10^{-17}\) at the highest-leverage cell.
+\(p = 6.6 \times 10^{-17}\) at the highest-leverage cell. The
+model-based test is mildly conservative, a property the companion
+calibration study characterises; a CR2 cluster-robust standard
+error (block S6) restores nominal size and recovers two to five
+percentage points of power without altering the ranking.
 
-\textbf{Conclusions.} A2 is the recommended default for the analysis
-of biomarker-treatment interactions in aggregated N-of-1 trials
+\textbf{Conclusions.} A2, reported with a cluster-robust standard
+error, is the recommended default for the analysis of
+biomarker-treatment interactions in aggregated N-of-1 trials
 under realistic carryover. A3 is a defensible fallback when the
 pharmacokinetic half-life is unknown but loses approximately
 30 percent of A2's advantage at larger \(N\). A1 (the
@@ -231,9 +218,11 @@ strict-RM-ANOVA analogue) is dominated across the entire grid.
 \section{Introduction}\label{introduction}
 
 \begin{bullets}
+
 \textbf{The joint sensitivity of biomarker-interaction power to
 analysis-side carryover mis-specification has not previously been
 characterised in the within-subject setting.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Residual drug effect after the on-drug phase degrades the
   biomarker-treatment interaction test.
@@ -242,10 +231,12 @@ characterised in the within-subject setting.}
 \item No systematic evaluation of this question exists for the
   within-subject biomarker-interaction setting.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
@@ -259,13 +250,16 @@ that loss, and can it be recovered by a better-chosen analysis
 specification? To the best of our knowledge, no systematic
 evaluation of this question exists for the within-subject
 biomarker-interaction setting.
+
 \end{orig}
 
 \begin{bullets}
+
 \textbf{The companion manuscript shows Architecture B loses
 40--60 percentage points of power under carryover while
 Architecture A loses only 8--13, but held the decay form and
 analysis specification fixed.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Hendrickson (2020) established the biomarker-interaction
   framework for aggregated N-of-1 trials with matched
@@ -276,16 +270,18 @@ analysis specification fixed.}
 \item Joint sensitivity to DGP-analyst mis-specification
   remained uncharacterised.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 The companion manuscript at
-`analysis/report/01-dgp-mean-moderation-vs-mvn/` establishes one
-part of the picture. Hendrickson [-@hendrickson2020] introduced
+\texttt{analysis/report/01-dgp-mean-moderation-vs-mvn/} establishes one
+part of the picture. Hendrickson\textsuperscript{\citeproc{ref-hendrickson2020}{2}} introduced
 the biomarker-by-treatment interaction framework for aggregated
 N-of-1 trials and reported power under a matched exponential decay
 model. The companion paper extended that work by comparing two
@@ -301,12 +297,15 @@ exponential and evaluated a single analysis-model specification
 throughout. Unfortunately, the joint sensitivity of the inference
 to mis-specification at both the data-generating and analyst
 layers remained uncharacterised.
+
 \end{orig}
 
 \begin{bullets}
+
 \textbf{The analyst must choose a decay-form assumption even when
 the true pharmacokinetic decay is unknown; which specification is
 most robust to that choice has not been evaluated.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The carryover decay form is specified at the design stage,
   often without precise pharmacokinetic information.
@@ -315,10 +314,12 @@ most robust to that choice has not been evaluated.}
 \item Which analysis-side specification holds up best under
   decay-form mis-specification is the central question.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
@@ -332,12 +333,15 @@ carryover entirely. We have not, to the best of our knowledge,
 seen a systematic evaluation of which analysis-side specification
 holds up best when the assumed decay form departs from truth, and
 it is that question we shall take up here.
+
 \end{orig}
 
 \begin{bullets}
+
 \textbf{The study crosses three DGP decay forms against three
 analysis specifications under both architectures to establish
 whether robustness rankings are architecture-dependent.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item DGP decay forms: linear, exponential, Weibull.
 \item Analysis specifications: A1 (binary), A2
@@ -346,10 +350,12 @@ whether robustness rankings are architecture-dependent.}
 \item Full grid run under both Architecture A and B to test
   whether rankings transfer across DGP mechanisms.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
@@ -361,17 +367,19 @@ exposure-weighted continuous predictor that commits to a specific
 decay form and half-life (A2, the current pmsimstats-ng default),
 and a lagged-treatment indicator that estimates carryover magnitude
 without positing a functional form (A3, following the classical
-crossover-trial approach surveyed by Jones and Kenward
-[-@jones2014crossover]). The full grid is run under both DGP
+crossover-trial approach surveyed by Jones and Kenward\textsuperscript{\citeproc{ref-jones2014crossover}{3}}). The full grid is run under both DGP
 architectures to establish whether robustness rankings are
 preserved across data-generating mechanisms or whether the
 preferred specification is architecture-dependent.
+
 \end{orig}
 
 \begin{bullets}
+
 \textbf{The study follows the ADEMP framework of Morris et al.
 (2019) and reports every performance measure with its Monte Carlo
 standard error.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item ADEMP structure: Aims, Data-generating mechanisms,
   Estimands, Methods, Performance measures.
@@ -380,31 +388,36 @@ standard error.}
 \item §3 design; §4 results; §5 practical implications for
   trialists.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 The study is organized and reported following the ADEMP framework
-of Morris, White, and Crowther [-@morris2019simulation], which
+of Morris, White, and Crowther\textsuperscript{\citeproc{ref-morris2019simulation}{1}}, which
 structures simulation studies around aims, data-generating
 mechanisms, estimands, methods, and performance measures. Each
 performance measure is reported per cell alongside its Monte Carlo
-standard error, as Morris et al. recommend. We proceed in §3
+standard error, as Morris et al.~recommend. We proceed in §3
 through the simulation design in ADEMP order; results are
 presented in §4; and §5 takes up the practical implications for
 trialists choosing among the three carryover specifications.
+
 \end{orig}
 
 \section{Simulation design}\label{simulation-design}
 
 \begin{bullets}
+
 \textbf{This section organises the study under ADEMP: DGP
 (§3.1), estimands (§3.2), methods (§3.3), factorial grid (§3.4),
 parameters and performance measures (§3.5), and computing
 environment (§3.6).}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item ADEMP provides the structural scaffold for the simulation
   design description.
@@ -413,29 +426,34 @@ environment (§3.6).}
 \item §3.4 defines the principal $3 \times 3$ factorial and its
   design rationale.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 This section organises the study under the ADEMP labels of
-Morris et al. [-@morris2019simulation]. We begin in §3.1 with the
+Morris et al.\textsuperscript{\citeproc{ref-morris2019simulation}{1}}. We begin in §3.1 with the
 data-generating mechanisms, then turn in §3.2 to the estimands,
 §3.3 to the methods (analysis-model specifications), §3.4 to the
 factorial grid, and §3.5 to the parameter settings and performance
 measures. Reproducibility metadata, including the R version, key
 package versions, the RNG seed strategy, and elapsed time, are
 recorded in §3.6 (Computing environment).
+
 \end{orig}
 
 \subsection{Aims}\label{aims}
 
 \begin{bullets}
+
 \textbf{The primary aim is to identify the most robust analysis
 specification across the DGP decay-form grid; the secondary aim
 is to verify that rankings transfer across architectures.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Primary: quantify the cost of carryover mis-specification
   and identify the most robust analysis strategy.
@@ -444,10 +462,12 @@ is to verify that rankings transfer across architectures.}
 \item Architecture-invariance would justify a single default
   recommendation regardless of assumed biomarker biology.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
@@ -460,14 +480,17 @@ data-generating-process architectures (mean moderation versus
 differential correlation), so that a practitioner can be
 reasonably confident that the recommendation does not depend on
 which biomarker biology is assumed.
+
 \end{orig}
 
 \subsection{Data-generating mechanisms}\label{data-generating-mechanisms}
 
 \begin{bullets}
+
 \textbf{Both architectures from the companion manuscript are
 retained, differing only in how the decay function $\phi$ enters
 the DGP.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Architecture A: $\phi$ enters the mean structure via
   effective exposure $D_{it}^{*}$.
@@ -477,24 +500,27 @@ the DGP.}
 \item Three decay forms for $\phi$ are evaluated: linear,
   exponential, and Weibull.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 We retain both DGP architectures from the companion manuscript.
-In Architecture A (direct mean moderation), the biomarker $B_i$
+In Architecture A (direct mean moderation), the biomarker \(B_i\)
 enters the mean structure as
-$Y_{it} = \mu_0 + \beta_1 D_{it}^{*}(1 + \beta_{bm} B_i)
-+ \epsilon_{it}$, where $D_{it}^{*}$ is the effective exposure at
-timepoint $t$ under the chosen decay form. In Architecture B
+\(Y_{it} = \mu_0 + \beta_1 D_{it}^{*}(1 + \beta_{bm} B_i)
++ \epsilon_{it}\), where \(D_{it}^{*}\) is the effective exposure at
+timepoint \(t\) under the chosen decay form. In Architecture B
 (MVN differential correlation), the biomarker and biological
 response are jointly drawn from a multivariate normal with
 treatment-state-dependent correlation
-$\text{Cor}(B_i, BR_{it}) = c_{bm} \cdot \phi(t_{sd})$, where
-$\phi$ is the decay form.
+\(\text{Cor}(B_i, BR_{it}) = c_{bm} \cdot \phi(t_{sd})\), where
+\(\phi\) is the decay form.
+
 \end{orig}
 
 In both architectures the decay function \(\phi : \mathbb{R}_+
@@ -510,9 +536,11 @@ each parameterised to match a common half-life \(t_{1/2}\):
 \]
 
 \begin{bullets}
+
 \textbf{The linear form is biologically implausible but
 pragmatically defensible when only a complete-washout time is
 known.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Residual effect reaches zero exactly at $t_{sd} = 2
   t_{1/2}$, unlike the exponential tail.
@@ -520,18 +548,21 @@ known.}
 \item Represents the analyst's assumption that carryover has
   fully cleared by a known time horizon.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
-Residual effect vanishes completely at $t_{sd} = 2 t_{1/2}$.
+Residual effect vanishes completely at \(t_{sd} = 2 t_{1/2}\).
 The linear form is biologically implausible for drugs with
 first-order elimination kinetics, but it represents a defensible
 pragmatic assumption when the only available information is that
-carryover has fully worn off by some specified time $X$.
+carryover has fully worn off by some specified time \(X\).
+
 \end{orig}
 
 \subsubsection{Exponential decay}\label{exponential-decay}
@@ -543,8 +574,10 @@ carryover has fully worn off by some specified time $X$.
 \]
 
 \begin{bullets}
+
 \textbf{The exponential form is the natural reference decay because
 it corresponds to first-order elimination kinetics.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Used throughout the companion manuscript and implemented in
   \texttt{implementations/tidyverse/R/functions.R}.
@@ -553,19 +586,22 @@ it corresponds to first-order elimination kinetics.}
 \item Retained as the reference against which linear and Weibull
   forms are compared.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 This is the form used throughout the companion manuscript and
-currently implemented in `implementations/tidyverse/R/functions.R`.
+currently implemented in \texttt{implementations/tidyverse/R/functions.R}.
 It corresponds to first-order elimination kinetics and is the
 default assumption in classical pharmacokinetics; we retain it
 here as the natural reference against which the linear and Weibull
 forms are compared.
+
 \end{orig}
 
 \subsubsection{Weibull decay}\label{weibull-decay}
@@ -577,8 +613,10 @@ forms are compared.
 \]
 
 \begin{bullets}
+
 \textbf{The Weibull shape parameter $k$ controls whether the
 elimination tail is heavier or lighter than exponential.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item $k < 1$: slower elimination with a prolonged
   low-concentration tail (evaluated at $k = 0.7$).
@@ -586,27 +624,32 @@ elimination tail is heavier or lighter than exponential.}
   active-transporter kinetics (evaluated at $k = 1.5$).
 \item $k = 1$ recovers the exponential form exactly.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
-A shape parameter $k$ governs whether the elimination tail is
-heavier ($k < 1$, slow elimination) or lighter ($k > 1$,
+A shape parameter \(k\) governs whether the elimination tail is
+heavier (\(k < 1\), slow elimination) or lighter (\(k > 1\),
 accelerated washout) than the exponential, which is recovered
-exactly at $k = 1$. We report results at $k = 0.7$, representing
-a drug with a prolonged low-concentration tail, and at $k = 1.5$,
+exactly at \(k = 1\). We report results at \(k = 0.7\), representing
+a drug with a prolonged low-concentration tail, and at \(k = 1.5\),
 which captures drugs with saturable clearance or active-transporter
 kinetics that clear more rapidly once the concentration falls below
 the saturation threshold.
+
 \end{orig}
 
 \begin{bullets}
+
 \textbf{All three decay forms are implemented via
 \texttt{carryover\_decay()} in the tidyverse collection, with
 exponential as the backward-compatible default.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item \texttt{carryover\_form} and \texttt{weibull\_shape} fields
   are plumbed through \texttt{apply\_carryover\_to\_component()},
@@ -618,25 +661,28 @@ exponential as the backward-compatible default.}
 \item Backward compatibility is preserved: absent
   \texttt{carryover\_form} defaults to exponential.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
-**Implementation note.** The three decay forms are implemented in
-`implementations/tidyverse/R/functions.R` via the
+\textbf{Implementation note.} The three decay forms are implemented in
+\texttt{implementations/tidyverse/R/functions.R} via the
 \texttt{carryover\_decay()} helper function, with a \texttt{carryover\_form} and
 \texttt{weibull\_shape} pair of \texttt{model\_param} fields plumbed through
 \texttt{apply\_carryover\_to\_component()}, \texttt{build\_correlation\_matrix()},
 and \texttt{build\_sigma\_matrix()}. Backward compatibility is preserved
 by defaulting to the exponential form when \texttt{carryover\_form} is
-absent. We note that the `implementations/original-extended/`
+absent. We note that the \texttt{implementations/original-extended/}
 collection has not been updated and supports only the exponential
 form; cross-validation across implementations is therefore
 limited to exponential cells, which is sufficient for pipeline
 verification but not for the full decay-form comparison.
+
 \end{orig}
 
 \subsection{Estimands}\label{estimands}
@@ -657,8 +703,10 @@ data-generating mechanisms:
 \end{itemize}
 
 \begin{bullets}
+
 \textbf{The two architectures yield non-commensurable estimands
 that are harmonised to a common calibrated effect-size scale.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Architecture A estimand: regression coefficient $\beta_{bm}$
   on centered biomarker $\times$ exposure product.
@@ -668,10 +716,12 @@ that are harmonised to a common calibrated effect-size scale.}
   response difference per SD biomarker at $t_{1/2} = 0$);
   derivation in \texttt{docs/19-mean-moderation-implementation-notes.tex}.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
@@ -679,17 +729,18 @@ The two estimands are not directly commensurable. To enable
 cross-architecture comparison of bias and power, we calibrate
 both architectures to a common population effect-size scale,
 defined as the expected difference in mean on-drug response per
-unit biomarker standard deviation at $t_{1/2} = 0$. The
+unit biomarker standard deviation at \(t_{1/2} = 0\). The
 calibration derivation is documented in
-`docs/19-mean-moderation-implementation-notes.tex`. Bias and
+\texttt{docs/19-mean-moderation-implementation-notes.tex}. Bias and
 empirical standard error in the Results section are reported on
 this calibrated scale; power and Type I error are reported on
 the native test-statistic scale.
 
 The null estimand for Type I error verification is
-$\beta_{bm} = 0$ under Architecture A and $c_{bm} = 0$ under
-Architecture B, each realised by the $c_{bm} = 0$ row of the
+\(\beta_{bm} = 0\) under Architecture A and \(c_{bm} = 0\) under
+Architecture B, each realised by the \(c_{bm} = 0\) row of the
 parameter grid.
+
 \end{orig}
 
 \subsection{Methods: analysis-model carryover specifications}\label{methods-analysis-model-carryover-specifications}
@@ -699,9 +750,11 @@ specifications. The three specifications differ in the drug
 exposure predictor \(X\):
 
 \begin{bullets}
+
 \textbf{All three specifications share a common \texttt{nlme::lme}
 formula and \texttt{corCAR1} residual structure; they differ only
 in the drug exposure predictor $X$.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Formula: \texttt{Sx \textasciitilde{} bm * X + t}, random
   intercept \texttt{\textasciitilde{}1 | ptID}.
@@ -710,13 +763,16 @@ in the drug exposure predictor $X$.}
 \item The three specifications (A1, A2, A3) differ only in how
   $X$ is constructed.
 \end{itemize}
+
 \end{bullets}
 
 \subsubsection{A1: binary-treatment (carryover ignored)}\label{a1-binary-treatment-carryover-ignored}
 
 \begin{bullets}
+
 \textbf{A1 uses the binary on-drug indicator and ignores carryover
 entirely, serving as the dominated reference specification.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item $X = D_{it}$: takes value 1 on-drug, 0 off-drug.
 \item Makes no attempt to model residual drug effect during
@@ -724,25 +780,30 @@ entirely, serving as the dominated reference specification.}
 \item Serves as the lower-power reference against which A2 and
   A3 are compared.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
-$X = D_{it}$, the on-drug indicator. This is the naive
+\(X = D_{it}\), the on-drug indicator. This is the naive
 specification that disregards any residual drug effect during
 washout; it serves as the reference against which the power cost
 of ignoring carryover is measured.
+
 \end{orig}
 
 \subsubsection{A2: exposure-weighted (matched-decay continuous predictor)}\label{a2-exposure-weighted-matched-decay-continuous-predictor}
 
 \begin{bullets}
+
 \textbf{A2 uses a continuous exposure-weighted predictor that
 commits to a specific decay form and half-life, and is the current
 pmsimstats-ng default.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item $X = \text{Dbc}_{it}$: decays off-drug according to the
   analyst's assumed form and half-life.
@@ -751,28 +812,33 @@ pmsimstats-ng default.}
 \item Sensitivity of A2 to assumed-versus-true mismatch is
   evaluated in Tier 2 block S2.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
-$X = \text{Dbc}_{it}$, the continuous exposure-decayed predictor
+\(X = \text{Dbc}_{it}\), the continuous exposure-decayed predictor
 constructed to match the analyst's assumed decay form and
 half-life. This is the current pmsimstats-ng default
 specification. When the analyst's assumed form coincides with the
 true DGP form the predictor is well-matched; when it does not,
 the predictor is mis-specified in a way that the Tier 2 block S2
 is designed to probe.
+
 \end{orig}
 
 \subsubsection{A3: lagged-treatment (estimated carryover term)}\label{a3-lagged-treatment-estimated-carryover-term}
 
 \begin{bullets}
+
 \textbf{A3 augments the binary indicator with a lagged-treatment
 term that estimates carryover magnitude without assuming a decay
 form.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item $L_{it} = D_{i,t-1}(1 - D_{it})$ marks off-drug timepoints
   immediately following on-drug timepoints.
@@ -781,28 +847,33 @@ form.}
 \item Follows the classical crossover-trial framework of Jones
   and Kenward [-@jones2014crossover].
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
-$X = D_{it}$ augmented with a lagged-treatment indicator
-$L_{it} = D_{i,t-1}(1 - D_{it})$ that marks off-drug timepoints
+\(X = D_{it}\) augmented with a lagged-treatment indicator
+\(L_{it} = D_{i,t-1}(1 - D_{it})\) that marks off-drug timepoints
 following an on-drug timepoint. The carryover magnitude is
 estimated from the data rather than assumed a priori, so the
 specification does not require the analyst to posit a functional
 decay form. This approach follows the classical crossover-trial
-framework surveyed in [@jones2014crossover].
+framework surveyed in\textsuperscript{\citeproc{ref-jones2014crossover}{3}}.
+
 \end{orig}
 
 \subsubsection{\texorpdfstring{Construction of \(D_{bc}\) and the role of the analyst's assumed half-life}{Construction of D\_\{bc\} and the role of the analyst's assumed half-life}}\label{construction-of-d_bc-and-the-role-of-the-analysts-assumed-half-life}
 
 \begin{bullets}
+
 \textbf{$D_{bc}$ halves every $\hat{t}_{1/2}$ weeks off-drug; the
 formula handed to \texttt{lme} is invariant to the analyst's
 half-life assumption.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item $D_{bc,it} = (1/2)^{t_{sd}/\hat{t}_{1/2}}$ at off-drug
   timepoints.
@@ -811,36 +882,39 @@ half-life assumption.}
 \item The half-life assumption is encoded in the predictor
   values, not in the formula.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 We begin with an observation that is easy to overlook in the
 formal model statement above: the analyst's assumed half-life
-$\hat{t}_{1/2}$ does not appear as a parameter in the `lme`
+\(\hat{t}_{1/2}\) does not appear as a parameter in the \texttt{lme}
 call. It enters the analysis at an earlier stage, during the
-construction of the $D_{bc}$ predictor column, and is
+construction of the \(D_{bc}\) predictor column, and is
 thereafter invisible to the model-fitting routine.
 
-At on-drug timepoints, $D_{bc,it} = 1$ regardless of the assumed
+At on-drug timepoints, \(D_{bc,it} = 1\) regardless of the assumed
 half-life. At off-drug timepoints, the predictor decays as a
-function of $t_{sd}$, the time in weeks since drug
+function of \(t_{sd}\), the time in weeks since drug
 discontinuation:
 
-$$
+\[
 D_{bc,it} \;=\; \exp\!\left(-\frac{\ln 2}{\hat{t}_{1/2}}
   \, t_{sd,it}\right)
   \;=\; \left(\tfrac{1}{2}\right)^{t_{sd,it}/\hat{t}_{1/2}}
-$$
+\]
 
-That is, $D_{bc}$ loses exactly half its value for every
-$\hat{t}_{1/2}$ weeks of time since discontinuation. The
+That is, \(D_{bc}\) loses exactly half its value for every
+\(\hat{t}_{1/2}\) weeks of time since discontinuation. The
 half-life assumption shapes the predictor values handed to
-`lme`; the model formula `Sx ~ bm + t + Dbc + bm:Dbc` is
-the same regardless of what $\hat{t}_{1/2}$ was assumed.
+\texttt{lme}; the model formula \texttt{Sx\ \textasciitilde{}\ bm\ +\ t\ +\ Dbc\ +\ bm:Dbc} is
+the same regardless of what \(\hat{t}_{1/2}\) was assumed.
+
 \end{orig}
 
 To illustrate, consider a participant in a stylized crossover
@@ -866,9 +940,11 @@ $t_{sd}$ (wk) & $\hat{t}_{1/2} = 0.5$ wk & $\hat{t}_{1/2} = 1.0$ wk (truth) & $\
 \end{table}
 
 \begin{bullets}
+
 \textbf{The analyst's assumed half-life shapes the $D_{bc}$
 predictor values handed to \texttt{lme} but is invisible to the
 model-fitting routine itself.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Under-assumed half-life: off-drug timepoints receive
   near-zero $D_{bc}$ and contribute almost nothing to the
@@ -880,38 +956,41 @@ model-fitting routine itself.}
   construction; S2 contrasts a continuously indexed model family
   against two half-life-free reference specifications.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
-When the analyst assumes $\hat{t}_{1/2} = 0.5$ weeks, the
-off-drug timepoints are assigned $D_{bc}$ values near zero by
+When the analyst assumes \(\hat{t}_{1/2} = 0.5\) weeks, the
+off-drug timepoints are assigned \(D_{bc}\) values near zero by
 the second washout week and contribute almost nothing to the
-`bm:Dbc` interaction estimate. When the analyst assumes
-$\hat{t}_{1/2} = 2.0$ weeks, those same timepoints retain
+\texttt{bm:Dbc} interaction estimate. When the analyst assumes
+\(\hat{t}_{1/2} = 2.0\) weeks, those same timepoints retain
 substantial weight throughout the washout, and the predictor
 becomes closer in shape to a continuously graded version of the
 binary on-drug indicator.
 
 Two consequences follow for interpreting the S2 sensitivity
 block. First, A2 is effectively a different model for each value
-of $\hat{t}_{1/2}$: the predictor values handed to `lme` change
+of \(\hat{t}_{1/2}\): the predictor values handed to \texttt{lme} change
 with the analyst's assumption, even though the formula is
 identical. Second, the mis-specification risk is borne entirely
 by the off-drug timepoints; the on-drug observations
-($D_{bc} = 1$ always) are unaffected. Specifications A1 and A3
-use the binary on-drug indicator $D_b$ and the lagged indicator
-$L$ respectively, neither of which involves a half-life
-parameter, so both are invariant to $\hat{t}_{1/2}$ by
+(\(D_{bc} = 1\) always) are unaffected. Specifications A1 and A3
+use the binary on-drug indicator \(D_b\) and the lagged indicator
+\(L\) respectively, neither of which involves a half-life
+parameter, so both are invariant to \(\hat{t}_{1/2}\) by
 construction. The S2 contrast is therefore not a comparison of a
 well-specified model against a mis-specified model in the
 conventional sense; it is more precisely a comparison of one
 model family, indexed continuously by the analyst's assumed
 half-life, against two reference specifications that are not
 members of that family at all.
+
 \end{orig}
 
 \subsection{Factorial grid}\label{factorial-grid}
@@ -962,9 +1041,11 @@ Replicates per cell & 500 (target); 50 for development \\
 }
 
 \begin{bullets}
+
 \textbf{Two anchor conditions in the parameter grid serve
 diagnostic roles: $c_{bm} = 0$ for Type I error and
 $t_{1/2} = 0$ for best-case power.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item $c_{bm} = 0$: null row for Type I error verification,
   targeting nominal 5\%.
@@ -973,19 +1054,22 @@ $t_{1/2} = 0$ for best-case power.}
 \item Non-zero $t_{1/2}$ rows directly quantify the power cost
   of carryover relative to the no-carryover reference.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
-The $c_{bm} = 0$ condition serves as the Type I error check,
-targeting the nominal 5% level. The $t_{1/2} = 0$ condition
+The \(c_{bm} = 0\) condition serves as the Type I error check,
+targeting the nominal 5\% level. The \(t_{1/2} = 0\) condition
 removes carryover entirely and provides a best-case power
-reference at each $(N, \text{design}, c_{bm})$ combination,
+reference at each \((N, \text{design}, c_{bm})\) combination,
 against which the power cost of non-zero carryover can be
 directly read off.
+
 \end{orig}
 
 \subsection{Performance measures}\label{performance-measures}
@@ -1027,9 +1111,11 @@ measures\textsuperscript{\citeproc{ref-morris2019simulation}{1}, Tables 5--6}:
   figures.
 \end{enumerate}
 
-\begin{claudecode}
+\begin{orig}
+
 \textbf{Eight Morris-style performance measures are reported per
 cell, each accompanied by its Monte Carlo standard error.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Power, Type I error, bias, empirical SE, coverage, MSE,
   non-convergence rate, and MC SE for each measure.
@@ -1037,12 +1123,15 @@ cell, each accompanied by its Monte Carlo standard error.}
   $\theta_{\text{true}} = -c_{bm} \cdot \sigma_{BR}$.
 \item MC SEs use the formulas of Morris et al. (2019, Table 6).
 \end{itemize}
-\end{claudecode}
+
+\end{orig}
 
 \begin{bullets}
+
 \textbf{$n_{sim} = 500$ is calibrated to keep MC SE on power
 below 0.022, with $n_{sim} = 50$ reserved for pipeline
 validation only.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Production run: $n_{sim} = 500$, MC SE
   $\leq 0.022$ at $p = 0.5$.
@@ -1050,27 +1139,32 @@ validation only.}
   $\approx 0.07$; pipeline validation only.
 \item All reported results derive from the production-scale run.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
-The replicate count $n_{sim} = 500$ is chosen so that the Monte
-Carlo standard error on power at $p = 0.5$ does not exceed 0.022
-($\sqrt{0.5 \cdot 0.5 / 500} \approx 0.022$). The development
-scale ($n_{sim} = 50$, MC SE $\approx 0.07$ at $p = 0.5$) is
+The replicate count \(n_{sim} = 500\) is chosen so that the Monte
+Carlo standard error on power at \(p = 0.5\) does not exceed 0.022
+(\(\sqrt{0.5 \cdot 0.5 / 500} \approx 0.022\)). The development
+scale (\(n_{sim} = 50\), MC SE \(\approx 0.07\) at \(p = 0.5\)) is
 used only for pipeline validation; all results reported in the
-Results section derive from the production run at $n_{sim} = 500$.
+Results section derive from the production run at \(n_{sim} = 500\).
+
 \end{orig}
 
 \subsection{Computing environment}\label{computing-environment}
 
 \begin{bullets}
+
 \textbf{The tidyverse collection is the only implementation
 supporting all three decay forms; common-random-number seeding
 enables paired contrasts across A1, A2, and A3.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item All three decay forms are supported only in
   \texttt{implementations/tidyverse/}; cross-implementation
@@ -1080,75 +1174,80 @@ enables paired contrasts across A1, A2, and A3.}
 \item Production run (540 cells, $n_{sim} = 500$): 128 minutes
   on eight cores; commit SHA \texttt{7018b59}, 2026-04-15.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 Simulations are orchestrated from
-`analysis/scripts/carryover-sensitivity/` and use
-`implementations/tidyverse/` as the primary implementation,
+\texttt{analysis/scripts/carryover-sensitivity/} and use
+\texttt{implementations/tidyverse/} as the primary implementation,
 which is the only collection in the repository that supports
 linear and Weibull decay forms. Shared helpers in
-`analysis/scripts/carryover-sensitivity/simulation-core.R`
+\texttt{analysis/scripts/carryover-sensitivity/simulation-core.R}
 define design presets (OL, CO, Hybrid, OLBDC), multi-path data
-generation, long-form preparation with `Db`, `Dbc`, and `L`
+generation, long-form preparation with \texttt{Db}, \texttt{Dbc}, and \texttt{L}
 columns, and the three analysis-specification fitters.
 
-**Software.** R 4.5.3 with `nlme` 3.1, `dplyr` 1.1, `tidyr` 1.3,
-`purrr` 1.0, `furrr` 0.3, `future` 1.34, `corpcor` 1.6, `MASS`
-7.3, `Matrix` 1.7, `tibble` 3.2, and `data.table` 1.16. The
-`implementations/tidyverse/` collection commit SHA at the time of
-the production run is recorded in each output `.rds` file.
+\textbf{Software.} R 4.5.3 with \texttt{nlme} 3.1, \texttt{dplyr} 1.1, \texttt{tidyr} 1.3,
+\texttt{purrr} 1.0, \texttt{furrr} 0.3, \texttt{future} 1.34, \texttt{corpcor} 1.6, \texttt{MASS}
+7.3, \texttt{Matrix} 1.7, \texttt{tibble} 3.2, and \texttt{data.table} 1.16. The
+\texttt{implementations/tidyverse/} collection commit SHA at the time of
+the production run is recorded in each output \texttt{.rds} file.
 
-**RNG seed strategy.** Each cell of the factorial grid is assigned
+\textbf{RNG seed strategy.} Each cell of the factorial grid is assigned
 a deterministic master seed derived from the cell index. Within a
 cell, the same simulated dataset is used to fit all three analysis
 specifications (common random numbers across A1, A2, and A3), so
-that the A2$-$A1 and A3$-$A1 contrasts are estimated with reduced
+that the A2\(-\)A1 and A3\(-\)A1 contrasts are estimated with reduced
 Monte Carlo variance relative to independent draws. Seeds are
 independent across cells. Replicate indices within a cell are
 seeded as \texttt{master + replicate\_index}, so that any subset of
 replicates can be re-derived without re-running the entire cell.
-The seed assignment is logged in the output `.rds` file alongside
+The seed assignment is logged in the output \texttt{.rds} file alongside
 the remaining reproducibility metadata.
 
-**Parallelism.** Parallel execution uses \texttt{furrr::future\_map} with
-the `multicore` backend. Sigma matrices are cached per unique
-(design, $t_{1/2}$, decay form) tuple before the replicate loop
+\textbf{Parallelism.} Parallel execution uses \texttt{furrr::future\_map} with
+the \texttt{multicore} backend. Sigma matrices are cached per unique
+(design, \(t_{1/2}\), decay form) tuple before the replicate loop
 begins, avoiding redundant matrix construction across workers.
 
-**Elapsed time.** The production run (500 replicates per cell,
+\textbf{Elapsed time.} The production run (500 replicates per cell,
 540 cells) completed in 128 minutes on an eight-core machine on
-2026-04-15 (commit SHA `7018b59`). The pipeline-validation
+2026-04-15 (commit SHA \texttt{7018b59}). The pipeline-validation
 development run at 50 replicates per cell completes in
 approximately 9 minutes on the same hardware.
 
-**Pre-registration and reproducibility.** The factorial grid was
+\textbf{Pre-registration and reproducibility.} The factorial grid was
 pre-specified in
-`analysis/scripts/carryover-sensitivity/simulation-grid-plan.md`
+\texttt{analysis/scripts/carryover-sensitivity/simulation-grid-plan.md}
 and committed before the production run was executed. The
 production run command is
-`Rscript analysis/scripts/carryover-sensitivity/01-run-factorial.R`;
+\texttt{Rscript\ analysis/scripts/carryover-sensitivity/01-run-factorial.R};
 the Tier 2 sensitivity blocks are produced by
-`Rscript analysis/scripts/carryover-sensitivity/04-run-sensitivity-blocks.R`.
-Each output `.rds` file records the script name, run timestamp,
+\texttt{Rscript\ analysis/scripts/carryover-sensitivity/04-run-sensitivity-blocks.R}.
+Each output \texttt{.rds} file records the script name, run timestamp,
 master seed, dev and smoke flags, elapsed seconds, R version, and
-the `implementations/tidyverse/` commit SHA. The `renv.lock` at
+the \texttt{implementations/tidyverse/} commit SHA. The \texttt{renv.lock} at
 the repository root pins all R-package versions. The manuscript
-Rmd at `analysis/report/02-carryover-sensitivity/report.Rmd` does
+Rmd at \texttt{analysis/report/02-carryover-sensitivity/report.Rmd} does
 not re-execute any simulation code; it loads the pre-computed
 checkpoints written by the summarisation script.
+
 \end{orig}
 
 \section{Results}\label{results}
 
 \begin{bullets}
+
 \textbf{All reported results derive from the 540-cell
 production-scale run at $n_{sim} = 500$; MC SE bounds apply
 throughout.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item MC SE on power $\leq 0.022$ at $p = 0.5$; differences
   smaller than the relevant MC SE should not be
@@ -1158,10 +1257,12 @@ throughout.}
 \item Non-convergence rates are reported per cell in the tables
   that follow.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
@@ -1169,24 +1270,27 @@ We begin with a few words on the precision and scope of the
 estimates that follow. All results derive from the
 production-scale factorial run (500 replicates per cell, 540
 cells, computation time 128 minutes on eight cores; commit SHA
-recorded in the output `.rds` metadata). Monte Carlo standard
+recorded in the output \texttt{.rds} metadata). Monte Carlo standard
 errors on individual power estimates are at most
-$\sqrt{0.5 \cdot 0.5 / 500} \approx 0.022$ at $p = 0.5$ and are
+\(\sqrt{0.5 \cdot 0.5 / 500} \approx 0.022\) at \(p = 0.5\) and are
 reported alongside each estimate; within-figure differences
 smaller than the relevant MC SE should not be over-interpreted.
 Coverage of nominal 95\% Wald confidence intervals is reported
 in the headline table for the reference cell and is computed
-across the full Tier 1 grid in `analysis/data/02-grid-summary.rds`
+across the full Tier 1 grid in \texttt{analysis/data/02-grid-summary.rds}
 for downstream use. Non-convergence rates per cell are reported
 in the tables below.
+
 \end{orig}
 
 \subsection{Headline performance table}\label{sec-headline}
 
 \begin{bullets}
+
 \textbf{The headline table provides the complete Morris-style
 performance profile for the reference cell across all three
 specifications and carryover levels.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Reference cell: Architecture B, exponential DGP, Hybrid
   design, $N = 70$, $c_{bm} = 0.45$.
@@ -1194,21 +1298,24 @@ specifications and carryover levels.}
 \item MC SEs are reported as $\pm$ beside each point estimate
   throughout.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
-Table \\ref{tab:headline} reports the Morris-style performance
+Table \ref{tab:headline} reports the Morris-style performance
 measures at the reference cell (Architecture B, exponential DGP,
-Hybrid design, $N = 70$, $c_{bm} = 0.45$) across the three
+Hybrid design, \(N = 70\), \(c_{bm} = 0.45\)) across the three
 analysis specifications and three carryover half-lives.
 Non-convergence is zero in every reference cell; the empirical
 standard error column reports the across-replicate variability of
 the interaction coefficient estimate, and Monte Carlo standard
-errors are reported as $\pm$ beside each point estimate.
+errors are reported as \(\pm\) beside each point estimate.
+
 \end{orig}
 
 \begin{table}
@@ -1249,9 +1356,11 @@ t1/2 & spec & Power (MC SE) & Bias (MC SE) & Empirical SE & Coverage (MC SE) & M
 \subsection{Matched-decay baseline}\label{matched-decay-baseline}
 
 \begin{bullets}
+
 \textbf{The matched-decay baseline confirms pipeline fidelity and
 shows a power decline from 0.988 at no carryover to 0.860 at
 $t_{1/2} = 1.0$ weeks.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Matched cell (exponential DGP, A2, Architecture B,
   $N = 70$, $c_{bm} = 0.45$, Hybrid): power
@@ -1261,27 +1370,30 @@ $t_{1/2} = 1.0$ weeks.}
 \item Consistent with companion manuscript's Architecture B
   result (0.82 at $t_{1/2} = 1.0$ weeks).
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 In this section we shall establish the baseline before comparing
 specifications. Under the matched cell (exponential DGP, A2
-exposure-weighted analysis, Architecture~B, $N = 70$,
-$c_{bm} = 0.45$, Hybrid design), power declines from
-$0.988 \pm 0.005$ at $t_{1/2} = 0$ to $0.948 \pm 0.010$ at
-$t_{1/2} = 0.5$ to $0.860 \pm 0.016$ at $t_{1/2} = 1.0$ weeks
-(point estimate $\pm$ Monte Carlo SE, $n_{sim} = 500$; MC SEs
-computed as $\sqrt{\hat{p}(1-\hat{p})/n_{sim}}$ per Morris et
-al. [-@morris2019simulation, Table 6]). All 500 replicates
-converged in the matched cell at every $t_{1/2}$. These values
-are consistent with the Architecture~B numbers from the companion
-manuscript (0.82 at $t_{1/2} = 1.0$), confirming that the
+exposure-weighted analysis, Architecture\textasciitilde B, \(N = 70\),
+\(c_{bm} = 0.45\), Hybrid design), power declines from
+\(0.988 \pm 0.005\) at \(t_{1/2} = 0\) to \(0.948 \pm 0.010\) at
+\(t_{1/2} = 0.5\) to \(0.860 \pm 0.016\) at \(t_{1/2} = 1.0\) weeks
+(point estimate \(\pm\) Monte Carlo SE, \(n_{sim} = 500\); MC SEs
+computed as \(\sqrt{\hat{p}(1-\hat{p})/n_{sim}}\) per Morris et
+al.\textsuperscript{\citeproc{ref-morris2019simulation}{1}, Table 6}). All 500 replicates
+converged in the matched cell at every \(t_{1/2}\). These values
+are consistent with the Architecture\textasciitilde B numbers from the companion
+manuscript (0.82 at \(t_{1/2} = 1.0\)), confirming that the
 simulation pipeline reproduces the baseline result and that the
 calibration is internally coherent.
+
 \end{orig}
 
 \subsection{Power by analysis specification}\label{power-by-analysis-specification}
@@ -1291,9 +1403,11 @@ calibration is internally coherent.
 \end{figure}
 
 \begin{bullets}
+
 \textbf{Specifications diverge progressively with carryover
 half-life; A2's advantage over A1 and A3 emerges at
 $t_{1/2} = 0.5$ weeks and grows at $t_{1/2} = 1.0$ weeks.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item All three specifications are near-identical at
   $t_{1/2} = 0$; divergence is proportional to carryover
@@ -1303,22 +1417,25 @@ $t_{1/2} = 0.5$ weeks and grows at $t_{1/2} = 1.0$ weeks.}
 \item A2's advantage is consistent across Hybrid and OL+BDC
   design strata, not an artefact of the reference cell.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 The three analysis specifications yield near-identical power at
-$t_{1/2} = 0$, where there is no carryover to model, and diverge
+\(t_{1/2} = 0\), where there is no carryover to model, and diverge
 progressively as carryover half-life increases. The matched
 specification A2 retains a modest but consistent advantage under
-Architecture~B and the Hybrid and OL+BDC designs; A1 and A3 are
+Architecture\textasciitilde B and the Hybrid and OL+BDC designs; A1 and A3 are
 effectively indistinguishable across the exponential-DGP grid.
 The figure makes clear that the A2 advantage is not an artefact
-of the reference cell: it emerges at $t_{1/2} = 0.5$ weeks and
-grows through $t_{1/2} = 1.0$ weeks in each design stratum.
+of the reference cell: it emerges at \(t_{1/2} = 0.5\) weeks and
+grows through \(t_{1/2} = 1.0\) weeks in each design stratum.
+
 \end{orig}
 
 \subsection{Decay-form mis-specification}\label{decay-form-mis-specification}
@@ -1328,9 +1445,11 @@ grows through $t_{1/2} = 1.0$ weeks in each design stratum.
 \end{figure}
 
 \begin{bullets}
+
 \textbf{The heatmap exposes two directions of mis-specification:
 wrong analysis specification given the true DGP, and wrong DGP
 assumed by the analyst.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Matched reference: exponential DGP $\times$ A2 analysis,
   power $0.860 \pm 0.016$.
@@ -1339,22 +1458,25 @@ assumed by the analyst.}
 \item A2-column off-diagonal cells: cost of assuming exponential
   when the true DGP is linear or Weibull.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 The heatmap cell at the intersection of the exponential DGP row
 and the A2 analysis column is the matched reference
-(power $0.860 \pm 0.016$). Cells in the same row but other
+(power \(0.860 \pm 0.016\)). Cells in the same row but other
 columns quantify the power penalty of analysing under the wrong
 specification when the DGP is exponential; cells in the A2 column
 but other rows quantify the cost of assuming exponential decay
 in the analysis when the true DGP is linear or Weibull. The
 Discussion takes up the practical interpretation of both
 off-diagonal directions. This is taken up further in §5.2.
+
 \end{orig}
 
 \subsection{Lasagna view of the full factorial}\label{lasagna-view-of-the-full-factorial}
@@ -1370,41 +1492,55 @@ off-diagonal directions. This is taken up further in §5.2.
 \end{figure}
 
 \begin{bullets}
-\textbf{Type I error is well-controlled: mean 0.039 across 540
-null cells, with no systematic inflation by specification or
-architecture.}
+
+\textbf{Type I error is conservative, not inflated: mean 0.039
+across 540 null cells, the working-covariance conservatism the
+companion study documents rather than ideal control.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Mean empirical Type I error: 0.039 (below nominal 0.05).
-\item Cell-level maximum 0.084 is within the expected range
-  given 540-cell multiplicity.
-\item No systematic inflation for any analysis specification or
-  DGP architecture.
+\item Mean empirical Type I error 0.039, below nominal 0.05: the
+  conservative side of the documented mis-calibration.
+\item Cell-level maximum 0.084 is within the 540-cell
+  multiplicity range; no specification or architecture inflates
+  the rate.
+\item The conservatism is removed by a cluster-robust standard
+  error (block S6) and leaves the comparison intact.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 Mean empirical Type I error across all 540 null cells is 0.039,
 below the nominal 0.05 level. The cell-level maximum is 0.084,
-which falls within the binomial Monte Carlo 95% interval
-$[0.033, 0.073]$ for nominal 0.05 at $n_{sim} = 500$ once the
+which falls within the binomial Monte Carlo 95\% interval
+\([0.033, 0.073]\) for nominal 0.05 at \(n_{sim} = 500\) once the
 multiplicity across 540 cells is acknowledged (the expected
 maximum among 540 independent binomial draws of size 500 at
-$p = 0.05$ exceeds 0.07). No systematic inflation is apparent
-for any analysis specification or DGP architecture, a result
-consistent with well-behaved reference distributions for the
-$\text{bm} \times \text{treatment}$ interaction test across all
-three specifications.
+\(p = 0.05\) exceeds 0.07). The shortfall below nominal is not
+sampling slack but the conservatism of the model-based
+interaction test that the companion calibration study\textsuperscript{\citeproc{ref-pmsimstats_calibration2026}{4}} traces to the corCAR1 working
+covariance: its standard error is over-estimated by six to ten
+percent and the realised rejection rate falls correspondingly.
+The conservatism is uniform across specifications and
+architectures, which is why it leaves the comparison intact;
+sensitivity block S6 confirms that a CR2 cluster-robust standard
+error restores the rejection rate to nominal without disturbing
+the specification ranking.
+
 \end{orig}
 
 \subsection{Sensitivity analyses}\label{sensitivity-analyses}
 
 \begin{bullets}
+
 \textbf{Five Tier 2 marginal sensitivity blocks probe single-axis
 perturbations around the Tier 1 reference configuration.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Reference configuration: Architecture B, Hybrid, $N = 70$,
   $c_{bm} = 0.45$, exponential DGP, $t_{1/2} = 1.0$ weeks.
@@ -1413,10 +1549,12 @@ perturbations around the Tier 1 reference configuration.}
 \item Blocks are not pooled with Tier 1 or with each other;
   design rationale in \texttt{simulation-grid-plan.md}.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
@@ -1424,13 +1562,14 @@ Before going into the individual blocks, we note the general
 design. Five Tier 2 marginal sensitivity blocks probe the
 robustness of the Tier 1 ranking to single-axis perturbations
 around the reference configuration (Architecture B, Hybrid
-design, $N = 70$, $c_{bm} = 0.45$, exponential DGP,
-$t_{1/2} = 1.0$ weeks). Each block varies one axis and holds the
+design, \(N = 70\), \(c_{bm} = 0.45\), exponential DGP,
+\(t_{1/2} = 1.0\) weeks). Each block varies one axis and holds the
 others at their reference values. Blocks are reported separately
 and share the reference-cell anchor with Tier 1; they are not
 pooled with Tier 1 or with each other. The design rationale is
 documented in
-`analysis/scripts/carryover-sensitivity/simulation-grid-plan.md`.
+\texttt{analysis/scripts/carryover-sensitivity/simulation-grid-plan.md}.
+
 \end{orig}
 
 \subsubsection{S1: within-factor autocorrelation}\label{s1-within-factor-autocorrelation}
@@ -1440,9 +1579,11 @@ documented in
 \end{figure}
 
 \begin{bullets}
+
 \textbf{Autocorrelation lifts all three specifications
 proportionally; the A2 advantage of approximately 0.06 is
 preserved at every $\rho$ level.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Power increases monotonically with $\rho$ for all
   specifications.
@@ -1451,20 +1592,22 @@ preserved at every $\rho$ level.}
 \item Autocorrelation and carryover act additively on the
   specification ranking; no multiplicative interaction.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
-All three specifications gain power monotonically with $\rho$.
-At $\rho = 0.5$, A2 power is $0.798 \pm 0.018$ versus A1
-$0.738 \pm 0.020$ and A3 $0.738 \pm 0.020$; at $\rho = 0.9$,
-A2 reaches $0.956 \pm 0.009$ versus A1 $0.906 \pm 0.013$ and
-A3 $0.910 \pm 0.013$ (point estimate $\pm$ MC SE,
-$n_{sim} = 500$). Contrary to the prior expectation that A2
-would be the most $\rho$-sensitive specification, all three
+All three specifications gain power monotonically with \(\rho\).
+At \(\rho = 0.5\), A2 power is \(0.798 \pm 0.018\) versus A1
+\(0.738 \pm 0.020\) and A3 \(0.738 \pm 0.020\); at \(\rho = 0.9\),
+A2 reaches \(0.956 \pm 0.009\) versus A1 \(0.906 \pm 0.013\) and
+A3 \(0.910 \pm 0.013\) (point estimate \(\pm\) MC SE,
+\(n_{sim} = 500\)). Contrary to the prior expectation that A2
+would be the most \(\rho\)-sensitive specification, all three
 exhibit comparable relative gains across the explored range.
 The A2 advantage over A1 and A3, approximately 0.06 in absolute
 power throughout, is preserved at every AR(1) level. It appears
@@ -1472,6 +1615,7 @@ that the interaction between autocorrelation strength and
 analysis specification is additive rather than multiplicative:
 stronger serial correlation lifts every specification by
 roughly the same amount.
+
 \end{orig}
 
 \subsubsection{S2: analyst-truth half-life mismatch}\label{s2-analyst-truth-half-life-mismatch}
@@ -1481,9 +1625,11 @@ roughly the same amount.
 \end{figure}
 
 \begin{bullets}
+
 \textbf{A2 retains its advantage over A1 and A3 even when the
 analyst's assumed half-life departs from the true value by a
 factor of four.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item A2 power ranges from 0.766 to 0.964 across eight S2 cells;
   A1 and A3 average 0.840 each (invariant by construction).
@@ -1492,17 +1638,19 @@ factor of four.}
 \item A2 is a defensible default when the pharmacokinetic
   half-life is known only approximately.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 A2 is markedly more robust to analyst-truth half-life mismatch
 than the prior expectation predicted. Across the eight S2 cells
-(DGP $t_{1/2} \in \{0.5, 1.0\}$ weeks crossed with analyst-assumed
-$t_{1/2} \in \{0.25, 0.5, 1.0, 2.0\}$ weeks), A2 averages 0.868,
+(DGP \(t_{1/2} \in \{0.5, 1.0\}\) weeks crossed with analyst-assumed
+\(t_{1/2} \in \{0.25, 0.5, 1.0, 2.0\}\) weeks), A2 averages 0.868,
 ranging from 0.766 (DGP 1.0 weeks analysed at 0.25 weeks) to
 0.964 (DGP 0.5 weeks analysed at 0.25 weeks); per-cell MC SE
 ranges from 0.008 to 0.019. A1 and A3 are invariant to the
@@ -1515,6 +1663,7 @@ A1 and A3 at either DGP half-life. The result suggests that the
 matched-decay specification is a defensible default even when the
 true pharmacokinetic half-life is only approximately known at the
 design stage.
+
 \end{orig}
 
 \subsubsection{S3: dropout}\label{s3-dropout}
@@ -1524,9 +1673,11 @@ design stage.
 \end{figure}
 
 \begin{bullets}
+
 \textbf{A2's advantage narrows under heavy dropout because its
 signal source -- the exposure-weighted off-drug contrast -- is
 eroded by censoring.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item A2$-$A1 gap: $\approx 0.10$ at dropout 0, declining to
   $\approx 0.03$ at MCAR rate 0.30.
@@ -1535,29 +1686,32 @@ eroded by censoring.}
 \item A2 advantage is preserved at low-to-moderate dropout
   (rate $\leq 0.20$).
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 All three specifications lose power monotonically with dropout
-rate. The MCAR baseline ($N = 70$, dropout = 0) gives A1
-$0.764 \pm 0.019$, A2 $0.866 \pm 0.015$, A3 $0.764 \pm 0.019$;
-at MCAR rate 0.30 these collapse to A1 $0.122 \pm 0.015$, A2
-$0.148 \pm 0.016$, A3 $0.124 \pm 0.015$. A2's advantage narrows
-under heavy dropout: the absolute A2$-$A1 gap is approximately
+rate. The MCAR baseline (\(N = 70\), dropout = 0) gives A1
+\(0.764 \pm 0.019\), A2 \(0.866 \pm 0.015\), A3 \(0.764 \pm 0.019\);
+at MCAR rate 0.30 these collapse to A1 \(0.122 \pm 0.015\), A2
+\(0.148 \pm 0.016\), A3 \(0.124 \pm 0.015\). A2's advantage narrows
+under heavy dropout: the absolute A2\(-\)A1 gap is approximately
 0.10 at zero dropout, 0.07 at rate 0.10, 0.04 at rate 0.20, and
 0.03 at rate 0.30 under MCAR. Under MAR with the same marginal
-rate the gap narrows further at the highest rate (A2$-$A1
-$\approx 0.004$ at rate 0.30 MAR). The pattern is consistent
+rate the gap narrows further at the highest rate (A2\(-\)A1
+\(\approx 0.004\) at rate 0.30 MAR). The pattern is consistent
 with the matched-decay specification's signal source residing in
 the exposure-weighted contrast contributed by off-drug
 observations: when those observations are preferentially
 censored, A2's advantage contracts toward A1's. At
-low-to-moderate dropout (rate $\leq 0.20$) the A2 advantage is
+low-to-moderate dropout (rate \(\leq 0.20\)) the A2 advantage is
 preserved.
+
 \end{orig}
 
 \subsubsection{S4: biomarker-moderation effect-size curve}\label{s4-biomarker-moderation-effect-size-curve}
@@ -1567,8 +1721,10 @@ preserved.
 \end{figure}
 
 \begin{bullets}
+
 \textbf{A2's advantage is largest at intermediate effect sizes
 and shrinks toward ceiling as $c_{bm}$ increases.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item A2$-$A1 advantage peaks at $+0.102$ absolute at
   $c_{bm} = 0.45$, declining to $+0.042$ at $c_{bm} = 0.60$.
@@ -1577,28 +1733,31 @@ and shrinks toward ceiling as $c_{bm}$ increases.}
 \item The A2 advantage is most practically consequential when
   targeting moderate biomarker-treatment interactions.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 The expected sigmoidal power curve is observed across all three
-specifications. At $c_{bm} = 0$, empirical Type I error is below
-the nominal level at $0.026 \pm 0.007$ (A1), $0.028 \pm 0.007$
-(A2), and $0.030 \pm 0.008$ (A3); the conservative behaviour is
+specifications. At \(c_{bm} = 0\), empirical Type I error is below
+the nominal level at \(0.026 \pm 0.007\) (A1), \(0.028 \pm 0.007\)
+(A2), and \(0.030 \pm 0.008\) (A3); the conservative behaviour is
 consistent with the AR(1) reference distribution at moderate
 sample sizes. Power rises through the mid-range and saturates at
-$c_{bm} \geq 0.45$: at $c_{bm} = 0.6$, A1 reaches
-$0.916 \pm 0.012$, A2 $0.958 \pm 0.009$, and A3
-$0.916 \pm 0.012$. The A2 advantage over A1 is largest at
-intermediate effect sizes, $+0.082$ absolute at $c_{bm} = 0.30$
-($0.444$ versus $0.362$) and $+0.102$ at $c_{bm} = 0.45$
-($0.820$ versus $0.718$), shrinking to $+0.042$ at $c_{bm} = 0.60$
+\(c_{bm} \geq 0.45\): at \(c_{bm} = 0.6\), A1 reaches
+\(0.916 \pm 0.012\), A2 \(0.958 \pm 0.009\), and A3
+\(0.916 \pm 0.012\). The A2 advantage over A1 is largest at
+intermediate effect sizes, \(+0.082\) absolute at \(c_{bm} = 0.30\)
+(\(0.444\) versus \(0.362\)) and \(+0.102\) at \(c_{bm} = 0.45\)
+(\(0.820\) versus \(0.718\)), shrinking to \(+0.042\) at \(c_{bm} = 0.60\)
 where all specifications approach ceiling. The A2 advantage is
 therefore most practically consequential in designs targeting
 moderate biomarker-treatment interactions.
+
 \end{orig}
 
 \subsubsection{S5: autocorrelation by carryover (exploratory)}\label{s5-autocorrelation-by-carryover-exploratory}
@@ -1608,9 +1767,11 @@ moderate biomarker-treatment interactions.
 \end{figure}
 
 \begin{bullets}
+
 \textbf{The A2 advantage of $\approx 0.096$ is constant across
 the $\rho \times t_{1/2}$ space, confirming additive rather than
 interactive effects.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item A2$-$A1 = 0.096 at both $\rho = 0.5$ and $\rho = 0.8$
   when $t_{1/2} = 1.0$ weeks.
@@ -1620,32 +1781,37 @@ interactive effects.}
   the Tier 1 ranking is preserved across the $\rho$-by-$t_{1/2}$
   grid.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
-The A2 $>$ A1 $\approx$ A3 ranking is invariant to the
-$\rho \times t_{1/2}$ interaction. At $\rho = 0.5$,
-$t_{1/2} = 1.0$ weeks, A2 $-$ A1 = 0.096 (A2 $0.778 \pm 0.019$,
-A1 $0.682 \pm 0.021$); at $\rho = 0.8$, $t_{1/2} = 1.0$ weeks,
-A2 $-$ A1 = 0.096 (A2 $0.910 \pm 0.013$, A1 $0.814 \pm 0.017$).
+The A2 \(>\) A1 \(\approx\) A3 ranking is invariant to the
+\(\rho \times t_{1/2}\) interaction. At \(\rho = 0.5\),
+\(t_{1/2} = 1.0\) weeks, A2 \(-\) A1 = 0.096 (A2 \(0.778 \pm 0.019\),
+A1 \(0.682 \pm 0.021\)); at \(\rho = 0.8\), \(t_{1/2} = 1.0\) weeks,
+A2 \(-\) A1 = 0.096 (A2 \(0.910 \pm 0.013\), A1 \(0.814 \pm 0.017\)).
 The absolute A2 advantage is constant across the
-$\rho \times t_{1/2}$ space, indicating that autocorrelation and
+\(\rho \times t_{1/2}\) space, indicating that autocorrelation and
 carryover strength act additively on the specification ranking
 rather than interactively. Block S5 therefore functions as a
 methodological reassurance: the Tier 1 ranking is preserved at
-every level of $\rho$ and $t_{1/2}$ in the explored grid.
+every level of \(\rho\) and \(t_{1/2}\) in the explored grid.
+
 \end{orig}
 
 \subsection{High-precision rerun confirmation}\label{high-precision-rerun-confirmation}
 
 \begin{bullets}
+
 \textbf{The high-precision rerun confirms the Tier 1 A2 $>$ A1
 ranking at MC SE 0.020 with paired McNemar $p = 6.6 \times
 10^{-17}$ at the highest-leverage cell.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item 24-cell rerun (600 reps/cell, OL+BDC); 100\% convergence;
   MC SE $\approx 0.020$.
@@ -1654,24 +1820,26 @@ ranking at MC SE 0.020 with paired McNemar $p = 6.6 \times
 \item A3 recovery of the A2$-$A1 gap is uneven: 74\% at
   $N = 35$, $t_{1/2} = 1.0$ weeks; 48\%--57\% at larger $N$.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 We endeavored to provide an independent, higher-resolution
 confirmation of the Tier 1 ranking. A high-precision rerun at
 600 replicates per cell covered a 24-cell expansion (analysis
-specification $\in \{$A1, A2, A3$\} \times c_{bm} \in
+specification \(\in \{\)A1, A2, A3\(\} \times c_{bm} \in
 \{0, 0.45\} \times N \in \{35, 70\} \times
-t_{1/2}^{\text{DGP}} \in \{0.5, 1.0\}$ weeks, OL+BDC design),
-executed using 8-core `parallel::mclapply`. Wall-clock time was
-436 seconds; convergence was 100\% across all 14{,}400 fits.
+t_{1/2}^{\text{DGP}} \in \{0.5, 1.0\}\) weeks, OL+BDC design),
+executed using 8-core \texttt{parallel::mclapply}. Wall-clock time was
+436 seconds; convergence was 100\% across all 14\{,\}400 fits.
 Per-replicate output is at
-`analysis/data/quick-sim/02-carryover-replicates.rds`; the
-Morris ADEMP cell-level summary is at `02-carryover-summary.txt`.
+\texttt{analysis/data/quick-sim/02-carryover-replicates.rds}; the
+Morris ADEMP cell-level summary is at \texttt{02-carryover-summary.txt}.
 Cell MC SE on power is approximately 0.020 in the middle of the
 range. The rerun adds independent confirmation of the Tier 1
 ranking by exploiting within-replicate correlation among
@@ -1679,51 +1847,159 @@ specifications via paired McNemar tests on the common simulated
 datasets.
 
 Type I error across the twelve null cells of the rerun fell in
-$[0.003, 0.053]$, so all three specifications hold nominal alpha
-at the explored $N$ and DGP half-life combinations, in agreement
+\([0.003, 0.053]\), so all three specifications hold nominal alpha
+at the explored \(N\) and DGP half-life combinations, in agreement
 with the Tier 1 result in the preceding section.
 
 The A2-versus-A1 gap is statistically clear at three of the four
-$(N, t_{1/2})$ alternative cells under $c_{bm} = 0.45$. The
-binding cell is at $t_{1/2}^{\text{DGP}} = 1.0$ weeks: at
-$N = 35$, $\Delta_{\text{A2-A1}} = +5.7$ percentage points
-($0.400 \to 0.457$), McNemar $p = 1.2 \times 10^{-4}$; at
-$N = 70$, the gap widens to $+13.7$ percentage points
-($0.737 \to 0.873$), McNemar $p = 6.6 \times 10^{-17}$. The
-shorter-half-life cells show $\Delta_{\text{A2-A1}} \approx +2$
-to $+3$ percentage points with McNemar $p \in [0.004, 0.015]$,
+\((N, t_{1/2})\) alternative cells under \(c_{bm} = 0.45\). The
+binding cell is at \(t_{1/2}^{\text{DGP}} = 1.0\) weeks: at
+\(N = 35\), \(\Delta_{\text{A2-A1}} = +5.7\) percentage points
+(\(0.400 \to 0.457\)), McNemar \(p = 1.2 \times 10^{-4}\); at
+\(N = 70\), the gap widens to \(+13.7\) percentage points
+(\(0.737 \to 0.873\)), McNemar \(p = 6.6 \times 10^{-17}\). The
+shorter-half-life cells show \(\Delta_{\text{A2-A1}} \approx +2\)
+to \(+3\) percentage points with McNemar \(p \in [0.004, 0.015]\),
 a small but statistically resolvable advantage; it is reduced
-because at $t_{1/2}^{\text{DGP}} = 0.5$ weeks the carryover
+because at \(t_{1/2}^{\text{DGP}} = 0.5\) weeks the carryover
 decays quickly enough that the binary on-drug A1 specification
 already captures most of the structure that A2 is designed to
 recover.
 
 A3's recovery of the A2-versus-A1 gap is uneven across the
-rerun grid. Only the small-$N$ short-half-life cell ($N = 35$,
-$t_{1/2}^{\text{DGP}} = 0.5$) reaches and slightly overshoots
+rerun grid. Only the small-\(N\) short-half-life cell (\(N = 35\),
+\(t_{1/2}^{\text{DGP}} = 0.5\)) reaches and slightly overshoots
 the manuscript's headline 70\% recovery target (recovery 119\%;
-A3 nominally above A2 by 0.5 percentage points). At $N = 35$,
-$t_{1/2}^{\text{DGP}} = 1.0$ weeks, recovery is 74\%; the
-larger-$N$ cells fall to 57\% and 48\%. Paired McNemar on A2
+A3 nominally above A2 by 0.5 percentage points). At \(N = 35\),
+\(t_{1/2}^{\text{DGP}} = 1.0\) weeks, recovery is 74\%; the
+larger-\(N\) cells fall to 57\% and 48\%. Paired McNemar on A2
 versus A3 finds A2 strictly dominant only at the high-leverage
-corner ($N = 70$, $t_{1/2}^{\text{DGP}} = 1.0$ weeks,
-$\Delta = +7.2$ percentage points, $p = 1.2 \times 10^{-7}$);
+corner (\(N = 70\), \(t_{1/2}^{\text{DGP}} = 1.0\) weeks,
+\(\Delta = +7.2\) percentage points, \(p = 1.2 \times 10^{-7}\));
 in the other three cells the paired difference lies between
-$-0.5$ and $+1.5$ percentage points with McNemar $p \geq 0.18$,
+\(-0.5\) and \(+1.5\) percentage points with McNemar \(p \geq 0.18\),
 and the two specifications are operationally tied at this
 resolution. Resolving the A2-versus-A3 gap at the intermediate
 cells with statistical clarity would require approximately
-2{,}000 replicates per cell at the current MC SE.
+2\{,\}000 replicates per cell at the current MC SE.
 
 The substantive implication, carried into the Discussion, is
-that the summary statement 'A2 dominates A1 and A3 captures
+that the summary statement `A2 dominates A1 and A3 captures
 roughly 70\% of the gap' is correct in spirit at the
-prazosin-calibrated reference cell ($N = 35$,
-$t_{1/2}^{\text{DGP}} = 1.0$ weeks), but the A3-as-default
-heuristic is supported only at small $N$ and short half-life.
+prazosin-calibrated reference cell (\(N = 35\),
+\(t_{1/2}^{\text{DGP}} = 1.0\) weeks), but the A3-as-default
+heuristic is supported only at small \(N\) and short half-life.
 The production-grade recommendation in the Discussion reports
 the recovery percentages across the full
-$(N, t_{1/2}^{\text{DGP}})$ grid.
+\((N, t_{1/2}^{\text{DGP}})\) grid.
+
+\end{orig}
+
+\subsection{Sensitivity block S6: cluster-robust recalibration}\label{sensitivity-block-s6-cluster-robust-recalibration}
+
+\begin{bullets}
+
+\textbf{Cluster-robust recalibration recovers the power the conservative model-based test forfeits and preserves the specification ranking in the information-rich cells, while its precision cost dominates under heavy dropout.}
+
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item The companion calibration study shows the model-based interaction test is conservative; this block re-fits all three specifications under both the model-based and a CR2 cluster-robust standard error at the reference cell and four stress cells.
+\item In the information-rich cells CR2 restores calibration ($\kappa \to 1$) and recovers two to five points of power while preserving the A2 $>$ A1, A3 ranking.
+\item CR2 spends precision (Satterthwaite df falls from $\approx 480$ to $\approx 23$ to $\approx 5$); under heavy dropout the conservatism vanishes, CR2 turns mildly anti-conservative, and recalibration is moot because power has collapsed.
+\end{itemize}
+
+\end{bullets}
+
+\begin{rgt}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+\end{rgt}
+
+\begin{orig}
+The companion calibration study\textsuperscript{\citeproc{ref-pmsimstats_calibration2026}{4}} establishes
+that the model-based Wald test of the interaction in the lme model with a
+corCAR1 residual is conservative: at the reference cell its standard error
+is over-estimated by six to ten percent, its realised type-I error sits
+near 0.03, and the conservatism is asymptotic, removed by a CR2
+bias-reduced cluster-robust standard error. Two consequences bear on the
+present study, which evaluates that same model-based test. The mean null
+rejection rate reported above, 0.039, is not merely good control but this
+conservatism surfacing across the grid; and the absolute power figures
+throughout are correspondingly mild under-statements. This block re-fits
+all three specifications under both the model-based test and the CR2
+cluster-robust test, clustered on participant with Satterthwaite degrees
+of freedom, at the reference cell and four stress cells (Table
+\ref{tab:tab-s6}), to ask whether recalibration disturbs the
+specification ranking and what it costs.
+
+\end{orig}
+
+\begin{table}
+
+\caption{\label{tab:tab-s6}Cluster-robust recalibration of the exposure-weighted
+    specification A2 at the reference cell and four stress cells
+    (500 replicates, $c_{bm} = 0.45$, Architecture B). $\kappa$ is the
+    ratio of the mean standard error to the empirical standard
+    deviation of the interaction estimate; a value above one is a
+    conservative test. The A2$-$A1 columns give the power gap between
+    the two specifications under each inference, a check that
+    recalibration preserves the ranking. CR2 df is the mean
+    Satterthwaite degrees of freedom for the cluster-robust test; the
+    model-based test carries roughly 480. Computed with the
+    \texttt{clubSandwich} package; see the companion calibration study
+    for the mechanism.}
+\centering
+\begin{tabular}[t]{llllllll}
+\toprule
+Cell & $\kappa$ model & $\kappa$ CR2 & Power model & Power CR2 & A2$-$A1 model & A2$-$A1 CR2 & CR2 df\\
+\midrule
+Reference, $N=70$ & 1.15 & 0.99 & 0.829 & 0.863 & +0.080 & +0.092 & 23\\
+Small $N=35$ & 1.13 & 0.96 & 0.558 & 0.590 & +0.066 & +0.086 & 12\\
+High autocorr, $\rho=0.9$ & 1.26 & 0.94 & 0.954 & 0.980 & +0.052 & +0.032 & 23\\
+Half-life mis-spec & 1.14 & 1.00 & 0.759 & 0.795 & +0.010 & +0.024 & 23\\
+30\% MCAR dropout & 0.99 & 0.85 & 0.148 & 0.126 & +0.010 & +0.010 & 5\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{orig}
+At the reference cell and the information-rich stress cells the result
+matches the companion study. The model-based standard-error ratio
+\(\kappa\) runs from 1.07 to 1.26 (Table \ref{tab:tab-s6}), the documented
+conservatism; the CR2 ratio is restored to between 0.93 and 1.01; and the
+correctly-sized test recovers two to five percentage points of power. The
+A2 advantage is preserved throughout: the A2-minus-A1 gap is held or
+slightly widened under recalibration, from \(+0.080\) to \(+0.092\) at the
+reference cell, \(+0.066\) to \(+0.086\) at \(N = 35\), and \(+0.052\) to
+\(+0.032\) at \(\rho = 0.9\), where every specification approaches the power
+ceiling and the gaps compress. Mis-specifying the analyst half-life
+leaves A1 and A3 untouched, as they do not use it, and costs A2 alone a
+few points of power, recovered in part by recalibration. The ranking that
+is this study's contribution is therefore invariant to the conservatism.
+
+\end{orig}
+
+\begin{orig}
+Recalibration is neither free nor uniform. The CR2 Satterthwaite degrees
+of freedom fall from the model-based value of roughly 480 to about 23 at
+\(N = 70\) and 12 at \(N = 35\), the price of a working-covariance-agnostic
+standard error. Under heavy dropout the trade reverses. At 30 percent
+missingness the model-based test is no longer conservative, its
+standard-error ratio near 0.98; the CR2 estimator turns mildly
+anti-conservative, ratio near 0.85, on the few degrees of freedom that
+remain (about five); and its power falls slightly below the model-based
+test's. All three specifications collapse to about 0.13 power with a
+negligible A2-minus-A1 gap of 0.01. There the recalibration is moot: the
+information lost to dropout, not the calibration of the standard error,
+governs the analysis, in keeping with this study's broader finding that
+preventing dropout outweighs the choice of specification. The practical
+recommendation follows. In the information-rich regime the recommended
+analysis is the exposure-weighted specification A2 reported with a CR2
+cluster-robust standard error, which is correctly sized and recovers the
+power the conventional test forfeits to conservatism; the comparative
+ranking is robust to this choice, and the absolute power figures
+elsewhere in this paper should be read as mildly conservative lower
+bounds.
+
 \end{orig}
 
 \section{Discussion}\label{discussion}
@@ -1731,9 +2007,11 @@ $(N, t_{1/2}^{\text{DGP}})$ grid.
 \subsection{The principal finding}\label{the-principal-finding}
 
 \begin{bullets}
+
 \textbf{A2 dominates A1 and A3 by approximately 10 percentage
 points at the reference cell, and this ranking is stable across
 all design and DGP variation in the Tier 1 grid.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Reference cell: A2 = 0.860, A1 = 0.766, A3 = 0.770;
   $\approx 5$ MC SEs of separation at $n_{sim} = 500$.
@@ -1742,10 +2020,12 @@ all design and DGP variation in the Tier 1 grid.}
 \item The stability of the ranking is itself informative: no
   design or carryover condition displaces A2.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
@@ -1757,24 +2037,27 @@ principal factorial and all five sensitivity blocks. The
 advantage over the binary-treatment specification A1 and the
 lagged-nuisance specification A3 was approximately 10 percentage
 points at the reference configuration (Architecture B, Hybrid
-design, $N = 70$, $c_{bm} = 0.45$, $t_{1/2} = 1.0$ weeks;
+design, \(N = 70\), \(c_{bm} = 0.45\), \(t_{1/2} = 1.0\) weeks;
 A2 = 0.860, A1 = 0.766, A3 = 0.770), corresponding to
 approximately five Monte Carlo standard errors of separation at
-$n_{sim} = 500$. The ranking A2 $>$ A1 $\approx$ A3 held across
+\(n_{sim} = 500\). The ranking A2 \(>\) A1 \(\approx\) A3 held across
 all three trial designs, both DGP architectures, both sample
 sizes, and all carryover half-lives in the Tier 1 grid. We note
 that the stability of this ranking is, in some respects, as
 informative as the ranking itself: it appears that neither the
 choice of trial design nor the magnitude of carryover is
 sufficient to displace A2 from its dominant position.
+
 \end{orig}
 
 \subsection{Robustness to decay-form variation}\label{robustness-to-decay-form-variation}
 
 \begin{bullets}
+
 \textbf{A2 retains its advantage across all five DGP decay forms,
 even when the analyst assumes exponential and the true form is
 linear or Weibull.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item A2 does not fall below A1 or A3 under any evaluated
   mis-specification condition.
@@ -1784,38 +2067,43 @@ linear or Weibull.}
 \item A2 is more robust to decay-form mis-specification than
   anticipated.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 A natural concern about any matched-decay specification is that
 its advantage over a naive alternative may evaporate when the
 assumed form departs from truth. We have examined this directly.
-The heatmap in Figure~\\ref{fig:fig-heatmap-mismatch} crosses DGP
+The heatmap in Figure\textasciitilde\ref{fig:fig-heatmap-mismatch} crosses DGP
 decay form against analysis specification at the reference cell
-($t_{1/2} = 1.0$ week, Architecture B, Hybrid design, $N = 70$,
-$c_{bm} = 0.45$). A2 retains its advantage across all five DGP
+(\(t_{1/2} = 1.0\) week, Architecture B, Hybrid design, \(N = 70\),
+\(c_{bm} = 0.45\)). A2 retains its advantage across all five DGP
 decay forms (linear, exponential, Weibull at
-$k \in \{0.7, 1.0, 1.5\}$) when the analyst correctly specifies
+\(k \in \{0.7, 1.0, 1.5\}\)) when the analyst correctly specifies
 the form. But what happens when the analyst assumes exponential
 while the true DGP is not? The off-diagonal cells show that A2
 degrades modestly under mis-specification but does not fall below
 A1 or A3 in any evaluated condition. The linear DGP produces the
-largest A2 penalty, because the sharp cutoff at $2 t_{1/2}$ is
+largest A2 penalty, because the sharp cutoff at \(2 t_{1/2}\) is
 poorly approximated by an exponential tail, yet even there the
 advantage is preserved. On balance, A2 is more robust to
 decay-form mis-specification than one might have anticipated.
+
 \end{orig}
 
 \subsection{Robustness to half-life mis-specification}\label{robustness-to-half-life-mis-specification}
 
 \begin{bullets}
+
 \textbf{Block S2 contradicts the Jones-Kenward expectation: A3
 does not overtake A2 at any evaluated half-life mismatch, because
 A2's curvature is too gentle to be costly under mis-specification.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item A2 power span across a four-fold mis-specification:
   $\approx 0.066$; A2 remains above A1 and A3 throughout.
@@ -1824,15 +2112,17 @@ A2's curvature is too gentle to be costly under mis-specification.}
 \item A3 closes the gap as half-life information degrades, but
   practical magnitudes are too small for A3 to overtake A2.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 Block S2 provides the strongest practical reassurance in the
-study. Jones and Kenward [-@jones2014crossover] developed the
+study. Jones and Kenward\textsuperscript{\citeproc{ref-jones2014crossover}{3}} developed the
 crossover-trial framework underlying the A3 specification with
 the expectation that a non-parametric carryover indicator should
 outperform a parametric model under mis-specification, because
@@ -1840,11 +2130,11 @@ the lagged indicator does not commit to a functional form. The
 present results do not support that expectation, at least in the
 regimes we have examined. When the analyst's assumed half-life
 departs from the true half-life by a factor of two or four
-(assumed $t_{1/2} \in \{0.25, 0.5, 1.0, 2.0\}$ at true
-$t_{1/2} = 1.0$), A2 power ranges from 0.766 to 0.832, a span
+(assumed \(t_{1/2} \in \{0.25, 0.5, 1.0, 2.0\}\) at true
+\(t_{1/2} = 1.0\)), A2 power ranges from 0.766 to 0.832, a span
 of roughly 0.066 across the full range and roughly 0.024 across
 the factor-of-two window (numerical values are given in
-Figure~\\ref{fig:fig-sens-s2}). A1 and A3, by construction not
+Figure\textasciitilde\ref{fig:fig-sens-s2}). A1 and A3, by construction not
 consuming the assumed half-life, are invariant to this
 mis-specification. A2 retains its advantage over A1 and A3 at
 every assumed half-life examined: even the four-fold undershoot
@@ -1859,15 +2149,18 @@ too small for A3 to overtake A2 at any evaluated operating
 point. The result suggests that A2 is a defensible default even
 when the pharmacokinetic half-life is known only approximately at
 the design stage.
+
 \end{orig}
 
 \subsection{Autocorrelation sensitivity}\label{autocorrelation-sensitivity}
 
 \begin{bullets}
+
 \textbf{Contrary to expectation, A2's `corCAR1` structure does
 not extract disproportionately more information at higher
 $\rho$; the advantage is approximately constant across
 $\rho \in [0.5, 0.9]$.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item A2 advantage: $\approx 6$ pp at $\rho = 0.5$, $\approx 5$
   pp at $\rho = 0.9$.
@@ -1876,10 +2169,12 @@ $\rho \in [0.5, 0.9]$.}
 \item Autocorrelation acts additively, not interactively, on
   the specification ranking.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
@@ -1887,25 +2182,28 @@ Block S1 asks whether the A2 advantage is concentrated at
 particular AR(1) strengths or is approximately constant across
 the explored range. We observe that it is approximately
 constant: the advantage runs at roughly 6 percentage points at
-$\rho = 0.5$ and narrows to roughly 5 points at $\rho = 0.9$, a
+\(\rho = 0.5\) and narrows to roughly 5 points at \(\rho = 0.9\), a
 range too narrow to be practically meaningful. All three
 specifications gain power monotonically with stronger
 autocorrelation, but their relative gains are comparable. This
 is contrary to the prior expectation that A2's continuous-time
-`corCAR1` structure would extract disproportionately more
-information at higher $\rho$. It appears, rather, that
+\texttt{corCAR1} structure would extract disproportionately more
+information at higher \(\rho\). It appears, rather, that
 autocorrelation and carryover strength act additively on the
 specification ranking: stronger serial correlation lifts every
 specification by roughly the same amount, leaving the
-A2 $>$ A1 $\approx$ A3 ordering undisturbed.
+A2 \(>\) A1 \(\approx\) A3 ordering undisturbed.
+
 \end{orig}
 
 \subsection{Dropout and the limits of specification refinement}\label{dropout-and-the-limits-of-specification-refinement}
 
 \begin{bullets}
+
 \textbf{Dropout is far more consequential than the carryover
 specification choice; at 30\% dropout all three specifications
 are near floor and effectively indistinguishable.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item At 30\% MCAR, all specifications collapse to power
   0.12--0.25; A2 provides no protection against the power loss
@@ -1916,10 +2214,12 @@ are near floor and effectively indistinguishable.}
   specification refinement; trialists should prioritise
   accordingly.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
@@ -1949,14 +2249,17 @@ analysis-model carryover specification. Trialists who invest in
 refining the carryover specification while tolerating high
 dropout rates have, in our view, the priorities somewhat
 reversed.
+
 \end{orig}
 
 \subsection{Architecture dependence}\label{architecture-dependence}
 
 \begin{bullets}
+
 \textbf{Architecture B amplifies the A2 benefit because carryover
 erodes the biomarker-response correlation directly, and A2
 recovers more of that attenuated signal.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Architecture B is more sensitive to carryover under all
   three decay forms and all Weibull shapes examined.
@@ -1966,10 +2269,12 @@ recovers more of that attenuated signal.}
 \item The A2 $>$ A1 $\approx$ A3 ranking holds under both
   architectures.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
@@ -1985,18 +2290,21 @@ with the mechanism. Under Architecture B, carryover erodes the
 biomarker-response correlation directly, and the continuous
 exposure-weighted predictor recovers more of that attenuated
 signal than either the binary on-drug indicator or the
-lagged-nuisance term can. The A2 $>$ A1 $\approx$ A3 ranking
+lagged-nuisance term can. The A2 \(>\) A1 \(\approx\) A3 ranking
 holds under both architectures, though the magnitude of the
 benefit warrants closer attention in trials where the
 data-generating mechanism is presumed to follow Architecture A.
+
 \end{orig}
 
 \subsection{The latent-subtype question}\label{the-latent-subtype-question}
 
 \begin{bullets}
+
 \textbf{The present simulation does not evaluate a finite-mixture
 DGP; whether A2 dominance extends to discrete-subtype data is an
 open question.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item A mixture DGP would produce discrete responder/non-responder
   profiles rather than a graded covariance structure.
@@ -2005,10 +2313,12 @@ open question.}
 \item The present results cannot address this; a mixture DGP
   evaluation is identified as a direction for subsequent work.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
@@ -2031,14 +2341,17 @@ and cannot address this question directly. We have not been able
 to determine, as yet, whether the A2 dominance we observe extends
 to genuinely discrete-subtype data-generating processes; this is
 a direction that merits investigation in subsequent work.
+
 \end{orig}
 
 \subsection{Comparison with prior simulation studies}\label{comparison-with-prior-simulation-studies}
 
 \begin{bullets}
+
 \textbf{The present factorial replicates Hendrickson's baseline
 and extends it by contrasting three analysis specifications, with
 the A2-versus-A1 advantage being a new contribution.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Hendrickson (2020): power 0.82 reproduced here at
   $0.860 \pm 0.016$; A1/A3 comparators are the new element.
@@ -2048,10 +2361,12 @@ the A2-versus-A1 advantage being a new contribution.}
 \item Sturdevant-Lumley two-tier reporting convention is adopted
   and extended to the biomarker-interaction estimand.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
@@ -2060,14 +2375,14 @@ benchmarks for the present results. We discuss each in turn,
 focusing on cells where the prior parameter ranges overlap with
 ours and noting where the design targets differ.
 
-Hendrickson [-@hendrickson2020] introduced the
+Hendrickson\textsuperscript{\citeproc{ref-hendrickson2020}{2}} introduced the
 biomarker-by-treatment interaction question for aggregated
 N-of-1 trials and reported power for the matched-decay (A2)
-analysis under exponential carryover at $t_{1/2} = 1$ week,
-$N = 70$, $c_{bm} = 0.45$, Hybrid design. The reported power
-was 0.82 at 1{,}000 replicates under a single architecture.
+analysis under exponential carryover at \(t_{1/2} = 1\) week,
+\(N = 70\), \(c_{bm} = 0.45\), Hybrid design. The reported power
+was 0.82 at 1\{,\}000 replicates under a single architecture.
 The present 500-replicate factorial reproduces this result at
-the same cell to $0.860 \pm 0.016$ (Architecture B), consistent
+the same cell to \(0.860 \pm 0.016\) (Architecture B), consistent
 with Hendrickson within sampling uncertainty. The principal
 methodological extension here is the addition of A1 and A3 as
 comparators; Hendrickson did not contrast analysis-side
@@ -2075,7 +2390,7 @@ specifications, so the A2-versus-A1 advantage of approximately
 10 percentage points is a new contribution rather than a
 replication.
 
-Jones and Kenward [-@jones2014crossover] developed the
+Jones and Kenward\textsuperscript{\citeproc{ref-jones2014crossover}{3}} developed the
 crossover-trial framework underlying the A3 specification with
 the expectation, noted above, that the non-parametric lagged-on
 indicator should outperform a parametric carryover model under
@@ -2094,53 +2409,56 @@ that mis-specification is less costly than the crossover-trial
 literature anticipates, at least at the prazosin-calibrated
 parameters.
 
-Senn [-@senn2016mastering] established the
+Senn\textsuperscript{\citeproc{ref-senn2016mastering}{5}} established the
 variance-decomposition foundation for within-subject designs,
 predicting that within-subject contrasts are disproportionately
 advantageous when between-patient variance
-$\sigma^2_{\text{between}}$ is large relative to within-patient
+\(\sigma^2_{\text{between}}\) is large relative to within-patient
 variance. The present simulation does not vary
-$\sigma^2_{\text{between}}$ as a primary axis, but the S1
+\(\sigma^2_{\text{between}}\) as a primary axis, but the S1
 autocorrelation sensitivity block bears on the related question
 of how within-subject information accumulates with serial
 correlation. Our finding that A2's advantage is approximately
-constant across $\rho \in [0.5, 0.9]$ is qualitatively
+constant across \(\rho \in [0.5, 0.9]\) is qualitatively
 consistent with Senn's prediction that within-subject methods
 extract roughly proportional information across correlation
-regimes; the absence of a strong $\rho$ interaction with the
+regimes; the absence of a strong \(\rho\) interaction with the
 analysis specification is the new result here.
 
-Sturdevant and Lumley [-@sturdevant2021carryover] developed the
+Sturdevant and Lumley\textsuperscript{\citeproc{ref-sturdevant2021carryover}{6}} developed the
 two-tier reporting convention we have adopted: a principal
 factorial covering the main contrast, supplemented by marginal
 sensitivity blocks anchored at a reference cell. Their convention
 was designed for simulation studies whose main claim is a ranking
 or contrast rather than a precise power estimate, and our
-adoption of it is documented in the `simulation-grid-plan.md`
+adoption of it is documented in the \texttt{simulation-grid-plan.md}
 design document. The two-tier structure proved useful in
 practice: the Tier 1 factorial establishes the
-A2 $>$ A1 $\approx$ A3 ranking, while the Tier 2 blocks probe
+A2 \(>\) A1 \(\approx\) A3 ranking, while the Tier 2 blocks probe
 its robustness to single-axis perturbations. The extension to
 the biomarker-interaction estimand is, to the best of our
 knowledge, new.
 
 The companion manuscripts at
-`analysis/report/01-dgp-mean-moderation-vs-mvn/` and
-`analysis/report/05-nof1-design-sensitivity/` provide
+\texttt{analysis/report/01-dgp-mean-moderation-vs-mvn/} and
+\texttt{analysis/report/05-nof1-design-sensitivity/} provide
 complementary benchmarks: the first establishes the
 architecture-dependence of carryover-induced power loss
 confirmed here in the architecture-dependence subsection, and
 the second reports the effect of carryover on the Hybrid N-of-1
 design's saturation profile confirmed in §4.4.
+
 \end{orig}
 
 \subsection{Limitations}\label{limitations}
 
 \begin{bullets}
+
 \textbf{Five limitations bound the generalisability of the
 findings: single prazosin parameterisation, incomplete analysis
 strategy space, OFAT sensitivity blocks, omitted OL design, and
 monotone dropout assumption.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Absolute power values are specific to the prazosin-PTSD
   parameterisation; rankings are expected to be more portable
@@ -2151,10 +2469,12 @@ monotone dropout assumption.}
 \item Sensitivity blocks are OFAT; joint perturbations (e.g.,
   high $\rho$ combined with high dropout) are not fully explored.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
@@ -2184,10 +2504,10 @@ these additional strategies, and others may merit consideration.
 
 Third, the sensitivity blocks are one-factor-at-a-time
 perturbations around a single reference configuration.
-Unfortunately, joint perturbations, for example high $\rho$
+Unfortunately, joint perturbations, for example high \(\rho\)
 combined with high dropout, may produce interactions that the
 marginal blocks do not capture. The exploratory block S5
-($\rho \times$ carryover) provides one such joint check and
+(\(\rho \times\) carryover) provides one such joint check and
 does not reveal a qualitative interaction, which is reassuring,
 but the space of possible joint combinations is large and our
 exploration of it is necessarily incomplete.
@@ -2195,7 +2515,7 @@ exploration of it is necessarily incomplete.
 Fourth, the Tier 1 grid omits the open-label (OL) design because
 OL lacks the off-drug contrast required by the A1 and A3
 specifications. For trialists considering an OL design, the
-analysis-model question is moot: only A2 (or the `bm:t`
+analysis-model question is moot: only A2 (or the \texttt{bm:t}
 trajectory-based test from the companion manuscript) is
 applicable.
 
@@ -2213,7 +2533,8 @@ work should address.
 The headline Tier 1 ranking is further supported by the
 high-precision rerun reported at the end of the Results section,
 which resolves the A2-versus-A1 gap to MC SE 0.020 with paired
-McNemar $p < 10^{-3}$ at the headline cells.
+McNemar \(p < 10^{-3}\) at the headline cells.
+
 \end{orig}
 
 \section{Conclusions}\label{conclusions}
@@ -2230,7 +2551,10 @@ McNemar $p < 10^{-3}$ at the headline cells.
   lagged-nuisance (A3) alternatives is approximately 10
   percentage points at the reference configuration and is
   robust to DGP decay-form variation, within-factor
-  autocorrelation, and analyst-truth half-life mismatch.
+  autocorrelation, and analyst-truth half-life mismatch. The
+  recommended report is A2 with a CR2 cluster-robust standard
+  error, which restores nominal size; the ranking is invariant
+  to this recalibration (Block S6).
 \item
   \textbf{Half-life mis-specification does not displace A2.} A2
   power varies by roughly 0.066 across a four-fold
@@ -2279,11 +2603,14 @@ McNemar $p < 10^{-3}$ at the headline cells.
     source of power loss in the evaluated grid.
   \end{enumerate}
 \item
-  \textbf{Type-I error is well-controlled.} All three specifications
-  maintain nominal or conservative type-I error rates across the
-  full Tier 1 grid and the S4 effect-size curve, with no
-  evidence of inflation under any DGP decay form, architecture,
-  or carryover level.
+  \textbf{Type-I error is conservative, and recalibrable.} All three
+  specifications hold below the nominal 0.05 across the full
+  Tier 1 grid and the S4 effect-size curve, with no inflation
+  under any DGP decay form, architecture, or carryover level.
+  The shortfall is the working-covariance conservatism the
+  companion calibration study documents; a CR2 cluster-robust
+  standard error removes it and recovers a few points of power
+  without disturbing the ranking (Block S6).
 \end{enumerate}
 
 \section{Conflict of interest}\label{conflict-of-interest}
@@ -2297,9 +2624,11 @@ This work received no specific funding.
 \section{Data availability statement}\label{data-availability-statement}
 
 \begin{bullets}
+
 \textbf{All simulation outputs and drivers are versioned in the
 pmsimstats-ng repository; exact paths are given in the
 Reproducibility section.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Per-replicate Monte Carlo outputs and cell-level summaries:
   \texttt{analysis/data/}.
@@ -2308,28 +2637,33 @@ Reproducibility section.}
 \item Exact file paths listed in the Reproducibility section
   below.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 The data and code supporting the findings of this study are
 available in the pmsimstats-ng project repository.
 Per-replicate Monte Carlo outputs and ADEMP-compliant cell-level
-summaries are versioned under `analysis/data/`; simulation
-drivers are at `analysis/scripts/`. Exact paths for this
+summaries are versioned under \texttt{analysis/data/}; simulation
+drivers are at \texttt{analysis/scripts/}. Exact paths for this
 manuscript are listed in the Reproducibility section below.
+
 \end{orig}
 
 \section{Reproducibility}\label{reproducibility}
 
 \begin{bullets}
+
 \textbf{The manuscript is fully reproducible from pinned package
 versions in \texttt{renv.lock}, deterministic seeds, and
 pre-computed checkpoints; no simulation code re-executes during
 knit.}
+
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Environment: R 4.4.x, zzcollab Docker container; packages
   pinned in \texttt{renv.lock}.
@@ -2339,47 +2673,50 @@ knit.}
 \item Manuscript Rmd loads pre-computed checkpoints only; no
   simulation code runs during render.
 \end{itemize}
+
 \end{bullets}
 
 \begin{rgt}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
 \end{rgt}
 
 \begin{orig}
 This manuscript was rendered with R 4.4.x inside the project's
-zzcollab Docker container (image hash recorded in `Dockerfile`;
-package set captured in `renv.lock`). Principal packages used by
-the simulation pipeline are `nlme` (continuous-time linear-mixed
-analysis with `corCAR1` residual correlation), `parallel`
-(8-core `mclapply` for parameter-grid sweeps), `data.table` (the
-`original-extended` simulation collection), `furrr` and `purrr`
-(the `tidyverse` simulation collection), and `rmarkdown` plus
-`bookdown` for the manuscript build.
+zzcollab Docker container (image hash recorded in \texttt{Dockerfile};
+package set captured in \texttt{renv.lock}). Principal packages used by
+the simulation pipeline are \texttt{nlme} (continuous-time linear-mixed
+analysis with \texttt{corCAR1} residual correlation), \texttt{parallel}
+(8-core \texttt{mclapply} for parameter-grid sweeps), \texttt{data.table} (the
+\texttt{original-extended} simulation collection), \texttt{furrr} and \texttt{purrr}
+(the \texttt{tidyverse} simulation collection), and \texttt{rmarkdown} plus
+\texttt{bookdown} for the manuscript build.
 
-**Random-number generator.** Each simulation driver sets
-`set.seed(20260507)` at the top of the replicate loop and uses
-`parallel::mc.set.seed` inside `mclapply`. Per-replicate seeds
+\textbf{Random-number generator.} Each simulation driver sets
+\texttt{set.seed(20260507)} at the top of the replicate loop and uses
+\texttt{parallel::mc.set.seed} inside \texttt{mclapply}. Per-replicate seeds
 are derived from the master seed as \texttt{master + rep\_idx}.
 
-**Data and code availability.** Production-grade simulation
+\textbf{Data and code availability.} Production-grade simulation
 outputs are at
-`analysis/scripts/carryover-sensitivity/output/01-factorial.rds`
-(principal factorial) and `04-sensitivity.rds` (sensitivity
+\texttt{analysis/scripts/carryover-sensitivity/output/01-factorial.rds}
+(principal factorial) and \texttt{04-sensitivity.rds} (sensitivity
 blocks S1 through S5). Cell-level summaries are at
-`analysis/data/02-grid-summary.rds` and
-`analysis/data/02-sensitivity-summary.rds`. Driver scripts are
-`01-run-factorial.R`, `04-run-sensitivity-blocks.R`, and
-`02-summarise-grid.R` under
-`analysis/scripts/carryover-sensitivity/`. The simulation grid
+\texttt{analysis/data/02-grid-summary.rds} and
+\texttt{analysis/data/02-sensitivity-summary.rds}. Driver scripts are
+\texttt{01-run-factorial.R}, \texttt{04-run-sensitivity-blocks.R}, and
+\texttt{02-summarise-grid.R} under
+\texttt{analysis/scripts/carryover-sensitivity/}. The simulation grid
 plan and design rationale are documented at
-`analysis/scripts/carryover-sensitivity/simulation-grid-plan.md`,
+\texttt{analysis/scripts/carryover-sensitivity/simulation-grid-plan.md},
 which serves as the Morris ADEMP pre-registration. High-precision
 prototype rerun outputs are at
-`analysis/data/quick-sim/02-carryover-replicates.rds`
-(per-replicate) and `02-carryover-summary.txt` (Morris ADEMP
+\texttt{analysis/data/quick-sim/02-carryover-replicates.rds}
+(per-replicate) and \texttt{02-carryover-summary.txt} (Morris ADEMP
 cell-level summary). The manuscript source, paper-specific
-bibliography (`references.bib`), and SIM CSL file are at
-`analysis/report/02-carryover-sensitivity/`.
+bibliography (\texttt{references.bib}), and SIM CSL file are at
+\texttt{analysis/report/02-carryover-sensitivity/}.
+
 \end{orig}
 
 \section{References}\label{references}
@@ -2390,13 +2727,33 @@ bibliography (`references.bib`), and SIM CSL file are at
 \CSLLeftMargin{1. }%
 \CSLRightInline{Morris TP, White IR, Crowther MJ. Using simulation studies to evaluate statistical methods. \emph{Statistics in Medicine}. 2019;38(11):2074-2102. doi:\href{https://doi.org/10.1002/sim.8086}{10.1002/sim.8086}}
 
+\bibitem[\citeproctext]{ref-hendrickson2020}
+\CSLLeftMargin{2. }%
+\CSLRightInline{Hendrickson RC, Thomas RG, Schork NJ, Raskind MA. Optimizing aggregated {N}-of-1 trial designs for predictive biomarker validation: Statistical methods and practical considerations. \emph{Frontiers in Digital Health}. 2020;2:13. doi:\href{https://doi.org/10.3389/fdgth.2020.00013}{10.3389/fdgth.2020.00013}}
+
+\bibitem[\citeproctext]{ref-jones2014crossover}
+\CSLLeftMargin{3. }%
+\CSLRightInline{Jones B, Kenward MG. \emph{Design and Analysis of Cross-over Trials}. 3rd ed. CRC Press; 2014.}
+
+\bibitem[\citeproctext]{ref-pmsimstats_calibration2026}
+\CSLLeftMargin{4. }%
+\CSLRightInline{{pmsimstats team}. Type-{I} calibration of fixed-effect interaction tests in linear mixed models: A staged diagnosis of working-covariance mis-specification and a cluster-robust remedy. Published online 2026.}
+
+\bibitem[\citeproctext]{ref-senn2016mastering}
+\CSLLeftMargin{5. }%
+\CSLRightInline{Senn S. Mastering variation: Variance components and personalised medicine. \emph{Statistics in Medicine}. 2016;35(7):966-977. doi:\href{https://doi.org/10.1002/sim.6739}{10.1002/sim.6739}}
+
+\bibitem[\citeproctext]{ref-sturdevant2021carryover}
+\CSLLeftMargin{6. }%
+\CSLRightInline{Sturdevant SG, Lumley T. Statistical methods for testing carryover effects: A mixed effects model approach. \emph{Contemporary Clinical Trials Communications}. 2021;22:100711. doi:\href{https://doi.org/10.1016/j.conctc.2021.100711}{10.1016/j.conctc.2021.100711}}
+
 \end{CSLReferences}
 
 \vfill
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
 
-\emph{Rendered on 2026-06-10 at 10:05 PDT.}\\
+\emph{Rendered on 2026-06-11 at 18:59 PDT.}\\
 \emph{Source: \texttt{\textasciitilde{}/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report.Rmd}}
 
 \end{document}

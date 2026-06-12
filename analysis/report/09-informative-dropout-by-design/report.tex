@@ -101,10 +101,25 @@
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 % Three-part paragraph scaffolding for manuscript revision.
+%
+% bullets  -- boiled-down topic sentence + bullet points
+%             small, sans-serif, dark gray; paragraph number [N] prepended
+% rgt      -- author's rewrite (initially a placeholder)
+%             normal size, dark blue, serif
+% orig     -- original Claude-authored draft
+%             small, italic, light gray
+%
+% Presentation order per paragraph: bullets -> rgt -> orig
+% Strip with: strip-claudecode -i report.Rmd
+
 \usepackage{xcolor}
 
+\newcounter{pgraph}
+
 \newenvironment{bullets}{%
-  \begin{quote}\small\sffamily\color[gray]{0.30}}{%
+  \stepcounter{pgraph}%
+  \begin{quote}\small\sffamily\color[gray]{0.30}%
+  {\normalfont\scriptsize\color[gray]{0.58}[\thepgraph]\enspace}}{%
   \end{quote}}
 
 \newenvironment{rgt}{%
@@ -115,6 +130,7 @@
   \begin{quote}\small\itshape\color[gray]{0.55}}{%
   \end{quote}}
 
+% backward compat alias
 \newenvironment{claudecode}{\begin{orig}}{\end{orig}}
 %% tools/stamp.tex
 %% Provenance footer for PDFs rendered from this project.
@@ -149,8 +165,8 @@
   \renewcommand{\headrulewidth}{0pt}%
   \renewcommand{\footrulewidth}{0.4pt}}
 \renewcommand{\stampsource}{\textasciitilde{}/\allowbreak{}prj/\allowbreak{}res/\allowbreak{}36-pmsimstats-ng/\allowbreak{}pmsimstats-ng/\allowbreak{}analysis/\allowbreak{}report/\allowbreak{}09-informative-dropout-by-design/\allowbreak{}report.Rmd}
-\renewcommand{\stamptime}{2026-06-10 10:33 PDT}
-\renewcommand{\stampversion}{\detokenize{fc98c3a-wip}}
+\renewcommand{\stamptime}{2026-06-11 18:52 PDT}
+\renewcommand{\stampversion}{\detokenize{1164566-wip}}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{lineno}
@@ -169,7 +185,7 @@
 \title{Informative dropout and trial-design choice in aggregated N-of-1
 biomarker-validation trials}
 \author{pmsimstats team}
-\date{2026-06-10}
+\date{2026-06-11}
 
 \begin{document}
 \maketitle
@@ -699,20 +715,261 @@ characteristics of the pmsimstats simulation programme.
 
 \section{Informative-dropout model}\label{informative-dropout-model}
 
-(Forthcoming. The hazard-based model
-of\textsuperscript{\citeproc{ref-hendrickson2020}{1}}:
-\(\Pr(\text{drop at time } t) = \beta_0 + \beta_1 \cdot
-\Delta_{Sx}(t)^2\) where \(\Delta_{Sx}(t)\) is the change in symptom
-score since baseline, scaled by 100 so that all values are positive.
-Mapping to the missing-data taxonomy. Operational definitions of the
-five dropout patterns.)
+\begin{bullets}
+\textbf{The censoring hazard combines a time-only non-informative component with a symptom-trajectory-biased component, made absorbing by a monotone carry-forward pass.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item The per-timepoint censoring probability is the union of two independent draws: a flat component scaling with elapsed time and a biased component scaling with the convex-transformed symptom change since baseline.
+\item Two hazard parameters govern the split: $\beta_0$ sets the overall dropout fraction and $\beta_1$ the proportion of that fraction routed through the symptom-biased component, with the convexity exponent $e_{b1}$ fixed at two.
+\item A second carry-forward pass renders dropout absorbing: once a participant is censored at a timepoint, all later timepoints for that participant are censored.
+\end{itemize}
+\end{bullets}
+
+\begin{rgt}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+\end{rgt}
+
+\begin{orig}
+We adopt the hazard-based informative-dropout model implemented in the
+pmsimstats `R/censordata.R` infrastructure, which operationalises the
+mechanism of @hendrickson2020. For participant $i$ at timepoint $t$, the
+marginal censoring probability is the union (logical OR) of two
+independent Bernoulli draws,
+$$\Pr(\text{drop}_{it}) = 1 - (1 - p^{\text{flat}}_{it})(1 -
+p^{\text{bias}}_{it}),$$
+where the flat component $p^{\text{flat}}_{it} \propto t$ depends on
+elapsed time alone and is calibrated to a marginal dropout fraction of
+$\beta_0(1 - \beta_1)$, and the biased component $p^{\text{bias}}_{it}
+\propto t\,(\Delta_{Sx}(t) + 100)^{e_{b1}}$ depends on the symptom
+change $\Delta_{Sx}(t)$ since baseline and is calibrated to $\beta_0
+\beta_1$. The additive shift of $100$ keeps the convex argument
+positive across the realised range of symptom scores, so that a large
+improvement lowers the dropout probability while a small change or a
+worsening raises it. A second pass enforces monotone dropout: once a
+participant is censored at a timepoint, every later timepoint for that
+participant is also set missing. The hazard is thus governed by three
+quantities: the overall rate $\beta_0$, the biased proportion $\beta_1$,
+and the convexity exponent $e_{b1}$, held at two throughout.
+\end{orig}
+
+\begin{bullets}
+\textbf{Whenever the biased component is active the mechanism is missing-not-at-random, because the censoring indicator at a timepoint depends on the symptom value that the same indicator renders missing.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item The flat component depends only on elapsed time, a fully observed design variable, and is therefore non-informative about the latent response.
+\item The biased component makes dropout at time $t$ depend on $\Delta_{Sx}(t)$, and because that observation is itself censored at the triggering timepoint the mechanism is MNAR in the sense of @littlerubin2019.
+\item The departure from ignorability is controlled by $\beta_1$: at $\beta_1 = 0$ the mechanism reduces to the non-informative limit, and the MNAR departure increases monotonically with $\beta_1$.
+\end{itemize}
+\end{bullets}
+
+\begin{rgt}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+\end{rgt}
+
+\begin{orig}
+The two components occupy different rungs of the Little-Rubin ladder.
+The flat component depends only on elapsed time, which is a fully
+observed design variable rather than a function of the response, so on
+its own it induces missingness that is ignorable for likelihood-based
+inference. The biased component is the consequential one. Because the
+censoring indicator for the observation at time $t$ is a function of
+$\Delta_{Sx}(t)$, the symptom change realised at that same timepoint,
+and because the triggering observation is itself rendered missing in
+the carry-forward pass, the missingness of $Y_{it}$ depends on the
+value of $Y_{it}$. This is the defining condition for
+missing-not-at-random data [@littlerubin2019; @molenberghskenward2007].
+The mechanism is therefore MNAR for every pattern with $\beta_1 > 0$,
+and the standard MMRM appeal to a MAR justification
+[@mallinckrodt2001dropout] does not hold. The extent of the violation
+scales with $\beta_1$, which makes the biased proportion, not the
+overall rate, the methodologically load-bearing parameter.
+\end{orig}
+
+\begin{bullets}
+\textbf{Five dropout patterns are fixed as cells in the $(\beta_0,\beta_1)$ hazard-parameter space, spanning a no-dropout reference through balanced, flat-weighted, bias-weighted, and high-rate conditions.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item The no-dropout reference sets $\beta_0 = 0$ and supplies the full-data gold standard against which the bias estimands of Study 2 are measured.
+\item Balanced $(\beta_0 = 0.05, \beta_1 = 0.5)$, more-of-flat $(\beta_1 = 0.2)$, and more-of-biased $(\beta_1 = 0.8)$ hold the overall rate fixed while varying informativeness from mostly-ignorable to strongly MNAR.
+\item High-dropout $(\beta_0 = 0.15, \beta_1 = 0.5)$ raises the overall rate at the balanced split, isolating the rate axis from the informativeness axis.
+\end{itemize}
+\end{bullets}
+
+\begin{rgt}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+\end{rgt}
+
+\begin{orig}
+The five dropout patterns are defined operationally as cells in the
+$(\beta_0, \beta_1)$ parameter space of the hazard, with $e_{b1} = 2$
+held throughout. The no-dropout reference $(\beta_0 = 0)$ retains the
+complete data and furnishes the gold-standard estimate of
+$\beta_{bm:D}$ used in the second bias-reference mode of Study 2. The
+balanced pattern $(\beta_0 = 0.05, \beta_1 = 0.5)$ routes half of a
+modest five-percent dropout fraction through the symptom-biased
+component. Holding $\beta_0$ fixed, the more-of-flat $(\beta_1 = 0.2)$
+and more-of-biased $(\beta_1 = 0.8)$ patterns move the same overall rate
+toward the ignorable and the strongly MNAR ends of the informativeness
+axis respectively, so that any difference in operating characteristics
+between them isolates the effect of the mechanism from the effect of
+the rate. The high-dropout pattern $(\beta_0 = 0.15, \beta_1 = 0.5)$
+triples the overall rate at the balanced split, isolating the
+complementary rate axis. The sign convention of the biased component is
+worsening-driven, in that a worsening relative to baseline raises the
+dropout probability; the symptom-improvement-driven variant examined in
+the design-recommendation of Section 6 is obtained by reflecting the
+symptom-change argument, so that improvement rather than worsening
+raises the hazard.
+\end{orig}
 
 \section{The four design families and their vulnerability
 windows}\label{the-four-design-families-and-their-vulnerability-windows}
 
-(Forthcoming. Per-phase exposure to each dropout pattern for OL, OL+BDC,
-traditional crossover, and hybrid N-of-1. Within-participant contrasts
-at risk of removal under each pattern.)
+\begin{bullets}
+\textbf{The four design families are distinguished by their phase structure, which determines both the within-participant contrasts that identify the biomarker-treatment interaction and the windows in which informative dropout can remove them.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Each design is a set of randomisation paths through an ordered sequence of on-drug and off-drug phases, encoded by the \texttt{ondrug} path vectors of \texttt{buildtrialdesign}.
+\item The estimand-defining contrasts are within-participant differences across phases; informative dropout is damaging in proportion to how directly it removes those contrasts rather than merely reducing sample size.
+\item The four designs are ordered by increasing design-surface area, and therefore by an increasing number of vulnerability windows, from open-label through the hybrid N-of-1 design.
+\end{itemize}
+\end{bullets}
+
+\begin{rgt}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+\end{rgt}
+
+\begin{orig}
+Each candidate design is represented as a set of randomisation paths
+through an ordered sequence of on-drug and off-drug phases, encoded by
+the \texttt{ondrug} path vectors that \texttt{buildtrialdesign} accepts.
+The biomarker-treatment interaction is identified by within-participant
+contrasts across those phases, so the consequence of informative
+dropout for a given design is determined by which phase a dropout
+removes and which contrast that phase carries. We take the four designs
+in order of increasing design-surface area.
+\end{orig}
+
+\begin{bullets}
+\textbf{The open-label design has a single all-on-drug path, no discontinuation window, and is the most dropout-robust but cannot identify the pharmacological-versus-placebo split.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item The single path carries only an on-drug-versus-baseline contrast, which is confounded with natural history and cannot separate the $BR$ and $PB$ components.
+\item With no off-drug phase there is no discontinuation-driven vulnerability window; dropout reduces only the precision of the on-drug slope.
+\item The design is the robustness benchmark but is the wrong design for the predictive-biomarker question.
+\end{itemize}
+\end{bullets}
+
+\begin{rgt}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+\end{rgt}
+
+\begin{orig}
+The open-label design comprises a single path on which every timepoint
+is on-drug. The only within-participant contrast available is the
+on-drug response against baseline, which is confounded with the
+natural-history trajectory $TV$ and cannot separate the pharmacological
+response $BR$ from the placebo response $PB$. Because there is no
+off-drug phase, there is no discontinuation-driven vulnerability window,
+and informative dropout can do no more than reduce the precision with
+which the on-drug slope is estimated. The design is consequently the
+most robust to dropout of the four and serves as the robustness
+benchmark, but its inability to identify the $BR$-versus-$PB$ split
+makes it the wrong instrument for the predictive-biomarker question
+that motivates the programme.
+\end{orig}
+
+\begin{bullets}
+\textbf{The open-label-plus-blinded-discontinuation design adds a silent-placebo phase that identifies the pharmacological-versus-placebo split but opens a discontinuation window in which worsening-driven dropout removes exactly that contrast.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item The estimand-defining contrast is the on-drug-versus-post-discontinuation response, which separates $BR$ from $PB$.
+\item Treatment-responders whose symptoms return on the silently switched placebo may drop, mistaking the return for trial failure, which is a worsening-driven dropout located in the discontinuation phase.
+\item Because the lost phase carries the identifying contrast, dropout here biases $\hat{\beta}_{bm:D}$ rather than merely inflating its variance.
+\end{itemize}
+\end{bullets}
+
+\begin{rgt}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+\end{rgt}
+
+\begin{orig}
+The open-label-plus-blinded-discontinuation design retains the
+open-label phase and appends a blinded discontinuation phase in which
+the active drug is silently replaced by placebo. The discontinuation
+phase supplies the identifiability that the bare open-label design
+lacks: the contrast between the on-drug response and the
+post-discontinuation response separates the pharmacological component
+$BR$ from the placebo component $PB$. That same phase is the design's
+vulnerability window. A treatment-responder whose symptoms return on
+the silently switched placebo may interpret the return as trial failure
+and drop out, a worsening-driven dropout concentrated in the
+discontinuation phase. The damage is more than a loss of precision:
+because the removed phase carries the very contrast that defines the
+estimand, dropout here produces a systematic negative bias in
+$\hat{\beta}_{bm:D}$, the effect quantified in @hendrickson2020 Section
+3.4 and reproduced in Study 2.
+\end{orig}
+
+\begin{bullets}
+\textbf{The traditional crossover design has two randomisation paths and two transition windows, and is robust to worsening-driven dropout but exposed to improvement-driven dropout at each crossover.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item The drug-first and placebo-first paths each carry a drug-block-versus-placebo-block contrast that identifies the within-participant treatment effect.
+\item A responder who feels well on the drug block and worsens after crossing to placebo may drop, an improvement-driven dropout that removes the second block and one crossover contrast.
+\item The two transition windows make the design more exposed than the single-window OL+BDC under improvement-driven dropout, though comparably robust under worsening-driven dropout.
+\end{itemize}
+\end{bullets}
+
+\begin{rgt}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+\end{rgt}
+
+\begin{orig}
+The traditional crossover design has two randomisation paths, one
+beginning on drug and crossing to placebo and the other the reverse,
+each composed of two blocks separated by a transition. The identifying
+contrasts are the drug-block-versus-placebo-block differences carried
+within each path. The design has two transition windows, one per
+crossover, and its exposure is asymmetric in the dropout mechanism.
+Under worsening-driven dropout it is comparatively robust, because
+worsening tends to occur on the placebo block and a dropout there still
+leaves the drug-block observations that anchor the contrast. Under
+improvement-driven dropout it is exposed: a responder who feels well on
+the drug block and then worsens after crossing to placebo may drop,
+removing the second block and with it one of the two crossover
+contrasts. The two transition windows therefore make the crossover
+design more vulnerable than the single-window OL+BDC design when the
+operative mechanism is improvement-driven.
+\end{orig}
+
+\begin{bullets}
+\textbf{The hybrid N-of-1 design has the largest design surface and the most vulnerability windows, but recovers power through the happy-accident selection effect that preferentially preserves the most informative crossover blocks.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item An open-label run-in followed by a randomised multi-block crossover gives four randomisation paths and the widest set of vulnerability windows.
+\item Participants with a clear open-label response are resolved early, so those continuing to the later randomised blocks are enriched for inconclusive open-label response.
+\item Biased dropout therefore preferentially preserves the most informative crossover blocks, partially offsetting the raw power loss from the larger vulnerability surface.
+\end{itemize}
+\end{bullets}
+
+\begin{rgt}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+\end{rgt}
+
+\begin{orig}
+The hybrid N-of-1 design of @hendrickson2020 combines an open-label
+run-in, which establishes each participant's apparent response, with a
+subsequent randomised multi-block crossover. With two randomisation
+points it admits four paths and the largest design-surface area of the
+four families, and therefore the widest set of phase-specific
+vulnerability windows: the run-in phase, each crossover block, and each
+transition between them. On raw power this makes the hybrid design the
+most dropout-exposed. The exposure is partly offset, however, by a
+selection effect that @hendrickson2020 terms a `happy accident'.
+Participants whose open-label response is unambiguous, whether clear
+responders or clear non-responders, are the ones most readily resolved
+and most prone to leave early; those who continue into the later
+randomised blocks are consequently enriched for inconclusive open-label
+response, which is precisely the subgroup whose crossover contrasts are
+most informative for the biomarker-treatment interaction. Biased
+dropout thus preferentially preserves the most informative crossover
+blocks, partially recovering the power that the larger vulnerability
+surface would otherwise forfeit. The magnitude of this recovery is the
+object of the randomisation-path decomposition reported in Study 3.
+\end{orig}
 
 \section{Simulation design}\label{simulation-design}
 
@@ -1502,7 +1759,7 @@ studies to evaluate statistical methods. \emph{Statistics in Medicine}.
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
 
-\emph{Rendered on 2026-06-10 at 10:33 PDT.}\\
+\emph{Rendered on 2026-06-11 at 18:52 PDT.}\\
 \emph{Source:
 \texttt{\textasciitilde{}/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/09-informative-dropout-by-design/report.Rmd}}
 

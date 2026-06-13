@@ -36,3 +36,6 @@
 | `07-gompertz-evaluation-2026-06-10-1102-fc98c3a-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `fc98c3a-wip` | 2026-06-10 11:02 PDT |
 | `01-dgp-mean-moderation-vs-mvn-2026-06-10-1755-acfb31d-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `acfb31d-wip` | 2026-06-10 17:55 PDT |
 | `01-dgp-mean-moderation-vs-mvn-2026-06-10-1801-acfb31d-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `acfb31d-wip` | 2026-06-10 18:01 PDT |
+| `06-component-decomposition-2026-06-13-0821-5c42173-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `5c42173-wip` | 2026-06-13 08:21 PDT |
+| `06-component-decomposition-2026-06-13-0916-5c42173-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `5c42173-wip` | 2026-06-13 09:16 PDT |
+| `09-informative-dropout-by-design-2026-06-13-0939-5c42173-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/09-informative-dropout-by-design/report.Rmd` | `5c42173-wip` | 2026-06-13 09:39 PDT |

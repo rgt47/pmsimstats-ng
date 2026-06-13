@@ -66,11 +66,16 @@ machinery is reported, and a production simulation programme at
 1,000 replicates per cell across $N \in \{35, 70, 100, 150\}$ is
 pre-registered for execution.
 
-**Conclusions.** The three-component framework is the principled
-basis for predictive-biomarker validation in aggregated N-of-1
-trials and clarifies the design contrasts that are mandatory
-versus optional. A pragmatic analysis specification consistent
-with the framework but tractable at trial-relevant sample sizes is
+**Conclusions.** The three-component framework offers a
+principled basis for predictive-biomarker validation in
+aggregated N-of-1 trials and clarifies the design contrasts that
+are mandatory versus optional, though its bias-versus-power
+advantages remain to be demonstrated empirically: the pilot
+reported here did not confirm the predicted advantage of the
+decomposition-aware analysis, and the production simulation is
+pre-registered but not yet executed. A pragmatic analysis
+specification consistent with the framework but tractable at
+trial-relevant sample sizes is
 `Sx ~ bm + t + Dbc + phase + Dbc:phase + bm:Dbc + bm:Dbc:phase`
 with random intercept and AR(1) residual correlation.
 
@@ -789,7 +794,7 @@ calendar time elapsed regardless of treatment status.
 \end{orig}
 
 \begin{bullets}
-rescaled so that $C(0) = 0$ and $C(t) \to m_C$ as
+rescaled so that $C(0) = 0$ and $C(t) \to m_C(1 - e^{-d_C})$ as
 $t \to \infty$, for $C \in \{BR, PB, TV\}$. The three Gompertz
 parameters $(m_C, d_C, r_C)$ are participant-specific random
 effects drawn from population distributions, and the
@@ -970,8 +975,11 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 The modified Gompertz form
 $BR(t) = m_{BR}\exp(-d_{BR}\exp(-r_{BR}t)) -
 m_{BR}\exp(-d_{BR})$ captures this profile compactly. The
-maximum $m_{BR}$ is the biological ceiling, the largest
-reduction the drug can produce at infinite exposure. The onset
+asymptote $m_{BR}(1 - e^{-d_{BR}})$ is the biological ceiling,
+the largest reduction the drug can produce at infinite exposure;
+the scale parameter $m_{BR}$ equals that ceiling up to the
+factor $(1 - e^{-d_{BR}})$, which for the calibrated
+$d_{BR} \approx 5$ exceeds $0.99$. The onset
 rate $r_{BR}$ controls how rapidly the participant approaches the
 ceiling: high $r_{BR}$ means a fast onset (effect plateaus in
 one to two weeks), low $r_{BR}$ a slow climb (six to eight
@@ -1047,11 +1055,18 @@ The $BR$ component is identified by within-participant on-drug
 versus off-drug contrasts, formalised in section 4 below. The
 most direct contrast is the blinded-discontinuation phase: when
 a participant is silently switched to placebo while still
-believing they are on active drug, $BR$ collapses to zero while
-$PB$ remains roughly intact, and the difference between on-drug
-and off-drug response in that window is a relatively clean
-estimate of $BR$ that does not require the analyst to model $PB$
-or $TV$ explicitly.
+believing they are on active drug, $BR$ decays toward zero as the
+drug clears while $PB$ remains roughly intact, and the difference
+between on-drug and off-drug response in that window is a
+relatively clean estimate of $BR$ that does not require the
+analyst to model $PB$ or $TV$ explicitly. The decay is not
+instantaneous: with the carryover half-life
+$t_{1/2} = \ln 2 / \lambda$ of the analysis-side decay term,
+residual $BR$ persists into the early off-drug observations, so
+the contrast is clean only once the discontinuation window is
+long relative to $t_{1/2}$, and the drug state is best carried by
+the continuous-decay indicator $D_{it}$ of Table
+\@ref(tab:terms) rather than a hard on/off indicator.
 \end{orig}
 
 ## Placebo-belief response (PB)
@@ -1095,10 +1110,13 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 \begin{orig}
 It is worth being precise about what $PB$ is and is not. $PB$
 is not 'fake' improvement, and it is not 'all in the patient's
-head' in any dismissive sense. The placebo response is mediated
-by well-characterised neurobiological pathways [@finniss2010;
-@benedetti2014; @frisaldi2020; @carlino2014;
-@carlino2016benedetti]. Belief-driven release of endogenous
+head' in any dismissive sense; it is, moreover, a phenomenon
+clinicians knowingly exploit, as a national survey of US
+internists and rheumatologists found roughly half reporting
+regular use of placebo treatments [@tilburt2008]. The placebo
+response is mediated by well-characterised neurobiological
+pathways [@finniss2010; @benedetti2014; @frisaldi2020;
+@carlino2014; @carlino2016benedetti]. Belief-driven release of endogenous
 opioids and dopamine produces measurable analgesia and mood
 elevation; anticipatory regulation of the
 hypothalamic-pituitary-adrenal axis modulates cortisol and
@@ -1145,10 +1163,10 @@ $0.5$) because the patient's expectation is hedged.
 \end{orig}
 
 \begin{bullets}
-\textbf{The $\eta = 0.5$ blinded-phase expectancy is a modelling assumption supported by literature evidence of 30--60\% residual expectations, but requires sensitivity analysis.}
+\textbf{The $\eta = 0.5$ blinded-phase expectancy is a modelling assumption operationalising response expectancy, not a measured quantity, and requires sensitivity analysis.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Published placebo literature reports residual expectations of 30 to 60 percent of the open-label level across pain, depression, and PTSD trials.
-\item Open-label placebo trials confirm clinically meaningful $PB$-only responses even under explicit disclosure.
+\item The construct is response expectancy in the sense of Kirsch (1985); to our knowledge the residual expectancy under blinded discontinuation has not been measured directly.
+\item Open-label placebo trials confirm clinically meaningful $PB$-only responses even under explicit disclosure, bounding the residual response away from zero.
 \item Sensitivity analyses varying $\eta$ are mandatory before clinical conclusions depend on this single parameter.
 \end{itemize}
 \end{bullets}
@@ -1171,9 +1189,12 @@ Typical expectancy values are $\eta = 1.0$ in open-label
 on-drug, $\eta \approx 0.5$ in blinded discontinuation, and
 $\eta$ between $0$ and $0.5$ in open-label placebo (the residual
 expectation a patient retains when told the previous active
-phase was beneficial). The choice of $\eta = 0.5$ for the
-blinded phase is a modelling assumption rather than a calibrated
-quantity: to our knowledge the residual expectancy a patient
+phase was beneficial). The quantity $\eta$ operationalises
+response expectancy in the sense of @kirsch1985, the patient's
+anticipation of benefit that the expectancy literature treats as
+a determinant of experienced symptom change. The choice of
+$\eta = 0.5$ for the blinded phase is a modelling assumption
+rather than a calibrated quantity: to our knowledge the residual expectancy a patient
 carries when uncertain about allocation has not been measured
 directly as a fraction of the open-label level, and we adopt
 $0.5$ as a deliberately central placeholder. The available
@@ -1809,9 +1830,9 @@ to the observed trajectory.
 \begin{bullets}
 \textbf{Three phase-by-allocation contrasts isolate $PB$, $BR$, and $TV$ respectively; the LME model combines them but the inference is driven by design.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Open-label versus blinded contrast yields approximately $0.5 \cdot PB$, isolating the belief component.
-\item Blinded on-drug versus blinded placebo yields $BR$ alone (since $PB$ and $TV$ match across arms within the blinded phase).
-\item Off-drug phases yield $TV$ plus residual off-drug $PB$, with no $BR$ contribution.
+\item Open-label versus blinded contrast yields approximately $0.5 \cdot PB$, isolating the belief component conditional on a known blinded-phase $\eta$.
+\item Blinded on-drug versus blinded placebo yields $BR$ once drug carryover has elapsed (since $PB$ and $TV$ match across arms within the blinded phase).
+\item Off-drug phases yield $TV$ plus residual off-drug $PB$, with no active $BR$ contribution beyond carryover.
 \end{itemize}
 \end{bullets}
 
@@ -1823,11 +1844,19 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 Three phase-by-allocation contrasts then identify the three
 components. The open-label versus blinded contrast (within drug)
 yields $PB(\eta = 1) - PB(\eta = 0.5) \approx 0.5 \cdot PB$,
-which isolates the belief component. The blinded on-drug versus
-blinded placebo contrast yields $BR$ alone, since $PB$ and $TV$
+which isolates the belief component, but only conditional on a
+known blinded-phase expectancy $\eta$: from a two-phase design
+just the product $\eta \cdot m_{PB}$ is identified, and
+separating $\eta$ from $m_{PB}$ requires the open-label placebo
+phase. The blinded on-drug versus blinded placebo contrast
+yields $BR$ once drug carryover has elapsed, since $PB$ and $TV$
 match across allocation arms within the blinded phase. All
 phases off drug yield $TV$ plus any residual off-drug $PB$, with
-no $BR$ contribution and $PB$ at the off-drug expectation level.
+no active $BR$ contribution beyond carryover and $PB$ at the
+off-drug expectation level. The $\mathbf{1}_{\text{on drug}}$
+indicator in the phase table above is shorthand for the
+continuous-decay drug state $D_{it}$ defined in Table
+\@ref(tab:terms).
 \end{orig}
 
 \begin{bullets}
@@ -3034,7 +3063,7 @@ interpret its diagnostics here.
 \end{orig}
 
 \begin{bullets}
-\textbf{The pilot inverted the framework's power prediction, but the inversion is explained by rank-deficiency and a misidentified summary statistic rather than a failure of the theory.}
+\textbf{The pilot did not confirm the framework's power prediction; rank-deficiency and a misidentified summary statistic are plausible explanations, but the pilot provides no positive evidence for the predicted effect.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item At $N = 35$ rank-deficiency dropped the \texttt{Dbc:phase} term, so the phase-augmented analysis paid fixed-effect cost without gaining the bias-detection contrast.
 \item Predicted bias appears in the coefficient mean $\hat\beta_{bm:D_{bc}}$, which is flat across $pb\_strength$ at this resolution, not in the Wald rejection rate.
@@ -3068,7 +3097,15 @@ biomarker-by-treatment Wald test is not the right summary
 statistic to detect the framework's predicted bias; the bias
 should be read off the coefficient mean itself, which the
 pilot's 100-replicate resolution does not separate from
-sampling noise at the $N = 35$ scale.
+sampling noise at the $N = 35$ scale. It must be stated plainly
+that the pilot did not confirm the framework's prediction: the
+coefficient mean is essentially flat across $pb\_strength$, the
+very factor predicted to drive the bias, so the present data
+provide no positive evidence for the predicted effect. Whether
+this reflects the rank-deficiency and resolution limitations
+above or a genuine absence of the effect at $N = 35$ cannot be
+determined from a 100-replicate run, and the claim therefore
+stands or falls on the production simulation of section 7.
 \end{orig}
 
 \begin{bullets}

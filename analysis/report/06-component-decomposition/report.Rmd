@@ -36,67 +36,88 @@ knitr::opts_chunk$set(
 )
 ```
 
+```{r load-sim-data, include = FALSE}
+sim_summary <- readRDS(here::here(
+  'analysis/data/derived_data/component-decomposition',
+  'study-a-N250/study-a-summary.rds'))
+```
+
 # Abstract {-}
 
 **Background.** Treatment response in aggregated N-of-1 clinical
 trials reflects three causally distinct mechanisms: pharmacological
-action of the active compound, the patient's belief that the
-treatment will work, and natural-history drift in the underlying
-condition. Standard analysis models lump these into a single
-'treatment effect' plus residual error, which conflates clinically
-distinct quantities and compromises both regulatory inference and
-predictive-biomarker validation.
+action of the active compound (BR), the patient's belief that the
+treatment will work (PB), and natural-history drift in the
+underlying condition (TV). Standard analysis models lump these into
+a single 'treatment effect' plus residual error. Whether this
+lumping biases inference is not unconditional: it depends on the
+estimand and on whether candidate biomarkers correlate with the
+non-pharmacological components, a dependence this paper makes
+precise.
 
 **Methods.** We formalise a three-component decomposition of the
-within-participant outcome trajectory into a biological response
-component (BR), a placebo-belief response component (PB), and a
-time-variant natural-history component (TV), each modelled as a
-modified Gompertz function with participant-specific random
-effects. We characterise the trial-design contrasts (open-label,
-blinded discontinuation, crossover) that supply identifiability of
-each component, derive the linear-mixed approximations to the full
-nonlinear model that retain the pharmacological-component target
-estimand, and quantify the inferential cost of failing to
-decompose through worked examples and a Monte Carlo simulation
-study calibrated to the prazosin-PTSD reference parameters.
+within-participant outcome trajectory, each component a modified
+Gompertz function with participant-specific random effects, and
+characterise the trial-design contrasts (open-label, blinded
+discontinuation, crossover) that supply identifiability. We derive
+the omitted-variable-bias identity for the one-component estimator,
+which expresses both the lumped treatment effect and the lumped
+biomarker slope as sums of component-specific terms, and we
+evaluate the analysis strategies in a pre-registered Monte Carlo
+study (Study A) calibrated to the prazosin-PTSD reference
+parameters, comparing a one-component design-contrast analysis with
+a phase-augmented analysis at 250 replicates per cell across
+$m_{PB} \in \{0,1,3,6,10\}$, $m_{TV} \in \{-1,0,1,2\}$, and
+$N \in \{35,70,100,150\}$.
 
-**Results.** The framework is developed and pre-registered for
-empirical evaluation; a 100-replicate pilot of the analysis
-machinery is reported, and a production simulation programme at
-1,000 replicates per cell across $N \in \{35, 70, 100, 150\}$ is
-pre-registered for execution.
+**Results.** The identity shows that the lumped
+biomarker-by-treatment slope is displaced from the pharmacological
+slope by a term proportional to the biomarker's covariance with PB
+and TV, not by the magnitude of those components. Study A confirms
+this: with a biomarker coupled to BR only, the one-component
+estimate of the biomarker-by-treatment interaction is essentially
+unbiased across the whole grid (mean absolute bias from $0.040$ at
+$N=35$ to $0.012$ at $N=150$, within one Monte Carlo standard error
+of zero), with near-nominal coverage and type I error. The
+phase-augmented analysis provides no bias reduction and is markedly
+less powerful (mean power $0.35$ versus $0.59$ at $N=35$; $0.62$
+versus $0.91$ at $N=70$), so it is dominated under this
+uncontaminated biomarker. The inferential value of decomposition is
+therefore conditional, not universal.
 
-**Conclusions.** The three-component framework offers a
-principled basis for predictive-biomarker validation in
-aggregated N-of-1 trials and clarifies the design contrasts that
-are mandatory versus optional, though its bias-versus-power
-advantages remain to be demonstrated empirically: the pilot
-reported here did not confirm the predicted advantage of the
-decomposition-aware analysis, and the production simulation is
-pre-registered but not yet executed. A pragmatic analysis
-specification consistent with the framework but tractable at
-trial-relevant sample sizes is
+**Conclusions.** The trial design must supply the drug-on/off and
+belief contrasts; given those, component-level decomposition is
+useful when the estimand is the attribution of response to
+pharmacology versus belief versus natural history, or when a
+candidate biomarker may correlate with PB or TV. For a
+biomarker-by-treatment interaction with a biomarker orthogonal to
+PB and TV, a single-indicator analysis that exploits the design
+contrast is sufficient and a parametric component model is
+counterproductive. A pragmatic specification for the cases that
+warrant it is
 `Sx ~ bm + t + Dbc + phase + Dbc:phase + bm:Dbc + bm:Dbc:phase`
-with random intercept and AR(1) residual correlation.
+with random intercept and AR(1) residual correlation. The decisive
+test of the biomarker-validation failure, a data-generating process
+that couples the biomarker to PB, remains to be run.
 
 # Introduction
 
 ## A claim about how N-of-1 trials should be analysed
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{This paper argues that treatment response in N-of-1 trials comprises three causally distinct components that must be analysed jointly rather than lumped.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The three components are $BR$ (pharmacological), $PB$ (placebo-belief), and $TV$ (natural history).
 \item Each component is causally distinct, clinically interpretable, and identifiable from a well-designed N-of-1 trial.
 \item The standard single-indicator mixed-effects model conflates all three and renders biomarker validation unanswerable.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 This paper advances an opinionated methodological claim:
 treatment response in aggregated N-of-1 clinical trials is the
 sum of three causally distinct components and should routinely
@@ -114,22 +135,22 @@ across the published N-of-1 literature, conflates these three
 components, biases the interpretation of treatment effect, and
 renders predictive-biomarker validation unanswerable
 as a scientific question.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The contribution is the consolidation and extension of an established structural-decomposition tradition, not a novel decomposition.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The additive disease-progression, placebo, and drug-action decomposition is well established in pharmacometrics and longitudinal trial methodology.
 \item The present framework extends that tradition with an explicit, separately identified placebo-belief channel and brings it to the aggregated N-of-1 setting.
 \item The decomposition logic is not specific to N-of-1; it applies wherever a longitudinal treatment response is analysed.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 We make no claim of novelty for the decomposition itself. The
 structural decomposition of a longitudinal treatment response
 into separable disease-progression, placebo, and drug-action
@@ -155,47 +176,57 @@ methodological inertia) and propose an analysis that is
 tractable at trial-relevant sample sizes through a
 phase-augmented linear-mixed-effects approximation to the full
 decomposition.
-\end{orig}
+:::
 
 ## Why this matters: three failure modes of the lumped analysis
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The lumped one-component analysis has three documented failure modes that grow with unmodelled component heterogeneity.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The three failure modes are placebo-attribution bias, regression-to-the-mean, and biomarker-validation failure.
 \item Each failure mode is documented in the chronic-condition trial literature, not merely hypothetical.
 \item The failures are present regardless of sample size.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 We begin with the failure modes of the standard approach.
 A one-component analysis ('the treatment effect is what we
 observe minus baseline') has three identifiable failure modes
 that arise when the population displays meaningful heterogeneity
 in any of the unmodelled components. None of these is
 hypothetical: each has a documented presence in the
-chronic-condition trial literature.
-\end{orig}
+chronic-condition trial literature. Two points of precision,
+established formally in section 6.1 and borne out by the
+simulation of section 7.3, should be carried through what
+follows. The first two failure modes attach to the
+baseline-anchored lumped effect and are removed once the design
+supplies a drug-on/off contrast, which the one-component analysis
+of later sections in fact uses. The third, biomarker-validation
+failure, is different in kind: it requires not merely that $PB$ or
+$TV$ be large but that the candidate biomarker correlate with
+them, and where that coupling is absent the lumped analysis is not
+biased at all.
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Placebo-attribution bias is sample-size-invariant and documented across antidepressant, anxiety, and IBS literatures.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Lumped treatment-effect estimates overstate pharmacological efficacy in proportion to $PB$ magnitude and variance.
 \item Kirsch et al. and Locher et al. demonstrated that antidepressant apparent efficacy is largely explained by placebo response and natural fluctuation.
 \item Placebo responsiveness has measurable biological correlates (e.g.\ COMT genotype), confirming it is a structured phenomenon, not noise.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The first is the placebo-attribution failure. When the
 population contains both high and low placebo responders, the
 lumped treatment effect overestimates the pharmacological
@@ -222,22 +253,22 @@ with the patient's genome and treatment history. A trial whose
 population happens to be placebo-responsive will report a
 larger 'drug effect' than one whose population is not, even
 when the underlying pharmacology is identical.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Regression-to-the-mean contributes several points of apparent improvement in early trial weeks and is absorbed without trace by the lumped analysis.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Enrolment at peak severity guarantees a natural-history regression component irrespective of pharmacology.
 \item Hrobjartsson et al.\ systematic reviews across 200+ trials showed much of conventional placebo response was indistinguishable from natural-history drift.
 \item The lumped analysis has no formal mechanism to recover the pharmacological effect once regression is absorbed.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The second failure mode is regression-to-the-mean. When
 patients enrol at moments of clinical engagement that coincide
 with peak symptom severity, natural-history regression toward
@@ -253,22 +284,22 @@ the mean and natural-history drift. The lumped analysis absorbs
 this regression into the treatment-effect estimate and the
 analyst has no formal mechanism to recover the true
 pharmacological effect.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Biomarker validation is invalidated when a biomarker correlates with $PB$ or $TV$, rendering precision-medicine stratification wrong regardless of trial size.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item A biomarker correlated with placebo responsiveness or natural-history trajectory is indistinguishable from a true pharmacological predictor in a lumped analysis.
 \item The PATH statement defers mechanistic attribution to domain knowledge; the BR-PB-TV decomposition supplies that substrate.
-\item Rigorously validated pharmacological biomarkers require the decomposition as a precondition, independent of sample size.
+\item Where such coupling cannot be ruled out, rigorous pharmacological-biomarker validation requires the decomposition; where the biomarker is known orthogonal to $PB$ and $TV$, the lumped analysis already recovers the pharmacological slope.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The third failure mode is the biomarker-validation failure.
 The precision-medicine question that motivates many recent
 N-of-1 trials is whether a baseline biomarker predicts
@@ -283,28 +314,33 @@ wrong, and the trial's regulatory utility is degraded. The PATH
 framework explicitly defers the mechanism of treatment-effect
 heterogeneity to domain knowledge [@kent2018bmj;
 @rekkas2020scoping]; the BR-PB-TV decomposition supplies the
-mechanistic substrate that PATH leaves blank. We argue that
-predictive-biomarker validation cannot be conducted rigorously
-in a lumped-analysis framework regardless of how large the
-trial is.
-\end{orig}
+mechanistic substrate that PATH leaves blank. We argue that,
+whenever the candidate biomarker may itself correlate with $PB$ or
+$TV$, predictive-biomarker validation cannot be conducted
+rigorously in a lumped-analysis framework regardless of how large
+the trial is; the bias is fixed by the biomarker's coupling to the
+non-pharmacological components, not by sample size. Where the
+biomarker can be assumed orthogonal to $PB$ and $TV$, this failure
+mode does not arise, and the lumped analysis recovers the
+pharmacological slope, as the simulation of section 7.3 confirms.
+:::
 
 ## The current state of the N-of-1 literature
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The N-of-1 literature has matured substantially but motivates three observations that the present paper addresses.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The design has evolved from individual-patient consultation to a framework supporting population-level inference.
 \item CONSORT reporting standards and quality audits document progressive improvement in analytic transparency.
 \item Three specific gaps in the literature motivate the decomposition framework proposed here.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The N-of-1 trial in its modern randomised form originates with
 @guyatt1986, who defined the within-patient multiple-crossover
 RCT, demonstrated it on a single airflow-limitation case, and
@@ -338,22 +374,22 @@ the reporting-quality audits of @li2016cent and its successors
 document slow but progressive improvement in analytic
 transparency. Three observations about this literature motivate
 the present paper.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{No published N-of-1 trial employs a structural decomposition of treatment response despite three decades of methodological literature.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Audit data show the field has relied on paired t-tests, binary-indicator LME, and hierarchical Bayesian regressions.
 \item Recent methodological advances (Liao 2023, Blackston 2019, Carrozzo 2025) retain the lumped-response framing.
 \item The decomposition gap persists even as carryover and identifiability problems are increasingly recognised.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The first observation is that the dominant analytic models are
 simple. The reporting-quality audit of @li2016cent documents that
 the published N-of-1 trials between 1985 and 2013 relied
@@ -373,22 +409,22 @@ parallel and crossover RCT alternatives by simulation and
 document carryover-induced type-I-error inflation as a key
 failure mode, but again at the level of the lumped treatment
 effect. None of these papers decompose the response.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Placebo-component separation is widely recognised but almost entirely unaddressed at the protocol level in N-of-1 methodology.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The Hendrickson hybrid blinded-discontinuation phase is among the few protocol mechanisms that supply $PB$-versus-$BR$ identifiability.
 \item Placebo run-in, open-label-placebo, and mediator-analysis approaches have not been imported into N-of-1 designs.
 \item The gap between awareness of the problem and protocol-level solutions motivates the present framework.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The second observation is that the placebo-component separation
 problem is widely known but largely unaddressed in N-of-1
 specifically. The blinded discontinuation phase used in the
@@ -398,22 +434,22 @@ identifiability of $PB$ versus $BR$. Other relevant approaches,
 including placebo run-in designs, open-label-placebo trials, and
 mediator-analysis applications, have been developed in parallel
 but rarely imported into N-of-1 methodology.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Kaptchuk's within-placebo decomposition is the closest structural analogue; no published paper applies the corresponding full-response decomposition to N-of-1 trials.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Kaptchuk et al.\ (2008) empirically decomposed the placebo response into observation, ritual, and relationship components.
 \item Open-label placebo trials confirm that clinically meaningful PB-only response is possible even when patients know they receive placebo.
 \item The BR-PB-TV framework is structurally analogous but operates at the level of the full treatment response.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The third observation is that the closest precedent in the
 literature is Kaptchuk's three-component decomposition of the
 placebo response itself. In a randomised trial of
@@ -435,66 +471,66 @@ the aggregated N-of-1 setting, even though the methodological
 ingredients, including mixed-effects modelling, blinded-phase
 contrasts, and trajectory parameterisation, are all in routine
 use.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The decomposition gap is real, the tools to fill it are mature, and the failure modes are large enough to make it a methodological priority.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The gap between available methodology and current practice is documented and not attributable to missing tools.
 \item Failure modes in chronic-condition pharmacology are consequential, not academic.
 \item The remainder of the paper develops, applies, and evaluates the decomposition framework.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The case we develop in the rest of this paper is therefore that
 the gap is real, that the methodological tools to fill it are
 mature, and that the failure modes of the lumped analysis are
 large enough in chronic-condition pharmacology to make the
 decomposition a methodological priority rather than an academic
 refinement.
-\end{orig}
+:::
 
 ## The neurobiological and epidemiological reality of the components
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Each component of the decomposition reflects a real causal mechanism documented in independent literatures.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item $BR$ corresponds to pharmacological action; $PB$ to neurobiologically real belief-driven mechanisms; $TV$ to natural-history drift.
 \item The components are not statistical constructs but distinct causal pathways with separate literatures.
 \item The section reviews the evidence for each component before establishing the formal model.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The decomposition is not a statistical convenience. Each
 component reflects a real causal mechanism documented in
 independent literatures, and we shall briefly recall each in
 turn before turning to the formal model.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{$BR$ is the pharmacological target of regulation; $PB$ is neurobiologically real and phase-modulated, which is precisely the design contrast that makes the decomposition identifiable.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item $PB$ is mediated by endogenous opioid/dopamine release, HPA-axis regulation, and top-down attentional shifts.
 \item Wager et al.\ neurologic pain signature provides a clean fMRI dissociation between pharmacological and expectancy contributions.
 \item Phase-dependent belief variation (open-label vs.\ blinded) is the design contrast that supplies $PB$ identifiability.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The biological response component represents the pharmacological
 action of the active compound: the chemical binding, downstream
 signalling, and physiological response that a regulatory
@@ -520,22 +556,22 @@ modulated by trial phase: when belief varies, as it does
 between open-label and blinded-discontinuation conditions, the
 placebo response varies, and the modulation is exactly the
 design contrast that makes the decomposition identifiable.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{$TV$ is the untreated counterfactual trajectory; its heterogeneity is the central object of precision-medicine inference and must be modelled, not absorbed into noise.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item $TV$ sign depends on disease class: positive for acute recovery, near-zero for stable chronic, negative for progressive conditions.
 \item Selection-driven enrolment at peak severity guarantees positive $TV$ in early trial weeks regardless of disease class.
 \item The PATH statement identifies treatment-effect heterogeneity modelling as mandatory for precision-medicine inference.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The time-variant natural-history component reflects whatever
 trajectory the participant would have followed without treatment.
 For acute conditions this trends positive (recovery on intrinsic
@@ -551,24 +587,24 @@ heterogeneity is itself the central object of precision-medicine
 inference: heterogeneity of treatment effect must be modelled,
 not absorbed into noise, if the precision-medicine question is
 to be answered.
-\end{orig}
+:::
 
 ## What this paper contributes
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The paper makes four contributions spanning formalisation, identifiability mapping, tractable methodology, and quantification of the inferential cost of lumping.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Sections 2--3 formalise the decomposition; section 4 maps it to design contrasts; section 5 develops tractable analysis methods.
 \item Sections 6--7 provide worked examples and a Monte Carlo simulation study; section 8 applies the framework to biomarker validation.
 \item A companion pedagogical document provides extended worked examples for first-time readers.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 We make four contributions, each addressed in a section below.
 We begin in section 2 with the formal model and notation.
 Section 3 develops each component in turn, with biological
@@ -586,22 +622,22 @@ pedagogical document at
 \texttt{docs/24-component-decomposition-pedagogy.md} provides an
 extended worked-example treatment for readers approaching the
 material for the first time.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The first contribution is a formal specification of the three-component decomposition as a sum of Gompertz trajectories with participant-specific random effects.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Each component follows a modified Gompertz function; the joint trajectory is their sum plus observation-level noise.
 \item Cross-component covariances are permitted, allowing participant-level heterogeneity to co-vary across components.
 \item The formal specification is the substrate on which identifiability and analysis-side arguments rest.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Our first contribution is to formalise the three-component
 decomposition for the N-of-1 trial setting (sections 2 and 3).
 Each component is modelled as a modified Gompertz function with
@@ -609,44 +645,44 @@ participant-specific random effects; the joint trajectory is the
 sum plus observation-level noise; cross-component covariances
 are permitted. The formal specification is the substrate the
 framework builds on.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The second contribution maps identifiability of each component onto specific trial-design contrasts and characterises what is lost without them.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The hybrid open-label-plus-blinded-discontinuation design supplies identifiability of all three components.
 \item Designs lacking specific phases lose identifiability of the corresponding component.
 \item The mapping clarifies which design features are mandatory versus optional for each inferential goal.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Our second contribution is to map identifiability onto
 trial-design contrasts (section 4). The standard hybrid
 open-label-plus-blinded-discontinuation design, together with
 phase-by-allocation contrasts, supplies identifiability of all
 three components. We characterise which designs do and do not
 supply this identifiability and what is lost in each case.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The third contribution is a phase-augmented linear-mixed-effects model that captures the BR-versus-PB attribution check at modest parametric cost.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The full nonlinear DGP-matched fit is computationally fragile and degree-of-freedom-expensive at $N \in [30, 150]$.
 \item The phase-augmented LME uses \texttt{Dbc:phase} and \texttt{bm:Dbc:phase} to test whether drug and biomarker-by-drug effects attenuate under blinding.
 \item This model is the recommended default for trial-relevant sample sizes.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Our third contribution is to develop a tractable analysis
 methodology at trial-relevant sample sizes (section 5). The
 full nonlinear mixed-effects fit to mirror the DGP is
@@ -663,22 +699,22 @@ Sx ~ bm + t + Dbc + phase + Dbc:phase
 that captures the practically important part of the
 decomposition, specifically the BR-versus-PB attribution check
 via $Dbc:phase$ and $bm:Dbc:phase$, at modest parametric cost.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The fourth contribution quantifies the inferential cost of lumping through worked examples and a calibrated Monte Carlo simulation study.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Two participants with identical lumped responses but different $(BR, PB, TV)$ compositions are indistinguishable under the one-component analysis.
 \item The simulation study quantifies bias, type I error, and power across analysis strategies and parameter regimes.
 \item The calibration uses prazosin-PTSD reference parameters from the Hendrickson et al.\ dataset.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Our fourth contribution is to quantify the inferential cost of
 failing to decompose, through worked numerical examples
 (section 6) and a Monte Carlo simulation study (section 7)
@@ -690,22 +726,22 @@ different under the decomposition. The simulation study
 quantifies bias, type I error, and power across the analysis
 strategies and across the parameter regimes most relevant to
 chronic-condition trials.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The decomposition is not optional for predictive-biomarker validation: it is the formal mechanism by which the pharmacological precision-medicine question can be asked at all.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item A biomarker predicting the lumped total is not, in general, a pharmacological predictor.
 \item The decomposition separates the biomarker-by-$BR$ question from biomarker-by-$PB$ and biomarker-by-$TV$ confounding.
 \item The decomposition should be the default, not an optional sensitivity analysis, in trials with biomarker validation aims.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The framework's central application is to predictive-biomarker
 validation (section 8). A biomarker that predicts a lumped
 'treatment effect' is not, in general, a pharmacological
@@ -717,24 +753,24 @@ including placebo and natural history. We argue that the
 decomposition should be the default, not an optional sensitivity
 analysis, in any N-of-1 trial whose primary aim is biomarker
 validation.
-\end{orig}
+:::
 
 # Notation and the formal model
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{This section fixes compact notation and states the formal model; a fuller worked-example treatment is in the companion pedagogical document.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Definitions are precise enough to support the identifiability and analysis-side arguments in later sections.
 \item The presentation is kept compact; extended derivations are deferred to the companion document.
 \item The companion pedagogical document provides numerical worked examples at each formal step.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 In this section we shall fix notation and state the formal
 model. The three components are defined precisely enough to make
 the identifiability and analysis-side arguments in later
@@ -742,9 +778,9 @@ sections rigorous, but we have endeavored to keep the
 presentation compact. A fuller treatment, with worked numerical
 examples at each step, is available in the companion pedagogical
 document at \texttt{docs/24-component-decomposition-pedagogy.md}.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 where $Y_{it}$ is the observed symptom score, $\mathrm{BL}_i$
 is participant $i$'s baseline score, the three components $BR$,
 $PB$, $TV$ are non-negative reductions in symptom severity
@@ -754,35 +790,35 @@ The sign convention is that an increase in any component reduces
 $Y$; all three components are zero at $t = 0$ by construction
 (no exposure yet to drug, no belief activation, no elapsed
 natural history) and grow over the duration of the trial.
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 For participant $i$ at trial timepoint $t$:
 
 $$
 Y_{it} \;=\; \mathrm{BL}_i \;-\; \bigl[\,BR_{it} + PB_{it} +
 TV_{it}\,\bigr] \;+\; \varepsilon_{it},
 $$
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Each component is driven by its own time-on-state variable, making the components structurally distinct even when they overlap in calendar time.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item $BR_{it}$ accumulates with time-on-drug; $PB_{it}$ with time-on-belief scaled by expectancy $\eta(\text{phase})$; $TV_{it}$ with calendar time from trial entry.
 \item The distinct time indices are the structural source of identifiability from phase-contrast data.
 \item All components are zero at $t = 0$ by construction and grow over the trial duration.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Each component is a participant-specific function of its own
 time-on-state variable. $BR_{it}$ depends on time-on-drug, the
 cumulative exposure to active medication since drug initiation.
@@ -791,9 +827,9 @@ phase-specific expectancy factor $\eta(\text{phase})$ that
 captures the patient's confidence that they are receiving active
 treatment. $TV_{it}$ depends on time-since-trial-entry,
 calendar time elapsed regardless of treatment status.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 rescaled so that $C(0) = 0$ and $C(t) \to m_C(1 - e^{-d_C})$ as
 $t \to \infty$, for $C \in \{BR, PB, TV\}$. The three Gompertz
 parameters $(m_C, d_C, r_C)$ are participant-specific random
@@ -801,35 +837,35 @@ effects drawn from population distributions, and the
 participant-level heterogeneity in these distributions is the
 principal source of between-person response variability that the
 framework is designed to characterise.
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Each component follows a modified Gompertz curve:
 
 $$
 C(t) \;=\; m_C \,\exp\bigl(-d_C \exp(-r_C t)\bigr) \,-\,
 m_C\,\exp(-d_C),
 $$
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The residual term has AR(1) structure and the three components are permitted to co-vary through cross-component covariances.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Within-participant residuals follow $\mathrm{Cov}(\varepsilon_{it}, \varepsilon_{i,t+h}) = \sigma^2_\varepsilon \rho^{|h|}$.
 \item Within-time and across-time cross-component covariances permit participant-level heterogeneity in one component to co-vary with the others.
 \item This structure accommodates biologically plausible correlations, such as high-$BR$ patients also tending toward high-$PB$.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 $\varepsilon_{it}$ is a within-participant residual term with
 AR(1) serial-correlation structure
 $\mathrm{Cov}(\varepsilon_{it}, \varepsilon_{i,t+h}) =
@@ -839,7 +875,7 @@ across-time cross-component covariances $c_{cf1t}$ and
 $c_{cfct}$ respectively, so that participant-level heterogeneity
 in any one component can co-vary with heterogeneity in the
 others.
-\end{orig}
+:::
 
 The principal psychometric and pharmacological terms used below
 are summarised in Table \@ref(tab:terms).
@@ -871,20 +907,20 @@ knitr::kable(terms_tbl,
 
 # The three components
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{This section presents each component with its biological motivation, Gompertz parameterisation, and identifiability conditions to establish the model as causally interpretable.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The three components are presented in turn: $BR$ (biological response), $PB$ (placebo-belief), $TV$ (natural history).
 \item Each component is grounded in independent biological literature before its parametric form is stated.
 \item The section's purpose is to demonstrate that the model sum reflects causal structure, not mathematical convenience.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 In this section we shall present the three components in turn,
 each with its biological motivation, the modified Gompertz
 parameterisation, and the design contrasts that identify it.
@@ -892,24 +928,24 @@ The treatment is organised so that the reader can see, by the
 end of this section, that the formal model is a sum of three
 causally interpretable trajectories rather than a mathematical
 convenience.
-\end{orig}
+:::
 
 ## Biological response (BR)
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{$BR$ is the pharmacological target of regulatory approval and biomarker stratification, independent of belief or natural history.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item $BR$ arises from chemical action on the body and is zero for inert pills regardless of patient expectation.
 \item It is the estimand that approval decisions, dose selection, and biomarker-guided stratification require.
 \item Separating $BR$ from $PB$ and $TV$ is the central precision-medicine problem the framework addresses.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 $BR$ is the physiological reduction in symptom score attributable
 to the active medication's chemical action on the body. It is
 independent of belief, suggestion, and natural history: a
@@ -921,22 +957,22 @@ Methodologically, $BR$ is the quantity that drug regulators and
 prescribers want: approval decisions, dose selection, and
 biomarker-guided patient stratification are all framed around
 $BR$.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{PK/PD considerations produce a saturating $BR$ trajectory with a slow initial rise, a peak-growth phase, and a sharp drop to zero on discontinuation.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Plasma steady state is reached within a few half-lives; pharmacodynamic integration (e.g.\ receptor adaptation) adds additional lag.
 \item For prazosin-PTSD, Raskind et al.\ (2013) calibrate the onset to several weeks of sustained exposure.
 \item The saturating shape motivates the Gompertz over linear or simple exponential alternatives.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The qualitative shape of the $BR$ trajectory follows from
 pharmacokinetic and pharmacodynamic considerations. Drug
 concentration in plasma reaches steady state within a small
@@ -956,22 +992,22 @@ machinery used throughout this project; only in the limit of a
 short half-life relative to the measurement spacing does it
 approximate the sharp step assumed in the worked example of
 section 6.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The three Gompertz parameters $(m_{BR}, r_{BR}, d_{BR})$ capture ceiling, onset rate, and climb shape respectively, calibrated to prazosin-PTSD reference values.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item $m_{BR}$ is the biological ceiling (maximum reduction at infinite exposure); $r_{BR}$ the onset rate; $d_{BR}$ the displacement shaping the early climb.
 \item Prazosin-PTSD calibration yields $m_{BR} \approx 11$, $r_{BR} \approx 0.42$/week, $d_{BR} \approx 5$.
 \item These are participant-specific random effects whose population distributions encode between-person response heterogeneity.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The modified Gompertz form
 $BR(t) = m_{BR}\exp(-d_{BR}\exp(-r_{BR}t)) -
 m_{BR}\exp(-d_{BR})$ captures this profile compactly. The
@@ -991,22 +1027,22 @@ $m_{BR} \approx 11$ (eleven points of nightmare-score reduction
 at saturation), $r_{BR} \approx 0.42$ per week (half-maximum at
 roughly four to five weeks of sustained exposure), and
 $d_{BR} \approx 5$ (moderately steep early climb).
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The Gompertz is preferred over linear and simple-exponential alternatives because it captures the asymmetric slow-start saturation profile of chronic-condition pharmacodynamics.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Linear $BR = \beta t$ is biologically implausible past the first few weeks due to unbounded growth.
 \item Exponential $BR = m(1 - e^{-rt})$ lacks the slow-start phase from receptor adaptation and gene-expression changes.
 \item The Gompertz interpolates between both limits and its three-parameter form avoids overfitting; sensitivity analysis is reported separately in \texttt{07-gompertz-evaluation}.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Two alternative families that do not capture the asymmetric
 saturation profile are worth noting for contrast. A linear
 function $BR = \beta t$ climbs without bound and is biologically
@@ -1035,22 +1071,22 @@ project documentation provides the full historical and
 biological context for the family choice and quantifies the
 sensitivity of pmsimstats inference to alternative families;
 that work is reported separately as \texttt{07-gompertz-evaluation}.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{$BR$ is identified by the blinded-discontinuation contrast, where drug removal collapses $BR$ to zero while $PB$ remains intact.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Within-participant on-drug versus off-drug contrasts are the primary identification mechanism.
 \item The blinded-discontinuation phase provides the cleanest contrast: $BR$ drops, $PB$ is preserved.
 \item This contrast does not require the analyst to model $PB$ or $TV$ explicitly to recover $BR$.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The $BR$ component is identified by within-participant on-drug
 versus off-drug contrasts, formalised in section 4 below. The
 most direct contrast is the blinded-discontinuation phase: when
@@ -1067,24 +1103,24 @@ the contrast is clean only once the discontinuation window is
 long relative to $t_{1/2}$, and the drug state is best carried by
 the continuous-decay indicator $D_{it}$ of Table
 \@ref(tab:terms) rather than a hard on/off indicator.
-\end{orig}
+:::
 
 ## Placebo-belief response (PB)
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{$PB$ is the strict placebo response: improvement that persists when the active drug is silently replaced, provided the patient's belief is unchanged.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item $PB$ is belief-dependent, not drug-dependent; it would survive a silent switch to placebo under sustained belief.
 \item It is distinct from $BR$ in causal origin: $BR$ requires chemical action; $PB$ requires only belief.
 \item The definition is strict and operational, not vague or colloquial.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 $PB$ is the reduction in symptom score that arises from the
 patient's belief that they are receiving active treatment,
 independent of what they are actually receiving. That is, it is
@@ -1092,22 +1128,22 @@ the placebo response in its strict sense: the part of the
 improvement that would persist if the active drug were silently
 replaced with an inert pill, provided the patient continued to
 believe they were on the active drug.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{$PB$ reflects neurobiologically real mechanisms triggered by belief, not pharmacology; neuroimaging and genetic evidence confirm it is a structured biological phenomenon.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Belief-driven endogenous opioid/dopamine release, HPA-axis modulation, and top-down attentional shifts are all documented mechanisms.
 \item Wager et al.\ neurologic pain signature dissociates pharmacological from expectancy contributions via fMRI.
 \item COMT genotype predicts placebo responsiveness, confirming biological structure rather than measurement artefact.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 It is worth being precise about what $PB$ is and is not. $PB$
 is not 'fake' improvement, and it is not 'all in the patient's
 head' in any dismissive sense; it is, moreover, a phenomenon
@@ -1134,22 +1170,22 @@ and expectancy contributions to a clinical pain response. Genetic
 correlates of placebo responsiveness [@hall2012comt;
 @wang2022comt] further establish that placebo response is a
 structured biological phenomenon, not a measurement artefact.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{$PB$ is identifiable from $BR$ only when belief and treatment allocation differ, as in the blinded-discontinuation phase.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The blinded-discontinuation phase is the canonical contrast: patients cannot tell whether they remain on active drug.
 \item Belief drops to a partial level ($\eta \approx 0.5$) because the patient's expectation is hedged, not absent.
 \item Designs without a phase that decouples belief from treatment cannot separately identify $PB$ from $BR$.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 For trial design, the relevant point is that $PB$ is separately
 identifiable from $BR$ if and only if the trial includes a phase
 in which the patient's belief about treatment differs from the
@@ -1160,22 +1196,22 @@ switched to placebo, and they cannot reliably tell whether they
 are still receiving active drug. Belief in treatment
 correspondingly drops to a partial level (multiplier roughly
 $0.5$) because the patient's expectation is hedged.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The $\eta = 0.5$ blinded-phase expectancy is a modelling assumption operationalising response expectancy, not a measured quantity, and requires sensitivity analysis.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The construct is response expectancy in the sense of Kirsch (1985); to our knowledge the residual expectancy under blinded discontinuation has not been measured directly.
 \item Open-label placebo trials confirm clinically meaningful $PB$-only responses even under explicit disclosure, bounding the residual response away from zero.
 \item Sensitivity analyses varying $\eta$ are mandatory before clinical conclusions depend on this single parameter.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 $PB$ also follows a Gompertz curve, scaled by the expectancy
 factor:
 
@@ -1207,22 +1243,22 @@ residual belief-driven response away from zero. Because the
 value of $\eta$ is not empirically pinned, sensitivity analyses
 varying it across its plausible range are mandatory before any
 conclusion is allowed to depend on this single number.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Kaptchuk et al.\ (2008) provide the structural precedent; the BR-PB-TV framework extends the same decomposition logic to the full treatment response.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Kaptchuk decomposed the placebo response itself into observation, ritual, and relationship components empirically.
 \item The present framework applies analogous decomposition logic at the level of drug, placebo, and natural history.
 \item Both frameworks reject the 'expectancy lump' model in favour of identifiable additive parts.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The decomposition framework as proposed here has a structural
 analogue in the placebo-research literature. @kaptchuk2008components
 decomposed the placebo response itself into observation, ritual,
@@ -1233,22 +1269,22 @@ single 'expectancy' lump but a sum of identifiable parts. The
 present BR-PB-TV framework is analogous in spirit but operates
 at the level of the full treatment response (drug, placebo,
 natural history) rather than within the placebo response alone.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{$PB$ variance scales with $\eta$, not just its mean; ignoring this heteroscedastic structure miscalibrates standard errors and downstream biomarker tests.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Phase-dependent variance follows $\mathrm{SD}(PB \mid \text{phase}) = \eta(\text{phase}) \cdot \sigma_{PB}^{\text{baseline}}$.
 \item Open-label phases have high between-patient $PB$ variance; blinded phases have low variance.
 \item Ignoring heteroscedasticity deflates standard errors in open-label and inflates them in blinded phases, with consequences for CI coverage and biomarker test calibration.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 A subtle property of $PB$ is that its variance also scales with
 $\eta$, not just its mean. When $\eta$ is high, there is
 substantial variability across patients in how strongly the
@@ -1263,45 +1299,45 @@ structure deflates standard errors in the open-label phase and
 inflates them in the blinded phase, with downstream consequences
 for confidence-interval coverage and for the calibration of any
 biomarker test built on top of the analysis.
-\end{orig}
+:::
 
 ### Additivity, subadditivity, and the BR-PB interaction
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Additivity is a modelling assumption, not biological fact; the section examines whether a $BR \times PB$ interaction term is warranted.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The formal model writes total response as a sum; this section asks whether the $BR$-$PB$ interaction is zero.
 \item The question has inferential consequences for biomarker validation and for what the phase-augmented analysis captures.
 \item The treatment is preparatory for the generalised interaction model introduced later in this section.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 In this section we shall broach a question that the formal
 model leaves open: whether the three components contribute
 additively to symptom reduction, or whether there is a
 meaningful interaction between $BR$ and $PB$ that the additive
 specification misses.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The additive model may be wrong: published literature documents subadditivity between pharmacological and placebo-belief effects in some clinical contexts.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Subadditivity means the combined $BR + PB$ effect is less than the sum of each component measured separately.
 \item Evidence from Kaptchuk et al.\ and Benedetti et al.\ shows the phenomenon is context-dependent, not universal.
 \item Formal test: $\partial Y / \partial(BR \cdot PB) > 0$ in a saturated mean-structure model.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The decomposition as written in section 2 treats the three
 components as additive contributors to symptom reduction:
 
@@ -1334,22 +1370,22 @@ components measured separately [@kaptchuk2008components;
 subadditivity: $\partial Y / \partial(BR \cdot PB) > 0$ when
 both components are present and their interaction term is
 included in a saturated mean-structure model.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Three candidate mechanisms for subadditivity are shared neural substrate, scale ceiling effects, and belief-dynamics adaptation.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Shared pain-modulation circuits produce saturating occupancy when both $BR$ and $PB$ activate them simultaneously.
 \item Scale ceiling effects prevent registration of additional symptom reduction once $BR + PB$ saturates the measurement range.
 \item Belief-dynamics adaptation: unexpectedly large $BR$ can recalibrate patient expectation downward, attenuating ongoing $PB$.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Three mechanisms have been proposed in the placebo-research
 literature to explain subadditivity. First, a shared neural
 substrate: if the descending pain-modulation circuits that
@@ -1367,9 +1403,9 @@ downward when the active drug produces a strong response that
 exceeds the expected effect, reducing the ongoing $PB$
 contribution; equivalently, unexpectedly large $BR$ may attenuate
 $PB$ via expectation recalibration.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 where $\gamma < 0$ encodes subadditivity, $\gamma = 0$ recovers
 the additive form, and $\gamma > 0$ encodes superadditivity, is
 the natural extension. The interaction coefficient $\gamma$ is
@@ -1379,13 +1415,13 @@ products at high $\eta$, blinded phases supply $BR \cdot PB$
 products at attenuated $\eta$, and the $\gamma$ coefficient is
 estimated from the difference between the two regimes once the
 marginal components are accounted for.
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Whichever mechanism dominates in a given clinical context, the
 subadditivity question is empirical and design-dependent.
 Within the BR-PB-TV framework, subadditivity manifests as a
@@ -1398,22 +1434,22 @@ Y_{it} \;=\; \mathrm{BL}_i \;-\; \bigl[BR_{it} + PB_{it}
             + TV_{it} + \gamma \cdot BR_{it} \cdot PB_{it}\bigr]
             \;+\; \varepsilon_{it},
 $$
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Subadditivity biases biomarker predictive accuracy estimates and is partly absorbed by the phase-augmented analysis even without explicit $\gamma$ estimation.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Under subadditivity, the biomarker-by-$BR$ association is partly cancelled, inflating apparent predictive accuracy in the additive model.
 \item Phase designs attenuating $PB$ (blinded, crossover) push the effective biomarker-treatment estimate closer to the true biomarker-by-$BR$ value.
 \item The phase-augmented analysis in section 5 absorbs subadditivity as a side benefit.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 For trial design, two consequences follow. First, a biomarker
 that predicts $BR$ in an additive-decomposition analysis may
 overstate or understate predictive accuracy if the true
@@ -1431,22 +1467,22 @@ open-label estimate. The phase-augmented analysis recommended
 in section 5 below therefore has the side benefit of partly
 absorbing subadditivity, even when $\gamma$ is not estimated
 explicitly.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{A forthcoming simulation study will quantify how bias in the biomarker-treatment interaction scales with $\gamma$; the pre-registration predicts linear scaling.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Bias in $\hat\beta_{bm:D}$ is expected to scale linearly with $\gamma$ at small $|\gamma|$.
 \item Under subadditivity, bias sign is opposite to the true biomarker-by-$BR$ effect; under superadditivity it is aligned.
 \item Empirical quantification is deferred to the production simulation programme in section 7.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 A simulation study quantifying the magnitude of bias in the
 biomarker-treatment interaction estimate when the additive
 analysis is fitted to data generated under non-zero $\gamma$ is
@@ -1455,22 +1491,22 @@ section 7. The pre-registration is that bias scales linearly
 with $\gamma$ at small $|\gamma|$, with the sign opposite to the
 true biomarker-by-$BR$ effect under subadditivity and aligned
 with it under superadditivity.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Non-zero $\hat{\gamma}$ does not establish true subadditive interaction; latent-class structure with class-correlated components produces the same marginal pattern.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item If class membership correlates with both $BR$ and $PB$ strength, the marginal covariance of $BR \cdot PB$ mimics a direct interaction term.
 \item This confounding is invisible from the lumped-analysis perspective but is identifiable in a class-aware analysis.
 \item Apparent subadditivity can arise from latent population heterogeneity with no direct $BR$-$PB$ interaction in the class-conditional DGP.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 A subtle but inferentially important point merits attention
 here: a non-zero $\hat{\gamma}$ recovered from an
 additive-extension analysis does not, on its own, establish
@@ -1492,22 +1528,22 @@ class-conditional DGP. That is, the latent-class structure is
 one mechanism that produces apparent subadditivity in a
 one-component analysis, regardless of whether the underlying
 biology has a true direct $BR$-$PB$ interaction.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Distinguishing true subadditivity from latent-class confounding requires either a class-aware analysis or the phase contrasts the BR-PB-TV framework provides.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The two mechanisms produce qualitatively similar marginal effects but are inferentially distinct.
 \item $\hat{\gamma}$ should be reported alongside a class-aware sensitivity analysis, not as standalone evidence for mechanistic subadditivity.
 \item The latent-class paper's \texttt{pb\_class\_correlation} simulation axis is the direct test; cross-paper synthesis is the cleanest disentanglement.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The two mechanisms, namely true subadditive interaction and
 latent-class structure with class-correlated components,
 produce qualitatively similar marginal effects but are
@@ -1529,24 +1565,24 @@ direct simulation-side test of the latent-class generation of
 apparent subadditivity, and the cross-paper synthesis between
 the two papers is the cleanest way to disentangle the two
 mechanisms.
-\end{orig}
+:::
 
 ## Time-variant natural-history component (TV)
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{$TV$ is the untreated counterfactual trajectory; it is participant-specific, structured, and can be positive, negative, or near-zero depending on disease class.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item $TV$ is the symptom change that would have occurred without treatment, integrated over the trial duration.
 \item It varies in sign across disease classes and across patients within a class.
 \item It is independent of treatment status and belief, distinguishing it structurally from $PB$.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 $TV$ is the reduction in symptom score that would have happened
 even if the patient had received no treatment at all. It is the
 participant's natural-history trajectory, integrated over the
@@ -1556,22 +1592,22 @@ events, therapy, time-in-condition, or regression to the mean);
 for others $TV$ is negative (symptoms naturally worsen because
 of trauma anniversaries, accumulating stress, or progressive
 underlying disease).
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{$TV$ is a structured participant-specific signal, not noise; its distinguishing feature from $PB$ is independence from treatment status and belief.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Unlike $\varepsilon_{it}$, $TV$ is participant-level (slow trajectory) and requires explicit modelling, not absorption into noise.
 \item Off-drug baselines and follow-up windows are the primary data sources for estimating $TV$.
 \item $TV$ is modulated by neither treatment assignment nor patient belief, whereas $PB$ is modulated by both.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Like $PB$, $TV$ is not noise. It is a structured
 participant-specific signal that the model can in principle
 estimate from data, given sufficient repeated measurements and
@@ -1579,24 +1615,24 @@ a trial design that includes a long enough off-drug baseline or
 follow-up window. What distinguishes $TV$ from $PB$ is its
 origin: $TV$ is independent of treatment status and of belief
 about treatment, whereas $PB$ is modulated by both.
-\end{orig}
+:::
 
 ### When does natural history actually exist?
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The shape of $TV$ depends on disease class, trial timescale, and selection process; none of these can be assumed and all must be recovered empirically.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The assumption that subjects improve over time is true for some conditions and systematically wrong for others.
 \item Disease class, trial timescale, and enrolment selection jointly determine the sign and magnitude of $TV$.
 \item Recovering the empirical shape of $TV$ is one of the decomposition's primary objectives.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 A common simplifying assumption in trial analysis is that
 subjects will improve over time, with or without treatment.
 This is true for some conditions and problematic for others.
@@ -1605,22 +1641,22 @@ trial timescale, and the selection process by which participants
 entered the trial. None of these can be assumed without thought,
 and the empirical shape of $TV$ is one of the things the
 decomposition is designed to recover.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{$TV$ sign varies systematically by disease class: positive for acute recovery, near-zero for stable chronic, negative for progressive, and structured for cyclical conditions.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Acute conditions (post-operative pain, acute back pain) resolve intrinsically; substantial $TV$-improvement appears in the placebo arm.
 \item Progressive conditions (Alzheimer's, ALS) require explicit negative-trajectory modelling; apparent treatment effect is slowing of progression.
 \item Cyclical/triggered conditions (PTSD with trauma anniversaries, relapsing-remitting MS) require covariates beyond the Gompertz form.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Acute conditions tend toward TV-positive: a sprained ankle, a
 post-operative pain syndrome, an episode of acute back pain all
 resolve on a timescale of days to weeks even without
@@ -1640,22 +1676,22 @@ anniversaries, seasonal-pattern major depression,
 relapsing-remitting multiple sclerosis) show structured $TV$
 that is neither monotone nor stationary, and may require
 explicit covariates beyond the Gompertz form.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Selection-induced $TV$ is real and rarely zero even for stable chronic conditions, because enrolment coincides with peak severity triggering help-seeking.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Regression to the mean alone contributes several points of apparent improvement in early trial weeks.
 \item Hrobjartsson et al.\ systematic reviews across 200+ trials show much of conventional placebo response is indistinguishable from natural-history drift.
 \item Kirsch (2008) and Locher (2015) demonstrate the clinical consequences in antidepressant and late-life depression trials.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Selection-induced $TV$ is real and rarely zero, even when the
 underlying condition is stable. Patients enrol in trials at
 moments of clinical engagement, which often coincide with recent
@@ -1677,44 +1713,44 @@ with the apparent 'efficacy' largely explained by placebo
 response and natural fluctuation; @locher2015 explicitly invoked
 regression to the mean to explain the severity-by-treatment
 interaction in late-life depression.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Trial participation itself induces $TV$-improvement through Hawthorne, structured-visit, and diary-completion effects, independent of pharmacology or placebo.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Hawthorne, structured-visit, and diary-completion effects each contribute symptom improvements attributable to participation, not treatment.
 \item These contributions are absorbed into $TV$ in the decomposition, not into $BR$ or $PB$.
 \item Ignoring these participation-induced effects inflates the apparent pharmacological and placebo components.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Trial participation itself also induces $TV$: the Hawthorne
 effect, the structured-visit effect, and the diary-completion
 effect appear in the data as $TV$-improvement that is
 independent of any pharmacological or placebo response.
-\end{orig}
+:::
 
 ### Can we assume no TV effect?
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Assuming $TV = 0$ is rarely safe in chronic psychiatric or pain trials; the conservative default is to estimate $TV$ from the data.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Zero-$TV$ assumption is valid only when all four conditions hold: stable disease, short trial, non-severity-peaked recruitment, no ancillary care.
 \item For most chronic conditions at least one condition fails; the assumption should be tested, not asserted.
 \item Statistical efficiency lost by estimating $TV$ is smaller than the bias introduced by assuming it zero.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 But how safe is it to assume $TV$ is zero? The short answer is:
 rarely safe, and never safe without empirical support. The
 longer answer is that $TV$ may be assumed zero only if the
@@ -1726,22 +1762,22 @@ For most chronic trials in psychiatric or pain conditions, at
 least one of these conditions fails. The conservative default
 is to estimate $TV$ from the data, even at the cost of some
 statistical efficiency, rather than assume it is zero.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The decomposition makes the zero-$TV$ assumption testable and shows that lumping $TV$ into residuals produces autocorrelated, heteroscedastic residuals that bias $BR$ and $PB$ standard errors.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item $\hat{m}_{TV}$ with a variance estimate from the model provides an empirical test of the zero-$TV$ assumption.
 \item Participant-level $TV$ is structured and correlated with the on/off-drug schedule; it is not independent noise.
 \item Lumping $TV$ into $\varepsilon$ produces autocorrelated within-participant residuals and heteroscedastic cross-participant residuals.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The decomposition makes this assumption testable. A model that
 includes a $TV$ component will return $\hat{m}_{TV}$ with a
 variance estimate; if both are small relative to $\hat{m}_{BR}$
@@ -1759,24 +1795,24 @@ on the $BR$ and $PB$ estimates are wrong in both directions:
 too small for participants whose $TV$ is small, too large for
 participants whose $TV$ is large. Estimating $TV$ explicitly
 fixes both problems simultaneously.
-\end{orig}
+:::
 
 ### Why a Gompertz, not a linear time covariate?
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{A linear \texttt{week} covariate is insufficient for $TV$ because it enforces linearity, ignores participant heterogeneity, and cannot distinguish $TV$ from $BR$ without the explicit decomposition.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item A \texttt{week} covariate constrains each additional week to contribute a fixed natural-history change, misrepresenting curved or saturating disease trajectories.
 \item A single coefficient estimates a population-mean trajectory, ignoring participant-level heterogeneity in natural history.
 \item Without the decomposition and design contrasts, \texttt{week} absorbs both $BR$ and $TV$, making them inseparable.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 A natural objection is that a model with \texttt{week} as a
 covariate already controls for time. But how adequate is such a
 control? Three reasons suggest it is not enough. First, a
@@ -1793,24 +1829,24 @@ tell them apart from observational data alone; the design
 contrasts discussed in section 4 are what supply
 identifiability, and without the explicit decomposition the
 \texttt{week} coefficient absorbs both.
-\end{orig}
+:::
 
 # Identifiability and trial-design contrasts
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Identifiability is supplied by trial design; each phase of the hybrid design contributes a different combination of components to the observed trajectory.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The decomposition is mathematically specified but requires trial-design contrasts to be statistically identified.
 \item This section characterises the hybrid open-label-plus-blinded-discontinuation design as the primary identifiability vehicle.
 \item Each of the three phases supplies a distinct mixture of $BR$, $PB$, and $TV$.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The mathematical decomposition above is meaningless unless the
 data contain enough information to pin down each component
 separately. Trial design is what supplies that information. In
@@ -1819,7 +1855,7 @@ open-label-plus-blinded-discontinuation design, used as the
 worked example throughout this paper, and show how each of its
 three phases contributes a different combination of components
 to the observed trajectory.
-\end{orig}
+:::
 
 | Phase | Drug? | Belief? | Components present |
 |---|---|---|---|
@@ -1827,20 +1863,20 @@ to the observed trajectory.
 | Blinded discontinuation | Hidden | Hedged | $BR \cdot \mathbf{1}_{\text{on drug}} + PB(\eta = 0.5) + TV$ |
 | Open-label crossover | Either | Knows | $BR \cdot \mathbf{1}_{\text{on drug}} + PB(\eta = 1) + TV$ |
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Three phase-by-allocation contrasts isolate $PB$, $BR$, and $TV$ respectively; the LME model combines them but the inference is driven by design.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Open-label versus blinded contrast yields approximately $0.5 \cdot PB$, isolating the belief component conditional on a known blinded-phase $\eta$.
 \item Blinded on-drug versus blinded placebo yields $BR$ once drug carryover has elapsed (since $PB$ and $TV$ match across arms within the blinded phase).
 \item Off-drug phases yield $TV$ plus residual off-drug $PB$, with no active $BR$ contribution beyond carryover.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Three phase-by-allocation contrasts then identify the three
 components. The open-label versus blinded contrast (within drug)
 yields $PB(\eta = 1) - PB(\eta = 0.5) \approx 0.5 \cdot PB$,
@@ -1857,42 +1893,42 @@ off-drug expectation level. The $\mathbf{1}_{\text{on drug}}$
 indicator in the phase table above is shorthand for the
 continuous-decay drug state $D_{it}$ defined in Table
 \@ref(tab:terms).
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The LME model formally combines all three contrasts, but inferential precision is determined by the design, not model specification.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Each contrast targets a specific component; the model integrates all three into a coherent parameter set.
 \item Model specification cannot compensate for missing design contrasts; the identifying information must exist in the data.
 \item The analyst should evaluate any proposed trial design by verifying each component has at least one identifying contrast.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Each contrast targets a different component, and the analyst
 combines them through the linear-mixed-effects model fitted to
 the full trajectory. The model is the formal mechanism, but
 the inference is driven by the design contrasts.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Designs lacking specific phases lose identifiability of the corresponding component; the decomposition machinery is only as useful as the design allows.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item A pure open-label design cannot separate $BR$ from $PB$ because both are present at full strength throughout.
 \item A pure blinded design cannot estimate $\eta = 1$ $PB$ because no phase achieves full-strength belief.
 \item Trial designers should verify each component has at least one phase in which it is uniquely present before committing to the design.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 A trial that lacks any of these phases loses the corresponding
 identifiability. A pure open-label design (no blinded
 discontinuation) cannot separate $BR$ from $PB$, because both
@@ -1903,22 +1939,22 @@ machinery is useful only to the extent that the design supplies
 identifiability, and trial designers should evaluate any
 proposed design by checking that each component has at least one
 phase or contrast in which it is uniquely present.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Design-contrast identifiability is necessary but not sufficient: the three Gompertz trajectories are collinear, so joint estimation is credible only under specific design and sample-size conditions.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The components share an onset shape and overlap in calendar time, so their parameters can be near-collinear even when the identifying contrasts are present.
 \item Joint recovery requires a phase in which each component varies while the others are held fixed, and an off-drug window long enough for $TV$ to separate from a decaying $BR$.
 \item The recoverable region of the design-and-sample-size space is mapped by the pre-registered identifiability diagnostics, not asserted.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Identifiability in the design-contrast sense above is necessary
 but not sufficient for stable estimation at finite sample sizes.
 The three Gompertz trajectories share an onset shape and overlap
@@ -1944,24 +1980,24 @@ are the means by which the recoverable region of the
 design-and-sample-size space is to be mapped, and the
 framework's participant-level claims should be read as
 conditional on falling inside that region.
-\end{orig}
+:::
 
 # Analysis-side methodology
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Four constraints make a component-matched analysis impractical at trial-relevant sample sizes; a phase-augmented LME captures the important part of the gap at minimal cost.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The question of whether to mirror the DGP in the analysis model is reasonable; the section addresses it directly.
 \item The four constraints are identifiability, degrees of freedom, convergence fragility, and marginal estimand robustness.
 \item A phase-by-treatment indicator is the recommended modest extension that captures BR-versus-PB sensitivity without the full parametric cost.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 In this section we shall take up the practical question of what
 analysis model to use. A reasonable reaction to the formal model
 in section 2 is the following: if we are simulating data with
@@ -1975,24 +2011,24 @@ Four constraints make a component-matched analysis impractical
 for most aggregated N-of-1 trial sizes, and a modest extension
 (a phase-by-treatment indicator) captures the practically
 important part of the gap at minimal cost.
-\end{orig}
+:::
 
 ## Four reasons not to match the DGP
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The first constraint is identifiability: forcing a three-component model on a design with insufficient contrasts produces unidentified parameters, not component estimates.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item A pure open-label trial cannot distinguish $BR$ from $PB$; both rise from zero together on treatment initiation.
 \item Fitting three components to a one-contrast design produces implausibly tight standard errors that misrepresent inferential precision.
 \item The analyst must audit whether the design supplies the necessary contrasts before specifying a component-matched model.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The first reason is identifiability. The trial design must
 supply the contrasts that identify each component, and many
 designs supply only part of it. The decomposition is identified
@@ -2008,22 +2044,22 @@ missing components; it produces unidentified or weakly
 identified parameter estimates with implausibly tight standard
 errors that misrepresent the analyst's actual inferential
 precision.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The second constraint is degrees of freedom: a component-matched analysis adds approximately a dozen non-linear parameters, inflating moderation estimand variance at $N \in [30, 150]$.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Gompertz $BR$ (3), $PB$ (3 + expectancy multiplier), and $TV$ (3) each require participant-specific random effects on the maxima.
 \item At trial-relevant $N$, the variance of $\hat\beta_{bm:D}$ is dominated by participant and timepoint counts.
 \item Additional parametric structure typically inflates moderation estimand variance more than it reduces bias.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The second reason is degrees of freedom. Each component term
 costs degrees of freedom that come out of the moderation
 estimand. The biomarker-moderation question (the core scientific
@@ -2039,22 +2075,22 @@ the variance of $\hat{\beta}_{bm:D}$ is dominated by participant
 and timepoint counts, and adding parametric structure to absorb
 residual confounding usually inflates the moderation estimand's
 variance by more than it reduces bias.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The third constraint is convergence fragility: component-matched nonlinear mixed models converge below 90\% at trial-relevant $N$, contaminating aggregated analyses.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Simultaneous Gompertz $BR$, $PB$, and $TV$ fitting requires \texttt{nlme::nlme}, Bayesian hierarchical, or structural-equation approximations.
 \item Each is more sensitive to starting values, prone to local optima, and likely to fail on individual trial datasets than the LME analogue.
 \item Non-converging cells at below-90\% convergence rates contaminate power and bias estimates in simulation studies.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The third reason is convergence fragility. Component-matched
 analyses are non-linear in the parameters and their convergence
 is problematic in practice. Fitting Gompertz $BR$, $PB$, and
@@ -2067,22 +2103,22 @@ single trial dataset than the linear-mixed analogue. At
 trial-relevant $N$, the convergence rate of the
 component-matched fit is typically below 90\%, and the
 non-converging cells contaminate any aggregated analysis.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The fourth constraint is estimand robustness: the \texttt{bm:Dbc} marginal interaction is the right estimand for the biomarker-validation question regardless of the BR-PB split.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Regulators want to know whether the biomarker predicts treatment response under trial conditions, not a mechanistically decomposed prediction.
 \item The marginal \texttt{bm:Dbc} interaction captures this question whether the moderation is biological or expectation-mediated.
 \item Component decomposition adds mechanistic precision but is not required for the core biomarker-validation decision.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The fourth reason is that the moderation estimand is
 sufficiently robust to the BR-versus-PB split for the most
 common scientific question. For predictive-biomarker validation,
@@ -2092,22 +2128,22 @@ pharmacological-versus-placebo decomposition of that prediction.
 The simple \texttt{bm:Dbc} interaction is the right marginal
 estimand for the validation question whether the moderation is
 biological or expectation-mediated.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The inferential target is stated as an estimand: the population biomarker-by-treatment interaction with explicit intercurrent-event handling, while the pharmacological-component target is more ambitious and inherits the heterogeneity-identifiability caveat.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The $bm{:}D_{bc}$ estimand is defined by its population, treatment contrast, endpoint, summary, and intercurrent-event strategy in the ICH E9(R1) sense.
 \item Dropout is handled by a treatment-policy strategy and residual carryover by the modelled exponential decay.
 \item Recovering a participant-level pharmacological interaction inherits Senn's caveat that true heterogeneity is separable from within-person variation only under repeated phase contrasts.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 It is worth stating the inferential target of the analysis in
 the vocabulary of the estimands framework [@iche9r1], because
 the biomarker-validation question is easy to pose ambiguously.
@@ -2134,24 +2170,24 @@ and the framework should be read as estimating these quantities
 under that condition rather than as dissolving the well-known
 problem of identifying individual effects from finite
 within-person data.
-\end{orig}
+:::
 
 ## A small extension that usually pays off: phase indicators
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The phase-augmented LME uses \texttt{Dbc:phase} and \texttt{bm:Dbc:phase} to test whether drug and biomarker-by-drug effects attenuate under blinding.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item \texttt{phase} absorbs systematic differences in $PB$ expectancy across trial phases.
 \item \texttt{Dbc:phase} detects whether the drug effect shrinks under blinding, a signature of $PB$-mediation.
 \item \texttt{bm:Dbc:phase} detects whether the biomarker-by-treatment interaction shrinks under blinding, a signature that it is partly biomarker-by-$PB$.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The smallest useful step toward component-aware analysis,
 without paying the costs above, is to add a phase indicator
 and its interaction with the drug indicator. Schematically,
@@ -2171,22 +2207,22 @@ $PB$-mediated. \texttt{bm:Dbc:phase} tests whether the
 moderation itself shrinks under blinding, a signature that the
 biomarker-by-treatment interaction was partly
 biomarker-by-$PB$ rather than biomarker-by-$BR$.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The phase-augmented extension adds at most four parameters yet captures the practically relevant belief-attenuation diagnostic without requiring the Gompertz parametric form.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Three to four parameters is well within budget at any realistic trial sample size.
 \item The extension does not separately estimate $BR$ and $PB$ components but identifies the change in apparent drug effect when belief is hedged.
 \item For most analyses this is the practically relevant question and is answerable without committing to the Gompertz form.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 This extension adds three to four parameters at most, well
 within budget at any realistic $N$. It does not separately
 estimate $BR$ and $PB$ as components, but it does identify the
@@ -2194,24 +2230,24 @@ change in apparent drug effect that occurs when belief is
 hedged. For most analyses, this is the practically relevant
 question, and it can be answered without committing to the
 Gompertz parametric form.
-\end{orig}
+:::
 
 ## When to fit the full decomposition
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The full decomposition merits the effort only when $N$ is in the hundreds, the design is fully phase-balanced, and the scientific question requires the BR-PB mechanistic split.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Feasibility conditions: several-hundred $N$, dense timepoints in every phase, mechanistic BR-PB split required, and informative Bayesian priors available.
 \item In that regime, \texttt{lcmm}, \texttt{nlme::nlme} with self-starting Gompertz forms, or \texttt{brms} can return participant-specific component estimates.
 \item Outside that regime the phase-augmented LME is the better tool.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 A component-matched analysis merits the effort when sample size
 is in the several hundreds (a phase-3 trial fielded as
 aggregated N-of-1, or a meta-analysis pooling multiple smaller
@@ -2227,22 +2263,22 @@ Gompertz parameters is feasible. In that regime, \texttt{lcmm},
 participant-specific $BR$, $PB$, and $TV$ component estimates
 that mirror the DGP. Outside that regime, the linear-mixed
 analysis with phase indicators is the better tool.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The DGP-analysis asymmetry is deliberate: simulation uses the rich DGP to characterise how a simpler analysis behaves; the analysis need not mirror the DGP to produce useful inference.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Simulation controls the DGP and can specify any structure; inference must pay the identifiability cost of every parameter.
 \item The DGP is a characterisation tool; the analysis is a finite-data inference tool; they have different optimality criteria.
 \item DGP-matching is not required and is often counterproductive at trial-relevant sample sizes.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The asymmetry between DGP and analysis is not a flaw of the
 framework; it is a deliberate consequence of the asymmetry
 between simulation (where the analyst controls the DGP and can
@@ -2252,22 +2288,22 @@ identifiability cost of every additional parameter). Simulation
 studies use the rich DGP to characterise how a simpler analysis
 behaves under realistic data generation; they do not require the
 analysis to match the DGP in order to produce useful inference.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The exponential-decay carryover indicator is a deliberately parsimonious special case of richer carryover models, and the simulation should benchmark it against a distributed-lag alternative.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The continuous indicator $D_{bc}$ decays as $\exp(-\lambda t_{sd})$, a one-parameter form tied to a pharmacokinetic half-life.
 \item Distributed-lag models, the average-period-treatment-effect estimand, and G-estimation relax the single-rate assumption at additional parametric cost.
 \item The exponential restriction is an assumption, not a finding, and the pre-registered simulation should include a distributed-lag arm to quantify its cost.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 A word on the carryover parameterisation is in order, since it
 is the one place where the analysis model makes a strong
 functional-form commitment. The continuous drug indicator
@@ -2292,24 +2328,163 @@ programme of section 7 should accordingly include a
 distributed-lag analysis arm, so that the cost of the
 exponential-decay restriction is quantified against the richer
 alternative rather than asserted.
-\end{orig}
+:::
 
 # Worked example: information loss without decomposition
 
-\begin{bullets}
+## What the lumped analysis estimates
+
+::: {.bullets data-latex=""}
+\textbf{The lumped treatment-effect estimate has a probability limit equal to the pharmacological component plus belief and natural-history contributions, so its bias does not vanish as $N$ grows.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Writing the reduction as $BR + PB + TV - \varepsilon$ and fitting one drug indicator gives $\operatorname{plim}\hat\beta_D = m_{BR} + b_{PB} + b_{TV}$.
+\item $b_{PB}$ and $b_{TV}$ are the belief and natural-history terms that load onto the drug indicator under the chosen contrast; both are generally non-negative for an improving outcome.
+\item Because the displacement is in the probability limit, a larger one-component trial converges on the same biased value: the failure is identification, not precision.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+Before the numerical illustration it is worth establishing
+algebraically what the one-component analysis actually estimates,
+because the qualitative failure modes of section 1 are
+consequences of an identity rather than empirical tendencies that
+require simulation to demonstrate. Write the within-participant
+symptom reduction as
+$R_{it} = \mathrm{BL}_i - Y_{it} = BR_{it} + PB_{it} + TV_{it} -
+\varepsilon_{it}$. The one-component analysis fits a single drug
+indicator $D_{it}$,
+
+$$
+R_{it} \;=\; \alpha + \beta_D\,D_{it} + g(t) + u_i + e_{it},
+$$
+
+and reports $\hat\beta_D$ as 'the treatment effect'. Taking the
+on-drug minus off-drug contrast that $\beta_D$ targets, and using
+that the natural-history component is by construction independent
+of treatment status so that its on/off difference cancels in a
+within-participant comparison, the probability limit of the
+estimator is
+
+$$
+\operatorname{plim}\hat\beta_D \;=\; m_{BR} + b_{PB} + b_{TV},
+$$
+
+where $b_{PB} = E[PB \mid \text{on}] - E[PB \mid \text{off}]$ is
+the belief differential between the contrasted phases and $b_{TV}$
+collects any natural-history contribution that fails to cancel
+under the contrast actually used; $b_{TV}$ is zero for a clean
+on/off within-participant contrast and strictly positive for a
+baseline-anchored pre-post analysis, in which case
+$b_{PB} = E[PB]$ and $b_{TV} = E[TV]$. Both terms are generally
+non-negative for an improving outcome, so the lumped estimate
+over-states the pharmacological component $m_{BR}$. The
+displacement is a property of the probability limit and is
+unchanged as $N \to \infty$: a larger one-component trial
+converges on the same biased value. This is the precise sense in
+which the placebo-attribution failure of section 1 is a problem
+of identification, not of precision.
+:::
+
+::: {.bullets data-latex=""}
+\textbf{The biomarker slope from a lumped analysis decomposes additively into component-specific slopes, so a biomarker correlated with $PB$ or $TV$ registers as a predictor even with no pharmacological association.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item By linearity of covariance, $\beta_{bm}^{\text{lumped}} = \beta_{bm}^{BR} + w_{PB}\beta_{bm}^{PB} + w_{TV}\beta_{bm}^{TV}$.
+\item A non-zero $\beta_{bm}^{PB}$ or $\beta_{bm}^{TV}$ produces a non-zero lumped slope even when the pharmacological slope $\beta_{bm}^{BR}$ is exactly zero.
+\item The result is an algebraic identity under the additive decomposition, not a sample-size-dependent tendency.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+The same algebra settles the biomarker-validation failure. The
+precision-medicine analysis regresses a participant-level response
+summary on a baseline biomarker $B_i$. If that summary is the
+lumped per-participant effect, which estimates
+$m_{BR,i} + w_{PB}\,m_{PB,i} + w_{TV}\,m_{TV,i}$ for
+design-determined loadings $w_{PB}, w_{TV} \ge 0$, then by the
+linearity of covariance the fitted biomarker slope has probability
+limit
+
+$$
+\beta_{bm}^{\text{lumped}}
+\;=\; \frac{\operatorname{Cov}(m_{BR} + w_{PB} m_{PB} +
+  w_{TV} m_{TV},\, B)}{\operatorname{Var}(B)}
+\;=\; \beta_{bm}^{BR} + w_{PB}\,\beta_{bm}^{PB} +
+  w_{TV}\,\beta_{bm}^{TV},
+$$
+
+where $\beta_{bm}^{C} = \operatorname{Cov}(m_C, B) /
+\operatorname{Var}(B)$ is the component-specific slope. A biomarker
+correlated with placebo responsiveness or with the natural-history
+trajectory, so that $\beta_{bm}^{PB}$ or $\beta_{bm}^{TV}$ is
+non-zero, therefore registers a non-zero lumped slope even when its
+pharmacological association $\beta_{bm}^{BR}$ is exactly zero. This
+is the biomarker-validation failure of section 1, and it too is an
+identity under the additive decomposition rather than an empirical
+tendency: no sample size separates the lumped slope from a genuine
+pharmacological one, because the two coincide in the estimand
+whenever $w_{PB}\beta_{bm}^{PB} + w_{TV}\beta_{bm}^{TV} \ne 0$.
+:::
+
+::: {.bullets data-latex=""}
+\textbf{The bias displaces the estimand rather than inflating variance, so a significance test of the lumped coefficient cannot detect it; the decomposition is what locates it.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item The lumped coefficient is displaced from $m_{BR}$ by $b_{PB} + b_{TV}$ but remains a well-estimated quantity with a valid Wald test of its own nullity.
+\item Detecting the bias requires comparing $\hat\beta_D$ to $m_{BR}$, a comparison only the decomposition or an isolating phase contrast supplies.
+\item This is why a rejection-rate summary is the wrong instrument, and accounts for the flat rejection rates across the placebo-strength axis in the section 7.1 pilot.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+Two consequences for how the framework should be evaluated follow.
+First, the quantity that carries the bias is the location of the
+estimand, $\operatorname{plim}\hat\beta_D$, not its sampling
+variability: the lumped coefficient remains a well-estimated number
+with a valid Wald test of its own nullity, and that test rejects at
+the rate dictated by the displaced value. A significance test of
+the lumped coefficient therefore cannot, in principle, detect the
+bias, because the bias does not move the coefficient toward zero.
+Detecting it requires comparing $\hat\beta_D$ against $m_{BR}$,
+which is exactly the comparison the decomposition, or a phase
+contrast that isolates $m_{BR}$, makes available and the lumped
+analysis does not. Second, and as a corollary for the simulation
+evidence, a rejection-rate or power summary is the wrong instrument
+for this bias: the right target is the coefficient itself and its
+offset from $m_{BR}$. This is why the pilot of section 7.1 found
+the biomarker-by-treatment rejection rate essentially flat across
+the placebo-strength axis even though that axis is precisely what
+drives the predicted bias; the prediction lives in the mean of
+$\hat\beta_{bm:D_{bc}}$, and a production run that means to test it
+must read the bias off the coefficient, not off the test.
+:::
+
+## A numerical illustration
+
+::: {.bullets data-latex=""}
 \textbf{The worked example uses two participants with identical lumped responses but opposite BR-PB profiles to show that the one-component analysis cannot distinguish them.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Participant A has high $PB$ ($m_{PB} = 6$) and moderate $BR$ ($m_{BR} = 4$); Participant B has low $PB$ ($m_{PB} = 1$) and high $BR$ ($m_{BR} = 8$).
 \item Both participants reach approximately 10--11 points of total improvement by week 8, making them indistinguishable to a one-component analysis.
 \item The blinded-discontinuation phase creates the diagnostic contrast that exposes the underlying difference.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 To illustrate the inferential cost of failing to decompose, we
 shall work through a simple numerical example. Consider two
 participants, A and B, enrolled in a sixteen-week N-of-1 trial
@@ -2321,22 +2496,22 @@ pharmacological responder, with true component values
 $m_{BR}^A = 4$, $m_{PB}^A = 6$, $m_{TV}^A = 1$. Participant B
 is a low placebo responder and a strong pharmacological
 responder, with $m_{BR}^B = 8$, $m_{PB}^B = 1$, $m_{TV}^B = 1$.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Open-label totals are clinically indistinguishable; the one-component analysis estimates a population drug effect of approximately 10 points with no differentiation between A and B.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Both participants show approximately 10--11 points of improvement and present as clinical successes.
 \item A t-test or simple LME on open-label change cannot detect the heterogeneity in $BR$ versus $PB$ composition.
 \item The population drug-effect estimate conflates both pharmacological and placebo contributions.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 In the open-label phase (weeks 1 to 8), both $BR$ and $PB$ run
 at full strength and $TV$ accumulates. By week 8 both
 participants have reached close to their saturation values:
@@ -2352,22 +2527,22 @@ about ten points, both look like clinical successes. A simple
 t-test on the open-label change would estimate a population
 drug effect of about ten points and would not distinguish the
 two participants.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The blinded-discontinuation phase reveals the BR-PB heterogeneity: Participant A retains 4 points while B collapses to 1.5, exposing the diagnostic contrast.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Participant A's high $PB$ at $\eta = 0.5$ (3 points) sustains improvement even without active drug.
 \item Participant B's low $PB$ (0.5 points) and absent $BR$ produce near-complete return to baseline.
 \item The 4.0 versus 1.5 contrast is exactly what the decomposition uses to separate $BR$ from $PB$.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 In the blinded discontinuation phase (weeks 9 to 12), both
 participants are silently switched to placebo at the start of
 week 9. The expectancy multiplier drops from 1.0 to 0.5. For
@@ -2392,22 +2567,22 @@ its week-8 value; in reality $TV$ continues to accumulate over
 weeks 9 to 12, which shifts both totals by a common amount and
 leaves the $BR$-versus-$PB$ contrast on which the example turns
 unchanged.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The one-component model estimates drug at 7.75 points with no principled decomposition, obscuring that A's true $BR$ is 4 and B's is 8.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The 7.75 point estimate is a conflated average of true $BR$ values (4.0 and 8.0) plus the placebo wash-out.
 \item The model cannot determine whether A and B differ, nor estimate the pharmacological drug effect separately.
 \item Placebo and natural-history effects are not identifiable from this contrast alone.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 A one-component fixed-effects regression of total symptom
 change on phase-by-allocation indicators sees:
 
@@ -2424,22 +2599,22 @@ cannot say whether the drug effect is the same for participants
 A and B; it estimates 'drug' at 7.75 points on average, which
 is an average of the true 4.0 (A) and 8.0 (B) mixed with the
 placebo wash-out, with no principled way to decompose further.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The full decomposition recovers all six component estimates by exploiting phase differential expectancy and the blinded-placebo contrast.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The LME returns $\hat{m}_{BR}^A = 4.0$, $\hat{m}_{BR}^B = 8.0$, $\hat{m}_{PB}^A = 6.0$, $\hat{m}_{PB}^B = 1.0$ at the population point estimate.
 \item Participant-level estimates have meaningful uncertainty at trial-relevant $N$; the simulation study characterises this.
 \item The phase differential ($\eta = 1$ vs.\ $\eta = 0.5$) is the identification mechanism for the $PB$ parameter.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 A linear-mixed-effects analysis with the full BR-PB-TV
 decomposition, fitted to the same data, can recover the
 individual components by exploiting the differential expectancy
@@ -2450,22 +2625,22 @@ $\hat{m}_{PB}^B = 1.0$, $\hat{m}_{TV}^A = \hat{m}_{TV}^B = 1.0$
 (at the population point estimate; participant-level estimates
 have meaningful uncertainty at $N$ in the trial-relevant range,
 which the simulation study below characterises).
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The one-component model produces one biased average; the three-component model produces six clinically actionable quantities, making biomarker validation possible.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The lumped estimate of 7.75 points is a biased average of $BR_A = 4$ and $BR_B = 8$ confounded with placebo wash-out.
 \item The decomposition supplies individual $BR$, $PB$, and $TV$ estimates enabling per-participant clinical decisions.
 \item Predictive-biomarker validation requires the decomposition because biomarker-by-$BR$ is the target estimand.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The information loss from lumping the components is not abstract.
 We may compare the inferences directly:
 
@@ -2483,22 +2658,22 @@ the three-component model has produced six clinically actionable
 quantities. Predictive-biomarker validation, which is a central
 scientific aim of the trial design family considered here,
 becomes impossible without the decomposition.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{A population-level example shows that cohort differences in open-label totals driven entirely by $PB$ produce apparent non-replicability that the decomposition resolves.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Cohort 1 (naive, $m_{PB} = 7$) reports 13-point improvements; Cohort 2 (sceptical, $m_{PB} = 2$) reports 8 points; true $m_{BR} = 5$ in both.
 \item A one-component analysis would falsely conclude the drug works less well in Cohort 2 and trigger searches for confounders.
 \item The decomposition returns $\hat{m}_{BR} = 5$ in both cohorts, attributing the difference correctly to $PB$ heterogeneity.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 A second example at the population level illustrates the same
 problem. Consider two cohorts of N-of-1 participants enrolled
 in methodologically identical trials of the same drug. Cohort 1
@@ -2520,24 +2695,24 @@ $\hat{m}_{BR} = 5$ in both. Unfortunately, this is the kind of
 apparent non-replicability that pharmacology has spent the last
 decade struggling to navigate; the decomposition is one of the
 formal tools that makes it tractable.
-\end{orig}
+:::
 
 # Simulation study
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The simulation study follows ADEMP and quantifies bias and identifiability properties of three analysis strategies across a prazosin-PTSD-calibrated parameter grid.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The Morris (2019) ADEMP framework structures the study: Aims, DGP, Estimands, Methods, Performance measures.
 \item The pre-registration is at \texttt{analysis/scripts/component-decomposition/00-ademp-pre-registration.md}.
 \item Three analysis strategies (one-component, phase-augmented, full decomposition) are compared across the parameter grid.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The simulation study reported and pre-registered in this section
 is structured under the @morris2019 ADEMP framework, specifying
 Aims, Data-generating mechanisms, Estimands, Methods, and
@@ -2547,44 +2722,44 @@ A Monte Carlo simulation calibrated to the prazosin/PTSD
 reference parameters quantifies the bias and identifiability
 properties of the three analysis strategies described in
 section 5 across a parameter grid.
-\end{orig}
+:::
 
 ## Pilot validation of analysis machinery (100 replicates, 6 cells)
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The pilot is a structural check of the analysis pipeline, not a substantive empirical result.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The production simulation in section 7.2 constitutes the empirical core of the manuscript.
 \item The pilot confirms only that data generation, model fitting, and summary output run without error.
 \item No bias or power claims are derived from the 100-replicate pilot.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The production simulation programme described in the following
 section is the empirical core of this manuscript and has not yet
 been executed. The pilot reported here confirms only that the
 analysis machinery runs end-to-end.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The pilot executed a 6-cell, 100-replicate run with perfect convergence, confirming the pipeline is operational.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The grid crossed three $pb\_strength$ levels against two analysis strategies.
 \item Convergence was 1.0 across all six cells under 8-core \texttt{mclapply}.
 \item Output is checkpointed at \texttt{analysis/data/quick-sim/}; no inferential claims are drawn.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 A 100-replicate-per-cell pilot was run at the reference Hybrid
 OL+BDC design, $N = 35$, on the 6-cell slice
 $pb\_strength \in \{0, 6.5, 13\} \times$ analysis $\in$
@@ -2608,22 +2783,22 @@ phase-augmented analysis loses its bias-detection contrast at
 this $N$, is taken up in the Discussion. No confirmatory bias or
 power claim is drawn from the pilot, and all substantive claims
 are deferred to the production programme below.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Two pilot findings revise the production specification: rank-deficiency forces a formula change, and bias must be read from coefficient means, not rejection rates.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item At $N = 35$, rank-deficiency dropped the $D_{bc}{:}\text{phase}$ term, eliminating the key biomarker-by-treatment-by-phase contrast.
 \item The predicted bias manifests in the mean of $\hat\beta_{bm:D_{bc}}$, not in the Wald-test rejection rate.
 \item The production programme addresses both by using larger $N$, a fuller design, and coefficient-mean reporting.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Two design-level observations from the pilot inform the
 production specification. First, at $N = 35$ the rank-deficiency
 of the full phase-augmented formula required dropping the
@@ -2640,133 +2815,133 @@ through larger $N$, a richer trial design that admits the full
 phase-augmented formula, and reporting of the coefficient mean
 against the implied true value rather than the rejection rate
 alone.
-\end{orig}
+:::
 
 ## Production-simulation specification
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The production simulation is organised around four deliverables under the ADEMP framework.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Driver scripts are located at \texttt{analysis/scripts/component-decomposition/}.
 \item The ADEMP pre-registration is committed prior to production runs.
 \item The four deliverables address bias, identifiability, type I/power, and participant-level recovery.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The production programme follows the @morris2019 ADEMP framework.
 The driver scripts will live at
 \texttt{analysis/scripts/component-decomposition/}. We shall
 describe the four deliverables in turn.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The first deliverable quantifies how much each analysis strategy biases the biomarker-treatment interaction estimate as placebo strength increases.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The estimand is mean $\hat\beta_{bm:D_{bc}}$ with Monte Carlo SE across 1,000 replicates per cell.
 \item Sample sizes $N \in \{35, 70, 100, 150\}$ are crossed with a $pb\_strength$ grid.
-\item The headline finding is the bias-versus-power trade-off invisible to the 100-replicate pilot.
+\item The headline measures are the bias and power of each strategy across the grid; see the realised Study A results in section 7.3.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The first deliverable is the bias of the biomarker-treatment
 interaction estimate: mean and Monte Carlo standard error of
 $\hat\beta_{bm:D_{bc}}$ for the one-component, phase-augmented,
 and full-decomposition analyses, across sample sizes
 $N \in \{35, 70, 100, 150\}$ and a grid of $pb\_strength$
-values, at $n_{\text{reps}} = 1{,}000$ per cell. The headline
-measure is the bias-versus-power trade-off that the pilot
-was unable to detect at $N = 35$.
-\end{orig}
+values. The headline measures are the bias and power of each
+strategy across the grid; the realised Study A run (reported in
+section 7.3 below) used 250 replicates per cell.
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The second deliverable assesses whether the full-decomposition analysis is identifiable at trial-relevant sample sizes.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Identifiability is measured via convergence rates of the nonlinear-mixed-effects fit.
 \item Variance-inflation factors on the Gompertz parameters diagnose collinearity across components.
 \item Sensitivity of the $BR$ estimate to $\eta(\text{phase})$ multipliers is reported explicitly.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The second deliverable is a set of identifiability metrics for
 the full-decomposition analysis: convergence rates of the
 nonlinear-mixed-effects fit, variance-inflation factors on the
 component-specific Gompertz parameters, and the sensitivity of
 the $BR$ estimate to the chosen $\eta(\text{phase})$ multipliers.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The third deliverable characterises type I error and power across analysis strategies under a full sensitivity grid.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The DGP is the three-component reference; sensitivity axes are $\eta$ mismatch, $TV$ magnitude, and dropout.
 \item Type I error cells use 5,000 replicates to achieve MCSE 0.003.
 \item All three analysis strategies (one-component, phase-augmented, full-decomposition) are compared.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The third deliverable is type I error and power for the
 biomarker-treatment interaction test under each analysis
 strategy, with the DGP held at the three-component reference and
 varied across a sensitivity grid (analyst-versus-truth $\eta$
 mismatch, $TV$-component magnitude, and dropout). Type I cells
 are run at $n_{\text{reps}} = 5{,}000$ for MCSE 0.003.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The fourth deliverable illustrates which analysis strategies preserve participant-level biomarker stratification.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Participant-level interaction signals are mapped as a function of $(m_{BR}, m_{PB}, m_{TV})$.
 \item The comparison reveals whether each strategy retains the predictive-biomarker signal.
 \item The lumped-total regression serves as the baseline that fails to stratify correctly.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The fourth deliverable is the participant-level interaction
 signal recovered by each analysis, as a function of the
 underlying participant-level $(m_{BR}, m_{PB}, m_{TV})$ values,
 illustrating which analysis strategies preserve the
 predictive-biomarker stratification that the lumped-total
 regression does not.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Production runs use the pmsimstats-ng tidyverse collection with checkpointed outputs and a committed pre-registration.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The \texttt{tidyverse} implementation collection drives the simulation grid.
 \item Cell-level summaries are checkpointed under \texttt{analysis/data/}; per-replicate files under \texttt{output/}.
 \item The ADEMP pre-registration is committed at \texttt{00-ademp-pre-registration.md} before any production run.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The simulation will use the existing pmsimstats-ng
 \texttt{tidyverse} implementation collection. Cell-level
 summaries will be checkpointed under \texttt{analysis/data/},
@@ -2777,47 +2952,180 @@ with per-replicate output under
 (production). The ADEMP pre-registration is committed at
 \texttt{analysis/scripts/component-decomposition/00-ademp-pre-registration.md}
 prior to the production runs.
-\end{orig}
+:::
+
+## Study A results: bias and power at 250 replicates per cell
+
+::: {.bullets data-latex=""}
+\textbf{At 250 replicates per cell the one-component estimate of $\hat\beta_{bm:D_{bc}}$ is essentially unbiased across the entire $(m_{PB}, m_{TV})$ grid, contradicting the framework's prediction of a placebo-strength-driven bias.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item The true biomarker-by-$BR$ effect is $-2.25$; mean absolute bias falls from $0.040$ at $N=35$ to $0.012$ at $N=150$, in every case within one Monte Carlo SE of zero.
+\item Bias shows no monotone trend across $m_{PB} \in \{0,1,3,6,10\}$ or $m_{TV} \in \{-1,0,1,2\}$; it behaves as sampling noise around zero.
+\item This is the predicted consequence of the identity in section 6.1: the DGP couples the biomarker to $BR$ only, so $\beta_{bm}^{PB} = \beta_{bm}^{TV} = 0$ and the lumped slope is unbiased by construction.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+The production Study A run (250 replicates per cell, 80
+alternative cells crossing $m_{PB} \in \{0,1,3,6,10\}$,
+$m_{TV} \in \{-1,0,1,2\}$, and $N \in \{35,70,100,150\}$, plus
+four null cells) returns a result that does not support the
+framework's central bias prediction. The data-generating process
+couples the baseline biomarker to the $BR$ component only, through
+the on-drug biomarker-$BR$ covariance channel, so the true
+biomarker-by-treatment effect is the biomarker-by-$BR$ slope,
+$\beta_{bm:D_{bc}} = -c_{bm}\,\sigma_{BR}/\sigma_{bm} = -2.25$, and
+the biomarker is by construction uncorrelated with $PB$ and $TV$.
+Under the one-component analysis the mean estimated
+$\hat\beta_{bm:D_{bc}}$ tracks this value across the whole grid:
+the mean absolute bias is $0.040$ at $N=35$, $0.019$ at $N=70$,
+$0.011$ at $N=100$, and $0.012$ at $N=150$, in every case within
+one Monte Carlo standard error (respectively about $0.05$, $0.04$,
+$0.017$, and $0.013$) of zero, with no monotone trend across
+$m_{PB}$ or $m_{TV}$. The predicted placebo-attribution bias of the
+biomarker-by-treatment estimate does not appear.
+
+This is not a failure of the simulation; it is the behaviour the
+identity of section 6.1 requires. That identity writes the lumped
+biomarker slope as $\beta_{bm}^{BR} + w_{PB}\beta_{bm}^{PB} +
+w_{TV}\beta_{bm}^{TV}$. With the biomarker coupled to $BR$ alone,
+$\beta_{bm}^{PB} = \beta_{bm}^{TV} = 0$, so the lumped slope equals
+the pharmacological slope no matter how large $m_{PB}$ or $m_{TV}$
+grows. Study A varies the magnitudes of the unmodelled components,
+which the identity shows to be the innocuous axis; the axis that
+produces biomarker-validation bias is the biomarker's correlation
+with $PB$ or $TV$, which this DGP holds at zero. The clean null is
+therefore a confirmation of the identity and a correction to the
+looser claim of section 1 that large $PB$ or $TV$ by itself biases
+biomarker validation. It does not; biomarker-component coupling
+does.
+:::
+
+::: {.bullets data-latex=""}
+\textbf{The phase-augmented analysis provides no bias reduction and incurs a substantial power penalty, so it is dominated under this uncontaminated DGP.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Mean power at $N=35$ is $0.35$ (phase-augmented) versus $0.59$ (one-component); at $N=70$, $0.62$ versus $0.91$; both reach approximately $1.0$ by $N=100$.
+\item Phase-augmented mean absolute bias is no smaller than one-component at any $N$ ($0.051$ versus $0.040$ at $N=35$).
+\item Convergence is approximately 100\% for both analyses at every $N$ (minimum $0.996$), so the rank-deficiency that degraded the $N=35$ pilot does not recur here.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+The comparison between analyses is equally clear. The
+phase-augmented analysis is not less biased than the one-component
+analysis at any sample size (its mean absolute bias is $0.051$
+versus $0.040$ at $N=35$ and is comparable elsewhere), and it is
+markedly less powerful for the biomarker-by-treatment test: mean
+power across the grid is $0.35$ versus $0.59$ at $N=35$ and $0.62$
+versus $0.91$ at $N=70$, with both analyses reaching essentially
+full power by $N=100$. Because the DGP contains no biomarker-$PB$
+contamination for the phase contrast to remove, the extra
+phase-by-treatment terms add estimation cost without buying any
+bias reduction, and the analysis is dominated. Convergence was
+approximately complete for both analyses at every sample size
+(minimum convergence rate $0.996$), so the rank-deficiency that
+forced dropping the \texttt{Dbc:phase} term in the $N=35$ pilot,
+which we had advanced as the explanation for the pilot's inverted
+power ranking, is not operative in the production run: the inverted
+ranking persists with the full formula fitted and converged. The
+pilot's power inversion was therefore a genuine feature of this
+DGP, not an artifact of rank-deficiency.
+
+Calibration is adequate for both analyses. Nominal-95\%
+confidence-interval coverage of $\beta_{bm:D_{bc}}$ ranges from
+$0.97$ to $0.99$ for the one-component analysis (slightly
+conservative) and from $0.95$ to $0.98$ for the phase-augmented
+analysis. Type I error at the four null cells is controlled,
+ranging from $0.032$ to $0.060$ for the one-component analysis and
+$0.020$ to $0.052$ for the phase-augmented analysis, in every case
+within Monte Carlo error of the nominal $0.05$.
+:::
+
+::: {.bullets data-latex=""}
+\textbf{Study A confirms the identity but cannot exhibit the biomarker-validation failure, which requires a DGP that couples the biomarker to $PB$; that corrected cell is the necessary next run.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item As pre-registered, Study A varies component magnitude with the biomarker fixed to $BR$, so it probes an axis the identity predicts to be null.
+\item Demonstrating the predicted contamination requires varying $\beta_{bm}^{PB}$, a biomarker-$PB$ covariance, at fixed $m_{PB}$.
+\item On current evidence the phase-augmented analysis is not recommended for this design; it should be re-evaluated only under a contaminated-biomarker DGP.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+Two conclusions follow for the programme. First, the result
+sharpens rather than supports the section 1 framing: the
+biomarker-validation failure is real as an identity, but it is
+driven by the biomarker's coupling to $PB$ or $TV$, not by the
+magnitude of those components, and Study A as pre-registered varies
+the latter while holding the former at zero. The decisive cell,
+which we did not run here, varies the biomarker-$PB$ covariance
+$\beta_{bm}^{PB}$ at fixed $m_{PB}$; the identity predicts the
+lumped bias to scale with $w_{PB}\beta_{bm}^{PB}$, and that is the
+cell that would confirm or refute the practical importance of the
+failure mode. Second, on the present evidence the phase-augmented
+analysis carries a real power cost without a compensating bias
+reduction under an uncontaminated biomarker, so it should not be
+recommended as a default for this design; its value, if any, is
+confined to the contaminated-biomarker regime that the corrected
+Study A would probe. We report this negative result in full because
+it bounds the claims the framework can currently support.
+:::
 
 # Application to predictive-biomarker validation
 
-\begin{bullets}
-\textbf{The precision-medicine question -- whether a biomarker predicts pharmacological response -- cannot be answered without decomposing total response into its three components.}
+::: {.bullets data-latex=""}
+\textbf{The precision-medicine question -- whether a biomarker predicts pharmacological response -- is answered by the lumped total only when the biomarker is uncorrelated with $PB$ and $TV$; otherwise it requires decomposing the response.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The question is whether the biomarker predicts the $BR$ component, not the lumped total.
 \item The PATH statement formalises this as the target estimand for predictive biomarker validation.
-\item The BR-PB-TV decomposition is the formal mechanism for separating the pharmacological signal.
+\item The BR-PB-TV decomposition is the mechanism that separates the pharmacological signal when biomarker-component coupling cannot be ruled out.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The motivating clinical question for the trial designs in this
 project is whether a baseline biomarker predicts treatment
 response, and specifically whether the biomarker predicts the
 pharmacological component of treatment response. This is the
 precision-medicine question, formalised in the PATH statement
-[@kent2020path], and it depends critically on the BR-PB-TV
-decomposition.
-\end{orig}
+[@kent2020path]. Whether it depends on the BR-PB-TV decomposition
+is itself conditional: by the identity of section 6.1, the lumped
+biomarker slope equals the pharmacological slope when the biomarker
+is uncorrelated with $PB$ and $TV$, and departs from it only by the
+biomarker's covariance with those components. The decomposition is
+therefore the mechanism the question requires precisely in the
+regime where that covariance is non-negligible.
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{A lumped-total biomarker regression conflates pharmacological and placebo-belief prediction, producing a stratification biomarker that mis-identifies responders.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item $\hat\beta_{bm}$ from the lumped regression contains both pharmacological and placebo-belief prediction in unknown proportions.
 \item If $PB$ covaries with the biomarker distribution, flagged 'high responders' include high-$PB$ responders who will not benefit pharmacologically.
 \item Prospective application of such a biomarker would systematically mis-stratify patients for prescription decisions.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 A direct regression of total response on baseline biomarker
 
 \begin{verbatim}
@@ -2835,22 +3143,22 @@ patients: those flagged as 'high responders' would include both
 true high-$BR$ responders and high-$PB$ responders, and the
 latter would not benefit from prescription decisions made on a
 pharmacological basis.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{A valid pharmacological predictor requires a non-zero $\hat\beta_{bm}^{BR}$; significant $\hat\beta_{bm}^{PB}$ or $\hat\beta_{bm}^{TV}$ indicate a psychological or prognostic biomarker, not a pharmacological one.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The sole criterion for pharmacological prediction is a meaningfully non-zero $BR$-component regression coefficient.
 \item A biomarker correlating only with $PB$ selects placebo responders, not drug responders.
 \item A biomarker correlating only with $TV$ is prognostic but not predictive in the pharmacological sense.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The right approach is to regress each component on the
 biomarker:
 
@@ -2874,64 +3182,83 @@ with $PB$ would be valuable for selecting placebo responders in
 run-in designs but worthless for predicting pharmacological
 efficacy; a biomarker that correlates only with $TV$ would be
 a prognostic marker, not a predictive one.
-\end{orig}
+:::
 
-\begin{bullets}
-\textbf{The decomposition is not optional for the precision-medicine question: it is the formal mechanism by which the question is posed at all.}
+::: {.bullets data-latex=""}
+\textbf{When biomarker-component coupling cannot be ruled out, the decomposition is the mechanism by which the precision-medicine question is posed; when it can, the lumped analysis already answers it.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Without separating $BR$ from $PB$ and $TV$, biomarker validation conflates pharmacological and non-pharmacological prediction.
-\item The phase-augmented linear-mixed analysis provides a small-$N$ proxy via the \texttt{bm:Dbc:phase} interaction.
+\item Where the biomarker may correlate with $PB$ or $TV$, separating $BR$ from them is what prevents validation from conflating pharmacological and non-pharmacological prediction.
+\item The phase-augmented \texttt{bm:Dbc:phase} interaction is a small-$N$ proxy, but Study A shows it buys nothing under an uncontaminated biomarker, so it is warranted only when contamination is plausible.
 \item The full decomposition recovers component-specific regressions explicitly when sample size permits.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
-The decomposition is therefore not optional for the
-precision-medicine question. It is the formal mechanism by
-which the question is asked at all. The phase-augmented
+::: {.orig data-latex=""}
+The decomposition is therefore the mechanism by which the
+precision-medicine question is posed whenever the candidate
+biomarker may correlate with $PB$ or $TV$. Where the biomarker can
+be assumed orthogonal to the non-pharmacological components, the
+identity of section 6.1 shows the lumped analysis already targets
+the biomarker-by-$BR$ estimand, and the simulation of section 7.3
+confirms it recovers that estimand without bias. The phase-augmented
 linear-mixed analysis introduced in section 5 retains a useful
-subset of this machinery at small $N$ (the \texttt{bm:Dbc:phase}
-interaction tests whether the biomarker-by-treatment effect
-attenuates under blinding, which is the practical proxy for
-biomarker-by-$PB$ contamination); the full decomposition
-recovers the component-specific regressions explicitly when $N$
-permits.
-\end{orig}
+subset of the decomposition machinery at small $N$ (the
+\texttt{bm:Dbc:phase} interaction tests whether the
+biomarker-by-treatment effect attenuates under blinding, the
+practical proxy for biomarker-by-$PB$ contamination), but Study A
+shows this proxy earns its degrees of freedom only when such
+contamination is present: under an uncontaminated biomarker it
+reduced no bias and lost power. The full decomposition recovers the
+component-specific regressions explicitly when $N$ permits and when
+the scientific question warrants the cost.
+:::
 
 # Discussion
 
-\begin{bullets}
-\textbf{The three-component framework reframes treatment response as a structured sum of causally distinct contributions, each carrying its own scientific and clinical interpretation.}
+::: {.bullets data-latex=""}
+\textbf{The three-component framework reframes treatment response as a structured sum of causally distinct contributions, and the present work maps when acting on that decomposition actually changes inference.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The framework specifies which trial-design contrasts identify which components.
-\item The phase-augmented linear-mixed analysis implements the framework at trial-relevant sample sizes.
-\item The correct target estimand for biomarker validation is the regression of $BR$ on the biomarker, not the lumped total.
+\item Acting on the decomposition is valuable conditionally: for attribution estimands, and for biomarkers that may correlate with $PB$ or $TV$, but not for a biomarker-by-treatment interaction with a biomarker orthogonal to them.
+\item The target estimand for biomarker validation is the biomarker-by-$BR$ association; whether a lumped analysis already recovers it depends on the biomarker's coupling to $PB$ and $TV$.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The three-component decomposition is the formal expression of
 the claim that 'treatment response' in an aggregated N-of-1
 trial is not a single quantity but a sum of three causally
 distinct contributions, each with its own pharmacological,
-psychological, or epidemiological interpretation. The framework
-makes the conditions on trial design explicit (which contrasts
-identify which components), supplies an analysis-side
-methodology that accommodates trial-relevant sample sizes (the
-phase-augmented linear-mixed analysis), and clarifies the
-target estimand for biomarker validation (the regression of
-$BR$ on the biomarker, not the lumped total).
-\end{orig}
+psychological, or epidemiological interpretation. What the present
+work establishes, analytically in section 6.1 and empirically in
+section 7.3, is that the inferential value of acting on this
+decomposition is conditional rather than universal. The identity
+shows that the one-component estimator is displaced from its
+pharmacological target only by the components' loading onto the
+contrast used, and, for a biomarker slope, only by the biomarker's
+covariance with $PB$ and $TV$. Where those terms are zero, the
+design-contrast one-component analysis is already unbiased, and the
+production simulation confirms it: with a biomarker coupled to $BR$
+alone, the one-component biomarker-by-treatment estimate is
+unbiased across the whole $PB$-$TV$ grid and the phase-augmented
+analysis is dominated. The framework's contribution is therefore
+best read as a map of when decomposition changes inference, not as
+a blanket prescription to decompose. It makes the trial-design
+conditions explicit, identifies the attribution and
+contaminated-biomarker estimands for which decomposition is needed,
+and clarifies the target estimand for biomarker validation (the
+biomarker-by-$BR$ association, not the lumped total).
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Four open questions bound the framework's current scope: the simulation results are pending, the $\eta$ multipliers require sensitivity analysis, non-monotone natural history is not yet handled, and participant-level recovery inherits the identifiability caveats of individual treatment effects.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Quantitative bias-versus-power trade-offs are conjectures until the section 7 simulation is run.
@@ -2939,13 +3266,13 @@ $BR$ on the biomarker, not the lumped total).
 \item Cyclical or biphasic $TV$ trajectories exceed the Gompertz form and require flexible or covariate-augmented specifications.
 \item Participant-level component recovery rests on separating participant-by-component signal from participant-by-period and participant-by-phase variation, the identifiability caveat Senn raises for individual treatment effects.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Four open questions remain and warrant acknowledgement. First,
 the simulation study described in section 7 is forthcoming; the
 present manuscript reports the framework rather than its
@@ -2973,22 +3300,22 @@ covariance structure is not pathological. The framework should
 be read as estimating these quantities under those assumptions,
 not as dissolving the well-known difficulty of estimating
 individual effects from finite within-person data.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Two companion documents extend the manuscript: a pedagogical narrative and a Gompertz-family sensitivity evaluation.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The pedagogy document at \texttt{docs/24-component-decomposition-pedagogy.md} provides worked examples for first-time readers.
 \item The Gompertz evaluation at \texttt{analysis/report/07-gompertz-evaluation/} quantifies trajectory-specification sensitivity.
 \item Together they address the intuitive and parametric dimensions of the framework that the present manuscript treats briefly.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The companion pedagogical document at
 \texttt{docs/24-component-decomposition-pedagogy.md} develops
 the framework with worked examples and an extended intuition
@@ -2997,22 +3324,22 @@ time. The companion methodological evaluation of the Gompertz
 family at \texttt{analysis/report/07-gompertz-evaluation/}
 quantifies the sensitivity of the framework's inference to the
 specific parametric form chosen for the component trajectories.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The decomposition is not specific to N-of-1; the same three-component structure and identifiability logic apply to any longitudinal design with belief-varying and exposure-varying contrasts.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The claim that a treatment response is the sum of pharmacological, belief-driven, and natural-history components is a statement about the data-generating process of any repeated-measures study.
 \item Parallel-group trials with repeated measures, crossover trials, and longitudinal observational cohorts all admit the required contrasts.
 \item The aggregated N-of-1 case is the most demanding instance because the components must be recovered from a single participant's trajectory.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 A further point concerns the scope of the decomposition. Although
 we have developed it for the aggregated N-of-1 design, nothing in
 the three-component structure is specific to N-of-1 trials. The
@@ -3037,45 +3364,45 @@ placebo and natural-history contributions are non-negligible,
 with the aggregated N-of-1 case treated here as the most
 demanding instance because it must recover the components from a
 single participant's trajectory.
-\end{orig}
+:::
 
 ## Interpretation of the pilot diagnostics
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The pilot is a 6-cell, 100-replicate run designed to probe one-component bias under a three-component DGP, with MCSE approximately 0.046 on power estimates near 0.7.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The design crossed three $pb\_strength$ levels against one-component and phase-augmented analysis strategies.
 \item Per-replicate and Morris summary outputs are checkpointed at \texttt{analysis/data/quick-sim/}.
 \item At 100 replicates the Monte Carlo uncertainty is too large to draw reliable power comparisons.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The pilot of section 7.1 was run specifically to probe the
 predicted bias of the one-component analysis under a
 three-component DGP; its design, convergence, checkpointed
 outputs, and Monte Carlo precision are reported there. We
 interpret its diagnostics here.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The pilot did not confirm the framework's power prediction; rank-deficiency and a misidentified summary statistic are plausible explanations, but the pilot provides no positive evidence for the predicted effect.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item At $N = 35$ rank-deficiency dropped the \texttt{Dbc:phase} term, so the phase-augmented analysis paid fixed-effect cost without gaining the bias-detection contrast.
 \item Predicted bias appears in the coefficient mean $\hat\beta_{bm:D_{bc}}$, which is flat across $pb\_strength$ at this resolution, not in the Wald rejection rate.
 \item Coefficient means (approximately $-2.25$ vs $-2.21$) cannot be separated from sampling noise with only 100 replicates at $N = 35$.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 The inverted finding reported in section 7.1, in which the
 phase-augmented analysis was \emph{less} powerful than the
 one-component analysis across the entire $pb\_strength$ range,
@@ -3101,118 +3428,138 @@ sampling noise at the $N = 35$ scale. It must be stated plainly
 that the pilot did not confirm the framework's prediction: the
 coefficient mean is essentially flat across $pb\_strength$, the
 very factor predicted to drive the bias, so the present data
-provide no positive evidence for the predicted effect. Whether
-this reflects the rank-deficiency and resolution limitations
-above or a genuine absence of the effect at $N = 35$ cannot be
-determined from a 100-replicate run, and the claim therefore
-stands or falls on the production simulation of section 7.
-\end{orig}
+provide no positive evidence for the predicted effect. This
+question is resolved by the production run of section 7.3: at 250
+replicates per cell across $N \in \{35,70,100,150\}$ the
+one-component estimate remains unbiased across the placebo-strength
+axis and the phase-augmented analysis is dominated, with
+near-complete convergence. The pilot's inverted ranking was
+therefore not a rank-deficiency artifact but a genuine feature of
+the data-generating process, and the absence of bias is the
+behaviour the section 6.1 identity requires when the biomarker is
+coupled to $BR$ alone.
+:::
 
-\begin{bullets}
-\textbf{Production-rigor evaluation requires 1,000 replicates per cell, larger $N$, and recovery of the \texttt{Dbc:phase} contrast; the pilot is a structural, not inferential, check.}
+::: {.bullets data-latex=""}
+\textbf{The production run has now been carried out (section 7.3); it reproduced the pilot's inverted power ranking and found no placebo-driven bias, and the remaining empirical question is the contaminated-biomarker cell.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The canonical specification needs $N \in \{70, 100\}$ and a trial design that accommodates the full phase-augmented formula.
-\item The pilot confirms end-to-end pipeline operation on the three-component DGP but does not test the bias-detection claim.
-\item The section 7 production simulation remains the empirical core of the manuscript.
+\item The realised Study A run used 250 replicates per cell across the full $m_{PB} \times m_{TV} \times N$ grid, with near-complete convergence at every $N$.
+\item It confirmed the pilot's qualitative finding: no bias in the one-component estimate, and the phase-augmented analysis dominated.
+\item The decisive outstanding cell varies the biomarker-$PB$ covariance, the axis the identity predicts to drive the bias.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
-A canonical run at 1{,}000 replicates per cell, larger $N$
-(70 and 100), and recovery of the \texttt{Dbc:phase} contrast
-(via a phase-stratified two-stage analysis or a richer trial
-design that admits the full formula without rank-deficiency) is
-required before the framework's bias-versus-power trade-offs
-can be quantified at production rigor. The pilot as
-configured is a structural check confirming that the analysis
-machinery runs end-to-end on the three-component DGP, not a
-substantive test of the manuscript's bias-detection claim. The
-section 7 simulation programme remains the empirical core of
-this manuscript.
-\end{orig}
+::: {.orig data-latex=""}
+The production Study A run reported in section 7.3 supersedes the
+pilot as the empirical core of this manuscript. It used 250
+replicates per cell at $N \in \{35,70,100,150\}$ with the full
+phase-augmented formula fitted and converged in essentially every
+replicate, so the rank-deficiency that limited the $N=35$ pilot
+does not arise. Its findings are unambiguous: the one-component
+estimator is unbiased across the placebo-strength and
+natural-history axes, and the phase-augmented analysis buys no bias
+reduction while losing power. What remains for a full empirical
+evaluation of the biomarker-validation failure is the
+contaminated-biomarker cell, a data-generating process that gives
+the biomarker a non-zero covariance with $PB$; the section 6.1
+identity predicts the lumped bias to scale with that covariance,
+and that cell is the natural next run.
+:::
 
 # Conclusions
 
-\begin{bullets}
-\textbf{Treatment response in aggregated N-of-1 trials is the sum of three causally distinct components, and conflating them produces bias that scales with placebo and natural-history variance.}
+::: {.bullets data-latex=""}
+\textbf{Treatment response in aggregated N-of-1 trials is the sum of three causally distinct components, and the bias from conflating them is governed by the estimand and the biomarker's coupling to the components, not by their raw magnitude.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The three components are $BR$ (pharmacological), $PB$ (placebo-belief), and $TV$ (natural history).
 \item Each has its own biological mechanism, identifiability conditions, and clinical interpretation.
-\item The bias from conflation grows with $PB$ and $TV$ variance in the study population.
+\item The lumped pre-post treatment effect is biased by the $PB$ and $TV$ contributions; the biomarker-by-treatment slope is biased only by the biomarker's covariance with $PB$ and $TV$, as Study A confirms.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 In conclusion, three points are to be emphasised. First,
 treatment response in aggregated N-of-1 clinical trials is the
 sum of three causally distinct components: pharmacological
 action ($BR$), placebo-belief response ($PB$), and time-variant
 natural history ($TV$). Each component has its own biological
 mechanism, its own identifiability conditions, and its own
-clinical interpretation; conflating them into a single 'drug
-effect' produces estimates that are biased in ways that grow
-with the placebo and natural-history variance in the study
-population.
-\end{orig}
+clinical interpretation. Whether conflating them biases a given
+analysis is, however, governed by the omitted-variable-bias
+identity of section 6.1, not by the raw magnitude of $PB$ and
+$TV$: the lumped pre-post treatment effect is displaced by the
+$PB$ and $TV$ contributions, whereas the biomarker-by-treatment
+slope is displaced only by the biomarker's covariance with those
+components. Study A bears this out: varying $PB$ and $TV$ magnitude
+with a biomarker coupled to $BR$ alone left the one-component
+estimate unbiased across the entire grid.
+:::
 
-\begin{bullets}
-\textbf{Decomposing response is identifiability-conditional: the trial design must supply phase contrasts, and the analyst must exploit them, but the phase-augmented linear-mixed analysis does this efficiently at small $N$.}
+::: {.bullets data-latex=""}
+\textbf{What matters is the design contrast, not the parametric model: the trial must supply the drug-on/off and belief contrasts, but adding parametric component terms is not free and is not always worth it.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Unique component identification requires phase contrasts built into the trial design.
-\item The phase-augmented linear-mixed analysis captures the decomposition without the parametric cost of a full nonlinear-mixed-effects fit.
-\item The full component-matched analysis is reserved for larger-$N$ and stronger-prior settings where its inferential cost is justified.
+\item Unique component identification requires phase contrasts built into the trial design; the one-component analysis already exploits the drug-on/off contrast.
+\item Under an uncontaminated biomarker, the phase-augmented analysis adds no bias reduction and loses power, so it is not recommended as a default.
+\item The phase-augmented and full component-matched analyses are warranted for attribution estimands and for biomarkers that may correlate with $PB$ or $TV$, where the extra structure does work.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
-Second, decomposing the response is identifiability-conditional,
-not optional: the trial design must include phase contrasts that
-uniquely identify each component, and the analyst must use a
-methodology that exploits those contrasts. At trial-relevant
-sample sizes, a phase-augmented linear-mixed analysis captures
-the practically important part of the decomposition without
-paying the parametric cost of a full nonlinear-mixed-effects
-fit. The full component-matched analysis is reserved for the
-larger-$N$ and stronger-prior settings where it is feasible and
-worth its inferential cost.
-\end{orig}
+::: {.orig data-latex=""}
+Second, the operative requirement is the design contrast, not the
+parametric analysis model. The trial design must include the
+drug-on/off and belief contrasts that identify the components, and
+the one-component analysis already exploits the drug-on/off
+contrast through its $D_{bc}$ term. Adding parametric component
+structure on top is not free: under an uncontaminated biomarker the
+phase-augmented analysis reduced no bias and lost substantial
+power, so it should not be adopted as a default. Its value, and
+that of the full component-matched fit, is confined to the
+estimands where the extra structure does work, namely the
+attribution of response to pharmacology versus belief and the
+analysis of biomarkers that may themselves correlate with $PB$ or
+$TV$.
+:::
 
-\begin{bullets}
-\textbf{For predictive-biomarker validation the decomposition is not optional: it is the formal mechanism by which the precision-medicine question is posed.}
+::: {.bullets data-latex=""}
+\textbf{For predictive-biomarker validation the decomposition matters precisely when the candidate biomarker may correlate with $PB$ or $TV$; this is the case the decisive simulation still has to probe.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item A biomarker that predicts the lumped total is not, in general, a pharmacological predictor.
-\item Regulatory and prescribing decisions motivated by the trial require separating $BR$ from $PB$ and $TV$.
-\item The production simulation programme in section 7 is the planned empirical evaluation of these claims.
+\item A biomarker that predicts the lumped total is a pharmacological predictor only if it is uncorrelated with $PB$ and $TV$; otherwise the lumped slope is contaminated.
+\item Regulatory and prescribing decisions therefore require separating $BR$ from $PB$ and $TV$ whenever biomarker-component coupling cannot be ruled out.
+\item Study A established the uncontaminated baseline; the contaminated-biomarker cell is the planned empirical test of the failure mode.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
-Third, for predictive-biomarker validation the decomposition is
-not an optional refinement: it is the formal mechanism by which
-the precision-medicine question can be asked at all. A biomarker
-that predicts the lumped total is not, in general, a
-pharmacological predictor, and the regulatory and prescribing
-decisions that motivate the trial cannot be made without
-separating $BR$ from $PB$ and $TV$. We hope to return to the
-empirical evaluation of these claims in the production
-simulation programme described in section 7.
-\end{orig}
+::: {.orig data-latex=""}
+Third, for predictive-biomarker validation the decomposition earns
+its place precisely when the candidate biomarker may correlate with
+$PB$ or $TV$. A biomarker that predicts the lumped total is a
+pharmacological predictor only when it is uncorrelated with the
+non-pharmacological components; where that cannot be assumed, the
+lumped slope mixes pharmacological and non-pharmacological
+prediction, and the regulatory and prescribing decisions that
+motivate the trial require the separation the decomposition
+supplies. The empirical demonstration of this failure mode, a
+data-generating process that couples the biomarker to $PB$, is the
+decisive cell that Study A did not include and that remains the
+natural next step; the present run establishes the uncontaminated
+baseline against which it should be compared.
+:::
 
 # Conflict of interest
 
@@ -3234,20 +3581,20 @@ section below.
 
 # Reproducibility
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{The manuscript is rendered inside a Docker container with locked package versions; the full software environment is pinned by \texttt{Dockerfile} and \texttt{renv.lock}.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item R 4.4.x in the zzcollab Docker container provides the execution environment.
 \item Simulation packages are \texttt{nlme}, \texttt{parallel}, \texttt{data.table}, \texttt{furrr}, and \texttt{purrr}.
 \item The manuscript build uses \texttt{rmarkdown} and \texttt{bookdown}.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 This manuscript was rendered with R 4.4.x inside the project's
 zzcollab Docker container (image hash recorded in
 \texttt{Dockerfile}; package set captured in \texttt{renv.lock}).
@@ -3260,43 +3607,43 @@ collection), \texttt{furrr} and \texttt{purrr} (the
 \texttt{tidyverse} simulation collection), and
 \texttt{rmarkdown} plus \texttt{bookdown} for the manuscript
 build.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{Reproducibility is ensured by a master seed of 20260507 with per-replicate seeds derived by index addition.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item \texttt{set.seed(20260507)} is called at the top of each replicate loop.
 \item \texttt{parallel::mc.set.seed} propagates seeds inside \texttt{mclapply}.
 \item Per-replicate seeds are \texttt{master\_seed + rep\_idx}.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Each simulation driver sets \texttt{set.seed(20260507)} at the
 top of the replicate loop and uses
 \texttt{parallel::mc.set.seed} inside \texttt{mclapply}.
 Per-replicate seeds derive from the master seed by
 \texttt{+ rep\_idx}.
-\end{orig}
+:::
 
-\begin{bullets}
+::: {.bullets data-latex=""}
 \textbf{All simulation outputs, driver scripts, pre-registration, and manuscript source files are versioned at documented paths within the repository.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Per-replicate outputs and Morris summaries are at \texttt{analysis/data/quick-sim/}.
 \item Driver scripts and the ADEMP pre-registration are at \texttt{analysis/scripts/component-decomposition/}.
 \item Manuscript source, bibliography, and CSL file are at \texttt{analysis/report/06-component-decomposition/}.
 \end{itemize}
-\end{bullets}
+:::
 
-\begin{rgt}
+::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-\end{rgt}
+:::
 
-\begin{orig}
+::: {.orig data-latex=""}
 Per-replicate simulation outputs are checkpointed at
 \texttt{analysis/data/quick-sim/06-decomp-replicates.rds};
 Morris ADEMP cell-level summaries at the companion
@@ -3307,7 +3654,7 @@ pre-registered ADEMP plan is at
 The manuscript source, paper-specific bibliography
 (\texttt{references.bib}), and SIM CSL file are at
 \texttt{analysis/report/06-component-decomposition/}.
-\end{orig}
+:::
 
 # References
 

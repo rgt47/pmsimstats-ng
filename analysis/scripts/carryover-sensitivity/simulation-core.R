@@ -386,10 +386,12 @@ fit_three_specs <- function(dat_long, robust = FALSE) {
 ## Single-cell simulator
 ## -----------------------------------------------------------------
 
-simulate_cell <- function(cell, n_reps, robust = FALSE) {
+simulate_cell <- function(cell, n_reps, robust = FALSE,
+                          resp_param = NULL,
+                          baseline_param = NULL) {
   design_set <- build_design_set(cell$design)
-  resp_param <- default_resp_param()
-  baseline_param <- default_baseline_param()
+  if (is.null(resp_param))     resp_param     <- default_resp_param()
+  if (is.null(baseline_param)) baseline_param <- default_baseline_param()
 
   ## rho: common within-factor AR(1) autocorrelation. Falls back
   ## to 0.7 if not provided (Tier 1 default).

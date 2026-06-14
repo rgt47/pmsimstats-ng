@@ -17,8 +17,9 @@
 ## NOTE: uses pkgload::load_all() rather than devtools::load_all() so
 ##   it runs on hosts where devtools is absent or uninstalled.
 
-## ---- single parameter to change ---------------------------------- ##
-N_REPS <- 250L
+## ---- parameters to change ---------------------------------------- ##
+N_REPS_ALT  <- 1000L   # replicates for alternative cells (c_bm = 0.45)
+N_REPS_NULL <- 5000L   # replicates for null cells (c_bm = 0)
 ## ------------------------------------------------------------------ ##
 
 suppressPackageStartupMessages({
@@ -31,7 +32,7 @@ suppressPackageStartupMessages({
 STUDY_SEED  <- 642L
 CHECKPOINT_DIR <- file.path(
   'analysis', 'data', 'derived_data', 'component-decomposition',
-  paste0('study-a-N', N_REPS))
+  sprintf('study-a-alt%d-null%d', N_REPS_ALT, N_REPS_NULL))
 dir.create(CHECKPOINT_DIR, recursive = TRUE, showWarnings = FALSE)
 
 ## ------------------------------------------------------------------ ##
@@ -284,8 +285,9 @@ cells[, analyses := list(list(c('one_component', 'phase_augmented')))]
 
 n_cores <- max(1L, detectCores() - 1L)
 cat(sprintf(
-  'Study A: %d cells x %d reps | seed=%d | cores=%d\nOutput: %s\n',
-  nrow(cells), N_REPS, STUDY_SEED, n_cores, CHECKPOINT_DIR))
+  'Study A: %d cells | alt=%d reps, null=%d reps | seed=%d | cores=%d\nOutput: %s\n',
+  nrow(cells), N_REPS_ALT, N_REPS_NULL, STUDY_SEED, n_cores,
+  CHECKPOINT_DIR))
 
 ## ------------------------------------------------------------------ ##
 ## Main loop with per-cell checkpointing
@@ -307,7 +309,9 @@ for (i in seq_len(nrow(cells))) {
                c_bm     = cells$c_bm[i],
                analyses = cells$analyses[[i]],
                design   = if (cells$N[i] >= 100) 'full' else 'simple')
-  reps_dt         <- run_cell_06(cell, n_reps = N_REPS,
+  n_reps          <- if (cells$regime[i] == 'null') N_REPS_NULL
+                     else N_REPS_ALT
+  reps_dt         <- run_cell_06(cell, n_reps = n_reps,
                                   study_seed = STUDY_SEED,
                                   cell_id    = cid,
                                   n_cores    = n_cores)
@@ -347,6 +351,6 @@ write.table(summary_dt,
 
 elapsed <- proc.time()[['elapsed']] - t_wall
 cat(sprintf(
-  '\nDone. %d cells x %d reps in %.1f min.\nSummary: %s\n',
-  nrow(cells), N_REPS, elapsed / 60,
+  '\nDone. %d cells (alt=%d, null=%d reps) in %.1f min.\nSummary: %s\n',
+  nrow(cells), N_REPS_ALT, N_REPS_NULL, elapsed / 60,
   file.path(CHECKPOINT_DIR, 'study-a-summary.rds')))

@@ -37,6 +37,22 @@ source(file.path(repo_root,
 source(file.path(repo_root,
   'analysis/scripts/carryover-sensitivity/simulation-core.R'))
 
+## Load the prazosin/PTSD reference calibration from the package data.
+## These match the Section 3.1 production run exactly so that the
+## Architecture C boundary cells (c_bm_a=0.45, c_bm_b=0) and
+## (c_bm_a=0, c_bm_b=0.45) reproduce the Architecture A and B
+## results from that run.
+local({
+  e <- new.env()
+  load(file.path(repo_root, 'data/extracted_rp.rda'), envir = e)
+  load(file.path(repo_root, 'data/extracted_bp.rda'), envir = e)
+  assign('pkg_rp', e$extracted_rp, envir = .GlobalEnv)
+  assign('pkg_bp', e$extracted_bp, envir = .GlobalEnv)
+})
+cat('Reference calibration loaded.\n')
+cat('  resp_param:\n'); print(pkg_rp)
+cat('  baseline_param:\n'); print(pkg_bp)
+
 args        <- commandArgs(trailingOnly = TRUE)
 smoke_mode  <- '--smoke' %in% args
 dev_mode    <- '--dev'   %in% args
@@ -109,7 +125,9 @@ results <- future_map_dfr(
   seq_len(nrow(grid_combined)),
   function(i) {
     cell        <- grid_combined[i, ]
-    cell_result <- simulate_cell(cell, n_reps, robust = FALSE)
+    cell_result <- simulate_cell(cell, n_reps, robust = FALSE,
+                                 resp_param     = pkg_rp,
+                                 baseline_param = pkg_bp)
     bind_cols(cell[rep(1L, nrow(cell_result)), ], cell_result)
   },
   .options = furrr_options(seed = seed),

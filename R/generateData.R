@@ -21,6 +21,15 @@
 #'  \item{\code{c.bm_b}}{  Covariance-channel weight for \code{"combined"}
 #'    architecture: BM-BR differential correlation in the MVN covariance
 #'    matrix. Ignored under \code{"mvn"} and \code{"mean_moderation"}.}
+#'  \item{\code{c.bm.pb}}{  Optional biomarker-PB correlation for the
+#'    \code{"mvn"} and \code{"combined"} architectures (the
+#'    contaminated-biomarker DGP). Couples the biomarker to the PB
+#'    component at every timepoint so that high-biomarker participants are
+#'    also stronger placebo responders. Absent or zero (the default)
+#'    reproduces the BR-only coupling exactly, leaving all existing runs
+#'    unchanged. Because the PB column SDs already carry the
+#'    expectancy scaling, the realised BM-PB covariance is automatically
+#'    larger at high-belief (open-label) timepoints.}
 #'  \item{\code{carryover_t1half}}{  Halflife of the carryover effect}
 #'  \item{\code{c.tv}}{  Autocorrelation for the tv factor across timepoints}
 #'  \item{\code{c.pb}}{ Autocorrelation for the pb factor across timepoints}
@@ -285,6 +294,20 @@ buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefini
           decay<-exp(-lambda_cor * d$tsd[p])
           correlations[n1,'bm']<-c_bm_cov * decay
           correlations['bm',n1]<-c_bm_cov * decay
+        }
+      }
+    }
+    # BM-PB differential correlation (contaminated-biomarker DGP).
+    # Couples the biomarker to the PB component so high-biomarker
+    # participants are also stronger placebo responders. Gated on
+    # c.bm.pb; absent or zero leaves the BR-only coupling untouched.
+    if(cc=="pb" && dgp_architecture %in% c("mvn", "combined")){
+      c_bm_pb<-modelparam$c.bm.pb
+      if(!is.null(c_bm_pb) && !is.na(c_bm_pb) && c_bm_pb != 0){
+        for(p in 1:nP){
+          n1<-paste(trialdesign$timeptnames[p],"pb",sep=".")
+          correlations[n1,'bm']<-c_bm_pb
+          correlations['bm',n1]<-c_bm_pb
         }
       }
     }

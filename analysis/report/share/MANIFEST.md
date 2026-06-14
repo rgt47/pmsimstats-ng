@@ -39,3 +39,14 @@
 | `06-component-decomposition-2026-06-13-0821-5c42173-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `5c42173-wip` | 2026-06-13 08:21 PDT |
 | `06-component-decomposition-2026-06-13-0916-5c42173-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `5c42173-wip` | 2026-06-13 09:16 PDT |
 | `09-informative-dropout-by-design-2026-06-13-0939-5c42173-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/09-informative-dropout-by-design/report.Rmd` | `5c42173-wip` | 2026-06-13 09:39 PDT |
+| `06-component-decomposition-2026-06-13-1648-8083fd2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `8083fd2-wip` | 2026-06-13 16:48 PDT |
+| `06-component-decomposition-2026-06-13-1705-8083fd2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `8083fd2-wip` | 2026-06-13 17:05 PDT |
+| `06-component-decomposition-2026-06-13-1705-8083fd2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `8083fd2-wip` | 2026-06-13 17:05 PDT |
+| `06-component-decomposition-2026-06-13-1743-8083fd2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `8083fd2-wip` | 2026-06-13 17:43 PDT |
+| `02-carryover-sensitivity-2026-06-13-1757-8083fd2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report.Rmd` | `8083fd2-wip` | 2026-06-13 17:57 PDT |
+| `03-latent-class-mixture-application-2026-06-13-1757-8083fd2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/03-latent-class-mixture-application/report.Rmd` | `8083fd2-wip` | 2026-06-13 17:57 PDT |
+| `05-nof1-design-sensitivity-2026-06-13-1757-8083fd2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/05-nof1-design-sensitivity/report.Rmd` | `8083fd2-wip` | 2026-06-13 17:57 PDT |
+| `06-component-decomposition-2026-06-13-1757-8083fd2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `8083fd2-wip` | 2026-06-13 17:57 PDT |
+| `07-gompertz-evaluation-2026-06-13-1757-8083fd2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `8083fd2-wip` | 2026-06-13 17:57 PDT |
+| `09-informative-dropout-by-design-2026-06-13-1758-8083fd2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/09-informative-dropout-by-design/report.Rmd` | `8083fd2-wip` | 2026-06-13 17:58 PDT |
+| `10-interaction-test-calibration-2026-06-13-1758-8083fd2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/report.Rmd` | `8083fd2-wip` | 2026-06-13 17:58 PDT |

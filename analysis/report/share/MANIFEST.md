@@ -50,3 +50,4 @@
 | `07-gompertz-evaluation-2026-06-13-1757-8083fd2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `8083fd2-wip` | 2026-06-13 17:57 PDT |
 | `09-informative-dropout-by-design-2026-06-13-1758-8083fd2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/09-informative-dropout-by-design/report.Rmd` | `8083fd2-wip` | 2026-06-13 17:58 PDT |
 | `10-interaction-test-calibration-2026-06-13-1758-8083fd2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/report.Rmd` | `8083fd2-wip` | 2026-06-13 17:58 PDT |
+| `08-test-procedure-design-sensitivity-2026-06-13-2139-8efa40f-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/08-test-procedure-design-sensitivity/report.Rmd` | `8efa40f-wip` | 2026-06-13 21:39 PDT |

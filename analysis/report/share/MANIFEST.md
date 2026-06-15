@@ -53,3 +53,7 @@
 | `08-test-procedure-design-sensitivity-2026-06-13-2139-8efa40f-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/08-test-procedure-design-sensitivity/report.Rmd` | `8efa40f-wip` | 2026-06-13 21:39 PDT |
 | `04-treatment-main-effect-2026-06-14-0850-2737964-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/04-treatment-main-effect/report.Rmd` | `2737964-wip` | 2026-06-14 08:50 PDT |
 | `06-component-decomposition-2026-06-14-0933-2624eb1-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `2624eb1-wip` | 2026-06-14 09:33 PDT |
+| `06-component-decomposition-2026-06-15-0827-c3db484-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `c3db484-wip` | 2026-06-15 08:27 PDT |
+| `06-component-decomposition-2026-06-15-0912-c3db484-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `c3db484-wip` | 2026-06-15 09:12 PDT |
+| `06-component-decomposition-2026-06-15-0921-c3db484-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `c3db484-wip` | 2026-06-15 09:21 PDT |
+| `06-component-decomposition-2026-06-15-1107-c3db484-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `c3db484-wip` | 2026-06-15 11:07 PDT |

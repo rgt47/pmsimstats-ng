@@ -57,3 +57,4 @@
 | `06-component-decomposition-2026-06-15-0912-c3db484-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `c3db484-wip` | 2026-06-15 09:12 PDT |
 | `06-component-decomposition-2026-06-15-0921-c3db484-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `c3db484-wip` | 2026-06-15 09:21 PDT |
 | `06-component-decomposition-2026-06-15-1107-c3db484-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `c3db484-wip` | 2026-06-15 11:07 PDT |
+| `06-component-decomposition-slim-2026-06-15-1710-68fd6d6.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report-slim.Rmd` | `68fd6d6` | 2026-06-15 17:10 PDT |

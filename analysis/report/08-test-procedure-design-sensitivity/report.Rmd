@@ -1,8 +1,8 @@
 ---
-title: "Test-procedure and trial-design choices for the
-  biomarker-treatment interaction in aggregated N-of-1 trials:
-  classical RM-ANOVA, mixed-effects, and the cycle-by-period
-  protocol grid"
+title: "Test-procedure choice for the biomarker-treatment
+  interaction in aggregated N-of-1 trials: dichotomization,
+  classical RM-ANOVA, mixed-effects, and generalized estimating
+  equations"
 author: 'pmsimstats team'
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
@@ -40,15 +40,14 @@ knitr::opts_chunk$set(
 # Abstract
 
 **Background.** Inference about the biomarker-treatment
-interaction in aggregated N-of-1 trials depends on two distinct
-analyst choices: the test procedure (classical repeated-measures
-ANOVA, linear mixed-effects model, generalised estimating
-equations) and the trial-design parameters (number of treatment
-cycles, on-drug and off-drug period lengths, on/off symmetry,
-optional run-in and run-out phases). Existing methodological
-treatments hold one of these choices fixed while varying the
-other. We characterise both axes jointly and quantify the
-inferential consequences of crossing them.
+interaction in aggregated N-of-1 trials depends on the analyst's
+test procedure: classical repeated-measures ANOVA (RM-ANOVA),
+the linear mixed-effects model (LME), or generalized estimating
+equations (GEE). A common but rarely examined feature of the
+classical analysis is that it requires the continuous biomarker
+to be dichotomized. We quantify the consequences of test-procedure
+choice for the interaction, separating the cost of dichotomization
+from the cost of the test procedure proper.
 
 **Methods.** We derive the closed-form strict RM-ANOVA
 $F$-statistic for the biomarker-stratified treatment-by-time
@@ -58,52 +57,55 @@ Wald $t$-test for the corresponding fixed-effects coefficient in
 a linear mixed model with continuous-time AR(1) residual
 correlation. We then conduct a Monte Carlo simulation study,
 designed and reported under the @morris2019 ADEMP framework,
-that crosses four test procedures (strict RM-ANOVA, the
-standard pmsimstats linear-mixed analysis with `corCAR1`, and a
-generalised estimating equations comparator with naive and with
-Mancl-DeRouen small-sample sandwich variance) against the
-biomarker-moderation coefficient $c_{bm} \in \{0, 0.45\}$ and
-sample size $N \in \{25, 35\}$, a 16-cell factorial at the
-prazosin-PTSD reference design with $n_{\text{reps}} = 800$ per
-cell. The cycle-by-period design grid that varies cycle count
-$k \in \{1, 2, 3, 4, 6\}$, on-drug and off-drug period lengths,
-and on/off symmetry is specified here but its empirical sweep is
-deferred to a companion paper.
+that crosses five test procedures (strict RM-ANOVA on the
+dichotomized biomarker; a continuous-biomarker within-subject
+contrast; the standard pmsimstats linear-mixed analysis with
+`corCAR1`; and GEE with naive and with Mancl-DeRouen small-sample
+sandwich variance) against the biomarker-moderation coefficient
+$c_{bm} \in \{0, 0.45\}$ and sample size $N \in \{25, 35, 70,
+100\}$, a 40-cell factorial at the prazosin-PTSD reference design
+with 1000 replicates per power cell and 2000 per Type I cell.
+The continuous-biomarker contrast differs from strict RM-ANOVA
+only in retaining the continuous biomarker, isolating the cost
+of dichotomization. The cycle-by-period design grid is specified
+here but its empirical sweep is deferred to a companion paper.
 
-**Results.** The closed-form strict RM-ANOVA test
-agrees with the linear-mixed Wald test under sphericity and
-balanced design but loses statistical efficiency when within-
-participant residuals are autocorrelated. In the simulation
-study reported here, the linear-mixed analysis dominates
-strict RM-ANOVA on power for the biomarker-treatment
-interaction at both sample sizes evaluated, with the power gap
-widening from approximately 0.19 at $N = 25$ to 0.28 at
-$N = 35$, while holding nominal or sub-nominal type I error.
-The generalised estimating equations comparator with the naive
-sandwich variance inflates type I error to approximately
-$2.4\times$ nominal at $N = 25$ and $1.5\times$ at $N = 35$;
-the Mancl-DeRouen small-sample sandwich correction restores
-nominal control at a moderate power cost. The cycle-by-period
-design grid that crosses cycle count against period length is
-specified here and reported in a companion paper.
+**Results.** The closed-form strict RM-ANOVA test agrees with the
+linear-mixed Wald test under sphericity and balanced design. In
+the simulation, most of the power gap between strict RM-ANOVA and
+the mixed model is the cost of dichotomization rather than of the
+test procedure: at $N = 25$, replacing the dichotomized biomarker
+with the continuous one raises power by 0.180, while the further
+step to the full mixed model adds only 0.027, a pattern stable
+across $N$ (dichotomization 0.08--0.21, test procedure at most
+0.04). Among the four continuous-biomarker procedures, the
+linear-mixed analysis attains the highest power within nominal
+Type I error; GEE with the naive sandwich inflates Type I error
+to between $1.5\times$ and $1.9\times$ nominal across all four
+sample sizes, which the Mancl-DeRouen correction removes at a
+moderate (about 10-percentage-point) power cost while restoring
+93--95\% interval coverage. The inline Mancl-DeRouen standard
+error agrees with the `geesmv` reference to within 2.5\%.
 
-**Conclusions.** Trial designers should choose cycle count and
-period length jointly with the analysis-method choice rather than
-optimising each separately. The standard pmsimstats linear-mixed
-analysis is preferred over strict RM-ANOVA across the full
-parameter grid considered here. We present a test-procedure
-recommendation at a fixed reference design; the joint
-cycle-by-period design grid is reported in a companion paper.
+**Conclusions.** The analyst's most consequential decision is to
+keep the biomarker continuous rather than dichotomize it; among
+continuous-biomarker procedures the linear-mixed analysis is the
+preferred default and a dichotomization-free within-subject
+contrast is a close, transparent alternative. Naive GEE should
+not be used at the sample sizes examined without a small-sample
+correction. This paper resolves the test-procedure axis at a
+fixed reference design; the joint cycle-by-period design grid is
+specified here and deferred to a companion paper.
 
 # Introduction
 
 ## A claim about how design and test choices interact
 
 ::: {.bullets data-latex=""}
-\textbf{Joint optimisation of test procedure and design parameters is the paper's central argument.}
+\textbf{Joint optimization of test procedure and design parameters is the paper's central argument.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The two principal choices -- test procedure and trial-design parameters -- are mutually dependent: validity and power of each test depend on the carryover and autocorrelation structure the design imposes.
-\item Treating the choices as independent optimisations, as the published literature typically does, produces locally optimal but jointly suboptimal combinations.
+\item Treating the choices as independent optimizations, as the published literature typically does, produces locally optimal but jointly suboptimal combinations.
 \item The argument is presented as consequential at the sample sizes characteristic of precision-medicine pilot studies.
 \end{itemize}
 :::
@@ -116,10 +118,10 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 The present paper develops the methodological case for treating
 the analyst's two principal choices in an aggregated N-of-1 trial
 jointly rather than separately. The two choices are the test
-procedure for the biomarker-by-treatment interaction (strict
+procedure for the biomarker-treatment interaction (strict
 repeated-measures ANOVA, the linear mixed-effects model with
 continuous-time AR(1) residual correlation, the mixed-effects
-model for repeated measures, generalised estimating equations)
+model for repeated measures, generalized estimating equations)
 and the trial-design parameters that govern within-subject
 treatment cycling (number of treatment cycles, on-drug and
 off-drug period lengths, on/off symmetry, optional run-in and
@@ -127,7 +129,7 @@ run-out phases). The validity and power of any given test depend
 on what the design assumes about carryover, autocorrelation, and
 within-subject variance structure; conversely, the optimal design
 parameters depend on which test the analyst plans to use.
-Treating the two as independent optimisations, as the published
+Treating the two as independent optimizations, as the published
 methodological literature typically does, produces locally optimal
 but jointly suboptimal combinations, and we shall argue that this
 gap is consequential at the sample sizes characteristic of
@@ -175,8 +177,8 @@ specifically for the aggregated N-of-1 design class.
 \textbf{Physiological autocorrelation in chronic-condition trials violates the sphericity assumption that strict RM-ANOVA requires.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Chronic-condition response trajectories exhibit serial correlation driven by drug pharmacokinetics, natural-history drift, and measurement reactivity.
-\item Huynh-Feldt and Greenhouse-Geisser corrections recover nominal Type I only conditionally; the threshold is $\epsilon < 0.6$ per Blanca et al. (2023).
-\item The mixed-effects model with \texttt{corCAR1} avoids these corrections by modelling AR(1) structure directly.
+\item Huynh-Feldt and Greenhouse-Geisser corrections recover nominal Type I only conditionally; the conventional threshold favours Greenhouse-Geisser when $\epsilon < 0.75$ (Blanca et al., 2023).
+\item The mixed-effects model with \texttt{corCAR1} avoids these corrections by modeling AR(1) structure directly.
 \end{itemize}
 :::
 
@@ -195,23 +197,30 @@ and diary-completion effects). Continuous-time AR(1) residual
 correlation is, in our view, the appropriate structural prior for
 this physiology, but it does not satisfy the sphericity assumption
 required by strict RM-ANOVA. @haverkamp2017sphericity show
-through simulation that as the number of measurement occasions
-increases the RM-ANOVA $F$-statistic inflates Type I error rapidly
-under sphericity violations, and that Huynh-Feldt and
-Greenhouse-Geisser corrections [@huynh1976; @greenhouse1959]
+through simulation that uncorrected RM-ANOVA inflates Type I error
+under sphericity violations; they also report, importantly, that
+the Greenhouse-Geisser-corrected RM-ANOVA and the multilevel
+linear model perform comparably once the correction is applied,
+and that the multilevel model is not uniformly safer (it can be
+the more liberal of the two in some conditions). The
+degrees-of-freedom corrections [@huynh1976; @greenhouse1959]
 recover nominal levels only conditionally. @blanca2023sphericity
-extend this evidence with finer epsilon resolution and recommend
-Greenhouse-Geisser when $\epsilon < 0.6$. The mixed-effects model
-with explicit `corCAR1` residual structure does not require these
-corrections because the AR(1) structure is modelled directly
-rather than absorbed via a degrees-of-freedom penalty.
+extend this evidence with finer epsilon resolution, with the
+conventional rule favouring Greenhouse-Geisser when
+$\epsilon < 0.75$. The advantage we claim for the mixed-effects
+model with explicit `corCAR1` residual structure is thus not that
+it is uniformly more powerful than a well-corrected RM-ANOVA, but
+that it models the AR(1) structure directly, accommodates the
+continuous biomarker and unequal time spacing, and so avoids both
+the dichotomization and the degrees-of-freedom penalty that the
+classical route incurs.
 :::
 
 ::: {.bullets data-latex=""}
-\textbf{Detecting the biomarker-treatment interaction is harder than detecting the average treatment effect and is more sensitive to design choices.}
+\textbf{Detecting the biomarker-treatment interaction is harder than detecting the average treatment effect (ATE) and is more sensitive to design choices.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The PATH framework distinguishes effect-modelling from risk-modelling; the former requires more design-aware machinery.
-\item Within-participant contrasts feeding the interaction estimator are sensitive to trial-design parameters in ways the main-effect analysis is not.
+\item The PATH framework distinguishes effect-modeling from risk-modeling; the former requires more design-aware machinery.
+\item Within-participant contrasts feeding the interaction estimator are sensitive to trial-design parameters in ways the ATE analysis is not.
 \item Underpowered test procedures for the interaction will miss predictive-biomarker signal even at nominally adequate sample sizes.
 \end{itemize}
 :::
@@ -222,21 +231,23 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 
 ::: {.orig data-latex=""}
 The biomarker-treatment interaction also merits separate attention
-because it is harder to detect than the average treatment effect.
+because it is harder to detect than the average treatment effect
+(ATE).
 The PATH framework [@kent2020path; @kent2020pathee] makes the
-methodological distinction precise: effect-modelling (the
-predictive-HTE question) requires more design-aware machinery
-than risk-modelling (the average-effect question). The
+methodological distinction precise: effect-modeling (the
+predictive heterogeneity-of-treatment-effects, or HTE, question)
+requires more design-aware machinery
+than risk-modeling (the ATE question). The
 within-participant contrasts that contribute to the interaction
 estimator are sensitive to the trial-design parameters in ways
-the main-effect analysis is not, and a test procedure that
+the ATE analysis is not, and a test procedure that
 underpowers the interaction term will systematically miss
 predictive-biomarker signal even at sample sizes that appear
-adequate for the average-effect test.
+adequate for the ATE test.
 :::
 
 ::: {.bullets data-latex=""}
-\textbf{Cycle count and period length interact with carryover and test-procedure choice, so their joint optimum cannot be found by optimising each separately.}
+\textbf{Cycle count and period length interact with carryover and test-procedure choice, so their joint optimum cannot be found by optimizing each separately.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Additional cycles increase power for the biomarker-treatment interaction but with diminishing returns beyond the fourth or fifth cycle.
 \item Shorter periods produce more cycles but worsen on-drug/off-drug separation when carryover is non-trivial.
@@ -251,13 +262,13 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 ::: {.orig data-latex=""}
 Finally, cycle count and period length jointly determine the
 within-subject contrast structure in ways that cannot be
-optimised independently. @senn1994crossover and
+optimized independently. @senn1994crossover and
 @senn2011individual establish, in the broader cross-over
 literature, that adding within-subject treatment cycles
 contributes information about the patient-by-treatment
 interaction variance that no cross-sectional comparator can
-supply. The N-of-1 specialisation of this principle is that more
-cycles increase power for the biomarker-by-treatment interaction,
+supply. The N-of-1 specialization of this principle is that more
+cycles increase power for the biomarker-treatment interaction,
 but with diminishing returns: cycles beyond the fourth or fifth
 contribute marginal information at the cost of trial duration.
 Period length interacts with carryover --- shorter periods produce
@@ -288,7 +299,7 @@ We begin with the state of the analytic-model literature. The
 systematic review of @natesanbatley2023 documents that 83.8\% of
 the published N-of-1 studies they catalogue ignore autocorrelation
 entirely; @stunnenberg2022 and @shaffer2018 reach similar
-conclusions in neurology and behavioural-medicine subdomains.
+conclusions in neurology and behavioral-medicine subdomains.
 CONSORT extension reporting standards [@vohra2015cent;
 @shamseer2015cent] codify reporting quality but do not address
 the analytic-model decision in any detail, and @kwasnicka2019
@@ -302,7 +313,7 @@ converged on remedies.
 ::: {.bullets data-latex=""}
 \textbf{Existing test-procedure comparisons address parallel-group or cluster designs but not the aggregated N-of-1 setting.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The MMRM consensus applies to parallel-group longitudinal trials with monotone missingness, not N-of-1 designs.
+\item The mixed model for repeated measures (MMRM) consensus applies to parallel-group longitudinal trials with monotone missingness, not N-of-1 designs.
 \item Only 6.6\% of stepped-wedge cluster trials with fewer than six units use appropriate small-sample corrections.
 \item No existing test-procedure comparison addresses the cross-over or N-of-1 setting directly.
 \end{itemize}
@@ -313,9 +324,18 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-Test-procedure comparisons are uncommon and limited in scope. The
-MMRM consensus established by Mallinckrodt and colleagues
-[@mallinckrodt2003; @mallinckrodt2001dropout;
+Test-procedure comparisons for longitudinal data are not new. The
+generic contrast of RM-ANOVA against GEE and mixed-effects models
+is well established: @ma2012beyond, for instance, report through
+simulation that RM-ANOVA is appreciably less powerful than GEE
+and mixed models for continuous longitudinal endpoints, the same
+ordering we recover. What that literature does not do is treat
+the biomarker-by-treatment interaction estimand, the aggregated
+N-of-1 / cross-over design, or the continuous-time AR(1)
+structure together, nor does it isolate the dichotomization cost
+that the classical route imposes specifically when the moderator
+is continuous. The MMRM consensus established by Mallinckrodt and
+colleagues [@mallinckrodt2003; @mallinckrodt2001dropout;
 @mallinckrodt2004duloxetine; @prakash2008] applies to
 parallel-group longitudinal trials with monotone missingness, not
 to aggregated N-of-1 designs. The GEE methodology of @liang1986
@@ -327,11 +347,12 @@ report that in stepped-wedge cluster trials with fewer than six
 independent units only 6.6\% of analyses use appropriate
 small-sample corrections, illustrating the gap between method
 availability and practice. None of these papers address the
-cross-over or N-of-1 setting directly.
+biomarker-interaction estimand in the cross-over or N-of-1
+setting directly.
 :::
 
 ::: {.bullets data-latex=""}
-\textbf{Design-parameter optimisation has been studied in isolation from test-procedure choice, leaving the joint question unaddressed.}
+\textbf{Design-parameter optimization has been studied in isolation from test-procedure choice, leaving the joint question unaddressed.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Hendrickson et al. (2020) is the only paper comparing full design families for biomarker-interaction power, but holds period length fixed and uses a single test procedure.
 \item Power calculations, autocorrelation effects, and cross-over design literature each address one axis without crossing them.
@@ -344,7 +365,7 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-Design-parameter optimisation has been studied, but separately
+Design-parameter optimization has been studied, but separately
 from test-procedure choice. @hedges2022power develop power
 calculations for $(AB)^k$ designs that match the N-of-1
 within-subject contrast structure; @bouwmeester2020 document
@@ -356,9 +377,13 @@ Hendrickson et al. framework [@hendrickson2020] is, to the best
 of our knowledge, the only paper that compares full design
 families head-to-head for the biomarker-interaction power
 question, but it holds period length fixed and uses a single test
-procedure. @schork2023precision and @zucker2010combining
-synthesise the broader N-of-1 design literature without
-addressing the joint design-by-test sensitivity question.
+procedure. @blackston2019comparison compare aggregated N-of-1
+trials against parallel and cross-over designs by simulation and
+find the aggregated design more efficient, but analyse a single
+mixed model and do not vary the test procedure. @schork2023precision
+and @zucker2010combining synthesize the broader N-of-1 design
+literature without addressing the joint design-by-test
+sensitivity question.
 :::
 
 ::: {.bullets data-latex=""}
@@ -389,10 +414,10 @@ test-procedure axis.
 ## Run-in design and the placebo-selection controversy
 
 ::: {.bullets data-latex=""}
-\textbf{The Hendrickson hybrid design avoids placebo-run-in selection bias by using open-label stabilisation, at some power cost.}
+\textbf{The Hendrickson hybrid design avoids placebo-run-in selection bias by using open-label stabilization, at some power cost.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Response-based exclusion during a placebo run-in introduces selection bias that damages external and potentially internal validity (Berger et al., 2003).
-\item The Hendrickson open-label stabilisation phase avoids this bias but forgoes the power that aggressive response-based selection would supply.
+\item The Hendrickson open-label stabilization phase avoids this bias but forgoes the power that aggressive response-based selection would supply.
 \item The run-in choice is held fixed in the present paper; varying it is deferred to the companion design-sensitivity paper.
 \end{itemize}
 :::
@@ -404,12 +429,12 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 ::: {.orig data-latex=""}
 A separate methodological controversy that the joint
 design-by-test framing intersects concerns the use of placebo
-run-in phases to exclude placebo responders before randomisation.
+run-in phases to exclude placebo responders before randomization.
 @berger2003runin show formally that response-based exclusion
 during run-in introduces a selection bias that damages external
 validity and may affect internal validity as well. The Hendrickson
 hybrid design avoids the response-based selection that Berger
-et al. flag by using an open-label stabilisation phase rather
+et al. flag by using an open-label stabilization phase rather
 than a placebo run-in; the design choice is therefore conservative
 on the run-in question, though it forgoes the power that
 aggressive response-based selection would otherwise supply. The
@@ -426,7 +451,7 @@ We make four contributions, each addressed in a section below.
 ::: {.bullets data-latex=""}
 \textbf{The first contribution is a closed-form strict RM-ANOVA $F$-statistic for the biomarker-treatment interaction and its relation to the linear-mixed Wald test.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The derivation specialises the balanced split-plot model to the biomarker-stratified case under the sphericity assumption.
+\item The derivation specializes the balanced split-plot model to the biomarker-stratified case under the sphericity assumption.
 \item The conditions under which the two tests agree and diverge are identified explicitly.
 \item The derivation extends standard cross-over methodology to the biomarker-stratified case.
 \end{itemize}
@@ -441,7 +466,7 @@ First, we derive the closed-form strict RM-ANOVA $F$-statistic
 for the biomarker-stratified treatment-by-time interaction in a
 balanced split-plot design with categorical predictors and the
 sphericity assumption (\S2). We relate the strict-RM-ANOVA test
-to the Wald $t$-test on the biomarker-by-treatment
+to the Wald $t$-test on the biomarker-treatment
 fixed-effects coefficient in a linear mixed model with
 continuous-time AR(1) residual correlation, identifying the
 conditions on residual covariance under which the two tests agree
@@ -456,7 +481,7 @@ the connection to the contemporary sphericity-violation literature
 \textbf{The second contribution is specification of the cycle-by-period design grid calibrated to the prazosin/PTSD reference application.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The grid varies cycle count, on-drug and off-drug period lengths, and on/off symmetry around the Hendrickson hybrid reference.
-\item Calibration is to the prazosin/PTSD application that motivates the pmsimstats programme.
+\item Calibration is to the prazosin/PTSD application that motivates the pmsimstats program.
 \item The empirical sweep across this grid is deferred to a companion paper.
 \end{itemize}
 :::
@@ -470,15 +495,15 @@ Second, we specify a cycle-by-period design grid (\S3) that
 varies the number of treatment cycles, on-drug and off-drug
 period lengths, and on/off symmetry around the Hendrickson hybrid
 reference. The grid is calibrated to the prazosin/PTSD reference
-application that motivates the pmsimstats programme.
+application that motivates the pmsimstats program.
 :::
 
 ::: {.bullets data-latex=""}
 \textbf{The third contribution is a Monte Carlo simulation study crossing test procedures against the design grid under the ADEMP framework.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The simulation uses the \texttt{implementations/simple/simulation.R} substrate to isolate design-and-test axes from response-curve and covariance-structure axes.
-\item Four test procedures are crossed against biomarker-moderation coefficient and sample size in a 16-cell factorial.
-\item Results are reported following the Morris et al. (2019) ADEMP discipline including Monte Carlo standard errors.
+\item The simulation runs on the pmsimstats package data-generating process under Architecture A (mean moderation), exercised through \texttt{generateData()} and \texttt{lme\_analysis()}.
+\item Five test procedures, including a continuous-biomarker contrast that isolates the dichotomization cost, are crossed against biomarker-moderation coefficient and sample size in a 40-cell factorial.
+\item Results are reported following the Morris et al. (2019) ADEMP discipline including Monte Carlo standard errors (MCSE), bias, and interval coverage.
 \end{itemize}
 :::
 
@@ -488,14 +513,20 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 
 ::: {.orig data-latex=""}
 Third, we conduct a Monte Carlo simulation study (\S4--\S5) that
-crosses three test procedures (strict RM-ANOVA, the standard
-pmsimstats linear-mixed analysis with `corCAR1`, GEE with
-bias-corrected sandwich variance per @wang2016geesmv) against the
-cycle-by-period design grid. The simulation runs on the
-`implementations/simple/simulation.R` substrate rather than the
-full pmsimstats package stack, to isolate the design-and-test
-axes from the response-curve and covariance-structure axes
-addressed in `analysis/report/07-gompertz-evaluation/` and
+crosses five test procedures (strict RM-ANOVA on the dichotomized
+biomarker; a continuous-biomarker within-subject contrast; the
+standard pmsimstats linear-mixed analysis with `corCAR1`; and GEE
+with naive and with Mancl-DeRouen [@mancl2001covariance]
+small-sample sandwich variance) against the biomarker-moderation
+coefficient and sample size at the fixed reference design. The
+continuous-biomarker contrast is the dichotomization-free
+analogue of the strict RM-ANOVA test and lets us separate the
+cost of dichotomizing the biomarker from the cost of the test
+procedure proper. The simulation runs on the pmsimstats package
+data-generating process under Architecture A (mean moderation)
+via `generateData()` and `lme_analysis()`, holding fixed the
+response-curve and covariance-structure axes addressed in
+`analysis/report/07-gompertz-evaluation/` and
 `analysis/report/01-dgp-mean-moderation-vs-mvn/`. Results are
 reported in the @morris2019 ADEMP framework adopted as the
 project-wide simulation-reporting standard.
@@ -506,7 +537,7 @@ project-wide simulation-reporting standard.
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The recommendation is presented as preferred (cycle count, period length, test procedure) combinations rather than a single best design.
 \item The recommendation is narrowed to the test-procedure axis at the reference design in the present paper.
-\item The joint cycle-by-period optimisation is reserved for the companion paper.
+\item The joint cycle-by-period optimization is reserved for the companion paper.
 \end{itemize}
 :::
 
@@ -515,7 +546,7 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-Fourth, we synthesise a design-and-test recommendation table
+Fourth, we synthesize a design-and-test recommendation table
 (\S6) for typical chronic-condition N-of-1 trial scenarios. The
 recommendation is presented as a table of preferred (cycle count,
 period length, test procedure) combinations indexed by the
@@ -524,11 +555,11 @@ single 'best' design.
 :::
 
 ::: {.bullets data-latex=""}
-\textbf{The paper's organisation maps each section to one of the four contributions.}
+\textbf{The paper's organization maps each section to one of the four contributions.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Sections 2 and 3 cover the closed-form derivation and the design-grid specification respectively.
 \item Sections 4 and 5 present the simulation design and results.
-\item Sections 6 and 7 synthesise the recommendation and discuss implications.
+\item Sections 6 and 7 synthesize the recommendation and discuss implications.
 \end{itemize}
 :::
 
@@ -537,16 +568,16 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-The remainder of the paper is organised as follows. Section 2
+The remainder of the paper is organized as follows. Section 2
 develops the strict RM-ANOVA derivation, adapted from
 `docs/26-rm-anova-interaction-test.md`. Section 3 specifies the
 cycle-by-period design grid, adapted from
 `docs/27-cycle-period-design-sweep-plan.md`. Section 4 lays out
 the simulation design. Section 5 reports the results. Section 6
-synthesises the joint design-and-test recommendation. Section 7
+synthesizes the joint design-and-test recommendation. Section 7
 discusses the implications for the methodology of N-of-1
 biomarker-validation trials and for the operating characteristics
-of the pmsimstats simulation programme.
+of the pmsimstats simulation program.
 :::
 
 # Closed-form strict RM-ANOVA test of the biomarker-treatment interaction
@@ -556,7 +587,7 @@ of the pmsimstats simulation programme.
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The derivation is confined to the strict classical compound-symmetric form; modern extensions appear only for context.
 \item The simplest design supporting the test has two biomarker strata, two treatment phases, and $T$ within-phase timepoints.
-\item Three findings from the derivation -- equivalence to a two-sample $t$-test, a closed-form power formula, and five DGP violations -- anchor the simulation study.
+\item Three findings from the derivation -- equivalence to a two-sample $t$-test, a closed-form power formula, and five data-generating process (DGP) violations -- anchor the simulation study.
 \end{itemize}
 :::
 
@@ -570,13 +601,13 @@ $F$-statistic for the biomarker-treatment interaction in a
 balanced split-plot design with categorical predictors and the
 sphericity assumption, and relate it to the Wald $t$-statistic
 on the corresponding linear-mixed coefficient. The derivation
-specialises classical split-plot machinery [@maxwelldelaney2018]
+specializes classical split-plot machinery [@maxwelldelaney2018]
 to the biomarker-stratified case in the simplest design that
 supports the test: two biomarker strata, two treatment phases,
 and $T$ within-phase timepoints. The presentation is deliberately
 confined to strict RM-ANOVA. Modern extensions --- the
 mixed-effects model for repeated measures
-[@mallinckrodt2008recommendations], generalised estimating
+[@mallinckrodt2008recommendations], generalized estimating
 equations [@liang1986], and ANCOVA with random subject effects ---
 appear only for context; the closed-form expression we report is
 the textbook compound-symmetric form. Three findings anchor the
@@ -591,10 +622,10 @@ rest of the paper:
    that we use as the analytic anchor for the simulation study
    in §4-§5.
 3. Five assumptions of the closed form are violated by the
-   pmsimstats data-generating process (continuous biomarker,
+   pmsimstats data-generating process (DGP; continuous biomarker,
    AR(1) within-subject covariance, exponential carryover,
    missing data, unequal time spacing). Each violation
-   favours the linear-mixed analysis over the strict RM-ANOVA
+   favors the linear-mixed analysis over the strict RM-ANOVA
    test in operating characteristics, motivating the
    primary-and-sensitivity reporting strategy of §6.
 
@@ -623,10 +654,10 @@ explicitly in \S2.4.
 
 Specifically, we consider the following structural elements:
 
-- Two biomarker strata $i \in \{1, 2\}$, formed by dichotomising
+- Two biomarker strata $i \in \{1, 2\}$, formed by dichotomizing
   the continuous biomarker at a pre-specified cut-point. Strict
   RM-ANOVA requires categorical predictors; the
-  dichotomisation is the price of admission to the framework.
+  dichotomization is the price of admission to the framework.
 - $n$ subjects per stratum, balanced. Index
   $l \in \{1, \ldots, n\}$.
 - Two treatment phases $j \in \{1, 2\}$, active drug and placebo.
@@ -641,7 +672,7 @@ Specifically, we consider the following structural elements:
 ::: {.bullets data-latex=""}
 \textbf{The split-plot structure arises because the biomarker stratum is between-subjects while treatment phase and timepoints are within-subjects.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Strict RM-ANOVA requires categorical predictors; dichotomising the continuous biomarker at a cut-point is the price of admission.
+\item Strict RM-ANOVA requires categorical predictors; dichotomizing the continuous biomarker at a cut-point is the price of admission.
 \item Each subject is nested in exactly one biomarker stratum but passes through both treatment phases.
 \item The design is therefore a canonical split-plot repeated-measures design.
 \end{itemize}
@@ -735,7 +766,7 @@ SS_{S(A)} = bT \sum_{i=1}^a \sum_{l=1}^n
 \end{equation}
 
 The within-subjects component decomposes into $SS_B$ (treatment
-phase), $SS_{AB}$ (the biomarker-by-treatment interaction, the
+phase), $SS_{AB}$ (the biomarker-treatment interaction, the
 primary target of the test), and a within-subjects error term
 $SS_{B \times S(A)}$:
 
@@ -790,11 +821,11 @@ S(A)})$.
 ### The $2 \times 2$ split-plot case
 
 ::: {.bullets data-latex=""}
-\textbf{Specialising to $a = b = 2$ with $T = 1$ reduces the interaction to the difference of within-subject treatment differences across biomarker strata.}
+\textbf{Specializing to $a = b = 2$ with $T = 1$ reduces the interaction to the difference of within-subject treatment differences across biomarker strata.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Setting $T = 1$ corresponds to pre-averaging within-phase observations before computing the interaction.
 \item The sample interaction contrast $\hat{L}$ is the difference of within-subject treatment differences across strata.
-\item This specialisation yields the cleanest closed-form expression for the interaction $F$-statistic.
+\item This specialization yields the cleanest closed-form expression for the interaction $F$-statistic.
 \end{itemize}
 :::
 
@@ -803,7 +834,7 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-We now specialise to $a = b = 2$ (two biomarker strata, two
+We now specialize to $a = b = 2$ (two biomarker strata, two
 phases), setting $T = 1$ for cleanest exposition; that is, the
 analyst pre-averages within-phase observations to a single value
 per subject per phase before computing the interaction. The
@@ -833,7 +864,7 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 That is, $\hat L$ is the difference of within-subject treatment
 differences across biomarker strata, and is the natural
 biomarker-treatment interaction statistic. The interaction
-parameter under the sum-to-zero ANOVA parameterisation satisfies
+parameter under the sum-to-zero ANOVA parameterization satisfies
 $\widehat{(\alpha\beta)}_{11} = \hat L / 4$ (and the other three
 cells take values $\pm \hat L / 4$), so the interaction sum of
 squares is $SS_{AB} = nT\,\hat L^2 / 4$, and with $df_{AB} = 1$
@@ -988,7 +1019,7 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 ::: {.orig data-latex=""}
 For $a$ biomarker strata, $b$ treatment phases, $n$ subjects per
 stratum, and $T$ within-phase timepoints, equation
-\@ref(eq:rmanova-f) generalises directly with degrees of freedom
+\@ref(eq:rmanova-f) generalizes directly with degrees of freedom
 $df_1 = (a-1)(b-1)$ and $df_2 = a(n-1)(b-1)$. Including the
 time factor $\tau_k$ explicitly, the test of whether the
 biomarker modifies the treatment effect across time is the
@@ -1003,8 +1034,8 @@ $df_2 = a(n-1)(b-1)(T-1)$.
 ::: {.bullets data-latex=""}
 \textbf{The strict RM-ANOVA $F$ and the linear-mixed Wald $t$ are asymptotically equivalent only under three conditions that the pmsimstats DGP does not satisfy simultaneously.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Equivalence requires dichotomised biomarker, compound-symmetric within-subject covariance, and binary \texttt{Dbc}.
-\item When any condition fails, the mixed-model test extracts more information via continuous biomarker, AR(1) modelling, or continuous exposure-decay.
+\item Equivalence requires dichotomized biomarker, compound-symmetric within-subject covariance, and binary \texttt{Dbc}.
+\item When any condition fails, the mixed-model test extracts more information via continuous biomarker, AR(1) modeling, or continuous exposure-decay.
 \item In the pmsimstats setting, all three conditions fail, so the mixed-model test dominates strictly.
 \end{itemize}
 :::
@@ -1018,7 +1049,7 @@ We shall now relate the strict-RM-ANOVA $F$-statistic of
 equation \@ref(eq:rmanova-f-22) to the pmsimstats `nlme::lme`
 Wald $t$-statistic on the `bm:Dbc` coefficient. The two are
 asymptotically equivalent under three conditions: (i) the
-biomarker is dichotomised at the cut-point that defines the
+biomarker is dichotomized at the cut-point that defines the
 strata, (ii) the within-subject covariance is exactly
 compound-symmetric, and (iii) `Dbc` is binary, the A1
 specification of the carryover-sensitivity manuscript rather than
@@ -1027,7 +1058,7 @@ hold, the two tests reach the same coefficient and the same
 standard error up to small-sample correction factors. When any
 one fails, the mixed-model test extracts more information than
 the strict RM-ANOVA: the continuous biomarker contributes
-within-stratum variation, the AR(1) covariance is modelled
+within-stratum variation, the AR(1) covariance is modeled
 directly, and the continuous exposure-decay predictor draws on
 the off-drug trajectory.
 :::
@@ -1037,7 +1068,7 @@ the off-drug trajectory.
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Mauchly's test detects compound-symmetry failure but is not informative about direction; Box's $\epsilon$ is a scalar summary with $\epsilon = 1$ at perfect sphericity.
 \item The Greenhouse-Geisser correction adjusts both numerator and denominator degrees of freedom by $\hat{\epsilon}$; Huynh-Feldt is less conservative and is recommended when $\hat{\epsilon} > 0.75$.
-\item The contemporary literature recommends Greenhouse-Geisser when $\hat{\epsilon} < 0.6$ to avoid substantial Type I error inflation.
+\item The conventional rule recommends Greenhouse-Geisser when $\hat{\epsilon} < 0.75$ to avoid substantial Type I error inflation.
 \end{itemize}
 :::
 
@@ -1066,12 +1097,13 @@ correction [@huynh1976] is a less-conservative variant
 recommended when $\hat\epsilon > 0.75$. The contemporary
 sphericity-violation literature [@haverkamp2017sphericity;
 @blanca2023sphericity] documents substantial Type I error
-inflation when sphericity violations go uncorrected, and
-recommends Greenhouse-Geisser when $\hat\epsilon < 0.6$.
+inflation when sphericity violations go uncorrected, with the
+conventional rule favouring Greenhouse-Geisser when
+$\hat\epsilon < 0.75$.
 :::
 
 ::: {.bullets data-latex=""}
-\textbf{Under the pmsimstats AR(1) DGP, uncorrected strict RM-ANOVA inflates Type I error to 13--17\% while the mixed-model analysis with \texttt{corCAR1} avoids this cost.}
+\textbf{Under the pmsimstats AR(1) DGP, a mixed model with no residual-correlation structure inflates Type I error to 13--17\%; \texttt{corCAR1} restores nominal control, and the pre-averaged strict RM-ANOVA arm is sphericity-robust.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item AR(1) within-factor correlation is not compound-symmetric; Box's $\epsilon$ is strictly below 1.
 \item Greenhouse-Geisser correction recovers nominal Type I error but substantially attenuates power by penalising degrees of freedom.
@@ -1086,22 +1118,31 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 ::: {.orig data-latex=""}
 The pmsimstats DGP imposes AR(1) within-factor correlation, which
 is not compound-symmetric. Under AR(1), Box's $\epsilon$ is
-strictly below 1, and the Greenhouse-Geisser correction
-substantially attenuates the available degrees of freedom in
-$F$-tests on within-subject effects. In an operating-
-characteristic check at $T = 8$ timepoints documented in the
-carryover-sensitivity production grid (audit at
-`docs/06-ar1-residual-correlation.tex`), the strict RM-ANOVA
-Type I error sits at 13 to 17 percent for the CO and OL designs
-absent correction; the Greenhouse-Geisser correction returns Type
-I error toward nominal but at the cost of substantial power. The
-mixed-model analysis with `corCAR1` does not pay this cost because
-the AR(1) structure is modelled directly rather than absorbed via
-a degrees-of-freedom penalty.
+strictly below 1, and treating the full multi-timepoint series as
+repeated within-subject levels under classical RM-ANOVA inflates
+Type I error unless a degrees-of-freedom correction is applied.
+The relevant magnitude is recorded in the project's own audit
+(`docs/06-ar1-residual-correlation.tex`): at $T = 8$ timepoints,
+fitting a mixed model with no residual-correlation structure (the
+naive analogue of treating AR(1) data as exchangeable) produces
+Type I error of 13 to 17 percent for the crossover (CO) and
+open-label (OL) designs, which switching to `nlme::lme` with
+`corCAR1` returns to nominal. We stress that this 13-to-17-percent
+figure is for the unstructured/naive fit, not for the strict
+RM-ANOVA arm evaluated in this paper: that arm pre-averages each
+phase to a single value (the $2 \times 2$ form of \S2.2), so its
+within-subject covariance is $2 \times 2$, sphericity holds by
+construction, and its Type I error is at nominal (\S5). The
+sphericity penalty is therefore a property of the un-pre-averaged
+classical analysis; for the pre-averaged strict RM-ANOVA the
+operative cost is dichotomization, not sphericity. Either way the
+linear-mixed analysis with `corCAR1` avoids both costs, modelling
+the AR(1) structure directly rather than absorbing it via a
+degrees-of-freedom penalty.
 :::
 
 ::: {.bullets data-latex=""}
-\textbf{The strict RM-ANOVA test is a conservative reduction rather than a competing alternative; option (c) -- reporting both with explicit power-loss tabulation -- is operationalised in the simulation study.}
+\textbf{The strict RM-ANOVA test is a conservative reduction rather than a competing alternative; option (c) -- reporting both with explicit power-loss tabulation -- is operationalized in the simulation study.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Three defensible responses to a reviewer requesting RM-ANOVA results are identified, ranging from reframing the LME analysis to reporting both with power-loss tables.
 \item Option (c), reporting both procedures with explicit power-loss tabulation, is the strategy adopted in Sections 4--5.
@@ -1122,9 +1163,9 @@ results', three responses are defensible: (a) point at the
 existing linear-mixed analysis as a continuous-time variant of
 the RM-ANOVA family, (b) report the strict-RM-ANOVA test from
 equation \@ref(eq:rmanova-f-22) as a sensitivity comparator
-under dichotomised biomarker and binary phase, or (c) report
+under dichotomized biomarker and binary phase, or (c) report
 both with explicit power-loss tabulation. The simulation study
-in \S4--\S5 operationalises option (c).
+in \S4--\S5 operationalizes option (c).
 :::
 
 ### Power calculation under the closed form
@@ -1184,7 +1225,7 @@ sample-size calculation, equation \@ref(eq:rmanova-ncp) inverts
 to $n = 4\sigma_e^2 \lambda / (T \delta^2)$, with $\lambda$
 chosen to deliver the target power at the design $\alpha$. The
 formula assumes (i) sphericity, (ii) categorical biomarker at
-the dichotomised cut-point with equal stratum sizes, (iii) no
+the dichotomized cut-point with equal stratum sizes, (iii) no
 carryover, (iv) no within-treatment relapse, and (v) i.i.d.\
 within-phase observations after within-subject differencing. All
 five assumptions are violated to varying degrees in the
@@ -1220,7 +1261,7 @@ DGP, not a calibrated prediction.
 \textbf{The five assumptions of the strict classical formulation are empirically problematic in the pmsimstats setting; their severity is presented in order.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Closed-form simplicity is bought at the price of categorical biomarker, sphericity, no carryover model, balanced design, and equal time spacing.
-\item Each assumption is violated by the pmsimstats DGP to a degree that favours the linear-mixed analysis.
+\item Each assumption is violated by the pmsimstats DGP to a degree that favors the linear-mixed analysis.
 \item The most severe violations -- categorical biomarker and no carryover -- together account for a 30--50\% attenuation of the interaction estimator.
 \end{itemize}
 :::
@@ -1239,7 +1280,7 @@ severity.
 
 1. *Categorical biomarker.* The pmsimstats biomarker (resting
    SBP in the prazosin-PTSD application) is continuous and has
-   no defensible cut-point. Dichotomising at the median or at
+   no defensible cut-point. Dichotomizing at the median or at
    a clinical threshold loses the within-stratum biomarker
    variation, attenuates the interaction estimator, and
    inflates Type II error. In the carryover-sensitivity
@@ -1257,7 +1298,7 @@ severity.
    of freedom and power.
 
 3. *No carryover model.* Strict RM-ANOVA has no provision for
-   residual drug effect during washout; the model treats
+   residual drug effect during the off-drug period; the model treats
    off-drug observations as if no drug had been administered.
    Under the pmsimstats DGP with $t_{1/2} = 1$ week, this
    misspecification biases $\hat L$ toward zero (attenuation
@@ -1270,7 +1311,8 @@ severity.
    stratum sizes and equal numbers of within-phase timepoints.
    Real trials have missing data; classical RM-ANOVA handles
    missingness only through complete-case deletion. The MMRM
-   framework's likelihood-based handling of MAR data
+   framework's likelihood-based handling of missing-at-random (MAR)
+   data
    [@mallinckrodt2008recommendations] is genuinely
    better-behaved.
 
@@ -1285,7 +1327,7 @@ severity.
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The categorical-biomarker and no-carryover violations together account for a 30--50\% attenuation of the interaction estimator relative to the linear-mixed analysis.
 \item The linear-mixed analysis with \texttt{corCAR1} is retained as primary; the strict RM-ANOVA result is reported as a sensitivity comparator.
-\item The Section 6 recommendation operationalises this strategy for typical chronic-condition N-of-1 scenarios.
+\item The Section 6 recommendation operationalizes this strategy for typical chronic-condition N-of-1 scenarios.
 \end{itemize}
 :::
 
@@ -1302,7 +1344,7 @@ consequential: the categorical-biomarker and no-carryover
 assumptions are the most problematic in the pmsimstats setting,
 together accounting for a 30 to 50 percent attenuation of the
 interaction estimator relative to the linear-mixed analysis. The
-recommendation operationalised in \S6 follows this strategy.
+recommendation operationalized in \S6 follows this strategy.
 :::
 
 # Cycle-by-period design grid
@@ -1330,13 +1372,13 @@ sensitivity question framed in \S1. The empirical sweep across
 this grid is deferred to a follow-up paper. We shall note here,
 in the interest of transparency, that the present paper narrows
 its scope to the test-procedure axis at the prazosin/PTSD
-reference design (Hendrickson hybrid OL+BDC, $N \in \{25, 35\}$,
+reference design (Hendrickson hybrid open-label plus blinded
+discontinuation, OL+BDC; $N \in \{25, 35, 70, 100\}$,
 $c_{bm} \in \{0, 0.45\}$), which the simulation infrastructure
 does support at production rep counts. The \S6 recommendation is
-correspondingly narrower than the abstract anticipates: it covers
-test-procedure choice but not the joint (cycle count, period
-length, test procedure) optimum that the design-by-test
-sensitivity question requires. The follow-up paper executing the
+correspondingly scoped to test-procedure choice rather than the
+joint (cycle count, period length, test procedure) optimum that
+the design-by-test sensitivity question requires. The follow-up paper executing the
 cycle-by-period sweep is the natural extension and is recorded as
 a portfolio item.
 :::
@@ -1344,11 +1386,12 @@ a portfolio item.
 # Simulation design
 
 ::: {.bullets data-latex=""}
-\textbf{The ADEMP framework structures the simulation programme around the biomarker-treatment interaction estimand under four test procedures.}
+\textbf{The ADEMP framework structures the simulation program around the biomarker-treatment interaction estimand under five test procedures.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The four procedures are strict RM-ANOVA, linear-mixed with \texttt{corCAR1}, GEE with naive sandwich, and GEE with Mancl-DeRouen small-sample correction.
-\item Primary inferential outputs are power and type I error at $\alpha = 0.05$; secondary estimands include bias, CI coverage, and convergence rate.
-\item All estimates are reported with Monte Carlo standard errors following the Morris et al. (2019) discipline.
+\item The five procedures are strict RM-ANOVA (dichotomised biomarker), a continuous-biomarker within-subject contrast, linear-mixed with \texttt{corCAR1}, GEE with naive sandwich, and GEE with Mancl-DeRouen small-sample correction.
+\item The continuous-biomarker contrast separates the cost of dichotomisation from the cost of the test procedure proper; the four continuous-biomarker arms share a common interaction estimand.
+\item Primary outputs are power and Type I error at $\alpha = 0.05$; secondary estimands (bias, empirical and model SE, 95\% CI coverage) are reported for the four coefficient-bearing arms.
+\item All estimates are reported with MCSE following the Morris et al. (2019) discipline.
 \end{itemize}
 :::
 
@@ -1357,25 +1400,40 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-The simulation programme follows the ADEMP framework of
-@morris2019. The primary estimand is the biomarker-by-treatment
-interaction inference under each of the four test procedures
-(strict classical RM-ANOVA $F$-statistic; linear-mixed-effects
-Wald $t$ on $\hat{\beta}_{bm:D}$; GEE Wald $z$ on
-$\hat{\beta}_{bm:D}$ with naive sandwich variance; GEE Wald $z$
-with Mancl-DeRouen small-sample sandwich variance per
-@mancl2001covariance). Primary inferential outputs are power
-$\pi = \Pr(p < 0.05)$ for $H_0: \beta_{bm:D} = 0$ at
-$\alpha = 0.05$, and type I error under $\beta_{bm:D} = 0$.
-Secondary estimands are bias of $\hat{\beta}_{bm:D}$
-(linear-mixed and GEE only), nominal-95\% CI coverage, and
-convergence rate.
+The simulation program follows the ADEMP framework of
+@morris2019. The primary estimand is the biomarker-treatment
+interaction inference under each of the five test procedures.
+Four operate on the continuous biomarker and share the same
+interaction estimand $\beta_{bm:D}$ on the symptom scale: a
+within-subject treatment-effect contrast regressed on the
+continuous biomarker (the dichotomisation-free analogue of the
+two-sample $t$-test of equation \@ref(eq:rmanova-t)); the
+linear-mixed-effects Wald $t$ on $\hat{\beta}_{bm:D}$; the GEE
+Wald $z$ on $\hat{\beta}_{bm:D}$ with naive sandwich variance;
+and the GEE Wald $z$ with Mancl-DeRouen small-sample sandwich
+variance per @mancl2001covariance. The fifth, the strict
+classical RM-ANOVA $F$-statistic, operates on the
+median-dichotomised biomarker and so targets a dichotomised
+estimand on a different scale. The continuous-biomarker contrast
+is included specifically to separate the cost of dichotomisation
+(strict RM-ANOVA versus the contrast, both pre-averaged to one
+value per phase) from the cost of the test procedure proper (the
+contrast versus the longitudinal linear-mixed and GEE analyses).
+Primary inferential outputs are power $\pi = \Pr(p < 0.05)$ for
+$H_0: \beta_{bm:D} = 0$ at $\alpha = 0.05$, and Type I error
+under $\beta_{bm:D} = 0$. Secondary estimands, reported for the
+four coefficient-bearing arms, are bias of $\hat{\beta}_{bm:D}$
+relative to a high-precision Monte-Carlo reference value of the
+estimand, the empirical and the mean model-based standard error,
+and nominal-95\% CI coverage. Strict RM-ANOVA is excluded from
+these coefficient-based measures because its estimand is on the
+dichotomised scale.
 :::
 
 ::: {.bullets data-latex=""}
-\textbf{Monte Carlo standard errors for power and type I error follow the binomial-proportion form and are reported alongside every estimate.}
+\textbf{MCSE for power and Type I error follow the binomial-proportion form and are reported alongside every estimate.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Power and type I error MCSE use $\sqrt{\hat{\pi}(1-\hat{\pi})/n_{\text{reps}}}$.
+\item Power and Type I error MCSE use $\sqrt{\hat{\pi}(1-\hat{\pi})/n_{\text{reps}}}$.
 \item Bias and empirical SE of $\hat{\beta}_{bm:D}$ use the standard within-replicate mean estimator.
 \item Reporting MCSE alongside every estimate is the Morris et al. discipline adopted project-wide.
 \end{itemize}
@@ -1386,13 +1444,13 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-Performance measures are reported with Monte Carlo standard
-errors alongside every estimate, following Morris et al.'s
-recommended discipline. Power and type I error MCSE follow the
+Performance measures are reported with MCSE alongside every
+estimate, following Morris et al.'s
+recommended discipline. Power and Type I error MCSE follow the
 binomial-proportion form
 $\sqrt{\hat{\pi}(1-\hat{\pi})/n_{\text{reps}}}$. Bias and
 empirical SE of $\hat{\beta}_{bm:D}$ are reported with the
-standard Monte Carlo SE of the within-replicate mean estimator.
+standard MCSE of the within-replicate mean estimator.
 :::
 
 ::: {.bullets data-latex=""}
@@ -1414,17 +1472,35 @@ and Performance measures are pre-registered at
 `analysis/scripts/test-procedure-design-sensitivity/00-ademp-pre-registration.md`,
 which fixes the test-procedure times design-grid factorial across
 three studies (Study 1: test-procedure comparison at fixed
-design, 27 cells; Study 2: cycle-by-period grid at fixed test,
-240 cells; Study 3: joint design-by-test heatmap, 240 cells)
-before the production runs commit.
+design; Study 2: cycle-by-period grid at fixed test, 240 cells;
+Study 3: joint design-by-test heatmap, 240 cells) before the
+production runs commit. The present paper executes a revised
+Study 1; the executed design departs from the pre-registered
+Study 1 on several factor levels, and we document every
+departure in Table \@ref(tab:deviations) below in the interest
+of full ADEMP transparency.
 :::
 
+Table: (\#tab:deviations) Pre-registered versus executed Study 1.
+Departures are recorded for transparency; the executed superset
+of sample sizes (which restores the pre-registered $N$ levels
+and adds $N = 25$) and the added continuous-biomarker contrast
+arm respond to referee comments on the first internal draft.
+
+| Factor              | Pre-registered                | Executed (this paper)                          |
+|---------------------|-------------------------------|------------------------------------------------|
+| Test procedures     | 3 (RM-ANOVA, LME, GEE-MD)     | 5 (adds naive GEE and the continuous-biomarker contrast) |
+| Biomarker effect $c_{bm}$ | $\{0, 0.3, 0.6\}$       | $\{0, 0.45\}$ (the project-wide reference effect size) |
+| Sample size $N$     | $\{35, 70, 100\}$             | $\{25, 35, 70, 100\}$ (superset; adds $N = 25$) |
+| Replicates per cell | 1000 (5000 for Type I cells)  | 1000 power, 2000 Type I                        |
+| Carryover half-life | $t_{1/2} = 3$ days            | $t_{1/2} = 0$ (no carryover at the fixed reference) |
+
 ::: {.bullets data-latex=""}
-\textbf{The 16-cell factorial runs 800 replicates per cell on the simple substrate; the inline Mancl-DeRouen implementation is plausible but not externally validated.}
+\textbf{The factorial crosses five procedures by two $c_{bm}$ values by four $N$ values; the inline Mancl-DeRouen SE is benchmarked against \texttt{geesmv::GEE.var.md}.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The simulation crosses four procedures by two $c_{bm}$ values by two $N$ values for a 16-cell factorial at 800 replicates per cell.
+\item The simulation crosses five procedures by $c_{bm} \in \{0, 0.45\}$ by $N \in \{25, 35, 70, 100\}$, with 1000 replicates per power cell and 2000 per Type I cell.
 \item The Mancl-DeRouen correction inflates each cluster's residual via $(I - H_{ii})^{-1}r_i$ in the sandwich meat.
-\item The inline implementation has not been benchmarked against \texttt{geesmv::GEE.var.md}; the correction magnitude is plausible but not externally validated.
+\item The inline SE agrees with \texttt{geesmv::GEE.var.md} to within roughly 2.5\% (mean ratio 1.02 over 25 probe replicates), so the correction magnitude is externally validated.
 \end{itemize}
 :::
 
@@ -1434,32 +1510,40 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 
 ::: {.orig data-latex=""}
 In the scope of the present paper (test-procedure axis only at
-the reference design), the simulation runs on the
-`implementations/simple/simulation.R` substrate at
-$n_{\text{reps}} = 800$ per cell across 16 cells defined by
-procedure $\in \{$strict RM-ANOVA, linear-mixed with `corCAR1`,
-GEE with naive sandwich, GEE with Mancl-DeRouen small-sample
-correction$\} \times c_{bm} \in \{0, 0.45\} \times N \in
-\{25, 35\}$. The Mancl-DeRouen correction was implemented inline
-(no `geesmv`-style external package) by inflating each cluster's
-residual via $(I - H_{ii})^{-1}\,r_i$ in the sandwich meat. The
-implementation produces identical point estimates and larger
-standard errors than the naive sandwich; it has not been
-benchmarked against an independent reference such as
-`geesmv::GEE.var.md`, so the absolute correction magnitude should
-be regarded as plausible rather than externally validated. We
-note this limitation explicitly and record benchmarking against
-an independent reference as a follow-up item.
+the reference design), the simulation runs on the pmsimstats
+package data-generating process under Architecture A (mean
+moderation), exercised through `generateData()` and the standard
+`lme_analysis()` fit, rather than on the reduced
+`implementations/simple` substrate. The factorial comprises
+$n_{\text{reps}} = 1000$ per power cell and $2000$ per Type I
+cell, across the 40 cells defined by procedure $\in \{$strict
+RM-ANOVA, continuous-biomarker contrast, linear-mixed with
+`corCAR1`, GEE with naive sandwich, GEE with Mancl-DeRouen
+small-sample correction$\} \times c_{bm} \in \{0, 0.45\} \times
+N \in \{25, 35, 70, 100\}$. Execution uses
+`parallel::mclapply` with `RNGkind("L'Ecuyer-CMRG")` and
+`mc.set.seed = TRUE`, so each replicate draws from an
+independent, reproducible random-number stream. The
+Mancl-DeRouen correction was implemented inline (no
+`geesmv`-style external dependency in the production path) by
+inflating each cluster's residual via $(I - H_{ii})^{-1}\,r_i$
+in the sandwich meat. It produces identical point estimates and
+larger standard errors than the naive sandwich, and its SE for
+the interaction coefficient agrees with `geesmv::GEE.var.md` to
+within approximately 2.5\% (mean inline/`geesmv` ratio 1.02,
+standard deviation 0.02, over 25 probe replicates at
+$N = 35$, $c_{bm} = 0.45$), so the correction magnitude is
+externally validated rather than merely plausible.
 :::
 
 # Results
 
 ::: {.bullets data-latex=""}
-\textbf{The 16-cell factorial completed in 361 s with 100\% convergence; Monte Carlo standard errors are approximately 0.018 for power and 0.008 for type I error at 800 replicates per cell.}
+\textbf{The 40-cell factorial completed in 587 s with 100\% convergence across 60{,}000 fits; MCSE is approximately 0.016 for power and 0.005 for Type I error.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Execution used 8-core \texttt{parallel::mclapply} across 12{,}800 total fits; convergence was 100\%.
-\item Per-replicate output and ADEMP summary are archived at \texttt{analysis/data/quick-sim/}.
-\item MCSE on power near 0.5 is 0.018; MCSE on type I error near 0.05 is 0.008, providing adequate resolution to distinguish the procedures.
+\item Execution used 7-core \texttt{parallel::mclapply} with L'Ecuyer-CMRG streams; convergence was 100\% in every cell.
+\item Per-replicate output and the ADEMP summary are archived at \texttt{analysis/data/quick-sim/}.
+\item MCSE on power near 0.5 is 0.016 (1000 reps); MCSE on Type I error near 0.05 is 0.005 (2000 reps), providing adequate resolution to distinguish the procedures.
 \end{itemize}
 :::
 
@@ -1468,28 +1552,29 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-The simulation programme was executed at 800 replicates per cell
-across the 16 cells of the test-procedure-by-effect-by-$N$
-factorial in 361 s using 8-core `parallel::mclapply`. Convergence
-was 100\% across all 12{,}800 fits. Per-replicate output is at
+The simulation program was executed across the 40 cells of the
+five-procedure-by-effect-by-$N$ factorial in 587 s using 7-core
+`parallel::mclapply` with `RNGkind("L'Ecuyer-CMRG")` per-stream
+seeding. Convergence was 100\% across all 60{,}000 fits.
+Per-replicate output is at
 `analysis/data/quick-sim/08-test-replicates.rds`; the Morris
 ADEMP cell-level summary is at
-`analysis/data/quick-sim/08-test-summary.txt`. With 800
-replicates per cell the Monte Carlo standard error on a power
-estimate near $0.5$ is approximately $0.018$ and on a type I
-error rate near $0.05$ is approximately $0.008$. We begin the
-results with the test-procedure comparison at the fixed reference
-design.
+`analysis/data/quick-sim/08-test-summary.txt`. With 1000
+replicates per power cell the MCSE on a power estimate near
+$0.5$ is approximately $0.016$, and with 2000 replicates per
+Type I cell the MCSE on a rate near $0.05$ is approximately
+$0.005$. We begin the results with the test-procedure comparison
+at the fixed reference design.
 :::
 
 ## Test-procedure comparison at fixed design
 
 ::: {.bullets data-latex=""}
-\textbf{The four procedures target related but not identical estimands; treating this heterogeneity as part of the comparison is the more honest framing.}
+\textbf{Strict RM-ANOVA targets a dichotomized estimand; the continuous-biomarker contrast isolates the cost of dichotomization from the cost of the test procedure proper.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Strict RM-ANOVA operates on a dichotomised biomarker under sphericity; linear-mixed and GEE variants operate on the continuous biomarker.
-\item A real analyst chooses both a procedure and its required data preprocessing, so treating preprocessing as fixed would misrepresent the comparison.
-\item The estimand heterogeneity makes direct power comparisons somewhat harder to interpret but more ecologically valid.
+\item Strict RM-ANOVA operates on a median-dichotomized biomarker, pre-averaged to one value per phase; its estimand is on the dichotomized scale.
+\item The continuous-biomarker contrast uses the same pre-averaging but the continuous biomarker, so it shares the estimand of the linear-mixed and GEE arms.
+\item The three-rung ladder (RM-ANOVA, contrast, linear-mixed) decomposes the gap between classical RM-ANOVA and the mixed model into a dichotomization component and a test-procedure component.
 \end{itemize}
 :::
 
@@ -1498,36 +1583,61 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-We note at the outset that these four procedures target related
-but not identical estimands. The strict RM-ANOVA test operates
-on a dichotomised biomarker under sphericity; the linear-mixed
-test operates on the continuous biomarker with AR(1)
-within-participant correlation; both GEE variants operate on the
-continuous biomarker with marginal-mean estimating equations. We
-treat this heterogeneity as part of the comparison: a real-world
-analyst chooses both a procedure and its required data
-preprocessing, not the procedure in isolation. This is, it
-appears, the more honest comparison even if it makes direct power
-comparisons somewhat harder to interpret.
+We note at the outset that strict RM-ANOVA targets a different
+estimand from the other four procedures. It operates on a
+median-dichotomized biomarker, pre-averaged to one value per
+phase, and so estimates a dichotomized-stratum interaction; the
+continuous-biomarker contrast, the linear-mixed model, and both
+GEE variants estimate the interaction coefficient
+$\beta_{bm:D}$ on the continuous symptom scale. An earlier
+version of this comparison contrasted strict RM-ANOVA directly
+with the mixed model and attributed the resulting power gap to
+the test procedure; that attribution conflated two distinct
+costs. We therefore introduce the continuous-biomarker contrast
+of \S4, which differs from strict RM-ANOVA only in retaining the
+continuous biomarker (it shares the pre-averaging and the absence
+of any AR(1) machinery) and differs from the linear-mixed model
+only in discarding the within-phase longitudinal structure. The
+RM-ANOVA $\to$ contrast step therefore measures the cost of
+dichotomization in isolation, and the contrast $\to$ linear-mixed
+step measures the cost of the test procedure proper. Reading the
+two steps separately is the honest decomposition the earlier
+direct comparison lacked.
 :::
 
-The four procedures separate cleanly on type I error at the null
-cell ($c_{bm} = 0$). Cell-level rejection rates, percent $\pm$
-MCSE:
+Type I error at the null cell ($c_{bm} = 0$), percent $\pm$
+MCSE, is shown in Table \@ref(tab:type1); power at
+$c_{bm} = 0.45$ in Table \@ref(tab:power).
 
-| Procedure                  | $N = 25$, null    | $N = 35$, null    | $N = 25$, $c_{bm} = 0.45$ | $N = 35$, $c_{bm} = 0.45$ |
-|----------------------------|--------------------|--------------------|---------------------------|---------------------------|
-| Strict RM-ANOVA            | 5.25 $\pm$ 0.79    | 5.00 $\pm$ 0.77    | 34.0 $\pm$ 1.67           | 47.0 $\pm$ 1.76           |
-| Linear-mixed (`corCAR1`)   | 3.13 $\pm$ 0.62    | 2.50 $\pm$ 0.55    | 53.3 $\pm$ 1.76           | 75.4 $\pm$ 1.52           |
-| GEE (naive sandwich)       | 11.88 $\pm$ 1.14   | 7.63 $\pm$ 0.94    | 63.0 $\pm$ 1.71           | 79.0 $\pm$ 1.44           |
-| GEE (Mancl-DeRouen)        | 7.75 $\pm$ 0.95    | 4.50 $\pm$ 0.73    | 53.9 $\pm$ 1.76           | 73.6 $\pm$ 1.56           |
+Table: (\#tab:type1) Type I error rate (percent $\pm$ MCSE) under
+$H_0: \beta_{bm:D} = 0$, 2000 replicates per cell. Nominal level
+5\%.
+
+| Procedure                  | $N = 25$        | $N = 35$        | $N = 70$        | $N = 100$       |
+|----------------------------|-----------------|-----------------|-----------------|-----------------|
+| Strict RM-ANOVA (dich.)    | 4.55 $\pm$ 0.47 | 4.15 $\pm$ 0.45 | 5.95 $\pm$ 0.53 | 5.20 $\pm$ 0.50 |
+| Contrast (continuous bm)   | 5.25 $\pm$ 0.50 | 4.50 $\pm$ 0.46 | 6.45 $\pm$ 0.55 | 4.60 $\pm$ 0.47 |
+| Linear-mixed (`corCAR1`)   | 2.75 $\pm$ 0.37 | 2.05 $\pm$ 0.32 | 3.35 $\pm$ 0.40 | 2.90 $\pm$ 0.38 |
+| GEE (naive sandwich)       | 9.70 $\pm$ 0.66 | 8.55 $\pm$ 0.63 | 7.90 $\pm$ 0.60 | 7.40 $\pm$ 0.59 |
+| GEE (Mancl-DeRouen)        | 6.35 $\pm$ 0.55 | 5.30 $\pm$ 0.50 | 6.25 $\pm$ 0.54 | 5.90 $\pm$ 0.53 |
+
+Table: (\#tab:power) Power (percent $\pm$ MCSE) at
+$c_{bm} = 0.45$, 1000 replicates per cell.
+
+| Procedure                  | $N = 25$         | $N = 35$         | $N = 70$         | $N = 100$        |
+|----------------------------|------------------|------------------|------------------|------------------|
+| Strict RM-ANOVA (dich.)    | 35.8 $\pm$ 1.52  | 46.8 $\pm$ 1.58  | 75.3 $\pm$ 1.36  | 91.3 $\pm$ 0.89  |
+| Contrast (continuous bm)   | 53.8 $\pm$ 1.58  | 67.7 $\pm$ 1.48  | 91.5 $\pm$ 0.88  | 98.8 $\pm$ 0.34  |
+| Linear-mixed (`corCAR1`)   | 56.5 $\pm$ 1.57  | 71.2 $\pm$ 1.43  | 94.5 $\pm$ 0.72  | 99.2 $\pm$ 0.28  |
+| GEE (naive sandwich)       | 67.2 $\pm$ 1.48  | 75.9 $\pm$ 1.35  | 94.5 $\pm$ 0.72  | 99.2 $\pm$ 0.28  |
+| GEE (Mancl-DeRouen)        | 57.3 $\pm$ 1.56  | 69.1 $\pm$ 1.46  | 92.7 $\pm$ 0.82  | 99.1 $\pm$ 0.30  |
 
 ::: {.bullets data-latex=""}
-\textbf{GEE with the naive sandwich inflates type I error to $2.4\times$ nominal at $N = 25$ and $1.5\times$ at $N = 35$; the gap is approximately $2.9$ standard errors and unlikely to reflect chance.}
+\textbf{Most of the gap between strict RM-ANOVA and the mixed model is the cost of dichotomization, not of the test procedure: the continuous-biomarker contrast recovers four-fifths of it.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item At $N = 25$, the naive GEE rejection rate under the null is 0.119 (95\% CI $[0.097, 0.141]$).
-\item At $N = 35$, the rate is 0.076 ($[0.058, 0.094]$), a reduction but still $1.5\times$ the nominal 0.05.
-\item The $N$-level gap of 0.043 is approximately 2.9 standard errors of the difference and is therefore unlikely to reflect chance variation.
+\item At $N = 25$, replacing the dichotomized biomarker with the continuous one (RM-ANOVA $\to$ contrast) raises power from 0.358 to 0.538, a gain of 0.180.
+\item Moving from the pre-averaged contrast to the full linear-mixed model adds only 0.027 (0.538 $\to$ 0.565); the test-procedure component is small.
+\item The same pattern holds across $N$: dichotomization costs 0.16--0.21 of power, while the longitudinal test procedure adds at most 0.04.
 \end{itemize}
 :::
 
@@ -1536,23 +1646,36 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-Three substantive findings emerge from the table. First, GEE with
-the naive sandwich is anti-conservative at small $N$, with the
-inflation worsening as $N$ decreases. At $N = 35$ the GEE type I
-error is $0.076$ (95\% CI $[0.058, 0.094]$), approximately
-$1.5\times$ the nominal $0.05$; at $N = 25$ the rate climbs to
-$0.119$ ($[0.097, 0.141]$), approximately $2.4\times$ nominal.
-The gap between the two $N$ levels is $0.043$, approximately
-$2.9$ standard errors of the difference, and it is therefore
-unlikely to reflect chance variation.
+Four substantive findings emerge from the tables. First, and most
+consequentially for how the comparison should be read, the
+power gap between strict RM-ANOVA and the linear-mixed model is
+predominantly a cost of dichotomizing the biomarker rather than a
+property of the test procedure. At $N = 25$ the strict RM-ANOVA
+power is $0.358$; the continuous-biomarker contrast, which differs
+only in retaining the continuous biomarker, reaches $0.538$, so
+dichotomization alone accounts for $0.180$ of lost power. The
+further step to the full linear-mixed model raises power only to
+$0.565$, an increment of $0.027$ attributable to the test
+procedure proper. The decomposition is stable across the grid:
+the dichotomization component is $0.209$ at $N = 35$
+($0.468 \to 0.677$), $0.162$ at $N = 70$ ($0.753 \to 0.915$),
+and $0.075$ at $N = 100$ ($0.913 \to 0.988$), while the
+contrast-to-linear-mixed increment never exceeds $0.04$. The
+earlier framing, which compared strict RM-ANOVA against the mixed
+model directly and read the difference as a test-procedure
+effect, therefore overstated the role of the test procedure by
+roughly a factor of five; the honest statement is that a
+classical, sphericity-free, AR(1)-free within-subject contrast on
+the continuous biomarker captures most of the available power,
+and the mixed model adds a small further increment.
 :::
 
 ::: {.bullets data-latex=""}
-\textbf{The Mancl-DeRouen correction removes roughly three-fifths of the small-$N$ type I error inflation at $N = 25$ and essentially all of it at $N = 35$, at a moderate power cost.}
+\textbf{Naive GEE inflates Type I error across the whole sample-size range, not only at small $N$; the Mancl-DeRouen correction restores nominal control at a moderate power cost.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item At $N = 25$, the corrected GEE rejection rate is 0.078 ($[0.059, 0.097]$); at $N = 35$ it is 0.045 ($[0.031, 0.059]$), covering the nominal.
-\item The correction concentrates most of its effect at small $N$; at $N = 35$ essentially all inflation is removed.
-\item Power cost is moderate: 0.539 versus 0.630 at $N = 25$, and 0.736 versus 0.790 at $N = 35$.
+\item Naive GEE rejects under the null at 0.097, 0.086, 0.079, and 0.074 for $N = 25, 35, 70, 100$ -- between $1.5\times$ and $1.9\times$ nominal throughout.
+\item The Mancl-DeRouen correction brings the rate to 0.064, 0.053, 0.063, and 0.059, within or close to MCSE of the nominal 0.05 at every $N$.
+\item The correction's power cost is moderate (about 0.10 at $N = 25$, 0.07 at $N = 35$) and the corrected procedure no longer over-rejects.
 \end{itemize}
 :::
 
@@ -1561,23 +1684,29 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-Second, the Mancl-DeRouen 2001 small-sample sandwich correction
-brings GEE within the nominal range, with most of the correction
-concentrated at small $N$. At $N = 25$ the corrected procedure
-rejects at $0.078$ ($[0.059, 0.097]$, brushing $0.05$); at
-$N = 35$ it rejects at $0.045$ ($[0.031, 0.059]$, covering the
-nominal). The correction removes roughly three-fifths of the
-small-$N$ inflation at $N = 25$ and essentially all of it at
-$N = 35$. The cost in power is moderate: $0.539$ versus $0.630$
-at $N = 25$, and $0.736$ versus $0.790$ at $N = 35$.
+Second, GEE with the naive sandwich is anti-conservative across
+the entire sample-size range examined. Its null rejection rate is
+$0.097$ at $N = 25$ and declines only slowly with $N$ to
+$0.086$, $0.079$, and $0.074$ at $N = 35, 70, 100$ -- still
+roughly $1.5\times$ nominal at $N = 100$. The inflation is
+therefore not a small-cluster curiosity that disappears at
+trial-relevant sizes; it persists. The Mancl-DeRouen 2001
+small-sample sandwich correction brings the rate within or close
+to MCSE of nominal at every $N$ ($0.064, 0.053, 0.063, 0.059$),
+at a power cost of about ten percentage points at $N = 25$
+($0.672 \to 0.573$) and seven at $N = 35$ ($0.759 \to 0.691$).
+The corrected procedure's apparent power advantage over the
+linear-mixed model at small $N$ (Table \@ref(tab:power)) is the
+residue of its remaining slight over-rejection, not a genuine
+efficiency gain.
 :::
 
 ::: {.bullets data-latex=""}
-\textbf{The linear-mixed procedure's power advantage over strict RM-ANOVA is robust and widens at the larger sample size.}
+\textbf{Standard-error calibration separates the four coefficient-bearing arms: the contrast and Mancl-DeRouen GEE are well-calibrated, naive GEE under-covers, and the linear-mixed model over-covers.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item At $N = 25$, the LME power gap over RM-ANOVA is 0.193 (approximately 8 standard errors of the difference).
-\item At $N = 35$, the gap widens to 0.284 (approximately 12 standard errors of the difference).
-\item The dominance is not artefactual and is preserved across both $N$ levels evaluated.
+\item The continuous-biomarker contrast and Mancl-DeRouen GEE attain 93--95\% coverage with model/empirical SE ratios near 1.
+\item Naive GEE under-covers at small $N$ (90.0\% at $N = 25$) because its model SE is 9--12\% too small.
+\item The linear-mixed model over-covers (97.0--97.7\%) because its model SE is 11--16\% larger than the empirical SE, the calibration signature of its conservatism.
 \end{itemize}
 :::
 
@@ -1586,21 +1715,39 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-Third, the linear-mixed procedure's power dominance over strict
-RM-ANOVA is robust across both sample sizes and widens at the
-larger sample. At $N = 25$ the linear-mixed power is $0.533$
-versus RM-ANOVA $0.340$ (gap $0.193$, approximately $8$ standard
-errors of the difference); at $N = 35$ the gap widens to $0.284$
-(approximately $12$ standard errors of the difference). The
-dominance is not artefactual and is preserved across both $N$
-levels.
+Third, the secondary estimands (Table \@ref(tab:secondary))
+locate the procedures' behaviour in the standard-error
+calibration that the rejection rates only summarize. At
+$c_{bm} = 0.45$, the continuous-biomarker contrast and the
+Mancl-DeRouen GEE are well-calibrated: their nominal-95\% CI
+coverage is $93$--$95\%$ and their mean model-based SE is within
+a few percent of the empirical SE. Naive GEE under-covers at
+small $N$ ($90.0\%$ at $N = 25$, $91.5\%$ at $N = 35$) because
+its model-based SE is $9$ to $12\%$ smaller than the empirical
+SE, the calibration counterpart of its Type I inflation. The
+linear-mixed model over-covers ($97.0$ to $97.7\%$) because its
+model-based SE exceeds the empirical SE by $11$ to $16\%$; this
+is the same conservatism visible in its sub-nominal Type I error.
 :::
 
+Table: (\#tab:secondary) Secondary estimands at $c_{bm} = 0.45$
+for the four coefficient-bearing arms (the interaction estimand
+is $\beta_{bm:D} = -2.21$, the Monte-Carlo reference value).
+Coverage is of the nominal-95\% Wald interval; SE ratio is mean
+model-based SE divided by empirical SE.
+
+| Arm                      | Coverage $N=25$ | Coverage $N=100$ | SE ratio $N=25$ | SE ratio $N=100$ | Max $|$rel. bias$|$ |
+|--------------------------|-----------------|------------------|-----------------|------------------|---------------------|
+| Contrast (continuous bm) | 94.9            | 94.8             | 0.99            | 0.98             | 3.0\%               |
+| Linear-mixed (`corCAR1`) | 97.7            | 97.0             | 1.16            | 1.11             | 2.6\%               |
+| GEE (naive sandwich)     | 90.0            | 93.3             | 0.91            | 0.98             | 3.8\%               |
+| GEE (Mancl-DeRouen)      | 94.3            | 94.0             | 1.07            | 1.02             | 3.8\%               |
+
 ::: {.bullets data-latex=""}
-\textbf{The linear-mixed procedure is mildly conservative at both $N$ levels, slightly deflating the apparent power advantage; a Kenward-Roger correction would address this.}
+\textbf{All four coefficient-bearing arms are approximately unbiased; the linear-mixed conservatism is a variance-calibration effect, not a point-estimate effect, and a Kenward-Roger correction would address it.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item LME type I error is 0.025 to 0.031 across $N$ values, below the nominal 0.05, consistent with \texttt{corCAR1} degrees-of-freedom accounting under $T = 8$ timepoints.
-\item The conservatism slightly deflates the apparent power advantage over RM-ANOVA in the $c_{bm} = 0.45$ cells.
+\item Across all cells, the relative bias of the interaction coefficient is below 4\% of the estimand for every coefficient-bearing arm.
+\item The linear-mixed Type I error is 0.021 to 0.034, below nominal, consistent with \texttt{corCAR1} degrees-of-freedom accounting under $T = 8$ timepoints.
 \item A Kenward-Roger or Satterthwaite small-sample correction would address the conservatism and is recorded as a follow-up item.
 \end{itemize}
 :::
@@ -1610,16 +1757,22 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-A subsidiary observation warrants note. The linear-mixed
-procedure's type I error rate is below nominal at both $N$ levels
-($0.025$ to $0.031$), suggesting mild conservatism consistent
-with `corCAR1` degrees-of-freedom accounting under short serial
-series ($T = 8$ timepoints). This conservatism slightly deflates
-the apparent power advantage of LME over RM-ANOVA in the
-$c_{bm} = 0.45$ cells, but the absolute gap remains the dominant
-signal in the grid. A Kenward-Roger or Satterthwaite
-small-sample correction would address the conservatism; this
-extension is recorded as a follow-up item.
+Fourth, the comparison is not contaminated by point-estimate
+bias. The relative bias of $\hat{\beta}_{bm:D}$ is below $4\%$ of
+the estimand $|\beta_{bm:D}| = 2.21$ for the contrast, the
+linear-mixed model, and both GEE variants in every cell, so the
+differences in power and coverage reflect variance estimation and
+information use rather than systematic mis-estimation. The
+linear-mixed procedure's Type I error sits below nominal
+throughout ($0.021$ to $0.034$), the conservatism already
+visible in its over-coverage and its model/empirical SE ratio
+above one; it is consistent with `corCAR1` degrees-of-freedom
+accounting under the short ($T = 8$) serial series. A
+Kenward-Roger [@kenward1997small] or Satterthwaite
+[@satterthwaite1946] small-sample degrees-of-freedom correction
+would address the conservatism and recover the small power
+increment it forgoes; this extension is recorded as a follow-up
+item.
 :::
 
 # Design-and-test recommendation
@@ -1627,9 +1780,9 @@ extension is recorded as a follow-up item.
 ::: {.bullets data-latex=""}
 \textbf{The recommendation is presented as a table of preferred (procedure, scenario) combinations at the reference design rather than as a single best procedure.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Cycle count and period length are held at reference values; joint optimisation over those axes is deferred to the follow-up paper.
-\item The preferred procedure depends on features of the application -- sample size, tolerance for type I inflation, and reviewer requirements -- that the analyst must determine.
-\item The table covers four scenarios: normal operations, small-$N$ LME conservatism, robust-SE requirements, and reviewer-mandated classical analysis.
+\item Cycle count and period length are held at reference values; joint optimization over those axes is deferred to the follow-up paper.
+\item The preferred procedure depends on features of the application -- sample size, tolerance for Type I inflation, and reviewer requirements -- that the analyst must determine.
+\item The first-order recommendation is to keep the biomarker continuous; the choice among continuous-biomarker procedures is second-order.
 \end{itemize}
 :::
 
@@ -1641,29 +1794,34 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 The recommendation table below maps test procedure choice to
 typical chronic-condition N-of-1 trial scenarios at the
 prazosin/PTSD reference design (Hendrickson hybrid OL+BDC,
-biomarker-by-treatment interaction estimand). The cycle count and
+biomarker-treatment interaction estimand). The cycle count and
 period length are held at the reference values defined in \S3
-because the joint optimisation over those axes is deferred to the
+because the joint optimization over those axes is deferred to the
 follow-up paper. We present the recommendation as a table of
 preferred (procedure, scenario) combinations rather than as a
 single 'best' procedure, because the preferred choice depends on
-features of the application that the analyst must determine.
+features of the application that the analyst must determine. The
+overriding recommendation, however, is design-agnostic: retain
+the biomarker as a continuous predictor, since dichotomization
+forfeits the large majority of the available power
+(\S5, Table \@ref(tab:power)).
 :::
 
 | Scenario                                      | Preferred procedure       | Rationale                                                                       |
 |-----------------------------------------------|---------------------------|---------------------------------------------------------------------------------|
-| $N \ge 35$, normal residuals, no inflation    | linear-mixed (`corCAR1`) | Highest power within nominal type I; `corCAR1` matches AR(1) physiology         |
-| $N = 25$ with concern about LME conservatism  | linear-mixed (`corCAR1`) with Kenward-Roger | LME conservative without correction; KR addresses without inflating type I    |
-| Robust-SE-required setting (e.g.\ unmodelled clustering) | GEE Mancl-DeRouen      | Brings naive GEE within nominal type I; modest power cost                       |
-| Reviewer-mandated 'classical' analysis        | strict RM-ANOVA           | Conservative reduction; report alongside LME with explicit power-loss table     |
-| Naive GEE (no small-sample correction)        | not recommended           | Type I error inflated $1.5\times$ at $N = 35$, $2.4\times$ at $N = 25$         |
+| Default (continuous biomarker, any $N$)       | linear-mixed (`corCAR1`)  | Highest power within nominal Type I; `corCAR1` matches AR(1) physiology; well-behaved across $N$ |
+| Lightweight / transparent classical analysis  | continuous-biomarker contrast | Within 0.03 of the mixed model on power, nominal Type I, no covariance modelling required |
+| $N \le 35$, concern about LME conservatism    | linear-mixed (`corCAR1`) with Kenward-Roger | LME sub-nominal and over-covers; KR addresses this without inflating Type I |
+| Robust-SE-required setting (e.g.\ unmodeled clustering) | GEE Mancl-DeRouen      | Restores nominal Type I and 93--95\% coverage; modest power cost                |
+| Reviewer-mandated 'classical' analysis        | strict RM-ANOVA           | Dichotomized sensitivity comparator; report alongside a continuous-biomarker analysis with the power-loss decomposition |
+| Naive GEE (no small-sample correction)        | not recommended           | Type I error 1.5--1.9$\times$ nominal across all $N$; under-covers              |
 
 ::: {.bullets data-latex=""}
-\textbf{The linear-mixed analysis with \texttt{corCAR1} is the preferred default; naive GEE without small-sample correction should not be used at $N \le 35$.}
+\textbf{Keep the biomarker continuous; among continuous-biomarker procedures the linear-mixed model is the preferred default, and naive GEE should not be used without a small-sample correction at any $N$ examined.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Linear-mixed with \texttt{corCAR1} achieves the highest power within nominal type I error across the parameter grid evaluated.
-\item Strict RM-ANOVA is retained as a sensitivity comparator; it is dominated on power without any compensating type I error advantage.
-\item The Mancl-DeRouen correction is the simplest available candidate for bringing GEE within the nominal range at $N \le 35$.
+\item The first-order decision is to retain the continuous biomarker; dichotomization forfeits 0.08--0.21 of power across the grid.
+\item Among continuous-biomarker procedures, linear-mixed with \texttt{corCAR1} has the highest power within nominal Type I; the contrast is a close, transparent alternative.
+\item Naive GEE is anti-conservative at every $N$ examined and should be replaced by the Mancl-DeRouen correction where a sandwich estimator is required.
 \end{itemize}
 :::
 
@@ -1672,18 +1830,24 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-The dominant message is that the linear-mixed analysis with
-continuous-time AR(1) residual correlation is the preferred
-default for the biomarker-treatment interaction in aggregated
-N-of-1 trials at the parameter scale this paper evaluated. The
-strict-RM-ANOVA analysis remains useful as a sensitivity
-comparator, as the \S2 closed-form derivation makes explicit,
-but it is dominated on power without paying any type I error
-penalty. Naive GEE should not be used at $N \le 35$ without a
-small-sample correction; the Mancl-DeRouen correction is the
-simplest available candidate and, at least in the simulation
-reported here, brings GEE within the nominal range without
-substantially eroding its power advantage over strict RM-ANOVA.
+The dominant message is that the biomarker should be analysed as
+a continuous predictor: dichotomizing it for a strict RM-ANOVA
+forfeits the large majority of the power gap that the present
+study isolates, while modelling choices among the
+continuous-biomarker procedures move power only at the margin.
+Within that class, the linear-mixed analysis with continuous-time
+AR(1) residual correlation is the preferred default for the
+biomarker-treatment interaction in aggregated N-of-1 trials at
+the parameter scale evaluated here, with the dichotomization-free
+within-subject contrast a close and transparent alternative that
+requires no covariance modelling. Strict RM-ANOVA remains useful
+as a dichotomized sensitivity comparator, as the \S2 closed-form
+derivation makes explicit, but it should be reported alongside a
+continuous-biomarker analysis and the power-loss decomposition
+rather than on its own. Naive GEE should not be used at the
+sample sizes examined without a small-sample correction; the
+Mancl-DeRouen correction restores nominal Type I error and
+$93$--$95\%$ coverage at a moderate power cost.
 :::
 
 # Discussion
@@ -1691,11 +1855,11 @@ substantially eroding its power advantage over strict RM-ANOVA.
 ## What the Monte Carlo study settles
 
 ::: {.bullets data-latex=""}
-\textbf{The simulation settles three substantive questions at 800 replicates per cell; the Mancl-DeRouen implementation is verified on point estimates but not externally benchmarked.}
+\textbf{The simulation settles four substantive questions; the inline Mancl-DeRouen SE is validated against \texttt{geesmv::GEE.var.md} to within 2.5\%.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The 16-cell factorial completed in 361 s with 100\% convergence; MCSE is 0.018 for power near 0.5 and 0.008 for type I error near 0.05.
-\item The inline Mancl-DeRouen implementation produces identical point estimates and larger standard errors than the naive sandwich, verified on probe replicates.
-\item The absolute correction magnitude has not been benchmarked against \texttt{geesmv::GEE.var.md} and should be regarded as plausible rather than externally validated.
+\item The 40-cell factorial completed in 587 s with 100\% convergence across 60{,}000 fits; MCSE is 0.016 for power near 0.5 and 0.005 for Type I error near 0.05.
+\item The inline Mancl-DeRouen implementation produces identical point estimates and larger standard errors than the naive sandwich.
+\item Its SE for the interaction coefficient matches \texttt{geesmv::GEE.var.md} to within roughly 2.5\% over 25 probe replicates, so the correction magnitude is externally validated.
 \end{itemize}
 :::
 
@@ -1704,35 +1868,36 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-We begin the discussion by summarising what the Monte Carlo study
-settles at the resolution it was run. The 800-replicate-per-cell
-run on the 16-cell test-procedure factorial (procedure $\in
-\{$strict RM-ANOVA, linear-mixed with `corCAR1`, GEE with naive
-sandwich, GEE with Mancl-DeRouen small-sample correction$\}$
-$\times c_{bm} \in \{0, 0.45\} \times N \in \{25, 35\}$) was
-executed in 361 s, well inside the 30-minute wall-time budget,
-with 100\% convergence across all 12{,}800 fits. Per-replicate
-output is at `analysis/data/quick-sim/08-test-replicates.rds`;
-Morris ADEMP summary at `08-test-summary.txt`. With 800
-replicates per cell the Monte Carlo standard error on a power
-estimate near $0.5$ is approximately $0.018$ and on a type I
-error rate near $0.05$ is approximately $0.008$. The
-Mancl-DeRouen 2001 [@mancl2001covariance] correction was
-implemented inline by inflating each cluster's residual via
-$(I - H_{ii})^{-1} r_i$ in the sandwich meat; the implementation
-produces identical point estimates and larger standard errors
-than the naive sandwich (verified on probe replicates) but has
-not been benchmarked against an independent reference such as
-`geesmv::GEE.var.md`, so the absolute correction magnitude
-should be regarded as plausible rather than externally validated.
+We begin the discussion by summarizing what the Monte Carlo study
+settles at the resolution it was run. The run on the 40-cell
+five-procedure factorial (procedure $\in \{$strict RM-ANOVA,
+continuous-biomarker contrast, linear-mixed with `corCAR1`, GEE
+with naive sandwich, GEE with Mancl-DeRouen small-sample
+correction$\} \times c_{bm} \in \{0, 0.45\} \times N \in
+\{25, 35, 70, 100\}$, with 1000 replicates per power cell and
+2000 per Type I cell) was executed in 587 s with 100\%
+convergence across all 60{,}000 fits. Per-replicate output is at
+`analysis/data/quick-sim/08-test-replicates.rds`; Morris ADEMP
+summary at `08-test-summary.txt`. With 1000 power replicates the
+MCSE on a power estimate near $0.5$ is approximately $0.016$ and
+with 2000 Type I replicates the MCSE on a rate near $0.05$ is
+approximately $0.005$. The Mancl-DeRouen 2001
+[@mancl2001covariance] correction was implemented inline by
+inflating each cluster's residual via $(I - H_{ii})^{-1} r_i$ in
+the sandwich meat; it produces identical point estimates and
+larger standard errors than the naive sandwich, and its SE for
+the interaction coefficient agrees with `geesmv::GEE.var.md` to
+within approximately 2.5\% (mean inline/`geesmv` ratio 1.02 over
+25 probe replicates), so the correction magnitude is externally
+validated.
 :::
 
 ::: {.bullets data-latex=""}
-\textbf{The first resolved question is GEE small-$N$ type I error inflation: $2.4\times$ nominal at $N = 25$ and $1.5\times$ at $N = 35$, with the gap unlikely to reflect chance.}
+\textbf{The first resolved question is that the classical-versus-mixed power gap is mostly the cost of dichotomization: the continuous-biomarker contrast recovers about four-fifths of it.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Naive GEE rejection rates are 0.119 at $N = 25$ and 0.076 at $N = 35$; both exceed the nominal 0.05.
-\item The $N$-level gap of 0.043 is approximately 2.9 standard errors of the difference.
-\item The $N = 25$ inflation of $2.4\times$ nominal disqualifies naive GEE as a production-ready procedure at trial-relevant sample sizes.
+\item At $N = 25$, dichotomization (RM-ANOVA $\to$ contrast) costs 0.180 of power; the test procedure (contrast $\to$ linear-mixed) adds 0.027.
+\item The decomposition is stable across $N$: dichotomization costs 0.08--0.21, the test procedure at most 0.04.
+\item A classical, sphericity-free, AR(1)-free contrast on the continuous biomarker therefore captures most of the available power.
 \end{itemize}
 :::
 
@@ -1741,24 +1906,29 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-The study resolves three substantive questions at this resolution.
-First, GEE small-$N$ type I error inflation worsens at $N = 25$.
-The naive GEE rejection rate at the null is $0.119$ (95\%
-binomial CI $[0.097, 0.141]$) at $N = 25$ versus $0.076$
-($[0.058, 0.094]$) at $N = 35$, both above the nominal $0.05$.
-The $N = 25$ inflation is approximately $2.4\times$ nominal; the
-$N = 35$ inflation is approximately $1.5\times$. The gap of
-$0.043$ between the two $N$ levels is approximately $2.9$
-standard errors of the difference and is therefore unlikely to
-reflect chance.
+The study resolves four substantive questions at this resolution.
+First, and correcting the emphasis of an earlier draft, the power
+gap between strict RM-ANOVA and the linear-mixed model is
+predominantly the cost of dichotomizing the biomarker, not a
+property of the test procedure. The continuous-biomarker
+contrast, which differs from strict RM-ANOVA only in retaining
+the continuous biomarker, recovers $0.180$ of the $0.207$ gap at
+$N = 25$ ($0.358 \to 0.538$ of $0.358 \to 0.565$); the further
+step to the full mixed model contributes only $0.027$. The same
+decomposition holds across the grid (dichotomization $0.08$ to
+$0.21$, test procedure at most $0.04$). The earlier
+direct comparison of RM-ANOVA against the mixed model therefore
+overstated the test-procedure effect by roughly fivefold; the
+corrected statement is that keeping the biomarker continuous, not
+adopting the mixed model per se, is what recovers the power.
 :::
 
 ::: {.bullets data-latex=""}
-\textbf{The second resolved question is the Mancl-DeRouen correction's effectiveness: it removes three-fifths of the $N = 25$ inflation and essentially all of the $N = 35$ inflation.}
+\textbf{The second resolved question is that naive GEE inflates Type I error across the entire sample-size range, and Mancl-DeRouen restores nominal control.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item At $N = 25$, the corrected rejection rate is 0.078; at $N = 35$, it is 0.045, covering the nominal.
-\item The correction concentrates most of its effect at small $N$, consistent with the small-cluster motivation of the Mancl-DeRouen estimator.
-\item Power cost is moderate: approximately 9 percentage points at $N = 25$ and 5 percentage points at $N = 35$.
+\item Naive GEE rejects at 0.097, 0.086, 0.079, 0.074 for $N = 25, 35, 70, 100$ -- still about $1.5\times$ nominal at $N = 100$.
+\item The Mancl-DeRouen correction brings the rate to 0.064, 0.053, 0.063, 0.059, within or near MCSE of nominal at every $N$.
+\item The power cost is moderate (about 0.10 at $N = 25$, 0.07 at $N = 35$).
 \end{itemize}
 :::
 
@@ -1767,23 +1937,26 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-Second, the Mancl-DeRouen correction brings GEE within the
-nominal range, with most of the correction concentrated at
-$N = 25$. At $N = 25$ the corrected procedure rejects at $0.078$
-(CI $[0.059, 0.097]$, brushing $0.05$); at $N = 35$ it rejects
-at $0.045$ (CI $[0.031, 0.059]$, covering the nominal $0.05$).
-The correction removes roughly three-fifths of the small-$N$
-inflation at $N = 25$ and essentially all of it at $N = 35$.
-The power cost is moderate: $0.539$ versus $0.630$ at $N = 25$,
-and $0.736$ versus $0.790$ at $N = 35$.
+Second, naive GEE is anti-conservative across the entire
+sample-size range, not merely at the smallest $N$. Its null
+rejection rate is $0.097$ at $N = 25$ and falls only to
+$0.086$, $0.079$, and $0.074$ at $N = 35, 70, 100$, remaining
+roughly $1.5\times$ nominal even at $N = 100$. The Mancl-DeRouen
+correction returns the rate to within or near MCSE of nominal at
+every $N$ ($0.064, 0.053, 0.063, 0.059$), at a power cost of
+about ten percentage points at $N = 25$ ($0.672 \to 0.573$) and
+seven at $N = 35$ ($0.759 \to 0.691$). Naive GEE's nominally
+higher power than the linear-mixed model at small $N$ is an
+artefact of its residual over-rejection rather than a real gain,
+and disappears once the size distortion is corrected.
 :::
 
 ::: {.bullets data-latex=""}
-\textbf{The third resolved question is LME power dominance: the gap over strict RM-ANOVA is 0.193 at $N = 25$ and 0.284 at $N = 35$, both many standard errors of the difference.}
+\textbf{The third resolved question is standard-error calibration: the contrast and Mancl-DeRouen GEE are well-calibrated, naive GEE under-covers, and the linear-mixed model over-covers.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item At $N = 25$, LME power is 0.533 versus RM-ANOVA 0.340 (gap 0.193, approximately 8 standard errors).
-\item At $N = 35$, LME power is 0.754 versus RM-ANOVA 0.470 (gap 0.284, approximately 12 standard errors).
-\item The dominance widens at the larger sample, consistent with the AR(1) sphericity-violation argument in Section 2.
+\item Contrast and Mancl-DeRouen GEE attain 93--95\% coverage with model/empirical SE ratios near 1.
+\item Naive GEE under-covers (90.0\% at $N = 25$) because its model SE is 9--12\% too small.
+\item The linear-mixed model over-covers (97.0--97.7\%) because its model SE exceeds the empirical SE by 11--16\%.
 \end{itemize}
 :::
 
@@ -1792,21 +1965,28 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-Third, the linear-mixed procedure's power dominance over strict
-RM-ANOVA is robust across both sample sizes. At $N = 25$, LME
-power is $0.533$ versus RM-ANOVA $0.340$ (gap $0.193$,
-approximately $8$ standard errors of the difference); at
-$N = 35$, LME is $0.754$ versus $0.470$ (gap $0.284$,
-approximately $12$ standard errors of the difference). The
-dominance is not artefactual and widens at the larger sample.
+Third, the standard-error calibration of the four
+coefficient-bearing arms is what underlies the rejection-rate
+differences. The continuous-biomarker contrast and the
+Mancl-DeRouen GEE are well-calibrated, with $93$ to $95\%$
+nominal-95\% coverage and model-based standard errors within a
+few percent of the empirical standard error. Naive GEE
+under-covers at small $N$ ($90.0\%$ at $N = 25$) because its
+model-based SE is $9$ to $12\%$ too small, the same defect that
+drives its Type I inflation. The linear-mixed model over-covers
+($97.0$ to $97.7\%$) because its model-based SE exceeds the
+empirical SE by $11$ to $16\%$, the calibration counterpart of
+its sub-nominal Type I error. All four arms are approximately
+unbiased (relative bias below $4\%$), so these are pure variance-
+estimation effects.
 :::
 
 ::: {.bullets data-latex=""}
-\textbf{An ADEMP-discipline caveat: LME conservatism slightly deflates the apparent power advantage, and future revisions should include Kenward-Roger corrections and report Mancl-DeRouen GEE as the production comparator.}
+\textbf{The fourth resolved question is that the linear-mixed conservatism is a degrees-of-freedom artefact a Kenward-Roger correction would remove.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item LME type I error is 0.025 to 0.031, conservative rather than nominal, consistent with \texttt{corCAR1} degrees-of-freedom accounting under $T = 8$ timepoints.
-\item The conservatism slightly deflates the apparent power advantage over RM-ANOVA but the gap remains the dominant signal.
-\item Future revisions should add Kenward-Roger or Satterthwaite corrections and replace naive GEE with Mancl-DeRouen GEE as the production comparator.
+\item LME Type I error is 0.021 to 0.034, conservative rather than nominal, consistent with \texttt{corCAR1} degrees-of-freedom accounting under $T = 8$ timepoints.
+\item The conservatism shows up as over-coverage and a model/empirical SE ratio above one, not as point-estimate bias.
+\item A Kenward-Roger or Satterthwaite correction would recover the small power increment the conservatism forgoes.
 \end{itemize}
 :::
 
@@ -1815,28 +1995,29 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-One ADEMP-discipline caveat merits explicit statement. The LME
-procedure's type I error rate at the null is $0.025$ to $0.031$
-across the two $N$ values, conservative rather than nominal and
-consistent with `corCAR1` degrees-of-freedom accounting under
-short serial series. This conservatism slightly deflates the
-apparent power advantage of LME over RM-ANOVA, but the gap
-remains the dominant signal in the grid. The recommendation table
-in \S6 should, in a future revision, report Kenward-Roger or
-Satterthwaite small-sample corrections alongside the LME
-procedure to address the conservatism, and should report the
-Mancl-DeRouen GEE rather than naive GEE as the
-production-ready GEE comparator.
+Fourth, the linear-mixed procedure's Type I error sits below
+nominal throughout ($0.021$ to $0.034$), conservative rather than
+nominal and consistent with `corCAR1` degrees-of-freedom
+accounting under the short ($T = 8$) serial series. The
+conservatism is a variance-calibration effect, visible in the
+over-coverage and the model/empirical SE ratio above one of
+Table \@ref(tab:secondary), not a point-estimate effect. A
+Kenward-Roger [@kenward1997small] or Satterthwaite
+[@satterthwaite1946] small-sample degrees-of-freedom correction
+would address it and recover the small power increment it
+forgoes, and we record this as a follow-up item; the
+recommendation table in \S6 already lists the Kenward-Roger
+variant for small-$N$ use.
 :::
 
 # Conclusions
 
 ::: {.bullets data-latex=""}
-\textbf{Test-procedure choice has first-order consequences for power and type I error at $N \le 35$; linear-mixed with AR(1) is the preferred default and naive GEE is disqualified without small-sample correction.}
+\textbf{The biomarker should be kept continuous: dichotomization, not the test procedure, drives most of the classical-versus-mixed power gap; naive GEE is disqualified without a small-sample correction.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The LME power gap over RM-ANOVA is 0.20 at $N = 25$ widening to 0.28 at $N = 35$, achieved with nominal or sub-nominal type I error.
-\item Naive GEE inflates type I error to $2.4\times$ nominal at $N = 25$ and $1.5\times$ at $N = 35$, disqualifying it as a power summary.
-\item The Mancl-DeRouen correction restores nominal type I control at a moderate (10-percentage-point) power cost and is the operational GEE comparator.
+\item Dichotomizing the biomarker for strict RM-ANOVA forfeits 0.08--0.21 of power across $N$; the test procedure proper adds at most 0.04.
+\item Among continuous-biomarker procedures the linear-mixed model has the highest power within nominal Type I; the contrast is a close, transparent alternative.
+\item Naive GEE inflates Type I error to 1.5--1.9$\times$ nominal across all $N$; the Mancl-DeRouen correction restores nominal control at a moderate (about 10-percentage-point) power cost.
 \end{itemize}
 :::
 
@@ -1845,31 +2026,34 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-In conclusion, three points are to be emphasised. First, the
-choice of test procedure for the biomarker-treatment interaction
-in aggregated N-of-1 trials has first-order consequences for
-power and type I error at the sample sizes typical of
-precision-medicine pilot studies ($N \le 35$). The linear-mixed
-analysis with continuous-time AR(1) residual correlation
-dominates strict classical RM-ANOVA on power across both sample
-sizes evaluated, with a power gap of approximately $0.20$ at
-$N = 25$ widening to $0.28$ at $N = 35$, while holding nominal
-or sub-nominal type I error. Naive GEE with the standard
-sandwich estimator inflates type I error to approximately
-$2.4\times$ nominal at $N = 25$ and $1.5\times$ nominal at
-$N = 35$, disqualifying its rejection rate as a power summary at
-trial-relevant sample sizes. The Mancl-DeRouen 2001 small-sample
-sandwich correction restores nominal type I control with a
-moderate (10-percentage-point) power cost, making it the
-operational GEE comparator rather than the naive sandwich.
+In conclusion, three points are to be emphasized. First, the
+analyst's most consequential choice for the biomarker-treatment
+interaction in aggregated N-of-1 trials is to keep the biomarker
+continuous rather than to dichotomize it for a classical
+RM-ANOVA. The continuous-biomarker contrast recovers about
+four-fifths of the apparent RM-ANOVA-to-mixed-model power gap
+(dichotomization costs $0.08$ to $0.21$ of power across the
+sample sizes evaluated, while the test procedure proper adds at
+most $0.04$); the linear-mixed analysis with continuous-time
+AR(1) residual correlation has the highest power within nominal
+Type I among the continuous-biomarker procedures, with the
+dichotomization-free within-subject contrast a close alternative.
+Naive GEE with the standard sandwich estimator inflates Type I
+error to between $1.5\times$ and $1.9\times$ nominal across the
+whole $N \in \{25,35,70,100\}$ range, disqualifying its rejection
+rate as a power summary; the Mancl-DeRouen 2001 small-sample
+sandwich correction restores nominal Type I control and
+$93$--$95\%$ coverage at a moderate (about 10-percentage-point)
+power cost, making it the operational GEE comparator rather than
+the naive sandwich.
 :::
 
 ::: {.bullets data-latex=""}
-\textbf{The closed-form reduction to a two-sample $t$-test makes the strict RM-ANOVA transparent but also reveals its central limitation under AR(1) residual correlation.}
+\textbf{The closed-form reduction to a two-sample $t$-test makes the strict RM-ANOVA transparent; in this study its limitation is dichotomization, with sphericity relevant only to the un-pre-averaged classical analysis.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item Under sphericity and balance, the biomarker-treatment interaction $F$-test reduces to a two-sample $t$-test on within-subject treatment differences.
-\item The AR(1) residual correlation imposed by the pmsimstats DGP violates sphericity, requiring Greenhouse-Geisser correction at the cost of degrees of freedom.
-\item The linear-mixed analysis avoids this penalty by modelling AR(1) structure directly rather than absorbing it via a degrees-of-freedom adjustment.
+\item The pre-averaged-to-one-value-per-phase form evaluated here is sphericity-robust by construction and holds nominal Type I error, so its power loss is attributable to dichotomization, not to sphericity.
+\item Sphericity violation under AR(1) bites only when the full multi-timepoint series is analysed by classical RM-ANOVA without a degrees-of-freedom correction; the linear-mixed model with \texttt{corCAR1} sidesteps both issues.
 \end{itemize}
 :::
 
@@ -1883,15 +2067,24 @@ biomarker-treatment interaction (\S2) reduces to a two-sample
 $t$-test on the within-subject treatment differences under
 sphericity and balance. The reduction makes the strict-RM-ANOVA
 result analytically transparent and connects the simulation
-findings to the classical split-plot literature. That
-transparency is, however, also what limits the test in the
-present setting: the AR(1) residual correlation that the
-data-generating process imposes violates the sphericity
-assumption underlying the closed form, and the
-Greenhouse-Geisser correction that recovers nominal type I under
-sphericity violation pays a degrees-of-freedom penalty that the
-linear-mixed analysis avoids by modelling the AR(1) structure
-directly.
+findings to the classical split-plot literature. It also pins
+down what does and does not limit the test here. The strict
+RM-ANOVA arm we evaluate pre-averages each phase to a single
+value, so its within-subject covariance is $2 \times 2$ and
+sphericity holds by construction; consistent with this, its Type
+I error is at nominal (Table \@ref(tab:type1)), and its power
+deficit is wholly attributable to the median dichotomization of
+the biomarker, as the continuous-biomarker contrast demonstrates.
+The sphericity penalty that motivates much of \S2 applies instead
+to the alternative classical analysis that treats the full
+$T = 8$ series as repeated within-subject levels: there the AR(1)
+residual correlation violates sphericity and a
+Greenhouse-Geisser correction recovers nominal Type I only at a
+degrees-of-freedom cost, which the linear-mixed analysis with
+`corCAR1` avoids by modelling the AR(1) structure directly. Both
+considerations point the same way -- away from a dichotomized
+classical analysis -- but through different mechanisms, and we
+are careful to keep them distinct.
 :::
 
 ::: {.bullets data-latex=""}
@@ -1954,32 +2147,40 @@ manuscript are listed in the Reproducibility section below.
 
 # Reproducibility
 
-This manuscript was rendered with R 4.4.x inside the project's
-zzcollab Docker container (image hash recorded in `Dockerfile`;
-package set captured in `renv.lock`). Principal packages used
-by the simulation pipeline are `nlme` (continuous-time
-linear-mixed analysis with `corCAR1` residual correlation),
-`geepack` plus a hand-rolled Mancl-DeRouen 2001 small-sample
-sandwich correction (paper 08 only), `parallel` (8-core
-`mclapply` for parameter-grid sweeps), `data.table` (the
-`original-extended` simulation collection), `furrr` and `purrr`
-(the `tidyverse` simulation collection), and `rmarkdown` plus
-`bookdown` for the manuscript build. The simulation substrate
-is `implementations/simple/simulation.R`.
+This manuscript's simulation was executed with R 4.6.x; the
+project also ships a zzcollab Docker container (image hash
+recorded in `Dockerfile`; package set captured in `renv.lock`)
+for container-based reproduction. Principal packages used by the
+Study 1 pipeline are `nlme` (continuous-time linear-mixed
+analysis with `corCAR1` residual correlation), `geepack` (GEE
+fitting) plus an inline Mancl-DeRouen 2001 small-sample sandwich
+correction, `geesmv` (independent benchmark of that correction),
+`data.table`, and `parallel` (`mclapply` for the parameter-grid
+sweep), with `rmarkdown` plus `bookdown` for the manuscript
+build. The Study 1 simulation runs on the pmsimstats package
+data-generating process under Architecture A via `generateData()`
+and `lme_analysis()`, not on the reduced
+`implementations/simple` substrate.
 
-**Random-number generator.** Each simulation driver sets
-`set.seed(20260507)` at the top of the replicate loop and uses
-`parallel::mc.set.seed` inside `mclapply`. Per-replicate seeds
-derive from the master seed by `+ rep_idx`.
+**Random-number generator.** The driver sets
+`RNGkind("L'Ecuyer-CMRG")` and `set.seed(20260507)`, then runs
+the cell-by-replicate jobs through `parallel::mclapply` with
+`mc.set.seed = TRUE`, so each replicate draws from an
+independent, reproducible random-number stream.
 
-**Data and code availability.** Per-replicate simulation
-outputs are checkpointed at
-`analysis/data/quick-sim/08-test-replicates.rds`; Morris ADEMP
-cell-level summaries at the companion `08-test-summary.txt`.
-Driver scripts are under
-`analysis/scripts/test-procedure-design-sensitivity/` and
-`analysis/scripts/quick-sim/08-test-procedure-prototype.R`. The
-pre-registered ADEMP plan is at
+**Data and code availability.** Per-replicate simulation outputs
+are checkpointed at
+`analysis/data/quick-sim/08-test-replicates.rds`; the extended
+Morris ADEMP cell-level summary (rejection rate, MCSE,
+convergence, bias, empirical and model SE, coverage) at the
+companion `08-test-summary.txt`, with the Monte-Carlo reference
+estimand at `08-test-betatrue.txt` and the Mancl-DeRouen
+benchmark at `08-test-mancl-benchmark.txt`. The driver is
+`analysis/scripts/test-procedure-design-sensitivity/01-study1-test-procedure.R`
+(superseding the earlier
+`analysis/scripts/quick-sim/08-test-procedure-prototype.R`). The
+pre-registered ADEMP plan, and the deviations recorded in Table
+\@ref(tab:deviations), are at
 `analysis/scripts/test-procedure-design-sensitivity/00-ademp-pre-registration.md`.
 The manuscript source, paper-specific bibliography
 (`references.bib`), and SIM CSL file are at

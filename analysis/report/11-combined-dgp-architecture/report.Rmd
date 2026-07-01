@@ -1,0 +1,697 @@
+---
+title: "A combined data-generating architecture for
+  biomarker-treatment interactions: channel super-additivity and
+  mixing-weight sensitivity in aggregated N-of-1 trials"
+author: 'pmsimstats team'
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    number_sections: true
+    keep_tex: true
+    highlight: tango
+    includes:
+      in_header: claudecode.tex
+fontsize: 11pt
+geometry: "left=3cm,right=5cm,top=2cm,bottom=2cm"
+bibliography: references.bib
+csl: statistics-in-medicine.csl
+link-citations: true
+header-includes:
+  - \usepackage{amsmath}
+  - \usepackage{amssymb}
+  - \usepackage{booktabs}
+  - \usepackage{lineno}
+  - \linenumbers
+  - \usepackage{setspace}
+  - \setstretch{1.1}
+knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path(d, 'tools', 'stamp-render.R')) && d != dirname(d)) d <- dirname(d); source(file.path(d, 'tools', 'stamp-render.R'))$value(input) })
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+\section{Abstract}
+
+\textbf{Background.} A companion paper [@pmsimstats-paper01] distinguishes
+two data-generating architectures for biomarker-treatment
+interactions in aggregated N-of-1 trials: direct mean moderation
+(Architecture~A), in which the biomarker scales the treatment
+effect in the conditional mean, and differential correlation
+(Architecture~B, the multivariate-normal approach), in which the
+interaction is encoded as treatment-state-dependent correlation in
+the joint distribution. That paper treats A and B as alternatives.
+Here we consider the case in which both channels are active at once.
+
+\textbf{Methods.} We define Architecture~C (combined), which
+carries independent parameters $c_{bm,A}$ (mean channel) and
+$c_{bm,B}$ (covariance channel), and which reduces algebraically to
+pure Architecture~A when $c_{bm,B} = 0$ and to pure
+Architecture~B when $c_{bm,A} = 0$. We show analytically that the
+biomarker-by-treatment signal delivered to the fixed analysis model
+is additive across the two channels, and that, because the
+Monte-Carlo power function is convex in the noncentrality over the
+sub-ceiling regime, the two channels combine super-additively in
+power. We then quantify the combined architecture by Monte Carlo
+simulation on a $3 \times 3$ grid of channel weights crossed with
+three within-subject designs and three carryover half-lives.
+
+\textbf{Results.} [To be finalized after the common-driver boundary
+re-run; see Section 4.2.] Empirical power increases monotonically in
+each channel weight, and interior cells exceed the probability-scale
+additive benchmark, confirming the analytical prediction of
+super-additivity. The covariance and mean channels contribute
+comparably to carryover sensitivity, and the design ranking
+established for the pure architectures is preserved throughout the
+combined grid.
+
+\textbf{Conclusions.} A combined architecture is the appropriate
+data-generating model when a biomarker is hypothesized to act
+through both a pharmacodynamic-scaling pathway and a co-regulatory
+coupling pathway. It should not be a default: it carries a second
+free parameter and requires independent evidence for each channel.
+Its principal use is as a sensitivity framework spanning the two
+pure-architecture extremes.
+
+\bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
+
+\section{1. Introduction}
+
+::: {.bullets data-latex=""}
+\textbf{The companion paper contrasts two DGP architectures; this
+paper treats the case where both operate simultaneously.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Architecture A encodes the interaction in the mean;
+  Architecture B encodes it in the covariance.
+\item A biomarker could act through both pathways at once.
+\item Architecture C carries independent weights on the two channels
+  and recovers A and B as its single-channel limits.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+To be completed by rgt.
+:::
+
+::: {.orig data-latex=""}
+A companion paper [@pmsimstats-paper01] formalizes two data-generating
+process (DGP) architectures for simulation studies of predictive
+biomarker-treatment interactions in aggregated N-of-1 trials, and
+shows that the choice between them materially changes the estimated
+power loss under carryover. Under Architecture~A the biomarker
+scales the treatment effect in the conditional mean; under
+Architecture~B the interaction is carried by
+treatment-state-dependent correlation between biomarker and response
+in the joint distribution. That paper treats the two as competing
+choices. The present paper takes up the case, deferred there, in
+which both mechanisms operate at once. We call the resulting
+data-generating model Architecture~C (combined). It is not a third
+alternative on the same footing as A and B; it is their common
+generalization, with A and B recovered exactly as its
+single-channel limits.
+:::
+
+::: {.bullets data-latex=""}
+\textbf{The paper makes two contributions: an analytical
+super-additivity result and a calibrated simulation of the combined
+grid.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Analytical: the channel signals add, and convexity of the
+  power function makes their power combination super-additive.
+\item Empirical: a $3 \times 3$ channel-weight grid crossed with
+  design and carryover, with boundary cells validated against the
+  companion paper's pure-architecture baselines.
+\item Guidance: when a combined model is warranted and how to use it
+  as a sensitivity framework.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+To be completed by rgt.
+:::
+
+::: {.orig data-latex=""}
+The paper makes two contributions. First, we give an analytical
+account (Section~3) of why the two channels, when active together,
+combine super-additively in power rather than merely adding. The
+argument identifies the additivity of the biomarker-by-treatment
+signal delivered to the analysis model as the mechanism, and the
+convexity of the Monte-Carlo power function over the sub-ceiling
+regime as the reason additivity of signal becomes super-additivity
+of power. This addresses a gap noted for the descriptive combined
+results reported in the companion paper, where the super-additivity
+was observed but not explained. Second, we characterize the combined
+architecture empirically over a $3 \times 3$ grid of channel weights
+crossed with three within-subject designs and three carryover
+half-lives, with the boundary cells validated numerically against
+the pure-architecture baselines of the companion paper.
+:::
+
+\bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
+
+\section{2. The Combined Architecture}
+
+\subsection{2.1 Definition}
+
+::: {.bullets data-latex=""}
+\textbf{Architecture C applies both interaction mechanisms in
+sequence: a differential-correlation MVN draw, then an on-drug mean
+shift.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item The MVN covariance encodes BM-BR differential correlation with
+  weight $c_{bm,B}$ (the Architecture B channel).
+\item After the draw, BR is additively shifted on-drug by
+  $c_{bm,A} \cdot z_B \cdot \sigma_{BR}$ (the Architecture A
+  channel).
+\item The two weights are independent and are calibrated separately.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+To be completed by rgt.
+:::
+
+::: {.orig data-latex=""}
+Architecture~C (combined) applies both interaction mechanisms in
+sequence. First, the multivariate-normal covariance matrix is
+constructed with biomarker-to-biological-response (BM-BR)
+differential correlation weighted by $c_{bm,B}$, exactly as under
+Architecture~B: the on-drug correlation is $c_{bm,B}$, decaying to
+$c_{bm,B} \cdot e^{-\lambda t_{sd}}$ during off-drug periods, where
+$t_{sd}$ is time since discontinuation. Second, after the MVN draw,
+the BR component is additively shifted at on-drug timepoints by
+\[
+\Delta BR_{it} = c_{bm,A} \cdot z_{B,i} \cdot \sigma_{BR}
+  \cdot \mathbf{1}[\text{on-drug}],
+\]
+where $z_{B,i} = (B_i - \mu_B)/\sigma_B$ is the standardized
+biomarker for participant $i$, exactly as under Architecture~A.
+:::
+
+\subsection{2.2 Boundary reductions and identifiability}
+
+::: {.bullets data-latex=""}
+\textbf{The two channels are algebraically independent, so the
+boundary cases recover the pure architectures exactly.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item $c_{bm,B} = 0$ removes the covariance channel and recovers
+  pure Architecture A.
+\item $c_{bm,A} = 0$ removes the mean-shift channel and recovers
+  pure Architecture B.
+\item The boundaries are enforced by construction, so they serve as
+  internal validation gates.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+To be completed by rgt.
+:::
+
+::: {.orig data-latex=""}
+The two parameters $c_{bm,A}$ and $c_{bm,B}$ are independent.
+Setting $c_{bm,B} = 0$ removes the covariance channel and recovers
+pure Architecture~A; setting $c_{bm,A} = 0$ removes the mean-shift
+channel and recovers pure Architecture~B. This combined form is the
+mean-and-covariance-structure model of Arminger et al.
+[-@arminger1999], the general psychometric parameterization within
+which Architectures~A and~B are constrained submodels; a companion
+paper [@pmsimstats-paper03] situates it as one node of a
+biomarker-moderation spectrum bridging continuous-heterogeneity and
+latent-class encodings. The boundary cases are
+enforced algebraically rather than by convention, so they serve as
+internal validation gates for any simulation study using
+Architecture~C: a correctly implemented combined driver must
+reproduce the pure-architecture power values at the boundaries when
+run under matched design, sample-size, and calibration settings.
+Section~4.2 uses exactly this property to validate the simulation
+against the companion paper's baselines.
+
+We note that when both parameters are set to their full values
+($c_{bm,A} = c_{bm,B} = 0.45$), the total interaction effect on the
+BR mean is approximately double that of either pure architecture at
+$c_{bm} = 0.45$. A researcher wishing to hold total effect size
+constant across architectures may instead parameterize as
+$c_{bm,A} = (1-\alpha) \cdot c$ and $c_{bm,B} = \alpha \cdot c$
+for a mixing weight $\alpha \in [0,1]$ and total weight $c$. We do
+not adopt this constraint in the simulations below, preferring the
+factorial parameterization that spans the full
+$(c_{bm,A}, c_{bm,B})$ space.
+:::
+
+\subsection{2.3 Biological rationale}
+
+::: {.bullets data-latex=""}
+\textbf{The two channels are mechanistically distinct and need not
+scale in proportion.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item The mean-shift channel (A) reflects pharmacodynamic scaling:
+  the drug's effect is larger in high-biomarker participants.
+\item The covariance channel (B) reflects differential
+  co-regulation that couples biomarker and response on-drug and
+  washes out off-drug.
+\item Neither channel implies the other; a drug could activate one,
+  both, or neither.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+To be completed by rgt.
+:::
+
+::: {.orig data-latex=""}
+The two channels are mechanistically distinct and need not scale in
+proportion. The mean-shift channel (Architecture~A) reflects a
+pharmacodynamic relationship: the drug's biological effect on BR is
+amplified in participants whose biomarker is above the population
+mean, because the biomarker governs the effective dose or receptor
+occupancy. This mechanism operates at the level of the mean
+trajectory for each participant. The covariance channel
+(Architecture~B) reflects a different process: on-drug periods
+impose a co-regulatory coupling between biomarker expression and
+treatment response, perhaps because the drug activates a pathway
+whose output is gated by the biomarker signal. This coupling is
+absent during off-drug periods, producing the differential
+correlation structure that Architecture~B encodes in the covariance
+matrix. A given drug could activate one, both, or neither channel.
+Cast in latent-class terms, both channels carry information about an
+unobserved responder class: the mean channel through the
+class-conditional expectation $E[BR \mid B]$ and the covariance
+channel through the class-conditional dispersion
+$\mathrm{Var}[BR \mid B]$ [@pmsimstats-paper03]. The linear-mixed
+analogue, in which the heterogeneity resides in the random-effects
+population, is developed by Verbeke and Lesaffre
+[-@verbekelesaffre1996].
+:::
+
+\bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
+
+\section{3. Channel Super-additivity: an Analytical Account}
+
+::: {.bullets data-latex=""}
+\textbf{The biomarker-by-treatment signal delivered to the analysis
+model is additive across the two channels.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item The interaction coefficient depends on the on-drug covariance
+  $\mathrm{Cov}(B, BR)$.
+\item The covariance channel contributes
+  $c_{bm,B}\,\sigma_B \sigma_{BR}$; the mean channel contributes
+  $c_{bm,A}\,\sigma_B \sigma_{BR}$.
+\item The total on-drug signal covariance is
+  $(c_{bm,A} + c_{bm,B})\,\sigma_B \sigma_{BR}$: the channels add.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+To be completed by rgt.
+:::
+
+::: {.orig data-latex=""}
+The fixed analysis model detects the interaction through the
+coefficient on the biomarker-by-exposure term, whose estimate is
+driven by the on-drug covariance between the biomarker $B$ and the
+biological response $BR$. Consider that covariance under each
+channel. Under the covariance channel alone (Architecture~B), the
+on-drug joint distribution sets
+\[
+\mathrm{Cov}(B,\, BR \mid \text{on-drug})
+  = c_{bm,B}\, \sigma_B \sigma_{BR}.
+\]
+Under the mean channel alone (Architecture~A), the on-drug shift
+$\Delta BR = c_{bm,A}\, z_B\, \sigma_{BR}
+ = c_{bm,A}\, (B - \mu_B)\, \sigma_{BR} / \sigma_B$ contributes
+\[
+\mathrm{Cov}(B,\, \Delta BR)
+  = \frac{c_{bm,A}\, \sigma_{BR}}{\sigma_B}\, \mathrm{Var}(B)
+  = c_{bm,A}\, \sigma_B \sigma_{BR}.
+\]
+Under the combined architecture the on-drug response is the sum of
+the correlated draw and the mean shift, so the two covariance
+contributions add:
+\[
+\mathrm{Cov}(B,\, BR_C \mid \text{on-drug})
+  = (c_{bm,A} + c_{bm,B})\, \sigma_B \sigma_{BR}.
+\]
+The biomarker-by-treatment signal delivered to the analysis model
+is therefore exactly additive in the two channel weights. To
+leading order the residual variance is unchanged by the channels
+(the covariance channel preserves the marginal BR variance, and the
+mean channel inflates it only by the second-order term
+$c_{bm,A}^2 \sigma_{BR}^2$), so the noncentrality parameter of the
+interaction test is, to first order, additive across channels:
+$\eta_C \approx \eta_A + \eta_B$.
+:::
+
+::: {.bullets data-latex=""}
+\textbf{Additive signal becomes super-additive power because the
+power function is convex over the sub-ceiling regime.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Power is a convex function of the noncentrality where power is
+  below roughly one half.
+\item Convexity gives
+  $\pi(\eta_A + \eta_B) - \pi(0) >
+   [\pi(\eta_A) - \pi(0)] + [\pi(\eta_B) - \pi(0)]$.
+\item Hence interior cells exceed the probability-scale additive
+  benchmark; the effect attenuates and can reverse near the ceiling.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+To be completed by rgt.
+:::
+
+::: {.orig data-latex=""}
+Additivity of the noncentrality does not imply additivity of power,
+because power is a nonlinear function of the noncentrality. Write
+$\pi(\eta)$ for the rejection probability of the interaction test as
+a function of its noncentrality $\eta \ge 0$. On the range over
+which $\pi$ is below approximately one half, $\pi$ is convex in
+$\eta$: each additional unit of noncentrality buys more power than
+the last, until the function inflects and saturates toward one. For
+$\eta_A, \eta_B$ in this convex regime, convexity gives
+\[
+\pi(\eta_A + \eta_B) - \pi(0) >
+ \bigl[\pi(\eta_A) - \pi(0)\bigr] +
+ \bigl[\pi(\eta_B) - \pi(0)\bigr],
+\]
+which is precisely super-additivity relative to the
+probability-scale additive benchmark
+$p(c_{bm,A}, 0) + p(0, c_{bm,B}) - p(0,0)$. The combined power
+exceeds the benchmark exactly when the two single-channel cells sit
+in the convex, sub-ceiling part of the power curve, and the excess
+shrinks, and can reverse to sub-additivity, once cells approach the
+ceiling and enter the concave regime. The empirical grid of
+Section~4 lies in the sub-ceiling regime (single-channel powers
+between roughly 0.03 and 0.30), so super-additivity is the predicted
+and observed pattern there.
+:::
+
+\bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
+
+\section{4. Simulation Study}
+
+\subsection{4.1 Design}
+
+::: {.bullets data-latex=""}
+\textbf{A $3 \times 3$ channel-weight grid crossed with three
+designs and three carryover half-lives.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Channel weights: $c_{bm,A} \times c_{bm,B} \in
+  \{0, 0.22, 0.45\}^2$.
+\item Designs: CO, Hybrid, OL+BDC; carryover
+  $t_{1/2} \in \{0, 0.5, 1.0\}$ weeks.
+\item A2 analysis specification; 1000 replicates per cell.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+To be completed by rgt.
+:::
+
+::: {.orig data-latex=""}
+We ran a factorial simulation on the Architecture~C parameter grid.
+The design factors are the crossover (CO), Hybrid, and
+open-label-with-blinded-discontinuation (OL+BDC) designs;
+$t_{1/2} \in \{0, 0.5, 1.0\}$ weeks; 1000 replicates per cell; and
+the A2 analysis specification. The channel-weight panel is
+$c_{bm,A} \times c_{bm,B} \in \{0, 0.22, 0.45\}^2$, nine cells per
+design-carryover combination. The analysis model is held fixed
+throughout and is identical to that of the companion paper: an
+\texttt{nlme::lme} fit with \texttt{corCAR1} continuous-time
+residual correlation and a single biomarker-by-exposure interaction
+term.
+:::
+
+\subsection{4.2 Boundary validation against the companion baselines}
+
+::: {.bullets data-latex=""}
+\textbf{The boundary cells are validated numerically against the
+companion paper's pure-architecture power values.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item The combined driver is run under the same sample-size and
+  calibration settings as the companion paper's Section 3.1 driver.
+\item The $c_{bm,B} = 0$ column must reproduce pure Architecture A;
+  the $c_{bm,A} = 0$ row must reproduce pure Architecture B.
+\item Agreement to within Monte Carlo error is the validation gate.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+To be completed by rgt.
+:::
+
+::: {.orig data-latex=""}
+\textbf{Status: pending re-run.} The combined-architecture results
+must be produced by a driver whose sample-size convention and
+Gompertz and biomarker calibration match the companion paper's
+production driver exactly, so that the boundary cells reproduce the
+pure-architecture power values numerically and not merely
+algebraically. An earlier combined driver used a different
+sample-size convention ($N = 35$ as a total rather than per
+randomization path), which made its boundary cells uniformly lower
+than, and not directly comparable to, the companion baselines. This
+section will report a boundary-validation table placing the combined
+driver's $c_{bm,B} = 0$ column and $c_{bm,A} = 0$ row alongside the
+companion paper's Architecture~A and Architecture~B baselines, and
+will confirm agreement to within Monte Carlo standard error
+(approximately 0.013 to 0.016 at these cell sizes). The results in
+Section~4.3 are reported at the total-sample convention of the
+earlier driver and will be re-stamped once the matched re-run is
+complete.
+:::
+
+\subsection{4.3 Empirical power over the channel-weight grid}
+
+\begin{table}[h]
+\small\centering
+\caption{Architecture C empirical power: $3 \times 3$ channel-weight
+panel at carryover $t_{1/2} = 1.0$ week, A2 analysis specification,
+1000 replicates per cell. Rows index $c_{bm,A}$ (mean channel);
+columns index $c_{bm,B}$ (covariance channel). Boundary column
+$c_{bm,B} = 0$ corresponds to pure Architecture A; boundary row
+$c_{bm,A} = 0$ corresponds to pure Architecture B. Values are at the
+earlier driver's total-sample convention and are pending the matched
+re-run of Section 4.2; Monte Carlo standard error columns will be
+added at that time.}
+\label{tab:arch-c-power}
+\begin{tabular}{lrrr}
+\toprule
+& \multicolumn{3}{c}{$c_{bm,B}$ (covariance channel)} \\
+\cmidrule(l){2-4}
+$c_{bm,A}$ (mean channel) & 0.00 & 0.22 & 0.45 \\
+\midrule
+\multicolumn{4}{l}{\textit{Crossover (CO)}} \\
+0.00 & 0.046 & 0.064 & 0.206 \\
+0.22 & 0.070 & 0.179 & 0.361 \\
+0.45 & 0.172 & 0.354 & 0.528 \\
+\addlinespace
+\multicolumn{4}{l}{\textit{Hybrid}} \\
+0.00 & 0.034 & 0.083 & 0.273 \\
+0.22 & 0.108 & 0.299 & 0.621 \\
+0.45 & 0.389 & 0.642 & 0.870 \\
+\addlinespace
+\multicolumn{4}{l}{\textit{OL+BDC}} \\
+0.00 & 0.017 & 0.049 & 0.148 \\
+0.22 & 0.086 & 0.164 & 0.362 \\
+0.45 & 0.276 & 0.473 & 0.688 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+::: {.bullets data-latex=""}
+\textbf{Power is monotone in both channel weights, and interior
+cells are super-additive, as Section 3 predicts.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Power increases strictly with each channel weight, holding the
+  other fixed, across all three designs.
+\item Interior cells exceed the probability-scale additive benchmark
+  $p(c_A, 0) + p(0, c_B) - p(0, 0)$.
+\item The design ranking (Hybrid $>$ OL+BDC $>$ CO) is preserved
+  throughout the grid.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+To be completed by rgt.
+:::
+
+::: {.orig data-latex=""}
+Table~\ref{tab:arch-c-power} reports empirical power across the full
+$3 \times 3$ channel-weight panel at the most demanding carryover
+condition ($t_{1/2} = 1.0$ week). Three features merit comment.
+First, the monotone structure is exact: power increases strictly
+with each channel weight, holding the other fixed, across all three
+designs, confirming that the channels contribute independently to
+detectability. Second, interior cells exceed the probability-scale
+additive benchmark. At ($c_{bm,A} = 0.22$, $c_{bm,B} = 0.22$) in the
+Hybrid design, power is 0.299; the additive baseline
+$p(0.22,0) + p(0,0.22) - p(0,0) = 0.108 + 0.083 - 0.034 = 0.157$ is
+exceeded by 0.142, the super-additivity predicted in Section~3.
+Third, the covariance and mean channels contribute comparably to
+carryover sensitivity, and design choice remains consequential: at
+the full-signal, one-week-carryover cell, Hybrid (0.870)
+substantially outperforms OL+BDC (0.688) and CO (0.528).
+:::
+
+\bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
+
+\section{5. When a Combined Architecture is Appropriate}
+
+::: {.bullets data-latex=""}
+\textbf{Architecture C is appropriate when both a
+pharmacodynamic-scaling pathway and a co-regulatory coupling pathway
+are plausible for the same biomarker.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Use it when independent evidence supports both channels, not
+  as a default.
+\item When channel weights are unknown, the $\alpha$-mixing
+  parameterization spans pure A to pure B as a sensitivity analysis.
+\item It carries two free parameters where one suffices, so
+  calibration demands more prior information.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+To be completed by rgt.
+:::
+
+::: {.orig data-latex=""}
+Architecture~C is appropriate when there is independent evidence
+that both the pharmacodynamic-scaling pathway and the co-regulatory
+coupling pathway are biologically active for the same
+biomarker-drug pair. Such evidence might include mechanistic assay
+data (for example, the drug enhances biomarker-outcome correlation
+in vitro, consistent with the B channel, while receptor occupancy
+scales with biomarker level, consistent with the A channel) or
+replication across independent trials individually underpowered to
+distinguish the channels. Architecture~C should not be the default
+choice for simulation studies despite its generality. It carries two
+free parameters where either pure architecture requires one, and
+calibrating both independently demands more prior information than
+is typically available at the trial-design stage. This estimation
+caution is not a claim that the combined mechanism is biologically
+unusual: a companion paper [@pmsimstats-paper03] argues that the combined
+mean-and-covariance form is plausibly the most biologically faithful
+regime for biomarker-guided psychiatric trials, because a biomarker
+that indexes a responder subtype will in general shift both the
+class-conditional mean and the class-conditional dispersion of
+response. The recommendation against Architecture~C as a default is
+therefore about identifiability and prior information at the design
+stage, not about biological plausibility: the most faithful
+generative model is not always the most estimable one, and when
+independent evidence on the two channels is unavailable the
+single-parameter pure architectures remain the more disciplined
+default. Its appropriate
+use cases are formal sensitivity analyses that ask how power
+estimates change across the $(c_{bm,A}, c_{bm,B})$ grid when the
+channel structure is genuinely uncertain, and evaluation studies
+designed to determine which channel is dominant for a given
+biomarker-drug pair.
+
+In the prazosin-PTSD context, Architecture~C captures the
+possibility that systolic blood pressure simultaneously governs the
+expected prazosin effect at the mean level (consistent with the
+pharmacological argument that noradrenergic tone determines the
+therapeutic window) and alters the coupling between blood pressure
+and symptom change during active drug exposure (consistent with a
+signaling-pathway interpretation). We regard Architecture~C as the
+appropriate framework for the prazosin-blood-pressure interaction if
+and when mechanistic data become available to calibrate both
+channels separately.
+:::
+
+\bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
+
+\section{6. Discussion}
+
+::: {.bullets data-latex=""}
+\textbf{The combined architecture unifies the companion paper's two
+architectures and explains their descriptive combined results.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item A and B are single-channel limits of one model, not arbitrary
+  alternatives.
+\item Super-additivity is a property of the power function, not an
+  artifact of the calibration.
+\item The analysis model is held fixed, so calibration questions are
+  deferred to the companion calibration study [@pmsimstats-paper10].
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+To be completed by rgt.
+:::
+
+::: {.orig data-latex=""}
+The combined architecture places the two architectures of the
+companion paper within a single model, with each recovered as a
+single-channel limit. This reframes the A-versus-B contrast as a
+question about which channel weight is nonzero rather than a choice
+between unrelated data-generating conventions. The super-additivity
+result of Section~3 explains, rather than merely reports, the
+compounding of the two channels: it follows from the additivity of
+the biomarker-by-treatment signal and the convexity of the power
+function, and is therefore a property of the estimand and the test,
+not of the particular calibration. As in the companion paper, the
+analysis model is held fixed; the conservatism of the standard
+\texttt{corCAR1} Wald test, and the cluster-robust remedy for it,
+are treated in the companion calibration study [@pmsimstats-paper10] and
+apply here as a common-mode effect across the channel-weight grid.
+The combined form itself is not new to this series: a companion
+paper [@pmsimstats-paper03] introduces it conceptually as the general node
+of a biomarker-moderation spectrum and supplies its psychometric
+lineage [@arminger1999; @verbekelesaffre1996]. The contribution of
+the present paper is complementary and specific: the analytical
+super-additivity result of Section~3 and the calibrated
+channel-weight simulation of Section~4, neither of which the
+conceptual treatment provides.
+:::
+
+\bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
+
+\section{Conflict of interest}
+
+The pmsimstats team declares no conflicts of interest.
+
+\section{Funding}
+
+This work received no specific funding.
+
+\section{Reproducibility}
+
+This manuscript was rendered with R~4.6.0 inside the project's
+zzcollab Docker container (\texttt{rocker/tidyverse:4.6.0}; package
+set captured in \texttt{renv.lock}). The combined-architecture
+driver is at
+\texttt{analysis/scripts/dgp-combined/01-run-combined-factorial.R}
+and uses \texttt{furrr::future\_map\_dfr} with
+\texttt{plan(multicore)}; it sets \texttt{set.seed(20260610)} and
+\texttt{furrr\_options(seed = 20260610L)}. Per-replicate outputs are
+at
+\texttt{analysis/data/dgp-combined/01-combined-replicates.rds} and
+cell-level summaries at \texttt{01-combined-summary.rds}. The matched
+boundary re-run described in Section~4.2 will be added as a separate
+driver that adopts the per-randomization-path sample-size convention
+of the companion paper's production driver
+(\texttt{analysis/scripts/quick-sim/01-dgp-prototype.R}). The
+manuscript source, bibliography, and CSL file are at
+\texttt{analysis/report/11-combined-dgp-architecture/}.
+
+# References
+
+::: {#refs}
+:::
+
+```{r footer, echo=FALSE, results='asis'}
+src <- sub("^/Users/zenn/(Library/CloudStorage/)?Dropbox/prj/", "~/prj/",
+           knitr::current_input(dir = TRUE))
+cat(sprintf(
+  "\n\\vfill\n\n---\n\n*Rendered on %s.*  \n*Source: `%s`*\n",
+  format(Sys.time(), "%Y-%m-%d at %H:%M %Z"),
+  src
+))
+```

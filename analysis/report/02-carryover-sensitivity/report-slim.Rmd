@@ -1,0 +1,2071 @@
+---
+title: "Choosing a carryover-mitigation analysis strategy for
+  biomarker-treatment interactions in aggregated N-of-1 trials:
+  a simulation-based tutorial and factorial evaluation"
+author: 'pmsimstats team'
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    toc: false
+    number_sections: true
+    keep_tex: true
+    highlight: tango
+    includes:
+      in_header: claudecode.tex
+fontsize: 11pt
+geometry: "left=2.4cm,right=2.4cm,top=2.2cm,bottom=2.2cm"
+bibliography: references.bib
+csl: statistics-in-medicine.csl
+link-citations: true
+header-includes:
+  - \usepackage{amsmath}
+  - \usepackage{amssymb}
+  - \usepackage{setspace}
+  - \setstretch{1.0}
+knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path(d, 'tools', 'stamp-render.R')) && d != dirname(d)) d <- dirname(d); source(file.path(d, 'tools', 'stamp-render.R'))$value(input) })
+---
+
+<!--
+  Build pipeline for this manuscript
+  ==================================
+
+  This Rmd does NOT run any simulation code. It loads pre-computed
+  summaries and figures produced by the scripts below. Re-run the
+  relevant steps when the DGP, analysis specs, or parameter grid
+  change. All paths are relative to the repo root.
+
+  1. Tier 1 principal factorial (heaviest step, ~85 min on 8 cores):
+       Rscript analysis/scripts/carryover-sensitivity/01-run-factorial.R
+     Writes: analysis/scripts/carryover-sensitivity/output/01-factorial.rds
+
+  2. Tier 2 sensitivity blocks S1..S5 (~4 min on 8 cores; requires
+     Tier 1 not to be running concurrently - both request all cores):
+       Rscript analysis/scripts/carryover-sensitivity/04-run-sensitivity-blocks.R
+     Writes: analysis/scripts/carryover-sensitivity/output/04-sensitivity.rds
+
+  3. Summarise both tiers into cell-level power/bias/convergence.
+     Step 3 is cheap (~seconds) and should be re-run after either 1
+     or 2 changes. It mirrors the summaries to analysis/data/:
+       Rscript analysis/scripts/carryover-sensitivity/02-summarise-grid.R
+     Writes:
+       analysis/data/02-grid-summary.rds        (from Tier 1)
+       analysis/data/02-sensitivity-summary.rds (from Tier 2, if present)
+
+  4. Render Tier 1 figures (reads 02-grid-summary.rds):
+       Rscript analysis/scripts/carryover-sensitivity/03-render-figures.R
+     Writes:
+       analysis/figures/02-power-by-spec.pdf
+       analysis/figures/02-heatmap-matched-vs-mismatched.pdf
+       analysis/figures/02-type1-boxplots.pdf
+
+  5. Render Tier 2 sensitivity figures (reads 02-sensitivity-summary.rds;
+     writes placeholder PDFs with "Pending Tier 2 production run" when
+     the summary is absent, so this manuscript always knits cleanly):
+       Rscript analysis/scripts/carryover-sensitivity/04-sensitivity-figures.R
+     Writes:
+       analysis/figures/02-sens-S1.pdf
+       analysis/figures/02-sens-S2.pdf
+       analysis/figures/02-sens-S3.pdf
+       analysis/figures/02-sens-S4.pdf
+       analysis/figures/02-sens-S5.pdf
+
+  5b. Sensitivity block S6 (cluster-robust recalibration; ~9 min on
+      8 cores; requires the clubSandwich package):
+       Rscript analysis/scripts/carryover-sensitivity/06-cr2-recalibration.R
+     Writes:
+       analysis/scripts/carryover-sensitivity/output/diag-s6-cr2.rds
+
+  6. Knit this Rmd (this step; ~1 min; no simulation code runs):
+       Rscript -e "rmarkdown::render('analysis/report/02-carryover-sensitivity/report.Rmd')"
+
+  Full-rebuild one-liner (after any change to the grid or DGP):
+    Rscript analysis/scripts/carryover-sensitivity/01-run-factorial.R && \
+    Rscript analysis/scripts/carryover-sensitivity/04-run-sensitivity-blocks.R && \
+    Rscript analysis/scripts/carryover-sensitivity/02-summarise-grid.R && \
+    Rscript analysis/scripts/carryover-sensitivity/03-render-figures.R && \
+    Rscript analysis/scripts/carryover-sensitivity/04-sensitivity-figures.R && \
+    Rscript -e "rmarkdown::render('analysis/report/02-carryover-sensitivity/report.Rmd')"
+
+  Grid design and rationale:
+    analysis/scripts/carryover-sensitivity/simulation-grid-plan.md
+-->
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.path = "../../figures/02-",
+  cache.path = "_cache/"
+)
+library(tibble)
+library(dplyr)
+library(knitr)
+```
+
+```{r source-helpers, eval = FALSE, include = FALSE}
+## Source the simulation helpers when you want to step through
+## the preliminary code interactively in RStudio (e.g., to inspect
+## the grid tibbles, rerun a single cell, or diagnose a failing
+## fit). Production runs go through the shell pipeline described
+## in the HTML comment at the top of this file; nothing in this
+## chunk is evaluated during knit.
+source(here::here('implementations/tidyverse/R/functions.R'))
+source(here::here(
+  'analysis/scripts/carryover-sensitivity/simulation-core.R'))
+```
+
+# Abstract {-}
+
+**Background.** Aggregated N-of-1 trials -- in which each
+participant is repeatedly crossed between treatment and control and
+many such single-patient series are pooled -- are an increasingly
+used design for validating predictive biomarkers, but they are
+unfamiliar to many applied statisticians. A recurring inferential
+target is the biomarker-treatment interaction, and a recurring
+nuisance is carryover: residual drug effect that decays after
+discontinuation and contaminates off-drug observations. The analyst
+must decide how to represent residual exposure in the linear
+predictor, yet the joint sensitivity of the interaction test to
+mis-specification at both the data-generating and analyst layers
+has not been characterized. This paper is written as a tutorial:
+we introduce the design and the modeling choices from first
+principles, then evaluate them.
+
+**Methods.** We compare three analysis-model specifications for the
+drug-exposure regressor: a binary on-drug indicator that ignores
+carryover (A1); an exposure-weighted continuous indicator that
+assumes a parametric decay and half-life (A2, the current default);
+and the binary indicator augmented by a lagged just-off-drug term
+(A3, the classical crossover device). We embed them in an
+ADEMP-structured factorial simulation [@morris2019simulation]
+crossing three data-generating process (DGP) decay forms (linear,
+exponential, Weibull) with the three specifications, under two
+biomarker data-generating architectures (mean moderation and
+multivariate-normal (MVN) differential correlation), three designs, two
+sample sizes, and three interaction strengths (540 cells, 500
+replicates each), plus single-axis sensitivity blocks and a
+cluster-robust recalibration. Every performance measure is reported
+with its Monte Carlo standard error (MCSE).
+
+**Results.** The exposure-weighted specification A2 does not
+dominate. It attains the highest power only under the differential-
+correlation architecture (B) and only in the two designs with a
+blinded-discontinuation phase, where its advantage over A1 is about
+10 percentage points (e.g.\ 0.860 vs 0.766 at the reference cell).
+Under the classical crossover design A2 is markedly inferior (0.488
+vs 0.830 for A1), and under the mean-moderation architecture (A) it
+is marginally dominated throughout; across the grid A2 is the
+most powerful specification in only 19% of cells. Where A2 does
+lead, the lead is robust to decay-form and half-life
+mis-specification. The model-based interaction test is mildly
+conservative (mean null rejection 0.039), an artefact of the
+working covariance that a CR2 cluster-robust standard error removes
+without disturbing the ranking.
+
+**Conclusions.** The widely-applied default "always use the
+exposure-weighted predictor" is only conditionally correct: it is
+justified under Architecture B with a discontinuation-phase design,
+where A2 with a cluster-robust standard error is recommended, but
+not under a crossover design or under mean moderation, where the
+simple binary specification is at least as powerful. Across all
+conditions, anticipated dropout governs power far more than the
+carryover specification, and should dominate design effort
+accordingly.
+
+# Introduction
+
+## A short primer on aggregated N-of-1 trials
+
+::: {.bullets data-latex=""}
+\textbf{Aggregated N-of-1 trials pool repeated within-patient
+on/off contrasts to validate predictive biomarkers at far smaller
+sample sizes than parallel-group trials.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item A single N-of-1 trial crosses one patient on and off treatment
+repeatedly; pooling many such series gives population-level
+inference.
+\item The estimand is the biomarker-treatment interaction:
+whether a baseline covariate $B_i$ modifies the treatment effect.
+\item Four designs (crossover (CO); open-label plus
+blinded-discontinuation (OL+BDC); Hybrid; pure open-label (OL))
+differ in how on- and off-drug occasions are arranged.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+We assume the reader is a fluent applied statistician but new to the
+N-of-1 setting, so we set out the design before the modeling. In a
+single N-of-1 trial one patient is repeatedly crossed between active
+treatment and a comparator (placebo or open-label control) over a
+sequence of measurement occasions; the within-patient on-versus-off
+contrast estimates that patient's individual treatment effect. An
+*aggregated* N-of-1 trial pools many such single-patient series in a
+mixed model, trading some within-patient resolution for
+population-level inference and far smaller sample sizes than a
+parallel-group trial [@hendrickson2020]. Such designs are
+increasingly proposed for *predictive biomarker validation*: the
+estimand of interest is the biomarker-treatment interaction,
+i.e.\ whether a baseline covariate $B_i$ modifies the treatment
+effect. We study four designs that differ in how on- and off-drug
+occasions are arranged: a classical crossover (CO), an open-label
+plus blinded-discontinuation design (OL+BDC), a Hybrid N-of-1
+design, and (as a null comparator) pure open-label; these are
+defined in §3.
+:::
+
+::: {.bullets data-latex=""}
+\textbf{Carryover -- residual drug effect that decays after
+discontinuation -- contaminates off-drug occasions and attenuates
+the interaction test.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item The drug effect fades over days to weeks rather than switching
+off, so off-drug occasions carry residual exposure.
+\item Treating them as cleanly off-drug mis-specifies the design
+matrix.
+\item We ask how much power is lost and whether a better analyst-side
+exposure representation recovers it.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The inferential nuisance specific to this setting is **carryover**.
+When the drug is discontinued its pharmacological effect does not
+switch off but decays over days to weeks, so off-drug occasions
+carry residual exposure. Treating them as cleanly off-drug
+mis-specifies the design matrix and attenuates the interaction test.
+Two questions follow -- how much power is lost, and can a better
+analyst-side representation of residual exposure recover it -- and
+both are the subject of this tutorial-style simulation study.
+:::
+
+## What is already known, and the gap
+
+::: {.bullets data-latex=""}
+\textbf{The companion paper shows the carryover penalty depends on
+how the biomarker effect is encoded: 1-3\% under mean moderation
+(A) versus roughly 31\% under differential correlation (B).}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Architecture A: the biomarker scales the mean effect, and the
+proportionality survives the off-drug period.
+\item Architecture B: the interaction lives in the covariance, which
+carryover erodes directly; the loss is design-dependent.
+\item Prior work fixed the decay shape and used one analysis
+specification, leaving the joint sensitivity uncharacterized.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+A companion paper [@pmsimstats_dgp_architectures2026], extending
+Hendrickson [-@hendrickson2020], shows that the magnitude of the
+carryover problem depends on *how the biomarker effect is encoded in
+the data-generating process*. Under **Architecture A** (direct mean
+moderation) the biomarker scales the mean treatment effect, the
+proportionality survives the off-drug period, and carryover costs only 1-3% of
+power. Under **Architecture B** (multivariate-normal differential
+correlation) the interaction lives in the treatment-state-dependent
+covariance, which carryover erodes directly, so the loss reaches
+roughly 31% and is strongly design-dependent. That work, however,
+fixed the decay shape at exponential and used a single analysis
+specification, leaving open the joint sensitivity of the inference
+to mis-specification at *both* layers.
+:::
+
+## This paper
+
+::: {.bullets data-latex=""}
+\textbf{We compare three analyst-side exposure representations --
+binary (A1), exposure-weighted (A2), and lagged-augmented (A3) --
+across decay forms and both architectures.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item A1 ignores carryover; A2 commits to a parametric decay and
+half-life; A3 estimates carryover non-parametrically via a lagged
+term.
+\item Each is crossed against three data-generating decay forms and
+both architectures.
+\item The question is whether one specification is recommendable or
+the choice is architecture- and design-dependent.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+We evaluate three analyst-side representations of drug exposure in
+the linear predictor: a binary on-drug indicator that ignores
+carryover (**A1**, the strict repeated-measures analogue); an
+exposure-weighted continuous indicator that commits to a parametric
+decay form and half-life (**A2**, the current default); and the
+binary indicator augmented by a lagged just-off-drug term that
+estimates carryover non-parametrically (**A3**, the classical
+crossover device of Jones and Kenward [-@jones2014crossover]). We
+cross these against three data-generating decay forms and both
+architectures, and ask whether a single specification can be
+recommended or whether the choice is architecture- and
+design-dependent.
+:::
+
+::: {.bullets data-latex=""}
+\textbf{The study is reported under the ADEMP framework with Monte
+Carlo standard errors throughout.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item ADEMP structure follows Morris, White, and Crowther.
+\item Every performance measure is accompanied by its MCSE.
+\item §3 design, §4 results, §5 practical implications.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The study follows the ADEMP reporting framework of Morris, White,
+and Crowther [-@morris2019simulation], with every performance
+measure accompanied by its MCSE. Section 3
+gives the simulation design in ADEMP order; Section 4 the results;
+Section 5 the practical implications for trialists choosing a
+carryover specification.
+:::
+
+# Simulation design
+
+::: {.bullets data-latex=""}
+\textbf{The simulation design is laid out in ADEMP order, with
+reproducibility metadata in §3.6.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item §3.1 data-generating mechanisms; §3.2 estimands; §3.3 methods.
+\item §3.4 factorial grid; §3.5 parameters and performance measures.
+\item §3.6 records R version, packages, seeds, and elapsed time.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+This section organizes the study under the ADEMP labels of
+Morris et al. [-@morris2019simulation]. We begin in §3.1 with the
+data-generating mechanisms, then turn in §3.2 to the estimands,
+§3.3 to the methods (analysis-model specifications), §3.4 to the
+factorial grid, and §3.5 to the parameter settings and performance
+measures. Reproducibility metadata, including the R version, key
+package versions, the RNG seed strategy, and elapsed time, are
+recorded in §3.6 (Computing environment).
+:::
+
+## Aims
+
+::: {.bullets data-latex=""}
+\textbf{The primary aim is to identify the most carryover-robust
+analysis specification; the secondary aim is to check that the
+ranking transfers across architectures.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Primary: quantify the cost of analysis-model carryover
+mis-specification and identify the most robust mitigation strategy.
+\item Secondary: verify the ranking is architecture-invariant (mean
+moderation versus differential correlation).
+\item Architecture-invariance would justify a single recommendation
+regardless of the assumed biomarker biology.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The primary aim of this study is to quantify the cost of
+analysis-model carryover mis-specification in aggregated N-of-1
+and crossover trials, and to identify which mitigation strategy
+is most robust across the DGP decay-form grid. A secondary aim
+is to verify that the robustness rankings transfer across the two
+data-generating-process architectures (mean moderation versus
+differential correlation), so that a practitioner can be
+reasonably confident that the recommendation does not depend on
+which biomarker biology is assumed.
+:::
+
+## Data-generating mechanisms
+
+::: {.bullets data-latex=""}
+\textbf{We retain the two single-channel architectures (A and B)
+from the companion; A encodes the interaction in the mean, B in the
+treatment-state-dependent correlation.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Architecture A: $Y_{it} = \mu_0 + \beta_1 D_{it}^{*}(1 +
+\beta_{bm} B_i) + \epsilon_{it}$, with $D_{it}^{*}$ the effective
+exposure under the decay form.
+\item Architecture B: $B_i$ and the response are jointly MVN with
+$\text{Cor}(B_i, BR_{it}) = c_{bm}\,\phi(t_{sd})$.
+\item The combined Architecture C is out of scope here.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+We retain the two single-channel DGP architectures from the
+companion manuscript. A separate companion manuscript formalizes a
+combined Architecture C, which activates both the mean-moderation
+and differential-correlation channels simultaneously; Architecture C
+is outside the scope of the present study, which evaluates the
+carryover specifications under each single-channel architecture in
+isolation. In Architecture A (direct mean moderation), the
+biomarker $B_i$
+enters the mean structure as
+$Y_{it} = \mu_0 + \beta_1 D_{it}^{*}(1 + \beta_{bm} B_i)
++ \epsilon_{it}$, where $D_{it}^{*}$ is the effective exposure at
+timepoint $t$ under the chosen decay form. In Architecture B
+(MVN differential correlation), the biomarker and biological
+response are jointly drawn from a multivariate normal with
+treatment-state-dependent correlation
+$\text{Cor}(B_i, BR_{it}) = c_{bm} \cdot \phi(t_{sd})$, where
+$\phi$ is the decay form.
+:::
+
+In both architectures the decay function $\phi : \mathbb{R}_+
+\to [0, 1]$ maps time since drug discontinuation $t_{sd}$ to a
+residual-effect multiplier. We evaluate three forms,
+each parameterized to match a common half-life $t_{1/2}$:
+
+### Linear decay
+
+$$
+\phi_{\text{lin}}(t_{sd}) =
+  \max\left(0,\, 1 - \frac{t_{sd}}{2 t_{1/2}}\right)
+$$
+
+::: {.bullets data-latex=""}
+\textbf{The linear form is biologically implausible but pragmatic
+when only a complete off-drug clearance time is known.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Residual effect reaches exactly zero at $t_{sd} = 2 t_{1/2}$.
+\item Inconsistent with first-order elimination kinetics.
+\item Encodes "carryover has fully cleared by a known time".
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+Residual effect vanishes completely at $t_{sd} = 2 t_{1/2}$.
+The linear form is biologically implausible for drugs with
+first-order elimination kinetics, but it represents a defensible
+pragmatic assumption when the only available information is that
+carryover has fully worn off by some specified time $X$.
+:::
+
+### Exponential decay
+
+$$
+\phi_{\text{exp}}(t_{sd}) =
+  \exp\left(-\lambda t_{sd}\right), \qquad
+  \lambda = \frac{\ln 2}{t_{1/2}}
+$$
+
+::: {.bullets data-latex=""}
+\textbf{The exponential form is the natural reference because it
+corresponds to first-order elimination kinetics.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Used throughout the companion manuscript and the software
+default.
+\item Corresponds to classical pharmacokinetic first-order
+elimination.
+\item Serves as the reference against which linear and Weibull are
+compared.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+This is the form used throughout the companion manuscript and
+currently implemented in `implementations/tidyverse/R/functions.R`.
+It corresponds to first-order elimination kinetics and is the
+default assumption in classical pharmacokinetics; we retain it
+here as the natural reference against which the linear and Weibull
+forms are compared.
+:::
+
+### Weibull decay
+
+$$
+\phi_{\text{weib}}(t_{sd}) =
+  \exp\left(-\left(\lambda_w t_{sd}\right)^{k}\right), \qquad
+  \lambda_w = \frac{(\ln 2)^{1/k}}{t_{1/2}}
+$$
+
+::: {.bullets data-latex=""}
+\textbf{The Weibull shape $k$ tunes whether the elimination tail is
+heavier or lighter than exponential.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item $k < 1$ (evaluated at 0.7): prolonged low-concentration tail.
+\item $k > 1$ (evaluated at 1.5): accelerated, saturable-clearance
+off-drug elimination.
+\item $k = 1$ recovers the exponential form exactly.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+A shape parameter $k$ governs whether the elimination tail is
+heavier ($k < 1$, slow elimination) or lighter ($k > 1$,
+accelerated off-drug clearance) than the exponential, which is recovered
+exactly at $k = 1$. We report results at $k = 0.7$, representing
+a drug with a prolonged low-concentration tail, and at $k = 1.5$,
+which captures drugs with saturable clearance or active-transporter
+kinetics that clear more rapidly once the concentration falls below
+the saturation threshold.
+:::
+
+::: {.bullets data-latex=""}
+\textbf{All three decay forms are implemented in the tidyverse
+collection, with exponential as the backward-compatible default.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item A \texttt{carryover\_form}/\texttt{weibull\_shape} pair is
+plumbed through the sigma-construction helpers.
+\item Absent \texttt{carryover\_form} defaults to exponential.
+\item The \texttt{original-extended} collection supports only
+exponential, so cross-implementation checks are limited to those
+cells.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+**Implementation note.** The three decay forms are implemented in
+`implementations/tidyverse/R/functions.R` via the
+\texttt{carryover\_decay()} helper function, with a \texttt{carryover\_form} and
+\texttt{weibull\_shape} pair of \texttt{model\_param} fields plumbed through
+\texttt{apply\_carryover\_to\_component()}, \texttt{build\_correlation\_matrix()},
+and \texttt{build\_sigma\_matrix()}. Backward compatibility is preserved
+by defaulting to the exponential form when \texttt{carryover\_form} is
+absent. We note that the `implementations/original-extended/`
+collection has not been updated and supports only the exponential
+form; cross-validation across implementations is therefore
+limited to exponential cells, which is sufficient for pipeline
+verification but not for the full decay-form comparison.
+:::
+
+## Estimands
+
+The target estimand is the population-level biomarker-treatment
+interaction. It takes a different parametric form under the two
+data-generating mechanisms:
+
+- **Architecture A.** The interaction estimand is the regression
+  coefficient $\beta_{bm}$ on the centered biomarker $\times$
+  drug-exposure product, on the symptom scale.
+- **Architecture B.** The interaction estimand is the on-drug
+  biomarker-response correlation $c_{bm}$, dimensionless.
+
+::: {.bullets data-latex=""}
+\textbf{The two architectures' estimands are non-commensurable, so
+both are calibrated to a common effect-size scale.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Common scale: expected on-drug response difference per SD of
+biomarker at $t_{1/2} = 0$ (derivation in docs/19).
+\item Bias and empirical SE are reported on this calibrated scale.
+\item Power and Type I error are reported on the native
+test-statistic scale.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The two estimands are not directly commensurable. To enable
+cross-architecture comparison of bias and power, we calibrate
+both architectures to a common population effect-size scale,
+defined as the expected difference in mean on-drug response per
+unit biomarker standard deviation at $t_{1/2} = 0$. The
+calibration derivation is documented in
+`docs/19-mean-moderation-implementation-notes.tex`. Bias and
+empirical standard error in the Results section are reported on
+this calibrated scale; power and Type I error are reported on
+the native test-statistic scale.
+:::
+
+::: {.bullets data-latex=""}
+\textbf{The null estimand for Type I verification is zero
+interaction, realized by the $c_{bm} = 0$ grid row.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item $\beta_{bm} = 0$ under Architecture A.
+\item $c_{bm} = 0$ under Architecture B.
+\item Both correspond to the $c_{bm} = 0$ row of the grid.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The null estimand for Type I error verification is
+$\beta_{bm} = 0$ under Architecture A and $c_{bm} = 0$ under
+Architecture B, each realized by the $c_{bm} = 0$ row of the
+parameter grid.
+:::
+
+## Methods: analysis-model carryover specifications
+
+::: {.bullets data-latex=""}
+\textbf{All three specifications share one \texttt{lme}/\texttt{corCAR1}
+model and differ only in the drug-exposure regressor $X$.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Formula \texttt{Sx \textasciitilde{} bm * X + t}, random
+intercept by participant.
+\item \texttt{corCAR1} continuous-time AR(1) residual correlation.
+\item A1, A2, A3 differ only in how $X$ is constructed.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The analysis model is `nlme::lme(Sx ~ bm * X + t, random = ~1
+| ptID, correlation = corCAR1(form = ~ t | ptID))` for all
+specifications. The three specifications differ in the drug
+exposure predictor $X$:
+:::
+
+### A1: binary-treatment (carryover ignored)
+
+::: {.bullets data-latex=""}
+\textbf{A1 uses the binary on-drug indicator and ignores carryover,
+serving as the dominated reference.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item $X = D_{it}$: 1 on-drug, 0 off-drug.
+\item Models no residual drug effect during the off-drug period.
+\item Measures the power cost of ignoring carryover.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+$X = D_{it}$, the on-drug indicator. This is the naive
+specification that disregards any residual drug effect during
+the off-drug period; it serves as the reference against which the power cost
+of ignoring carryover is measured.
+:::
+
+### A2: exposure-weighted (continuous predictor)
+
+::: {.bullets data-latex=""}
+\textbf{A2 uses a continuous exposure-weighted predictor committing
+to an assumed decay form and half-life; it is the current default.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item $X = \text{Dbc}_{it}$: decays off-drug per the assumed form.
+\item Well-matched when the assumed form equals the true form.
+\item Mis-specification sensitivity is probed in block S2.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+$X = \text{Dbc}_{it}$, the continuous exposure-decayed predictor
+constructed to match the analyst's assumed decay form and
+half-life. This is the current pmsimstats-ng default
+specification. When the analyst's assumed form coincides with the
+true DGP form the predictor is well-matched; when it does not,
+the predictor is mis-specified in a way that the Tier 2 block S2
+is designed to probe.
+:::
+
+### A3: lagged-treatment (estimated carryover term)
+
+::: {.bullets data-latex=""}
+\textbf{A3 adds a lagged just-off-drug term but, because that term
+is only a nuisance main effect, it is structurally A1 plus a
+control variable.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item $L_{it} = D_{i,t-1}(1 - D_{it})$ flags off-drug timepoints
+following on-drug ones; no decay form is assumed.
+\item The tested interaction remains $\text{bm:}D_{it}$, identical
+to A1.
+\item A3 therefore differs from A1 only through variance $L$
+absorbs, and the two are expected to track closely.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+$X = D_{it}$ augmented with a lagged-treatment indicator
+$L_{it} = D_{i,t-1}(1 - D_{it})$ that marks off-drug timepoints
+following an on-drug timepoint. The carryover magnitude is
+estimated from the data rather than assumed a priori, so the
+specification does not require the analyst to posit a functional
+decay form. This approach follows the classical crossover-trial
+framework surveyed in [@jones2014crossover]. We note one structural
+feature of this specification that bears on its interpretation: the
+lagged term $L_{it}$ enters the model only as a main-effect
+nuisance covariate, and the biomarker interaction tested under A3
+remains $\text{bm:}D_{it}$, the same coefficient as under A1.
+Consequently A3 differs from A1 only through the variance that
+$L_{it}$ absorbs in the off-drug timepoints, and the two
+specifications are expected to track closely; A3 is best understood
+as A1 with a carryover nuisance control rather than as a
+fundamentally different interaction model.
+:::
+
+### Construction of $D_{bc}$ and the role of the analyst's assumed half-life
+
+::: {.bullets data-latex=""}
+\textbf{The analyst's assumed half-life never appears in the
+\texttt{lme} call; it is baked into the $D_{bc}$ column beforehand.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item $\hat{t}_{1/2}$ is not a model parameter.
+\item It enters when the $D_{bc}$ predictor column is constructed.
+\item It is thereafter invisible to the fitting routine.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+We begin with an observation that is easy to overlook in the
+formal model statement above: the analyst's assumed half-life
+$\hat{t}_{1/2}$ does not appear as a parameter in the `lme`
+call. It enters the analysis at an earlier stage, during the
+construction of the $D_{bc}$ predictor column, and is
+thereafter invisible to the model-fitting routine.
+:::
+
+At on-drug timepoints, $D_{bc,it} = 1$ regardless of the assumed
+half-life. At off-drug timepoints, the predictor decays as a
+function of $t_{sd}$, the time in weeks since drug
+discontinuation:
+
+$$
+D_{bc,it} \;=\; \exp\!\left(-\frac{\ln 2}{\hat{t}_{1/2}}
+  \, t_{sd,it}\right)
+  \;=\; \left(\tfrac{1}{2}\right)^{t_{sd,it}/\hat{t}_{1/2}}
+$$
+
+::: {.bullets data-latex=""}
+\textbf{$D_{bc}$ halves every $\hat{t}_{1/2}$ weeks off-drug; the
+formula is invariant to the assumed half-life.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item $D_{bc} = (1/2)^{t_{sd}/\hat{t}_{1/2}}$ at off-drug
+timepoints.
+\item The formula \texttt{Sx \textasciitilde{} bm + t + Dbc + bm:Dbc}
+is unchanged for any $\hat{t}_{1/2}$.
+\item The half-life lives in the predictor values, not the formula.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+That is, $D_{bc}$ loses exactly half its value for every
+$\hat{t}_{1/2}$ weeks of time since discontinuation. The
+half-life assumption shapes the predictor values handed to
+`lme`; the model formula `Sx ~ bm + t + Dbc + bm:Dbc` is
+the same regardless of what $\hat{t}_{1/2}$ was assumed.
+:::
+
+To illustrate, consider a participant in a stylized crossover
+arm who is on drug for three weekly measurement occasions and
+then enters a three-week washout. Table~\@ref(tab:toy-dbc)
+shows the $D_{bc}$ values at the three off-drug timepoints
+under three analyst assumptions, holding the true DGP
+half-life fixed at one week.
+
+```{r toy-dbc, echo = FALSE}
+toy <- tibble::tribble(
+  ~`$t_{sd}$ (wk)`,
+    ~`$\\hat{t}_{1/2} = 0.5$ wk`,
+    ~`$\\hat{t}_{1/2} = 1.0$ wk (truth)`,
+    ~`$\\hat{t}_{1/2} = 2.0$ wk`,
+  "1",  "0.250",  "0.500",  "0.707",
+  "2",  "0.063",  "0.250",  "0.500",
+  "3",  "0.016",  "0.125",  "0.354"
+)
+knitr::kable(
+  toy, booktabs = TRUE, escape = FALSE,
+  caption = paste0(
+    'Illustrative $D_{bc}$ values at three off-drug timepoints ',
+    'under three analyst-assumed half-lives, exponential decay, ',
+    'true $t_{1/2} = 1.0$ week. ',
+    'On-drug timepoints have $D_{bc} = 1$ under all assumptions. ',
+    'Row values are $(1/2)^{t_{sd}/\\hat{t}_{1/2}}$.'
+  )
+)
+```
+
+::: {.bullets data-latex=""}
+\textbf{The assumed half-life sets how much weight off-drug
+timepoints carry: near-zero if under-assumed, near-graded-on-drug
+if over-assumed.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item $\hat{t}_{1/2} = 0.5$: off-drug points contribute almost
+nothing to \texttt{bm:Dbc}.
+\item $\hat{t}_{1/2} = 2.0$: off-drug points keep substantial
+weight, so $D_{bc}$ resembles a graded on-drug indicator.
+\item On-drug observations ($D_{bc} = 1$) are unaffected either way.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+When the analyst assumes $\hat{t}_{1/2} = 0.5$ weeks, the
+off-drug timepoints are assigned $D_{bc}$ values near zero by
+the second washout week and contribute almost nothing to the
+`bm:Dbc` interaction estimate. When the analyst assumes
+$\hat{t}_{1/2} = 2.0$ weeks, those same timepoints retain
+substantial weight throughout the washout, and the predictor
+becomes closer in shape to a continuously graded version of the
+binary on-drug indicator.
+:::
+
+::: {.bullets data-latex=""}
+\textbf{S2 is therefore not a well-versus-mis-specified contrast
+but one continuously-indexed model family against two half-life-free
+references.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item A2 is effectively a different model for each $\hat{t}_{1/2}$.
+\item The mis-specification risk falls entirely on off-drug points.
+\item A1 and A3 carry no half-life parameter, so they are invariant
+to $\hat{t}_{1/2}$ by construction.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+Two consequences follow for interpreting the S2 sensitivity
+block. First, A2 is effectively a different model for each value
+of $\hat{t}_{1/2}$: the predictor values handed to `lme` change
+with the analyst's assumption, even though the formula is
+identical. Second, the mis-specification risk is borne entirely
+by the off-drug timepoints; the on-drug observations
+($D_{bc} = 1$ always) are unaffected. Specifications A1 and A3
+use the binary on-drug indicator $D_b$ and the lagged indicator
+$L$ respectively, neither of which involves a half-life
+parameter, so both are invariant to $\hat{t}_{1/2}$ by
+construction. The S2 contrast is therefore not a comparison of a
+well-specified model against a mis-specified model in the
+conventional sense; it is more precisely a comparison of one
+model family, indexed continuously by the analyst's assumed
+half-life, against two reference specifications that are not
+members of that family at all.
+:::
+
+## Factorial grid
+
+The principal comparison is a $3 \times 3$ factorial of DGP
+decay form against analysis-model specification, replicated
+under each DGP architecture:
+
+```{r grid-table}
+grid <- tibble::tribble(
+  ~`DGP decay`,   ~`A1 binary`, ~`A2 exposure-weighted`, ~`A3 lagged-treatment`,
+  "Linear",       "cell 1",     "cell 2",                "cell 3",
+  "Exponential",  "cell 4",     "cell 5 (matched)",      "cell 6",
+  "Weibull",      "cell 7",     "cell 8",                "cell 9"
+)
+knitr::kable(
+  grid,
+  caption = "Principal $3 \\times 3$ simulation grid. Cell 5 is the
+    matched reference: exponential DGP analyzed under the current
+    pmsimstats-ng default. Off-diagonal cells quantify the cost of
+    DGP-analysis mis-specification. The full grid is crossed with
+    Architecture $\\in \\{A, B\\}$."
+)
+```
+
+## Parameter settings
+
+| Parameter | Values |
+|---|---|
+| Biomarker moderation ($c_{bm}$ / $\beta_{bm}$) | 0.0, 0.30, 0.45 |
+| Carryover half-life ($t_{1/2}$) | 0.0, 0.5, 1.0 weeks |
+| Weibull shape ($k$) | 0.7, 1.0, 1.5 (Weibull form only) |
+| Sample size ($N$) | 35, 70 |
+| Trial design | CO, N-of-1 (Hybrid), OL+BDC |
+| DGP architecture | A, B |
+| Replicates per cell | 500 (target); 50 for development |
+
+::: {.bullets data-latex=""}
+\textbf{The 540-cell count nests the Weibull shape inside the
+Weibull form rather than crossing it with all decay forms.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Five decay-shape levels: linear, exponential, Weibull at
+$k \in \{0.7, 1.0, 1.5\}$.
+\item Grid $= 5 \times 3 \times 3 \times 2 \times 2 \times 3 = 540$
+(decay-shape, half-life, design, $N$, architecture, biomarker).
+\item Crossing three forms with three shapes would over-count.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The 540-cell count follows from these factors with one coupling: the
+Weibull shape varies only within the Weibull decay form, because the
+linear and exponential forms carry no shape parameter. The decay-form
+and shape combinations therefore number five (linear; exponential;
+Weibull at $k \in \{0.7, 1.0, 1.5\}$), and the principal grid is
+$5 \times 3 \times 3 \times 2 \times 2 \times 3 = 540$ cells
+(decay-shape $\times$ half-life $\times$ design $\times$ sample size
+$\times$ architecture $\times$ biomarker level). A naive product that
+crossed the three decay forms with three shapes would over-count; the
+shape factor is nested within the Weibull form, not crossed with all
+three.
+:::
+
+::: {.bullets data-latex=""}
+\textbf{Two anchor conditions serve diagnostic roles: $c_{bm} = 0$
+for Type I error and $t_{1/2} = 0$ for best-case power.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item $c_{bm} = 0$: null row, targeting nominal 5\%.
+\item $t_{1/2} = 0$: no-carryover, best-case power reference.
+\item Non-zero $t_{1/2}$ rows give the power cost of carryover
+relative to that reference.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The $c_{bm} = 0$ condition serves as the Type I error check,
+targeting the nominal 5% level. The $t_{1/2} = 0$ condition
+removes carryover entirely and provides a best-case power
+reference at each $(N, \text{design}, c_{bm})$ combination,
+against which the power cost of non-zero carryover can be
+directly read off.
+:::
+
+## Performance measures
+
+For each cell we report the following Morris-style performance
+measures [@morris2019simulation, Tables 5--6]:
+
+1. **Power** to reject $H_0: \beta_{\text{bm:X}} = 0$ at
+   $\alpha = 0.05$.
+2. **Type I error** at the null estimand ($c_{bm} = 0$ row).
+3. **Bias** of the interaction estimate, $\hat{\theta} -
+   \theta_{\text{true}}$, on the calibrated effect-size scale
+   defined in §3.2.
+4. **Empirical SE** across replicates within each cell.
+5. **Coverage** of the nominal 95% Wald confidence interval for
+   the interaction coefficient, computed against the calibrated
+   estimand
+   ($\theta_{\text{true}} = -c_{bm} \cdot \sigma_{BR}$).
+6. **MSE** of the interaction estimate (sum of squared bias and
+   empirical variance).
+7. **Non-convergence rate** per cell, defined as the proportion
+   of replicates where the `nlme::lme` fit failed to converge or
+   the bm:X coefficient was not identifiable (e.g.\ A1 on OL
+   designs, where there are no off-drug observations).
+8. **MCSE** for each of the above, computed using the
+   formulas of Morris et al. [-@morris2019simulation, Table 6]
+   and reported alongside every point estimate in tables and
+   figures.
+
+::: {.bullets data-latex=""}
+\textbf{$n_{sim} = 500$ keeps the MCSE on power below 0.022; the
+50-replicate scale is for pipeline validation only.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Production: $n_{sim} = 500$, MCSE $\leq 0.022$ at $p = 0.5$.
+\item Development: $n_{sim} = 50$, MCSE $\approx 0.07$.
+\item All reported results use the production run.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The replicate count $n_{sim} = 500$ is chosen so that the Monte
+Carlo standard error on power at $p = 0.5$ does not exceed 0.022
+($\sqrt{0.5 \cdot 0.5 / 500} \approx 0.022$). The development
+scale ($n_{sim} = 50$, MCSE $\approx 0.07$ at $p = 0.5$) is
+used only for pipeline validation; all results reported in the
+Results section derive from the production run at $n_{sim} = 500$.
+:::
+
+## Computing environment
+
+::: {.bullets data-latex=""}
+\textbf{Common random numbers across the three specifications
+within each cell enable paired contrasts.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item The tidyverse implementation (the only one with all decay
+forms) is used, with \texttt{nlme} for the fits.
+\item All three methods see the \emph{same} datasets per cell, so
+A2-vs-A1 can be compared trial by trial (a paired test).
+\item Pre-registered 540-cell run, about two hours on eight cores.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The simulations use the `tidyverse` implementation in the
+pmsimstats-ng repository (the only one supporting all three decay
+forms), with `nlme` for the mixed-model fits. One detail matters
+for reading the results: within each cell, all three methods are
+fitted to the *same* simulated datasets (common random numbers).
+This is why we can later compare A2 and A1 with a *paired* test --
+each trial gives one result for each method, so we compare them
+trial by trial rather than as two independent groups. The full run
+(540 cells $\times$ 500 trials) took about two hours on eight
+cores; the grid was pre-registered before running.
+:::
+
+# Results
+
+::: {.bullets data-latex=""}
+\textbf{All results come from the 540-cell production run; MCSE on
+power is at most 0.022, so smaller differences are noise.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item 500 replicates per cell; MCSE $\leq \sqrt{0.25/500} \approx
+0.022$ at $p = 0.5$, reported alongside each estimate.
+\item Coverage is shown for the reference cell and computed
+grid-wide.
+\item Per-cell non-convergence rates are reported in the tables.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+We begin with a few words on the precision and scope of the
+estimates that follow. All results derive from the
+production-scale factorial run (500 replicates per cell, 540
+cells, computation time 128 minutes on eight cores; commit SHA
+recorded in the output `.rds` metadata). Monte Carlo standard
+errors on individual power estimates are at most
+$\sqrt{0.5 \cdot 0.5 / 500} \approx 0.022$ at $p = 0.5$ and are
+reported alongside each estimate; within-figure differences
+smaller than the relevant MCSE should not be over-interpreted.
+Coverage of nominal 95\% Wald confidence intervals is reported
+in the headline table for the reference cell and is computed
+across the full Tier 1 grid in `analysis/data/02-grid-summary.rds`
+for downstream use. Non-convergence rates per cell are reported
+in the tables below.
+:::
+
+## Headline performance table {#sec-headline}
+
+::: {.bullets data-latex=""}
+\textbf{The headline table profiles the reference cell, but only
+power and Type I error are comparable across specifications.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Reference cell: Architecture B, exponential DGP, Hybrid,
+$N = 70$, $c_{bm} = 0.45$; non-convergence zero throughout.
+\item Bias/MSE/coverage are scored against A2's target
+$\theta_{\text{true}} = -c_{bm}\sigma_{BR} = -3.6$, but A1/A3
+estimate a different coefficient ($\text{bm:}D_{it}$).
+\item So A1/A3's apparent bias and under-coverage are an
+estimand mismatch, not estimator defects; compare only power and
+Type I error across specs.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+Table \@ref(tab:headline) reports the Morris-style performance
+measures at the reference cell (Architecture B, exponential DGP,
+Hybrid design, $N = 70$, $c_{bm} = 0.45$) across the three
+analysis specifications and three carryover half-lives.
+Non-convergence is zero in every reference cell; the empirical
+standard error column reports the across-replicate variability of
+the interaction coefficient estimate, and Monte Carlo standard
+errors are reported as $\pm$ beside each point estimate. One
+caveat applies to the bias, MSE, and coverage columns: these are
+computed against a single calibrated target,
+$\theta_{\text{true}} = -c_{bm} \cdot \sigma_{BR} = -3.6$, which is
+the population value of the A2 (continuous-$D_{bc}$) interaction
+coefficient. Specifications A1 and A3 estimate the coefficient on
+$\text{bm:}D_{it}$, a different parameter, so their apparent bias
+and under-coverage in this table reflect the mismatch between their
+estimand and A2's target rather than a defect of the A1/A3
+estimators. The bias, MSE, and coverage columns are therefore not
+directly comparable across specifications; only power and Type I
+error, which test each specification's own coefficient against
+zero, support a like-for-like comparison.
+:::
+
+```{r headline, echo = FALSE}
+suppressPackageStartupMessages({library(dplyr)})
+hd <- readRDS(here::here(
+  'analysis/data/02-grid-summary.rds'))$summary |>
+  filter(carryover_form == 'exponential', dgp_arch == 'mvn',
+         design == 'Hybrid', N == 70, c_bm == 0.45) |>
+  mutate(
+    `t1/2` = t1half,
+    `Power (MC SE)` = sprintf('%.3f (%.3f)', power, mc_se_power),
+    `Bias (MC SE)` = sprintf('%+.3f (%.3f)', bias, mc_se_bias),
+    `Empirical SE` = sprintf('%.3f', empirical_se),
+    `Coverage (MC SE)` = sprintf('%.3f (%.3f)',
+                                  coverage, mc_se_coverage),
+    `MSE (MC SE)` = sprintf('%.3f (%.3f)', mse, mc_se_mse),
+    `Non-conv` = sprintf('%.3f', non_convergence_rate)
+  ) |>
+  arrange(`t1/2`, spec) |>
+  select(`t1/2`, spec, `Power (MC SE)`, `Bias (MC SE)`,
+         `Empirical SE`, `Coverage (MC SE)`, `MSE (MC SE)`,
+         `Non-conv`)
+
+knitr::kable(
+  hd, booktabs = TRUE,
+  caption = 'Headline performance at the reference cell
+    (Architecture B, exponential DGP, Hybrid design, $N = 70$,
+    $c_{bm} = 0.45$, $n_{sim} = 500$). Power is the rejection
+    rate of $H_0: \\beta_{bm:X} = 0$ at $\\alpha = 0.05$.
+    Bias is on the calibrated effect-size scale,
+    $\\theta_{\\text{true}} = -c_{bm} \\cdot \\sigma_{BR} = -3.6$
+    (per docs/19 calibration). Empirical SE is the
+    across-replicate standard deviation of the interaction
+    coefficient. MSE is the sum of squared bias and empirical
+    variance. MCSEs are reported per Morris et al.
+    (2019, Table 6). Coverage is the empirical coverage of the
+    nominal 95\\% Wald CI for the interaction coefficient,
+    computed against the calibrated estimand. Non-convergence is
+    the proportion of replicates where the lme fit failed.'
+)
+```
+
+## Matched-decay baseline
+
+::: {.bullets data-latex=""}
+\textbf{The matched-decay baseline shows A2 power declining from
+0.988 to 0.860 as carryover grows, reproducing Hendrickson's 0.82.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Matched cell (exp DGP, A2, Architecture B, $N = 70$,
+$c_{bm} = 0.45$, Hybrid): $0.988 \to 0.948 \to 0.860$ across
+$t_{1/2} \in \{0, 0.5, 1.0\}$.
+\item All 500 replicates converged at every $t_{1/2}$.
+\item The $t_{1/2} = 1.0$ value matches Hendrickson's reported 0.82,
+confirming pipeline fidelity.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+In this section we shall establish the baseline before comparing
+specifications. Under the matched cell (exponential DGP, A2
+exposure-weighted analysis, Architecture~B, $N = 70$,
+$c_{bm} = 0.45$, Hybrid design), power declines from
+$0.988 \pm 0.005$ at $t_{1/2} = 0$ to $0.948 \pm 0.010$ at
+$t_{1/2} = 0.5$ to $0.860 \pm 0.016$ at $t_{1/2} = 1.0$ weeks
+(point estimate $\pm$ MCSE, $n_{sim} = 500$; MCSEs
+computed as $\sqrt{\hat{p}(1-\hat{p})/n_{sim}}$ per Morris et
+al. [-@morris2019simulation, Table 6]). All 500 replicates
+converged in the matched cell at every $t_{1/2}$. The value at
+$t_{1/2} = 1.0$ is consistent with Hendrickson's reported power of
+0.82 for this cell [@hendrickson2020], confirming that the
+simulation pipeline reproduces the baseline result and that the
+calibration is internally coherent. (The companion manuscript
+anchors at a different cell, $N = 35$ with the OL+BDC design, and
+is therefore not directly comparable here.)
+:::
+
+## Power by analysis specification
+
+```{r fig-power-by-spec, echo = FALSE, fig.cap = "Power versus carryover half-life under the exponential DGP, stratified by analysis specification. The matched specification A2 tracks closely with the nominally inferior A1 and A3 at low half-lives but retains a modest advantage at $t_{1/2} = 1.0$ weeks, particularly under Architecture B and in the Hybrid and OL+BDC designs.", out.width = "90%"}
+knitr::include_graphics("../../figures/02-power-by-spec.pdf")
+```
+
+::: {.bullets data-latex=""}
+\textbf{Specifications coincide at zero carryover and diverge as it
+grows, but A2's lead is confined to Architecture B's non-crossover
+designs.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item All three are near-identical at $t_{1/2} = 0$.
+\item A2's advantage emerges at $t_{1/2} = 0.5$ and grows under
+Architecture B in the Hybrid and OL+BDC designs; A1 and A3 are
+indistinguishable.
+\item The advantage does not appear under the CO design (where A2 is
+dominated) or under Architecture A.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The three analysis specifications yield near-identical power at
+$t_{1/2} = 0$, where there is no carryover to model, and diverge
+progressively as carryover half-life increases. The matched
+specification A2 retains a modest but consistent advantage
+specifically under Architecture~B in the Hybrid and OL+BDC designs,
+where the advantage emerges at $t_{1/2} = 0.5$ weeks and grows
+through $t_{1/2} = 1.0$ weeks; A1 and A3 are effectively
+indistinguishable. This advantage is confined to those strata: it
+does not appear under the crossover (CO) design, where A2 is in
+fact dominated (Section 5), nor under Architecture~A. The figure
+therefore shows that the A2 advantage, where present, is not an
+artefact of the single reference cell, not that it holds
+everywhere.
+:::
+
+## Decay-form mis-specification
+
+```{r fig-heatmap-mismatch, echo = FALSE, fig.cap = "Power at the critical cell ($t_{1/2} = 1.0$ weeks, Architecture B, Hybrid design, $N = 70$, $c_{bm} = 0.45$) across DGP decay forms (rows) and analysis specifications (columns). Under the Weibull heavy-tailed DGP ($k = 0.7$) and the linear DGP, the exposure-weighted (A2) specification loses its advantage because its assumed exponential decay no longer matches truth.", out.width = "70%"}
+knitr::include_graphics("../../figures/02-heatmap-matched-vs-mismatched.pdf")
+```
+
+::: {.bullets data-latex=""}
+\textbf{The heatmap separates two mis-specification directions:
+wrong analysis given the DGP, and wrong assumed DGP.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Matched reference (exp DGP $\times$ A2): power
+$0.860 \pm 0.016$.
+\item Same row, other columns: penalty of A1/A3 under an exponential
+DGP.
+\item A2 column, other rows: cost of assuming exponential when the
+truth is linear or Weibull.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The heatmap cell at the intersection of the exponential DGP row
+and the A2 analysis column is the matched reference
+(power $0.860 \pm 0.016$). Cells in the same row but other
+columns quantify the power penalty of analyzing under the wrong
+specification when the DGP is exponential; cells in the A2 column
+but other rows quantify the cost of assuming exponential decay
+in the analysis when the true DGP is linear or Weibull. The
+Discussion (Section 5) takes up the practical interpretation of
+both off-diagonal directions.
+:::
+
+## Type I error control
+
+```{r fig-type1, echo = FALSE, fig.cap = "Empirical Type I error rates under the null ($c_{bm} = 0$), pooled across DGP decay forms and carryover half-lives, stratified by design and analysis specification. Boxplots cover the distribution across cells at $N = 70$; the dashed reference line marks the nominal 0.05 level.", out.width = "95%"}
+knitr::include_graphics("../../figures/02-type1-boxplots.pdf")
+```
+
+::: {.bullets data-latex=""}
+\textbf{Type I error is conservative (mean 0.039), reflecting the
+corCAR1 working-covariance conservatism rather than inflation.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Mean 0.039 across 540 null cells; cell maximum 0.084,
+unremarkable under grid multiplicity (cells are not independent).
+\item No specification or architecture inflates the rate above
+nominal.
+\item The companion study traces the shortfall to a 6-10\%
+over-estimated SE; block S6's CR2 restores nominal size without
+changing the ranking.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+Mean empirical Type I error across all 540 null cells is 0.039,
+below the nominal 0.05 level. The cell-level maximum is 0.084. This
+exceeds the single-cell binomial 95% interval $[0.031, 0.069]$ for
+nominal 0.05 at $n_{sim} = 500$, but is unremarkable once
+multiplicity over the grid is acknowledged. We do not invoke an
+exact maximum-order-statistic bound here, because the cells are not
+independent: the three specifications within a cell share common
+random numbers, and at $t_{1/2} = 0$ the decay-form cells coincide.
+The qualitative reading is unaffected -- no specification or
+architecture inflates the rate above nominal, and the central
+tendency is, if anything, conservative. That shortfall below
+nominal is not sampling slack but the conservatism of the
+model-based
+interaction test that the companion calibration study
+[@pmsimstats_calibration2026] traces to the corCAR1 working
+covariance: its standard error is over-estimated by six to ten
+percent and the realized rejection rate falls correspondingly.
+The conservatism is uniform across specifications and
+architectures, which is why it leaves the comparison intact;
+sensitivity block S6 confirms that a CR2 cluster-robust standard
+error restores the rejection rate to nominal without disturbing
+the specification ranking. Table \@ref(tab:tab-type1-cr2) makes the
+per-specification conservatism and its cluster-robust correction
+explicit at the null cell.
+:::
+
+```{r tab-type1-cr2, echo = FALSE}
+suppressPackageStartupMessages(library(dplyr))
+t1 <- readRDS(here::here(
+  'analysis/scripts/carryover-sensitivity/output/diag-null-type1-cr2.rds'))
+tab <- t1$summary |>
+  transmute(
+    Specification    = spec,
+    `$\\kappa$ model` = sprintf('%.2f', mod_se_ratio),
+    `Type I model`    = sprintf('%.3f', type1_mod),
+    `$\\kappa$ CR2`    = sprintf('%.2f', cr2_se_ratio),
+    `Type I CR2`      = sprintf('%.3f', type1_cr2))
+knitr::kable(tab, booktabs = TRUE, escape = FALSE,
+  caption = 'Conservatism of the model-based interaction test and its
+    cluster-robust correction, at the null cell ($c_{bm} = 0$,
+    exponential DGP, $t_{1/2} = 1.0$ weeks, Hybrid design, $N = 70$,
+    Architecture B, 3{,}000 replicates). $\\kappa$ is the ratio of the
+    mean standard error to the empirical standard deviation of the
+    interaction estimate; $\\kappa > 1$ indicates a conservative test.
+    Type I is the empirical rejection rate of
+    $H_0: \\beta_{bm:X} = 0$ at $\\alpha = 0.05$, with Monte Carlo
+    standard error about 0.004. All three specifications are
+    conservative under the model-based test, most so the
+    exposure-weighted A2 ($\\kappa = 1.10$, Type I $= 0.029$); the CR2
+    bias-reduced cluster-robust standard error restores $\\kappa$ to
+    near one and Type I to nominal (0.045 to 0.049) for every
+    specification.')
+```
+
+## Sensitivity analyses
+
+::: {.bullets data-latex=""}
+\textbf{Five Tier 2 blocks perturb one axis at a time around the
+reference cell.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Reference: Architecture B, Hybrid, $N = 70$, $c_{bm} = 0.45$,
+exponential DGP, $t_{1/2} = 1.0$.
+\item Each block varies one axis with the others held fixed.
+\item Blocks are reported separately, not pooled with Tier 1 or each
+other.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+Before going into the individual blocks, we note the general
+design. Five Tier 2 marginal sensitivity blocks probe the
+robustness of the Tier 1 ranking to single-axis perturbations
+around the reference configuration (Architecture B, Hybrid
+design, $N = 70$, $c_{bm} = 0.45$, exponential DGP,
+$t_{1/2} = 1.0$ weeks). Each block varies one axis and holds the
+others at their reference values. Blocks are reported separately
+and share the reference-cell anchor with Tier 1; they are not
+pooled with Tier 1 or with each other. The design rationale is
+documented in
+`analysis/scripts/carryover-sensitivity/simulation-grid-plan.md`.
+:::
+
+### S1: within-factor autocorrelation
+
+```{r fig-sens-s1, echo = FALSE, fig.cap = "Power by analysis specification across AR(1) autocorrelation $\\rho \\in \\{0.5, 0.7, 0.8, 0.9\\}$. Hendrickson (2020) uses $\\rho = 0.8$; docs/02 uses $\\rho = 0.7$ after positive-definiteness reductions.", out.width = "70%"}
+knitr::include_graphics("../../figures/02-sens-S1.pdf")
+```
+
+::: {.bullets data-latex=""}
+\textbf{S1: autocorrelation lifts all three specifications equally,
+preserving A2's $\approx 0.06$ advantage at every $\rho$.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Power rises monotonically with $\rho$ for all three.
+\item A2's advantage holds near 0.06 across $\rho \in [0.5, 0.9]$.
+\item Autocorrelation and the specification act additively, not
+multiplicatively.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+All three specifications gain power monotonically with $\rho$.
+At $\rho = 0.5$, A2 power is $0.798 \pm 0.018$ versus A1
+$0.738 \pm 0.020$ and A3 $0.738 \pm 0.020$; at $\rho = 0.9$,
+A2 reaches $0.956 \pm 0.009$ versus A1 $0.906 \pm 0.013$ and
+A3 $0.910 \pm 0.013$ (point estimate $\pm$ MCSE,
+$n_{sim} = 500$). Contrary to the prior expectation that A2
+would be the most $\rho$-sensitive specification, all three
+exhibit comparable relative gains across the explored range.
+The A2 advantage over A1 and A3, approximately 0.06 in absolute
+power throughout, is preserved at every AR(1) level. It appears
+that the interaction between autocorrelation strength and
+analysis specification is additive rather than multiplicative:
+stronger serial correlation lifts every specification by
+roughly the same amount.
+:::
+
+### S2: analyst-truth half-life mismatch
+
+```{r fig-sens-s2, echo = FALSE, fig.cap = "Power of A1, A2, and A3 as the analyst's assumed half-life departs from the true DGP half-life. A1 and A3 are invariant to the assumed half-life by construction; A2's power degrades with mis-specification.", out.width = "90%"}
+knitr::include_graphics("../../figures/02-sens-S2.pdf")
+```
+
+::: {.bullets data-latex=""}
+\textbf{S2: A2 keeps its advantage even when the assumed half-life
+is wrong by a factor of two or four.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item A2 averages 0.868 over eight assumed/true half-life cells
+(range 0.766-0.964).
+\item A1 and A3 are invariant to the assumed half-life (average
+0.840).
+\item A2's gentle curvature makes it a defensible default under an
+approximately-known half-life.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+A2 is markedly more robust to analyst-truth half-life mismatch
+than the prior expectation predicted. Across the eight S2 cells
+(DGP $t_{1/2} \in \{0.5, 1.0\}$ weeks crossed with analyst-assumed
+$t_{1/2} \in \{0.25, 0.5, 1.0, 2.0\}$ weeks), A2 averages 0.868,
+ranging from 0.766 (DGP 1.0 weeks analyzed at 0.25 weeks) to
+0.964 (DGP 0.5 weeks analyzed at 0.25 weeks); per-cell MCSE
+ranges from 0.008 to 0.019. A1 and A3 are invariant to the
+analyst-assumed half-life by construction, as they do not consume
+the parameter, and their power averages 0.840 each across the same
+eight cells. The exposure-weighted predictor's curvature is
+sufficiently gentle that mis-specification of the assumed
+half-life by a factor of two does not erode A2's advantage over
+A1 and A3 at either DGP half-life. The result suggests that the
+exposure-weighted (A2) specification is a defensible default even when the
+true pharmacokinetic half-life is only approximately known at the
+design stage.
+:::
+
+### S3: dropout
+
+```{r fig-sens-s3, echo = FALSE, fig.cap = "Power at dropout rates $\\in \\{0, 0.1, 0.2, 0.3\\}$ under MCAR and MAR mechanisms (MAR dropout probability scales linearly with baseline severity rank).", out.width = "90%"}
+knitr::include_graphics("../../figures/02-sens-S3.pdf")
+```
+
+::: {.bullets data-latex=""}
+\textbf{S3: dropout collapses power for all three methods, and
+narrows A2's advantage as off-drug observations are dropped.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item At 30\% MCAR all three fall to about 0.12-0.15, effectively
+tied.
+\item The A2$-$A1 gap shrinks from $\approx 0.10$ (no dropout) to
+$\approx 0.03$ (30\% MCAR).
+\item A2's signal lives in off-drug points, so dropping them erodes
+its edge; the advantage survives at dropout $\leq 0.20$.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+All three specifications lose power monotonically with dropout
+rate. The MCAR baseline ($N = 70$, dropout = 0) gives A1
+$0.764 \pm 0.019$, A2 $0.866 \pm 0.015$, A3 $0.764 \pm 0.019$;
+at MCAR rate 0.30 these collapse to A1 $0.122 \pm 0.015$, A2
+$0.148 \pm 0.016$, A3 $0.124 \pm 0.015$. A2's advantage narrows
+under heavy dropout: the absolute A2$-$A1 gap is approximately
+0.10 at zero dropout, 0.07 at rate 0.10, 0.04 at rate 0.20, and
+0.03 at rate 0.30 under MCAR. Under MAR with the same marginal
+rate the gap narrows further at the highest rate (A2$-$A1
+$\approx 0.004$ at rate 0.30 MAR). The pattern is consistent
+with the exposure-weighted (A2) specification's signal source residing in
+the exposure-weighted contrast contributed by off-drug
+observations: when those observations are preferentially
+dropped, A2's advantage contracts toward A1's. At
+low-to-moderate dropout (rate $\leq 0.20$) the A2 advantage is
+preserved.
+:::
+
+### S4: biomarker-moderation effect-size curve
+
+```{r fig-sens-s4, echo = FALSE, fig.cap = "Power across the biomarker-moderation effect-size range $c_{bm} \\in \\{0, 0.10, 0.20, 0.30, 0.45, 0.60\\}$ under Architecture B. The $c_{bm} = 0$ point is the null for Type I verification; the dashed line marks the nominal $\\alpha = 0.05$.", out.width = "70%"}
+knitr::include_graphics("../../figures/02-sens-S4.pdf")
+```
+
+::: {.bullets data-latex=""}
+\textbf{S4: the power curve is sigmoidal; A2's advantage peaks at
+intermediate effect sizes and vanishes toward the ceiling.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Type I error at $c_{bm} = 0$ is conservative (0.026-0.030).
+\item A2$-$A1 peaks at $+0.102$ at $c_{bm} = 0.45$, shrinking to
+$+0.042$ at $c_{bm} = 0.60$.
+\item The advantage matters most for moderate
+biomarker-treatment interactions.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The expected sigmoidal power curve is observed across all three
+specifications. At $c_{bm} = 0$, empirical Type I error is below
+the nominal level at $0.026 \pm 0.007$ (A1), $0.028 \pm 0.007$
+(A2), and $0.030 \pm 0.008$ (A3); the conservative behavior is
+consistent with the AR(1) reference distribution at moderate
+sample sizes. Power rises through the mid-range and saturates at
+$c_{bm} \geq 0.45$: at $c_{bm} = 0.6$, A1 reaches
+$0.916 \pm 0.012$, A2 $0.958 \pm 0.009$, and A3
+$0.916 \pm 0.012$. The A2 advantage over A1 is largest at
+intermediate effect sizes, $+0.082$ absolute at $c_{bm} = 0.30$
+($0.444$ versus $0.362$) and $+0.102$ at $c_{bm} = 0.45$
+($0.820$ versus $0.718$), shrinking to $+0.042$ at $c_{bm} = 0.60$
+where all specifications approach ceiling. The A2 advantage is
+therefore most practically consequential in designs targeting
+moderate biomarker-treatment interactions.
+:::
+
+### S5: autocorrelation by carryover (exploratory)
+
+```{r fig-sens-s5, echo = FALSE, fig.cap = "Power across carryover half-lives at $\\rho \\in \\{0.5, 0.8\\}$, by analysis specification. This block tests whether the $\\rho$-sensitivity of the A1/A2/A3 ranking depends on carryover strength.", out.width = "90%"}
+knitr::include_graphics("../../figures/02-sens-S5.pdf")
+```
+
+::: {.bullets data-latex=""}
+\textbf{S5: the A2 advantage is constant across the
+$\rho \times t_{1/2}$ grid, confirming additive (not interactive)
+effects.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item A2$-$A1 $= 0.096$ at both $\rho = 0.5$ and $\rho = 0.8$ when
+$t_{1/2} = 1.0$.
+\item Autocorrelation and carryover act additively on the ranking.
+\item S5 reassures that the Tier 1 ranking holds across the grid.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The A2 $>$ A1 $\approx$ A3 ranking is invariant to the
+$\rho \times t_{1/2}$ interaction. At $\rho = 0.5$,
+$t_{1/2} = 1.0$ weeks, A2 $-$ A1 = 0.096 (A2 $0.778 \pm 0.019$,
+A1 $0.682 \pm 0.021$); at $\rho = 0.8$, $t_{1/2} = 1.0$ weeks,
+A2 $-$ A1 = 0.096 (A2 $0.910 \pm 0.013$, A1 $0.814 \pm 0.017$).
+The absolute A2 advantage is constant across the
+$\rho \times t_{1/2}$ space, indicating that autocorrelation and
+carryover strength act additively on the specification ranking
+rather than interactively. Block S5 therefore functions as a
+methodological reassurance: the Tier 1 ranking is preserved at
+every level of $\rho$ and $t_{1/2}$ in the explored grid.
+:::
+
+## A higher-precision check
+
+::: {.bullets data-latex=""}
+\textbf{A higher-precision paired-McNemar rerun confirms A2's lead
+is real (p $= 6.6 \times 10^{-17}$ at the strongest cell).}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item 24-cell OL+BDC rerun at 600 trials/cell, all converging.
+\item Paired McNemar (same trials) at $N = 70$, half-life 1.0: A2
+beats A1 by 13.7 points, $p = 6.6 \times 10^{-17}$.
+\item A3 recovers only part of A2's advantage; Type I stayed within
+$[0.003, 0.053]$.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+Because some of these gaps are small, we reran a focused 24-cell
+grid (the OL+BDC design, $N \in \{35, 70\}$, true half-life $\in
+\{0.5, 1.0\}$) at 600 trials per cell, all converging. Because the
+three methods see the *same* trials, we can compare them with a
+paired **McNemar test**, which counts only the trials where two
+methods disagree -- a much more sensitive comparison than treating
+the methods as independent. At the strongest cell ($N = 70$, true
+half-life 1.0) A2 beats A1 by 13.7 points (0.737 vs 0.873) with
+McNemar $p = 6.6 \times 10^{-17}$: the lead is real, not noise. The
+shape-free method A3 recovers only part of A2's advantage, and only
+at small $N$ and short half-life; at larger $N$ it captures about
+half. Type I error across the null cells stayed in $[0.003, 0.053]$,
+i.e. at or below the nominal 5%.
+:::
+
+## Fixing the slightly-conservative test (Block S6)
+
+::: {.bullets data-latex=""}
+\textbf{Block S6 re-fits A2 with a CR2 cluster-robust SE to correct
+the mild conservatism of the model-based test.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item The model-based SE is 6-10\% too large, so power figures are
+slight under-estimates.
+\item The CR2 sandwich does not trust the model's covariance
+assumption and fixes the calibration.
+\item Table \@ref(tab:tab-s6) checks reference and four stress cells.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The companion calibration study [@pmsimstats_calibration2026] shows
+that this mixed-model test is mildly **conservative**: its standard
+error is about 6-10% too large, so it rejects a true effect a bit
+less often than it should (this is why the null rejection rate above,
+0.039, sits below 0.05, and why the power numbers are slight
+under-estimates). A **cluster-robust standard error** (the CR2
+estimator, which does not trust the model's covariance assumption)
+fixes the calibration. Table \@ref(tab:tab-s6) re-fits A2 with both
+the model-based and the CR2 standard error at the reference cell and
+four stress cells, to check that fixing the calibration does not
+change the ranking.
+:::
+
+```{r tab-s6, echo = FALSE}
+suppressPackageStartupMessages({library(dplyr)})
+s6 <- readRDS(here::here(
+  'analysis/scripts/carryover-sensitivity/output/diag-s6-cr2.rds'))
+ord <- c('Reference (N=70)', 'Small N (N=35)',
+         'High autocorr (rho=0.9)',
+         'Half-life mis-spec (assume 0.25)', '30% MCAR dropout')
+lab <- c('Reference, $N=70$', 'Small $N=35$',
+         'High autocorr, $\\rho=0.9$', 'Half-life mis-spec',
+         '30\\% MCAR dropout')
+tab <- s6$summary |>
+  filter(spec == 'A2') |>
+  left_join(s6$gaps, by = 'cell') |>
+  mutate(o = match(cell, ord)) |>
+  arrange(o) |>
+  transmute(
+    Cell = lab[o],
+    `$\\kappa$ model` = sprintf('%.2f', mod_se_ratio),
+    `$\\kappa$ CR2`   = sprintf('%.2f', cr2_se_ratio),
+    `Power model`     = sprintf('%.3f', power_mod),
+    `Power CR2`       = sprintf('%.3f', power_cr2),
+    `A2$-$A1 model`   = sprintf('%+.3f', gap_mod),
+    `A2$-$A1 CR2`     = sprintf('%+.3f', gap_cr2),
+    `CR2 df`          = sprintf('%.0f', cr2_df))
+knitr::kable(tab, booktabs = TRUE, escape = FALSE,
+  caption = 'Cluster-robust recalibration of the exposure-weighted
+    specification A2 at the reference cell and four stress cells
+    (500 replicates, $c_{bm} = 0.45$, Architecture B). $\\kappa$ is the
+    ratio of the mean standard error to the empirical standard
+    deviation of the interaction estimate; a value above one is a
+    conservative test. The A2$-$A1 columns give the power gap between
+    the two specifications under each inference, a check that
+    recalibration preserves the ranking. CR2 df is the mean
+    Satterthwaite degrees of freedom for the cluster-robust test; the
+    model-based test carries roughly 480. Computed with the
+    \\texttt{clubSandwich} package; see the companion calibration study
+    for the mechanism. The S6 cells are an independent 500-replicate
+    run, so the model-based A2 power at the reference cell (0.829)
+    differs from the headline-grid value (0.860) by within one Monte
+    Carlo standard error ($\\approx 0.016$); the two should not be
+    read as conflicting.') |>
+  kableExtra::kable_styling(latex_options = "scale_down")
+```
+
+```{r fig-type1-cr2, echo = FALSE, fig.cap = "Empirical Type I error at the null ($c_{bm} = 0$) under the model-based and CR2 cluster-robust inference, across the five S6 cells and the three specifications. The model-based test (open) is conservative (near 0.03); CR2 (filled) is restored to the nominal 0.05 (dashed), within the binomial Monte Carlo band (gray). 500 null replicates per cell.", out.width = "95%"}
+knitr::include_graphics("../../figures/02-type1-cr2.pdf")
+```
+
+::: {.bullets data-latex=""}
+\textbf{CR2 restores nominal size, which is the precondition for
+preferring any specification on power -- only correctly-sized tests
+are comparable.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Model-based null rejection sits near 0.03 (mean 0.035) across
+all cells and specs -- the documented conservatism
+(Fig. \@ref(fig:fig-type1-cr2)).
+\item CR2 lifts it to a mean of 0.046, within the Monte Carlo band
+around 0.05.
+\item Under CR2 all three specifications hold nominal $\alpha$, so
+the A2 advantage is a comparison among correctly-sized tests.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The effect of recalibration on test size is shown directly in
+Figure \@ref(fig:fig-type1-cr2): the model-based null rejection rate
+sits near 0.03 (mean 0.035) across all five cells and three
+specifications, while the CR2 test restores it to a mean of 0.046,
+within the Monte Carlo band around the nominal 0.05. This is the
+precondition for the whole comparison -- a test that is not
+correctly sized cannot be preferred on power alone -- so under CR2,
+where all three specifications hold nominal $\alpha$, the A2
+advantage is a like-for-like comparison among correctly-sized tests.
+:::
+
+::: {.bullets data-latex=""}
+\textbf{CR2 restores calibration ($\kappa \to 1$) and recovers
+power without changing the ranking, but only in information-rich
+cells.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item $\kappa$ falls from 1.07-1.26 to about 1; the correctly-sized
+test recovers two to five power points.
+\item The A2$-$A1 gap is held or widened, at the cost of far fewer
+degrees of freedom ($\approx 480 \to 23$).
+\item Validated only at Architecture B / Hybrid / $N = 70$; do not
+extend the lower-bound reading to CO or Architecture A.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+In the information-rich cells the picture matches the companion
+study. The calibration ratio $\kappa$ (mean standard error divided
+by the true spread of the estimates; above 1 means conservative)
+runs 1.07-1.26 under the model and is restored to about 1 under
+CR2, and the correctly-sized test recovers two to five points of
+power. Crucially, the A2-minus-A1 gap is held or slightly widened,
+so **fixing the calibration does not change the ranking**. The
+price is fewer effective degrees of freedom (about 480 drops to
+~23). Under heavy dropout the trick stops helping: the model is no
+longer conservative, CR2 becomes slightly anti-conservative on its
+handful of degrees of freedom, and all methods have collapsed to
+~0.13 power anyway. One caution: this recalibration was validated
+only in the Architecture~B, Hybrid, $N = 70$ cells, so the
+"slightly conservative lower bound" reading applies there, not to
+the crossover design or Architecture~A where A2 does not lead.
+:::
+
+# Discussion
+
+## The main result, and where it breaks down
+
+::: {.bullets data-latex=""}
+\textbf{A2's advantage is real but conditional: highest in only
+19\% of cells, dominated under CO and under Architecture A.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Best cell (Arch B, Hybrid): A2 beats A1/A3 by $\approx 10$
+points ($\approx 5$ MCSEs).
+\item A2 is the best method in only 68 of 360 non-null cells; under
+CO it is much worse (0.488 vs 0.830).
+\item Mechanism: the crossover's within-subject correlation already
+carries the signal A2 targets, so A2 only loses there.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The headline is that A2's advantage is real but **conditional**.
+At its best cell (Architecture B, Hybrid design, $N = 70$,
+$c_{bm} = 0.45$, $t_{1/2} = 1.0$) A2 beats A1 and A3 by about 10
+percentage points of power (0.860 vs 0.766 and 0.770) -- about five
+MCSEs, so not luck. But A2 is the best method
+in only 68 of the 360 cells with a real effect (19%). In the
+crossover design it is much *worse* (0.488 vs 0.830 for A1), and
+under Architecture A it is slightly worse everywhere. There is a
+clean reason for the crossover failure: in a crossover the
+within-subject correlation already carries most of the signal that
+A2's decaying predictor is designed to recover, so A2 has nothing
+left to gain and its down-weighting of off-drug points only hurts.
+The ranking "A2 best" therefore holds only under Architecture B in
+the two non-crossover designs.
+:::
+
+## What the robustness checks add
+
+::: {.bullets data-latex=""}
+\textbf{Where A2 leads, the lead survives all three robustness
+checks.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Decay shape: A2 never drops below A1/A3 even when the assumed
+form is wrong (worst case the linear truth).
+\item Assumed half-life: a two- to four-fold error moves A2 only
+from 0.83 to 0.77, never below A1/A3.
+\item Autocorrelation: lifts all three equally, so A2's 5-6 point
+lead is $\rho$-independent.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+Three checks probe whether A2's win, where it exists, is fragile.
+**Decay shape (Fig. \@ref(fig:fig-heatmap-mismatch)).** Even when
+the analyst wrongly assumes exponential decay but the truth is
+linear or Weibull, A2 still does not drop below A1 or A3; the worst
+case is the linear truth, whose sharp cutoff is hardest to
+approximate. **Assumed half-life (Fig. \@ref(fig:fig-sens-s2)).**
+A1 and A3 do not use a half-life, so they are unaffected; A2 does,
+yet getting the half-life wrong by a factor of two or four moves
+its power only from about 0.83 to 0.77, never below A1/A3. So A2 is
+forgiving of a roughly-guessed half-life. **Autocorrelation
+(Fig. \@ref(fig:fig-sens-s1)).** Stronger serial correlation raises
+all three methods by about the same amount, so A2's lead stays near
+5-6 points and does not depend on the correlation strength.
+:::
+
+## Dropout matters more than the method
+
+::: {.bullets data-latex=""}
+\textbf{Dropout collapses power for all methods equally, so it
+dominates the specification choice.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item At 30\% dropout all three fall to 0.12-0.25 and become
+indistinguishable.
+\item MAR (severity-related) dropout is slightly worse than MCAR,
+because the highest-signal patients leave first.
+\item Keeping patients in the trial buys more power than any
+carryover method.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The most sobering result is about *missing data*, not carryover.
+When patients drop out (Fig. \@ref(fig:fig-sens-s3)), power
+collapses for all three methods together: at 30% dropout every
+method falls to 0.12-0.25 and they become indistinguishable. A2
+cannot protect against the loss; it only organizes whatever data
+remain. Dropout that is related to severity (MAR) is slightly worse
+than purely random dropout (MCAR), because the sickest patients --
+who carry the most signal -- leave first. The practical message is
+blunt: keeping patients in the trial buys far more power than any
+choice of carryover method.
+:::
+
+## Architecture dependence
+
+::: {.bullets data-latex=""}
+\textbf{A2's advantage exists only under Architecture B, because
+only there does carryover erode a correlation for A2 to recover.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Architecture B is more carryover-sensitive under every decay
+form and Weibull shape.
+\item Under Architecture A, A2 is marginally negative everywhere
+(e.g.\ Hybrid, $t_{1/2} = 1.0$: 0.960 vs A1 0.972).
+\item Under A the effect stays proportional, so there is no
+attenuated correlation to recover and the binary A1 is preferable.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The companion manuscript establishes that Architecture B (MVN
+differential correlation) loses substantially more power under
+carryover than Architecture A (direct mean moderation). The
+present results confirm that this qualitative gap is robust to
+decay-form variation: Architecture B is more sensitive to
+carryover under all three decay forms and at all five Weibull
+shape values examined. The A2 advantage, however, is confined to
+Architecture B: under Architecture A it is marginally negative in
+every design (for example, at the Hybrid cell, $t_{1/2} = 1.0$
+weeks, A2 = 0.960 versus A1 = 0.972). This is consistent with the
+mechanism. Under Architecture B, carryover erodes the
+biomarker-response correlation directly, and the continuous
+exposure-weighted predictor recovers more of that attenuated
+signal than either the binary on-drug indicator or the
+lagged-nuisance term can; under Architecture A the treatment
+effect remains proportional at every timepoint, so there is no
+attenuated correlation for the exposure-weighted predictor to
+recover and the simpler binary indicator is marginally preferable.
+The A2 $>$ A1 $\approx$ A3 ranking therefore holds under
+Architecture B in the non-crossover designs but not under
+Architecture A, a dependence that trialists must weigh against the
+assumed data-generating mechanism.
+:::
+
+## How this fits with earlier work, and its limits
+
+::: {.bullets data-latex=""}
+\textbf{Our results reproduce Hendrickson and engage the
+crossover, variance-component, and carryover-testing literatures.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item A2 power 0.860 reproduces Hendrickson's 0.82; the new content
+is the A1/A2/A3 comparison.
+\item The Jones-Kenward expectation that a shape-free A3 beats A2
+under mis-specification is not supported here.
+\item Senn's variance-component view matches the additive
+autocorrelation effect; Sturdevant-Lumley address the complementary
+carryover-testing problem.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+Our matched-decay (A2) power at the headline cell, $0.860 \pm
+0.016$, reproduces Hendrickson's [-@hendrickson2020] reported 0.82
+for the same cell; the new content is the head-to-head comparison
+of A1, A2, and A3, which Hendrickson did not do. The crossover
+tradition of Jones and Kenward [-@jones2014crossover] predicted
+that a shape-free lagged term (A3) should beat a parametric
+predictor (A2) when the decay shape is guessed wrong; our S2 result
+does not support this in the range we tested, because A2's penalty
+for a wrong half-life is too small for A3 to overtake it. Senn's
+[-@senn2016mastering] variance-component reasoning is consistent
+with our finding that autocorrelation lifts all methods together.
+A related but distinct strand, exemplified by Sturdevant and Lumley
+[-@sturdevant2021carryover], develops mixed-effects *tests for
+carryover* after treatment cessation; our concern is the
+complementary one of how carryover, once present, degrades the
+biomarker-interaction test, but their work reinforces that
+carryover is a first-order inferential issue in within-subject
+designs rather than a nuisance to be assumed away.
+:::
+
+::: {.bullets data-latex=""}
+\textbf{Two limitations: a single parameter set, and one-factor-at-
+a-time sensitivity checks.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Numbers come from one prazosin/PTSD parameterization, so
+absolute power values are illustrative; the ranking is the portable
+part.
+\item The sensitivity blocks vary one factor at a time and can miss
+factor interactions.
+\item The one joint check (S5) showed no surprises.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+Two limitations bound these conclusions. First, the numbers come
+from one parameter set (calibrated to a prazosin/PTSD trajectory),
+so the *absolute* power values are illustrative; the *ranking* is
+the portable part, and even it is conditional on the architecture
+and design as shown above. Second, the sensitivity checks vary one
+factor at a time, so they can miss interactions between factors
+(for example, high autocorrelation combined with heavy dropout);
+the one joint check we ran, S5, showed no surprises.
+:::
+
+# Conclusions
+
+1. **A2 helps, but only conditionally.** The exposure-weighted
+   predictor gives the highest power -- about 10 points over A1 --
+   *only* under Architecture B in the Hybrid and OL+BDC designs,
+   and the lead survives wrong decay-shape and wrong half-life
+   assumptions there. Under the crossover design, or under
+   Architecture A, A2 has no advantage and A1 is at least as good.
+   Where A2 is used, report it with a CR2 cluster-robust standard
+   error (Section on Block S6).
+
+2. **A guessed half-life is fine (where A2 is used).** Getting the
+   half-life wrong by a factor of two to four barely moves A2's
+   power, so a rough pharmacokinetic estimate suffices.
+
+3. **The shape-free method A3 is essentially A1.** Because its
+   lagged term is only a nuisance control, A3 tracks A1 closely and
+   never overtakes A2 in the settings we tested.
+
+4. **Dropout beats everything.** Power falls sharply as dropout
+   rises (about half lost at 20% dropout), the same for all three
+   methods. Preventing dropout matters more than the carryover
+   method.
+
+5. **The test is slightly conservative, and fixable.** All methods
+   reject a little less than the nominal 5% under the null; this is
+   a known property of the working-covariance model, and the CR2
+   cluster-robust standard error restores the correct rate while
+   recovering a few points of power, without changing the ranking
+   (Block S6).
+
+# Notes and reproducibility {-}
+
+The authors declare no conflicts of interest and received no
+specific funding. All data and code are in the pmsimstats-ng
+project repository: cell-level summaries at
+`analysis/data/02-grid-summary.rds` and `02-sensitivity-summary.rds`,
+drivers under `analysis/scripts/carryover-sensitivity/`, and the
+pre-registered grid plan at `simulation-grid-plan.md`. The
+manuscript loads pre-computed summaries only; no simulation runs
+during knitting. The production simulation ran under R 4.5.3 and
+the document is rendered under R 4.6.0, both pinned via `renv.lock`.
+
+# References
+
+::: {#refs}
+:::
+
+```{r footer, echo=FALSE, results='asis'}
+src <- sub("^/Users/zenn/(Library/CloudStorage/)?Dropbox/prj/", "~/prj/",
+           knitr::current_input(dir = TRUE))
+cat(sprintf(
+  "\n\\vfill\n\n---\n\n*Rendered on %s.*  \n*Source: `%s`*\n",
+  format(Sys.time(), "%Y-%m-%d at %H:%M %Z"),
+  src
+))
+```

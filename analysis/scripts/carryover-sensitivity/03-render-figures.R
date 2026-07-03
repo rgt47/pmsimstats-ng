@@ -45,19 +45,28 @@ d_a <- grid |>
     design = factor(design, levels = c('CO', 'OLBDC', 'Hybrid'))
   )
 
-p_a <- ggplot(d_a, aes(t1half, power, colour = spec, group = spec)) +
+## A1 and A3 give near-identical power (A3 is A1 plus a lagged
+## nuisance term), so colour alone would let the A3 line hide A1.
+## Map spec to linetype and shape as well -- merged into one legend
+## by sharing the 'Analysis spec' title -- so both stay visible.
+p_a <- ggplot(d_a, aes(t1half, power, colour = spec,
+                       linetype = spec, shape = spec, group = spec)) +
   geom_line(linewidth = 0.6) +
   geom_point(size = 1.3) +
   facet_grid(dgp_arch ~ design) +
   scale_y_continuous(limits = c(0, 1),
     breaks = c(0, 0.25, 0.5, 0.75, 1)) +
+  scale_linetype_manual(name = 'Analysis spec',
+    values = c('solid', 'solid', 'longdash')) +
+  scale_shape_manual(name = 'Analysis spec',
+    values = c(16, 17, 4)) +
   labs(
     x = expression('Carryover half-life'~t['1/2']~'(weeks)'),
     y = 'Power',
     colour = 'Analysis spec',
     title = 'Power vs carryover under matched exponential DGP',
     subtitle = expression(
-      N==70*','~c[bm]==0.45*','~'50 reps/cell (dev)')
+      N==70*','~c[bm]==0.45*','~'500 reps/cell')
   ) +
   theme_paper
 

@@ -1,0 +1,593 @@
+---
+title: "A closed-form biomarker-treatment interaction estimator for the
+  simplest hybrid N-of-1 design under compound-symmetric and AR(1)
+  within-subject correlation"
+author: 'pmsimstats team'
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    toc: false
+    number_sections: true
+    keep_tex: true
+    highlight: tango
+fontsize: 11pt
+geometry: "left=3cm,right=3cm,top=2.5cm,bottom=2.5cm"
+bibliography: references.bib
+csl: statistics-in-medicine.csl
+link-citations: true
+header-includes:
+  - \usepackage{amsmath}
+  - \usepackage{amssymb}
+knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path(d, 'tools', 'stamp-render.R')) && d != dirname(d)) d <- dirname(d); source(file.path(d, 'tools', 'stamp-render.R'))$value(input) })
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+# Introduction
+
+The estimand of interest in a biomarker-validation N-of-1 programme is
+the biomarker-by-treatment interaction: the degree to which a
+participant's response to active drug, relative to its withdrawal,
+varies with a continuous baseline biomarker. The two preceding
+manuscripts characterise this estimand by simulation across test
+procedures and design parameters. This note isolates its analytic
+core. For the simplest hybrid design we show that the interaction
+point estimate has the same closed form regardless of the
+within-subject correlation structure, while its sampling variance, and
+therefore its standard error and power, admits distinct closed forms
+under compound symmetry, under continuous-time AR(1) correlation, and
+under the other correlation structures in common use, all special
+cases of a single block-sum identity. The ratio of the
+compound-symmetric and AR(1) variances quantifies, in a single
+expression,
+the efficiency loss that motivates modelling the autocorrelation
+directly rather than assuming it away.
+
+The design class matters for what the estimand even means, so we fix
+the distinction at the outset. A conventional cross-over trial
+randomises each participant to a treatment sequence (for example AB or
+BA) and observes one period per treatment; the analysis aggregates the
+within-participant treatment differences across participants to
+estimate a single population-average treatment effect, and the
+participant-by-treatment interaction is treated as a nuisance that is
+either assumed absent or, in replicate cross-over designs, recovered
+only as a variance component [@senn1994crossover; @senn2011individual].
+An aggregated N-of-1 trial instead cycles each participant through the
+on-treatment and off-treatment states repeatedly, so that the
+individual treatment effect is identified within each participant
+before any aggregation [@guyatt1986; @zucker2010combining]. Pooling
+those individual effects in a mixed model yields not only the
+population average but the distribution of individual effects, and,
+when a biomarker is measured, the biomarker-by-treatment interaction
+that is the predictive-medicine quantity of interest
+[@schork2023precision]. The hybrid design of @hendrickson2020 is the
+specialisation we study: an open-label run-in places every participant
+on drug, after which blinded discontinuation moves them off drug,
+generating the within-participant on/off contrast that carries the
+interaction while avoiding the placebo-run-in selection bias of a
+response-gated design. In short, a cross-over trial spends its
+within-participant information on the average effect; an aggregated
+N-of-1 trial spends it on the individual effect and its modification
+by the biomarker.
+
+We work with the minimal hybrid that still supports the interaction
+contrast, derive the estimator and its variance under both correlation
+structures, give the efficiency ratio and a worked example, and
+finally restore the open-label phase to show that the same closed-form
+machinery yields separate pharmacological and expectation interaction
+estimators.
+
+# The simplest hybrid design
+
+Consider $N$ participants indexed $i = 1, \dots, N$, each with a
+continuous, centred baseline biomarker $b_i$ (so $\sum_i b_i = 0$).
+Each participant is observed at $T = p + q$ equally spaced occasions:
+the first $p$ occasions on drug (the open-label run-in,
+$D_t = 1$, $t = 1, \dots, p$) and the remaining $q$ off drug (after
+blinded discontinuation, $D_t = 0$, $t = p+1, \dots, p+q$). This is
+the minimal hybrid that retains a within-participant on/off contrast,
+and hence the only structure needed to identify the
+biomarker-by-treatment interaction; the two-path Hendrickson hybrid,
+in which participants discontinue at different occasions, is a
+refinement that we do not require here. Figure
+\@ref(fig:design-schematic) shows the layout at the reference cycling
+depth $p = q = 4$.
+
+```{r design-schematic, echo = FALSE, fig.width = 7.2, fig.height = 2.5, fig.align = "center", out.width = "92%", fig.cap = "The simplest hybrid design with $p=4$ on-drug and $q=4$ off-drug occasions. Every participant begins on active drug (open-label run-in, drug indicator $D_t = 1$) and is then taken off drug under blinding (discontinuation, $D_t = 0$) at the dashed transition. Filled points mark the measurement occasions; the within-participant on/off contrast of these occasions, regressed on the biomarker across participants, identifies the interaction $\\theta$."}
+library(ggplot2)
+p_on <- 4L; q_off <- 4L; Tt <- p_on + q_off
+occ <- data.frame(t = seq_len(Tt),
+                  D = c(rep(1, p_on), rep(0, q_off)))
+bands <- data.frame(
+  xmin = c(0.5, p_on + 0.5), xmax = c(p_on + 0.5, Tt + 0.5),
+  xlab = c((0.5 + p_on + 0.5) / 2, (p_on + 0.5 + Tt + 0.5) / 2),
+  lab  = c("Open-label run-in\n(on drug, D = 1)",
+           "Blinded discontinuation\n(off drug, D = 0)"),
+  fill = c("on", "off"))
+ggplot() +
+  geom_rect(data = bands, aes(xmin = xmin, xmax = xmax, ymin = -0.4,
+            ymax = 1.7, fill = fill), alpha = 0.16) +
+  geom_segment(aes(x = 0.5, xend = p_on + 0.5, y = 1, yend = 1),
+               linewidth = 0.7) +
+  geom_segment(aes(x = p_on + 0.5, xend = Tt + 0.5, y = 0, yend = 0),
+               linewidth = 0.7) +
+  geom_segment(aes(x = p_on + 0.5, xend = p_on + 0.5, y = 1, yend = 0),
+               linewidth = 0.7) +
+  geom_vline(xintercept = p_on + 0.5, linetype = "dashed",
+             colour = "grey40") +
+  geom_point(data = occ, aes(x = t, y = D), size = 2.6) +
+  geom_text(data = bands, aes(x = xlab, y = 1.4, label = lab),
+            size = 3.0, lineheight = 0.9) +
+  scale_x_continuous("Occasion  t", breaks = seq_len(Tt),
+                     limits = c(0.4, Tt + 0.6), expand = c(0, 0)) +
+  scale_y_continuous(NULL, breaks = c(0, 1),
+                     labels = c("D = 0", "D = 1"),
+                     limits = c(-0.55, 1.85)) +
+  scale_fill_manual(values = c(on = "#4575b4", off = "#9aa0a6"),
+                    guide = "none") +
+  theme_minimal(base_size = 11) +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank(),
+        axis.ticks.x = element_line(colour = "grey70"))
+```
+
+The data-generating model is the additive fixed-effects form
+
+\begin{equation}
+y_{it} = \mu + \beta\, b_i + \gamma\, D_t + \theta\, (b_i D_t)
+         + e_{it},
+(\#eq:model)
+\end{equation}
+
+where $\theta$ is the biomarker-by-treatment interaction (the
+estimand), and the within-participant errors
+$e_i = (e_{i1}, \dots, e_{iT})^\top$ are independent across
+participants with common marginal variance
+$\operatorname{Var}(e_{it}) = \sigma^2$ and a within-participant
+correlation matrix $R$ to be specified. In the project's
+data-generating process $\theta$ equals the moderation strength times
+the response scale, $\theta = c_{bm}\,\sigma_{BR}$ (for the
+prazosin-PTSD reference, $0.45 \times 5 = 2.25$).
+
+# The interaction estimator
+
+Form each participant's within-participant treatment contrast by
+averaging within phase and differencing across phase,
+
+\begin{equation}
+\Delta_i = \bar y_i^{\text{on}} - \bar y_i^{\text{off}}
+         = \frac{1}{p}\sum_{t=1}^{p} y_{it}
+         - \frac{1}{q}\sum_{t=p+1}^{p+q} y_{it}.
+(\#eq:delta)
+\end{equation}
+
+The intercept $\mu$, the biomarker main effect $\beta b_i$, and any
+participant-level offset are constant across $t$ within a participant
+and so cancel in \@ref(eq:delta), leaving
+
+\begin{equation}
+\Delta_i = \gamma + \theta\, b_i + \varepsilon_i,
+\qquad
+\varepsilon_i = \frac{1}{p}\sum_{t=1}^{p} e_{it}
+              - \frac{1}{q}\sum_{t=p+1}^{p+q} e_{it}.
+(\#eq:reduced)
+\end{equation}
+
+Equation \@ref(eq:reduced) is an ordinary simple regression of the
+contrast $\Delta_i$ on the biomarker $b_i$, so the interaction
+estimator is the least-squares slope
+
+\begin{equation}
+\hat\theta
+  = \frac{\sum_{i=1}^{N} (b_i - \bar b)\,\Delta_i}
+         {\sum_{i=1}^{N} (b_i - \bar b)^2},
+\qquad
+\mathbb{E}[\hat\theta] = \theta .
+(\#eq:thetahat)
+\end{equation}
+
+Two features of \@ref(eq:thetahat) are worth stating explicitly.
+First, the point estimate is unbiased and has the same closed form
+for any within-participant correlation structure: the structure
+enters only through $\varepsilon_i$, which is mean zero and does not
+touch the numerator's expectation. Second, because every participant
+shares the same design, the contrasts $\varepsilon_i$ are
+homoscedastic across $i$ and independent between participants, so
+ordinary least squares is fully efficient (generalised least squares
+coincides with it) and
+
+\begin{equation}
+\operatorname{Var}(\hat\theta)
+  = \frac{V_\varepsilon}{\sum_i (b_i - \bar b)^2}
+  = \frac{V_\varepsilon}{(N-1)\, s_b^2},
+\qquad
+V_\varepsilon \equiv \operatorname{Var}(\varepsilon_i),
+(\#eq:vartheta)
+\end{equation}
+
+with $s_b^2$ the sample variance of the biomarker. The entire effect
+of the correlation structure is concentrated in the single scalar
+$V_\varepsilon$, which we now evaluate under each structure.
+
+# Variance under compound symmetry
+
+Under compound symmetry every distinct pair of within-participant
+occasions shares the same correlation, $\operatorname{Cor}(e_{it},
+e_{is}) = \rho$ for $t \neq s$. The two phase means have variances
+
+\begin{equation}
+\operatorname{Var}(\bar y_i^{\text{on}})
+  = \sigma^2\Big(\rho + \tfrac{1-\rho}{p}\Big),
+\qquad
+\operatorname{Var}(\bar y_i^{\text{off}})
+  = \sigma^2\Big(\rho + \tfrac{1-\rho}{q}\Big),
+(\#eq:cs-means)
+\end{equation}
+
+and, since every on/off pair shares the same covariance $\rho
+\sigma^2$, their cross-covariance is
+$\operatorname{Cov}(\bar y_i^{\text{on}}, \bar y_i^{\text{off}}) =
+\rho\sigma^2$. Substituting into $V_\varepsilon =
+\operatorname{Var}(\bar y_i^{\text{on}}) + \operatorname{Var}(\bar
+y_i^{\text{off}}) - 2\operatorname{Cov}(\cdot)$ cancels the shared
+$\rho$ terms and gives the compact result
+
+\begin{equation}
+\boxed{\;V_\varepsilon^{\mathrm{CS}}
+  = \sigma^2 (1-\rho)\Big(\tfrac{1}{p} + \tfrac{1}{q}\Big).\;}
+(\#eq:cs)
+\end{equation}
+
+The interaction variance therefore depends on the correlation only
+through the common factor $(1-\rho)$: the shared between-occasion
+component cancels in the within-participant contrast, and what
+remains is the independent innovation $\sigma^2(1-\rho)$ averaged over
+the $p$ and $q$ occasions. The arrangement of occasions is irrelevant
+under compound symmetry; only the counts $p$ and $q$ enter.
+
+# Variance under AR(1)
+
+Under continuous-time AR(1) correlation on equally spaced occasions,
+$\operatorname{Cor}(e_{it}, e_{is}) = \varphi^{|t-s|}$ with
+$0 \le \varphi < 1$, the off-diagonal covariances decay with
+separation, so the arrangement of occasions now matters. The sum of
+all entries of an $m \times m$ AR(1) correlation matrix has the
+closed form
+
+\begin{equation}
+S_m \equiv \mathbf{1}^\top R_m \mathbf{1}
+  = \frac{m(1+\varphi)}{1-\varphi}
+  - \frac{2\varphi\,(1-\varphi^{m})}{(1-\varphi)^2},
+(\#eq:Sm)
+\end{equation}
+
+so that $\operatorname{Var}(\bar y_i^{\text{on}}) = \sigma^2 S_p/p^2$
+and $\operatorname{Var}(\bar y_i^{\text{off}}) = \sigma^2 S_q/q^2$.
+Because the on-drug block ($t = 1, \dots, p$) and the off-drug block
+($t = p+1, \dots, p+q$) are contiguous, the cross-block covariance sum
+factorises,
+
+\begin{equation}
+\sum_{t=1}^{p}\sum_{s=p+1}^{p+q}\varphi^{\,s-t}
+  = \frac{(1-\varphi^{p})}{1-\varphi}\cdot
+    \frac{\varphi\,(1-\varphi^{q})}{1-\varphi}
+  \;\equiv\; C_{pq},
+(\#eq:Cpq)
+\end{equation}
+
+giving $\operatorname{Cov}(\bar y_i^{\text{on}}, \bar
+y_i^{\text{off}}) = \sigma^2 C_{pq}/(pq)$. Assembling the three terms,
+
+\begin{equation}
+\boxed{\;V_\varepsilon^{\mathrm{AR}(1)}
+  = \sigma^2\left(\frac{S_p}{p^2} + \frac{S_q}{q^2}
+                  - \frac{2\,C_{pq}}{pq}\right),\;}
+(\#eq:ar1)
+\end{equation}
+
+with $S_p, S_q, C_{pq}$ from \@ref(eq:Sm)--\@ref(eq:Cpq). The
+structural contrast with \@ref(eq:cs) is the cross-block covariance:
+under compound symmetry the on and off phase means remain strongly
+correlated however many occasions separate them, so the contrast
+cancels most of the variance; under AR(1) the contiguous on and off
+blocks are temporally separated, their covariance $C_{pq}$ decays
+geometrically, and the contrast benefits from little cancellation.
+The autocorrelation that helps the phase means (tighter within-block
+averaging) hurts the contrast (weaker between-phase cancellation), and
+the latter dominates.
+
+A useful sanity check: with a single occasion per phase, $p = q = 1$,
+both formulas reduce to $V_\varepsilon = 2\sigma^2(1 - \rho)$ and
+$2\sigma^2(1 - \varphi)$ respectively, which coincide when
+$\rho = \varphi$. With one measurement per phase there is no
+within-phase averaging, so only the lag-one correlation is
+identifiable and the two structures are indistinguishable; the
+structures diverge precisely when $p$ or $q$ exceeds one.
+
+# A unifying formula and other correlation structures
+
+Equations \@ref(eq:cs) and \@ref(eq:ar1) are two instances of a single
+identity. For an arbitrary within-participant correlation matrix $R$,
+partition the occasions into the on-drug block
+$\mathcal{O} = \{1, \dots, p\}$ and the off-drug block
+$\mathcal{F} = \{p+1, \dots, p+q\}$, and define the three block
+correlation sums
+$S_{\mathrm{on}} = \sum_{t,s \in \mathcal{O}} R_{ts}$,
+$S_{\mathrm{off}} = \sum_{t,s \in \mathcal{F}} R_{ts}$, and
+$S_{\times} = \sum_{t \in \mathcal{O},\, s \in \mathcal{F}} R_{ts}$.
+Because the contrast \@ref(eq:delta) carries weight $1/p$ on each
+on-drug occasion and $-1/q$ on each off-drug occasion,
+$V_\varepsilon = \sigma^2\, a^\top R\, a$ for that weight vector $a$,
+which is exactly
+
+\begin{equation}
+V_\varepsilon = \sigma^2\!\left(\frac{S_{\mathrm{on}}}{p^2}
+  + \frac{S_{\mathrm{off}}}{q^2}
+  - \frac{2\, S_{\times}}{pq}\right).
+(\#eq:master)
+\end{equation}
+
+Compound symmetry is the case $S_{\mathrm{on}} = p[1 + (p-1)\rho]$,
+$S_{\times} = pq\,\rho$; AR(1) is $S_{\mathrm{on}} = S_p$ of
+\@ref(eq:Sm) and $S_{\times} = C_{pq}$ of \@ref(eq:Cpq). The same
+template delivers the remaining structures in common use.
+
+**Toeplitz and banded.** If the correlation depends only on the lag,
+$R_{ts} = \rho_{|t-s|}$ with $\rho_0 = 1$ and free $\rho_1, \rho_2,
+\dots$ (AR(1) is the one-parameter case $\rho_k = \varphi^k$; an
+$m$-dependent or banded model sets $\rho_k = 0$ for $k > m$; a general
+stationary, or Toeplitz, model leaves all of them free), the block
+sums are lag-weighted counts,
+
+\begin{align}
+S_{\mathrm{on}} &= p + 2\sum_{k=1}^{p-1}(p-k)\,\rho_k,
+\qquad
+S_{\mathrm{off}} = q + 2\sum_{k=1}^{q-1}(q-k)\,\rho_k,
+\notag\\[2pt]
+S_{\times} &= \sum_{\ell=1}^{p+q-1}
+   \min(\ell,\, p,\, q,\, p+q-\ell)\;\rho_\ell ,
+(\#eq:toep)
+\end{align}
+
+where the cross-block weight $\min(\ell, p, q, p+q-\ell)$ counts the
+on/off pairs separated by lag $\ell$. Substituting \@ref(eq:toep) into
+\@ref(eq:master) gives the interaction-contrast variance for any
+Toeplitz or banded structure; $\rho_k = \varphi^k$ recovers
+\@ref(eq:ar1) and $\rho_k = \rho$ recovers \@ref(eq:cs).
+
+**Unstructured.** With every correlation free, \@ref(eq:master) is
+itself the answer, $V_\varepsilon = \sigma^2\, a^\top \hat R\, a$ with
+$\hat R$ the estimated correlation, but the structure costs
+$T(T+1)/2$ parameters and needs $N \gg T$ to estimate, which an
+N-of-1 trial rarely affords; it is the gold standard for MMRM in large
+parallel-group trials, not here.
+
+**Independence and random slopes.** Independence ($\rho_k = 0$) gives
+the naive $V_\varepsilon = \sigma^2(1/p + 1/q)$, the largest contrast
+variance in the family. A random intercept alone reproduces compound
+symmetry and cancels in the contrast; adding a random time slope of
+variance $\tau^2$ contributes a term
+$\tau^2(\bar t_{\mathrm{on}} - \bar t_{\mathrm{off}})^2$ to
+$V_\varepsilon$ that does not cancel and grows with the temporal
+separation of the two phases, a penalty specific to the
+discontinuation design.
+
+```{r altcheck, echo = FALSE}
+qform <- function(p, q, R) {
+  a <- c(rep(1 / p, p), rep(-1 / q, q)); as.numeric(crossprod(a, R %*% a))
+}
+toepR <- function(p, q, rho) {
+  Tt <- p + q
+  outer(1:Tt, 1:Tt, function(i, j) {
+    k <- abs(i - j); ifelse(k == 0, 1, rho(k))
+  })
+}
+Vtoep <- function(p, q, rho) {
+  son  <- p + 2 * sum((p - seq_len(p - 1)) * vapply(seq_len(p - 1), rho, 0))
+  soff <- q + 2 * sum((q - seq_len(q - 1)) * vapply(seq_len(q - 1), rho, 0))
+  lags <- seq_len(p + q - 1)
+  scr  <- sum(pmin(lags, p, q, (p + q) - lags) * vapply(lags, rho, 0))
+  son / p^2 + soff / q^2 - 2 * scr / (p * q)
+}
+rho_gen <- function(k) 0.6 * 0.7^(k - 1)   # a decaying non-AR(1) Toeplitz
+maxdiff <- max(vapply(list(c(2, 2), c(4, 4), c(3, 5), c(2, 6)),
+  function(pq) abs(Vtoep(pq[1], pq[2], rho_gen) -
+                   qform(pq[1], pq[2], toepR(pq[1], pq[2], rho_gen))),
+  numeric(1)))
+```
+
+Equations \@ref(eq:master)--\@ref(eq:toep) agree with the full
+quadratic form $a^\top R\, a$ to within
+`r sprintf('%.0e', maxdiff)` for a representative non-AR(1) Toeplitz
+correlation, confirming the block-sum bookkeeping.
+
+# Efficiency and power
+
+Because the point estimate is common to both structures, the entire
+inferential difference is the variance ratio
+$V_\varepsilon^{\mathrm{AR}(1)} / V_\varepsilon^{\mathrm{CS}}$
+evaluated at a matched marginal variance $\sigma^2$ and a matched
+lag-one correlation $\rho = \varphi$. From \@ref(eq:vartheta) the
+Wald statistic is $\hat\theta / \mathrm{SE}(\hat\theta)$ with
+$\mathrm{SE}(\hat\theta) = \{V_\varepsilon / [(N-1)s_b^2]\}^{1/2}$, so
+under the alternative the non-centrality is
+
+\begin{equation}
+\zeta = \theta \sqrt{\frac{(N-1)\, s_b^2}{V_\varepsilon}},
+\qquad
+\frac{\zeta_{\mathrm{AR}(1)}}{\zeta_{\mathrm{CS}}}
+  = \sqrt{\frac{V_\varepsilon^{\mathrm{CS}}}
+               {V_\varepsilon^{\mathrm{AR}(1)}}} .
+(\#eq:ncp)
+\end{equation}
+
+Power is monotone increasing in $\zeta$, and the relative sample size
+required to match power is exactly the variance ratio. The following
+evaluates the two closed forms (and confirms them against the full
+covariance computation).
+
+```{r calc, echo = TRUE}
+S  <- function(m, phi) m * (1 + phi) / (1 - phi) -
+        2 * phi * (1 - phi^m) / (1 - phi)^2
+Cc <- function(p, q, phi) phi * (1 - phi^p) * (1 - phi^q) / (1 - phi)^2
+V_cs  <- function(p, q, rho) (1 - rho) * (1 / p + 1 / q)
+V_ar1 <- function(p, q, phi) S(p, phi) / p^2 + S(q, phi) / q^2 -
+           2 * Cc(p, q, phi) / (p * q)
+
+grid <- expand.grid(p = c(1L, 4L, 8L), q = c(1L, 4L, 8L),
+                    rho = 0.5)
+grid <- grid[grid$p == grid$q, ]
+grid$V_CS    <- mapply(V_cs,  grid$p, grid$q, grid$rho)
+grid$V_AR1   <- mapply(V_ar1, grid$p, grid$q, grid$rho)
+grid$ratio   <- grid$V_AR1 / grid$V_CS
+grid$N_infl  <- grid$ratio
+knitr::kable(
+  grid[, c('p', 'q', 'V_CS', 'V_AR1', 'ratio')],
+  col.names = c('$p$', '$q$', '$V^{CS}_\\varepsilon/\\sigma^2$',
+                '$V^{AR(1)}_\\varepsilon/\\sigma^2$',
+                'ratio (= relative $N$)'),
+  digits = 3, escape = FALSE,
+  caption = 'Interaction-contrast variance under compound symmetry
+    and AR(1) at matched lag-one correlation $\\rho=\\varphi=0.5$,
+    balanced phases $p=q$. The ratio is the factor by which the AR(1)
+    design inflates $\\operatorname{Var}(\\hat\\theta)$, equal to the
+    relative number of participants needed to match power.'
+)
+```
+
+```{r headline, echo = FALSE}
+r44 <- V_ar1(4, 4, 0.5) / V_cs(4, 4, 0.5)
+```
+
+At the reference cycling depth of four on-drug and four off-drug
+occasions, with $\rho = \varphi = 0.5$, the AR(1) interaction-contrast
+variance is `r sprintf('%.2f', r44)` times the compound-symmetric
+value (equation \@ref(eq:cs) gives $0.25\,\sigma^2$, equation
+\@ref(eq:ar1) gives $0.81\,\sigma^2$). Equivalently, the Wald
+statistic shrinks by a factor `r sprintf('%.2f', 1 / sqrt(r44))`, and
+roughly `r sprintf('%.1f', r44)` times as many participants are needed
+to recover the power available under compound symmetry. The inflation
+grows with cycling depth: at $p = q = 8$ the ratio exceeds
+`r sprintf('%.1f', V_ar1(8, 8, 0.5) / V_cs(8, 8, 0.5))`, because
+deeper within-phase averaging buys the compound-symmetric contrast
+more cancellation than it buys the AR(1) contrast.
+
+# Including expectation: the three-phase hybrid
+
+The minimal design collapses a feature the hybrid is built around: a
+participant knows they are on drug during the open-label run-in but is
+blinded during discontinuation, so belief and exposure coincide in the
+run-in and decouple thereafter. The same machinery accommodates this
+with one extra regressor and returns a separate closed-form estimate
+for each channel.
+
+Partition each participant's occasions into three balanced classes:
+open-label on-drug ($p_1$ occasions, exposure $D = 1$, belief
+$E = 1$), blinded on-drug ($p_2$, $D = 1$, $E = e_0$), and blinded
+off-drug ($q$, $D = 0$, $E = e_0$), where $e_0$ is the blinded belief
+level ($e_0 = 1/2$ under 1:1 discontinuation). The analysis model adds
+an expectation main effect and an expectation-by-biomarker
+interaction,
+
+\begin{equation}
+y_{it} = \mu + \beta\, b_i + \gamma_D D_t + \gamma_E E_t
+       + \theta_D\,(b_i D_t) + \theta_E\,(b_i E_t) + e_{it},
+(\#eq:model-exp)
+\end{equation}
+
+in which $\theta_D$ is the biomarker-by-drug (pharmacological)
+interaction, the estimand, and $\theta_E$ is the
+biomarker-by-expectation (placebo) interaction that an
+open-label-only analysis would confound with it.
+
+Let $m_{1i}, m_{2i}, m_{3i}$ denote the participant's mean over the
+three classes. Each is linear in $b_i$ with class-specific slope
+$s_1 = \beta + \theta_D + \theta_E$,
+$s_2 = \beta + \theta_D + \theta_E e_0$, and
+$s_3 = \beta + \theta_E e_0$; the system is non-singular for
+$e_0 \neq 1$ and gives $\theta_D = s_2 - s_3$ and
+$\theta_E = (s_1 - s_2)/(1 - e_0)$. Because a difference of slopes is
+the slope of the difference, each interaction is the least-squares
+slope of a single within-participant contrast,
+
+\begin{equation}
+\boxed{\;\hat\theta_D
+  = \frac{\sum_i (b_i - \bar b)\,(m_{2i} - m_{3i})}
+         {\sum_i (b_i - \bar b)^2}\;}
+\qquad (\text{blinded-on minus blinded-off; belief held at } e_0),
+(\#eq:thetaD)
+\end{equation}
+
+\begin{equation}
+\hat\theta_E
+  = \frac{1}{1 - e_0}\,
+    \frac{\sum_i (b_i - \bar b)\,(m_{1i} - m_{2i})}
+         {\sum_i (b_i - \bar b)^2}
+\qquad (\text{open-label-on minus blinded-on; drug held at } 1).
+(\#eq:thetaE)
+\end{equation}
+
+Both are unbiased. The pharmacological interaction $\theta_D$ is
+identified entirely within the blinded window, where belief is fixed
+at $e_0$ and so cancels in the contrast; the expectation interaction
+$\theta_E$ is identified by the run-in versus blinded-on contrast,
+where exposure is fixed at one. The empty fourth cell -- off drug
+while certain of being on -- is no obstacle, because the two
+interactions are read from different contrasts rather than from a
+crossed factorial.
+
+The variance of the estimand follows the block-sum identity
+\@ref(eq:master) applied to the two blinded blocks,
+
+\begin{equation}
+\operatorname{Var}(\hat\theta_D) = \frac{V_D}{(N-1)\, s_b^2},
+\qquad
+V_D = \sigma^2\!\left(\frac{S_{p_2}}{p_2^2} + \frac{S_q}{q^2}
+       - \frac{2\, C_{p_2 q}}{p_2 q}\right),
+(\#eq:VD)
+\end{equation}
+
+with the same $S_m$ and $C_{pq}$ as before. Under compound symmetry
+$S_{p_2} = p_2[1 + (p_2 - 1)\rho]$ and $C_{p_2 q} = p_2 q\,\rho$, so
+$V_D = \sigma^2 (1-\rho)(1/p_2 + 1/q)$; under AR(1) they are
+\@ref(eq:Sm)--\@ref(eq:Cpq). The drug interaction therefore inherits
+exactly the compound-symmetry-versus-AR(1) efficiency contrast derived
+above, now governed by the blinded-window depths $p_2$ and $q$ rather
+than the full on/off counts. The minimal design of the preceding
+sections is the special case in which the open-label block is dropped
+from the contrast, the belief term is constant, and $\theta_E$
+vanishes, leaving $\theta_D$ as the sole interaction. The two
+estimators are correlated through the shared mean $m_{2i}$, with
+covariance obtained from the same block sums; a joint
+generalised-least-squares fit recovers the small remaining efficiency,
+exactly as the full mixed model does relative to the equal-weight
+contrasts.
+
+# Remarks
+
+The result makes precise the qualitative claim of the companion
+manuscripts. A classical analysis that presumes compound symmetry,
+whether strict repeated-measures ANOVA or a random-intercept model
+without a residual-correlation term, prices the interaction at
+$V_\varepsilon^{\mathrm{CS}}$ and so reports a standard error that is
+too small by the square root of the variance ratio when the truth is
+AR(1); a model that estimates the AR(1) parameter directly (for
+example `nlme::lme` with `corCAR1`) targets
+$V_\varepsilon^{\mathrm{AR}(1)}$ and is correctly calibrated. Two
+extensions follow the same algebra and are left as remarks. First,
+exponential carryover replaces the binary off-drug indicator $D_t$ by
+a continuous decay $D_t = \exp(-\lambda\, \text{tsd})$; the contrast
+weights in \@ref(eq:delta) change but the variance bookkeeping of
+\@ref(eq:cs) and \@ref(eq:ar1) is unchanged in form. Second,
+dichotomising the biomarker at its median replaces $s_b^2$ in
+\@ref(eq:vartheta) by the smaller between-stratum variance, which is
+the separate, structure-independent power penalty that the
+test-procedure manuscript isolates.
+
+# References
+
+::: {#refs}
+:::

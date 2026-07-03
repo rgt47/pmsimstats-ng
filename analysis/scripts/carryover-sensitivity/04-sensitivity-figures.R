@@ -43,12 +43,28 @@ placeholder <- function(block, path) {
   ggsave(path, p, width = 5, height = 3.2)
 }
 
+## A1 and A3 produce near-identical power (A3 is A1 plus a lagged
+## nuisance term), so their lines coincide and one would hide the
+## other if distinguished by colour alone. Mapping spec to colour,
+## linetype, and shape -- merged into a single legend -- keeps all
+## three visible: A3's dashes reveal A1 beneath, and the point
+## shapes differ where values are equal.
+spec_labels <- c(A1 = 'A1 binary',
+                 A2 = 'A2 Dbc (matched)',
+                 A3 = 'A3 lagged')
+
 spec_scale <- scale_colour_manual(
-  values = c(A1 = '#1f78b4', A2 = '#33a02c', A3 = '#e31a1c'),
-  labels = c(A1 = 'A1 binary',
-             A2 = 'A2 Dbc (matched)',
-             A3 = 'A3 lagged')
-)
+  name = 'Analysis spec', values = c(A1 = '#1f78b4',
+  A2 = '#33a02c', A3 = '#e31a1c'), labels = spec_labels)
+
+spec_linetype <- scale_linetype_manual(
+  name = 'Analysis spec',
+  values = c(A1 = 'solid', A2 = 'solid', A3 = 'longdash'),
+  labels = spec_labels)
+
+spec_shape <- scale_shape_manual(
+  name = 'Analysis spec',
+  values = c(A1 = 16, A2 = 17, A3 = 4), labels = spec_labels)
 
 if (!file.exists(summary_path)) {
   message('Tier 2 summary not found: ', summary_path)
@@ -67,11 +83,13 @@ s2 <- readRDS(summary_path)$summary |>
 ## S1: power vs rho by spec
 ## -----------------------------------------------------------------
 d1 <- s2 |> dplyr::filter(block == 'S1')
-p1 <- ggplot(d1, aes(rho, power, colour = spec, group = spec)) +
+p1 <- ggplot(d1, aes(rho, power, colour = spec, linetype = spec, shape = spec, group = spec)) +
   geom_line(linewidth = 0.6) +
   geom_point(size = 1.5) +
   scale_y_continuous(limits = c(0, 1)) +
   spec_scale +
+  spec_linetype +
+  spec_shape +
   labs(x = expression('AR(1) autocorrelation'~rho),
        y = 'Power', colour = 'Analysis spec',
        title = 'S1: Sensitivity to within-factor autocorrelation',
@@ -87,13 +105,15 @@ ggsave(file.path(fig_dir, '02-sens-S1.pdf'), p1,
 d2 <- s2 |> dplyr::filter(block == 'S2') |>
   dplyr::mutate(true = factor(paste0('true t_{1/2} = ', t1half)))
 p2 <- ggplot(d2, aes(analysis_t1half, power,
-                     colour = spec, group = spec)) +
+                     colour = spec, linetype = spec, shape = spec, group = spec)) +
   geom_line(linewidth = 0.6) +
   geom_point(size = 1.5) +
   facet_wrap(~ true) +
   scale_x_log10(breaks = c(0.25, 0.5, 1, 2)) +
   scale_y_continuous(limits = c(0, 1)) +
   spec_scale +
+  spec_linetype +
+  spec_shape +
   labs(x = expression('Analyst-assumed half-life (log scale, weeks)'),
        y = 'Power', colour = 'Analysis spec',
        title = 'S2: Cost of analyst-truth half-life mismatch',
@@ -108,12 +128,14 @@ ggsave(file.path(fig_dir, '02-sens-S2.pdf'), p2,
 ## -----------------------------------------------------------------
 d3 <- s2 |> dplyr::filter(block == 'S3')
 p3 <- ggplot(d3, aes(dropout_rate, power,
-                     colour = spec, group = spec)) +
+                     colour = spec, linetype = spec, shape = spec, group = spec)) +
   geom_line(linewidth = 0.6) +
   geom_point(size = 1.5) +
   facet_wrap(~ dropout_mech) +
   scale_y_continuous(limits = c(0, 1)) +
   spec_scale +
+  spec_linetype +
+  spec_shape +
   labs(x = 'Dropout rate',
        y = 'Power', colour = 'Analysis spec',
        title = 'S3: Sensitivity to dropout',
@@ -127,13 +149,15 @@ ggsave(file.path(fig_dir, '02-sens-S3.pdf'), p3,
 ## S4: effect-size curve
 ## -----------------------------------------------------------------
 d4 <- s2 |> dplyr::filter(block == 'S4')
-p4 <- ggplot(d4, aes(c_bm, power, colour = spec, group = spec)) +
+p4 <- ggplot(d4, aes(c_bm, power, colour = spec, linetype = spec, shape = spec, group = spec)) +
   geom_hline(yintercept = 0.05, linetype = 'dashed',
              colour = 'grey50') +
   geom_line(linewidth = 0.6) +
   geom_point(size = 1.5) +
   scale_y_continuous(limits = c(0, 1)) +
   spec_scale +
+  spec_linetype +
+  spec_shape +
   labs(x = expression(c[bm]),
        y = 'Power (c_bm > 0) or type-I error (c_bm = 0)',
        colour = 'Analysis spec',
@@ -148,12 +172,14 @@ ggsave(file.path(fig_dir, '02-sens-S4.pdf'), p4,
 ## S5: rho x carryover interaction (exploratory)
 ## -----------------------------------------------------------------
 d5 <- s2 |> dplyr::filter(block == 'S5')
-p5 <- ggplot(d5, aes(t1half, power, colour = spec, group = spec)) +
+p5 <- ggplot(d5, aes(t1half, power, colour = spec, linetype = spec, shape = spec, group = spec)) +
   geom_line(linewidth = 0.6) +
   geom_point(size = 1.5) +
   facet_wrap(~ rho, labeller = label_bquote(rho == .(rho))) +
   scale_y_continuous(limits = c(0, 1)) +
   spec_scale +
+  spec_linetype +
+  spec_shape +
   labs(x = expression('Carryover half-life'~t['1/2']~'(weeks)'),
        y = 'Power', colour = 'Analysis spec',
        title = 'S5: Autocorrelation x carryover interaction',

@@ -75,6 +75,14 @@ cells <- list(
   modifyList(base_cell, list(label = '30% MCAR dropout',
                              dropout_rate = 0.30, dropout_mech = 'MCAR')))
 
+## --- Null cells (c_bm = 0) mirroring each stress cell, so the
+## rejection rate is the type-I error. A correctly-sized test is the
+## precondition for any "best analysis" recommendation: comparing
+## power is only meaningful once each specification holds nominal
+## alpha. The model-based test is conservative (type-I near 0.03);
+## CR2 should restore it to ~0.05. -----------------------------------
+null_cells <- lapply(cells, function(cl) modifyList(cl, list(c_bm = 0)))
+
 resp_param     <- default_resp_param()
 baseline_param <- default_baseline_param()
 
@@ -199,7 +207,8 @@ cat(sprintf('S6 CR2 recalibration: %d cells, %d reps each\n',
             length(cells), N_REPS))
 plan(multicore, workers = max(1, parallel::detectCores() - 1))
 t0 <- Sys.time()
-res <- map_dfr(cells, run_cell)
+res      <- map_dfr(cells, run_cell)
+res_null <- map_dfr(null_cells, run_cell)
 elapsed <- as.numeric(Sys.time() - t0, units = 'secs')
 cat(sprintf('Completed in %.0f s.\n\n', elapsed))
 
@@ -233,11 +242,26 @@ gaps <- summ |>
 cat('\n=== A2 - A1 power gap (ranking check) ===\n')
 print(as.data.frame(gaps), digits = 3)
 
+## --- Type-I error at the null (c_bm = 0) under each inference ------
+type1 <- res_null |>
+  filter(converged) |>
+  group_by(cell, spec) |>
+  summarise(
+    n         = n(),
+    type1_mod = mean(mod_p < 0.05, na.rm = TRUE),
+    type1_cr2 = mean(cr2_p < 0.05, na.rm = TRUE),
+    .groups   = 'drop')
+cat('\n=== S6: type-I error at c_bm = 0 (model vs CR2) ===\n')
+cat('Nominal alpha = 0.05; model-based is conservative, CR2 ~ 0.05\n')
+print(as.data.frame(type1), digits = 3)
+
 out_dir <- file.path(repo_root,
   'analysis/scripts/carryover-sensitivity/output')
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
-saveRDS(list(results = res, summary = summ, gaps = gaps,
-             cells = cells, n_reps = N_REPS, seed = SEED,
+saveRDS(list(results = res, results_null = res_null,
+             summary = summ, gaps = gaps, type1 = type1,
+             cells = cells, null_cells = null_cells,
+             n_reps = N_REPS, seed = SEED,
              elapsed_secs = elapsed),
         file.path(out_dir, 'diag-s6-cr2.rds'))
 cat(sprintf('\nWrote %s\n', file.path(out_dir, 'diag-s6-cr2.rds')))

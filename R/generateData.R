@@ -88,9 +88,10 @@
 #' @export
 
 
-generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePositiveDefinite,seed=NA,lambda_cor=NA,verbose=FALSE,cached_sigma=NULL,dgp_architecture="mvn"){
+generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePositiveDefinite,seed=NA,lambda_cor=NA,verbose=FALSE,cached_sigma=NULL,dgp_architecture="mvn",br_family="gompertz",br_p2=NA,br_p3=NA,moderation_scaling="constant"){
 
   dgp_architecture<-match.arg(dgp_architecture, c("mvn", "mean_moderation", "combined"))
+  moderation_scaling<-match.arg(moderation_scaling, c("constant", "trajectory"))
 
   if(!is.null(cached_sigma)){
     sigma<-cached_sigma$sigma
@@ -101,7 +102,8 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
     chol_sigma<-cached_sigma$chol_sigma
   } else {
     built<-buildSigma(modelparam,respparam,blparam,trialdesign,makePositiveDefinite,lambda_cor,verbose,
-                      dgp_architecture=dgp_architecture)
+                      dgp_architecture=dgp_architecture,
+                      br_family=br_family,br_p2=br_p2,br_p3=br_p3)
     sigma<-built$sigma
     means<-built$means
     labels<-built$labels
@@ -139,10 +141,31 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
     d[,onDrug:=(tod>0)]
     tnames<-trialdesign$timeptnames
 
+    # Per-timepoint moderation magnitude. "constant" reproduces the
+    # original flat shift beta_bm * z * sigma_BR at every on-drug
+    # timepoint. "trajectory" rides the BR response curve, matching the
+    # multiplicative Architecture-A form Y = b1 * D * (1 + b_bm * B) of
+    # paper 01 and implementations/simple (br_rate * (1 + mod * bm)):
+    # the biomarker-dependent component scales with the drug-response
+    # magnitude BR(t). Normalised so the mean on-drug magnitude equals
+    # sigma_BR, holding the marginal interaction effect size fixed
+    # across trajectory families while letting its temporal profile
+    # vary by family shape.
+    if(moderation_scaling=="trajectory"){
+      br_labels<-paste(tnames,"br",sep=".")
+      brmean_vec<-means[match(br_labels,labels)]
+      ondrug_idx<-which(d$onDrug)
+      abar<-mean(brmean_vec[ondrug_idx])
+      scale_by_tp<-if(isTRUE(all.equal(abar,0))) rep(br_sd,nP) else
+                   br_sd*brmean_vec/abar
+    } else {
+      scale_by_tp<-rep(br_sd,nP)
+    }
+
     for(tp in 1:nP){
       if(d[tp]$onDrug){
         br_col<-paste(tnames[tp], "br", sep=".")
-        dat[,(br_col):=get(br_col) + beta_bm * bm_z * br_sd]
+        dat[,(br_col):=get(br_col) + beta_bm * bm_z * scale_by_tp[tp]]
       }
     }
   }
@@ -184,9 +207,17 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
 #'   differential correlation block is included for \code{"mvn"}
 #'   (using \code{c.bm}) and \code{"combined"} (using \code{c.bm_b});
 #'   it is omitted for \code{"mean_moderation"}.
+#' @param br_family Trajectory family for the BR mean curve. One of
+#'   \code{"gompertz"} (default), \code{"logistic"},
+#'   \code{"hyperbolic_tangent"}, or \code{"piecewise_linear_breakpoint"}.
+#'   The default reproduces the original modGompertz BR mean exactly.
+#'   See \link{trajectoryShape}.
+#' @param br_p2,br_p3 Family-specific shape parameters passed to
+#'   \link{trajectoryShape} (for gompertz, \code{disp} and \code{rate};
+#'   defaults \code{NA} fall back to \code{respparam}'s disp/rate).
 #' @return List with sigma, means, labels, nP, cl, trialdesign
 #' @export
-buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefinite=TRUE,lambda_cor=NA,verbose=FALSE,dgp_architecture="mvn"){
+buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefinite=TRUE,lambda_cor=NA,verbose=FALSE,dgp_architecture="mvn",br_family="gompertz",br_p2=NA,br_p3=NA){
 
   # Compute lambda_cor from carryover half-life if not specified
   if(is.na(lambda_cor)){
@@ -222,7 +253,9 @@ buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefini
       means<-c(means,modgompertz(d$tpb,rp$max,rp$disp,rp$rate)*trialdesign$e)
     }
     if(cc=="br"){
-      brmeans<-modgompertz(d$tod,rp$max,rp$disp,rp$rate)
+      bp2<-if(is.na(br_p2)) rp$disp else br_p2
+      bp3<-if(is.na(br_p3)) rp$rate else br_p3
+      brmeans<-trajectoryShape(br_family,d$tod,rp$max,bp2,bp3)
       if(nP>1){
         for(p in 2:nP){
           if(!d[p]$onDrug){

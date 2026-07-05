@@ -1304,7 +1304,7 @@ Discussion (Section 5) takes up the practical interpretation of
 both off-diagonal directions.
 :::
 
-## Type I error control
+## Type I error control and cluster-robust recalibration
 
 ```{r fig-type1, echo = FALSE, fig.cap = "Empirical Type I error rates under the null ($c_{bm} = 0$), pooled across DGP decay forms and carryover half-lives, stratified by design and analysis specification. Boxplots cover the distribution across cells at $N = 70$; the dashed reference line marks the nominal 0.05 level.", out.width = "95%"}
 knitr::include_graphics("../../figures/02-type1-boxplots.pdf")
@@ -1319,8 +1319,8 @@ unremarkable under grid multiplicity (cells are not independent).
 \item No specification or architecture inflates the rate above
 nominal.
 \item The companion study traces the shortfall to a 6-10\%
-over-estimated SE; block S6's CR2 restores nominal size without
-changing the ranking.
+over-estimated SE; block S6's CR2 (below) restores nominal size
+without changing the ranking.
 \end{itemize}
 :::
 
@@ -1348,9 +1348,9 @@ covariance: its standard error is over-estimated by six to ten
 percent and the realized rejection rate falls correspondingly.
 The conservatism is uniform across specifications and
 architectures, which is why it leaves the comparison intact;
-sensitivity block S6 confirms that a CR2 cluster-robust standard
-error restores the rejection rate to nominal without disturbing
-the specification ranking. Table \@ref(tab:tab-type1-cr2) makes the
+the cluster-robust recalibration reported below (block S6) confirms
+that a CR2 cluster-robust standard error restores the rejection rate
+to nominal without disturbing the specification ranking. Table \@ref(tab:tab-type1-cr2) makes the
 per-specification conservatism and its cluster-robust correction
 explicit at the null cell.
 :::
@@ -1382,6 +1382,151 @@ knitr::kable(tab, booktabs = TRUE, escape = FALSE,
     near one and Type I to nominal (0.045 to 0.049) for every
     specification.')
 ```
+
+::: {.bullets data-latex=""}
+\textbf{Block S6 re-fits A2 with a CR2 cluster-robust SE to correct
+the mild conservatism of the model-based test.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item The model-based SE is 6-10\% too large, so power figures are
+slight under-estimates.
+\item The CR2 sandwich does not trust the model's covariance
+assumption and fixes the calibration.
+\item Table \@ref(tab:tab-s6) checks reference and four stress cells.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The companion calibration study [@pmsimstats_calibration2026] shows
+that this mixed-model test is mildly **conservative**: its standard
+error is about 6-10% too large, so it rejects a true effect a bit
+less often than it should (this is why the null rejection rate above,
+0.039, sits below 0.05, and why the power numbers are slight
+under-estimates). A **cluster-robust standard error** (the CR2
+estimator, which does not trust the model's covariance assumption)
+fixes the calibration. Table \@ref(tab:tab-s6) re-fits A2 with both
+the model-based and the CR2 standard error at the reference cell and
+four stress cells, to check that fixing the calibration does not
+change the ranking.
+:::
+
+```{r tab-s6, echo = FALSE}
+suppressPackageStartupMessages({library(dplyr)})
+s6 <- readRDS(here::here(
+  'analysis/scripts/carryover-sensitivity/output/diag-s6-cr2.rds'))
+ord <- c('Reference (N=70)', 'Small N (N=35)',
+         'High autocorr (rho=0.9)',
+         'Half-life mis-spec (assume 0.25)', '30% MCAR dropout')
+lab <- c('Reference, $N=70$', 'Small $N=35$',
+         'High autocorr, $\\rho=0.9$', 'Half-life mis-spec',
+         '30\\% MCAR dropout')
+tab <- s6$summary |>
+  filter(spec == 'A2') |>
+  left_join(s6$gaps, by = 'cell') |>
+  mutate(o = match(cell, ord)) |>
+  arrange(o) |>
+  transmute(
+    Cell = lab[o],
+    `$\\kappa$ model` = sprintf('%.2f', mod_se_ratio),
+    `$\\kappa$ CR2`   = sprintf('%.2f', cr2_se_ratio),
+    `Power model`     = sprintf('%.3f', power_mod),
+    `Power CR2`       = sprintf('%.3f', power_cr2),
+    `A2$-$A1 model`   = sprintf('%+.3f', gap_mod),
+    `A2$-$A1 CR2`     = sprintf('%+.3f', gap_cr2),
+    `CR2 df`          = sprintf('%.0f', cr2_df))
+knitr::kable(tab, booktabs = TRUE, escape = FALSE,
+  caption = 'Cluster-robust recalibration of the exposure-weighted
+    specification A2 at the reference cell and four stress cells
+    (500 replicates, $c_{bm} = 0.45$, Architecture B). $\\kappa$ is the
+    ratio of the mean standard error to the empirical standard
+    deviation of the interaction estimate; a value above one is a
+    conservative test. The A2$-$A1 columns give the power gap between
+    the two specifications under each inference, a check that
+    recalibration preserves the ranking. CR2 df is the mean
+    Satterthwaite degrees of freedom for the cluster-robust test; the
+    model-based test carries roughly 480. Computed with the
+    \\texttt{clubSandwich} package; see the companion calibration study
+    for the mechanism. The S6 cells are an independent 500-replicate
+    run, so the model-based A2 power at the reference cell (0.829)
+    differs from the headline-grid value (0.860) by within one Monte
+    Carlo standard error ($\\approx 0.016$); the two should not be
+    read as conflicting.') |>
+  kableExtra::kable_styling(latex_options = "scale_down")
+```
+
+```{r fig-type1-cr2, echo = FALSE, fig.cap = "Empirical Type I error at the null ($c_{bm} = 0$) under the model-based and CR2 cluster-robust inference, across the five S6 cells and the three specifications. The model-based test (open) is conservative (near 0.03); CR2 (filled) is restored to the nominal 0.05 (dashed), within the binomial Monte Carlo band (gray). 500 null replicates per cell.", out.width = "95%"}
+knitr::include_graphics("../../figures/02-type1-cr2.pdf")
+```
+
+::: {.bullets data-latex=""}
+\textbf{CR2 restores nominal size, which is the precondition for
+preferring any specification on power -- only correctly-sized tests
+are comparable.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Model-based null rejection sits near 0.03 (mean 0.035) across
+all cells and specs -- the documented conservatism
+(Fig. \@ref(fig:fig-type1-cr2)).
+\item CR2 lifts it to a mean of 0.046, within the Monte Carlo band
+around 0.05.
+\item Under CR2 all three specifications hold nominal $\alpha$, so
+the A2 advantage is a comparison among correctly-sized tests.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+The effect of recalibration on test size is shown directly in
+Figure \@ref(fig:fig-type1-cr2): the model-based null rejection rate
+sits near 0.03 (mean 0.035) across all five cells and three
+specifications, while the CR2 test restores it to a mean of 0.046,
+within the Monte Carlo band around the nominal 0.05. This is the
+precondition for the whole comparison -- a test that is not
+correctly sized cannot be preferred on power alone -- so under CR2,
+where all three specifications hold nominal $\alpha$, the A2
+advantage is a like-for-like comparison among correctly-sized tests.
+:::
+
+::: {.bullets data-latex=""}
+\textbf{CR2 restores calibration ($\kappa \to 1$) and recovers
+power without changing the ranking, but only in information-rich
+cells.}
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item $\kappa$ falls from 1.07-1.26 to about 1; the correctly-sized
+test recovers two to five power points.
+\item The A2$-$A1 gap is held or widened, at the cost of far fewer
+degrees of freedom ($\approx 480 \to 23$).
+\item Validated only at Architecture B / Hybrid / $N = 70$; do not
+extend the lower-bound reading to CO or Architecture A.
+\end{itemize}
+:::
+
+::: {.rgt data-latex=""}
+rgt to complete.
+:::
+
+::: {.orig data-latex=""}
+In the information-rich cells the picture matches the companion
+study. The calibration ratio $\kappa$ (mean standard error divided
+by the true spread of the estimates; above 1 means conservative)
+runs 1.07-1.26 under the model and is restored to about 1 under
+CR2, and the correctly-sized test recovers two to five points of
+power. Crucially, the A2-minus-A1 gap is held or slightly widened,
+so **fixing the calibration does not change the ranking**. The
+price is fewer effective degrees of freedom (about 480 drops to
+~23). Under heavy dropout the trick stops helping: the model is no
+longer conservative, CR2 becomes slightly anti-conservative on its
+handful of degrees of freedom, and all methods have collapsed to
+~0.13 power anyway. One caution: this recalibration was validated
+only in the Architecture~B, Hybrid, $N = 70$ cells, so the
+"slightly conservative lower bound" reading applies there, not to
+the crossover design or Architecture~A where A2 does not lead.
+:::
 
 ## Sensitivity analyses
 
@@ -1645,153 +1790,6 @@ shape-free method A3 recovers only part of A2's advantage, and only
 at small $N$ and short half-life; at larger $N$ it captures about
 half. Type I error across the null cells stayed in $[0.003, 0.053]$,
 i.e. at or below the nominal 5%.
-:::
-
-## Fixing the slightly-conservative test (Block S6)
-
-::: {.bullets data-latex=""}
-\textbf{Block S6 re-fits A2 with a CR2 cluster-robust SE to correct
-the mild conservatism of the model-based test.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The model-based SE is 6-10\% too large, so power figures are
-slight under-estimates.
-\item The CR2 sandwich does not trust the model's covariance
-assumption and fixes the calibration.
-\item Table \@ref(tab:tab-s6) checks reference and four stress cells.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-rgt to complete.
-:::
-
-::: {.orig data-latex=""}
-The companion calibration study [@pmsimstats_calibration2026] shows
-that this mixed-model test is mildly **conservative**: its standard
-error is about 6-10% too large, so it rejects a true effect a bit
-less often than it should (this is why the null rejection rate above,
-0.039, sits below 0.05, and why the power numbers are slight
-under-estimates). A **cluster-robust standard error** (the CR2
-estimator, which does not trust the model's covariance assumption)
-fixes the calibration. Table \@ref(tab:tab-s6) re-fits A2 with both
-the model-based and the CR2 standard error at the reference cell and
-four stress cells, to check that fixing the calibration does not
-change the ranking.
-:::
-
-```{r tab-s6, echo = FALSE}
-suppressPackageStartupMessages({library(dplyr)})
-s6 <- readRDS(here::here(
-  'analysis/scripts/carryover-sensitivity/output/diag-s6-cr2.rds'))
-ord <- c('Reference (N=70)', 'Small N (N=35)',
-         'High autocorr (rho=0.9)',
-         'Half-life mis-spec (assume 0.25)', '30% MCAR dropout')
-lab <- c('Reference, $N=70$', 'Small $N=35$',
-         'High autocorr, $\\rho=0.9$', 'Half-life mis-spec',
-         '30\\% MCAR dropout')
-tab <- s6$summary |>
-  filter(spec == 'A2') |>
-  left_join(s6$gaps, by = 'cell') |>
-  mutate(o = match(cell, ord)) |>
-  arrange(o) |>
-  transmute(
-    Cell = lab[o],
-    `$\\kappa$ model` = sprintf('%.2f', mod_se_ratio),
-    `$\\kappa$ CR2`   = sprintf('%.2f', cr2_se_ratio),
-    `Power model`     = sprintf('%.3f', power_mod),
-    `Power CR2`       = sprintf('%.3f', power_cr2),
-    `A2$-$A1 model`   = sprintf('%+.3f', gap_mod),
-    `A2$-$A1 CR2`     = sprintf('%+.3f', gap_cr2),
-    `CR2 df`          = sprintf('%.0f', cr2_df))
-knitr::kable(tab, booktabs = TRUE, escape = FALSE,
-  caption = 'Cluster-robust recalibration of the exposure-weighted
-    specification A2 at the reference cell and four stress cells
-    (500 replicates, $c_{bm} = 0.45$, Architecture B). $\\kappa$ is the
-    ratio of the mean standard error to the empirical standard
-    deviation of the interaction estimate; a value above one is a
-    conservative test. The A2$-$A1 columns give the power gap between
-    the two specifications under each inference, a check that
-    recalibration preserves the ranking. CR2 df is the mean
-    Satterthwaite degrees of freedom for the cluster-robust test; the
-    model-based test carries roughly 480. Computed with the
-    \\texttt{clubSandwich} package; see the companion calibration study
-    for the mechanism. The S6 cells are an independent 500-replicate
-    run, so the model-based A2 power at the reference cell (0.829)
-    differs from the headline-grid value (0.860) by within one Monte
-    Carlo standard error ($\\approx 0.016$); the two should not be
-    read as conflicting.') |>
-  kableExtra::kable_styling(latex_options = "scale_down")
-```
-
-```{r fig-type1-cr2, echo = FALSE, fig.cap = "Empirical Type I error at the null ($c_{bm} = 0$) under the model-based and CR2 cluster-robust inference, across the five S6 cells and the three specifications. The model-based test (open) is conservative (near 0.03); CR2 (filled) is restored to the nominal 0.05 (dashed), within the binomial Monte Carlo band (gray). 500 null replicates per cell.", out.width = "95%"}
-knitr::include_graphics("../../figures/02-type1-cr2.pdf")
-```
-
-::: {.bullets data-latex=""}
-\textbf{CR2 restores nominal size, which is the precondition for
-preferring any specification on power -- only correctly-sized tests
-are comparable.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Model-based null rejection sits near 0.03 (mean 0.035) across
-all cells and specs -- the documented conservatism
-(Fig. \@ref(fig:fig-type1-cr2)).
-\item CR2 lifts it to a mean of 0.046, within the Monte Carlo band
-around 0.05.
-\item Under CR2 all three specifications hold nominal $\alpha$, so
-the A2 advantage is a comparison among correctly-sized tests.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-rgt to complete.
-:::
-
-::: {.orig data-latex=""}
-The effect of recalibration on test size is shown directly in
-Figure \@ref(fig:fig-type1-cr2): the model-based null rejection rate
-sits near 0.03 (mean 0.035) across all five cells and three
-specifications, while the CR2 test restores it to a mean of 0.046,
-within the Monte Carlo band around the nominal 0.05. This is the
-precondition for the whole comparison -- a test that is not
-correctly sized cannot be preferred on power alone -- so under CR2,
-where all three specifications hold nominal $\alpha$, the A2
-advantage is a like-for-like comparison among correctly-sized tests.
-:::
-
-::: {.bullets data-latex=""}
-\textbf{CR2 restores calibration ($\kappa \to 1$) and recovers
-power without changing the ranking, but only in information-rich
-cells.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item $\kappa$ falls from 1.07-1.26 to about 1; the correctly-sized
-test recovers two to five power points.
-\item The A2$-$A1 gap is held or widened, at the cost of far fewer
-degrees of freedom ($\approx 480 \to 23$).
-\item Validated only at Architecture B / Hybrid / $N = 70$; do not
-extend the lower-bound reading to CO or Architecture A.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-rgt to complete.
-:::
-
-::: {.orig data-latex=""}
-In the information-rich cells the picture matches the companion
-study. The calibration ratio $\kappa$ (mean standard error divided
-by the true spread of the estimates; above 1 means conservative)
-runs 1.07-1.26 under the model and is restored to about 1 under
-CR2, and the correctly-sized test recovers two to five points of
-power. Crucially, the A2-minus-A1 gap is held or slightly widened,
-so **fixing the calibration does not change the ranking**. The
-price is fewer effective degrees of freedom (about 480 drops to
-~23). Under heavy dropout the trick stops helping: the model is no
-longer conservative, CR2 becomes slightly anti-conservative on its
-handful of degrees of freedom, and all methods have collapsed to
-~0.13 power anyway. One caution: this recalibration was validated
-only in the Architecture~B, Hybrid, $N = 70$ cells, so the
-"slightly conservative lower bound" reading applies there, not to
-the crossover design or Architecture~A where A2 does not lead.
 :::
 
 # Discussion

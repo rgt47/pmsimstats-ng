@@ -87,11 +87,26 @@ d_b <- grid |>
     spec = factor(spec, levels = c('A2', 'A3'), labels = spec_labels)
   )
 
+## All eight cells fall in a narrow high-power band (~0.66-0.87), so
+## a fill scale fixed to the full [0, 1] power range renders them as
+## a single dark hue with almost no visible contrast. Stretch the
+## sequential (single-hue) scale to the observed range instead, with
+## a small pad, so the modest cell-to-cell differences that matter
+## for this figure's claim are visible.
+pad <- diff(range(d_b$power)) * 0.12
+fill_lim <- range(d_b$power) + c(-pad, pad)
+
 p_b <- ggplot(d_b, aes(spec, dgp_label, fill = power)) +
   geom_tile(colour = 'white') +
-  geom_text(aes(label = sprintf('%.2f', power)), size = 3) +
-  scale_fill_gradient2(low = 'white', mid = '#fdd',
-    high = '#08519c', midpoint = 0.4, limits = c(0, 1)) +
+  geom_text(aes(label = sprintf('%.2f', power),
+                colour = power < mean(fill_lim)), size = 3,
+            show.legend = FALSE) +
+  scale_colour_manual(values = c('TRUE' = 'grey15', 'FALSE' = 'white')) +
+  scale_fill_gradient(low = '#eff3ff', high = '#08306b',
+    limits = fill_lim, breaks = scales::pretty_breaks(4),
+    labels = scales::label_number(accuracy = 0.01),
+    guide = guide_colorbar(barwidth = grid::unit(4.2, 'cm'),
+                            barheight = grid::unit(0.35, 'cm'))) +
   labs(
     x = 'Analysis specification',
     y = 'DGP decay form',

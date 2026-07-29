@@ -49,9 +49,12 @@ placeholder <- function(block, path) {
 ## linetype, and shape -- merged into a single legend -- keeps all
 ## three visible: A3's dashes reveal A1 beneath, and the point
 ## shapes differ where values are equal.
-spec_labels <- c(A1 = 'A1 binary',
-                 A2 = 'A2 Dbc (matched)',
-                 A3 = 'A3 lagged')
+## Data values remain A1/A2/A3 (as archived by the simulation
+## drivers); reporting labels are M1/M2/M3 so that the letters A/B/C
+## are reserved for DGP architectures.
+spec_labels <- c(A1 = 'M1 binary',
+                 A2 = 'M2 Dbc (matched)',
+                 A3 = 'M3 lagged')
 
 spec_scale <- scale_colour_manual(
   name = 'Analysis spec', values = c(A1 = '#1f78b4',
@@ -117,7 +120,7 @@ p2 <- ggplot(d2, aes(analysis_t1half, power,
   labs(x = expression('Analyst-assumed half-life (log scale, weeks)'),
        y = 'Power', colour = 'Analysis spec',
        title = 'S2: Cost of analyst-truth half-life mismatch',
-       subtitle = 'A1 and A3 do not depend on assumed half-life; A2 does') +
+       subtitle = 'M1 and M3 do not depend on assumed half-life; M2 does') +
   theme_paper
 
 ggsave(file.path(fig_dir, '02-sens-S2.pdf'), p2,

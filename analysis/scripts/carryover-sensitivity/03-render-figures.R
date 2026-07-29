@@ -41,7 +41,7 @@ d_a <- grid |>
       levels = c('mean_moderation', 'mvn'),
       labels = c('Arch A (mean mod)', 'Arch B (MVN)')),
     spec = factor(spec, levels = c('A1', 'A2', 'A3'),
-      labels = c('A1 binary', 'A2 Dbc (matched)', 'A3 lagged')),
+      labels = c('M1 binary', 'M2 Dbc (matched)', 'M3 lagged')),
     design = factor(design, levels = c('CO', 'OLBDC', 'Hybrid'))
   )
 
@@ -97,7 +97,7 @@ d_b <- grid |>
       'Linear', 'Exponential',
       'Weibull (k=0.7)', 'Weibull (k=1.0)', 'Weibull (k=1.5)')),
     spec = factor(spec, levels = c('A1', 'A2', 'A3'),
-      labels = c('A1 binary', 'A2 Dbc', 'A3 lagged'))
+      labels = c('M1 binary', 'M2 Dbc', 'M3 lagged'))
   )
 
 p_b <- ggplot(d_b, aes(spec, dgp_label, fill = power)) +

@@ -785,5 +785,5 @@ round(t(mapply(row_for, grid$delta, grid$s)), 3)
 ```
 
 ---
-*Rendered on 2026-07-29 at 10:38 PDT.*<br>
+*Rendered on 2026-07-29 at 17:18 PDT.*<br>
 *Source: ~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/whitepaper-architecture-c-latent-class-assessment.md*

@@ -129,6 +129,10 @@
 \usepackage{bookmark}
 \IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
 \urlstyle{same}
+% fallback for those not using the hyperref driver hyperxmp:
+\makeatletter
+\@ifundefined{xmpquote}{\newcommand{\xmpquote}[1]{#1}}{}
+\makeatother
 \hypersetup{
   pdftitle={Three data-generating architectures for biomarker-treatment interactions in aggregated N-of-1 trials{,} and why the choice changes power under carryover: a tutorial},
   pdfauthor={pmsimstats team},
@@ -139,7 +143,7 @@
 interactions in aggregated N-of-1 trials, and why the choice changes
 power under carryover: a tutorial}
 \author{pmsimstats team}
-\date{2026-06-17}
+\date{2026-07-30}
 
 \begin{document}
 \maketitle
@@ -153,14 +157,14 @@ are pooled -- intended to validate predictive biomarkers. Any such
 simulation must encode how the biomarker moderates the treatment effect
 in its data-generating process (DGP), and the encoding is a substantive
 choice. This tutorial, aimed at applied statisticians who may be new to
-the N-of-1 setting, formalises \emph{three} architectures and shows that
+the N-of-1 setting, formalizes \emph{three} architectures and shows that
 the choice among them, usually treated as an implementation detail,
 materially changes the estimated power loss under carryover.
 
 \textbf{Methods.} We define three DGP architectures.
 \emph{Architecture A} (direct mean moderation): the biomarker scales the
 treatment effect in the conditional mean. \emph{Architecture B}
-(differential correlation, the multivariate-normal approach): the
+(differential correlation, the multivariate normal (MVN) approach): the
 interaction is encoded as treatment-state-dependent correlation in the
 joint distribution. \emph{Architecture C} (combined): both channels are
 active at once, with independent parameters \(c_{bm,A}\) (mean) and
@@ -186,7 +190,7 @@ intermediately, its carryover sensitivity rising with the weight
 \(c_{bm,B}\) placed on the correlation channel.
 
 \textbf{Conclusions.} The DGP architecture is a substantive scientific
-assumption, not a parameterisation convenience: it determines how
+assumption, not a parameterization convenience: it determines how
 severely carryover appears to reduce power. We recommend that
 biomarker-validation simulation studies state which of the three
 architectures they adopt and, when the mechanism is uncertain, report
@@ -205,29 +209,36 @@ simulation must encode the biomarker interaction in its DGP -- in
 more than one possible way.}
 
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The target is the biomarker-by-treatment interaction.
-\item Power has no closed form here, so it is obtained by Monte
-Carlo simulation.
-\item How the interaction is built into the DGP is a modelling
+\item The target is the biomarker-treatment interaction.
+\item Closed-form power exists only in simplified cases
+[@pmsimstats-paper08]; for the designs and model here it is obtained by
+Monte Carlo simulation.
+\item How the interaction is built into the DGP is a modeling
 choice, the subject of this paper.
 \end{itemize}
 
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
 \begin{orig}
 Precision-medicine trials increasingly ask whether a baseline
 \textbf{biomarker} modifies the treatment effect -- a
-biomarker-by-treatment interaction. For the designs considered here the
-power of a proposed trial cannot be derived in closed form, so it is
-estimated by Monte Carlo simulation: many trials are generated,
-analysed, and the rejection rate recorded. The point that motivates this
-paper is that the simulation must itself encode the interaction in its
-data-generating process, and there is more than one way to do so.
+biomarker-treatment interaction. For simplified special cases, such as a
+balanced strict repeated-measures analysis of variance (RM-ANOVA) under
+sphericity, the power of the interaction test does have a closed form,
+and a companion
+paper\textsuperscript{\citeproc{ref-pmsimstats-paper08}{1}} derives it
+together with its equivalence to a two-sample \(t\)-test. For the
+continuous-time mixed model and the N-of-1 designs considered here,
+however, no such closed form is available, so power is estimated by
+Monte Carlo simulation: many trials are generated, analyzed, and the
+rejection rate recorded. The point that motivates this paper is that the
+simulation must itself encode the interaction in its data-generating
+process, and there is more than one way to do so.
 
 \end{orig}
 
@@ -250,7 +261,7 @@ its single-channel special cases.
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
@@ -259,16 +270,31 @@ We distinguish three architectures. The common one, \textbf{direct mean
 moderation} (Architecture A), adds an interaction term to the outcome
 equation so the biomarker scales the size of the treatment effect;
 essentially every standard trial-simulation framework uses
-it\textsuperscript{\citeproc{ref-simon2010}{1},\citeproc{ref-freidlin2014}{2}}.
+it\textsuperscript{\citeproc{ref-simon2010}{2},\citeproc{ref-freidlin2014}{3}}.
 The second, \textbf{differential correlation} (Architecture B), used by
-Hendrickson et al.\textsuperscript{\citeproc{ref-hendrickson2020}{3}}
+Hendrickson et al.\textsuperscript{\citeproc{ref-hendrickson2020}{4}}
 for N-of-1 trials, instead makes the biomarker change the correlation
 between treatment response and outcome, so the interaction is encoded in
-the joint distribution rather than in the mean. The third,
+the joint distribution rather than in the mean; on this reading it is
+the reduced-form second-moment encoding of a latent responder-class
+mechanism (Section
+4;\textsuperscript{\citeproc{ref-pmsimstats-paper03}{5}}). The third,
 \textbf{combined} (Architecture C), activates both channels
 simultaneously through two independent parameters; A and B are exactly
 its single-channel limits. We treat all three as co-equal
 data-generating architectures, defined precisely in Section 2.
+
+In plain language, without the latent-variable vocabulary: suppose
+patients come in two kinds, responders and non-responders, but we cannot
+see which kind a given patient is. The biomarker is only an imperfect
+clue to that hidden status, so two patients with the same biomarker
+value can still respond differently. Architecture A cannot represent
+this, because it assumes the biomarker fixes each patient's drug effect
+exactly; Architecture B represents it by letting biomarker and response
+track each other only while the drug acts, as a tendency rather than a
+fixed rule. That tendency fades once the drug washes out, which is why
+carryover costs more power under Architecture B than under Architecture
+A (Section 4 gives clinical examples).
 
 \end{orig}
 
@@ -282,13 +308,13 @@ why.}
 \item The original code used Architecture B; a re-implementation
 used Architecture A.
 \item The two disagreed about how much carryover hurts power.
-\item We formalise both and give guidance on which to use.
+\item We formalize both and give guidance on which to use.
 \end{itemize}
 
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
@@ -313,14 +339,15 @@ distinguishing nuisance.}
 pooling many gives population inference at small $N$.
 \item Carryover is residual drug effect decaying over days to weeks,
 contaminating off-drug occasions.
-\item Three within-subject designs (CO, OL+BDC, Hybrid) differ in
+\item Three within-subject designs (crossover (CO), open-label
+with blinded discontinuation (OL+BDC), Hybrid) differ in
 how on/off occasions are arranged.
 \end{itemize}
 
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
@@ -365,7 +392,7 @@ math symbols are used otherwise.
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
@@ -409,16 +436,16 @@ conditional mean.
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
 \begin{orig}
-where \(D_{it}\) is the treatment indicator (or a continuous measure of
-drug exposure), \(B_i\) is the participant's biomarker value (typically
-centered), and \(\beta_{bm}\) is the biomarker moderation parameter. The
-interaction is explicit in the mean: participants with higher biomarker
-values have proportionally larger treatment effects.
+where \(D_{it}\) is the binary on-drug indicator (or a continuous
+measure of drug exposure), \(B_i\) is the participant's biomarker value
+(typically centered), and \(\beta_{bm}\) is the biomarker moderation
+parameter. The interaction is explicit in the mean: participants with
+higher biomarker values have proportionally larger treatment effects.
 
 \end{orig}
 
@@ -455,7 +482,7 @@ prognostic distinction.
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
@@ -463,7 +490,7 @@ To be completed by rgt.
 We note that the multiplicative form above maps directly onto the
 standard additive regression form for predictive biomarker effects used
 in the trial methodology literature, specifically the effect modeling
-equation of Kent et al.\textsuperscript{\citeproc{ref-kent2020path}{4}}:
+equation of Kent et al.\textsuperscript{\citeproc{ref-kent2020path}{6}}:
 \[Y_{it} = \beta_0 + \beta_1 D_{it} + \beta_2 B_i + \beta_3
 D_{it} B_i + \epsilon_{it}\] The interaction coefficient \(\beta_3\) in
 the additive form corresponds to the product
@@ -520,7 +547,7 @@ expectation of their biological response is:
 
 \textbf{Under Architecture B the interaction is in the second
 moment: the biomarker modulates BR through a correlation that
-decays during washout.}
+decays during the off-drug period.}
 
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item The conditional mean of BR rises with $b$ via the correlation,
@@ -534,7 +561,7 @@ vanishes only at complete decay.
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
@@ -542,9 +569,9 @@ To be completed by rgt.
 This conditional expectation has an interaction-like structure: the
 biomarker value \(b\) modulates the expected BR. The effective
 correlation is \(c_{bm}\) on drug and \(c_{bm} \cdot
-e^{-\lambda t_{sd}}\) during the washout; the moderation therefore
-persists with attenuated strength during off-drug periods and vanishes
-only in the limit of complete decay.
+e^{-\lambda t_{sd}}\) during the off-drug period; the moderation
+therefore persists with attenuated strength during off-drug periods and
+vanishes only in the limit of complete decay.
 
 \end{orig}
 
@@ -565,7 +592,7 @@ Key properties:
 \end{itemize}
 
 This architecture is used in the Hendrickson et
-al.\textsuperscript{\citeproc{ref-hendrickson2020}{3}} publication code
+al.\textsuperscript{\citeproc{ref-hendrickson2020}{4}} publication code
 and the audited \texttt{R/} package in pmsimstats-ng.
 
 \subsection{2.3 Architecture C: Combined Mean Moderation and
@@ -613,7 +640,7 @@ covariance.}
 \item Channel A: the biomarker governs effective dose/receptor
 occupancy, amplifying the mean drug effect.
 \item Channel B: on-drug periods couple biomarker and response, a
-coupling absent in washout.
+coupling absent in the off-drug period.
 \item They need not scale in proportion, motivating the combined
 Architecture C.
 \end{itemize}
@@ -621,7 +648,7 @@ Architecture C.
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
@@ -638,7 +665,7 @@ The covariance channel (Architecture B) reflects a different process:
 on-drug periods impose a co-regulatory coupling between biomarker
 expression and treatment response, perhaps because the drug activates a
 pathway whose output is gated by the biomarker signal. This coupling is
-absent during off-drug washout, producing the differential correlation
+absent during off-drug periods, producing the differential correlation
 structure that Architecture B encodes in the MVN covariance matrix.
 
 \end{orig}
@@ -662,8 +689,8 @@ therefore shrinks during off-drug periods when \(D\) is replaced by an
 exposure-decayed value \(D \cdot \text{carryover}\). We note, however,
 that the \textbf{ratio} of the drug effect between high-biomarker and
 low-biomarker participants is preserved at every level of exposure. The
-biomarker-by-treatment signal contracts in amplitude but does not lose
-its identifiability under carryover.
+biomarker-treatment signal contracts in amplitude but does not lose its
+identifiability under carryover.
 
 Under Architecture B, the analogous quantity is:
 
@@ -734,7 +761,7 @@ derived from the drug's pharmacokinetic half-life as
 \(\lambda = \ln 2 / t_{1/2}\), in which case it matches the DGP decay
 rate of Section 2.2 by construction). Whereas \(D_{it}\) flips abruptly
 between 0 and 1, \texttt{Dbc} captures the smooth shrinkage of residual
-drug effect during washout. The interaction coefficient on
+drug effect during the off-drug period. The interaction coefficient on
 \texttt{bm:Dbc} is therefore the test of whether the biomarker moderates
 the exposure-decayed drug effect.
 
@@ -747,14 +774,15 @@ measures.
 \begin{itemize}
 \item Trial designs: CO (traditional crossover), Hybrid (N-of-1
   Hybrid), OL+BDC (open-label with blinded discontinuation)
-\item Sample size: $N = 35$ per randomisation path (effective
+\item Sample size: $N = 35$ per randomization path (effective
   analysis $N = 70$ for CO and OL+BDC, 140 for Hybrid, after the
   paths are concatenated)
 \item Biomarker correlation / moderation: $c_{bm} = 0.45$ /
   $\beta_{bm} = 0.45$
 \item DGP carryover half-life: $t_{1/2} \in \{0, 0.5, 1.0\}$ weeks
 \item Analysis: matched \texttt{Dbc} with same half-life
-\item Replicates: 1{,}000 per cell (Monte Carlo standard error
+\item Replicates: 1{,}000 per cell (the Monte Carlo standard
+  error (MCSE)
   on a binomial power estimate near $0.5$ is approximately
   $\sqrt{0.5 \cdot 0.5 / 1{,}000} \approx 0.016$)
 \item Implementation: 8-core \texttt{parallel::mclapply}; full
@@ -768,9 +796,14 @@ sample sizes used in the published methodological literature; it is a
 regime in which neither architecture saturates power at the no-carryover
 cells, so any carryover-induced erosion is mechanically visible. Type I
 error under the \(c_{bm} = 0\) null cells sat in \([0.010, 0.074]\)
-across the 18 null cells, consistent with the conservative-to- nominal
-regime expected for the continuous \(D_{bc}\) specification at this
-sample size.
+across the 18 null cells. These rates below the nominal 0.05 are not
+architecture-specific; they reflect a known conservatism of the standard
+\texttt{corCAR1} Wald test, whose model-based standard error is
+over-stated by roughly 6 to 10 percent, characterized in a companion
+calibration study\textsuperscript{\citeproc{ref-pmsimstats-paper10}{7}}
+together with a cluster-robust remedy. Being common to both
+architectures, the conservatism does not affect the architecture
+contrast.
 
 \textbf{Results under Architecture A (direct mean moderation):}
 
@@ -802,7 +835,7 @@ modest in every design (1-3\% relative).}
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
@@ -850,7 +883,7 @@ substantial, design-dependent erosion.
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
@@ -860,8 +893,8 @@ in the OL+BDC design: relative loss from \(t_{1/2} = 0\) to
 \(t_{1/2} = 1\) is 3.0\% (CO; not significantly different from
 Architecture A's CO loss), 5.1\% (Hybrid), and \textbf{30.6\% (OL+BDC)}.
 The CO cell shows a small, non-monotone fluctuation
-(\(0.745 \to 0.754 \to 0.723\)), which is within one Monte Carlo
-standard error and is consistent with the null finding of no significant
+(\(0.745 \to 0.754 \to 0.723\)), which is within one MCSE and is
+consistent with the null finding of no significant
 architecture-by-carryover interaction in that design. The OL+BDC loss is
 approximately 11 times the matched Architecture-A OL+BDC loss (2.8\%).
 It falls below the 40-60\% relative-loss range suggested by earlier
@@ -901,7 +934,7 @@ within-architecture carryover loss is \(\Delta_A = 0.751 - 0.730 =
 (30.6\%). The quantity of interest is the difference-of-differences
 \(\Delta_B - \Delta_A = 0.217\) (about 22 percentage points), and the
 \(z\)-statistic above scales it by its standard error to give
-\(z = 7.64\) (\(p < 10^{-13}\)): the architectures' carryover behaviour
+\(z = 7.64\) (\(p < 10^{-13}\)): the architectures' carryover behavior
 differs well beyond Monte Carlo error. The same contrast is clearly
 positive for the Hybrid design and indistinguishable from zero for the
 crossover design.
@@ -929,24 +962,24 @@ ratio degrades only modestly.
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
 \begin{orig}
 \textbf{Under Architecture A}, carryover reduces the magnitude of the
 drug exposure variable seen by the analysis model (\texttt{Dbc} drops
-below 1 during washout), and the mean BR at off-drug timepoints is
-inflated by the residual drug effect exactly as in Architecture B. Both
-mechanisms compress the between-state treatment contrast and are shared
-by the two architectures. What Architecture A lacks is the second
-channel of signal loss: the biomarker moderation coefficient
-\(\beta_{bm}\) is a fixed population parameter, the biomarker enters the
-mean structure directly rather than through a correlation, and the noise
-structure is independent of drug state. The biomarker-by-drug
-interaction term therefore has reduced variance (because \texttt{Dbc}
-has less contrast between drug states), but the signal-to-noise ratio
-degrades only modestly.
+below 1 during the off-drug period), and the mean BR at off-drug
+timepoints is inflated by the residual drug effect exactly as in
+Architecture B. Both mechanisms compress the between-state treatment
+contrast and are shared by the two architectures. What Architecture A
+lacks is the second channel of signal loss: the biomarker moderation
+coefficient \(\beta_{bm}\) is a fixed population parameter, the
+biomarker enters the mean structure directly rather than through a
+correlation, and the noise structure is independent of drug state. The
+biomarker-by-drug interaction term therefore has reduced variance
+(because \texttt{Dbc} has less contrast between drug states), but the
+signal-to-noise ratio degrades only modestly.
 
 \end{orig}
 
@@ -994,7 +1027,7 @@ preserved.
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
@@ -1028,7 +1061,7 @@ the OL+BDC design.
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
@@ -1078,7 +1111,7 @@ narrative magnitude.
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
@@ -1106,12 +1139,17 @@ magnitude.
 \end{orig}
 
 \textbf{Type~I error.} Across all 18 null cells of the \(N = 35\)
-production run, type\textasciitilde I error sat in \([0.010, 0.074]\),
+production run, Type\textasciitilde I error sat in \([0.010, 0.074]\),
 with mean 0.043 and median 0.042. We observe no architecture-specific
-inflation. Architecture\textasciitilde B's \(t_{1/2} = 1.0\) OL+BDC null
-(\(p = 0.010\), slightly conservative) is the smallest cell; the
-corresponding alternative (\(p = 0.539\)) is the most informative cell
-of the Section\textasciitilde3.1 narrative.
+inflation. The uniformly sub-nominal rates are consistent with the
+\texttt{corCAR1} working-covariance miscalibration characterized in the
+companion calibration
+study\textsuperscript{\citeproc{ref-pmsimstats-paper10}{7}}; because it
+affects both architectures alike, it is common-mode with respect to the
+architecture contrast. Architecture\textasciitilde B's \(t_{1/2} = 1.0\)
+OL+BDC null (\(p = 0.010\), slightly conservative) is the smallest cell;
+the corresponding alternative (\(p = 0.539\)) is the most informative
+cell of the Section\textasciitilde3.1 narrative.
 
 \textbf{Estimator bias.} Mean estimated \(\hat\beta_{bm{:}D_{bc}}\) at
 \(c_{bm} = 0.45\) ranged from \(-0.231\) to \(-0.281\) across the 18
@@ -1128,7 +1166,7 @@ scale, indicating nominal-95\% Wald coverage holds across the grid.
 
 We ran a factorial simulation on the Architecture\textasciitilde C
 parameter grid. The design factors are CO, Hybrid, and OL+BDC;
-\(N = 35\) total subjects per cell (randomised equally across paths);
+\(N = 35\) total subjects per cell (randomized equally across paths);
 \(t_{1/2} \in \{0, 0.5, 1.0\}\) weeks; 1000 replicates per cell; A2
 analysis specification. The parameter panel is \(c_{bm,A} \times
 c_{bm,B} \in \{0, 0.22, 0.45\}^2\) (nine cells per design--carryover
@@ -1136,11 +1174,11 @@ combination). By construction, the boundary cells (\(c_{bm,A} = 0.45\),
 \(c_{bm,B} = 0\)) reduce the combined DGP to the pure
 Architecture\textasciitilde A functional form, and (\(c_{bm,A} = 0\),
 \(c_{bm,B} = 0.45\)) reduce it to the pure Architecture\textasciitilde B
-form. These boundary cells confirm that the combined parameterisation
+form. These boundary cells confirm that the combined parameterization
 recovers each limiting case algebraically. They are not, however,
 numerical checks against the power values of \S3.1: the
 Architecture\textasciitilde C grid here uses \(N = 35\) as the total
-sample size, whereas \S3.1 uses \(N = 35\) per randomisation path
+sample size, whereas \S3.1 uses \(N = 35\) per randomization path
 (effective \(N = 70\)/140). The boundary-cell power values are therefore
 lower than, and not directly comparable to, the matched
 pure-architecture cells of \S3.1.
@@ -1241,14 +1279,14 @@ size of the drug effect.}
 it scales the effect proportionally.
 \item Doubling the biomarker roughly doubles the effect at every
 timepoint.
-\item Carryover keeps the same proportion in washout, so power is
+\item Carryover keeps the same proportion in the off-drug period, so power is
 barely touched.
 \end{itemize}
 
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
@@ -1259,7 +1297,8 @@ drug effect they get -- for example, kidney function (eGFR) controlling
 how fast a drug is cleared, or receptor density controlling how strongly
 a drug acts -- then doubling the biomarker roughly doubles the effect at
 every timepoint. Carryover does not break this: the leftover effect
-during washout keeps the same proportion, so power is barely touched.
+during the off-drug period keeps the same proportion, so power is barely
+touched.
 
 \end{orig}
 
@@ -1286,14 +1325,14 @@ hidden responder state.}
 \item The biomarker imperfectly indexes the real cause, so identical
 biomarkers can respond differently.
 \item It predicts response only while the drug is acting.
-\item In washout the correlation fades and power drops sharply, as
+\item In the off-drug period the correlation fades and power drops sharply, as
 in Section 3.
 \end{itemize}
 
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
@@ -1306,7 +1345,7 @@ the real cause (a disease subtype, an inflammatory state, a genetic
 background). Here the biomarker predicts response \emph{only while the
 drug is acting}; once the drug washes out, the correlation that carried
 the signal fades, and power drops sharply -- exactly the Architecture B
-behaviour we saw in Section 3.
+behavior we saw in Section 3.
 
 \end{orig}
 
@@ -1317,7 +1356,8 @@ Typical examples:
   flag a noradrenergic PTSD subtype likely to respond to prazosin,
   but it does not \emph{cause} the response; it is a noisy marker of
   the real underlying state.
-\item \textbf{Inflammatory markers.} High CRP or IL-6 may predict
+\item \textbf{Inflammatory markers.} High C-reactive protein (CRP)
+  or interleukin-6 (IL-6) may predict
   response to anti-inflammatory augmentation of an antidepressant,
   but only on average -- many high-CRP patients still do not respond.
 \item \textbf{Polygenic risk scores.} These predict treatment
@@ -1328,9 +1368,13 @@ Typical examples:
 (A fully faithful model of this ``hidden responder class'' idea would be
 a finite mixture; Architecture B is a convenient correlation-level
 approximation, adequate for power calculations but not a claim about the
-true mechanism.
-Senn\textsuperscript{\citeproc{ref-senn2016mastering}{5}} also cautions
-that apparent biomarker-by-treatment effects are sometimes just variance
+true mechanism. A companion
+paper\textsuperscript{\citeproc{ref-pmsimstats-paper03}{5}} develops the
+mixture and latent-class formulations, deriving when a single
+multivariate normal reproduces a two-component mixture's first two
+moments and cataloguing where it fails.
+Senn\textsuperscript{\citeproc{ref-senn2016mastering}{8}} also cautions
+that apparent biomarker-treatment effects are sometimes just variance
 artifacts, so Architecture B's signal may be smaller than assumed.)
 
 \begin{bullets}
@@ -1351,14 +1395,14 @@ through the mean channel; it needs evidence for both parameters.
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
 \begin{orig}
 \textbf{The motivating example.} The pmsimstats software was built for a
 prazosin/PTSD
-trial\textsuperscript{\citeproc{ref-hendrickson2020}{3},\citeproc{ref-raskind2013}{6}}
+trial\textsuperscript{\citeproc{ref-hendrickson2020}{4},\citeproc{ref-raskind2013}{9}}
 where the biomarker is resting blood pressure and the outcome is a PTSD
 symptom score. Blood pressure is thought to be a \emph{proxy} for
 noradrenergic tone, not a direct driver of drug levels -- an
@@ -1425,7 +1469,7 @@ being optimistic.
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
@@ -1462,58 +1506,57 @@ should explicitly state:
 
 \begin{bullets}
 
-\textbf{These requirements specialise the ADEMP template; the
+\textbf{These requirements specialize the ADEMP template; the
 architecture choice is its data-generating (D) element.}
 
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item ADEMP fixes Aims, Data-generating mechanisms, Estimands,
 Methods, and Performance measures.
 \item The DGP-architecture choice is the D element.
-\item Our reporting rules are ADEMP specialised to
+\item Our reporting rules are ADEMP specialized to
 architecture-sensitive biomarker simulations.
 \end{itemize}
 
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
 \begin{orig}
 The reporting framework above is consistent with the broader ADEMP
 template of Morris, White, and
-Crowther\textsuperscript{\citeproc{ref-morris2019simulation}{7}}, which
+Crowther\textsuperscript{\citeproc{ref-morris2019simulation}{10}}, which
 prescribes that simulation studies fix five elements before production
 runs: the \textbf{Aims} of the study, the
 \textbf{Data-generating mechanisms}, the \textbf{Estimands} (the
 inferential targets), the \textbf{Methods} (analysis specifications
 compared), and the \textbf{Performance measures} (power, bias, coverage,
-type I error, and Monte Carlo standard errors of each). The
-DGP-architecture choice this paper concerns is the \textbf{D} element of
-an ADEMP specification; the reporting requirements above are the
-specialisation of the broader ADEMP framework to the
-architecture-sensitive class of biomarker-validation simulations.
+Type I error, and MCSEs of each). The DGP-architecture choice this paper
+concerns is the \textbf{D} element of an ADEMP specification; the
+reporting requirements above are the specialization of the broader ADEMP
+framework to the architecture-sensitive class of biomarker-validation
+simulations.
 
 \end{orig}
 
 The \textbf{primary estimand} for this paper's simulations is the
-biomarker-by-treatment interaction coefficient \(\beta_{bm:D}\) in the
+biomarker-treatment interaction coefficient \(\beta_{bm:D}\) in the
 linear-mixed analysis model
 \(\mathrm{Sx} \sim bm + t + Dbc + bm\!:\!Dbc\) with random intercept and
 AR(1) residual correlation. The reported \textbf{performance measures}
-are: (i) power for \(\beta_{bm:D}\) at \(\alpha = 0.05\), with Monte
-Carlo standard error \(\sqrt{\hat{\pi}(1-\hat{\pi})/n_{\text{reps}}}\);
-(ii) type I error under \(c_{bm} = 0\), with the same MCSE; (iii) bias
-of \(\hat{\beta}_{bm:D}\) relative to the calibrated true value at each
-parameter cell; (iv) the empirical Monte Carlo standard error of
-\(\hat{\beta}_{bm:D}\) across replicates; and (v) the convergence rate
-of the linear-mixed fit. Sample size, biomarker effect size, and
-carryover half-life vary across the parameter grid; the number of
-replicates per cell is calibrated to achieve MCSE below 0.02 for power
-at \(\hat{\pi} = 0.5\), which corresponds to
-\(n_{\text{reps}} \geq 625\). The simulations reported here use
-\(n_{\text{reps}} = 1000\) throughout.
+are: (i) power for \(\beta_{bm:D}\) at \(\alpha = 0.05\), with MCSE
+\(\sqrt{\hat{\pi}(1-\hat{\pi})/n_{\text{reps}}}\); (ii) Type I error
+under \(c_{bm} = 0\), with the same MCSE; (iii) bias of
+\(\hat{\beta}_{bm:D}\) relative to the calibrated true value at each
+parameter cell; (iv) the empirical MCSE of \(\hat{\beta}_{bm:D}\) across
+replicates; and (v) the convergence rate of the linear-mixed fit. Sample
+size, biomarker effect size, and carryover half-life vary across the
+parameter grid; the number of replicates per cell is calibrated to
+achieve MCSE below 0.02 for power at \(\hat{\pi} = 0.5\), which
+corresponds to \(n_{\text{reps}} \geq 625\). The simulations reported
+here use \(n_{\text{reps}} = 1000\) throughout.
 
 \subsection{5.3 When the choice is uncertain}
 
@@ -1548,7 +1591,7 @@ variance-compression part is recoverable, by down-weighting
 low-signal off-drug points.}
 
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Source 1: the treatment predictor's variance shrinks
+\item Source 1: the drug exposure variable's variance shrinks
 (recoverable).
 \item Source 2: the biomarker-response correlation genuinely fades
 off-drug (lost information).
@@ -1559,13 +1602,13 @@ the first.
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
 \begin{orig}
-Under Architecture B the power loss has two sources: the treatment
-predictor's variance shrinks, and the biomarker-response correlation
+Under Architecture B the power loss has two sources: the drug exposure
+variable's variance shrinks, and the biomarker-response correlation
 genuinely fades off-drug. The second is lost information that no model
 can recover. But because off-drug points carry less signal, methods that
 \emph{down-weight or drop} them can help.
@@ -1598,11 +1641,11 @@ The natural candidates are:
 
 \subsection{6.1 Qualitative comparison}
 
-Table\textasciitilde{}\ref{tab:sec6-strategies} summarises the
+Table\textasciitilde{}\ref{tab:sec6-strategies} summarizes the
 strategies along three dimensions: whether they discard observations,
 implementation complexity, and the expected direction of benefit based
 on the mechanistic account in Section 3.2. All entries in the
-`Hypothesised benefit' column are qualitative; no simulation evidence is
+`Hypothesized benefit' column are qualitative; no simulation evidence is
 presented here, and each strategy should be evaluated empirically before
 use in trial planning.
 
@@ -1615,14 +1658,15 @@ estimates.}
 \label{tab:sec6-strategies}
 \begin{tabular}{lccp{5cm}}
 \toprule
-Strategy & Discards data & Complexity & Hypothesised benefit \\
+Strategy & Discards data & Complexity & Hypothesized benefit \\
 \midrule
 On-drug only & Yes & Low & Eliminates correlation erosion;
   forfeits off-drug reference (best for OL/Hybrid) \\
 Weighted & No & Low & Reduces erosion damage proportionally;
   depends on weight calibration \\
 Within-subject contrast & Aggregates & Low & Robust to
-  carryover misspecification; less efficient than LME \\
+  carryover misspecification; less efficient than the linear
+  mixed-effects (LME) model \\
 Two-stage random slopes & No & Moderate & Unknown; separates
   estimation stages; robustness unverified \\
 Exclude early off-drug & Some & Low & Removes most contaminated
@@ -1665,18 +1709,18 @@ Architecture B biomarkers.
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
 \begin{orig}
 Almost every trial-simulation framework uses Architecture A:
-Simon\textsuperscript{\citeproc{ref-simon2010}{1}}, Freidlin and
-Korn\textsuperscript{\citeproc{ref-freidlin2014}{2}}, Renfro and
-Sargent\textsuperscript{\citeproc{ref-renfro2017}{8}}, and the standard
+Simon\textsuperscript{\citeproc{ref-simon2010}{2}}, Freidlin and
+Korn\textsuperscript{\citeproc{ref-freidlin2014}{3}}, Renfro and
+Sargent\textsuperscript{\citeproc{ref-renfro2017}{11}}, and the standard
 N-of-1 simulation studies all put the biomarker effect in the mean. Even
 methodological work on N-of-1 carryover that shares authors with
-Hendrickson et al.\textsuperscript{\citeproc{ref-hendrickson2020}{3}}
+Hendrickson et al.\textsuperscript{\citeproc{ref-hendrickson2020}{4}}
 uses Architecture A, which suggests Hendrickson's
 differential-correlation choice was a one-off rather than a convention.
 The practical worry is that most published power estimates may be
@@ -1704,7 +1748,7 @@ guidance of the PATH statement.
 \end{bullets}
 
 \begin{rgt}
-To be completed by rgt.
+rgt to complete.
 
 \end{rgt}
 
@@ -1718,7 +1762,7 @@ architecture. The simple advice when the mechanism is unknown: run the
 power calculation \emph{both ways} and use the lower (Architecture B)
 number for planning. This is a data-generating-process question,
 separate from -- and not answered by -- the analysis-model guidance in
-the PATH statement\textsuperscript{\citeproc{ref-kent2020path}{4}}.
+the PATH statement\textsuperscript{\citeproc{ref-kent2020path}{6}}.
 
 \end{orig}
 
@@ -1728,7 +1772,7 @@ much off-drug time each patient experiences:
 \begin{itemize}
 \item \textbf{Treatment-switching designs} (crossover, N-of-1 hybrid,
   basket and platform trials) deliberately cycle each patient on and
-  off drug. Under Architecture B every washout erodes the
+  off drug. Under Architecture B every off-drug period erodes the
   correlation, so the interaction signal in later periods is weaker
   than in the first -- the power loss of Section 3 applies directly.
 \item \textbf{Parallel-group enrichment designs} keep each patient on
@@ -1766,7 +1810,7 @@ In conclusion, six points are to be emphasized.
 \item Under Architecture A, carryover reduces power only
   modestly, by 1 to 3\% in relative terms across the three
   designs examined, because the proportional biomarker-drug
-  relationship is preserved during washout. Under
+  relationship is preserved during the off-drug period. Under
   Architecture B the loss is strongly design-dependent: it
   remains modest in the crossover and hybrid designs (3 to
   5\%) but reaches roughly 31\% in the open-label OL+BDC
@@ -1814,7 +1858,7 @@ under \texttt{analysis/scripts/}, outputs under
 \texttt{renv.lock}; the document renders under R\textasciitilde4.6.0.
 
 \textbf{One convention to note.} In Sections 3.1 and 3.3, \(N = 35\) is
-the number of subjects \emph{per randomisation path}, and paths are
+the number of subjects \emph{per randomization path}, and paths are
 concatenated before analysis, so the effective analysis sample is 70
 (two-path CO and OL+BDC) or 140 (four-path Hybrid). The
 Architecture\textasciitilde C results in Section 3.4 instead use
@@ -1825,55 +1869,75 @@ not directly comparable to the Section 3.1 tables.
 
 \protect\phantomsection\label{refs}
 \begin{CSLReferences}{0}{1}
-\bibitem[\citeproctext]{ref-simon2010}
+\bibitem[\citeproctext]{ref-pmsimstats-paper08}
 \CSLLeftMargin{1. }%
+\CSLRightInline{{pmsimstats team}. Test-procedure choice for the
+biomarker-treatment interaction in aggregated {N}-of-1 trials:
+Dichotomization, classical {RM-ANOVA}, mixed-effects, and generalized
+estimating equations. Published online 2026.}
+
+\bibitem[\citeproctext]{ref-simon2010}
+\CSLLeftMargin{2. }%
 \CSLRightInline{Simon R. Clinical trial designs for evaluating the
 medical utility of prognostic and predictive biomarkers in oncology.
 \emph{Personalized Medicine}. 2010;7(1):33-47.}
 
 \bibitem[\citeproctext]{ref-freidlin2014}
-\CSLLeftMargin{2. }%
+\CSLLeftMargin{3. }%
 \CSLRightInline{Freidlin B, Korn EL. Biomarker enrichment strategies:
 Matching trial design to biomarker credentials. \emph{Nature Reviews
 Clinical Oncology}. 2014;11(2):81-90.}
 
 \bibitem[\citeproctext]{ref-hendrickson2020}
-\CSLLeftMargin{3. }%
+\CSLLeftMargin{4. }%
 \CSLRightInline{Hendrickson RC, Thomas RG, Schork NJ, Raskind MA.
 Optimizing aggregated {N}-of-1 trial designs for predictive biomarker
 validation: Statistical methods and practical considerations.
 \emph{Frontiers in Digital Health}. 2020;2:13.
 doi:\href{https://doi.org/10.3389/fdgth.2020.00013}{10.3389/fdgth.2020.00013}}
 
+\bibitem[\citeproctext]{ref-pmsimstats-paper03}
+\CSLLeftMargin{5. }%
+\CSLRightInline{{pmsimstats team}. Latent-class and mixture-model
+formulations for biomarker-treatment interaction in {N}-of-1 trials.
+Published online 2026.}
+
 \bibitem[\citeproctext]{ref-kent2020path}
-\CSLLeftMargin{4. }%
+\CSLLeftMargin{6. }%
 \CSLRightInline{{Kent DM, Paulus JK, Klaveren D van, et al.} The
 predictive approaches to treatment effect heterogeneity ({PATH})
 statement. \emph{Annals of Internal Medicine}. 2020;172(1):35-45.}
 
+\bibitem[\citeproctext]{ref-pmsimstats-paper10}
+\CSLLeftMargin{7. }%
+\CSLRightInline{{pmsimstats team}. Type {I} calibration of fixed-effect
+interaction tests in linear mixed models: A staged diagnosis of
+working-covariance misspecification and a cluster-robust remedy.
+Published online 2026.}
+
 \bibitem[\citeproctext]{ref-senn2016mastering}
-\CSLLeftMargin{5. }%
+\CSLLeftMargin{8. }%
 \CSLRightInline{Senn S. Mastering variation: Variance components and
 personalised medicine. \emph{Statistics in Medicine}.
 2016;35(7):966-977.
 doi:\href{https://doi.org/10.1002/sim.6739}{10.1002/sim.6739}}
 
 \bibitem[\citeproctext]{ref-raskind2013}
-\CSLLeftMargin{6. }%
+\CSLLeftMargin{9. }%
 \CSLRightInline{{Raskind MA, Peterson K, Williams T, et al.} A trial of
 prazosin for combat trauma {PTSD} with nightmares in active-duty
 soldiers returned from iraq and afghanistan. \emph{American Journal of
 Psychiatry}. 2013;170(9):1003-1010.}
 
 \bibitem[\citeproctext]{ref-morris2019simulation}
-\CSLLeftMargin{7. }%
+\CSLLeftMargin{10. }%
 \CSLRightInline{Morris TP, White IR, Crowther MJ. Using simulation
 studies to evaluate statistical methods. \emph{Statistics in Medicine}.
 2019;38(11):2074-2102.
 doi:\href{https://doi.org/10.1002/sim.8086}{10.1002/sim.8086}}
 
 \bibitem[\citeproctext]{ref-renfro2017}
-\CSLLeftMargin{8. }%
+\CSLLeftMargin{11. }%
 \CSLRightInline{Renfro LA, Sargent DJ. Statistical controversies in
 clinical research: Basket trials, umbrella trials, and other master
 protocols. \emph{Annals of Oncology}. 2017;28(1):34-43.}
@@ -1884,7 +1948,7 @@ protocols. \emph{Annals of Oncology}. 2017;28(1):34-43.}
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
 
-\emph{Rendered on 2026-06-17 at 07:54 PDT.}\\
+\emph{Rendered on 2026-07-30 at 14:14 PDT.}\\
 \emph{Source:
 \texttt{\textasciitilde{}/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report-slim.Rmd}}
 

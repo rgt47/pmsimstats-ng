@@ -47,7 +47,7 @@ knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path
   3. Summarise both tiers into cell-level power/bias/convergence.
      Step 3 is cheap (~seconds) and should be re-run after either 1
      or 2 changes. It mirrors the summaries to analysis/data/:
-       Rscript analysis/scripts/carryover-sensitivity/02-summarise-grid.R
+       Rscript analysis/scripts/carryover-sensitivity/02-summarize-grid.R
      Writes:
        analysis/data/02-grid-summary.rds        (from Tier 1)
        analysis/data/02-sensitivity-summary.rds (from Tier 2, if present)
@@ -82,7 +82,7 @@ knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path
   Full-rebuild one-liner (after any change to the grid or DGP):
     Rscript analysis/scripts/carryover-sensitivity/01-run-factorial.R && \
     Rscript analysis/scripts/carryover-sensitivity/04-run-sensitivity-blocks.R && \
-    Rscript analysis/scripts/carryover-sensitivity/02-summarise-grid.R && \
+    Rscript analysis/scripts/carryover-sensitivity/02-summarize-grid.R && \
     Rscript analysis/scripts/carryover-sensitivity/03-render-figures.R && \
     Rscript analysis/scripts/carryover-sensitivity/04-sensitivity-figures.R && \
     Rscript -e "rmarkdown::render('analysis/report/02-carryover-sensitivity/report.Rmd')"
@@ -108,7 +108,9 @@ library(knitr)
 ## that the letters A/B/C stay reserved for DGP architectures. Data
 ## values are never rewritten; they are mapped at display time only.
 spec_display <- function(x) {
-  unname(c(A1 = 'M1', A2 = 'M2', A3 = 'M3')[as.character(x)])
+  m <- c(A1 = 'M1', A2 = 'M2', A3 = 'M3')
+  x <- as.character(x)
+  ifelse(x %in% names(m), unname(m[x]), x)
 }
 ```
 
@@ -168,7 +170,7 @@ is marginally dominated throughout; across the grid M2 is the
 most powerful specification in only 19% of cells. Where M2 does
 lead, the lead is robust to decay-form and half-life
 mis-specification. The model-based interaction test is mildly
-conservative (mean null rejection 0.039), an artefact of the
+conservative (mean null rejection 0.039), an artifact of the
 working covariance that a CR2 cluster-robust standard error removes
 without disturbing the ranking.
 
@@ -820,7 +822,7 @@ the same regardless of what $\hat{t}_{1/2}$ was assumed.
 
 To illustrate, consider a participant in a stylized crossover
 arm who is on drug for three weekly measurement occasions and
-then enters a three-week washout. Table~\@ref(tab:toy-dbc)
+then enters a three-week off-drug period. Table~\@ref(tab:toy-dbc)
 shows the $D_{bc}$ values at the three off-drug timepoints
 under three analyst assumptions, holding the true DGP
 half-life fixed at one week.
@@ -867,10 +869,10 @@ rgt to complete.
 ::: {.orig data-latex=""}
 When the analyst assumes $\hat{t}_{1/2} = 0.5$ weeks, the
 off-drug timepoints are assigned $D_{bc}$ values near zero by
-the second washout week and contribute almost nothing to the
+the second off-drug week and contribute almost nothing to the
 `bm:Dbc` interaction estimate. When the analyst assumes
 $\hat{t}_{1/2} = 2.0$ weeks, those same timepoints retain
-substantial weight throughout the washout, and the predictor
+substantial weight throughout the off-drug period, and the predictor
 becomes closer in shape to a continuously graded version of the
 binary on-drug indicator.
 :::
@@ -1167,18 +1169,18 @@ hd <- readRDS(here::here(
          design == 'Hybrid', N == 70, c_bm == 0.45) |>
   mutate(
     `t1/2` = t1half,
-    `Power (MC SE)` = sprintf('%.3f (%.3f)', power, mc_se_power),
-    `Bias (MC SE)` = sprintf('%+.3f (%.3f)', bias, mc_se_bias),
+    `Power (MCSE)` = sprintf('%.3f (%.3f)', power, mc_se_power),
+    `Bias (MCSE)` = sprintf('%+.3f (%.3f)', bias, mc_se_bias),
     `Empirical SE` = sprintf('%.3f', empirical_se),
-    `Coverage (MC SE)` = sprintf('%.3f (%.3f)',
+    `Coverage (MCSE)` = sprintf('%.3f (%.3f)',
                                   coverage, mc_se_coverage),
-    `MSE (MC SE)` = sprintf('%.3f (%.3f)', mse, mc_se_mse),
+    `MSE (MCSE)` = sprintf('%.3f (%.3f)', mse, mc_se_mse),
     `Non-conv` = sprintf('%.3f', non_convergence_rate)
   ) |>
   arrange(`t1/2`, spec) |>
   mutate(spec = spec_display(spec)) |>
-  select(`t1/2`, spec, `Power (MC SE)`, `Bias (MC SE)`,
-         `Empirical SE`, `Coverage (MC SE)`, `MSE (MC SE)`,
+  select(`t1/2`, spec, `Power (MCSE)`, `Bias (MCSE)`,
+         `Empirical SE`, `Coverage (MCSE)`, `MSE (MCSE)`,
          `Non-conv`)
 
 knitr::kable(
@@ -1274,7 +1276,7 @@ indistinguishable. This advantage is confined to those strata: it
 does not appear under the crossover (CO) design, where M2 is in
 fact dominated (Section 5), nor under Architecture~A. The figure
 therefore shows that the M2 advantage, where present, is not an
-artefact of the single reference cell, not that it holds
+artifact of the single reference cell, not that it holds
 everywhere.
 :::
 
@@ -1659,7 +1661,7 @@ knitr::include_graphics("../../figures/02-sens-S3.pdf")
 \textbf{S3: dropout collapses power for all three methods, and
 narrows M2's advantage as off-drug observations are dropped.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item At 30\% MCAR all three fall to about 0.12-0.15, effectively
+\item At 30\% missing-completely-at-random (MCAR) dropout all three fall to about 0.12-0.15, effectively
 tied.
 \item The M2$-$M1 gap shrinks from $\approx 0.10$ (no dropout) to
 $\approx 0.03$ (30\% MCAR).
@@ -1680,7 +1682,8 @@ at MCAR rate 0.30 these collapse to M1 $0.122 \pm 0.015$, M2
 $0.148 \pm 0.016$, M3 $0.124 \pm 0.015$. M2's advantage narrows
 under heavy dropout: the absolute M2$-$M1 gap is approximately
 0.10 at zero dropout, 0.07 at rate 0.10, 0.04 at rate 0.20, and
-0.03 at rate 0.30 under MCAR. Under MAR with the same marginal
+0.03 at rate 0.30 under MCAR. Under missing-at-random (MAR)
+dropout with the same marginal
 rate the gap narrows further at the highest rate (M2$-$M1
 $\approx 0.004$ at rate 0.30 MAR). The pattern is consistent
 with the exposure-weighted (M2) specification's signal source residing in

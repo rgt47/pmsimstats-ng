@@ -128,7 +128,8 @@ ggsave(file.path(fig_dir, '02-heatmap-matched-vs-mismatched.pdf'),
 d_c <- grid |>
   dplyr::filter(c_bm == 0, N == 70) |>
   dplyr::mutate(
-    spec = factor(spec, levels = c('A1', 'A2', 'A3')),
+    spec = factor(spec, levels = c('A1', 'A2', 'A3'),
+      labels = c('M1', 'M2', 'M3')),
     design = factor(design, levels = c('CO', 'OLBDC', 'Hybrid')),
     dgp_arch = factor(dgp_arch,
       levels = c('mean_moderation', 'mvn'),

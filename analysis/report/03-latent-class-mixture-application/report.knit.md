@@ -2,7 +2,7 @@
 title: "Latent-class and mixture-model formulations for
   biomarker-treatment interaction in N-of-1 trials"
 author: 'pmsimstats team'
-date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+date: "2026-07-30"
 output:
   pdf_document:
     latex_engine: xelatex
@@ -28,15 +28,7 @@ header-includes:
 knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path(d, 'tools', 'stamp-render.R')) && d != dirname(d)) d <- dirname(d); source(file.path(d, 'tools', 'stamp-render.R'))$value(input) })
 ---
 
-```{r setup, include = FALSE}
-knitr::opts_chunk$set(
-  echo = FALSE,
-  warning = FALSE,
-  message = FALSE,
-  fig.path = '../../figures/04-',
-  cache.path = '_cache/'
-)
-```
+
 
 # Abstract
 
@@ -2973,12 +2965,10 @@ bibliography (`references.bib`), and SIM CSL file are at
 ::: {#refs}
 :::
 
-```{r footer, echo=FALSE, results='asis'}
-src <- sub("^/Users/zenn/(Library/CloudStorage/)?Dropbox/prj/", "~/prj/",
-           knitr::current_input(dir = TRUE))
-cat(sprintf(
-  "\n\\vfill\n\n---\n\n*Rendered on %s.*  \n*Source: `%s`*\n",
-  format(Sys.time(), "%Y-%m-%d at %H:%M %Z"),
-  src
-))
-```
+
+\vfill
+
+---
+
+*Rendered on 2026-07-30 at 14:09 PDT.*  
+*Source: `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/03-latent-class-mixture-application/report.Rmd`*

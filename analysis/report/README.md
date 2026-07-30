@@ -22,6 +22,12 @@ live inside each manuscript's own subdirectory.
 - `references.bib` is a master candidate bibliography; individual
   manuscripts may use a paper-specific `references.bib` inside
   their own subdirectory.
+- `NOTATION.md` is the canonical notation and controlled-vocabulary
+  reference for every manuscript in this directory. New manuscripts
+  should adopt it rather than re-deriving symbols, and any deviation
+  should be stated explicitly in the deviating paper's Methods
+  section. The audit that produced it is
+  `whitepaper-notation-audit.md`.
 
 ## Canonical YAML for all manuscripts
 

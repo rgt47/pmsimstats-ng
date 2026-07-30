@@ -39,7 +39,7 @@ defaults are evidence-based (current corpus counts in parentheses).
 
 | # | Decision | Recommended default | Evidence |
 |---|---|---|---|
-| D1 | Spelling convention | British / `-ise`, `-our`, `modelling` | modelling 73 vs modeling 43; characterise 26; behaviour 18 vs 3; generalised 16 vs 8 |
+| D1 | Spelling convention | **US / `-ize`, `-or`, `modeling`** (locked 2026-07-30; overrides the frequency-based recommendation below) | The corpus leans British (modelling 73 vs modeling 43; characterise 26; behaviour 18 vs 3; generalised 16 vs 8), but frequency records drift, not a decision. The project-wide standard is US English, so the direction of travel is British -> US. |
 | D2 | Casing of "Type I error" | `Type I error` (cap T, cap I, no hyphen) | Type I error 121 vs type I 61 vs type-I 45 |
 | D3 | Biomarker-interaction surface form | `biomarker-treatment interaction` | 91 vs biomarker-by-treatment 45; matches lexicon §10 headword |
 | D4 | Monte Carlo SE form | spell `Monte Carlo standard error (MCSE)` at first use, then `MCSE` | MCSE 281, MC SE 59, spelled 57, "Monte Carlo SE" 25 |
@@ -86,10 +86,15 @@ blind replace).
    three-part `bullets`/`orig` structure aggravates this because a
    `bullets` block often leads with a bare acronym that the later `orig`
    block expands; fix by expanding in whichever block appears first.
-7. **Spelling normalisation** (D1). `generalized` -> `generalised`,
-   `modeling` -> `modelling`, `behavior` -> `behaviour`,
-   `parameterize` -> `parameterise`, etc. Affects 08, 10 (GEE spelling)
-   and scattered elsewhere. (~50 instances.)
+7. **Spelling normalization** (D1, direction reversed on 2026-07-30).
+   `generalised` -> `generalized`, `modelling` -> `modeling`,
+   `behaviour` -> `behavior`, `parameterise` -> `parameterize`,
+   `characterise` -> `characterize`, `normalise` -> `normalize`,
+   `whilst` -> `while`, `artefact` -> `artifact`, `grey` -> `gray`,
+   etc. Preserve British spelling inside verbatim quotations and in
+   published citation or reference titles. Do not touch the US-English
+   false friends (`exercise`, `revise`, `raise`, `advise`, `promise`,
+   `compromise`, `analyses`, `characteristic`, `programmer`).
 8. **Code tokens leaking into prose.** Replace reader-facing code
    identifiers with their prose terms: `OLBDC` -> `OL+BDC` (02),
    `modGompertz` -> "modified Gompertz function" in narrative (07; keep

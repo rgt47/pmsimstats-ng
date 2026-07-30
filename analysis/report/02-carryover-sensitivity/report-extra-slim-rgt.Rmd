@@ -58,7 +58,7 @@ knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path
       report.Rmd (analysis/scripts/carryover-sensitivity/output/
       diag-s6-cr2.rds); no re-run needed.
 
-  5c. Filtered S6 type-I figure (writes
+  5c. Filtered S6 Type I figure (writes
       analysis/figures/02xs-type1-cr2.pdf), shared with
       report-extra-slim.Rmd:
        Rscript analysis/scripts/carryover-sensitivity/07-type1-cr2-figure-extra-slim.R
@@ -88,7 +88,9 @@ library(knitr)
 ## that the letters A/B/C stay reserved for DGP architectures. Data
 ## values are never rewritten; they are mapped at display time only.
 spec_display <- function(x) {
-  unname(c(A1 = 'M1', A2 = 'M2', A3 = 'M3')[as.character(x)])
+  m <- c(A1 = 'M1', A2 = 'M2', A3 = 'M3')
+  x <- as.character(x)
+  ifelse(x %in% names(m), unname(m[x]), x)
 }
 ```
 
@@ -486,21 +488,21 @@ hd <- readRDS(here::here(
   'analysis/data/02-grid-summary.rds'))$summary |>
   filter(carryover_form == 'exponential', dgp_arch == 'mvn',
          design == 'Hybrid', N == 70, c_bm == 0.45,
-         spec %in% c('M2', 'M3')) |>
+         spec %in% c('A2', 'A3')) |>
   mutate(
     `t1/2` = t1half,
-    `Power (MC SE)` = sprintf('%.3f (%.3f)', power, mc_se_power),
-    `Bias (MC SE)` = sprintf('%+.3f (%.3f)', bias, mc_se_bias),
+    `Power (MCSE)` = sprintf('%.3f (%.3f)', power, mc_se_power),
+    `Bias (MCSE)` = sprintf('%+.3f (%.3f)', bias, mc_se_bias),
     `Empirical SE` = sprintf('%.3f', empirical_se),
-    `Coverage (MC SE)` = sprintf('%.3f (%.3f)',
+    `Coverage (MCSE)` = sprintf('%.3f (%.3f)',
                                   coverage, mc_se_coverage),
-    `MSE (MC SE)` = sprintf('%.3f (%.3f)', mse, mc_se_mse),
+    `MSE (MCSE)` = sprintf('%.3f (%.3f)', mse, mc_se_mse),
     `Non-conv` = sprintf('%.3f', non_convergence_rate)
   ) |>
   arrange(`t1/2`, spec) |>
   mutate(spec = spec_display(spec)) |>
-  select(`t1/2`, spec, `Power (MC SE)`, `Bias (MC SE)`,
-         `Empirical SE`, `Coverage (MC SE)`, `MSE (MC SE)`,
+  select(`t1/2`, spec, `Power (MCSE)`, `Bias (MCSE)`,
+         `Empirical SE`, `Coverage (MCSE)`, `MSE (MCSE)`,
          `Non-conv`)
 
 knitr::kable(
@@ -591,7 +593,7 @@ suppressPackageStartupMessages(library(dplyr))
 t1 <- readRDS(here::here(
   'analysis/scripts/carryover-sensitivity/output/diag-null-type1-cr2.rds'))
 tab <- t1$summary |>
-  filter(spec %in% c('M2', 'M3')) |>
+  filter(spec %in% c('A2', 'A3')) |>
   transmute(
     Specification    = spec_display(spec),
     `$\\kappa$ model` = sprintf('%.2f', mod_se_ratio),
@@ -628,7 +630,7 @@ lab <- c('Reference, $N=70$', 'Small $N=35$',
 ## from s6$summary (which carries per-spec power under both
 ## inferences) rather than reused from s6$gaps.
 a3_gap <- s6$summary |>
-  filter(spec %in% c('M2', 'M3')) |>
+  filter(spec %in% c('A2', 'A3')) |>
   select(cell, spec, power_mod, power_cr2) |>
   pivot_wider(names_from = spec, values_from = c(power_mod, power_cr2)) |>
   transmute(cell,

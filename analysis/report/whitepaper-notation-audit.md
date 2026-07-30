@@ -14,6 +14,14 @@ header-includes:
 eleven manuscripts under `analysis/report/`, with the nine verified
 inconsistencies and a proposed canonical convention.**
 
+> **Status note (2026-07-30).** This document records the state of the
+> sources as of 2026-07-29, before repair. A notation pass has since
+> been applied: N1, N2, N3, and the A1/A2/A3 collision in N6 are
+> fixed, and the canonical table now lives at
+> `analysis/report/NOTATION.md`, which also logs what was changed and
+> what remains open. Read the present document as the diagnosis, not
+> as current state.
+
 ## Method and headline finding
 
 Every `report.Rmd` was searched for the symbols carrying the

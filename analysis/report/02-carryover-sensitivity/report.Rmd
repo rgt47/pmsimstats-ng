@@ -49,7 +49,7 @@ knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path
   3. Summarise both tiers into cell-level power/bias/convergence.
      Step 3 is cheap (~seconds) and should be re-run after either 1
      or 2 changes. It mirrors the summaries to analysis/data/:
-       Rscript analysis/scripts/carryover-sensitivity/02-summarise-grid.R
+       Rscript analysis/scripts/carryover-sensitivity/02-summarize-grid.R
      Writes:
        analysis/data/02-grid-summary.rds        (from Tier 1)
        analysis/data/02-sensitivity-summary.rds (from Tier 2, if present)
@@ -75,13 +75,13 @@ knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path
   5b. Sensitivity block S6 (cluster-robust recalibration; ~18 min on
       8 cores; requires the clubSandwich package). Runs the five
       stress cells at c_bm=0.45 (power) AND their c_bm=0 mirrors
-      (type-I), under both model-based and CR2 inference:
+      (Type I), under both model-based and CR2 inference:
        Rscript analysis/scripts/carryover-sensitivity/06-cr2-recalibration.R
      Writes:
        analysis/scripts/carryover-sensitivity/output/diag-s6-cr2.rds
          ($summary = power/kappa, $type1 = null rejection rates)
 
-  5c. S6 type-I figure (model-based vs CR2 at the null; ~seconds):
+  5c. S6 Type I figure (model-based vs CR2 at the null; ~seconds):
        Rscript analysis/scripts/carryover-sensitivity/07-type1-cr2-figure.R
      Writes:
        analysis/figures/02-type1-cr2.pdf
@@ -92,7 +92,7 @@ knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path
   Full-rebuild one-liner (after any change to the grid or DGP):
     Rscript analysis/scripts/carryover-sensitivity/01-run-factorial.R && \
     Rscript analysis/scripts/carryover-sensitivity/04-run-sensitivity-blocks.R && \
-    Rscript analysis/scripts/carryover-sensitivity/02-summarise-grid.R && \
+    Rscript analysis/scripts/carryover-sensitivity/02-summarize-grid.R && \
     Rscript analysis/scripts/carryover-sensitivity/03-render-figures.R && \
     Rscript analysis/scripts/carryover-sensitivity/04-sensitivity-figures.R && \
     Rscript -e "rmarkdown::render('analysis/report/02-carryover-sensitivity/report.Rmd')"
@@ -118,7 +118,9 @@ library(knitr)
 ## that the letters A/B/C stay reserved for DGP architectures. Data
 ## values are never rewritten; they are mapped at display time only.
 spec_display <- function(x) {
-  unname(c(A1 = 'M1', A2 = 'M2', A3 = 'M3')[as.character(x)])
+  m <- c(A1 = 'M1', A2 = 'M2', A3 = 'M3')
+  x <- as.character(x)
+  ifelse(x %in% names(m), unname(m[x]), x)
 }
 ```
 
@@ -833,7 +835,7 @@ the same regardless of what $\hat{t}_{1/2}$ was assumed.
 
 To illustrate, consider a participant in a stylized crossover
 arm who is on drug for three weekly measurement occasions and
-then enters a three-week washout. Table~\@ref(tab:toy-dbc)
+then enters a three-week off-drug period. Table~\@ref(tab:toy-dbc)
 shows the $D_{bc}$ values at the three off-drug timepoints
 under three analyst assumptions, holding the true DGP
 half-life fixed at one week.
@@ -884,10 +886,10 @@ rgt to complete.
 ::: {.orig data-latex=""}
 When the analyst assumes $\hat{t}_{1/2} = 0.5$ weeks, the
 off-drug timepoints are assigned $D_{bc}$ values near zero by
-the second washout week and contribute almost nothing to the
+the second off-drug week and contribute almost nothing to the
 `bm:Dbc` interaction estimate. When the analyst assumes
 $\hat{t}_{1/2} = 2.0$ weeks, those same timepoints retain
-substantial weight throughout the washout, and the predictor
+substantial weight throughout the off-drug period, and the predictor
 becomes closer in shape to a continuously graded version of the
 binary on-drug indicator.
 
@@ -1214,18 +1216,18 @@ hd <- readRDS(here::here(
          design == 'Hybrid', N == 70, c_bm == 0.45) |>
   mutate(
     `t1/2` = t1half,
-    `Power (MC SE)` = sprintf('%.3f (%.3f)', power, mc_se_power),
-    `Bias (MC SE)` = sprintf('%+.3f (%.3f)', bias, mc_se_bias),
+    `Power (MCSE)` = sprintf('%.3f (%.3f)', power, mc_se_power),
+    `Bias (MCSE)` = sprintf('%+.3f (%.3f)', bias, mc_se_bias),
     `Empirical SE` = sprintf('%.3f', empirical_se),
-    `Coverage (MC SE)` = sprintf('%.3f (%.3f)',
+    `Coverage (MCSE)` = sprintf('%.3f (%.3f)',
                                   coverage, mc_se_coverage),
-    `MSE (MC SE)` = sprintf('%.3f (%.3f)', mse, mc_se_mse),
+    `MSE (MCSE)` = sprintf('%.3f (%.3f)', mse, mc_se_mse),
     `Non-conv` = sprintf('%.3f', non_convergence_rate)
   ) |>
   arrange(`t1/2`, spec) |>
   mutate(spec = spec_display(spec)) |>
-  select(`t1/2`, spec, `Power (MC SE)`, `Bias (MC SE)`,
-         `Empirical SE`, `Coverage (MC SE)`, `MSE (MC SE)`,
+  select(`t1/2`, spec, `Power (MCSE)`, `Bias (MCSE)`,
+         `Empirical SE`, `Coverage (MCSE)`, `MSE (MCSE)`,
          `Non-conv`)
 
 knitr::kable(
@@ -1304,7 +1306,7 @@ $t_{1/2} = 0.5$ weeks and grows at $t_{1/2} = 1.0$ weeks.}
 \item M1 and M3 are effectively indistinguishable across the
   exponential-DGP grid.
 \item M2's advantage is consistent across Hybrid and OL+BDC
-  design strata, not an artefact of the reference cell.
+  design strata, not an artifact of the reference cell.
 \end{itemize}
 :::
 
@@ -1319,7 +1321,7 @@ progressively as carryover half-life increases. The matched
 specification M2 retains a modest but consistent advantage under
 Architecture~B and the Hybrid and OL+BDC designs; M1 and M3 are
 effectively indistinguishable across the exponential-DGP grid.
-The figure makes clear that the M2 advantage is not an artefact
+The figure makes clear that the M2 advantage is not an artifact
 of the reference cell: it emerges at $t_{1/2} = 0.5$ weeks and
 grows through $t_{1/2} = 1.0$ weeks in each design stratum.
 :::
@@ -1527,7 +1529,7 @@ power is not comparable to a correctly-sized competitor's; the CR2
 restoration is therefore the precondition that licenses the power
 comparison among M1, M2, and M3. Under CR2 all three hold nominal
 $\alpha$, so the M2 advantage documented above is a comparison among
-correctly-sized tests, not an artefact of differential
+correctly-sized tests, not an artifact of differential
 conservatism.
 :::
 
@@ -1704,8 +1706,10 @@ signal source -- the exposure-weighted off-drug contrast -- is
 eroded by dropout.}
 \begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
 \item M2$-$M1 gap: $\approx 0.10$ at dropout 0, declining to
-  $\approx 0.03$ at MCAR rate 0.30.
-\item Under MAR the gap narrows further at rate 0.30
+  $\approx 0.03$ at a missing-completely-at-random (MCAR) rate
+  of 0.30.
+\item Under missing-at-random (MAR) dropout the gap narrows
+  further at rate 0.30
   ($\approx 0.004$).
 \item M2 advantage is preserved at low-to-moderate dropout
   (rate $\leq 0.20$).
@@ -2250,14 +2254,14 @@ rgt to complete.
 :::
 
 ::: {.orig data-latex=""}
-Four prior simulation programmes provide direct quantitative
+Four prior simulation programs provide direct quantitative
 benchmarks for the present results. We discuss each in turn,
 focusing on cells where the prior parameter ranges overlap with
 ours and noting where the design targets differ.
 
 Hendrickson [-@hendrickson2020] introduced the
 biomarker-treatment interaction question for aggregated
-N-of-1 trials and reported power for the matched-decay (M2)
+N-of-1 trials and reported power for the exposure-weighted (M2)
 analysis under exponential carryover at $t_{1/2} = 1$ week,
 $N = 70$, $c_{bm} = 0.45$, Hybrid design. The reported power
 was 0.82 at 1{,}000 replicates under a single architecture.
@@ -2583,7 +2587,7 @@ blocks S1 through S5). Cell-level summaries are at
 `analysis/data/02-grid-summary.rds` and
 `analysis/data/02-sensitivity-summary.rds`. Driver scripts are
 `01-run-factorial.R`, `04-run-sensitivity-blocks.R`, and
-`02-summarise-grid.R` under
+`02-summarize-grid.R` under
 `analysis/scripts/carryover-sensitivity/`. The simulation grid
 plan and design rationale are documented at
 `analysis/scripts/carryover-sensitivity/simulation-grid-plan.md`,

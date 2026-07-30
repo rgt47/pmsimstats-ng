@@ -24,7 +24,7 @@ header-includes:
   ===================
   This Rmd loads the development-run simulation outputs directly and
   renders all figures inline. It does NOT depend on the pre-rendered
-  PDFs in analysis/figures/ or the summarised RDS files in
+  PDFs in analysis/figures/ or the summarized RDS files in
   analysis/data/. Run it with:
 
     Rscript -e "rmarkdown::render(
@@ -65,7 +65,9 @@ suppressPackageStartupMessages({
 ## that the letters A/B/C stay reserved for DGP architectures. Data
 ## values are never rewritten; they are mapped at display time only.
 spec_display <- function(x) {
-  unname(c(A1 = 'M1', A2 = 'M2', A3 = 'M3')[as.character(x)])
+  m <- c(A1 = 'M1', A2 = 'M2', A3 = 'M3')
+  x <- as.character(x)
+  ifelse(x %in% names(m), unname(m[x]), x)
 }
 })
 
@@ -126,10 +128,12 @@ grid2      <- summarise_cells(raw2$results, names(raw2$grid))
 ## Five analysis methods: three model-based specifications plus two
 ## robust-inference analyses (both on the M2 / Dbc predictor).
 ## ------------------------------------------------------------------
-method_levels <- c('M1', 'M2', 'M3', 'lme+CR2', 'GEE+MD')
-method_labels <- c('M1' = 'M1 binary',
-                    'M2' = 'M2 Dbc (matched)',
-                    'M3' = 'M3 lagged',
+## Levels are the archived data values (A1/A2/A3); labels are the
+## reporting names (M1/M2/M3). See spec_display() above.
+method_levels <- c('A1', 'A2', 'A3', 'lme+CR2', 'GEE+MD')
+method_labels <- c('A1' = 'M1 binary',
+                    'A2' = 'M2 Dbc (matched)',
+                    'A3' = 'M3 lagged',
                     'lme+CR2' = 'lme+CR2 (robust)',
                     'GEE+MD'  = 'GEE+MD (robust)')
 
@@ -141,7 +145,7 @@ theme_paper <- theme_bw(base_size = 10) +
   )
 
 spec_scale <- scale_colour_manual(
-  values = c('M1' = '#1f78b4', 'M2' = '#33a02c', 'M3' = '#e31a1c',
+  values = c('A1' = '#1f78b4', 'A2' = '#33a02c', 'A3' = '#e31a1c',
              'lme+CR2' = '#ff7f00', 'GEE+MD' = '#6a3d9a'),
   labels = method_labels,
   limits = method_levels)
@@ -154,7 +158,7 @@ as_method <- function(x) factor(x, levels = method_levels)
 This document presents pipeline-verification results for the
 carryover-sensitivity manuscript from the development simulation
 run completed 2026-05-20. The run uses a 96-cell reduced Tier 1
-grid (150 replicates per cell, MC SE $\approx 0.041$ at $p = 0.5$)
+grid (150 replicates per cell, MCSE $\approx 0.041$ at $p = 0.5$)
 and a 31-cell Tier 2 sensitivity grid. All figures and tables are
 computed inline from the development RDS files; nothing is loaded
 from pre-rendered figures or the shared `analysis/data/` summaries.
@@ -177,7 +181,7 @@ The purpose of this document is to verify that:
 
 a) the M2 $>$ M1 $\approx$ M3 power ranking is visible at 150 reps;
 b) the three model-based specifications are conservative under the
-   null, while the robust analyses move the type-I error toward
+   null, while the robust analyses move the Type I error toward
    the nominal 0.05;
 c) lme+CR2 recovers the power lost to conservatism, while GEE+MD
    carries a modest residual efficiency cost as a marginal-model
@@ -192,7 +196,7 @@ architectures and all three DGP decay forms (the primary axes),
 trimming secondary axes to two representative values each.
 `t1half` is reduced to $\{0.0, 1.0\}$ weeks; design to
 $\{\text{CO}, \text{Hybrid}\}$; $N$ to $\{35, 70\}$; $c_{bm}$ to
-$\{0.0, 0.45\}$; Weibull uses only $k = 0.7$. The OLBDC design and
+$\{0.0, 0.45\}$; Weibull uses only $k = 0.7$. The OL+BDC design and
 $k = 1.5$ Weibull shape are absent from the dev grid; any figure
 filtered to those levels will appear empty.
 
@@ -233,9 +237,9 @@ hd <- grid1 |>
          design == 'Hybrid', N == 70, c_bm == 0.45) |>
   mutate(
     `t1/2`             = t1half,
-    `Power (MC SE)`    = sprintf('%.3f (%.3f)',
+    `Power (MCSE)`    = sprintf('%.3f (%.3f)',
                                   power, mc_se_power),
-    `Bias (MC SE)`     = sprintf('%+.3f (%.3f)',
+    `Bias (MCSE)`     = sprintf('%+.3f (%.3f)',
                                   bias, mc_se_bias),
     `Emp SE`           = sprintf('%.3f', empirical_se),
     `Coverage`         = sprintf('%.3f', coverage),
@@ -243,7 +247,7 @@ hd <- grid1 |>
   ) |>
   arrange(`t1/2`, match(spec, method_levels)) |>
   mutate(spec = spec_display(spec)) |>
-  select(`t1/2`, spec, `Power (MC SE)`, `Bias (MC SE)`,
+  select(`t1/2`, spec, `Power (MCSE)`, `Bias (MCSE)`,
          `Emp SE`, `Coverage`, `Non-conv`)
 
 knitr::kable(
@@ -328,9 +332,9 @@ ggplot(d_b, aes(spec, dgp_label, fill = power)) +
   theme_paper
 ```
 
-## Type-I error control
+## Type I error control
 
-```{r fig-type1, fig.cap = "Empirical type-I error rates under the null ($c_{bm} = 0$), pooled across DGP decay forms and carryover half-lives, stratified by design and analysis method. $N = 70$; dashed line at nominal 0.05. The three model-based specifications sit below nominal; lme+CR2 sits near nominal; GEE+MD is near nominal under the Hybrid design but anti-conservative under CO.", fig.width = 7, fig.height = 3.6}
+```{r fig-type1, fig.cap = "Empirical Type I error rates under the null ($c_{bm} = 0$), pooled across DGP decay forms and carryover half-lives, stratified by design and analysis method. $N = 70$; dashed line at nominal 0.05. The three model-based specifications sit below nominal; lme+CR2 sits near nominal; GEE+MD is near nominal under the Hybrid design but anti-conservative under CO.", fig.width = 7, fig.height = 3.6}
 d_c <- grid1 |>
   filter(c_bm == 0, N == 70) |>
   mutate(
@@ -349,9 +353,9 @@ ggplot(d_c, aes(spec, power, fill = dgp_arch)) +
   scale_y_continuous(limits = c(0, NA)) +
   labs(
     x        = 'Analysis method',
-    y        = 'Empirical type-I error rate',
+    y        = 'Empirical Type I error rate',
     fill     = NULL,
-    title    = 'Type-I error control under null',
+    title    = 'Type I error control under null',
     subtitle = expression(
       c[bm]==0*','~N==70*','~
       'pooled across DGP forms and carryover levels (dev)')
@@ -373,7 +377,7 @@ $c_{bm} = 0$, the Arch A and Arch B panels are two samples from
 one distribution and should coincide up to Monte Carlo noise; that
 they do is a consistency check on the simulation.
 
-```{r fig-type1-arch, fig.cap = "Empirical type-I error rates under the null ($c_{bm} = 0$, $N = 70$), the same null cells as the preceding figure but split by DGP architecture, with design as the fill. At the null the two architectures are a bit-identical data-generating process, so the two panels coincide up to Monte Carlo noise. Dashed line at nominal 0.05.", fig.width = 7, fig.height = 3.6}
+```{r fig-type1-arch, fig.cap = "Empirical Type I error rates under the null ($c_{bm} = 0$, $N = 70$), the same null cells as the preceding figure but split by DGP architecture, with design as the fill. At the null the two architectures are a bit-identical data-generating process, so the two panels coincide up to Monte Carlo noise. Dashed line at nominal 0.05.", fig.width = 7, fig.height = 3.6}
 ggplot(d_c, aes(spec, power, fill = design)) +
   geom_boxplot(outlier.size = 0.8) +
   geom_hline(yintercept = 0.05, linetype = 'dashed',
@@ -384,9 +388,9 @@ ggplot(d_c, aes(spec, power, fill = design)) +
                                Hybrid = '#a6cee3')) +
   labs(
     x        = 'Analysis method',
-    y        = 'Empirical type-I error rate',
+    y        = 'Empirical Type I error rate',
     fill     = NULL,
-    title    = 'Type-I error under null, split by architecture',
+    title    = 'Type I error under null, split by architecture',
     subtitle = expression(
       c[bm]==0*','~N==70*','~
       'pooled across DGP forms and carryover levels (dev)')
@@ -406,13 +410,13 @@ tab_all <- grid1 |>
              paste0(' k=', weibull_shape), '')),
     Arch  = ifelse(dgp_arch == 'mvn', 'B', 'A'),
     `t1/2` = t1half,
-    `Power (MC SE)` = sprintf('%.3f (%.3f)',
+    `Power (MCSE)` = sprintf('%.3f (%.3f)',
                                power, mc_se_power),
     `Non-conv` = sprintf('%.3f', non_convergence_rate)
   ) |>
   arrange(Arch, DGP, `t1/2`, match(spec, method_levels)) |>
   select(Arch, DGP, `t1/2`, spec,
-         `Power (MC SE)`, `Non-conv`)
+         `Power (MCSE)`, `Non-conv`)
 
 knitr::kable(
   tab_all, booktabs = TRUE, longtable = TRUE,
@@ -515,7 +519,7 @@ ggplot(d4, aes(c_bm, power, colour = spec, group = spec)) +
   spec_scale +
   labs(
     x        = expression(c[bm]),
-    y        = 'Power / type-I error',
+    y        = 'Power / Type I error',
     colour   = 'Analysis method',
     title    = 'S4: Biomarker-moderation effect-size curve (dev)',
     subtitle = 'Dashed line at nominal alpha = 0.05'
@@ -569,16 +573,16 @@ checks <- tibble::tibble(
   Check = c(
     'M2 power > M1 power at the reference cell',
     'lme+CR2 power >= M2 power (robust SE recovers power)',
-    'lme+CR2 null type-I within 0.015 of nominal 0.05',
+    'lme+CR2 null Type I within 0.015 of nominal 0.05',
     'Max non-convergence rate below 0.20'
   ),
   Result = c(
-    sprintf('M2=%.3f, M1=%.3f -> %s', pw('M2'), pw('M1'),
-            ifelse(pw('M2') > pw('M1'), 'PASS', 'FAIL')),
+    sprintf('M2=%.3f, M1=%.3f -> %s', pw('A2'), pw('A1'),
+            ifelse(pw('A2') > pw('A1'), 'PASS', 'FAIL')),
     sprintf('lme+CR2=%.3f, M2=%.3f -> %s',
-            pw('lme+CR2'), pw('M2'),
-            ifelse(pw('lme+CR2') >= pw('M2'), 'PASS', 'FAIL')),
-    sprintf('lme+CR2 mean type-I=%.3f -> %s', cr2_t1,
+            pw('lme+CR2'), pw('A2'),
+            ifelse(pw('lme+CR2') >= pw('A2'), 'PASS', 'FAIL')),
+    sprintf('lme+CR2 mean Type I=%.3f -> %s', cr2_t1,
             ifelse(abs(cr2_t1 - 0.05) < 0.015, 'PASS', 'FAIL')),
     sprintf('Max=%.3f -> %s', nonconv_max,
             ifelse(nonconv_max < 0.20, 'PASS', 'FAIL'))
@@ -587,7 +591,7 @@ checks <- tibble::tibble(
 
 knitr::kable(checks, booktabs = TRUE,
   caption = 'Automated sanity checks against the dev-run results.
-    Thresholds are deliberately loose (MC SE ~0.041 at 150 reps).')
+    Thresholds are deliberately loose (MCSE ~0.041 at 150 reps).')
 ```
 
 ---

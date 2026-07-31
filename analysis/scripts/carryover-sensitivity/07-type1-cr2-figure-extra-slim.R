@@ -1,7 +1,7 @@
 ## analysis/scripts/carryover-sensitivity/07-type1-cr2-figure-extra-slim.R
 ##
 ## Filtered S6 type-I figure for report-extra-slim.Rmd: drops the A1
-## analysis specification (S6 is already Architecture B only). Reads
+## analysis specification (S6 is already Covariance architecture only). Reads
 ## the same diag-s6-cr2.rds as 07-type1-cr2-figure.R and writes
 ## analysis/figures/02xs-type1-cr2.pdf, leaving the full-size figure
 ## untouched.
@@ -48,7 +48,7 @@ d <- s6$type1 |>
   mutate(
     cell = factor(cell, levels = cell_levels, labels = cell_short),
     spec = factor(spec, levels = c('A2', 'A3'),
-                  labels = c('A2 Dbc (matched)', 'A3 lagged'))) |>
+                  labels = c('E2 Dbc (matched)', 'E3 lagged'))) |>
   pivot_longer(c(type1_mod, type1_cr2),
                names_to = 'inference', values_to = 'type1') |>
   mutate(inference = factor(inference,

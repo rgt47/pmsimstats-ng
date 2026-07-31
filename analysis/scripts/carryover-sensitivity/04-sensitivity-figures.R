@@ -50,11 +50,11 @@ placeholder <- function(block, path) {
 ## three visible: A3's dashes reveal A1 beneath, and the point
 ## shapes differ where values are equal.
 ## Data values remain A1/A2/A3 (as archived by the simulation
-## drivers); reporting labels are M1/M2/M3 so that the letters A/B/C
+## drivers); reporting labels are E1/E2/E3 so that the letters A/B/C
 ## are reserved for DGP architectures.
-spec_labels <- c(A1 = 'M1 binary',
-                 A2 = 'M2 Dbc (matched)',
-                 A3 = 'M3 lagged')
+spec_labels <- c(A1 = 'E1 binary',
+                 A2 = 'E2 Dbc (matched)',
+                 A3 = 'E3 lagged')
 
 spec_scale <- scale_colour_manual(
   name = 'Analysis spec', values = c(A1 = '#1f78b4',
@@ -96,7 +96,7 @@ p1 <- ggplot(d1, aes(rho, power, colour = spec, linetype = spec, shape = spec, g
   labs(x = expression('AR(1) autocorrelation'~rho),
        y = 'Power', colour = 'Analysis spec',
        title = 'S1: Sensitivity to within-factor autocorrelation',
-       subtitle = 'Reference: Hybrid, Arch B, N=70, c_bm=0.45, exp DGP, t_{1/2}=1.0') +
+       subtitle = 'Reference: Hybrid, Covariance, N=70, c_bm=0.45, exp DGP, t_{1/2}=1.0') +
   theme_paper
 
 ggsave(file.path(fig_dir, '02-sens-S1.pdf'), p1,
@@ -120,7 +120,7 @@ p2 <- ggplot(d2, aes(analysis_t1half, power,
   labs(x = expression('Analyst-assumed half-life (log scale, weeks)'),
        y = 'Power', colour = 'Analysis spec',
        title = 'S2: Cost of analyst-truth half-life mismatch',
-       subtitle = 'M1 and M3 do not depend on assumed half-life; M2 does') +
+       subtitle = 'E1 and E3 do not depend on assumed half-life; E2 does') +
   theme_paper
 
 ggsave(file.path(fig_dir, '02-sens-S2.pdf'), p2,

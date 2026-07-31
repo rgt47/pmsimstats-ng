@@ -1,6 +1,6 @@
 ## analysis/scripts/carryover-sensitivity/03-render-figures-extra-slim.R
 ##
-## Filtered Tier 1 figures for report-extra-slim.Rmd: Architecture B
+## Filtered Tier 1 figures for report-extra-slim.Rmd: Covariance architecture
 ## only, linear DGP decay dropped, A1 analysis specification dropped.
 ## Reads the same 02-grid-summary.rds as 03-render-figures.R and
 ## writes to analysis/figures/ with a 02xs- prefix so the full-size
@@ -30,7 +30,7 @@ theme_paper <- theme_bw(base_size = 10) +
     legend.position = 'top'
   )
 
-spec_labels <- c(A2 = 'A2 Dbc (matched)', A3 = 'A3 lagged')
+spec_labels <- c(A2 = 'E2 Dbc (matched)', A3 = 'E3 lagged')
 
 ## -----------------------------------------------------------------
 ## Figure 02xs-a: power vs carryover half-life by analysis spec
@@ -60,7 +60,7 @@ p_a <- ggplot(d_a, aes(t1half, power, colour = spec,
     colour = 'Analysis spec',
     title = 'Power vs carryover under matched exponential DGP',
     subtitle = expression(
-      'Architecture B,'~N==70*','~c[bm]==0.45*','~'500 reps/cell')
+      'Covariance architecture,'~N==70*','~c[bm]==0.45*','~'500 reps/cell')
   ) +
   theme_paper
 
@@ -113,7 +113,7 @@ p_b <- ggplot(d_b, aes(spec, dgp_label, fill = power)) +
     fill = 'Power',
     title = 'Decay-form x analysis-spec sensitivity',
     subtitle = expression(
-      'Architecture B, Hybrid design,'~N==70*','~
+      'Covariance architecture, Hybrid design,'~N==70*','~
       c[bm]==0.45*','~t['1/2']==1.0)
   ) +
   theme_paper +
@@ -139,14 +139,14 @@ p_c <- ggplot(d_c, aes(spec, power, fill = spec)) +
   geom_hline(yintercept = 0.05, linetype = 'dashed') +
   facet_wrap(~ design) +
   scale_y_continuous(limits = c(0, NA)) +
-  scale_fill_manual(values = c('A2 Dbc (matched)' = '#33a02c',
-                                'A3 lagged' = '#e31a1c')) +
+  scale_fill_manual(values = c('E2 Dbc (matched)' = '#33a02c',
+                                'E3 lagged' = '#e31a1c')) +
   labs(
     x = 'Analysis specification',
     y = 'Empirical type-I error rate',
     title = 'Type-I error control under null',
     subtitle = expression(
-      'Architecture B,'~c[bm]==0*','~N==70*','~
+      'Covariance architecture,'~c[bm]==0*','~N==70*','~
       'pooled across DGP decay forms and carryover levels')
   ) +
   theme_paper

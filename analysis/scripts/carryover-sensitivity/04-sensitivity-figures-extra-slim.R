@@ -2,7 +2,7 @@
 ##
 ## Filtered Tier 2 sensitivity-block figures (S1-S5) for
 ## report-extra-slim.Rmd. All Tier 2 blocks are already anchored at
-## Architecture B (Hybrid reference cell), so only the A1 analysis
+## Covariance architecture (Hybrid reference cell), so only the E1 analysis
 ## specification needs to be dropped here. Writes to analysis/figures/
 ## with a 02xs- prefix, leaving report.Rmd and report-slim.Rmd
 ## figures untouched.
@@ -41,7 +41,7 @@ placeholder <- function(block, path) {
   ggsave(path, p, width = 5, height = 3.2)
 }
 
-spec_labels <- c(A2 = 'A2 Dbc (matched)', A3 = 'A3 lagged')
+spec_labels <- c(A2 = 'E2 Dbc (matched)', A3 = 'E3 lagged')
 
 spec_scale <- scale_colour_manual(
   name = 'Analysis spec',
@@ -83,7 +83,7 @@ p1 <- ggplot(d1, aes(rho, power, colour = spec, linetype = spec, shape = spec, g
   labs(x = expression('AR(1) autocorrelation'~rho),
        y = 'Power', colour = 'Analysis spec',
        title = 'S1: Sensitivity to within-factor autocorrelation',
-       subtitle = 'Architecture B, Hybrid, N=70, c_bm=0.45, exp DGP, t_{1/2}=1.0') +
+       subtitle = 'Covariance architecture, Hybrid, N=70, c_bm=0.45, exp DGP, t_{1/2}=1.0') +
   theme_paper
 
 ggsave(file.path(fig_dir, '02xs-sens-S1.pdf'), p1,
@@ -107,7 +107,7 @@ p2 <- ggplot(d2, aes(analysis_t1half, power,
   labs(x = expression('Analyst-assumed half-life (log scale, weeks)'),
        y = 'Power', colour = 'Analysis spec',
        title = 'S2: Cost of analyst-truth half-life mismatch',
-       subtitle = 'A3 does not depend on assumed half-life; A2 does') +
+       subtitle = 'E3 does not depend on assumed half-life; E2 does') +
   theme_paper
 
 ggsave(file.path(fig_dir, '02xs-sens-S2.pdf'), p2,

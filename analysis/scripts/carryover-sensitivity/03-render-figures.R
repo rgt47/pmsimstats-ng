@@ -39,9 +39,9 @@ d_a <- grid |>
   dplyr::mutate(
     dgp_arch = factor(dgp_arch,
       levels = c('mean_moderation', 'mvn'),
-      labels = c('Arch A (mean mod)', 'Arch B (MVN)')),
+      labels = c('Mean', 'Covariance')),
     spec = factor(spec, levels = c('A1', 'A2', 'A3'),
-      labels = c('M1 binary', 'M2 Dbc (matched)', 'M3 lagged')),
+      labels = c('E1 binary', 'E2 Dbc (matched)', 'E3 lagged')),
     design = factor(design, levels = c('CO', 'OLBDC', 'Hybrid'))
   )
 
@@ -97,7 +97,7 @@ d_b <- grid |>
       'Linear', 'Exponential',
       'Weibull (k=0.7)', 'Weibull (k=1.0)', 'Weibull (k=1.5)')),
     spec = factor(spec, levels = c('A1', 'A2', 'A3'),
-      labels = c('M1 binary', 'M2 Dbc', 'M3 lagged'))
+      labels = c('E1 binary', 'E2 Dbc', 'E3 lagged'))
   )
 
 p_b <- ggplot(d_b, aes(spec, dgp_label, fill = power)) +
@@ -111,7 +111,7 @@ p_b <- ggplot(d_b, aes(spec, dgp_label, fill = power)) +
     fill = 'Power',
     title = 'Decay-form x analysis-spec sensitivity',
     subtitle = expression(
-      'Architecture B, Hybrid design,'~N==70*','~
+      'Covariance architecture, Hybrid design,'~N==70*','~
       c[bm]==0.45*','~t['1/2']==1.0)
   ) +
   theme_paper +
@@ -129,11 +129,11 @@ d_c <- grid |>
   dplyr::filter(c_bm == 0, N == 70) |>
   dplyr::mutate(
     spec = factor(spec, levels = c('A1', 'A2', 'A3'),
-      labels = c('M1', 'M2', 'M3')),
+      labels = c('E1', 'E2', 'E3')),
     design = factor(design, levels = c('CO', 'OLBDC', 'Hybrid')),
     dgp_arch = factor(dgp_arch,
       levels = c('mean_moderation', 'mvn'),
-      labels = c('Arch A', 'Arch B'))
+      labels = c('Mean', 'Covariance'))
   )
 
 p_c <- ggplot(d_c, aes(spec, power, fill = dgp_arch)) +

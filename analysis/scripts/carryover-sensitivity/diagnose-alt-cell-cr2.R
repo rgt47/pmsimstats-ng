@@ -142,7 +142,7 @@ one_rep <- function(i) {
     mutate(rep = i, .before = 1)
 }
 
-cat(sprintf('Alternative-cell CR2 check: %s, Arch B, N=%d, c_bm=%.2f,\n',
+cat(sprintf('Alternative-cell CR2 check: %s, Covariance, N=%d, c_bm=%.2f,\n',
             cell$design, cell$N, cell$c_bm))
 cat(sprintf('  exponential DGP, t1half=%.1f, %d replicates\n',
             cell$t1half, N_REPS))
@@ -222,7 +222,7 @@ p_fig <- summ |>
   labs(x = 'Analysis specification', y = 'Power', fill = NULL,
        title = 'Power at the reference alternative cell',
        subtitle = sprintf(
-         'Arch B, Hybrid, N=70, c_bm=0.45, exp DGP, %d reps',
+         'Covariance, Hybrid, N=70, c_bm=0.45, exp DGP, %d reps',
          N_REPS)) +
   theme_paper
 

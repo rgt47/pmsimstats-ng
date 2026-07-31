@@ -84,17 +84,40 @@ Hendrickson 2020 design: open-label titration, blinded
 discontinuation, brief crossover). Define the abbreviation at first
 use in each paper; capitalize Hybrid.
 
-**DGP architectures.** Architecture A (direct mean moderation),
-Architecture B (MVN differential correlation), Architecture C
-(combined, both channels active). The letters A, B, C are reserved for
-architectures and must not be reused for other enumerations.
+**DGP architectures.** Named by the channel that carries the
+biomarker-treatment interaction. Single letters are no longer used.
+
+| Name in prose | Short form (legends, tables) | Data value | Former label |
+|---|---|---|---|
+| the mean-moderation architecture | Mean | `mean_moderation` | Architecture A |
+| the covariance-moderation architecture | Covariance | `mvn` | Architecture B |
+| the dual-channel architecture | Dual | `combined` | Architecture C |
+
+The mean-moderation architecture places the interaction in the
+conditional mean (the biomarker scales the size of the treatment
+effect); the covariance-moderation architecture places it in the
+treatment-state-dependent covariance (the biomarker is a proxy for a
+hidden responder state); the dual-channel architecture activates both
+with independent weights $c_{bm,A}$ and $c_{bm,B}$, and recovers the
+other two as its single-channel limits.
 
 **Analysis specifications** (carryover-specification manuscript).
-M1 (binary on-drug indicator), M2 (exposure-weighted continuous
-predictor), M3 (binary plus lagged nuisance term). These were labeled
-A1/A2/A3 before 2026-07-30 and are still stored under those values in
+E1 (binary on-drug indicator), E2 (exposure-weighted continuous
+predictor), E3 (binary plus lagged nuisance term). The letter E stands
+for the exposure regressor that distinguishes them. These were labeled
+A1/A2/A3 until 2026-07-30 and are still stored under those values in
 the archived simulation output; the mapping is applied at display time
 only.
+
+**Why not A/B/C and M1/M2/M3.** The original scheme used A/B/C for
+architectures and A1/A2/A3 for specifications, which collide on the
+letter A within a single manuscript. Relabeling the specifications
+M1/M2/M3 removed that collision but created a second one: the
+calibration manuscript already uses M0-M3 for its working-covariance
+model ladder, and those labels are keys into archived data. E1/E2/E3
+is free across the whole corpus, and naming the architectures by
+mechanism rather than by letter removes the class of collision
+entirely.
 
 **Simulation studies.** Number them (Study 1, Study 2, ...) rather
 than lettering them, to keep letters free for architectures.

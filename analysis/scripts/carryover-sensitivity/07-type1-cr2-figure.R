@@ -53,8 +53,8 @@ d <- s6$type1 |>
   mutate(
     cell = factor(cell, levels = cell_levels, labels = cell_short),
     spec = factor(spec, levels = c('A1', 'A2', 'A3'),
-                  labels = c('M1 binary', 'M2 Dbc (matched)',
-                             'M3 lagged'))) |>
+                  labels = c('E1 binary', 'E2 Dbc (matched)',
+                             'E3 lagged'))) |>
   pivot_longer(c(type1_mod, type1_cr2),
                names_to = 'inference', values_to = 'type1') |>
   mutate(inference = factor(inference,

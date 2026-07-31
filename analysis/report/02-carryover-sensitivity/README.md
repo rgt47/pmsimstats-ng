@@ -59,7 +59,7 @@ of them.
 
 | File | Scope | Superseded because |
 |---|---|---|
-| `archive/report.Rmd` | Full: both architectures, three decay forms (linear, exponential, Weibull), M1+M2+M3, S1-S5, full front and back matter, TOC | Scope narrowed for a self-contained evaluation |
+| `archive/report.Rmd` | Full: both architectures, three decay forms (linear, exponential, Weibull), E1+E2+E3, S1-S5, full front and back matter, TOC | Scope narrowed for a self-contained evaluation |
 | `archive/report-slim.Rmd` | Same scope; condensed Discussion, adds an N-of-1 primer, no TOC | Same |
 | `archive/report-extra-slim.Rmd` | Narrowed to the master's scope; carries the `bullets`/`rgt`/`orig` three-part scaffolding with `rgt` placeholders | Scaffolding stripped and prose rewritten |
 | (promoted to `report.Rmd`) | Narrative rewrite of the above | Current master |
@@ -71,8 +71,7 @@ needed:
 - Architecture A (mean moderation) results and the Discussion
   subsection on architecture dependence.
 - The linear decay form.
-- The binary on-drug specification results (M1 in the archived
-  drafts, E1 in the master's labeling).
+- The E1 (binary on-drug) specification results.
 - Sensitivity block S5 (autocorrelation by carryover, exploratory).
 - Discussion subsections on the latent-subtype question and on
   comparison with prior simulation studies, and the long-form
@@ -102,12 +101,11 @@ specification leads only under the Hybrid and OL+BDC designs and is
 markedly inferior under the classical crossover design. Read the
 archived drafts with that correction in mind.
 
-**Specification labels differ between master and archive.** The
-simulation output stores the three analysis specifications as `A1`,
-`A2`, `A3`. The archived drafts display them as M1, M2, M3; the
-master displays them as E1, E2, E3. The mapping is applied at
-display time in the `spec_display()` helper in each document's setup
-chunk, and the stored values are never rewritten.
+**Specification labels.** The simulation output stores the three
+analysis specifications as `A1`, `A2`, `A3`; every document here
+displays them as E1, E2, E3. The mapping is applied at display time
+in the `spec_display()` helper in each document's setup chunk, and
+the stored values are never rewritten.
 
 ## Revision history
 

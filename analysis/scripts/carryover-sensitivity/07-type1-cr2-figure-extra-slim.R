@@ -44,10 +44,10 @@ cell_short  <- c('Reference', 'Small N', 'High rho',
                  'HL mis-spec', '30% dropout')
 
 d <- s6$type1 |>
-  dplyr::filter(spec %in% c('A2', 'A3')) |>
+  dplyr::filter(spec %in% c('E2', 'E3')) |>
   mutate(
     cell = factor(cell, levels = cell_levels, labels = cell_short),
-    spec = factor(spec, levels = c('A2', 'A3'),
+    spec = factor(spec, levels = c('E2', 'E3'),
                   labels = c('E2 Dbc (matched)', 'E3 lagged'))) |>
   pivot_longer(c(type1_mod, type1_cr2),
                names_to = 'inference', values_to = 'type1') |>

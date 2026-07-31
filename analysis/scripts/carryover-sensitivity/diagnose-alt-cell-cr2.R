@@ -77,12 +77,12 @@ gen_long <- function() {
 }
 
 spec_formula <- function(spec) switch(spec,
-  A1 = Sx ~ bm + t + Db  + bm:Db,
-  A2 = Sx ~ bm + t + Dbc + bm:Dbc,
-  A3 = Sx ~ bm + t + Db  + bm:Db + L)
+  E1 = Sx ~ bm + t + Db  + bm:Db,
+  E2 = Sx ~ bm + t + Dbc + bm:Dbc,
+  E3 = Sx ~ bm + t + Db  + bm:Db + L)
 
 target_names <- function(spec)
-  if (spec == 'A2') c('bm:Dbc', 'Dbc:bm') else c('bm:Db', 'Db:bm')
+  if (spec == 'E2') c('bm:Dbc', 'Dbc:bm') else c('bm:Db', 'Db:bm')
 
 na_row <- function(spec) tibble(
   spec = spec, estimate = NA_real_, mod_se = NA_real_,
@@ -137,7 +137,7 @@ fit_M3_cr2 <- function(dl, spec) {
 one_rep <- function(i) {
   dl <- gen_long()
   if (is.null(dl)) return(NULL)
-  map_dfr(c('A1', 'A2', 'A3'),
+  map_dfr(c('E1', 'E2', 'E3'),
           function(sp) fit_M3_cr2(dl, sp)) |>
     mutate(rep = i, .before = 1)
 }
@@ -182,18 +182,18 @@ gap <- function(col, hi, lo) pull1(hi, col) - pull1(lo, col)
 
 cat('\n=== Ranking check ===\n')
 cat(sprintf('Model-based:  A2=%.3f  A1=%.3f  A3=%.3f\n',
-            pull1('A2','power_mod'), pull1('A1','power_mod'),
-            pull1('A3','power_mod')))
+            pull1('E2','power_mod'), pull1('E1','power_mod'),
+            pull1('E3','power_mod')))
 cat(sprintf('CR2 robust :  A2=%.3f  A1=%.3f  A3=%.3f\n',
-            pull1('A2','power_cr2'), pull1('A1','power_cr2'),
-            pull1('A3','power_cr2')))
+            pull1('E2','power_cr2'), pull1('E1','power_cr2'),
+            pull1('E3','power_cr2')))
 cat(sprintf('A2 - A1 advantage: model-based %+.3f, CR2 %+.3f\n',
-            gap('power_mod','A2','A1'), gap('power_cr2','A2','A1')))
+            gap('power_mod','E2','E1'), gap('power_cr2','E2','E1')))
 cat(sprintf('A2 - A3 advantage: model-based %+.3f, CR2 %+.3f\n',
-            gap('power_mod','A2','A3'), gap('power_cr2','A2','A3')))
+            gap('power_mod','E2','E3'), gap('power_cr2','E2','E3')))
 
-ranking_holds <- pull1('A2','power_cr2') >= pull1('A1','power_cr2') &&
-                 pull1('A2','power_cr2') >= pull1('A3','power_cr2')
+ranking_holds <- pull1('E2','power_cr2') >= pull1('E1','power_cr2') &&
+                 pull1('E2','power_cr2') >= pull1('E3','power_cr2')
 cat(sprintf('\nVERDICT: under CR2 the A2 >= A1, A2 >= A3 ranking %s\n',
     if (ranking_holds) 'HOLDS.' else 'does NOT hold - inspect above.'))
 

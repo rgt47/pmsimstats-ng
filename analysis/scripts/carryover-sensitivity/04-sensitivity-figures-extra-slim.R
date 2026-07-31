@@ -41,19 +41,19 @@ placeholder <- function(block, path) {
   ggsave(path, p, width = 5, height = 3.2)
 }
 
-spec_labels <- c(A2 = 'E2 Dbc (matched)', A3 = 'E3 lagged')
+spec_labels <- c(E2 = 'E2 Dbc (matched)', E3 = 'E3 lagged')
 
 spec_scale <- scale_colour_manual(
   name = 'Analysis spec',
-  values = c(A2 = '#33a02c', A3 = '#e31a1c'), labels = spec_labels)
+  values = c(E2 = '#33a02c', E3 = '#e31a1c'), labels = spec_labels)
 
 spec_linetype <- scale_linetype_manual(
   name = 'Analysis spec',
-  values = c(A2 = 'solid', A3 = 'longdash'), labels = spec_labels)
+  values = c(E2 = 'solid', E3 = 'longdash'), labels = spec_labels)
 
 spec_shape <- scale_shape_manual(
   name = 'Analysis spec',
-  values = c(A2 = 17, A3 = 4), labels = spec_labels)
+  values = c(E2 = 17, E3 = 4), labels = spec_labels)
 
 if (!file.exists(summary_path)) {
   message('Tier 2 summary not found: ', summary_path)
@@ -66,8 +66,8 @@ if (!file.exists(summary_path)) {
 }
 
 s2 <- readRDS(summary_path)$summary |>
-  dplyr::filter(spec %in% c('A2', 'A3')) |>
-  dplyr::mutate(spec = factor(spec, levels = c('A2', 'A3')))
+  dplyr::filter(spec %in% c('E2', 'E3')) |>
+  dplyr::mutate(spec = factor(spec, levels = c('E2', 'E3')))
 
 ## -----------------------------------------------------------------
 ## S1: power vs rho by spec

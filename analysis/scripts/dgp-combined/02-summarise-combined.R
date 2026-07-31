@@ -46,7 +46,7 @@ cell_summary <- reps |>
 
 make_panel <- function(design_name) {
   cell_summary |>
-    dplyr::filter(spec == 'A2', N == 35L, design == design_name) |>
+    dplyr::filter(spec == 'E2', N == 35L, design == design_name) |>
     dplyr::select(t1half, c_bm_a, c_bm_b, power, mcse_power) |>
     dplyr::arrange(t1half, c_bm_b, c_bm_a)
 }
@@ -69,7 +69,7 @@ write.csv(panel_olbdc, file.path(out_dir, '02-power-grid-olbdc.csv'),
 ## -----------------------------------------------------------------
 
 wide_panel <- cell_summary |>
-  dplyr::filter(spec == 'A2', N == 35L, t1half == 1.0) |>
+  dplyr::filter(spec == 'E2', N == 35L, t1half == 1.0) |>
   dplyr::select(design, c_bm_a, c_bm_b, power) |>
   tidyr::pivot_wider(names_from = c_bm_b,
                      names_prefix = 'cbmb_',
@@ -86,7 +86,7 @@ write.csv(wide_panel, file.path(out_dir, '02-power-wide.csv'),
 cat('\n--- Validation gate (boundary cells vs pure architectures) ---\n')
 
 boundary <- cell_summary |>
-  dplyr::filter(spec == 'A2', N == 35L,
+  dplyr::filter(spec == 'E2', N == 35L,
                 (c_bm_a == 0.45 & c_bm_b == 0.0) |
                 (c_bm_a == 0.0  & c_bm_b == 0.45)) |>
   dplyr::mutate(

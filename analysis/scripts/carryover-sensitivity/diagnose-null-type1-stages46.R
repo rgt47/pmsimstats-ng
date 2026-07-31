@@ -80,12 +80,12 @@ gen_long <- function(N) {
 }
 
 spec_formula <- function(spec) switch(spec,
-  A1 = Sx ~ bm + t + Db  + bm:Db,
-  A2 = Sx ~ bm + t + Dbc + bm:Dbc,
-  A3 = Sx ~ bm + t + Db  + bm:Db + L)
+  E1 = Sx ~ bm + t + Db  + bm:Db,
+  E2 = Sx ~ bm + t + Dbc + bm:Dbc,
+  E3 = Sx ~ bm + t + Db  + bm:Db + L)
 
 target_names <- function(spec)
-  if (spec == 'A2') c('bm:Dbc', 'Dbc:bm') else c('bm:Db', 'Db:bm')
+  if (spec == 'E2') c('bm:Dbc', 'Dbc:bm') else c('bm:Db', 'Db:bm')
 
 na_row <- function(model, spec) tibble(
   model = model, spec = spec, estimate = NA_real_,
@@ -163,7 +163,7 @@ if (STAGE == 4) {
   one_rep <- function(i) {
     dl <- gen_long(70)
     if (is.null(dl)) return(NULL)
-    map_dfr(c('A1', 'A2'), function(sp)
+    map_dfr(c('E1', 'E2'), function(sp)
       bind_rows(fit_M0(dl, sp), fit_M1(dl, sp),
                 fit_M2(dl, sp), fit_M3(dl, sp))) |>
       mutate(rep = i)
@@ -217,7 +217,7 @@ if (STAGE == 4) {
     geom_line(linewidth = 0.6) +
     geom_point(size = 2) +
     facet_wrap(~ metric, scales = 'free_y') +
-    scale_colour_manual(values = c(A1 = '#1f78b4', A2 = '#33a02c')) +
+    scale_colour_manual(values = c(E1 = '#1f78b4', E2 = '#33a02c')) +
     labs(x = 'Correlation specification', y = NULL, colour = 'Spec',
          title = 'Stage 4: interaction-SE calibration by model',
          subtitle = sprintf(
@@ -250,7 +250,7 @@ if (STAGE == 6) {
     map_dfr(N_GRID, function(NN) {
       dl <- gen_long(NN)
       if (is.null(dl)) return(NULL)
-      map_dfr(c('A1', 'A2', 'A3'),
+      map_dfr(c('E1', 'E2', 'E3'),
               function(sp) fit_M3(dl, sp) |> mutate(N = NN))
     }) |> mutate(rep = i)
   }
@@ -296,7 +296,7 @@ if (STAGE == 6) {
     facet_wrap(~ metric, scales = 'free_y') +
     scale_x_continuous(breaks = N_GRID) +
     scale_colour_manual(
-      values = c(A1 = '#1f78b4', A2 = '#33a02c', A3 = '#e31a1c')) +
+      values = c(E1 = '#1f78b4', E2 = '#33a02c', E3 = '#e31a1c')) +
     labs(x = 'Sample size N', y = NULL, colour = 'Spec',
          title = 'Stage 6: type-I and SE calibration versus N',
          subtitle = sprintf(

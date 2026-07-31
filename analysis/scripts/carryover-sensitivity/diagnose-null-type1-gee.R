@@ -81,12 +81,12 @@ gen_long <- function() {
 }
 
 spec_formula <- function(spec) switch(spec,
-  A1 = Sx ~ bm + t + Db  + bm:Db,
-  A2 = Sx ~ bm + t + Dbc + bm:Dbc,
-  A3 = Sx ~ bm + t + Db  + bm:Db + L)
+  E1 = Sx ~ bm + t + Db  + bm:Db,
+  E2 = Sx ~ bm + t + Dbc + bm:Dbc,
+  E3 = Sx ~ bm + t + Db  + bm:Db + L)
 
 target_names <- function(spec)
-  if (spec == 'A2') c('bm:Dbc', 'Dbc:bm') else c('bm:Db', 'Db:bm')
+  if (spec == 'E2') c('bm:Dbc', 'Dbc:bm') else c('bm:Db', 'Db:bm')
 
 na_row <- function(spec) tibble(
   spec = spec, estimate = NA_real_, naive_se = NA_real_,
@@ -137,7 +137,7 @@ fit_gee <- function(dl, spec) {
 one_rep <- function(i) {
   dl <- gen_long()
   if (is.null(dl)) return(NULL)
-  map_dfr(c('A1', 'A2', 'A3'), function(sp) fit_gee(dl, sp)) |>
+  map_dfr(c('E1', 'E2', 'E3'), function(sp) fit_gee(dl, sp)) |>
     mutate(rep = i, .before = 1)
 }
 

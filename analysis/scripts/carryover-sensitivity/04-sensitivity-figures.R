@@ -52,22 +52,22 @@ placeholder <- function(block, path) {
 ## Data values remain A1/A2/A3 (as archived by the simulation
 ## drivers); reporting labels are E1/E2/E3 so that the letters A/B/C
 ## are reserved for DGP architectures.
-spec_labels <- c(A1 = 'E1 binary',
-                 A2 = 'E2 Dbc (matched)',
-                 A3 = 'E3 lagged')
+spec_labels <- c(E1 = 'E1 binary',
+                 E2 = 'E2 Dbc (matched)',
+                 E3 = 'E3 lagged')
 
 spec_scale <- scale_colour_manual(
-  name = 'Analysis spec', values = c(A1 = '#1f78b4',
-  A2 = '#33a02c', A3 = '#e31a1c'), labels = spec_labels)
+  name = 'Analysis spec', values = c(E1 = '#1f78b4',
+  E2 = '#33a02c', E3 = '#e31a1c'), labels = spec_labels)
 
 spec_linetype <- scale_linetype_manual(
   name = 'Analysis spec',
-  values = c(A1 = 'solid', A2 = 'solid', A3 = 'longdash'),
+  values = c(E1 = 'solid', E2 = 'solid', E3 = 'longdash'),
   labels = spec_labels)
 
 spec_shape <- scale_shape_manual(
   name = 'Analysis spec',
-  values = c(A1 = 16, A2 = 17, A3 = 4), labels = spec_labels)
+  values = c(E1 = 16, E2 = 17, E3 = 4), labels = spec_labels)
 
 if (!file.exists(summary_path)) {
   message('Tier 2 summary not found: ', summary_path)
@@ -80,7 +80,7 @@ if (!file.exists(summary_path)) {
 }
 
 s2 <- readRDS(summary_path)$summary |>
-  dplyr::mutate(spec = factor(spec, levels = c('A1', 'A2', 'A3')))
+  dplyr::mutate(spec = factor(spec, levels = c('E1', 'E2', 'E3')))
 
 ## -----------------------------------------------------------------
 ## S1: power vs rho by spec

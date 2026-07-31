@@ -82,14 +82,14 @@ gen_long <- function() {
 
 spec_formula <- function(spec, cov_term) {
   rhs <- switch(spec,
-    A1 = 'bm + t + Db  + bm:Db',
-    A2 = 'bm + t + Dbc + bm:Dbc',
-    A3 = 'bm + t + Db  + bm:Db + L')
+    E1 = 'bm + t + Db  + bm:Db',
+    E2 = 'bm + t + Dbc + bm:Dbc',
+    E3 = 'bm + t + Db  + bm:Db + L')
   as.formula(paste('Sx ~', rhs, '+', cov_term))
 }
 
 target_names <- function(spec)
-  if (spec == 'A2') c('bm:Dbc', 'Dbc:bm') else c('bm:Db', 'Db:bm')
+  if (spec == 'E2') c('bm:Dbc', 'Dbc:bm') else c('bm:Db', 'Db:bm')
 
 cov_term <- c(sp_exp = 'sp_exp(t | ptID)', us = 'us(visit | ptID)')
 
@@ -111,7 +111,7 @@ fit_one <- function(dl, spec, cov_label, method) {
 }
 
 grid <- expand.grid(
-  spec   = c('A1', 'A2', 'A3'),
+  spec   = c('E1', 'E2', 'E3'),
   cov    = c('sp_exp', 'us'),
   method = c('Kenward-Roger', 'Satterthwaite'),
   stringsAsFactors = FALSE)

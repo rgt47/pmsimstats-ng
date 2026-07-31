@@ -18,7 +18,7 @@ repo_root <- here::here()
 grid <- readRDS(file.path(repo_root,
   'analysis/data/02-grid-summary.rds'))$summary |>
   dplyr::filter(dgp_arch == 'mvn', carryover_form != 'linear',
-                spec %in% c('A2', 'A3'))
+                spec %in% c('E2', 'E3'))
 
 fig_dir <- file.path(repo_root, 'analysis/figures')
 dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
@@ -30,7 +30,7 @@ theme_paper <- theme_bw(base_size = 10) +
     legend.position = 'top'
   )
 
-spec_labels <- c(A2 = 'E2 Dbc (matched)', A3 = 'E3 lagged')
+spec_labels <- c(E2 = 'E2 Dbc (matched)', E3 = 'E3 lagged')
 
 ## -----------------------------------------------------------------
 ## Figure 02xs-a: power vs carryover half-life by analysis spec
@@ -40,7 +40,7 @@ spec_labels <- c(A2 = 'E2 Dbc (matched)', A3 = 'E3 lagged')
 d_a <- grid |>
   dplyr::filter(carryover_form == 'exponential', c_bm == 0.45, N == 70) |>
   dplyr::mutate(
-    spec = factor(spec, levels = c('A2', 'A3'), labels = spec_labels),
+    spec = factor(spec, levels = c('E2', 'E3'), labels = spec_labels),
     design = factor(design, levels = c('CO', 'OLBDC', 'Hybrid'))
   )
 
@@ -84,7 +84,7 @@ d_b <- grid |>
     ),
     dgp_label = factor(dgp_label, levels = c(
       'Exponential', 'Weibull (k=0.7)', 'Weibull (k=1.0)', 'Weibull (k=1.5)')),
-    spec = factor(spec, levels = c('A2', 'A3'), labels = spec_labels)
+    spec = factor(spec, levels = c('E2', 'E3'), labels = spec_labels)
   )
 
 ## All eight cells fall in a narrow high-power band (~0.66-0.87), so
@@ -130,7 +130,7 @@ ggsave(file.path(fig_dir, '02xs-heatmap-matched-vs-mismatched.pdf'),
 d_c <- grid |>
   dplyr::filter(c_bm == 0, N == 70) |>
   dplyr::mutate(
-    spec = factor(spec, levels = c('A2', 'A3'), labels = spec_labels),
+    spec = factor(spec, levels = c('E2', 'E3'), labels = spec_labels),
     design = factor(design, levels = c('CO', 'OLBDC', 'Hybrid'))
   )
 

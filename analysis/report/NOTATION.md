@@ -131,9 +131,17 @@ $t$ are weekly in both conventions.
 # Part 2. Code identifiers and stored data values
 
 These are the names as they appear in `R/`, in the drivers, and in the
-archived `.rds` summaries. They are deliberately **not** renamed when
-reporting labels change, so that stored results stay readable;
-manuscripts map them at display time.
+archived `.rds` summaries.
+
+Where a stored value is also a reporting label, the two are kept
+**identical**, so that no display-time mapping stands between the data
+and the page. A mapping layer is a standing hazard: it has to be
+applied at every display site, it fails silently when a rename reaches
+one layer and not the other, and it makes a stored table unreadable
+without the manuscript beside it. Where a stored value is a package
+API argument (`dgp_architecture = 'mvn'`), it stays as the API defines
+it and the manuscript maps it to a reporting name, which is the
+ordinary factor-level-to-label relationship.
 
 ## Exported package functions
 
@@ -173,12 +181,20 @@ weeks), `path` (randomization path).
 
 ## Stored factor levels and their reporting labels
 
-| Column | Stored values | Reported as |
-|---|---|---|
-| `design` | `CO`, `Hybrid`, `OLBDC` | CO, Hybrid, OL+BDC |
-| `dgp_arch` | `mean_moderation`, `mvn`, `combined` | Mean, Covariance, Dual |
-| `spec` | `A1`, `A2`, `A3` | E1, E2, E3 |
-| `carryover_form` | `exponential`, `linear`, `weibull` | as stored |
+| Column | Stored values | Reported as | Mapped? |
+|---|---|---|---|
+| `spec` | `E1`, `E2`, `E3` | E1, E2, E3 | no, identical |
+| `carryover_form` | `exponential`, `linear`, `weibull` | as stored | no, identical |
+| `design` | `CO`, `Hybrid`, `OLBDC` | CO, Hybrid, OL+BDC | only `OLBDC` to `OL+BDC` |
+| `dgp_arch` | `mean_moderation`, `mvn`, `combined` | Mean, Covariance, Dual | yes; these are package API values |
+
+The `spec` column stored `A1`, `A2`, `A3` until 2026-07-31. Twenty-one
+`.rds` files were migrated to `E1/E2/E3` and the producing drivers
+updated to emit them, so the display-time mapping that previously
+bridged the two has been retired. Pre-migration copies are in
+`analysis/.spec-migration-backup/`. Output archived before that date,
+including anything under a paper's own `archive/`, still uses the old
+values.
 
 ## Summary-table columns
 
@@ -243,8 +259,9 @@ an assumed decay form and half-life.
 the classical Jones-Kenward crossover device, assuming no decay form.
 
 The letter E stands for the exposure regressor that distinguishes
-them. These were labeled A1/A2/A3 until 2026-07-30 and are still
-stored under those values; the mapping is applied at display time.
+them. These were labeled A1/A2/A3 until 2026-07-31; the stored data
+and the drivers were migrated to E1/E2/E3, so the labels now agree
+everywhere and nothing is mapped at display time.
 
 **Why not A/B/C and M1/M2/M3.** The original scheme used A/B/C for
 architectures and A1/A2/A3 for specifications, colliding on the letter
@@ -317,59 +334,3 @@ document's original frequency-based recommendation of British forms.
 The two are complementary: this file governs mathematics and
 identifiers, that one governs surface forms and acronym expansion.
 
-# Part 4. Change log
-
-## First pass, 2026-07-30 midday
-
-- Paper 03: all 14 uses of $D_{it}$ (which denoted the continuous
-  decayed indicator) renamed to $D_{bc,it}$, with a definitional
-  sentence added.
-- Papers 01 and 04: R formulas previously typeset in math mode moved
-  to `\texttt{}`; paper 04's model equation restated with $Y_{ij}$ and
-  $D_{bc,ij}$.
-- Paper 02: $X = \text{Dbc}_{it}$ restated as $X = D_{bc,it}$.
-- Paper 09: the stray $D_b$ variant unified to $D_{bc}$.
-- Papers 08 and 09 (mean-moderation only): $c_{bm}$ renamed to
-  $\beta_{bm}$, with a notation paragraph added to each.
-- Paper 07 (both architectures): notation paragraph added defining the
-  shared label and the calibration; symbols left as $c_{bm}$
-  deliberately.
-- Papers 04 and 05: units paragraphs added.
-- Paper 02 and variants: specifications relabeled A1/A2/A3 to
-  M1/M2/M3, with a `spec_display()` helper mapping archived values at
-  display time; three figure drivers updated and figures regenerated.
-
-## Second pass, 2026-07-30 evening
-
-- **The specification relabel had been incomplete**: papers 01, 08,
-  10, and 11 still cited A1/A2/A3 while paper 02 said M1/M2/M3.
-- **M1/M2/M3 collided** with the calibration paper's data-keyed
-  M0-M3 model ladder. Specifications are now **E1/E2/E3** everywhere,
-  including figure drivers and display strings; data values unchanged.
-- **Architectures renamed** from A/B/C to mechanism names across 16
-  manuscript files (581 label occurrences) and the figure drivers.
-- **A second British-spelling family** (`flavour`, `rigour`,
-  `endeavour`, `labour`, `tumour`) missed by the first pass, fixed.
-- Paper 08 gained the units paragraph it lacked; its slim variant
-  gained the $c_{bm}\to\beta_{bm}$ rename it had missed.
-- Three defects introduced by the first pass were found and fixed:
-  data-side factor levels and filters renamed along with display
-  labels; `spec_display()` returning `NA` for unmapped methods; and
-  three manuscript files truncated to zero bytes by a shell pipeline
-  whose failure mode was an empty file.
-
-## Open items
-
-- **Sample-size convention** (per path versus total) is documented but
-  unresolved; the combined-DGP manuscript needs its pending boundary
-  re-run, not an edit.
-- **Design labels** still alternate between abbreviation and
-  spelled-out form; **the sign convention** is stated in only one
-  paper. Both are best folded into the `rgt` writing pass.
-- **The `rgt` prose is unwritten**, so a third terminology pass will
-  be needed once the author's text exists. The linter at
-  `tools/notation-lint.pl` exists so that pass is a check rather than
-  a manual sweep.
-- Papers 01 and 02 were promoted to narrative variants during the
-  pass; their archived predecessors were not re-audited and will not
-  match this scheme if revived.

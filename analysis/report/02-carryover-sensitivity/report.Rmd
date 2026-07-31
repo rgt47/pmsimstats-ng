@@ -100,15 +100,6 @@ library(tibble)
 library(dplyr)
 library(knitr)
 
-## The archived simulation output labels the three analysis
-## specifications A1/A2/A3. The manuscript reports them as E1/E2/E3 so
-## that the letters A/B/C stay reserved for DGP architectures. Data
-## values are never rewritten; they are mapped at display time only.
-spec_display <- function(x) {
-  m <- c(A1 = 'E1', A2 = 'E2', A3 = 'E3')
-  x <- as.character(x)
-  ifelse(x %in% names(m), unname(m[x]), x)
-}
 ```
 
 # Abstract {-}
@@ -508,7 +499,7 @@ hd <- readRDS(here::here(
   'analysis/data/02-grid-summary.rds'))$summary |>
   filter(carryover_form == 'exponential', dgp_arch == 'mvn',
          design == 'Hybrid', N == 70, c_bm == 0.45,
-         spec %in% c('A2', 'A3')) |>
+         spec %in% c('E2', 'E3')) |>
   mutate(
     `t1/2` = t1half,
     `Power (MCSE)` = sprintf('%.3f (%.3f)', power, mc_se_power),
@@ -520,7 +511,6 @@ hd <- readRDS(here::here(
     `Non-conv` = sprintf('%.3f', non_convergence_rate)
   ) |>
   arrange(`t1/2`, spec) |>
-  mutate(spec = spec_display(spec)) |>
   select(`t1/2`, spec, `Power (MCSE)`, `Bias (MCSE)`,
          `Empirical SE`, `Coverage (MCSE)`, `MSE (MCSE)`,
          `Non-conv`)
@@ -614,9 +604,9 @@ suppressPackageStartupMessages(library(dplyr))
 t1 <- readRDS(here::here(
   'analysis/scripts/carryover-sensitivity/output/diag-null-type1-cr2.rds'))
 tab <- t1$summary |>
-  filter(spec %in% c('A2', 'A3')) |>
+  filter(spec %in% c('E2', 'E3')) |>
   transmute(
-    Specification    = spec_display(spec),
+    Specification    = spec,
     `$\\kappa$ model` = sprintf('%.2f', mod_se_ratio),
     `Type I model`    = sprintf('%.3f', type1_mod),
     `$\\kappa$ CR2`    = sprintf('%.2f', cr2_se_ratio),
@@ -651,14 +641,14 @@ lab <- c('Reference, $N=70$', 'Small $N=35$',
 ## from s6$summary (which carries per-spec power under both
 ## inferences) rather than reused from s6$gaps.
 a3_gap <- s6$summary |>
-  filter(spec %in% c('A2', 'A3')) |>
+  filter(spec %in% c('E2', 'E3')) |>
   select(cell, spec, power_mod, power_cr2) |>
   pivot_wider(names_from = spec, values_from = c(power_mod, power_cr2)) |>
   transmute(cell,
-            gap_mod_a3 = power_mod_A2 - power_mod_A3,
-            gap_cr2_a3 = power_cr2_A2 - power_cr2_A3)
+            gap_mod_a3 = power_mod_E2 - power_mod_E3,
+            gap_cr2_a3 = power_cr2_E2 - power_cr2_E3)
 tab <- s6$summary |>
-  filter(spec == 'A2') |>
+  filter(spec == 'E2') |>
   left_join(a3_gap, by = 'cell') |>
   mutate(o = match(cell, ord)) |>
   arrange(o) |>
@@ -1019,9 +1009,11 @@ superseded wider-scope drafts are retained under `archive/` in that
 directory and are documented in its `README.md`.
 
 **Specification labels.** The three specifications are recorded as
-`A1`, `A2`, `A3` in the archived simulation output and are reported
-here as E1, E2, E3; the mapping is applied at display time and the
-stored values are unchanged.
+`E1`, `E2`, `E3` in the simulation output, in the drivers, and in this
+manuscript, so no display-time relabelling is applied. Output archived
+before 2026-07-31 stores them as `A1`, `A2`, `A3`; the migration
+script and the pre-migration backups are noted in
+`analysis/report/NOTATION.md`.
 
 # References
 

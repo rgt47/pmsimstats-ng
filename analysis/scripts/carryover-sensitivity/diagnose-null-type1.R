@@ -87,11 +87,11 @@ na_spec_row <- function(spec) {
 }
 
 fit_spec_diag <- function(dat_long, spec) {
-  spec <- match.arg(spec, c('A1', 'A2', 'A3'))
+  spec <- match.arg(spec, c('E1', 'E2', 'E3'))
   form <- switch(spec,
-    A1 = as.formula('Sx ~ bm + t + Db  + bm:Db'),
-    A2 = as.formula('Sx ~ bm + t + Dbc + bm:Dbc'),
-    A3 = as.formula('Sx ~ bm + t + Db  + bm:Db + L'))
+    E1 = as.formula('Sx ~ bm + t + Db  + bm:Db'),
+    E2 = as.formula('Sx ~ bm + t + Dbc + bm:Dbc'),
+    E3 = as.formula('Sx ~ bm + t + Db  + bm:Db + L'))
 
   fit <- tryCatch(
     nlme::lme(form, random = ~1 | ptID,
@@ -109,9 +109,9 @@ fit_spec_diag <- function(dat_long, spec) {
 
   cc <- summary(fit)$tTable
   target <- switch(spec,
-    A1 = intersect(c('bm:Db',  'Db:bm'),  rownames(cc)),
-    A2 = intersect(c('bm:Dbc', 'Dbc:bm'), rownames(cc)),
-    A3 = intersect(c('bm:Db',  'Db:bm'),  rownames(cc)))
+    E1 = intersect(c('bm:Db',  'Db:bm'),  rownames(cc)),
+    E2 = intersect(c('bm:Dbc', 'Dbc:bm'), rownames(cc)),
+    E3 = intersect(c('bm:Db',  'Db:bm'),  rownames(cc)))
   if (length(target) == 0) return(na_spec_row(spec))
 
   has_cor <- !is.null(fit$modelStruct$corStruct)
@@ -144,8 +144,8 @@ one_rep <- function(i) {
                              baseline_param, design_set),
     error = function(e) NULL)
   if (is.null(dat) || nrow(dat) == 0) {
-    return(bind_rows(na_spec_row('A1'), na_spec_row('A2'),
-                     na_spec_row('A3')) |> mutate(rep = i, .before = 1))
+    return(bind_rows(na_spec_row('E1'), na_spec_row('E2'),
+                     na_spec_row('E3')) |> mutate(rep = i, .before = 1))
   }
   dat_long <- prepare_long_data(
     dat, design_set,
@@ -153,9 +153,9 @@ one_rep <- function(i) {
     carryover_form   = cell$carryover_form,
     weibull_shape    = cell$weibull_shape)
   bind_rows(
-    fit_spec_diag(dat_long, 'A1'),
-    fit_spec_diag(dat_long, 'A2'),
-    fit_spec_diag(dat_long, 'A3')
+    fit_spec_diag(dat_long, 'E1'),
+    fit_spec_diag(dat_long, 'E2'),
+    fit_spec_diag(dat_long, 'E3')
   ) |> mutate(rep = i, .before = 1)
 }
 
@@ -256,7 +256,7 @@ p_ecdf <- res |>
               linetype = 'dashed', colour = 'grey50') +
   coord_equal(xlim = c(0, 1), ylim = c(0, 1)) +
   scale_colour_manual(
-    values = c(A1 = '#1f78b4', A2 = '#33a02c', A3 = '#e31a1c')) +
+    values = c(E1 = '#1f78b4', E2 = '#33a02c', E3 = '#e31a1c')) +
   labs(x = 'Null p-value', y = 'Empirical CDF', colour = 'Spec',
        title = 'Null p-value ECDF versus Uniform(0,1)',
        subtitle = sprintf(

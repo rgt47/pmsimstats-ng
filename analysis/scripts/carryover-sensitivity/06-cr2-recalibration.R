@@ -130,12 +130,12 @@ gen_cell_long <- function(cell) {
 }
 
 spec_formula <- function(spec) switch(spec,
-  A1 = Sx ~ bm + t + Db  + bm:Db,
-  A2 = Sx ~ bm + t + Dbc + bm:Dbc,
-  A3 = Sx ~ bm + t + Db  + bm:Db + L)
+  E1 = Sx ~ bm + t + Db  + bm:Db,
+  E2 = Sx ~ bm + t + Dbc + bm:Dbc,
+  E3 = Sx ~ bm + t + Db  + bm:Db + L)
 
 target_names <- function(spec)
-  if (spec == 'A2') c('bm:Dbc', 'Dbc:bm') else c('bm:Db', 'Db:bm')
+  if (spec == 'E2') c('bm:Dbc', 'Dbc:bm') else c('bm:Db', 'Db:bm')
 
 na_row <- function(spec) tibble(
   spec = spec, estimate = NA_real_, mod_se = NA_real_,
@@ -144,8 +144,8 @@ na_row <- function(spec) tibble(
 
 ## model-based AND CR2 inference for one specification on one dataset.
 fit_spec_both <- function(dl, spec) {
-  if (spec %in% c('A1', 'A3') && !any(dl$Db == 0)) return(na_row(spec))
-  if (spec == 'A3' && !any(dl$L == 1)) return(na_row(spec))
+  if (spec %in% c('E1', 'E3') && !any(dl$Db == 0)) return(na_row(spec))
+  if (spec == 'E3' && !any(dl$L == 1)) return(na_row(spec))
   fit <- tryCatch(
     nlme::lme(spec_formula(spec), random = ~1 | ptID,
               correlation = nlme::corCAR1(form = ~t | ptID),
@@ -193,7 +193,7 @@ fit_spec_both <- function(dl, spec) {
 one_rep <- function(cell, i) {
   dl <- gen_cell_long(cell)
   if (is.null(dl)) return(NULL)
-  map_dfr(c('A1', 'A2', 'A3'), function(sp) fit_spec_both(dl, sp)) |>
+  map_dfr(c('E1', 'E2', 'E3'), function(sp) fit_spec_both(dl, sp)) |>
     mutate(rep = i, .before = 1)
 }
 

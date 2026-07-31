@@ -40,7 +40,7 @@ d_a <- grid |>
     dgp_arch = factor(dgp_arch,
       levels = c('mean_moderation', 'mvn'),
       labels = c('Mean', 'Covariance')),
-    spec = factor(spec, levels = c('A1', 'A2', 'A3'),
+    spec = factor(spec, levels = c('E1', 'E2', 'E3'),
       labels = c('E1 binary', 'E2 Dbc (matched)', 'E3 lagged')),
     design = factor(design, levels = c('CO', 'OLBDC', 'Hybrid'))
   )
@@ -96,7 +96,7 @@ d_b <- grid |>
     dgp_label = factor(dgp_label, levels = c(
       'Linear', 'Exponential',
       'Weibull (k=0.7)', 'Weibull (k=1.0)', 'Weibull (k=1.5)')),
-    spec = factor(spec, levels = c('A1', 'A2', 'A3'),
+    spec = factor(spec, levels = c('E1', 'E2', 'E3'),
       labels = c('E1 binary', 'E2 Dbc', 'E3 lagged'))
   )
 
@@ -128,7 +128,7 @@ ggsave(file.path(fig_dir, '02-heatmap-matched-vs-mismatched.pdf'),
 d_c <- grid |>
   dplyr::filter(c_bm == 0, N == 70) |>
   dplyr::mutate(
-    spec = factor(spec, levels = c('A1', 'A2', 'A3'),
+    spec = factor(spec, levels = c('E1', 'E2', 'E3'),
       labels = c('E1', 'E2', 'E3')),
     design = factor(design, levels = c('CO', 'OLBDC', 'Hybrid')),
     dgp_arch = factor(dgp_arch,

@@ -178,7 +178,7 @@ cat('Summary saved to', file.path(out_dir,
 
 cat('\nPower summary (A2 spec, N=35, primary carryover cells):\n')
 summary_dt |>
-  dplyr::filter(spec == 'A2', N == 35L,
+  dplyr::filter(spec == 'E2', N == 35L,
                 design == 'CO',
                 t1half %in% c(0.0, 1.0)) |>
   dplyr::select(t1half, c_bm_a, c_bm_b, power, mcse_power,

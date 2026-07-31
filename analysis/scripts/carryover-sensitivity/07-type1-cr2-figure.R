@@ -52,7 +52,7 @@ cell_short  <- c('Reference', 'Small N', 'High rho',
 d <- s6$type1 |>
   mutate(
     cell = factor(cell, levels = cell_levels, labels = cell_short),
-    spec = factor(spec, levels = c('A1', 'A2', 'A3'),
+    spec = factor(spec, levels = c('E1', 'E2', 'E3'),
                   labels = c('E1 binary', 'E2 Dbc (matched)',
                              'E3 lagged'))) |>
   pivot_longer(c(type1_mod, type1_cr2),

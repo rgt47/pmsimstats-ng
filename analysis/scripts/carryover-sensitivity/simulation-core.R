@@ -208,14 +208,14 @@ prepare_long_data <- function(dat, design_set, carryover_t1half,
 ## -----------------------------------------------------------------
 
 fit_spec <- function(dat_long, spec) {
-  spec <- match.arg(spec, c('A1', 'A2', 'A3'))
+  spec <- match.arg(spec, c('E1', 'E2', 'E3'))
   ## A3 follows the Jones & Kenward (2014) crossover pattern: the
   ## lagged-treatment indicator L is a nuisance covariate; the
   ## biomarker interaction of interest remains bm:Db.
   form <- switch(spec,
-    A1 = as.formula('Sx ~ bm + t + Db  + bm:Db'),
-    A2 = as.formula('Sx ~ bm + t + Dbc + bm:Dbc'),
-    A3 = as.formula('Sx ~ bm + t + Db  + bm:Db + L')
+    E1 = as.formula('Sx ~ bm + t + Db  + bm:Db'),
+    E2 = as.formula('Sx ~ bm + t + Dbc + bm:Dbc'),
+    E3 = as.formula('Sx ~ bm + t + Db  + bm:Db + L')
   )
 
   fit <- tryCatch(
@@ -239,9 +239,9 @@ fit_spec <- function(dat_long, spec) {
 
   cc <- summary(fit)$tTable
   target <- switch(spec,
-    A1 = intersect(c('bm:Db',  'Db:bm'),  rownames(cc)),
-    A2 = intersect(c('bm:Dbc', 'Dbc:bm'), rownames(cc)),
-    A3 = intersect(c('bm:Db',  'Db:bm'),  rownames(cc))
+    E1 = intersect(c('bm:Db',  'Db:bm'),  rownames(cc)),
+    E2 = intersect(c('bm:Dbc', 'Dbc:bm'), rownames(cc)),
+    E3 = intersect(c('bm:Db',  'Db:bm'),  rownames(cc))
   )
 
   if (length(target) == 0) {
@@ -364,13 +364,13 @@ fit_three_specs <- function(dat_long, robust = FALSE) {
            reason = reason)
   }
   out <- bind_rows(
-    if (has_off_drug) fit_spec(dat_long, 'A1') |>
+    if (has_off_drug) fit_spec(dat_long, 'E1') |>
       mutate(reason = NA_character_)
-    else na_row('A1', 'no off-drug observations'),
-    fit_spec(dat_long, 'A2') |> mutate(reason = NA_character_),
-    if (has_off_drug && has_lagged) fit_spec(dat_long, 'A3') |>
+    else na_row('E1', 'no off-drug observations'),
+    fit_spec(dat_long, 'E2') |> mutate(reason = NA_character_),
+    if (has_off_drug && has_lagged) fit_spec(dat_long, 'E3') |>
       mutate(reason = NA_character_)
-    else na_row('A3', 'no lagged-on timepoints')
+    else na_row('E3', 'no lagged-on timepoints')
   )
   if (robust) {
     out <- bind_rows(
@@ -435,8 +435,8 @@ simulate_cell <- function(cell, n_reps, robust = FALSE,
     )
     if (is.null(dat) || nrow(dat) == 0) {
       specs <- if (robust)
-        c('A1', 'A2', 'A3', 'lme+CR2', 'GEE+MD')
-      else c('A1', 'A2', 'A3')
+        c('E1', 'E2', 'E3', 'lme+CR2', 'GEE+MD')
+      else c('E1', 'E2', 'E3')
       return(tibble(rep = rep_i, spec = specs,
                     estimate = NA_real_,
                     std_error = NA_real_,

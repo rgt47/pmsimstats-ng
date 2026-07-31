@@ -88,3 +88,7 @@
 | `02-carryover-sensitivity-extra-slim-rgt-2026-07-29-1015-fdfa40e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report-extra-slim-rgt.Rmd` | `fdfa40e-wip` | 2026-07-29 10:15 PDT |
 | `02-carryover-sensitivity-extra-slim-rgt-2026-07-29-1027-fdfa40e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report-extra-slim-rgt.Rmd` | `fdfa40e-wip` | 2026-07-29 10:27 PDT |
 | `02-carryover-sensitivity-extra-slim-rgt-2026-07-29-1110-fdfa40e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report-extra-slim-rgt.Rmd` | `fdfa40e-wip` | 2026-07-29 11:10 PDT |
+| `02-carryover-sensitivity-2026-07-30-1712-nogit.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report.Rmd` | `nogit` | 2026-07-30 17:12 PDT |
+| `02-carryover-sensitivity-2026-07-30-1717-nogit.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report.Rmd` | `nogit` | 2026-07-30 17:17 PDT |
+| `02-carryover-sensitivity-2026-07-30-1721-c530e71-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report.Rmd` | `c530e71-wip` | 2026-07-30 17:21 PDT |
+| `02-carryover-sensitivity-2026-07-30-1724-c530e71-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report.Rmd` | `c530e71-wip` | 2026-07-30 17:24 PDT |

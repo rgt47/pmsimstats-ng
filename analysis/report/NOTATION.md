@@ -130,6 +130,16 @@ Monte Carlo standard error is abbreviated MCSE throughout.
   `04-sensitivity-figures.R`, and `07-type1-cr2-figure.R` updated and
   the four affected figures regenerated.
 
+## Prose terminology
+
+Symbol conventions are settled here; prose terminology is settled by
+`docs/30-terminology-consistency-plan.md`, executed 2026-07-30 with its
+D1 spelling decision locked to **US English** (overriding that
+document's original frequency-based recommendation of British forms).
+The two passes are complementary: this file governs mathematics, that
+one governs surface forms, acronym expansion, and controlled prose
+vocabulary.
+
 Not yet addressed: the outcome symbol is still written `Sx` in some
 running prose; design labels still alternate between abbreviation and
 spelled-out form; simulation studies are still lettered in paper 06;

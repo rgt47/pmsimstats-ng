@@ -5,6 +5,18 @@ A plan to align the terminology in all `report.Rmd` and
 `report-slim.Rmd` manuscripts with the project lexicon
 (`docs/29-nof1-precision-medicine-lexicon.md`) and with each other.
 
+## Execution status (2026-07-30)
+
+**Executed** with D1 locked to US English. Tier 1 was applied to all 21
+`report*.Rmd` files (the plan was written against 13; six variants have
+been added since, and paper 11 did not exist). Tier 2, Tier 3, and the
+Section 5 full-versus-slim pass were applied where the targets still
+existed; most had already converged through intervening revisions.
+Section 6 items remain open and are for the author.
+
+What changed, and what was already clean, is recorded at the end of
+this file. All 21 manuscripts were re-rendered and build.
+
 ## Scope and method
 
 Thirteen manuscript files across ten papers were reviewed against the
@@ -170,6 +182,70 @@ few dozen targeted edits per paper. The re-render and full-vs-slim diff
 are the main time cost. None of the work changes a number, estimand, or
 model.
 
+## 8. Execution record (2026-07-30)
+
+**Tier 1 applied** across 21 files by a chunk-aware transform (prose
+rules skip fenced R chunks so that ggplot's `colour=` and dplyr's
+`summarise()` are untouched; display-string rules such as `MC SE` are
+applied inside chunks as well, because those strings are table
+headers):
+
+- D2 Type I/II casing, D3 `biomarker-by-treatment` ->
+  `biomarker-treatment`, D4 `MC SE`/`MC SEs` -> `MCSE`/`MCSEs`,
+  Tier 1.8 `OLBDC` -> `OL+BDC`.
+- D1 in the US direction: `modelling`, `generalis*`, `behaviour`,
+  `characteris*` (guarding `characteristic`), `normalis*`,
+  `summaris*` (prose only), `artefact`, `randomis*`, `standardis*`,
+  `dichotomis*`, `ageing`, `sceptic*`, `favour*`, `enrolment`,
+  `signalling`, `programme`, `labelled`, `modelled`, `analyse`,
+  `centre*`, `colour` (prose only), `whilst`, `amongst`.
+- 16 of 21 files changed; residual British-looking tokens are all R
+  identifiers (`dplyr::summarise`) and are correct as they stand.
+
+**Tier 1 items already satisfied:** HTE is expanded at first use in
+01 and 06; the acronym sweep (DGP, MVN, LME, MCAR/MAR/MNAR, OL/BDC,
+CO, PK/PD, BLUP, SEM, RM-ANOVA, OFAT, GEE, ICC) found only five true
+misses, fixed here: MCAR and MAR in 02, BLUP in 04, DGP and MVN in 11,
+plus RM-ANOVA in 01-slim and MCAR/MAR in 02-slim for Section 5
+parity. ADEMP is treated as a named, always-cited framework and is
+not expanded.
+
+**D5 (`washout`) triage.** 35 hits reviewed individually. All but
+three are genuine inserted clearance gaps and were kept. The three
+changed are in paper 02's toy example, where the span is the
+carryover-contaminated post-discontinuation window: `three-week
+washout` -> `three-week off-drug period`, `the second washout week` ->
+`the second off-drug week`, `throughout the washout` -> `throughout
+the off-drug period`.
+
+**Tier 2, applied:** 02, one residual `matched-decay (M2)` reference to
+the specification changed to `exposure-weighted (M2)` (the
+matched-decay *cell* retains the term, as the plan specifies).
+
+**Tier 2, already converged:** 06 (`lumped` survives only as the math
+superscript $\beta_{bm}^{\text{lumped}}$, not as prose); 07
+(`modGompertz` absent from narrative; lowercase `gompertz` occurs only
+in citation keys, file paths, and equation labels); 08 (`main effect`
+absent; `anti-conservative` already single-form); 09 (`attrition`,
+`estimand drift`, `design surface area`, `non-informative` all absent;
+`biased dropout` survives only as cell-label description, which the
+plan permits); 10 (`misspecified` already uniform, 13/13).
+
+**Tier 3 glosses added:** `subadditivity` (03), `frailty` (03),
+`balanced-placebo design` (06). `lasagna plot` has no occurrences.
+
+**Not done:** the plan's suggestion to add `subadditivity`,
+`balanced-placebo design`, and `gating function` to
+`docs/29-...-lexicon.md`; Section 6 substantive items; and the second
+terminology pass over the `rgt` blocks, which remain placeholders.
+
+**Interaction with the notation pass.** This execution followed the
+symbol-level pass recorded in `analysis/report/NOTATION.md`. The
+analysis specifications are now M1/M2/M3 in all reader-facing text,
+which is why this file refers to M2 where the 2026-06-17 draft said
+A2.
+
 ---
-*Rendered on 2026-06-17 at 19:37 PDT.*<br>
+*Rendered on 2026-06-17 at 19:37 PDT; execution record appended
+2026-07-30.*<br>
 *Source: ~/prj/res/36-pmsimstats-ng/pmsimstats-ng/docs/30-terminology-consistency-plan.md*

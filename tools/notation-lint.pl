@@ -37,6 +37,11 @@ for my $file (@ARGV) {
     # N3: half-life quoted in days without a units statement is
     # checked separately; here just record day-denominated half-lives
     push @hits, "$ln halflife-days" if $p =~ /t_\{1\/2\}[^.]{0,40}\bdays\b/;
+    # N7: N is the total across paths. A per-path count must be named
+    # as such and never as N, so flag N adjacent to per-path wording.
+    push @hits, "$ln N-per-path"
+      if $p =~ /\$?N\$?\s*(?:=|\\in)[^.]{0,60}\bper (?:randomization )?path\b/
+      || $p =~ /\bper (?:randomization )?path\b[^.]{0,20}\$?N\$?\s*=/;
   }
   close $fh;
   # A day-denominated half-life is compliant if the file carries an

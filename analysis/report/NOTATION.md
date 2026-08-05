@@ -26,7 +26,8 @@ from the archived `.rds` summaries.
 | $i$ | participant index |
 | $t$ | timepoint index; weekly measurement occasions throughout |
 | $j$, $ij$ | period or occasion index within participant (papers 04, 06) |
-| $N$ | number of participants. **State whether per randomization path or in total**; both conventions are in use |
+| $N$ | **total** number of participants in the trial, across all randomization paths. With $P$ paths the expected number allocated to each is $N/P$ |
+| $P$ | number of randomization paths in a design: 1 (OL), 2 (CO, OL+BDC), 4 (Hybrid) |
 | $n_{\text{reps}}$, $n_{\text{sim}}$ | Monte Carlo replicates per cell |
 | $k$ | cycles per participant in design sweeps; also the Weibull shape parameter in the decay family |
 
@@ -108,9 +109,18 @@ $e^{-(\lambda_w t)^k}$; power $\max(0, (1 - t/(3t_{1/2}))^p)$.
    for the model; write `Sx ~ bm + t + Dbc + bm:Dbc` in `\texttt{}`
    when quoting the R formula. Never mix the two inside one
    expression.
-4. **State the sample-size convention.** $N$ per randomization path
-   and $N$ in total are both in use and are not interchangeable; every
-   Methods section must say which it means.
+4. **$N$ is the total sample size.** $N$ denotes the total number of
+   participants enrolled in the trial, across all randomization paths.
+   Where a design has $P$ paths, the expected number allocated to each
+   is $N/P$: with $P = 4$ and $N = 140$, each path receives about 35.
+   Never use $N$ for a per-path count. A paper reporting a per-path
+   quantity must name it separately, as $N/P$ or in words, and must
+   still give $N$ itself as the total. Drivers that allocate $N$ across
+   paths (`R/generateSimulatedResults.R`, the carryover-sensitivity
+   `simulation-core.R`) implement this convention directly; a driver
+   that instead passes the full $N$ to every path is generating
+   $N \times P$ participants and its reported $N$ must be corrected to
+   the product before the numbers are quoted.
 5. **State the sign convention.** The three components are
    non-negative *reductions* in symptom severity, so an increase in
    any component lowers $Y$. Treatment effects and interaction
@@ -157,7 +167,7 @@ ordinary factor-level-to-label relationship.
 
 | Identifier | Role |
 |---|---|
-| `modelparam` | list: sample size `N`, moderation `c.bm` |
+| `modelparam` | list: sample size `N`, moderation `c.bm`. In `generateSimulatedResults` and the analysis drivers, `N` is the total and is allocated across paths. In a direct `generateData` call `N` is the count for the single path passed as `trialdesign`, so a driver looping over paths must divide the total itself |
 | `respparam` | Gompertz parameters `maxr`, `rate`, `disp` per component |
 | `blparam` | biomarker and nuisance means and standard deviations |
 | `trialdesign` | output of `buildtrialdesign`: `timepoints`, `timeptnames`, `expectancies`, `ondrug` |
@@ -333,4 +343,8 @@ its D1 spelling decision locked to **US English**, overriding that
 document's original frequency-based recommendation of British forms.
 The two are complementary: this file governs mathematics and
 identifiers, that one governs surface forms and acronym expansion.
+
+---
+*Rendered on 2026-08-05 at 09:18 PDT.*<br>
+*Source: ~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/NOTATION.md*
 

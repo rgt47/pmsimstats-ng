@@ -1,10 +1,13 @@
 ## analysis/scripts/carryover-sensitivity/03-render-figures-extra-slim.R
 ##
-## Filtered Tier 1 figures for report-extra-slim.Rmd: Covariance architecture
-## only, linear DGP decay dropped, A1 analysis specification dropped.
-## Reads the same 02-grid-summary.rds as 03-render-figures.R and
-## writes to analysis/figures/ with a 02xs- prefix so the full-size
-## report.Rmd and report-slim.Rmd figures are untouched.
+## Filtered Tier 1 figures for report.Rmd: covariance-moderation
+## architecture only, linear DGP decay dropped, all three analysis
+## specifications retained. Display names and ordering come from
+## spec-labels.R (stored E1/E3/E2 shown as Unadjusted, Lag-adjusted,
+## Exposure-weighted). Reads the same 02-grid-summary.rds as
+## 03-render-figures.R and writes to analysis/figures/ with a 02xs-
+## prefix, so the full-scope figures used by the archived drafts are
+## untouched.
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -15,10 +18,14 @@ suppressPackageStartupMessages({
 
 repo_root <- here::here()
 
+source(file.path(repo_root,
+  'analysis/scripts/carryover-sensitivity/spec-labels.R'))
+
 grid <- readRDS(file.path(repo_root,
   'analysis/data/02-grid-summary.rds'))$summary |>
   dplyr::filter(dgp_arch == 'mvn', carryover_form != 'linear',
-                spec %in% c('E2', 'E3'))
+                spec %in% spec_order) |>
+  dplyr::mutate(spec = spec_factor(spec))
 
 fig_dir <- file.path(repo_root, 'analysis/figures')
 dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
@@ -30,7 +37,12 @@ theme_paper <- theme_bw(base_size = 10) +
     legend.position = 'top'
   )
 
-spec_labels <- c(E2 = 'E2 Dbc (matched)', E3 = 'E3 lagged')
+spec_col <- scale_colour_manual(name = 'Analysis spec',
+                                values = spec_colours)
+spec_lty <- scale_linetype_manual(name = 'Analysis spec',
+                                  values = spec_linetypes)
+spec_shp <- scale_shape_manual(name = 'Analysis spec',
+                               values = spec_shapes)
 
 ## -----------------------------------------------------------------
 ## Figure 02xs-a: power vs carryover half-life by analysis spec
@@ -39,33 +51,29 @@ spec_labels <- c(E2 = 'E2 Dbc (matched)', E3 = 'E3 lagged')
 
 d_a <- grid |>
   dplyr::filter(carryover_form == 'exponential', c_bm == 0.45, N == 70) |>
-  dplyr::mutate(
-    spec = factor(spec, levels = c('E2', 'E3'), labels = spec_labels),
-    design = factor(design, levels = c('CO', 'OLBDC', 'Hybrid'))
-  )
+  dplyr::mutate(design = factor(design, levels = c('CO', 'OLBDC', 'Hybrid'),
+                                labels = c('CO', 'OL+BDC', 'Hybrid')))
 
 p_a <- ggplot(d_a, aes(t1half, power, colour = spec,
                        linetype = spec, shape = spec, group = spec)) +
   geom_line(linewidth = 0.6) +
-  geom_point(size = 1.3) +
+  geom_point(size = 1.5) +
   facet_wrap(~ design, nrow = 1) +
   scale_y_continuous(limits = c(0, 1),
     breaks = c(0, 0.25, 0.5, 0.75, 1)) +
-  scale_linetype_manual(name = 'Analysis spec',
-    values = c('solid', 'longdash')) +
-  scale_shape_manual(name = 'Analysis spec', values = c(17, 4)) +
+  spec_col + spec_lty + spec_shp +
   labs(
     x = expression('Carryover half-life'~t['1/2']~'(weeks)'),
     y = 'Power',
-    colour = 'Analysis spec',
     title = 'Power vs carryover under matched exponential DGP',
     subtitle = expression(
-      'Covariance architecture,'~N==70*','~c[bm]==0.45*','~'500 reps/cell')
+      'Covariance-moderation architecture,'~N==70*','~c[bm]==0.45*','~
+      '500 reps/cell')
   ) +
   theme_paper
 
 ggsave(file.path(fig_dir, '02xs-power-by-spec.pdf'),
-  p_a, width = 7, height = 3.2)
+  p_a, width = 7, height = 3.4)
 
 ## -----------------------------------------------------------------
 ## Figure 02xs-b: matched-vs-mismatched heatmap
@@ -83,16 +91,13 @@ d_b <- grid |>
       carryover_form == 'weibull' & weibull_shape == 1.5 ~ 'Weibull (k=1.5)'
     ),
     dgp_label = factor(dgp_label, levels = c(
-      'Exponential', 'Weibull (k=0.7)', 'Weibull (k=1.0)', 'Weibull (k=1.5)')),
-    spec = factor(spec, levels = c('E2', 'E3'), labels = spec_labels)
+      'Exponential', 'Weibull (k=0.7)', 'Weibull (k=1.0)', 'Weibull (k=1.5)'))
   )
 
-## All eight cells fall in a narrow high-power band (~0.66-0.87), so
-## a fill scale fixed to the full [0, 1] power range renders them as
-## a single dark hue with almost no visible contrast. Stretch the
-## sequential (single-hue) scale to the observed range instead, with
-## a small pad, so the modest cell-to-cell differences that matter
-## for this figure's claim are visible.
+## The twelve cells fall in a narrow high-power band, so a fill scale
+## fixed to the full [0, 1] range renders them as one dark hue with no
+## visible contrast. Stretch the sequential scale to the observed
+## range instead, with a small pad.
 pad <- diff(range(d_b$power)) * 0.12
 fill_lim <- range(d_b$power) + c(-pad, pad)
 
@@ -113,14 +118,14 @@ p_b <- ggplot(d_b, aes(spec, dgp_label, fill = power)) +
     fill = 'Power',
     title = 'Decay-form x analysis-spec sensitivity',
     subtitle = expression(
-      'Covariance architecture, Hybrid design,'~N==70*','~
+      'Covariance-moderation architecture, Hybrid design,'~N==70*','~
       c[bm]==0.45*','~t['1/2']==1.0)
   ) +
   theme_paper +
-  theme(axis.text.x = element_text(angle = 0))
+  theme(axis.text.x = element_text(angle = 0, size = 8))
 
 ggsave(file.path(fig_dir, '02xs-heatmap-matched-vs-mismatched.pdf'),
-  p_b, width = 6, height = 3.6)
+  p_b, width = 6.8, height = 3.6)
 
 ## -----------------------------------------------------------------
 ## Figure 02xs-c: type-I error check
@@ -129,30 +134,28 @@ ggsave(file.path(fig_dir, '02xs-heatmap-matched-vs-mismatched.pdf'),
 
 d_c <- grid |>
   dplyr::filter(c_bm == 0, N == 70) |>
-  dplyr::mutate(
-    spec = factor(spec, levels = c('E2', 'E3'), labels = spec_labels),
-    design = factor(design, levels = c('CO', 'OLBDC', 'Hybrid'))
-  )
+  dplyr::mutate(design = factor(design, levels = c('CO', 'OLBDC', 'Hybrid'),
+                                labels = c('CO', 'OL+BDC', 'Hybrid')))
 
 p_c <- ggplot(d_c, aes(spec, power, fill = spec)) +
   geom_boxplot(outlier.size = 0.6, show.legend = FALSE) +
   geom_hline(yintercept = 0.05, linetype = 'dashed') +
   facet_wrap(~ design) +
   scale_y_continuous(limits = c(0, NA)) +
-  scale_fill_manual(values = c('E2 Dbc (matched)' = '#33a02c',
-                                'E3 lagged' = '#e31a1c')) +
+  scale_fill_manual(values = spec_colours) +
   labs(
     x = 'Analysis specification',
     y = 'Empirical type-I error rate',
     title = 'Type-I error control under null',
     subtitle = expression(
-      'Covariance architecture,'~c[bm]==0*','~N==70*','~
+      'Covariance-moderation architecture,'~c[bm]==0*','~N==70*','~
       'pooled across DGP decay forms and carryover levels')
   ) +
-  theme_paper
+  theme_paper +
+  theme(axis.text.x = element_text(size = 7, angle = 20, hjust = 1))
 
 ggsave(file.path(fig_dir, '02xs-type1-boxplots.pdf'),
-  p_c, width = 6, height = 3.2)
+  p_c, width = 6.8, height = 3.4)
 
 message('Wrote three extra-slim figures to ', fig_dir, ':')
 message('  02xs-power-by-spec.pdf')

@@ -208,14 +208,24 @@ prepare_long_data <- function(dat, design_set, carryover_t1half,
 ## -----------------------------------------------------------------
 
 fit_spec <- function(dat_long, spec) {
-  spec <- match.arg(spec, c('E1', 'E2', 'E3'))
-  ## A3 follows the Jones & Kenward (2014) crossover pattern: the
+  spec <- match.arg(spec, c('E1', 'E2', 'E3', 'E4'))
+  ## E3 follows the Jones & Kenward (2014) crossover pattern: the
   ## lagged-treatment indicator L is a nuisance covariate; the
   ## biomarker interaction of interest remains bm:Db.
+  ##
+  ## E4 is the alternative offered by the reference implementation
+  ## (implementations/original/R/lme_analysis.R, simplecarryover =
+  ## TRUE): time since discontinuation enters linearly as a nuisance
+  ## main effect. Like E3 it consumes no half-life, but unlike E3 it
+  ## is indexed by elapsed time rather than by position in the visit
+  ## sequence, so it can track a graded decline across every off-drug
+  ## occasion. Its interaction target is bm:Db, the same estimand as
+  ## E1 and E3.
   form <- switch(spec,
     E1 = as.formula('Sx ~ bm + t + Db  + bm:Db'),
     E2 = as.formula('Sx ~ bm + t + Dbc + bm:Dbc'),
-    E3 = as.formula('Sx ~ bm + t + Db  + bm:Db + L')
+    E3 = as.formula('Sx ~ bm + t + Db  + bm:Db + L'),
+    E4 = as.formula('Sx ~ bm + t + Db  + bm:Db + tsd')
   )
 
   fit <- tryCatch(
@@ -241,7 +251,8 @@ fit_spec <- function(dat_long, spec) {
   target <- switch(spec,
     E1 = intersect(c('bm:Db',  'Db:bm'),  rownames(cc)),
     E2 = intersect(c('bm:Dbc', 'Dbc:bm'), rownames(cc)),
-    E3 = intersect(c('bm:Db',  'Db:bm'),  rownames(cc))
+    E3 = intersect(c('bm:Db',  'Db:bm'),  rownames(cc)),
+    E4 = intersect(c('bm:Db',  'Db:bm'),  rownames(cc))
   )
 
   if (length(target) == 0) {
@@ -354,9 +365,10 @@ fit_gee_md <- function(dat_long) {
          converged = TRUE)
 }
 
-fit_three_specs <- function(dat_long, robust = FALSE) {
+fit_all_specs <- function(dat_long, robust = FALSE) {
   has_off_drug <- any(dat_long$Db == 0)
   has_lagged   <- any(dat_long$L  == 1)
+  has_washout  <- any(dat_long$tsd > 0)
   na_row <- function(spec, reason) {
     tibble(spec = spec, estimate = NA_real_,
            std_error = NA_real_,
@@ -370,7 +382,10 @@ fit_three_specs <- function(dat_long, robust = FALSE) {
     fit_spec(dat_long, 'E2') |> mutate(reason = NA_character_),
     if (has_off_drug && has_lagged) fit_spec(dat_long, 'E3') |>
       mutate(reason = NA_character_)
-    else na_row('E3', 'no lagged-on timepoints')
+    else na_row('E3', 'no lagged-on timepoints'),
+    if (has_off_drug && has_washout) fit_spec(dat_long, 'E4') |>
+      mutate(reason = NA_character_)
+    else na_row('E4', 'no post-discontinuation timepoints')
   )
   if (robust) {
     out <- bind_rows(
@@ -435,8 +450,8 @@ simulate_cell <- function(cell, n_reps, robust = FALSE,
     )
     if (is.null(dat) || nrow(dat) == 0) {
       specs <- if (robust)
-        c('E1', 'E2', 'E3', 'lme+CR2', 'GEE+MD')
-      else c('E1', 'E2', 'E3')
+        c('E1', 'E2', 'E3', 'E4', 'lme+CR2', 'GEE+MD')
+      else c('E1', 'E2', 'E3', 'E4')
       return(tibble(rep = rep_i, spec = specs,
                     estimate = NA_real_,
                     std_error = NA_real_,
@@ -460,7 +475,7 @@ simulate_cell <- function(cell, n_reps, robust = FALSE,
       analysis_shape = analysis_shape
     )
 
-    fit_three_specs(dat_long, robust = robust) |>
+    fit_all_specs(dat_long, robust = robust) |>
       mutate(rep = rep_i, .before = 1)
   })
 }

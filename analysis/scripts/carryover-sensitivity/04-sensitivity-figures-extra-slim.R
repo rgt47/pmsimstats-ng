@@ -1,11 +1,12 @@
 ## analysis/scripts/carryover-sensitivity/04-sensitivity-figures-extra-slim.R
 ##
-## Filtered Tier 2 sensitivity-block figures (S1-S5) for
-## report-extra-slim.Rmd. All Tier 2 blocks are already anchored at
-## Covariance architecture (Hybrid reference cell), so only the E1 analysis
-## specification needs to be dropped here. Writes to analysis/figures/
-## with a 02xs- prefix, leaving report.Rmd and report-slim.Rmd
-## figures untouched.
+## Filtered Tier 2 sensitivity-block figures (S1-S5) for report.Rmd.
+## All Tier 2 blocks are already anchored at the covariance-moderation
+## architecture (Hybrid reference cell), so no architecture filter is
+## needed; all three analysis specifications are retained. Display
+## names and ordering come from spec-labels.R. Writes to
+## analysis/figures/ with a 02xs- prefix, leaving the full-scope
+## figures used by the archived drafts untouched.
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -41,19 +42,17 @@ placeholder <- function(block, path) {
   ggsave(path, p, width = 5, height = 3.2)
 }
 
-spec_labels <- c(E2 = 'E2 Dbc (matched)', E3 = 'E3 lagged')
+source(file.path(repo_root,
+  'analysis/scripts/carryover-sensitivity/spec-labels.R'))
 
 spec_scale <- scale_colour_manual(
-  name = 'Analysis spec',
-  values = c(E2 = '#33a02c', E3 = '#e31a1c'), labels = spec_labels)
+  name = 'Analysis spec', values = spec_colours)
 
 spec_linetype <- scale_linetype_manual(
-  name = 'Analysis spec',
-  values = c(E2 = 'solid', E3 = 'longdash'), labels = spec_labels)
+  name = 'Analysis spec', values = spec_linetypes)
 
 spec_shape <- scale_shape_manual(
-  name = 'Analysis spec',
-  values = c(E2 = 17, E3 = 4), labels = spec_labels)
+  name = 'Analysis spec', values = spec_shapes)
 
 if (!file.exists(summary_path)) {
   message('Tier 2 summary not found: ', summary_path)
@@ -66,8 +65,8 @@ if (!file.exists(summary_path)) {
 }
 
 s2 <- readRDS(summary_path)$summary |>
-  dplyr::filter(spec %in% c('E2', 'E3')) |>
-  dplyr::mutate(spec = factor(spec, levels = c('E2', 'E3')))
+  dplyr::filter(spec %in% spec_order) |>
+  dplyr::mutate(spec = spec_factor(spec))
 
 ## -----------------------------------------------------------------
 ## S1: power vs rho by spec
@@ -107,7 +106,8 @@ p2 <- ggplot(d2, aes(analysis_t1half, power,
   labs(x = expression('Analyst-assumed half-life (log scale, weeks)'),
        y = 'Power', colour = 'Analysis spec',
        title = 'S2: Cost of analyst-truth half-life mismatch',
-       subtitle = 'E3 does not depend on assumed half-life; E2 does') +
+       subtitle = paste('Only Exposure-weighted consumes the assumed',
+                        'half-life; the other two are invariant')) +
   theme_paper
 
 ggsave(file.path(fig_dir, '02xs-sens-S2.pdf'), p2,

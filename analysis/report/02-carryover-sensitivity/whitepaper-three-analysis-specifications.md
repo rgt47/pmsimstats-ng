@@ -1,21 +1,27 @@
 ---
-geometry: margin=0.85in
+geometry: margin=0.8in
 fontsize: 10pt
 ---
 
 # White paper: the three carryover analysis specifications, and why these three
 
-*2026-08-05 10:02 PDT*
+*2026-08-05 10:02 PDT; restructured 2026-08-05 10:46 PDT*
 
 **pmsimstats team.** A design-justification note for the
 carryover-sensitivity manuscript
 (`analysis/report/02-carryover-sensitivity/report.Rmd`). It names the
 three analysis-model specifications the study compares, states them in
 the canonical notation of `analysis/report/NOTATION.md`, and sets out
-why these three, rather than some other three, are the right set to
-evaluate. It closes with the one specification the current set omits,
-and with three gaps in the canonical notation that the comparison
-brings to light.
+why these three are the right set to evaluate. It also records why a
+fourth candidate is retained as a reported side-check rather than an
+arm, identifies the one cell the set still leaves empty, and lists
+four additions the comparison requires of the canonical notation.
+
+**Revision note.** This document originally presented the middle arm
+as the Jones and Kenward lagged-treatment indicator. That arm has been
+replaced by the linear washout term supplied by the reference
+implementation, for the reasons in Section 5. The lagged indicator is
+retained as a side-check (Section 3.4).
 
 **Intended reader.** A statistically literate physician: someone
 comfortable with regression and with the idea of an interaction term,
@@ -43,85 +49,76 @@ to a week, while measurements are weekly, so the first off-drug
 measurement typically still carries roughly half the drug effect.
 
 This forces a decision on the analyst that has no default answer. The
-model needs a variable representing drug exposure at each occasion.
-Coding that variable as simply on or off is one choice among several,
-and the manuscript exists to determine which choice performs best. The
-present note explains why the field of candidates was narrowed to
-three.
+model needs a variable representing drug exposure at each occasion,
+and coding it as simply on or off is one choice among several. The
+manuscript exists to determine which choice performs best; this note
+explains why the field was narrowed to three.
 
 ### 1.1 The three trial designs
 
-The comparison is run under three protocols, which differ in how the
-on-drug and off-drug measurement occasions are arranged. Because the
-whole problem concerns what happens *after* the drug stops, a design
-that generates more post-discontinuation observations gives the
-analyst more carryover to handle, and the ranking of the three
-specifications turns out to depend on which design is used. All three
-use eight measurement occasions per patient. Patients are randomized
-between two or four **paths**, meaning fixed schedules of on-drug and
-off-drug periods.
+The comparison runs under three protocols, which differ in how the
+on-drug and off-drug occasions are arranged. Because the whole problem
+concerns what happens *after* the drug stops, a design generating more
+post-discontinuation observations gives the analyst more carryover to
+handle, and the ranking of the specifications depends on which design
+is used. All three use eight measurement occasions per patient.
+Patients are randomized between two or four **paths**, meaning fixed
+schedules of on-drug and off-drug periods.
 
 - **CO (crossover).** The traditional two-period within-patient
   crossover. One path takes drug for the first four visits and stops;
   the other takes comparator first and starts drug at visit five. Half
   the patients therefore never discontinue at all.
-- **OL+BDC (open-label plus blinded discontinuation).** Patients are
-  titrated openly on active drug, then blindly switched to placebo.
-  Both paths discontinue, but late, so most visits are on drug and
-  only two or three follow discontinuation.
+- **OL+BDC (open-label plus blinded discontinuation).** Open titration
+  on active drug, then a blinded switch to placebo. Both paths
+  discontinue, but late, so only two or three visits follow.
 - **Hybrid.** The Hendrickson design and this program's reference:
-  open-label titration, then blinded discontinuation, then a brief
-  crossover at the end. Four paths, and the richest in on-off
-  transitions, which is why it is used as the reference design
-  throughout.
+  open-label titration, blinded discontinuation, then a brief
+  crossover. Four paths, and the richest in on-off transitions.
 
 ## 2. Notation
 
 Symbols follow `analysis/report/NOTATION.md`, the compendium's single
-source of truth for notation. The plain-language column is added here
-for readability and is not part of that file.
+source of truth. The plain-language column is added here and is not
+part of that file.
 
 | Symbol | `NOTATION.md` meaning | In plain terms |
 |---|---|---|
-| $Y_{it}$ | observed symptom score for patient $i$ at timepoint $t$ (code column `Sx`) | the outcome being measured |
-| $B_i$ | pre-treatment biomarker value (code `bm`) | the baseline test result |
-| $b_i$ | standardized biomarker, $(B_i - \bar{B})/s_B$ | the same, rescaled so one unit is one standard deviation |
-| $D_{it}$ | binary drug state: 1 on drug, 0 off drug | the simple on/off switch |
-| $D_{bc,it}$ | continuous exposure-decayed indicator: 1 on drug, $e^{-\lambda t_{sd}}$ off drug (code `Dbc`) | a dimmer switch that fades out after the drug stops |
+| $Y_{it}$ | symptom score for patient $i$ at timepoint $t$ (code `Sx`) | the outcome measured |
+| $B_i$ | pre-treatment biomarker (code `bm`) | the baseline test result |
+| $b_i$ | standardized biomarker, $(B_i - \bar{B})/s_B$ | the same, in standard-deviation units |
+| $D_{it}$ | binary drug state: 1 on drug, 0 off | the simple on/off switch |
+| $D_{bc,it}$ | exposure-decayed indicator: 1 on drug, $e^{-\lambda t_{sd}}$ off (code `Dbc`) | a dimmer fading after the drug stops |
 | $t_{sd}$ | time since discontinuation (code `tsd`) | weeks since the drug was stopped |
-| $t_{1/2}$ | carryover half-life (code `carryover_t1half`) | time for the residual effect to halve |
+| $t_{1/2}$ | carryover half-life (code `carryover_t1half`) | time for residual effect to halve |
 | $\lambda$ | decay rate, $\ln 2 / t_{1/2}$ | how fast the residual effect fades |
 | $u_i$ | patient random intercept | each patient's own baseline level |
-| $\varepsilon_{it}$ | observation-level residual | unexplained measurement-to-measurement variation |
-| $c_{bm}$ | moderation parameter of the covariance-moderation architecture | how strongly the biomarker predicts benefit |
+| $\varepsilon_{it}$ | observation-level residual | unexplained variation |
+| $c_{bm}$ | moderation parameter, covariance-moderation architecture | how strongly the biomarker predicts benefit |
 | $\sigma_{BR}$ | standard deviation of the response component | the scale the effect is expressed on |
-| $\theta_{\text{true}}$ | calibrated true value, $-c_{bm}\sigma_{BR}$ | the correct answer the simulation is checked against |
-| $N$ | total patients, across all randomization paths | trial size |
+| $\theta_{\text{true}}$ | calibrated true value, $-c_{bm}\sigma_{BR}$ | the correct answer to check against |
+| $N$ | total patients, across all paths | trial size |
 
-A hat marks an analyst-side quantity as against a true one, so
-$\hat{t}_{1/2}$ is the half-life the analyst assumes while $t_{1/2}$
-is the one the data were generated with. Per rule 5 of
-`NOTATION.md`, the response components are non-negative *reductions*
-in symptom severity, so a beneficial treatment effect lowers $Y_{it}$
-and interaction coefficients are negative.
+A hat marks an analyst-side quantity, so $\hat{t}_{1/2}$ is the
+half-life the analyst assumes while $t_{1/2}$ is the one the data were
+generated with. Per rule 5 of `NOTATION.md`, response components are
+non-negative *reductions* in severity, so a beneficial treatment
+effect lowers $Y_{it}$ and interaction coefficients are negative.
 
-Three symbols this note requires are not in `NOTATION.md`. They are
-used here provisionally and proposed formally in Section 9:
-$L_{it}$ for the lagged just-off-drug indicator, $\beta_{bm:D}$
-disambiguated from $\beta_{bm:D_{bc}}$ according to which exposure
-variable carries the interaction, and the main-effect coefficients
-$\beta_b$, $\beta_t$, $\beta_D$, $\beta_L$. Note that $\beta_b$, the
-biomarker main effect, is a different object from $\beta_{bm}$, which
-`NOTATION.md` reserves for the moderation parameter of the
-mean-moderation architecture.
+Four symbols used here are not in `NOTATION.md`; Section 9 proposes
+them formally. They are $L_{it}$, the lagged just-off-drug indicator;
+$\beta_{bm:D}$ disambiguated from $\beta_{bm:D_{bc}}$ according to
+which exposure variable carries the interaction; the main-effect
+coefficients $\beta_b$, $\beta_t$, $\beta_D$, $\beta_L$,
+$\beta_{sd}$; and the stored specification code `E4`. Note that
+$\beta_b$, the biomarker main effect, is a different object from
+$\beta_{bm}$, which `NOTATION.md` reserves for the mean-moderation
+architecture's moderation parameter.
 
-Abbreviations used below, per the `NOTATION.md` glossary: **CO**
-(crossover), **BDC** (blinded discontinuation), **OL+BDC**
-(open-label titration followed by blinded discontinuation), **Hybrid**
-(the Hendrickson design: open-label, then blinded discontinuation,
-then a brief crossover), **LME** (linear mixed-effects model),
-**MCSE** (Monte Carlo standard error), and **ADEMP** (the Morris,
-White and Crowther reporting framework for simulation studies).
+Abbreviations, per the `NOTATION.md` glossary: **CO** (crossover),
+**BDC** (blinded discontinuation), **OL+BDC**, **Hybrid**, **LME**
+(linear mixed-effects model), **MCSE** (Monte Carlo standard error),
+**ADEMP** (the Morris, White and Crowther reporting framework).
 
 All three specifications share one model,
 
@@ -132,56 +129,50 @@ Y_{it} = \beta_0 + \beta_b\, b_i + \beta_t\, t
 $$
 
 fitted as an LME with a patient random intercept and `corCAR1`
-residual correlation, which allows measurements taken closer together
-in time to be more similar. In words: the outcome depends on the
-biomarker, on time, on drug exposure, and on the product of biomarker
-and exposure. That last product term, $\beta_{bm:X}$, is the estimand,
-meaning the specific quantity the trial is trying to estimate. It says
-how much the treatment effect changes per standard deviation of the
-biomarker.
-
-The three specifications differ only in how the exposure variable
-$X_{it}$ is built, and in whether an extra term is added.
+residual correlation, which lets measurements closer in time be more
+similar. In words: the outcome depends on the biomarker, on time, on
+drug exposure, and on the product of biomarker and exposure. That
+product term is the **estimand**, the specific quantity the trial
+is trying to estimate; it says how much the treatment effect changes
+per standard deviation of the biomarker. The specifications differ
+only in how $X_{it}$ is built and in whether a nuisance term is added.
 
 ## 3. The three specifications
 
-### 3.1 Unadjusted
+### 3.1 Unadjusted (stored code `E1`)
 
 $$X_{it} = D_{it}, \qquad D_{it} \in \{0, 1\}$$
 
-In code, `Sx ~ bm + t + Db + bm:Db`. Carryover is not represented at
-all. A measurement taken one week after stopping, still carrying about
-half the drug effect, is coded exactly like one taken after the drug
-has fully cleared. The estimand is $\beta_{bm:D}$, the coefficient on
-$b_i D_{it}$.
+In code, `Sx ~ bm + t + Db + bm:Db`. Carryover is not represented. A
+measurement one week after stopping, still carrying about half the
+drug effect, is coded exactly like one taken after full clearance. The
+estimand is $\beta_{bm:D}$, the coefficient on $b_i D_{it}$.
 
 This is what an analyst gets by default from a standard mixed model
-without thinking about carryover, which is precisely why it belongs in
-the comparison: it is the benchmark any remedy must beat to justify
-its extra complexity.
+without thinking about carryover, which is why it belongs in the
+comparison: it is the benchmark any remedy must beat.
 
-### 3.2 Lag-adjusted
+### 3.2 Washout-adjusted (stored code `E4`)
 
-$$X_{it} = D_{it}, \qquad L_{it} = D_{i,t-1}\,(1 - D_{it})$$
+$$X_{it} = D_{it}, \qquad
+\text{plus } \beta_{sd}\, t_{sd,it} \text{ as a nuisance main effect}$$
 
-with $L_{it}$ added as an extra term, in code
-`Sx ~ bm + t + Db + bm:Db + L`. The indicator $L_{it}$ equals 1 at the
-first off-drug measurement following an on-drug one, and 0 everywhere
-else. It flags the occasions most likely to be contaminated by
-residual drug and lets the model estimate how much those occasions
-differ, rather than requiring the analyst to say in advance how fast
-the drug washes out. This is the standard remedy in the
-crossover-trial literature, following Jones and Kenward.
+In code, `Sx ~ bm + t + Db + bm:Db + tsd`. Exposure stays binary, but
+the model is given the elapsed time since discontinuation as a
+covariate, so it can estimate how the average outcome drifts across
+the washout without being told how fast the drug clears. This is the
+alternative the reference implementation provides
+(`implementations/original/R/lme_analysis.R`, `simplecarryover =
+TRUE`).
 
-Two structural features determine how its results must be read. First,
-$L_{it}$ is added only as a main effect, with no $b_i L_{it}$ product
-term. It can therefore adjust the average outcome at contaminated
-occasions, but it cannot adjust how the *biomarker effect* behaves
-there. Second, it involves no half-life, so it is completely unaffected
-by what the analyst assumes about the pharmacokinetics. The estimand is
+Two properties matter. It consumes no half-life, so it is completely
+unaffected by what the analyst assumes about the pharmacokinetics. And
+because $t_{sd}$ enters the average-outcome part of the model only,
+with no $b_i t_{sd}$ product, it can absorb mean-level carryover but
+cannot repair distortion of the *biomarker* effect. The estimand is
 $\beta_{bm:D}$, the same quantity Unadjusted targets.
 
-### 3.3 Exposure-weighted
+### 3.3 Exposure-weighted (stored code `E2`)
 
 $$X_{it} = D_{bc,it} =
 \begin{cases}
@@ -192,575 +183,417 @@ $$X_{it} = D_{bc,it} =
 $$
 
 In code, `Sx ~ bm + t + Dbc + bm:Dbc`. Instead of an on/off switch,
-exposure is a dimmer that starts at 1 and halves every $\hat{t}_{1/2}$
-weeks after the drug stops. A measurement one week after stopping, at
-an assumed half-life of one week, enters as 0.5 rather than 0. This is
-the current default in the pmsimstats-ng package.
+exposure is a dimmer starting at 1 and halving every $\hat{t}_{1/2}$
+weeks. A measurement one week after stopping, at an assumed half-life
+of one week, enters as 0.5 rather than 0. This is the current
+pmsimstats-ng default.
 
-It is the only one of the three requiring the analyst to commit to
-both a decay shape and a half-life. Because those assumptions enter
-through the values of the variable rather than through the model
-formula, it is effectively a different model for every assumed
-half-life even though it is written identically each time. Its
+It is the only one of the three requiring a commitment to both a decay
+shape and a half-life. Because those enter through the variable's
+values rather than the formula, it is effectively a different model
+for every assumed half-life though written identically each time. Its
 estimand is $\beta_{bm:D_{bc}}$, the coefficient on $b_i D_{bc,it}$,
 which is *not* the same quantity as $\beta_{bm:D}$.
 
-### 3.4 The three codings on one patient
+### 3.4 Retained as a side-check: Lag-adjusted (stored code `E3`)
 
-The differences are easiest to see on a single schedule. The table
-below takes one OL+BDC path and one Hybrid path, and shows what each
-specification writes into the model at each visit, assuming a
-half-life of one week. Verified by direct computation from the design
-definitions in `simulation-core.R`.
+$$L_{it} = D_{i,t-1}\,(1 - D_{it})$$
 
-**OL+BDC, path A.** Drug is stopped after week 18.
+In code, `Sx ~ bm + t + Db + bm:Db + L`. The indicator equals 1 at the
+first off-drug measurement following an on-drug one, and 0 elsewhere.
+This is the classical crossover remedy of Jones and Kenward, and it
+occupies the same conceptual slot as Washout-adjusted: a nuisance main
+effect, no half-life, estimand $\beta_{bm:D}$. It differs in being
+indexed by position in the visit sequence rather than by elapsed time,
+so it marks one occasion and is constant thereafter.
 
-| Week | On drug | $t_{sd}$ | Unadjusted $D_{it}$ | Lag flag $L_{it}$ | Exposure-weighted $D_{bc,it}$ |
-|---|---|---|---|---|---|
-| 4 | yes | 0 | 1 | 0 | 1 |
-| 8 | yes | 0 | 1 | 0 | 1 |
-| 12 | yes | 0 | 1 | 0 | 1 |
-| 16 | yes | 0 | 1 | 0 | 1 |
-| 17 | yes | 0 | 1 | 0 | 1 |
-| 18 | yes | 0 | 1 | 0 | 1 |
-| 19 | no | 1 | 0 | 1 | 0.50 |
-| 20 | no | 2 | 0 | 0 | 0.25 |
+It is not an arm of the study, for the reasons in Section 5.1, but its
+results are already present in every stored summary and are reported
+as a side-check. Section 6 gives them.
 
-Read the last two rows. At week 19 the patient still has about half
-the drug effect on board. Unadjusted records a 0, exactly as it does
-for a drug-free patient. Lag-adjusted records a 0 as well, but flags
-the visit so the model can allow its average outcome to differ.
-Exposure-weighted records 0.50, which is the value that actually
-reflects the residual exposure. At week 20 the difference persists:
-Unadjusted and Lag-adjusted both record 0 for a visit still carrying
-about a quarter of the effect, and only Exposure-weighted distinguishes
-it.
+### 3.5 The three codings on one patient
 
-**Hybrid, path A.** Drug is stopped after week 10, restarted at week
-16, and stopped again after week 16.
+The differences are clearest on a single schedule. Both tables assume
+a half-life of one week. Verified by direct computation from the
+design definitions in `simulation-core.R`.
 
-| Week | On drug | $t_{sd}$ | Unadjusted $D_{it}$ | Lag flag $L_{it}$ | Exposure-weighted $D_{bc,it}$ |
-|---|---|---|---|---|---|
-| 4 | yes | 0 | 1 | 0 | 1 |
-| 8 | yes | 0 | 1 | 0 | 1 |
-| 9 | yes | 0 | 1 | 0 | 1 |
-| 10 | yes | 0 | 1 | 0 | 1 |
-| 11 | no | 1 | 0 | 1 | 0.50 |
-| 12 | no | 2 | 0 | 0 | 0.25 |
-| 16 | yes | 0 | 1 | 0 | 1 |
-| 20 | no | 4 | 0 | 1 | 0.0625 |
+**OL+BDC, path A.** Drug stopped after week 18.
 
-This path exposes the weakness of the lag flag directly. Weeks 11 and
-20 both receive $L_{it} = 1$, because each is the first visit after a
-discontinuation, and the model therefore assigns them a single shared
-coefficient. But week 11 is one week after stopping and retains about
-50% of the drug effect, while week 20 is four weeks after stopping and
-retains about 6%, an eightfold difference. Exposure-weighted separates
-them, 0.50 against 0.0625, because it is built from elapsed time,
-whereas the lag flag is built from position in the visit sequence and
-cannot tell the two apart. This is the mechanism behind the Hybrid
-caveat in Section 5.2.
+| Week | On drug | $t_{sd}$ | Unadjusted $D_{it}$ | Washout $t_{sd}$ | Lag flag $L_{it}$ | Exposure-weighted $D_{bc,it}$ |
+|---|---|---|---|---|---|---|
+| 4 to 18 | yes | 0 | 1 | 0 | 0 | 1 |
+| 19 | no | 1 | 0 | 1 | 1 | 0.50 |
+| 20 | no | 2 | 0 | 2 | 0 | 0.25 |
+
+At week 19 the patient still has about half the drug effect on board.
+Unadjusted records a 0, exactly as for a drug-free patient.
+Washout-adjusted also records 0 for exposure, but hands the model the
+elapsed time so the average outcome may drift. Only Exposure-weighted
+records a value reflecting the residual exposure, 0.50.
+
+**Hybrid, path A.** Stopped after week 10, restarted at 16, stopped
+after 16.
+
+| Week | On drug | $t_{sd}$ | Unadjusted $D_{it}$ | Washout $t_{sd}$ | Lag flag $L_{it}$ | Exposure-weighted $D_{bc,it}$ |
+|---|---|---|---|---|---|---|
+| 4 to 10 | yes | 0 | 1 | 0 | 0 | 1 |
+| 11 | no | 1 | 0 | 1 | 1 | 0.50 |
+| 12 | no | 2 | 0 | 2 | 0 | 0.25 |
+| 16 | yes | 0 | 1 | 0 | 0 | 1 |
+| 20 | no | 4 | 0 | 4 | 1 | 0.0625 |
+
+This path shows why the lag flag was replaced. Weeks 11 and 20 both
+receive $L_{it} = 1$, each being the first visit after a
+discontinuation, so the model gives them one shared coefficient. Yet
+week 11 retains about 50% of the drug effect and week 20 about 6%, an
+eightfold difference. Washout-adjusted distinguishes them, 1 against
+4, and Exposure-weighted distinguishes them further, 0.50 against
+0.0625. The lag flag alone cannot tell them apart.
 
 ## 4. Why these three
 
-Four arguments. The second is the substantive one.
-
-### 4.1 They span the three possible positions on washout
+### 4.1 They span the three positions on washout
 
 Write $\phi(t_{sd})$ for the fraction of drug effect still present
 $t_{sd}$ weeks after stopping. Every analyst takes a position on
-$\phi$, whether or not they state one, and only three positions are
-qualitatively distinct:
+$\phi$, and only three are qualitatively distinct:
 
-- **Deny it.** Assume $\phi \equiv 0$, so exposure is strictly on or
-  off. This is Unadjusted.
-- **Estimate it.** Leave the shape of $\phi$ unspecified but give it
-  one free parameter, applied at the first off-drug occasion. This is
-  Lag-adjusted.
-- **Assume it.** Commit to a specific decay curve and rate,
-  $\phi(t_{sd}) = \exp(-\hat\lambda t_{sd})$. This is
-  Exposure-weighted.
+- **Deny it.** Assume $\phi \equiv 0$; exposure is strictly on or off.
+  This is Unadjusted.
+- **Estimate it.** Leave the shape unspecified but let the data say
+  how the outcome drifts across the washout. This is
+  Washout-adjusted.
+- **Assume it.** Commit to a decay curve and rate,
+  $\phi = \exp(-\hat\lambda t_{sd})$. This is Exposure-weighted.
 
-The three are therefore not an arbitrary sample from a large space of
-codings. They are one representative of each available stance toward
-the unknown washout, ordered by how much the analyst is willing to
-assume.
+The three are therefore one representative of each available stance
+toward the unknown washout, ordered by how much is assumed.
 
-There is also a formal relationship that makes this ladder continuous
-rather than merely rhetorical. As the assumed half-life goes to zero,
-the dimmer switch collapses to the on/off switch, since
-$\hat{t}_{1/2} \to 0$ gives $\hat{\lambda} \to \infty$ and hence
+A formal relationship makes the ladder continuous. As the assumed
+half-life goes to zero the dimmer collapses to the on/off switch,
+since $\hat{t}_{1/2} \to 0$ gives $\hat{\lambda} \to \infty$ and hence
 $D_{bc,it} \to D_{it}$. **Unadjusted is therefore the limiting case of
 Exposure-weighted at an assumed half-life of zero**, not a separate
-method sitting outside it. At the other extreme, as
-$\hat{t}_{1/2} \to \infty$, the dimmer never dims,
-$D_{bc,it} \to 1$ everywhere, the on-off contrast disappears and the
-model can no longer estimate anything. The manuscript's
-half-life-mis-specification sweep is consequently a traverse along a
-path whose left endpoint is Unadjusted itself, and Unadjusted should
-be read as the anchor of that curve.
+method outside it. As $\hat{t}_{1/2} \to \infty$ the dimmer never
+dims, the on-off contrast vanishes, and nothing is estimable. The
+manuscript's half-life-mis-specification sweep is thus a traverse
+along a path anchored at Unadjusted.
 
 ### 4.2 They separate the two ways carryover does damage
 
-This is the strongest reason for this particular set, because it makes
+This is the strongest reason for the particular set, because it makes
 the comparison a controlled experiment rather than a horse race.
 
-Carryover degrades the interaction test through two distinct
-mechanisms:
+Carryover degrades the interaction test through two mechanisms:
 
-- **Dilution.** The exposure variable is a mis-measured version of the
-  exposure the patient actually received. Contaminated occasions are
-  entered as though they were drug-free, so the estimated interaction
-  is pulled toward zero. This is the same phenomenon clinicians know
-  as regression dilution, where a single noisy blood-pressure reading
-  understates the true association with outcome. The signal shrinks.
-- **Added noise.** Those same occasions differ from one another in
-  ways the model does not describe, since some are one week off drug
-  and others four. That unexplained variation is absorbed into the
-  residual $\varepsilon_{it}$, which inflates the standard error of
-  the interaction estimate. The noise grows.
+- **Dilution.** The exposure variable is a mis-measured version of
+  what the patient received. Contaminated occasions are entered as
+  drug-free, so the estimated interaction is pulled toward zero, the
+  same phenomenon clinicians know as regression dilution, where a
+  single noisy blood-pressure reading understates a true association.
+  The signal shrinks.
+- **Added noise.** Those occasions also differ from one another in
+  ways the model does not describe, some being one week off drug and
+  others four. That variation is absorbed into $\varepsilon_{it}$,
+  inflating the standard error of the interaction estimate. The noise
+  grows.
 
-Power falls on both counts at once, the signal shrinking while the
-noise grows. The three specifications occupy three different cells of
-the resulting classification:
+Power falls on both counts at once. The three arms occupy three cells:
 
 | Specification | Dilution | Added noise |
 |---|---|---|
 | Unadjusted | not addressed | not addressed |
-| Lag-adjusted | not addressed | addressed at the first off-drug occasion |
+| Washout-adjusted | not addressed | addressed, graded across the whole washout |
 | Exposure-weighted | addressed | addressed |
+| *(Lag-adjusted, side-check)* | *not addressed* | *addressed at one occasion only* |
 
-The placements follow from where each term sits. Lag-adjusted adds
-$L_{it}$ to the average-outcome part of the model only, so it can
-absorb noise from contaminated occasions, but because the interaction
-is still carried by the on/off variable $D_{it}$, the dilution is
-untouched. Exposure-weighted instead replaces the variable *inside*
-the interaction, so it addresses dilution directly and mops up the
-associated noise as a by-product.
+The placements follow from where each term sits. Washout-adjusted adds
+$t_{sd}$ to the average-outcome part only, so it absorbs noise while
+the interaction stays on $D_{it}$ and dilution is untouched.
+Exposure-weighted replaces the variable *inside* the interaction, so
+it addresses dilution directly and mops up the noise as a by-product.
 
-Two things follow, and together they are the reason this set is well
-chosen:
+Two consequences follow:
 
-1. **Comparing Lag-adjusted with Unadjusted isolates the noise
+1. **Comparing Washout-adjusted with Unadjusted isolates the noise
    mechanism.** The two estimate the same quantity, are fitted to the
    same simulated patients, and differ by exactly one term. Any
-   difference between them is therefore attributable to the noise
-   mechanism alone, with nothing else varying. Controlled contrasts
-   this clean are rare in a simulation study.
+   difference is attributable to the noise mechanism alone. Controlled
+   contrasts this clean are rare in a simulation study.
 2. **What is left over is interpretable.** Whatever advantage
-   Exposure-weighted shows beyond that first comparison is the value
-   of fixing dilution. The design therefore reveals not only which
-   method wins but which of the two mechanisms actually matters in
-   this setting, which is the more portable finding.
+   Exposure-weighted shows beyond that is the value of fixing
+   dilution. The design reveals not only which method wins but which
+   mechanism matters, which is the more portable finding.
 
-A set of three methods that all attacked the same mechanism, or that
-differed on several dimensions at once, would support neither
-conclusion.
+### 4.3 Each is a working default, and the set is now complete
 
-### 4.3 Each is the working default of a literature
+Unadjusted is ordinary applied practice and the default of any
+off-the-shelf mixed model. Washout-adjusted and Exposure-weighted are
+the two options the reference implementation actually provides
+(Section 5.2). The set therefore evaluates that implementation
+completely, rather than two-thirds of it plus a substitute.
 
-Each specification is the standard approach of a distinct research
-tradition bearing on this problem, so the comparison speaks to all
-three audiences rather than one:
+This involves a deliberate trade, which should be stated plainly. The
+crossover tradition's own remedy, the lagged indicator, moves from a
+headline arm to a side-check. What is bought is that the study now
+tests every option the original authors offered; what is given up is
+that the crossover literature is represented by a reported result
+rather than by a full arm. Section 6 reports that result, so the
+tradition is answered, but with less prominence.
 
-- Unadjusted is ordinary applied practice in aggregated N-of-1
-  analysis, and the default of any off-the-shelf mixed model.
-- Lag-adjusted is the crossover-trial tradition, where a lagged
-  nuisance term is the orthodox remedy for carryover.
-- Exposure-weighted is the pharmacokinetically motivated approach,
-  used by Hendrickson and implemented as the pmsimstats-ng default.
+### 4.4 They are equally estimable
 
-Omitting any one would expose the study to the objection that it never
-tested the method its readers actually use.
+All three fit in all three designs at both sample sizes, need no data
+beyond what the trial collects, and add at most one term. Verified for
+Unadjusted and Exposure-weighted by recomputation from the stored
+summaries: across the full 540-cell grid neither produced a missing
+power value or estimate, and the same holds for the retained
+side-check. Washout-adjusted requires at least one post-discontinuation
+occasion, which every path of every design except CO path B provides;
+that path never discontinues, so it contributes to the other terms but
+not to $\beta_{sd}$. This has not yet been verified by a run.
 
-### 4.4 They are equally estimable, so no cell is decided by failure
+## 5. Why the middle arm was changed, and what is still missing
 
-All three can be fitted in all three trial designs (CO, OL+BDC and
-Hybrid) at both sample sizes, need no data beyond what the trial
-already collects, and add at most one term to the model. Verified by
-direct recomputation from the stored cell-level summaries: across the
-full 540-cell production grid, none of the three produced a missing
-power value or a missing estimate. This matters because a comparison
-in which one method quietly fails to converge in some conditions is
-not a comparison of methods but of numerical robustness.
+### 5.1 Why Lag-adjusted was replaced
 
-## 5. What the set excludes, and the one genuine gap
+Three reasons, in increasing order of weight.
 
-### 5.1 Candidates set aside
+**Provenance.** The lagged indicator is not inherited from the
+reference implementation. It was introduced by this project in
+`simulation-core.R` following Jones and Kenward. Reporting it as the
+comparator while leaving the original authors' own alternative
+untested is hard to defend.
 
-Other specifications were considered and not carried forward:
+**Resolution.** As Section 3.5 shows, the flag marks one occasion and
+cannot distinguish a visit one week after stopping from one four weeks
+after. In the Hybrid design it assigns a single coefficient to
+occasions differing eightfold in residual exposure.
 
-- **Washout deletion**, discarding off-drug measurements taken within
-  some window of stopping. This is exposure weighting with crude 0/1
-  weights and an arbitrary cutoff, so it is a coarser version of
-  Exposure-weighted, and it discards observations the other methods
-  use.
-- **Estimating the half-life from the data** rather than fixing
-  $\hat{t}_{1/2}$ in advance. This is the principled answer to
-  Exposure-weighted's main weakness and is the natural next step, but
-  the half-life is poorly determined at $N = 35$ from a handful of
-  off-drug measurements per patient, so it introduces a
-  convergence-failure mode the other three do not have.
-- **A full set of lag indicators**, one per off-drug occasion. The
-  off-drug window here is only three to four measurements long, so a
-  full set is nearly indistinguishable from the time term $t$ and
-  exhausts the available information.
+**It may have produced a false negative.** Recomputed from the stored
+summaries, Lag-adjusted and Unadjusted are statistically
+indistinguishable across all 216 cells in scope (Section 6). The
+manuscript currently reads that as evidence that the noise mechanism
+is negligible, and therefore that all of Exposure-weighted's advantage
+comes from fixing dilution. That inference is only as good as the
+arm it rests on. The `quick-sim` outputs show the reference
+implementation's $t_{sd}$ arm reaching an *identical point estimate*
+to its unadjusted arm while achieving materially higher power, which
+is the exact signature of a gain through the noise channel with
+dilution untouched. If that reproduces here, the noise mechanism is
+not negligible; a binary flag was simply too crude to exploit it, and
+the manuscript's mechanistic conclusion would change.
 
-### 5.2 The genuine gap: the $b_i L_{it}$ specification
+### 5.2 The reference implementation's three options
 
-The classification in Section 4.2 has an empty cell. No specification
-addresses dilution *within the lag family*. That specification would
-be
+`implementations/original/R/lme_analysis.R` supports three carryover
+representations, assembled at lines 142 to 153 with the exposure
+variable built at 108 to 118. None is a lagged indicator.
 
-$$
-Y_{it} = \beta_0 + \beta_b\, b_i + \beta_t\, t
-       + \beta_D D_{it} + \beta_L L_{it}
-       + \beta_{bm:D}\, b_i D_{it}
-       + \beta_{bm:L}\, b_i L_{it} + u_i + \varepsilon_{it},
-$$
-
-in code `Sx ~ bm + t + Db + L + bm:Db + bm:L`. The current
-Lag-adjusted specification has $\beta_L$ but not $\beta_{bm:L}$, and
-that one missing term is the entire difference.
-
-**Why the extra term reduces dilution.** When the interaction is
-carried only by $b_i D_{it}$, the estimate $\beta_{bm:D}$ compares
-on-drug occasions against *all* off-drug occasions lumped together.
-Because that comparison group still contains contaminated occasions,
-which display part of the biomarker effect themselves, the contrast is
-blurred. Adding $b_i L_{it}$ takes the most contaminated occasions out
-of the comparison group and gives them their own coefficient. What is
-left behind is a cleaner comparison, so $\beta_{bm:D}$ recovers more
-of the true effect.
-
-This makes the specification the assumption-free twin of
-Exposure-weighted. Exposure-weighted asserts that the biomarker effect
-at an off-drug occasion is the on-drug effect multiplied by
-$\exp(-\hat\lambda t_{sd})$, a fixed curve chosen in advance. The
-$b_i L_{it}$ specification instead estimates a free two-step pattern,
-full effect on drug and $\beta_{bm:L}$ at the first off-drug occasion,
-committing to no decay shape at all. Same goal, opposite stance on
-whether the washout is assumed or estimated.
-
-**Would it work in these designs?** The table below reconstructs the
-exposure pattern of every randomization path, applying the same
-lag rule the pipeline uses, and reports how many weeks after stopping
-the flagged occasions sit, alongside those left in the comparison
-group. Verified by direct computation from the design definitions in
-`simulation-core.R`; $t_{sd}$ is in weeks.
-
-| Design | Path | $D_{it}$ pattern | Flagged ($L=1$) | $t_{sd}$ where $L=1$ | $t_{sd}$ in comparison group |
-|---|---|---|---|---|---|
-| CO | A | 1 1 1 1 0 0 0 0 | 1 | 1 | 2, 3, 4 |
-| CO | B | 0 0 0 0 1 1 1 1 | 0 | none | never on drug |
-| OL+BDC | A | 1 1 1 1 1 1 0 0 | 1 | 1 | 2 |
-| OL+BDC | B | 1 1 1 1 1 0 0 0 | 1 | 1 | 2, 3 |
-| Hybrid | A | 1 1 1 1 0 0 1 0 | 2 | 1, 4 | 2 |
-| Hybrid | B | 1 1 1 1 0 0 0 1 | 1 | 1 | 2, 6 |
-| Hybrid | C | 1 1 1 0 0 0 1 0 | 2 | 1, 4 | 2, 3 |
-| Hybrid | D | 1 1 1 0 0 0 0 1 | 1 | 1 | 2, 3, 7 |
-
-Three consequences follow, and each tempers the expected benefit.
-
-- **The improvement would be partial.** The comparison group still
-  contains occasions two or more weeks after stopping, which at a
-  one-week half-life retain about 25% of the drug effect and less. The
-  extra term removes the worst contamination and leaves the rest, so
-  it should reduce dilution rather than eliminate it.
-- **Half the crossover sample contributes nothing.** Path B of the CO
-  design starts off drug, goes on, and never stops, so it contains no
-  flagged occasions at all. The new coefficient would be estimated
-  from path A alone.
-- **The flag is crude in the Hybrid design.** Paths A and C each carry
-  two flagged occasions, one at one week after stopping and one at
-  four weeks, holding roughly 50% and 6% of the drug effect
-  respectively. A single indicator pools them under one coefficient.
-  This is exactly the case that favors using elapsed time directly, as
-  Exposure-weighted does, because the flag is defined by position in
-  the measurement sequence and is blind to the uneven spacing of the
-  Hybrid visits.
-
-**Expected effect, marked as inference.** This specification has not
-been run. Reasoning from the residual-exposure arithmetic above, it
-should move the estimate at the Hybrid reference cell from about
-$-2.51$, where Unadjusted and Lag-adjusted both sit, partway toward
-the correct value $\theta_{\text{true}} = -3.6$ without reaching it,
-and should recover some power. Whether it closes the roughly
-ten-percentage-point gap to Exposure-weighted at that cell is
-genuinely open, and the third bullet argues it will not close it under
-the Hybrid design specifically.
-
-**Cost.** The code change is small: one branch in `fit_spec()` and one
-more level in the grid, with no change to the data-generating side. A
-four-arm paper must be consistent across every table it prints,
-however, so it requires re-running the Tier 1 factorial (roughly 85
-minutes on eight cores), the Tier 2 sensitivity blocks (about four
-minutes) and the S6 recalibration, then re-summarizing and
-regenerating all figures. The `quick-sim` rerun would not pick up the
-fourth arm automatically, since it runs through the package rather
-than `simulation-core.R`. The larger cost is editorial: the
-manuscript's title, abstract and discussion are all organized around a
-two-way contrast, and a fourth arm means restructuring that spine a
-second time.
-
-**Recommendation: a staged approach rather than a blind fourth arm.**
-Run $b_i L_{it}$ first as a narrow diagnostic, at the reference cells
-only, which is a few minutes of compute rather than a rebuild of the
-study. Two outcomes are possible, and both are useful:
-
-- **It moves the estimate materially toward
-  $\theta_{\text{true}} = -3.6$ and recovers power.** Then it is a
-  genuine finding, it may weaken the case for Exposure-weighted (since
-  comparable power without committing to a half-life is the more
-  attractive option for a trialist), and it justifies the full
-  four-arm rebuild.
-- **It lands on top of Lag-adjusted.** Then one paragraph and a
-  footnote citing the diagnostic close the gap completely, at
-  negligible cost, and the study is defended against the objection
-  without restructuring anything.
-
-Either way the diagnostic is worth running before the decision is
-taken. Note that there are now two candidate fourth arms, not one:
-$b_i L_{it}$ as above, and the linear $t_{sd}$ term described in
-Section 5.3, which the reference implementation already provides and
-which existing output suggests does recover power. If only one
-diagnostic is run, the linear $t_{sd}$ term is the better first
-choice, because it is already implemented, because it is the
-alternative the original authors offered, and because the `quick-sim`
-outputs give a prior expectation that it works.
-
-What should not happen is publishing the three-arm comparison
-with no acknowledgement of the empty cell: as things stand, a finding
-that Lag-adjusted fails to recover power is partly a consequence of
-how the lag device was implemented rather than of the idea itself, and
-a reader from the crossover tradition is entitled to press on it. If
-the grid stays at three, the Methods section must state plainly that
-the lag family is evaluated only in its main-effect-only form.
-
-### 5.3 A second omission: the original implementation's own alternative
-
-The reference implementation this program derives from, vendored at
-`implementations/original/`, supports **three** carryover
-representations, not two, and none of them is the binary lag
-indicator. Reading `R/lme_analysis.R`, the fixed-effects formula is
-assembled at lines 142 to 153 and the exposure variable at lines 108
-to 118, giving:
-
-| Setting | Fitted exposure terms | Equivalent to |
+| Setting | Fitted exposure terms | This study |
 |---|---|---|
-| `carryover_t1half = 0`, `simplecarryover = FALSE` | $D_{bc} = D_{it}$, so $D_{it} + b_i D_{it}$ | Unadjusted (Section 3.1) |
-| `carryover_t1half = 0`, `simplecarryover = TRUE` | $D_{it} + b_i D_{it} + \beta_{sd} t_{sd,it}$ | no counterpart in this study |
-| `carryover_t1half > 0` | $D_{bc,it} + b_i D_{bc,it}$, $D_{bc} = (1/2)^{t_{sd}/\hat{t}_{1/2}}$ | Exposure-weighted (Section 3.3) |
+| `carryover_t1half = 0`, `simplecarryover = FALSE` | $D_{it} + b_i D_{it}$ | Unadjusted |
+| `carryover_t1half = 0`, `simplecarryover = TRUE` | $D_{it} + b_i D_{it} + \beta_{sd} t_{sd,it}$ | Washout-adjusted |
+| `carryover_t1half > 0` | $D_{bc,it} + b_i D_{bc,it}$ | Exposure-weighted |
 
 The first and third are mutually exclusive with the second by
 construction: supplying both a non-zero half-life and
 `simplecarryover = TRUE` raises an error (lines 67 to 68).
 
-Two consequences follow. First, the binary lag indicator $L_{it}$
-evaluated here as Lag-adjusted is *not* inherited from the reference
-implementation. It was introduced by this project in
-`simulation-core.R`, following Jones and Kenward. The present study
-therefore adopts two of the original three specifications and
-substitutes a device of its own for the third, without evaluating the
-third itself.
+**A divergence to disclose.** Hendrickson's default `useDE = TRUE`
+appends the expectancy covariate $De$ wherever expectancy varies,
+which it does in OL+BDC and Hybrid though not CO. The specifications
+here omit it: `simulation-core.R` passes `expectancies` to the design
+builder, so expectancy shapes the simulated data, but $De$ never
+enters any fitted formula. It applies equally to all arms so should
+not disturb their ranking, but the fitted model is not Hendrickson's,
+and the agreement between this study's 0.860 and Hendrickson's
+reported 0.82 has not been checked against that difference.
 
-Second, that unevaluated third option, the linear $t_{sd}$ term, is a
-serious candidate. It sits between the other two on the assumption
-ladder of Section 4.1, conceding that residual exposure declines with
-elapsed time, as Exposure-weighted does, while declining to specify a
-half-life or a decay shape, as Lag-adjusted does. It is also the only
-alternative the original authors themselves thought worth
-implementing, and the `quick-sim` outputs discussed in Section 6 give
-a prior expectation that it recovers power.
+### 5.3 The cell that remains empty
 
-**A related divergence in the analysis model.** Hendrickson's default
-`useDE = TRUE` appends the expectancy covariate $De$ whenever
-expectancy varies across occasions, which it does in the OL+BDC and
-Hybrid designs though not in CO. The specifications compared here omit
-it: `simulation-core.R` passes `expectancies` to the design builder,
-so expectancy shapes the simulated data, but $De$ never enters any of
-the three fitted formulas. This is orthogonal to the carryover
-question and applies equally to all three arms, so it should not
-disturb their ranking, but it does mean the fitted model is not
-Hendrickson's, and the close agreement between this study's 0.860 and
-Hendrickson's reported 0.82 at the reference cell has not been checked
-against that difference.
+Replacing the middle arm improves it but does not fill the gap in
+Section 4.2. Washout-adjusted still carries the interaction on
+$D_{it}$, with $t_{sd}$ entering as a main effect only, so dilution
+remains unaddressed by any assumption-free method. The missing
+specification is now
 
-## 6. What the choice has already revealed
+$$
+Y_{it} = \ldots + \beta_D D_{it} + \beta_{sd} t_{sd,it}
+       + \beta_{bm:D}\, b_i D_{it}
+       + \beta_{bm:sd}\, b_i t_{sd,it} + u_i + \varepsilon_{it},
+$$
 
-Recorded because it bears on whether the design succeeded, not as a
-results summary. Epistemic status: recomputed directly from the stored
-cell-level summaries under `analysis/data/`, not re-simulated.
+in code `Sx ~ bm + t + Db + tsd + bm:Db + bm:tsd`. This is a more
+interesting candidate than the $b_i L_{it}$ term it replaces, because
+it is essentially a linear approximation to what Exposure-weighted
+does parametrically: it lets the biomarker effect decline across the
+washout without specifying a rate. Adding it would complete the ladder
+of Section 4.1.
 
-**How the comparison is scored.** The study follows ADEMP, which
-prescribes a fixed set of performance measures. For a clinical reader
-the relevant ones are:
+It is not proposed for this manuscript. If the grid stays at three,
+the Methods section should state that every assumption-free
+specification evaluated here enters carryover as a main effect only,
+and that the study therefore bounds what such methods can achieve
+against dilution rather than settling it.
 
-- **Power.** How often the trial correctly detects a biomarker effect
-  that is genuinely present. Higher is better; 0.80 is the
-  conventional target.
-- **Type I error.** How often it declares an effect when none exists.
-  This should sit at the nominal 0.05, and a method that achieves high
-  power by exceeding 0.05 has not earned it.
-- **Bias.** The average gap between the estimate and the true value.
-- **Coverage.** How often the 95% confidence interval contains the
-  true value. Should be 0.95.
-- **Mean squared error.** A single number combining bias and spread.
-- **MCSE.** The simulation's own margin of error, since each condition
-  is run a finite number of times. Differences smaller than the MCSE
-  should not be interpreted.
+### 5.4 Candidates set aside
 
-Each condition, or **cell**, is one combination of design, sample size,
-biomarker strength, decay shape and half-life, and is run 500 times.
+- **Washout deletion**, discarding off-drug measurements within a
+  window of stopping. Exposure weighting with crude 0/1 weights and an
+  arbitrary cutoff; discards observations the others use.
+- **Estimating the half-life from the data.** The principled answer to
+  Exposure-weighted's main weakness and the natural next step, but the
+  half-life is poorly determined at $N = 35$ from a handful of
+  off-drug measurements, introducing a convergence-failure mode the
+  others do not have.
+- **A full set of lag indicators**, one per off-drug occasion. The
+  window is three to four measurements long, so a full set is nearly
+  indistinguishable from the time term $t$.
 
-Within the manuscript's 216-cell scope, Lag-adjusted and Unadjusted
-are statistically indistinguishable. Mean power differs by 0.003
-against an MCSE of about 0.018, only 3 of 216 conditions differ by
-more than 0.02, and mean bias (0.373 versus 0.372), mean squared error
-(1.885 versus 1.876) and confidence-interval coverage (0.936 versus
-0.938) agree to three decimal places. The same equality holds in every
-sensitivity block and in the cluster-robust recalibration cells.
+## 6. What is known, and what must still be checked
 
-Read through Section 4.2 this is informative rather than merely
-negative. It says the added-noise mechanism is negligible in this
-setting, and therefore that the whole of the Exposure-weighted
-advantage comes from fixing dilution. A two-method comparison could
-not have reached that conclusion.
+Epistemic status: the Lag-adjusted and Unadjusted figures below are
+recomputed directly from the stored cell-level summaries under
+`analysis/data/`. **No Washout-adjusted results exist yet**; the
+specification has been added to `fit_spec()` but not run.
 
-One qualification is required, and it turns out to be a naming
-collision rather than a contradiction. A separate high-precision rerun
-under `analysis/data/quick-sim/` does show its arm labelled
-`A3_lagged` ahead of its `A1_binary` arm by 1.3 to 6.5 percentage
-points on paired tests. That rerun does not fit the specification
-described in Section 3.2. It calls the package's `lme_analysis()` with
-`simplecarryover = TRUE`, which, verified by reading
-`implementations/original/R/lme_analysis.R:151-153`, appends
-$t_{sd}$ itself as a linear main effect rather than the binary
-indicator $L_{it}$. Lag-adjusted adds $\beta_L L_{it}$; the rerun's
-arm adds $\beta_{sd} t_{sd,it}$. A continuous $t_{sd}$ term can track a graded decline across every
-off-drug occasion; a single binary flag marks one occasion and is
-constant thereafter. The first carries substantially more information
-than the second, which is a sufficient explanation for why one gains
-power and the other does not, and it supersedes the reading that the
-gap is merely a matter of test calibration. Test size does differ in
-the same direction, the rerun's arm carrying the highest
+**How the comparison is scored.** Following ADEMP: **power**, how
+often a real effect is detected, target 0.80; **Type I error**, how
+often an effect is declared when none exists, which should sit at
+0.05; **bias**, the average gap between estimate and truth;
+**coverage**, how often the 95% interval contains the truth, target
+0.95; **MSE**, combining bias and spread; and **MCSE**, the
+simulation's own margin of error, below which differences should not
+be interpreted. A **cell** is one combination of design, sample size,
+biomarker strength, decay shape and half-life, run 500 times.
+
+**The side-check result.** Within the 216-cell scope, Lag-adjusted and
+Unadjusted are statistically indistinguishable. Mean power differs by
+0.003 against an MCSE of about 0.018, only 3 of 216 conditions differ
+by more than 0.02, and mean bias (0.373 versus 0.372), MSE (1.885
+versus 1.876) and coverage (0.936 versus 0.938) agree to three decimal
+places. The same equality holds in every sensitivity block and in the
+cluster-robust cells. The classical lagged device therefore provides
+no measurable benefit over ignoring carryover altogether, which is a
+reportable finding in its own right.
+
+**What the reference implementation's output suggests.** Its $t_{sd}$
+arm leads its unadjusted arm by 1.3 to 6.5 percentage points on paired
+tests, with an identical point estimate (-1.61 in both) and nearly
+identical empirical spread. Identical estimate with higher power means
+the gain came through the noise channel, consistent with the
+classification in Section 4.2.
+
+**Two checks that must pass before that is believed.** First, the
+`quick-sim` run uses a different parameterization and a different code
+path, so it establishes only that the term can work, not that it will
+here. Second, and more seriously, its $t_{sd}$ arm carried the highest
 false-positive rate of its three, up to 0.053 against 0.037 where 0.05
-is nominal, so both effects are probably present. Disentangling them
-would require fitting both models to the same datasets, which has not
-been done.
-
-The practical consequence is that the two sources were never measuring
-the same thing, and the label `A3_lagged` in the `quick-sim` outputs
-should not be read as this manuscript's Lag-adjusted specification.
+is nominal. If Washout-adjusted proves anticonservative under this
+study's parameterization, part or all of its power advantage is not
+real. Type I error must therefore be reported alongside power, and no
+power gain should be claimed until that check passes.
 
 ## 7. Which comparisons this design supports
 
-A choice of methods determines which conclusions the study is entitled
-to draw. Four rules follow from Sections 3 and 4, and they should
-govern how the manuscript's tables are read.
-
 **Power and Type I error are comparable across all three.** These are
-properties of the test, not of the coefficient being tested, so they
-can be compared freely even though the three specifications do not all
-estimate the same quantity.
+properties of the test, not of the coefficient tested, so they can be
+compared freely even though the three do not all estimate the same
+quantity.
 
-**Bias, mean squared error and coverage are comparable only within the
-Unadjusted and Lag-adjusted pair.** Those two estimate the coefficient
-on $b_i D_{it}$; Exposure-weighted estimates the coefficient on
-$b_i D_{bc,it}$. All three are scored in the manuscript against the
-single target $\theta_{\text{true}} = -3.6$, which is the correct
-target for Exposure-weighted but not for the other two. The
-consequence is easy to misread: Exposure-weighted shows near-zero bias
-and nominal coverage while the other two show substantial bias and
+**Bias, MSE and coverage are comparable only within the Unadjusted and
+Washout-adjusted pair.** Those two estimate the coefficient on
+$b_i D_{it}$; Exposure-weighted estimates the coefficient on
+$b_i D_{bc,it}$. All are scored against the single target
+$\theta_{\text{true}} = -3.6$, correct for Exposure-weighted but not
+for the others. Exposure-weighted will therefore show near-zero bias
+and nominal coverage while the others show substantial bias and
 under-coverage, and that gap is largely a statement about which
-quantity each one targets rather than about which estimator is better
-behaved. Those columns should not be used to rank the three.
+quantity each targets. Those columns must not be used to rank the
+three.
 
-**The Lag-adjusted versus Unadjusted contrast is the controlled one.**
-Same estimand, same simulated patients, one term of difference.
-Whatever separates them is the added-noise mechanism, cleanly
-identified. This is the single most trustworthy comparison in the
-study, and it is the reason the third arm was worth adding.
+**The Washout-adjusted versus Unadjusted contrast is the controlled
+one.** Same estimand, same simulated patients, one term of difference.
+Whatever separates them is the noise mechanism, cleanly identified.
+This is the most trustworthy comparison in the study.
 
-**Any conclusion about the lag device is bounded by its main-effect
-form.** Because the specification lacks $b_i L_{it}$, a finding that
-Lag-adjusted does not recover power says that a lag *main effect* does
-not recover power. It does not establish that the crossover
-tradition's approach fails, only that this implementation of it does.
-Section 5.2 sets out what would be needed to close that gap.
+**Conclusions about assumption-free methods are bounded by the
+main-effect form.** Neither Washout-adjusted nor the retained
+side-check includes a biomarker interaction with the carryover term,
+so a null result for either says that a carryover *main effect* does
+not recover the diluted signal. It does not establish that no
+assumption-free method can (Section 5.3).
 
 ## 8. Summary
 
-The three specifications are Unadjusted, which codes exposure as a
-simple on/off switch; Lag-adjusted, which adds a flag for the first
-off-drug measurement; and Exposure-weighted, which replaces the switch
-with a dimmer that fades at an assumed half-life. They are the right
-three because they occupy the three distinct positions available on
-the unknown washout curve, because two of them estimate the same
-quantity and so isolate one damage mechanism under otherwise identical
-conditions while the third addresses the other, and because each is
-the working default of a literature that will read the result. Their
-principal weakness is the empty cell at $b_i L_{it}$, which leaves the
-crossover tradition's remedy represented only in a form that cannot
-address dilution, and which should either be filled or explicitly
-disclaimed.
+The three specifications are Unadjusted, which codes exposure as an
+on/off switch; Washout-adjusted, which adds elapsed time since
+stopping as a covariate; and Exposure-weighted, which replaces the
+switch with a dimmer fading at an assumed half-life. They are the
+right three because they occupy the three distinct positions on the
+unknown washout curve, because two share an estimand and so isolate
+one damage mechanism under otherwise identical conditions while the
+third addresses the other, and because the set now covers every option
+the reference implementation provides.
+
+The middle arm was changed from the Jones and Kenward lagged indicator
+because that indicator is a project invention rather than the
+published alternative, because it cannot distinguish occasions
+differing eightfold in residual exposure, and because its null result
+may have been an artifact of that crudeness rather than evidence about
+the mechanism. It is retained as a reported side-check. The set still
+leaves one cell empty, at $b_i t_{sd}$, which should be disclaimed in
+the Methods if it is not filled.
 
 ## 9. Proposed additions to NOTATION.md
 
-Three gaps in the canonical notation are exposed by this comparison.
+**9.1 Add $L_{it}$ and $t_{sd}$ as model terms.** The lagged
+just-off-drug indicator has no symbol in Part 1. Proposed:
+$L_{it} = D_{i,t-1}(1 - D_{it})$, equal to 1 at the first off-drug
+occasion following an on-drug one (code column `L`). $t_{sd}$ is
+already listed as a data-generating quantity; the entry should note
+that it also serves as an analysis-model covariate.
 
-**9.1 Add $L_{it}$.** The lagged just-off-drug indicator has no symbol
-in Part 1. Proposed entry for the treatment-exposure table:
-
-| Symbol | Meaning |
-|---|---|
-| $L_{it}$ | lagged just-off-drug indicator, $D_{i,t-1}(1 - D_{it})$; 1 at the first off-drug occasion following an on-drug one (code column `L`) |
-
-**9.2 Split the estimand symbol.** Part 1 currently carries a single
-entry, $\beta_{bm:D}$, glossed as the biomarker-by-treatment
-interaction coefficient and annotated `bm:Dbc`. That conflates two
-different coefficients. Unadjusted and Lag-adjusted estimate the
-coefficient on $b_i D_{it}$; Exposure-weighted estimates the
-coefficient on $b_i D_{bc,it}$. The distinction is what licenses the
-controlled comparison of Section 4.2, and it is also why the
-manuscript's bias, mean-squared-error and coverage columns are
-comparable within the first pair but not across to the third.
-Proposed replacement:
-
-| Symbol | Meaning |
-|---|---|
-| $\beta_{bm:D}$ | interaction coefficient on the binary regressor, $b_i D_{it}$ (`bm:Db`); the estimand of Unadjusted and Lag-adjusted |
-| $\beta_{bm:D_{bc}}$ | interaction coefficient on the exposure-decayed regressor, $b_i D_{bc,it}$ (`bm:Dbc`); the estimand of Exposure-weighted |
+**9.2 Split the estimand symbol.** Part 1 carries a single entry,
+$\beta_{bm:D}$, glossed as the interaction coefficient and annotated
+`bm:Dbc`. That conflates two coefficients. Proposed:
+$\beta_{bm:D}$ for the coefficient on $b_i D_{it}$ (`bm:Db`), the
+estimand of Unadjusted, Washout-adjusted and the side-check; and
+$\beta_{bm:D_{bc}}$ for the coefficient on $b_i D_{bc,it}$
+(`bm:Dbc`), the estimand of Exposure-weighted. This distinction is
+what licenses the controlled comparison of Section 4.2 and why the
+bias and coverage columns are comparable within one pair but not
+across to the third.
 
 **9.3 Add the main-effect coefficients.** Part 1 has no symbols for
-the intercept or for the non-interaction terms of the analysis model,
-so any paper writing the model out must invent them. Proposed:
-$\beta_0$ intercept, $\beta_b$ biomarker main effect, $\beta_t$ time,
-$\beta_D$ drug-exposure main effect, and $\beta_L$ lagged-indicator
-main effect. The entry for $\beta_b$ should note explicitly that it is
-distinct from $\beta_{bm}$, which the file reserves for the moderation
-parameter of the mean-moderation architecture; the two are easily
-confused and mean quite different things.
+the intercept or non-interaction terms. Proposed: $\beta_0$
+intercept, $\beta_b$ biomarker, $\beta_t$ time, $\beta_D$ drug
+exposure, $\beta_L$ lagged indicator, $\beta_{sd}$ linear time since
+discontinuation. The $\beta_b$ entry should note that it is distinct
+from $\beta_{bm}$, reserved for the mean-moderation architecture's
+moderation parameter.
 
-**9.4 A policy tension to resolve before renaming.** Part 2 of
-`NOTATION.md` requires that a stored data value doubling as a
-reporting label be kept identical to it, and records `spec` as stored
-`E1/E2/E3` and reported unmapped. That rule was enforced on
+**9.4 Register the `E4` stored value.** The Part 2 table lists `spec`
+as taking `E1`, `E2`, `E3`. Washout-adjusted adds `E4`. It is a new
+code rather than a redefinition of `E3` deliberately: redefining would
+silently change the meaning of `E3` in the twenty-one migrated `.rds`
+files and in whatever papers 01 and 10 quote, which is the precise
+failure mode Part 2 exists to prevent. The Part 3 glossary entry for
+analysis specifications needs the fourth line accordingly.
+
+**9.5 A policy tension to resolve before renaming.** Part 2 requires
+that a stored value doubling as a reporting label be kept identical to
+it, and records `spec` as unmapped. That rule was enforced on
 2026-07-31, when twenty-one `.rds` files were migrated from
-`A1/A2/A3` precisely to retire a display-time mapping. Renaming the
-specifications reintroduces the layer that migration removed.
-
-The same file supplies the governing precedent, however: the
-architectures were renamed to mechanism names while their stored
-values (`mean_moderation`, `mvn`, `combined`) were left untouched and
-the mapping recorded. That is the operation proposed here, for the
-same reason. Follow that precedent rather than migrating twice. Keep
-`E1/E2/E3` stored permanently, apply display names through one shared
-helper, and mark the Part 2 row as mapped. A second migration would
-invalidate the archived drafts, the pre-migration backups, and every
-summary quoted in papers 01 and 10, all to satisfy a rule the file
-already suspends for the architectures.
+`A1/A2/A3` to retire a display-time mapping, so renaming reintroduces
+the layer that migration removed. The same file supplies the governing
+precedent, however: the architectures were renamed to mechanism names
+while their stored values were left untouched and the mapping
+recorded. Follow that precedent rather than migrating twice. Keep
+`E1` to `E4` stored permanently, apply display names through one
+shared helper, and mark the Part 2 row as mapped.
 
 ---
-*Rendered on 2026-08-05 at 10:26 PDT.*<br>
-*Source: ~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/whitepaper-three-analysis-specifications.md*
+*Rendered on 2026-08-05 at 10:46 PDT. Source:
+`~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/whitepaper-three-analysis-specifications.md`*

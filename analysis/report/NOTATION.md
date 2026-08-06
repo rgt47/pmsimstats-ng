@@ -1,7 +1,8 @@
 # Canonical notation, identifiers, and glossary
 
 *Originally written 2026-07-30 11:57 PDT; expanded to a full reference
-2026-07-30 20:20 PDT*
+2026-07-30 20:20 PDT; revised 2026-08-06 to settle $N$ as the total
+across randomization paths*
 
 This file is the single source of truth for mathematical notation,
 code identifiers, and controlled vocabulary across the manuscripts
@@ -26,8 +27,8 @@ from the archived `.rds` summaries.
 | $i$ | participant index |
 | $t$ | timepoint index; weekly measurement occasions throughout |
 | $j$, $ij$ | period or occasion index within participant (papers 04, 06) |
-| $N$ | **total** number of participants in the trial, across all randomization paths. With $P$ paths the expected number allocated to each is $N/P$ |
-| $P$ | number of randomization paths in a design: 1 (OL), 2 (CO, OL+BDC), 4 (Hybrid) |
+| $N$ | **total** number of participants in the trial, across all randomization paths; never a per-path count. See Part 2, sample size and randomization paths |
+| $P$ | number of randomization paths in a design; the expected allocation to each is $N/P$ |
 | $n_{\text{reps}}$, $n_{\text{sim}}$ | Monte Carlo replicates per cell |
 | $k$ | cycles per participant in design sweeps; also the Weibull shape parameter in the decay family |
 
@@ -109,23 +110,51 @@ $e^{-(\lambda_w t)^k}$; power $\max(0, (1 - t/(3t_{1/2}))^p)$.
    for the model; write `Sx ~ bm + t + Dbc + bm:Dbc` in `\texttt{}`
    when quoting the R formula. Never mix the two inside one
    expression.
-4. **$N$ is the total sample size.** $N$ denotes the total number of
-   participants enrolled in the trial, across all randomization paths.
-   Where a design has $P$ paths, the expected number allocated to each
-   is $N/P$: with $P = 4$ and $N = 140$, each path receives about 35.
-   Never use $N$ for a per-path count. A paper reporting a per-path
-   quantity must name it separately, as $N/P$ or in words, and must
-   still give $N$ itself as the total. Drivers that allocate $N$ across
-   paths (`R/generateSimulatedResults.R`, the carryover-sensitivity
-   `simulation-core.R`) implement this convention directly; a driver
-   that instead passes the full $N$ to every path is generating
-   $N \times P$ participants and its reported $N$ must be corrected to
-   the product before the numbers are quoted.
+4. **$N$ is the total sample size.** $N$ is the total number of
+   participants across all randomization paths, and the expected
+   allocation to each of $P$ paths is $N/P$: with $P = 4$ and
+   $N = 140$, each path receives about 35. Never use $N$ for a per-path
+   count. A paper may name a per-path count alongside the total, in
+   words or as $N/P$, but must give $N$ itself as the total. Because
+   two of the drivers fix the per-path count instead, the reported $N$
+   cannot be taken on trust: check the driver against the table in
+   Part 2 before quoting a sample size.
 5. **State the sign convention.** The three components are
    non-negative *reductions* in symptom severity, so an increase in
    any component lowers $Y$. Treatment effects and interaction
    coefficients are consequently negative; moderation parameters are
    positive.
+
+## What the linter checks
+
+`tools/notation-lint.pl` mechanizes the part of this file that can be
+checked from the manuscript sources. Run it over the manuscripts:
+
+```
+perl tools/notation-lint.pl analysis/report/*/report.Rmd
+```
+
+It skips fenced R chunks and `verbatim` blocks and strips `\texttt{}`
+and backtick spans, so it sees reader-facing prose and mathematics
+only. Four checks are implemented.
+
+| Check | Fires on | Rule |
+|---|---|---|
+| `bare-Dbc` | `Dbc` as a symbol outside a code span | 1 |
+| `bare-Sx` | `Sx` as a symbol outside a code span | 3 |
+| `legacy-spec-label` | `A1`, `A2`, `A3` | Part 3, specifications |
+| `N-per-path` | a value of $N$ directly qualified as per-path | 4 |
+
+`N-per-path` fires on `$N = 35$ per randomization path` but not on
+`$N = 140$ (70 per path)`, which is the compliant way to give both
+numbers. A day-denominated $t_{1/2}$ is exempted when the file carries
+a `**Units.**` paragraph, which is how rule 3's units requirement is
+enforced.
+
+Rule 2 and rule 5 are not mechanized: whether a shared $c_{bm}$ label
+is declared, and whether the sign convention is stated, both need a
+reader. One known false positive stands, a `bare-Sx` inside a backtick
+span that crosses a line break in paper 02.
 
 ## Units
 
@@ -167,7 +196,7 @@ ordinary factor-level-to-label relationship.
 
 | Identifier | Role |
 |---|---|
-| `modelparam` | list: sample size `N`, moderation `c.bm`. In `generateSimulatedResults` and the analysis drivers, `N` is the total and is allocated across paths. In a direct `generateData` call `N` is the count for the single path passed as `trialdesign`, so a driver looping over paths must divide the total itself |
+| `modelparam` | list: sample size `N`, moderation `c.bm`. The meaning of `N` depends on the caller; see sample size and randomization paths below |
 | `respparam` | Gompertz parameters `maxr`, `rate`, `disp` per component |
 | `blparam` | biomarker and nuisance means and standard deviations |
 | `trialdesign` | output of `buildtrialdesign`: `timepoints`, `timeptnames`, `expectancies`, `ondrug` |
@@ -181,6 +210,77 @@ ordinary factor-level-to-label relationship.
 | `makePositiveDefinite` | positive-definiteness repair switch |
 | `n_cores` | worker count; `-1` auto-detects |
 | `save_chunks` | progressive checkpointing for long runs |
+
+## Sample size and randomization paths
+
+Rule 4 fixes $N$ as the total. The complication is that `modelparam$N`
+does not mean the same thing at every level of the call stack, and two
+families of driver read it differently.
+
+**The two levels.** `generateData` generates one path: it takes a
+single `trialdesign` and treats `N` as the count for that path alone.
+`generateSimulatedResults` generates a whole design: it takes `N` as
+the total and allocates it, `Ns <- N %/% nP` with the remainder spread
+one per path. A driver that loops over `td$trialpaths` itself is
+therefore working at the lower level and must divide the total before
+the loop. A driver that passes the same full `N` to every iteration
+generates $N \times P$ participants, and its reported $N$ is a
+per-path count wearing the wrong name.
+
+**Path counts.** $P$ is a property of the design, not a free
+parameter.
+
+| Design | $P$ | Paths |
+|---|---|---|
+| OL | 1 | on drug throughout |
+| CO | 2 | drug-then-placebo, placebo-then-drug |
+| OL+BDC | 2 | discontinuation at either of two visits |
+| Hybrid | 4 | two discontinuation points crossed with two crossover orders |
+
+Paper 06 also uses a reduced single-path OL+BDC variant for its
+smaller cells and a two-path sixteen-visit variant for its larger
+ones, so $P$ changes within that paper's sample-size axis.
+
+**Which drivers allocate and which duplicate.** Established by
+inspection of every driver reachable from a current manuscript, on
+2026-08-05.
+
+| Driver | Reads `N` as | Mechanism |
+|---|---|---|
+| `R/generateSimulatedResults.R` | total | `Ns <- N %/% nP` plus remainder |
+| `analysis/scripts/carryover-sensitivity/simulation-core.R` | total | `generate_data_multi_path`, `floor(N / n_paths)` |
+| `implementations/nof1power/R/simulation.R` | total | same integer split |
+| `analysis/scripts/test-procedure-design-sensitivity/01-study1-test-procedure.R` | total | explicit `split_N` |
+| `analysis/scripts/quick-sim/*.R` | per path | hand-rolled `for (g in seq_along(paths))` passing one `mp` |
+| `analysis/scripts/component-decomposition/*.R` | per path | same shape |
+| `analysis/scripts/gompertz-evaluation/02-faithful-trajectory-sweep.R` | per path | same shape |
+
+**Status by paper.** The manuscripts now report totals throughout. The
+column below records how each paper's own driver behaves, because that
+is what a re-run will inherit. One entry is weaker than the others:
+the driver behind paper 01's Section 3.3 robustness run was not
+located, so its per-path reading is taken from that paper's own
+statement of its convention rather than from inspected code.
+
+| Paper | Driver reads `N` as | Manuscript |
+|---|---|---|
+| 01 | per path | relabeled to totals: 70 for CO and OL+BDC, 140 for Hybrid; the Section 3.3 check is OL+BDC at 140 |
+| 02, 05, 08, 10, 11 | total | already correct |
+| 03, 04 | coincident (single-path or path-free DGP) | unaffected |
+| 06 | per path | larger cells relabeled 100 to 200 and 150 to 300 |
+| 07 | per path | relabeled 35 to 70 |
+| 09 | per path | totals stated per design: 35, 70, 70, 140 |
+
+**Two consequences that outlive the relabeling.** A per-path driver
+run across designs with different $P$ produces an unmatched
+comparison, since the designs then differ in sample size as well as
+structure. This affects the cross-design readings in papers 01 and 09,
+both of which now say so in place; within-design contrasts, which hold
+$N$ fixed, are unaffected. Separately, the stored `N` column in the
+`.rds` output of the per-path drivers still holds per-path values, so
+a manuscript total and its stored `N` disagree for papers 01, 06, 07
+and 09 until those drivers are corrected and the cells re-run. No
+current manuscript reads that column, so nothing renders wrong today.
 
 ## Data columns
 
@@ -235,7 +335,9 @@ reference design. Capitalize it.
 **Aggregated N-of-1 trial**. Many single-patient on/off series pooled
 into one mixed model.
 
-Define each abbreviation at first use in every paper.
+Define each abbreviation at first use in every paper. Each design's
+randomization-path count is given in Part 2, under sample size and
+randomization paths, and is not repeated here.
 
 ## Data-generating architectures
 
@@ -345,6 +447,6 @@ The two are complementary: this file governs mathematics and
 identifiers, that one governs surface forms and acronym expansion.
 
 ---
-*Rendered on 2026-08-05 at 17:19 PDT.*<br>
+*Rendered on 2026-08-06 at 11:58 PDT.*<br>
 *Source: ~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/NOTATION.md*
 

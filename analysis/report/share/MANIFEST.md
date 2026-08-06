@@ -99,3 +99,5 @@
 | `01-dgp-mean-moderation-vs-mvn-2026-08-05-1048-nogit.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `nogit` | 2026-08-05 10:48 PDT |
 | `06-component-decomposition-2026-08-05-1110-bc6a815-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `bc6a815-wip` | 2026-08-05 11:10 PDT |
 | `02-carryover-sensitivity-2026-08-05-1605-nogit.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report.Rmd` | `nogit` | 2026-08-05 16:05 PDT |
+| `07-gompertz-evaluation-2026-08-05-1711-nogit.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `nogit` | 2026-08-05 17:11 PDT |
+| `09-informative-dropout-by-design-2026-08-05-1718-nogit.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/09-informative-dropout-by-design/report.Rmd` | `nogit` | 2026-08-05 17:18 PDT |

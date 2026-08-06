@@ -345,6 +345,6 @@ The two are complementary: this file governs mathematics and
 identifiers, that one governs surface forms and acronym expansion.
 
 ---
-*Rendered on 2026-08-05 at 09:18 PDT.*<br>
+*Rendered on 2026-08-05 at 17:19 PDT.*<br>
 *Source: ~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/NOTATION.md*
 

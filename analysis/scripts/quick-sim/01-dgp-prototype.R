@@ -1,9 +1,12 @@
 # 01-dgp-prototype.R
 #
-# Tier-F item 25: paper 01 (dgp-mean-moderation-vs-mvn) at N = 35
-# to escape the saturation regime that compressed the
-# Architecture-B-vs-A power-loss-under-carryover gap in the
-# previous N = 70 prototype.
+# Tier-F item 25: paper 01 (dgp-mean-moderation-vs-mvn) at 35
+# participants per randomization path, to escape the saturation
+# regime that compressed the covariance-versus-mean-moderation
+# power-loss-under-carryover gap in the earlier prototype at twice
+# that size. N below is the TOTAL across paths, so the designs run
+# at N = 70 (CO, OL+BDC) and N = 140 (Hybrid); they are not matched
+# on N, which is a limitation the manuscript states.
 #
 # Cells (24 total): architecture {mvn, mean_moderation} x
 # design {CO, Hybrid, OL+BDC} x t1half {0, 0.5, 1.0} x
@@ -352,7 +355,7 @@ for (i in seq_len(n_cells)) {
 
 reps_dt <- rbindlist(all_rows, fill = TRUE)
 reps_dt[, converged := !is.na(p)]
-setcolorder(reps_dt, c('architecture', 'design', 't1half', 'c.bm',
+setcolorder(reps_dt, c('architecture', 'design', 'N', 't1half', 'c.bm',
                        'rep_idx', 'beta', 'betaSE', 'p',
                        'converged'))
 
@@ -362,7 +365,7 @@ cat(sprintf('\nTotal wall-clock: %.1f s (budget %d s)\n',
 cat(sprintf('Total reps stored: %d (aborted=%s)\n',
             nrow(reps_dt), aborted))
 cat('Reps per cell:\n')
-print(reps_dt[, .N, by = .(architecture, design, t1half, c.bm)])
+print(reps_dt[, .N, by = .(architecture, design, N, t1half, c.bm)])
 
 # ---------------------------------------------------------------
 # Persist replicates
@@ -373,7 +376,7 @@ dir.create('analysis/data/quick-sim', showWarnings = FALSE,
 dir.create('analysis/figures/quick-sim', showWarnings = FALSE,
            recursive = TRUE)
 
-reps_out <- reps_dt[, .(architecture, design, t1half, c.bm, rep_idx,
+reps_out <- reps_dt[, .(architecture, design, N, t1half, c.bm, rep_idx,
                         beta, betaSE, p, converged)]
 saveRDS(reps_out,
         'analysis/data/quick-sim/01-dgp-replicates.rds')
@@ -403,7 +406,7 @@ summary_dt <- reps_dt[, {
     sd_beta        = sb,
     mcse_mean_beta = mcse_mb
   )
-}, by = .(architecture, design, t1half, c.bm)]
+}, by = .(architecture, design, N, t1half, c.bm)]
 
 setorder(summary_dt, architecture, design, c.bm, t1half)
 fwrite(summary_dt,

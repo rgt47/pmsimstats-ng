@@ -94,6 +94,31 @@ designs <- list(
 )
 
 ## -----------------------------------------------------------------
+## Sample size. N is the TOTAL across randomization paths
+## (NOTATION.md rule 4) and is allocated across them. This driver
+## holds the per-path count at 35, so the total varies with the
+## design's path count: 35 (OL), 70 (OLBDC, crossover), 140
+## (hybrid). Earlier versions passed 35 to every path and recorded
+## that as N. The draws are unchanged; only the label is corrected.
+##
+## The designs are consequently NOT matched on N, so the cross-design
+## power ordering this driver produces is confounded with sample
+## size. The manuscript states this in the discussion.
+## -----------------------------------------------------------------
+
+n_per_path_target <- 35L
+n_total_for_design <- vapply(
+  designs, function(td) n_per_path_target * length(td$trialpaths),
+  integer(1))
+
+allocate_across_paths <- function(n_total, n_paths) {
+  base <- n_total %/% n_paths
+  rep(base, n_paths) +
+    c(rep(1L, n_total %% n_paths),
+      rep(0L, n_paths - n_total %% n_paths))
+}
+
+## -----------------------------------------------------------------
 ## DGP parameters (matched to prior 5-min and 30-min drivers)
 ## -----------------------------------------------------------------
 
@@ -205,8 +230,11 @@ run_one_rep <- function(design_name, dropout_pattern, seed) {
   c_bm <- 0.45
   t1half <- 0.5
 
+  n_per_path <- allocate_across_paths(
+    n_total_for_design[[design_name]], length(paths))
+
   mp <- data.table(
-    N = 35L, c.bm = c_bm,
+    N = NA_integer_, c.bm = c_bm,
     carryover_t1half = t1half,
     c.tv = 0.7, c.pb = 0.7, c.br = 0.7,
     c.cf1t = 0.1, c.cfct = 0.05
@@ -234,6 +262,7 @@ run_one_rep <- function(design_name, dropout_pattern, seed) {
       dat_list <- vector('list', length(paths))
       drop_fracs <- numeric(length(paths))
       for (g in seq_along(paths)) {
+        mp$N <- n_per_path[[g]]
         di <- generateData(
           modelparam = mp, respparam = rp, blparam = bp,
           trialdesign = paths[[g]],
@@ -384,8 +413,9 @@ setnames(reps_dt,
          old = c('beta', 'betaSE', 'p'),
          new = c('beta_bmDbc', 'betaSE_bmDbc', 'p_bmDbc'))
 reps_dt[, converged := !is.na(p_bmDbc)]
+reps_dt[, N := n_total_for_design[as.character(design)]]
 setcolorder(reps_dt,
-            c('design', 'dropout_pattern', 'rep_idx',
+            c('design', 'N', 'dropout_pattern', 'rep_idx',
               'beta_bmDbc', 'betaSE_bmDbc', 'p_bmDbc',
               'converged', 'dropout_fraction'))
 
@@ -402,7 +432,7 @@ dir.create('analysis/data/quick-sim', showWarnings = FALSE,
 dir.create('analysis/figures/quick-sim', showWarnings = FALSE,
            recursive = TRUE)
 
-reps_out <- reps_dt[, .(design, dropout_pattern, rep_idx,
+reps_out <- reps_dt[, .(design, N, dropout_pattern, rep_idx,
                         beta_bmDbc, betaSE_bmDbc, p_bmDbc,
                         converged)]
 saveRDS(reps_out,

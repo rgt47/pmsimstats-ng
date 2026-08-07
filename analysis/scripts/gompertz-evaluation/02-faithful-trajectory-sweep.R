@@ -121,10 +121,24 @@ cat(sprintf('-- Calibration: anchor week %.1f, BR(anchor)=%.4f, maxr=%.4f\n',
 
 architectures <- c('mvn', 'mean_moderation')
 cbm_levels    <- c(0, 0.45)
-N_subjects    <- 35
 
-mp_for <- function(cv) data.table(
-  N = N_subjects, c.bm = cv, carryover_t1half = 0,
+# N is the TOTAL across randomization paths (NOTATION.md rule 4) and
+# is allocated across them. This design has two paths, so the total of
+# 70 puts 35 on each, which is what earlier versions of this driver
+# passed to every path while calling it N. The draws are unchanged;
+# only the recorded label is corrected.
+N_total <- 70L
+
+allocate_across_paths <- function(n_total, n_paths) {
+  base <- n_total %/% n_paths
+  rep(base, n_paths) +
+    c(rep(1L, n_total %% n_paths),
+      rep(0L, n_paths - n_total %% n_paths))
+}
+n_per_path <- allocate_across_paths(N_total, n_paths)
+
+mp_for <- function(cv, n) data.table(
+  N = n, c.bm = cv, carryover_t1half = 0,
   c.tv = 0.7, c.pb = 0.7, c.br = 0.7, c.cf1t = 0.2, c.cfct = 0.1)
 
 # -- Family-specific sigma cache: (family, arch, c.bm, path) ---------
@@ -138,7 +152,8 @@ build_cache <- function(fam) {
     for (cv in cbm_levels) {
       key <- paste(arch, cv, sep = '|')
       cache[[key]] <- lapply(seq_len(n_paths), function(g)
-        buildSigma(mp_for(cv), rp, bp, td$trialpaths[[g]],
+        buildSigma(mp_for(cv, n_per_path[[g]]), rp, bp,
+                   td$trialpaths[[g]],
                    makePositiveDefinite = TRUE, dgp_architecture = arch,
                    br_family = fam, br_p2 = pp$p2, br_p3 = pp$p3))
     }
@@ -156,10 +171,10 @@ run_one <- function(family, architecture, cbm, seed,
                     moderation_scaling = 'trajectory') {
   set.seed(seed)
   cs_set   <- fam_caches[[family]][[paste(architecture, cbm, sep = '|')]]
-  mp_local <- mp_for(cbm)
 
   dats <- vector('list', n_paths)
   for (g in seq_len(n_paths)) {
+    mp_local <- mp_for(cbm, n_per_path[[g]])
     dat <- generateData(mp_local, rp, bp, td$trialpaths[[g]],
                         empirical = FALSE, makePositiveDefinite = TRUE,
                         cached_sigma = cs_set[[g]],
@@ -170,7 +185,8 @@ run_one <- function(family, architecture, cbm, seed,
   }
   dat <- rbindlist(dats, fill = TRUE)
   res <- lme_analysis(td$trialpaths, dat, op)
-  data.table(family = family, architecture = architecture, c.bm = cbm,
+  data.table(family = family, architecture = architecture, N = N_total,
+             c.bm = cbm,
              rep_idx = seed, beta_bmDbc = res$beta, p_bmDbc = res$p,
              converged = !is.na(res$beta))
 }

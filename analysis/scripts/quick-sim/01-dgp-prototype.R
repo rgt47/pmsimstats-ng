@@ -99,6 +99,24 @@ td_OLBDC <- buildtrialdesign(
 td_lookup <- list(CO = td_CO, Hybrid = td_Hybrid, `OL+BDC` = td_OLBDC)
 
 # ---------------------------------------------------------------
+# Sample size. N is the TOTAL across randomization paths (see
+# analysis/report/NOTATION.md rule 4) and is allocated across them,
+# remainder spread one per path. Earlier versions of this driver
+# passed 35 to every path, which made the reported N a per-path
+# count. The totals below preserve 35 per path, so the generated
+# data is unchanged and only the label is corrected.
+# ---------------------------------------------------------------
+
+n_total_for_design <- c(CO = 70L, Hybrid = 140L, `OL+BDC` = 70L)
+
+allocate_across_paths <- function(n_total, n_paths) {
+  base <- n_total %/% n_paths
+  rep(base, n_paths) +
+    c(rep(1L, n_total %% n_paths),
+      rep(0L, n_paths - n_total %% n_paths))
+}
+
+# ---------------------------------------------------------------
 # Parameter sets: package's extracted reference parameters
 # (prazosin/PTSD calibration).
 # ---------------------------------------------------------------
@@ -141,15 +159,18 @@ run_one_rep <- function(architecture, design, c_bm, t1half, seed) {
 
   tryCatch({
     td <- td_lookup[[design]]
+    paths <- td$trialpaths
+    n_per_path <- allocate_across_paths(n_total_for_design[[design]],
+                                        length(paths))
     mp <- data.table(
-      N = 35L, c.bm = c_bm,
+      N = NA_integer_, c.bm = c_bm,
       carryover_t1half = t1half,
       c.tv = 0.7, c.pb = 0.7, c.br = 0.7,
       c.cf1t = 0.2, c.cfct = 0.1
     )
-    paths <- td$trialpaths
     dat_list <- vector('list', length(paths))
     for (g in seq_along(paths)) {
+      mp$N <- n_per_path[[g]]
       di <- generateData(
         modelparam = mp, respparam = rp, blparam = bp,
         trialdesign = paths[[g]],
@@ -320,6 +341,7 @@ for (i in seq_len(n_cells)) {
   cell_dt <- rbindlist(cell_rows, fill = TRUE)
   cell_dt[, `:=`(architecture = ci$architecture,
                  design       = ci$design,
+                 N            = n_total_for_design[[ci$design]],
                  c.bm         = ci$c.bm,
                  t1half       = ci$t1half,
                  rep_idx      = seq_len(.N))]

@@ -294,6 +294,38 @@ Section 4 takes up the practical implications for trialists.
 
 # Simulation design
 
+The study simulates complete aggregated N-of-1 trials and analyzes
+each one under every specification. A single replicate proceeds as
+follows. Patients are allocated across the randomization paths of the
+chosen trial design (Section 2.2). For each patient we draw a
+pre-treatment biomarker together with the three latent response
+components, namely the pharmacological response, the natural-history
+trend and the placebo-belief component, jointly across all eight
+measurement occasions from a multivariate normal distribution whose
+means follow modified Gompertz trajectories and whose covariance
+carries within-component AR(1) autocorrelation, cross-component
+correlations, and the treatment-state-dependent biomarker-response
+correlation that encodes the interaction (Section 2.3). The observed
+symptom score at each occasion is the patient's baseline severity
+less the sum of the three components, so that a beneficial effect
+lowers the score. Carryover enters through a decay function of time
+since discontinuation, which keeps part of the pharmacological effect
+present at nominally off-drug occasions. All three analysis
+specifications (Section 2.4) are then fitted to that same simulated
+dataset, and we record the interaction coefficient, its standard
+error and its $p$-value from each. This is repeated 500 times for
+every parameter combination in the grid of Section 2.5.
+
+Fitting all specifications to a common dataset is deliberate: it
+makes every contrast among them paired, so that differences are
+estimated with substantially less Monte Carlo variance than
+independent draws would give. Throughout, $N$ denotes the **total**
+number of patients in a trial, allocated as evenly as possible across
+the design's randomization paths, so a design with $P$ paths assigns
+about $N/P$ patients to each. At $N = 70$ this is 35 per path under
+the two-path designs and 17 or 18 per path under the four-path Hybrid
+design.
+
 ## Aims
 
 The aim of this study is to quantify, under the covariance-moderation architecture, the cost
@@ -306,6 +338,51 @@ sensitivity blocks of Section 3.6, is to check whether the resulting
 ranking survives perturbation of the within-subject autocorrelation,
 the dropout rate, the accuracy of the assumed half-life, and the
 size of the biomarker-treatment interaction itself.
+
+## Trial designs
+
+The three designs differ in how the on-drug and off-drug occasions
+are arranged, and therefore in how much post-discontinuation
+information each generates. All three schedule eight measurement
+occasions per patient and allocate patients across randomization
+paths, each path being a fixed schedule of on-drug and off-drug
+periods. Each design also carries an expectancy weight per occasion,
+one during open-label periods and one half during blinded periods,
+which scales the placebo-belief component of the response.
+
+**Crossover (CO).** The traditional two-period within-patient
+crossover, blinded throughout, with occasions evenly spaced at
+2.5-week intervals from 2.5 to 20 weeks. One of the two paths
+receives active treatment for the first four occasions and comparator
+thereafter; the other reverses that order and so never discontinues,
+contributing no post-discontinuation observations at all.
+
+**Open-label followed by blinded discontinuation (OL+BDC).**
+Patients are titrated openly on active treatment across four
+occasions at 4, 8, 12 and 16 weeks, then followed weekly to week 20,
+with a blinded switch to placebo late in the schedule. One of the two
+paths discontinues after week 18 and the other after week 17, so both
+discontinue but only two or three occasions follow.
+
+**Hybrid.** The Hendrickson design and this program's reference.
+Open-label titration at weeks 4 and 8 is followed by blinded
+discontinuation across weekly occasions from week 9 to week 12, and
+then by a brief two-occasion crossover at weeks 16 and 20. The four
+paths differ in whether discontinuation begins after the third or the
+fourth occasion, and in which arm the patient takes first in the
+closing crossover. It is the richest of the three in on-off
+transitions and the only one in which a patient may discontinue more
+than once.
+
+One consequence of these schedules bears directly on the results. The
+first post-discontinuation occasion falls one week after the switch
+under OL+BDC and Hybrid, but 2.5 weeks after it under CO. At the
+half-lives examined here, roughly half the pharmacological effect
+therefore persists into the first off-drug occasion under the two
+non-crossover designs, against less than a fifth under CO. The
+designs differ substantially, in other words, in how much carryover
+contamination they can accumulate at all, and Section 4.2 returns to
+this.
 
 ## Data-generating mechanism
 
@@ -504,6 +581,70 @@ and the $t_{1/2} = 0$ row, in which carryover is absent altogether,
 gives a best-case power reference at each combination of sample
 size, design, and $c_{bm}$, against which the power cost of nonzero
 carryover can be read off directly.
+
+## Inference and the cluster-robust correction {#sec-cr2}
+
+The interaction test described so far is model-based: the standard
+error of $\beta_{bm:X}$ is read from the fitted `lme` object, and is
+therefore valid only insofar as the assumed residual covariance is
+correct. That assumption is not innocuous here. The working
+covariance combines a patient random intercept with a `corCAR1`
+continuous-time AR(1) residual correlation, and the companion
+calibration study [@pmsimstats_calibration2026] shows that this
+structure does not match the covariance the data-generating mechanism
+actually induces. The mismatch inflates the estimated standard error
+by roughly six to ten percent, and the test rejects correspondingly
+less often than its nominal rate.
+
+We quantify that inflation with the calibration ratio $\kappa$, the
+mean estimated standard error divided by the empirical standard
+deviation of the interaction estimate across replicates. A correctly
+calibrated test has $\kappa = 1$; $\kappa > 1$ means the standard
+error is too large and the test is conservative; $\kappa < 1$ means
+it is anti-conservative. At the null cell we observe $\kappa$ between
+1.05 and 1.10 across the three specifications, with empirical Type I
+error between 0.029 and 0.039 against a nominal 0.05.
+
+The remedy is a cluster-robust, or sandwich, variance estimator. Such
+an estimator derives the variance of $\hat\beta_{bm:X}$ from the
+observed between-cluster variation in the model's estimating-equation
+contributions rather than from the assumed covariance, and so remains
+valid when the working covariance is mis-specified. The clusters are
+patients, each contributing eight measurement occasions; patient
+identifiers are made unique across randomization paths before
+clustering, so no cluster spans two paths.
+
+Two features of this setting dictate which sandwich estimator is
+appropriate. First, the naive form is markedly downward-biased when
+the number of clusters is small, and with $N = 35$ or $N = 70$
+patients that bias is not negligible. We therefore use the CR2
+bias-reduced estimator of Bell and McCaffrey, which applies a
+cluster-specific adjustment chosen so that the variance estimate is
+exactly unbiased under a working model. Second, with few clusters the
+resulting statistic is not well approximated by a normal reference
+distribution, so we pair CR2 with Satterthwaite degrees of freedom
+estimated per cluster configuration; these come out well below the
+naive residual count and are reported per cell alongside the results.
+Computation uses the `clubSandwich` package, applied to each
+specification separately: the fitted `lme` object is retained and
+only its standard error, reference distribution and $p$-value are
+replaced, so the point estimate is untouched and the comparison
+isolates the effect of the inference procedure.
+
+We apply the correction in two places, both anchored at the
+covariance-moderation architecture. A null-cell diagnostic
+($c_{bm} = 0$, exponential DGP, $t_{1/2} = 1.0$ weeks, Hybrid,
+$N = 70$, 3,000 replicates) establishes whether CR2 restores nominal
+size, and is reported in Section 3.5. A five-cell block, comprising
+the reference cell and four stress cells (small $N$, high
+autocorrelation, half-life mis-specification, and 30% MCAR dropout,
+500 replicates each), then asks whether restoring size disturbs the
+ranking among specifications; it is reported in the same section.
+Following this manuscript's block numbering, that five-cell block is
+S6. Blocks S1 through S4 are the Tier 2 single-axis sensitivity
+analyses of Section 3.6; block S5, an exploratory autocorrelation by
+carryover interaction, falls outside the scope adopted here and is
+reported only in the archived full-scope drafts.
 
 ## Performance measures and computing environment
 
@@ -705,12 +846,10 @@ knitr::include_graphics("../../figures/02xs-type1-boxplots.pdf")
 Across the null cells, empirical Type I error sits uniformly below
 the nominal 0.05 level for all three specifications and in all three
 designs, with design-level means of 0.032 to 0.041. This shortfall is
-not sampling noise but a genuine
-conservatism of the model-based interaction test, which the
-companion calibration study [@pmsimstats_calibration2026] traces to
-the corCAR1 working covariance: the estimated standard error runs
-six to ten percent too large, and the realized rejection rate falls
-correspondingly. Because the conservatism is uniform across
+not sampling noise but the conservatism of the model-based
+interaction test described in Section 2.5, arising from a working
+covariance that does not match the one the data-generating mechanism
+induces. Because the conservatism is uniform across
 specifications, it does not disturb the comparison among them, and
 the cluster-robust recalibration reported below (block S6) confirms
 that a CR2 cluster-robust standard error restores the rejection rate
@@ -739,9 +878,9 @@ knitr::kable(tab, booktabs = TRUE, escape = FALSE,
   caption = 'Conservatism of the model-based interaction test and its
     cluster-robust correction, at the null cell ($c_{bm} = 0$,
     exponential DGP, $t_{1/2} = 1.0$ weeks, Hybrid design, $N = 70$,
-    the covariance-moderation architecture, 3{,}000 replicates). $\\kappa$ is the ratio of the
-    mean standard error to the empirical standard deviation of the
-    interaction estimate; $\\kappa > 1$ indicates a conservative
+    the covariance-moderation architecture, 3{,}000 replicates).
+    $\\kappa$ is the calibration ratio defined in Section 2.5;
+    $\\kappa > 1$ indicates a conservative
     test. All three specifications are conservative under the
     model-based test, most so Exposure-weighted ($\\kappa = 1.10$,
     Type I $= 0.029$); the CR2 bias-reduced cluster-robust standard
@@ -792,9 +931,9 @@ knitr::kable(tab, booktabs = TRUE, escape = FALSE,
   caption = 'Cluster-robust recalibration at the reference cell and
     four stress cells (500 replicates, $c_{bm} = 0.45$,
     the covariance-moderation architecture). EW is Exposure-weighted,
-    LA is Lag-adjusted, U is Unadjusted. $\\kappa$ is the ratio of the mean standard
-    error to the empirical standard deviation of the interaction
-    estimate for Exposure-weighted; a value above one is a
+    LA is Lag-adjusted, U is Unadjusted. $\\kappa$ is the calibration
+    ratio of Section 2.5, here for Exposure-weighted; a value above
+    one is a
     conservative test. The two gap pairs give each alternative
     against the unadjusted benchmark under each inference. CR2 df is
     the mean Satterthwaite degrees of freedom for the cluster-robust
@@ -871,24 +1010,50 @@ across the whole range, never differing by more than 0.008.
 knitr::include_graphics("../../figures/02xs-sens-S2.pdf")
 ```
 
-Exposure-weighted appears fairly robust to a mismatch between the
-analyst's assumed half-life and the true data-generating half-life.
-Across the eight S2 cells (DGP $t_{1/2} \in \{0.5, 1.0\}$ weeks
-crossed with analyst-assumed $t_{1/2} \in \{0.25, 0.5, 1.0, 2.0\}$
-weeks) it averages 0.868, ranging from 0.766 to 0.964, with per-cell
-MCSE between 0.008 and 0.019. Neither of the other two consumes the
-half-life parameter, so both are invariant to the analyst's
-assumption by construction; they average 0.846 and 0.841 across the
-same eight cells and serve here as flat reference lines. The
-exposure-weighted predictor's curvature is gentle enough that
-mis-specifying the assumed half-life by a factor of two does not
-erode its advantage at either true half-life. It would
-appear, then, that it remains a defensible choice even when the true
-pharmacokinetic half-life is known only approximately at the design
-stage. Read together with the limiting-case relationship noted in
-Section 2.3, this sweep also shows that the penalty for shortening
-the assumed half-life toward zero, which drives the specification
-continuously toward Unadjusted, is modest over the range examined.
+Block S2 crosses two true half-lives
+($t_{1/2} \in \{0.5, 1.0\}$ weeks) with four analyst-assumed values
+($\hat{t}_{1/2} \in \{0.25, 0.5, 1.0, 2.0\}$ weeks), giving eight
+cells. Only Exposure-weighted consumes $\hat{t}_{1/2}$; the other two
+are invariant to it by construction. The cost of a wrong assumption
+must therefore be read within a true half-life rather than pooled
+across the block, since most of the variation across all eight cells
+is driven by the true half-life itself and not by the analyst's
+error.
+
+Read that way, the penalty is modest. At a true half-life of 1.0
+weeks, Exposure-weighted attains 0.832 when correctly specified, and
+0.766, 0.808 and 0.826 when the assumed value is 0.25, 0.5 and 2.0
+weeks respectively; the worst case, a fourfold under-assumption,
+costs 6.6 percentage points and still leaves it above both
+alternatives (0.746 and 0.742 at that cell). At a true half-life of
+0.5 weeks it attains 0.934 when correctly specified, against 0.964,
+0.914 and 0.896 at the same four assumed values.
+
+Two features of that second row deserve comment, and the block
+supplies its own calibration for both. Because Unadjusted and
+Lag-adjusted cannot depend on $\hat{t}_{1/2}$, their variation along
+that axis is pure Monte Carlo error, and it is not small: at a true
+half-life of 0.5 weeks they range over 0.910 to 0.956 and 0.906 to
+0.960 respectively across the four columns. The block's noise floor
+is therefore roughly four to five percentage points, and differences
+below it should not be interpreted. This disposes of the apparent
+anomaly that assuming 0.25 weeks (0.964) beats correct specification
+(0.934), a 3.0-point difference well inside that floor. It also
+qualifies the second concern: at a true half-life of 0.5 weeks with
+an assumed value of 2.0 weeks, Exposure-weighted falls to 0.896,
+below both alternatives at 0.926 and 0.930, so a fourfold
+over-assumption erodes its advantage to a tie rather than preserving
+it. The direction is worth noting even though the magnitude is not
+resolvable here.
+
+The practical reading is that an approximate half-life is adequate,
+with an asymmetry: under-assuming is safer than over-assuming. That
+follows from the limiting-case relationship of Section 2.3, since
+shrinking $\hat{t}_{1/2}$ drives the predictor continuously toward
+the binary indicator and hence toward Unadjusted, which remains a
+serviceable specification, whereas inflating it drives the predictor
+toward a constant, at which the on-off contrast and with it the
+estimand itself degenerate.
 
 ### S3: dropout
 
@@ -1100,7 +1265,9 @@ range of decay shapes we examined. On the assumed half-life (Figure
 half-life and are unaffected, while this one is, yet at a true
 half-life of one week mis-specifying it by a factor of four moves
 power from 0.832 down to 0.766 at worst, a penalty of 6.6 percentage
-points that still leaves it at or above the alternatives. On
+points that still leaves it at or above the alternatives. The
+exception is over-assumption at a short true half-life, where its
+advantage erodes to a tie (Section 3.6). On
 autocorrelation (Figure
 \@ref(fig:fig-sens-s1)): stronger serial correlation raises all three
 specifications by roughly the same amount, so the lead of five to
@@ -1218,9 +1385,14 @@ as block S5, revealed no such interaction.
    (Block S6).
 
 3. **An approximate half-life is adequate where exposure weighting is
-   used.** At a true half-life of one week, an assumed value wrong by
+   used, but err short.** At a true half-life of one week, an assumed
+   value wrong by
    a factor of four costs 6.6 percentage points of power, so a rough
-   pharmacokinetic estimate is sufficient in practice. Note that
+   pharmacokinetic estimate is sufficient in practice. The error is
+   asymmetric: under-assuming drives the predictor toward the binary
+   indicator, which remains serviceable, whereas over-assuming drives
+   it toward a constant and erodes the advantage to a tie. Note also
+   that
    outside block S2 the analyst is granted the true half-life, so the
    Tier 1 margins are upper bounds.
 

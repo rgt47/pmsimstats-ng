@@ -178,13 +178,16 @@ one_rep_contam <- function(rep_idx, cell, study_seed, cell_id) {
   set.seed(study_seed + 1000L * cell_id + rep_idx)
   td <- if (!is.null(cell$design) && cell$design == 'full')
           design_hybrid_full() else design_hybrid_simple()
-  mp    <- make_model_params(N = cell$N, c_bm = cell$c_bm,
-                              c_bm_pb = cell$c_bm_pb, t1half = 1)
   rp    <- make_resp_params(m_PB = cell$m_PB, m_TV = 0)
   bp    <- make_bl_params()
   paths <- td$trialpaths
+  ## cell$N is the TOTAL across paths (NOTATION.md rule 4).
+  n_per_path <- allocate_across_paths(cell$N, length(paths))
+  mp    <- make_model_params(N = NA_integer_, c_bm = cell$c_bm,
+                              c_bm_pb = cell$c_bm_pb, t1half = 1)
   dat_list <- vector('list', length(paths))
   for (g in seq_along(paths)) {
+    mp$N <- n_per_path[[g]]
     di <- tryCatch(
       generateData(mp, rp, bp, paths[[g]],
                    empirical = FALSE, makePositiveDefinite = TRUE,
@@ -207,7 +210,9 @@ one_rep_contam <- function(rep_idx, cell, study_seed, cell_id) {
   for (an in cell$analyses) {
     fit <- switch(an,
       one_component   = one_component_fit(td, dat),
-      phase_augmented = phase_augmented_fit(td, dat, cell$N),
+      ## Keyed on the per-path count, which is what this argument
+      ## carried before N became the total.
+      phase_augmented = phase_augmented_fit(td, dat, n_per_path[[1]]),
       data.table(beta = NA_real_, betaSE = NA_real_, p = NA_real_,
                  converged = FALSE, formula_dropped = 'unknown'))
     out[[length(out) + 1L]] <- cbind(analysis = an,

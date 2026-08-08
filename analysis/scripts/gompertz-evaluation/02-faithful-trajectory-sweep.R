@@ -269,8 +269,10 @@ cat(sprintf('# Wall-clock elapsed: %.1f s | total fits: %d | workers: 8\n',
             elapsed, nrow(replicates)))
 cat('# Architecture A: moderation_scaling=trajectory (faithful, paper 01)\n')
 cat('# Architecture B: family drives BR mean only (covariance channel)\n')
-cat(sprintf('# Trial design: OL+BDC, N=%d, t1/2=0; anchor week %.1f\n',
-            N_subjects, t_anchor))
+cat(sprintf(paste0('# Trial design: OL+BDC, N=%d total across %d ',
+                   'paths (%s per path), t1/2=0; anchor week %.1f\n'),
+            N_total, n_paths, paste(n_per_path, collapse = '/'),
+            t_anchor))
 cat('#\n# Cell summary (alpha = 0.05):\n')
 print(summary_dt)
 sink()

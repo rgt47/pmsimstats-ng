@@ -13,8 +13,12 @@
 # c.bm {0, 0.45}.  Reps/cell = 1000 (MCSE 0.016 at p = 0.5).
 # Total fits = 24,000.
 #
-# Hard wall budget: 900 s. Abort if elapsed > 850 s and write
-# whatever is done.
+# Wall budget: PMSIM_BUDGET_SECS, default 5400 s. Abort 50 s before
+# it. The original 900 s prototype budget truncates the full 36-cell
+# grid at about cell 16 on this host, so it is no longer the default.
+# An aborted run writes to *-partial.rds and leaves the canonical
+# outputs untouched, so a truncated run cannot overwrite a complete
+# one.
 #
 # Parallelism policy (HARD REQUIREMENT):
 #   - Primary: mclapply with mc.cores = 8.
@@ -37,8 +41,8 @@ suppressPackageStartupMessages({
 })
 
 t_start <- Sys.time()
-budget_secs <- 900L
-abort_secs <- 850L
+budget_secs <- as.integer(Sys.getenv('PMSIM_BUDGET_SECS', '5400'))
+abort_secs <- budget_secs - 50L
 target_reps <- 1000L
 
 set.seed(20260509)
@@ -378,8 +382,24 @@ dir.create('analysis/figures/quick-sim', showWarnings = FALSE,
 
 reps_out <- reps_dt[, .(architecture, design, N, t1half, c.bm, rep_idx,
                         beta, betaSE, p, converged)]
-saveRDS(reps_out,
-        'analysis/data/quick-sim/01-dgp-replicates.rds')
+
+# A run that hit the wall budget covers only a prefix of the cell
+# grid. Writing it to the canonical path would silently replace a
+# complete run with a truncated one, so it goes to a partial file
+# instead and the canonical outputs are left alone.
+reps_path <- if (aborted) {
+  'analysis/data/quick-sim/01-dgp-replicates-partial.rds'
+} else {
+  'analysis/data/quick-sim/01-dgp-replicates.rds'
+}
+saveRDS(reps_out, reps_path)
+if (aborted) {
+  cat(sprintf(paste0(
+    '\nRUN INCOMPLETE: %d of %d cells covered. Wrote %s and left the\n',
+    'canonical replicates untouched. Re-run with a larger\n',
+    'PMSIM_BUDGET_SECS to refresh them.\n'),
+    abort_cell - 1L, n_cells, reps_path))
+}
 
 # ---------------------------------------------------------------
 # Morris-style summary table
@@ -410,7 +430,8 @@ summary_dt <- reps_dt[, {
 
 setorder(summary_dt, architecture, design, c.bm, t1half)
 fwrite(summary_dt,
-       'analysis/data/quick-sim/01-dgp-summary.txt',
+       if (aborted) 'analysis/data/quick-sim/01-dgp-summary-partial.txt'
+       else 'analysis/data/quick-sim/01-dgp-summary.txt',
        sep = '\t')
 
 cat('\n--- Summary ---\n')
@@ -457,13 +478,20 @@ p_power <- ggplot(plot_dt,
   theme_bw(base_size = 11) +
   theme(legend.position = 'bottom')
 
-ggsave('analysis/figures/quick-sim/01-dgp-power.pdf',
-       p_power, width = 9, height = 6)
+if (!aborted) {
+  ggsave('analysis/figures/quick-sim/01-dgp-power.pdf',
+         p_power, width = 9, height = 6)
+}
 
 cat('\nWrote:\n')
-cat('  analysis/data/quick-sim/01-dgp-replicates.rds\n')
-cat('  analysis/data/quick-sim/01-dgp-summary.txt\n')
-cat('  analysis/figures/quick-sim/01-dgp-power.pdf\n')
+cat(' ', reps_path, '\n')
+if (aborted) {
+  cat('  analysis/data/quick-sim/01-dgp-summary-partial.txt\n')
+  cat('  (figure not written: run incomplete)\n')
+} else {
+  cat('  analysis/data/quick-sim/01-dgp-summary.txt\n')
+  cat('  analysis/figures/quick-sim/01-dgp-power.pdf\n')
+}
 
 # ---------------------------------------------------------------
 # Run-mode reporting (honest)

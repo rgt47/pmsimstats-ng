@@ -25,7 +25,11 @@ suppressPackageStartupMessages({
 })
 
 t_start <- Sys.time()
-budget_secs <- 540              # graceful abort target (10 min - buffer)
+# Graceful abort target. Default 540 s (the 10-minute budget this
+# driver was written to); override with PMSIM_BUDGET_SECS for a full
+# re-run on a slower host. An aborted run writes to *-partial.rds and
+# leaves the canonical outputs untouched.
+budget_secs <- as.integer(Sys.getenv('PMSIM_BUDGET_SECS', '540'))
 
 set.seed(20260508)
 
@@ -435,8 +439,21 @@ dir.create('analysis/figures/quick-sim', showWarnings = FALSE,
 reps_out <- reps_dt[, .(design, N, dropout_pattern, rep_idx,
                         beta_bmDbc, betaSE_bmDbc, p_bmDbc,
                         converged)]
-saveRDS(reps_out,
-        'analysis/data/quick-sim/09-dropout-replicates.rds')
+
+# An aborted run covers only a prefix of the cell grid; writing it to
+# the canonical path would replace a complete run with a truncated
+# one.
+reps_path <- if (aborted) {
+  'analysis/data/quick-sim/09-dropout-replicates-partial.rds'
+} else {
+  'analysis/data/quick-sim/09-dropout-replicates.rds'
+}
+saveRDS(reps_out, reps_path)
+if (aborted) {
+  cat(sprintf(paste0(
+    '\nRUN INCOMPLETE: wrote %s and left the canonical replicates\n',
+    'untouched. Re-run with a larger PMSIM_BUDGET_SECS.\n'), reps_path))
+}
 
 ## -----------------------------------------------------------------
 ## Morris-style summary table with MCSE columns
@@ -465,12 +482,14 @@ summary_dt <- reps_dt[, {
     sd_beta        = sb,
     mcse_mean_beta = mcse_mb
   )
-}, by = .(design, dropout_pattern)]
+}, by = .(design, N, dropout_pattern)]
 
 setorder(summary_dt, design, dropout_pattern)
 
 write.table(summary_dt,
-            file = 'analysis/data/quick-sim/09-dropout-summary.txt',
+            file = if (aborted)
+              'analysis/data/quick-sim/09-dropout-summary-partial.txt'
+            else 'analysis/data/quick-sim/09-dropout-summary.txt',
             sep = '\t', quote = FALSE, row.names = FALSE)
 
 cat('\n--- Morris-style summary ---\n')
@@ -515,13 +534,20 @@ p_power <- ggplot(plot_dt,
   theme(legend.position = 'none',
         axis.text.x = element_text(angle = 30, hjust = 1))
 
-ggsave('analysis/figures/quick-sim/09-dropout-power.pdf',
-       p_power, width = 11, height = 4.5)
+if (!aborted) {
+  ggsave('analysis/figures/quick-sim/09-dropout-power.pdf',
+         p_power, width = 11, height = 4.5)
+}
 
 cat('\nWrote:\n')
-cat('  analysis/data/quick-sim/09-dropout-replicates.rds\n')
-cat('  analysis/data/quick-sim/09-dropout-summary.txt\n')
-cat('  analysis/figures/quick-sim/09-dropout-power.pdf\n')
+cat(' ', reps_path, '\n')
+if (aborted) {
+  cat('  analysis/data/quick-sim/09-dropout-summary-partial.txt\n')
+  cat('  (figure not written: run incomplete)\n')
+} else {
+  cat('  analysis/data/quick-sim/09-dropout-summary.txt\n')
+  cat('  analysis/figures/quick-sim/09-dropout-power.pdf\n')
+}
 
 if (aborted) {
   cat(sprintf('\nNOTE: budget aborted at %.1fs (cell %d); ',

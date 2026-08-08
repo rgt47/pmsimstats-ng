@@ -66,6 +66,24 @@ design_hybrid_full <- function() {
 }
 
 ## ------------------------------------------------------------------ ##
+## Sample-size allocation
+##
+## N is the TOTAL across randomization paths (NOTATION.md rule 4) and
+## is allocated across them, remainder one per path. The simple design
+## has one path and the full design two, so the cell grid's 200 and
+## 300 put 100 and 150 on each path of the full design, which is what
+## earlier versions of this driver passed to every path while calling
+## it N. The draws are unchanged; only the label is corrected.
+## ------------------------------------------------------------------ ##
+
+allocate_across_paths <- function(n_total, n_paths) {
+  base <- n_total %/% n_paths
+  rep(base, n_paths) +
+    c(rep(1L, n_total %% n_paths),
+      rep(0L, n_paths - n_total %% n_paths))
+}
+
+## ------------------------------------------------------------------ ##
 ## Parameter constructors
 ## ------------------------------------------------------------------ ##
 
@@ -176,12 +194,17 @@ one_rep_06 <- function(rep_idx, cell, study_seed, cell_id) {
   set.seed(study_seed + 1000L * cell_id + rep_idx)
   td <- if (!is.null(cell$design) && cell$design == 'full')
           design_hybrid_full() else design_hybrid_simple()
-  mp    <- make_model_params(N = cell$N, c_bm = cell$c_bm, t1half = 1)
   rp    <- make_resp_params(m_PB = cell$m_PB, m_TV = cell$m_TV)
   bp    <- make_bl_params()
   paths <- td$trialpaths
+  ## cell$N is the TOTAL across paths (NOTATION.md rule 4); allocate
+  ## it, remainder one per path.
+  n_per_path <- allocate_across_paths(cell$N, length(paths))
+  mp    <- make_model_params(N = NA_integer_, c_bm = cell$c_bm,
+                             t1half = 1)
   dat_list <- vector('list', length(paths))
   for (g in seq_along(paths)) {
+    mp$N <- n_per_path[[g]]
     di <- tryCatch(
       generateData(mp, rp, bp, paths[[g]],
                    empirical = FALSE, makePositiveDefinite = TRUE,
@@ -204,7 +227,11 @@ one_rep_06 <- function(rep_idx, cell, study_seed, cell_id) {
   for (an in cell$analyses) {
     fit <- switch(an,
       one_component   = one_component_fit(td, dat),
-      phase_augmented = phase_augmented_fit(td, dat, cell$N),
+      ## The phase-augmented formula ladder is keyed on the per-path
+      ## count, which is what this argument carried before N became
+      ## the total. Passing the total here would change which
+      ## formula is fitted.
+      phase_augmented = phase_augmented_fit(td, dat, n_per_path[[1]]),
       data.table(beta = NA_real_, betaSE = NA_real_, p = NA_real_,
                  converged = FALSE, formula_dropped = 'unknown'))
     out[[length(out) + 1L]] <- cbind(analysis = an,
@@ -270,12 +297,12 @@ summarise_cell_06 <- function(d, true_beta) {
 
 alt_cells  <- CJ(m_PB = c(0, 1, 3, 6, 10),
                  m_TV = c(-1, 0, 1, 2),
-                 N    = c(35L, 70L, 100L, 150L),
+                 N    = c(35L, 70L, 200L, 300L),
                  sorted = FALSE)
 alt_cells[, `:=`(c_bm = 0.45, regime = 'alt')]
 
 null_cells <- data.table(m_PB = 0, m_TV = 0,
-                          N = c(35L, 70L, 100L, 150L),
+                          N = c(35L, 70L, 200L, 300L),
                           c_bm = 0, regime = 'null')
 
 cells <- rbindlist(list(alt_cells, null_cells),
@@ -308,7 +335,11 @@ for (i in seq_len(nrow(cells))) {
                N        = cells$N[i],
                c_bm     = cells$c_bm[i],
                analyses = cells$analyses[[i]],
-               design   = if (cells$N[i] >= 100) 'full' else 'simple')
+               ## N is now the total across paths, so the threshold
+               ## that selects the two-path design moves with it:
+               ## the old per-path 100 and 150 cells are the totals
+               ## 200 and 300.
+               design   = if (cells$N[i] >= 200) 'full' else 'simple')
   n_reps          <- if (cells$regime[i] == 'null') N_REPS_NULL
                      else N_REPS_ALT
   reps_dt         <- run_cell_06(cell, n_reps = n_reps,

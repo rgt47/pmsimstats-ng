@@ -104,16 +104,17 @@
 }
 
 ## Resolve the real rmarkdown::render before any namespace shim can
-## replace it.  .Rprofile.local writes .pmsimstats_real_render to
-## .GlobalEnv *before* patching the namespace, so sourcing this file
-## after that point (including nested sources from the shim itself)
-## still reaches the original function.  When no shim is active the
-## fallback rmarkdown::render is the real one anyway.
+## replace it. A project that patches rmarkdown::render (for example
+## from .Rprofile.local, to add project-wide render defaults) should
+## first stash the original in .GlobalEnv as .stamp_real_render;
+## sourcing this file after that point, including from the shim
+## itself, then still reaches the unpatched function. When no shim is
+## active the fallback rmarkdown::render is the real one anyway.
 requireNamespace('rmarkdown', quietly = TRUE)
 .rmd_render <- if (
-  exists('.pmsimstats_real_render', envir = .GlobalEnv, inherits = FALSE)
+  exists('.stamp_real_render', envir = .GlobalEnv, inherits = FALSE)
 ) {
-  .GlobalEnv$.pmsimstats_real_render
+  .GlobalEnv$.stamp_real_render
 } else {
   rmarkdown::render
 }
@@ -135,8 +136,9 @@ stamp_render <- function(input, encoding = 'UTF-8', ...) {
 
   ## Generated header redefining the three stamp macros. Written
   ## to a temp file so the repository's tools/ stays clean. The
-  ## source and version are wrapped in \detokenize so that LaTeX-
-  ## special characters in either typeset literally.
+  ## source is escaped character-wise so it can wrap; the version is
+  ## wrapped in \detokenize so LaTeX-special characters in it
+  ## typeset literally.
   values_tex <- tempfile(fileext = '.tex')
   on.exit(unlink(values_tex), add = TRUE)
   writeLines(c(

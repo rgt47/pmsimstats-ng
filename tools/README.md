@@ -3,11 +3,11 @@
 This directory holds the render-stamp helpers that zzcollab
 vendors into every document-rendering compendium. They do two
 things on every render. First, they stamp a discreet provenance
-footer onto the PDF, naming the source document, the time of
-rendering, and the git version. Second, they deposit a dated,
-versioned copy of the PDF in the project's `share/` directory,
+footer onto every page of the PDF, naming the source document and
+the time of rendering. Second, they deposit a dated, git-versioned
+copy of the PDF in the project's `share/` directory,
 with a one-line entry added to a manifest. We have found that an
-unlabelled PDF circulating among collaborators is a recurring
+unlabeled PDF circulating among collaborators is a recurring
 source of confusion; a footer that names its own source, and a
 `share/` directory that accumulates an unambiguous record of what
 was sent when, are the two halves of the remedy.
@@ -15,10 +15,13 @@ was sent when, are the two halves of the remedy.
 ## What is here
 
 - `stamp.tex` defines the footer: a small LaTeX preamble,
-  included at render time, that prints three macros,
-  `\stampsource`, `\stamptime`, and `\stampversion`. It carries
-  `\providecommand` defaults so that a document still compiles
-  when the values have not been supplied.
+  included at render time, that defines three macros,
+  `\stampsource`, `\stamptime`, and `\stampversion`. The default
+  footer prints the first two; `\stampversion` is defined and
+  available, but is left off the page because it already names the
+  staged copy in `share/`. It carries `\providecommand` defaults
+  so that a document still compiles when the values have not been
+  supplied.
 - `stamp-render.R` does the work. It renders the document,
   computes the provenance triple, injects the footer, copies the
   PDF into `share/`, and appends a row to the manifest. It
@@ -34,15 +37,17 @@ Both the footer and the staged filename derive from one triple:
 
 - the **source document** (`report.Rmd`, `report.qmd`, ...);
 - the **render time**, local;
-- the **version**, from `git describe --tags --always --dirty`,
-  which names the exact commit and flags an uncommitted tree.
+- the **version**, from `git describe --tags --always
+  --dirty=-wip`, which names the exact commit and marks an
+  uncommitted tree with a `-wip` suffix.
 
-The footer names the source document. The staged filename names
-the artefact, as `<prefix>-<date>-<time>-<version>.pdf`, where
-the prefix is the document's basename, or its parent directory
-when the basename is a generic stub such as `report`. Footer and
-filename therefore record the same commit and time, while each
-names the thing appropriate to it.
+The footer names the source document and the render time. The
+staged filename names the artifact, as
+`<prefix>-<date>-<time>-<version>.pdf`, where the prefix is the
+document's basename, or its parent directory when the basename is
+a generic stub such as `report`. Footer and filename therefore
+record the same render, while each names the thing appropriate to
+it.
 
 ## Where staged copies go
 

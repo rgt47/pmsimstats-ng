@@ -255,32 +255,73 @@ inspection of every driver reachable from a current manuscript, on
 | `analysis/scripts/component-decomposition/*.R` | per path | same shape |
 | `analysis/scripts/gompertz-evaluation/02-faithful-trajectory-sweep.R` | per path | same shape |
 
-**Status by paper.** The manuscripts now report totals throughout. The
-column below records how each paper's own driver behaves, because that
-is what a re-run will inherit. One entry is weaker than the others:
-the driver behind paper 01's Section 3.3 robustness run was not
-located, so its per-path reading is taken from that paper's own
+**Status by paper.** The manuscripts report totals throughout, and as
+of 2026-08-08 the drivers and stored output for papers 01, 06, 07 and
+09 were brought into line with them. One entry is weaker than the
+others: the driver behind paper 01's Section 3.3 robustness run was
+not located, so its per-path reading is taken from that paper's own
 statement of its convention rather than from inspected code.
 
-| Paper | Driver reads `N` as | Manuscript |
+| Paper | Driver was | Now |
 |---|---|---|
-| 01 | per path | relabeled to totals: 70 for CO and OL+BDC, 140 for Hybrid; the Section 3.3 check is OL+BDC at 140 |
-| 02, 05, 08, 10, 11 | total | already correct |
+| 01 | per path | driver allocates the total; re-run; stored `N` added as 70 (CO, OL+BDC) and 140 (Hybrid) |
+| 02, 05, 08, 10, 11 | total | already correct; untouched |
 | 03, 04 | coincident (single-path or path-free DGP) | unaffected |
-| 06 | per path | larger cells relabeled 100 to 200 and 150 to 300 |
-| 07 | per path | relabeled 35 to 70 |
-| 09 | per path | totals stated per design: 35, 70, 70, 140 |
+| 06 | per path | all drivers allocate the total; stored `N` migrated to totals; see the caveat below |
+| 07 | per path | driver allocates the total; re-run; stored `N` added as 70 |
+| 09 | per path | driver allocates the total; re-run; stored `N` added as 35, 70, 70, 140 by design |
 
-**Two consequences that outlive the relabeling.** A per-path driver
-run across designs with different $P$ produces an unmatched
-comparison, since the designs then differ in sample size as well as
-structure. This affects the cross-design readings in papers 01 and 09,
-both of which now say so in place; within-design contrasts, which hold
-$N$ fixed, are unaffected. Separately, the stored `N` column in the
-`.rds` output of the per-path drivers still holds per-path values, so
-a manuscript total and its stored `N` disagree for papers 01, 06, 07
-and 09 until those drivers are corrected and the cells re-run. No
-current manuscript reads that column, so nothing renders wrong today.
+**How the corrections were validated.** Re-expressing a grid in totals
+and allocating across paths leaves the per-path counts unchanged, so
+the generated data should be identical and only the label should move.
+That was checked before each re-run by generating one replicate both
+ways and comparing: for papers 01 and 06 the drawn data and the fitted
+coefficients were identical. The re-runs then reproduced the published
+cell power values exactly, in all 36 cells of paper 01, all 16 of
+paper 07 and all 16 of paper 09. Per-replicate coefficients moved by
+at most $7 \times 10^{-9}$ (paper 01), $0$ (paper 07) and
+$4 \times 10^{-5}$ (paper 09), which is `lme` convergence-tolerance
+noise on identical data, well below any reported precision.
+
+**Paper 06 was migrated, not re-run.** Study A alone holds 200,000
+stored fits, so re-running it to change a column that the equivalence
+check proves is mislabeled would cost hours to reproduce the same
+numbers. Instead `analysis/scripts/component-decomposition/
+migrate-n-to-total.R` recoded the stored `N` in place, 109 files
+across five output directories, with pre-migration copies in
+`analysis/.n-migration-backup/` and read-back verification of row
+counts and of the absence of legacy values. A column-by-column
+comparison against the backups confirms that nothing but `N` changed.
+The mapping is per directory because the studies differ in path count:
+the study-A and contamination grids switch to the two-path design
+above a threshold, so 100 and 150 became 200 and 300 while 35 and 70
+were already single-path totals; study-B recovery is two-path
+throughout, so 70 and 150 became 140 and 300; study-B balanced is
+single-path and was left alone.
+
+**All four paper-06 drivers are now converted**: `run-study-a-prod.R`,
+`run-study-contam.R` and `run-study-b-recovery.R` read `N` as a total
+and allocate it, and `run-study-b-balanced.R` needed nothing because
+its balanced-placebo design has a single path. Each conversion was
+checked two ways. An equivalence gate regenerated one replicate per
+design type under both parameterizations and got identical
+coefficients, standard errors, p-values and formula-dropped status.
+Then every stored checkpoint was matched against the new grid's `N`
+for its `cell_id`: 18 of 18 for the contamination study and 8 of 8 for
+study-B recovery, no mismatches, so each driver agrees with the data
+already migrated on disk. Where a fit function takes an `N` argument
+it is passed the per-path count, which is what it carried before, so
+the formula ladders keyed on it are unaffected. Study-B recovery's
+three fits declare the argument but never read it; it is kept per-path
+there for consistency with the other drivers.
+
+**What remains open** is the substantive problem, not the labels. A
+driver that fixes the per-path count across designs with different $P$
+produces a comparison that is not matched on $N$, which is why the
+Hybrid readings in paper 01 and the design ordering in paper 09 are
+confounded with sample size. Both papers now say so in place. Fixing
+it means choosing equal totals and re-running, which changes the
+numbers rather than the labels, and has not been done.
 
 ## Data columns
 
@@ -447,6 +488,6 @@ The two are complementary: this file governs mathematics and
 identifiers, that one governs surface forms and acronym expansion.
 
 ---
-*Rendered on 2026-08-06 at 11:58 PDT.*<br>
+*Rendered on 2026-08-08 at 18:36 PDT.*<br>
 *Source: ~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/NOTATION.md*
 

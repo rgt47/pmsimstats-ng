@@ -99,21 +99,22 @@ designs <- list(
 
 ## -----------------------------------------------------------------
 ## Sample size. N is the TOTAL across randomization paths
-## (NOTATION.md rule 4) and is allocated across them. This driver
-## holds the per-path count at 35, so the total varies with the
-## design's path count: 35 (OL), 70 (OLBDC, crossover), 140
-## (hybrid). Earlier versions passed 35 to every path and recorded
-## that as N. The draws are unchanged; only the label is corrected.
+## (NOTATION.md rule 4) and is allocated across them, remainder one
+## per path.
 ##
-## The designs are consequently NOT matched on N, so the cross-design
-## power ordering this driver produces is confounded with sample
-## size. The manuscript states this in the discussion.
+## Every design runs at the SAME total, so the cross-design power
+## ordering this driver produces is matched on N. Earlier versions
+## fixed the per-path count at 35 instead, which gave the designs
+## totals of 35 (OL), 70 (OLBDC, crossover) and 140 (hybrid), so the
+## ordering was confounded with a 1:2:2:4 sample-size ratio. At a
+## total of 70 the two-path designs are unchanged at 35 per path;
+## OL now runs 70 on its single path and hybrid splits 70 as
+## 18/18/17/17.
 ## -----------------------------------------------------------------
 
-n_per_path_target <- 35L
-n_total_for_design <- vapply(
-  designs, function(td) n_per_path_target * length(td$trialpaths),
-  integer(1))
+N_TOTAL <- 70L
+n_total_for_design <- setNames(rep(N_TOTAL, length(designs)),
+                               names(designs))
 
 allocate_across_paths <- function(n_total, n_paths) {
   base <- n_total %/% n_paths

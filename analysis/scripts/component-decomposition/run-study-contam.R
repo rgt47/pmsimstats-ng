@@ -66,6 +66,24 @@ design_hybrid_full <- function() {
 }
 
 ## ------------------------------------------------------------------ ##
+## Sample-size allocation
+##
+## N is the TOTAL across randomization paths (NOTATION.md rule 4) and
+## is allocated across them, remainder one per path. The simple design
+## has one path and the full design two, so the grid's 300 puts 150 on
+## each path of the full design, which is what earlier versions of
+## this driver passed to every path while calling it N. The draws are
+## unchanged; only the label is corrected.
+## ------------------------------------------------------------------ ##
+
+allocate_across_paths <- function(n_total, n_paths) {
+  base <- n_total %/% n_paths
+  rep(base, n_paths) +
+    c(rep(1L, n_total %% n_paths),
+      rep(0L, n_paths - n_total %% n_paths))
+}
+
+## ------------------------------------------------------------------ ##
 ## Parameter constructors
 ## ------------------------------------------------------------------ ##
 
@@ -211,7 +229,8 @@ one_rep_contam <- function(rep_idx, cell, study_seed, cell_id) {
     fit <- switch(an,
       one_component   = one_component_fit(td, dat),
       ## Keyed on the per-path count, which is what this argument
-      ## carried before N became the total.
+      ## carried before N became the total. Passing the total would
+      ## change which formula is fitted.
       phase_augmented = phase_augmented_fit(td, dat, n_per_path[[1]]),
       data.table(beta = NA_real_, betaSE = NA_real_, p = NA_real_,
                  converged = FALSE, formula_dropped = 'unknown'))
@@ -277,14 +296,17 @@ summarise_cell_06 <- function(d, true_beta) {
 ## Cell grid
 ## ------------------------------------------------------------------ ##
 
+## N is the total across paths: 70 on the single-path simple design,
+## 300 on the two-path full design (150 per path, the value the old
+## grid recorded as N).
 alt_cells <- CJ(c_bm_pb = c(0, 0.15, 0.30, 0.45),
                 m_PB    = c(0, 6),
-                N       = c(70L, 150L),
+                N       = c(70L, 300L),
                 sorted  = FALSE)
 alt_cells[, `:=`(c_bm = 0.45, regime = 'alt')]
 
 null_cells <- data.table(c_bm_pb = 0, m_PB = 0,
-                          N = c(70L, 150L),
+                          N = c(70L, 300L),
                           c_bm = 0, regime = 'null')
 
 cells <- rbindlist(list(alt_cells, null_cells),
@@ -316,7 +338,10 @@ for (i in seq_len(nrow(cells))) {
                N        = cells$N[i],
                c_bm     = cells$c_bm[i],
                analyses = cells$analyses[[i]],
-               design   = if (cells$N[i] >= 100) 'full' else 'simple')
+               ## N is now the total, so the threshold selecting the
+               ## two-path design moves with it: the old per-path 150
+               ## cell is the total 300.
+               design   = if (cells$N[i] >= 200) 'full' else 'simple')
   n_reps  <- if (cells$regime[i] == 'null') N_REPS_NULL else N_REPS_ALT
   reps_dt <- run_cell_contam(cell, n_reps = n_reps,
                               study_seed = STUDY_SEED,

@@ -56,6 +56,21 @@ design_hybrid_full <- function() {
       BA = c(rep(1, 8), rep(0, 4), rep(0, 2), rep(1, 2))))
 }
 
+## N is the TOTAL across randomization paths (NOTATION.md rule 4) and
+## is allocated across them, remainder one per path. Unlike the study-A
+## and contamination drivers, this study uses the two-path full design
+## for every cell, so there is no design threshold keyed on N: the
+## grid's 140 and 300 put 70 and 150 on each path, which are the values
+## earlier versions passed to every path while calling them N. The
+## draws are unchanged; only the label is corrected.
+
+allocate_across_paths <- function(n_total, n_paths) {
+  base <- n_total %/% n_paths
+  rep(base, n_paths) +
+    c(rep(1L, n_total %% n_paths),
+      rep(0L, n_paths - n_total %% n_paths))
+}
+
 make_resp_params <- function(m_PB = 6, m_TV = 0, m_BR = 10.98604) {
   data.table(cat  = c('tv', 'pb', 'br'),
              max  = c(m_TV, m_PB, m_BR),
@@ -184,13 +199,16 @@ ANALYSES <- c('one_component', 'phase_augmented', 'decomposition',
 one_rep <- function(rep_idx, cell, study_seed, cell_id) {
   set.seed(study_seed + 1000L * cell_id + rep_idx)
   td <- design_hybrid_full()
-  mp <- make_model_params(N = cell$N, c_bm = cell$c_bm,
-                          c_bm_pb = cell$c_bm_pb)
   rp <- make_resp_params(m_PB = cell$m_PB, m_TV = 0)
   bp <- make_bl_params()
   paths <- td$trialpaths
+  ## cell$N is the TOTAL across paths (NOTATION.md rule 4).
+  n_per_path <- allocate_across_paths(cell$N, length(paths))
+  mp <- make_model_params(N = NA_integer_, c_bm = cell$c_bm,
+                          c_bm_pb = cell$c_bm_pb)
   dat_list <- vector('list', length(paths))
   for (g in seq_along(paths)) {
+    mp$N <- n_per_path[[g]]
     di <- tryCatch(
       generateData(mp, rp, bp, paths[[g]], empirical = FALSE,
                    makePositiveDefinite = TRUE, dgp_architecture = 'mvn'),
@@ -206,9 +224,17 @@ one_rep <- function(rep_idx, cell, study_seed, cell_id) {
   rbindlist(lapply(ANALYSES, function(an) {
     fit <- switch(an,
       one_component         = one_component_fit(td, dat),
-      phase_augmented       = phase_augmented_fit(td, dat, cell$N),
-      decomposition         = decomposition_fit(td, dat, cell$N),
-      decomposition_blinded = decomposition_blinded_fit(td, dat, cell$N))
+      ## These three take the per-path count, which is what this
+      ## argument carried before N became the total. None of them
+      ## currently reads it, but keeping it per-path preserves the
+      ## meaning if a formula ladder keyed on it is reintroduced, as
+      ## the study-A and contamination drivers have.
+      phase_augmented       = phase_augmented_fit(td, dat,
+                                                  n_per_path[[1]]),
+      decomposition         = decomposition_fit(td, dat,
+                                                n_per_path[[1]]),
+      decomposition_blinded = decomposition_blinded_fit(
+                                td, dat, n_per_path[[1]]))
     cbind(analysis = an, rep_idx = rep_idx, fit)
   }), fill = TRUE)
 }
@@ -240,11 +266,14 @@ summarise_cell <- function(d, true_beta) {
 }
 
 ## ------------------------------------------------------------------ ##
-## Pilot grid: contamination axis at N=150 (full design)
+## Pilot grid: contamination axis at N=300 total (full design)
+##
+## N is the total across the full design's two paths, so 140 and 300
+## are 70 and 150 per path, the values the old grid recorded as N.
 ## ------------------------------------------------------------------ ##
 
 cells <- CJ(c_bm_pb = c(0, 0.15, 0.30, 0.45), m_PB = 0,
-            N = c(70L, 150L), sorted = FALSE)
+            N = c(140L, 300L), sorted = FALSE)
 cells[, `:=`(c_bm = 0.45, cell_id = .I)]
 
 n_cores <- max(1L, detectCores() - 1L)

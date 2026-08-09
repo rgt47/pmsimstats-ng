@@ -1,12 +1,11 @@
 # 01-dgp-prototype.R
 #
-# Tier-F item 25: paper 01 (dgp-mean-moderation-vs-mvn) at 35
-# participants per randomization path, to escape the saturation
-# regime that compressed the covariance-versus-mean-moderation
-# power-loss-under-carryover gap in the earlier prototype at twice
-# that size. N below is the TOTAL across paths, so the designs run
-# at N = 70 (CO, OL+BDC) and N = 140 (Hybrid); they are not matched
-# on N, which is a limitation the manuscript states.
+# Tier-F item 25: paper 01 (dgp-mean-moderation-vs-mvn) at a total
+# of N = 70, to escape the saturation regime that compressed the
+# covariance-versus-mean-moderation power-loss-under-carryover gap
+# in the earlier prototype at twice that size. N is the TOTAL across
+# randomization paths and every design runs at the same total, so
+# the design comparison is matched on N.
 #
 # Cells (24 total): architecture {mvn, mean_moderation} x
 # design {CO, Hybrid, OL+BDC} x t1half {0, 0.5, 1.0} x
@@ -108,13 +107,20 @@ td_lookup <- list(CO = td_CO, Hybrid = td_Hybrid, `OL+BDC` = td_OLBDC)
 # ---------------------------------------------------------------
 # Sample size. N is the TOTAL across randomization paths (see
 # analysis/report/NOTATION.md rule 4) and is allocated across them,
-# remainder spread one per path. Earlier versions of this driver
-# passed 35 to every path, which made the reported N a per-path
-# count. The totals below preserve 35 per path, so the generated
-# data is unchanged and only the label is corrected.
+# remainder spread one per path.
+#
+# All three designs run at the SAME total, so the cross-design
+# comparison is matched on N. Earlier versions fixed the per-path
+# count at 35 instead, which gave the four-path Hybrid design twice
+# the sample of the two-path designs and confounded any design
+# difference with sample size. At a total of 70 the two-path designs
+# still put 35 on each path, so their cells are unchanged; Hybrid
+# now splits 70 as 18/18/17/17 rather than running 35 per path.
 # ---------------------------------------------------------------
 
-n_total_for_design <- c(CO = 70L, Hybrid = 140L, `OL+BDC` = 70L)
+N_TOTAL <- 70L
+n_total_for_design <- c(CO = N_TOTAL, Hybrid = N_TOTAL,
+                        `OL+BDC` = N_TOTAL)
 
 allocate_across_paths <- function(n_total, n_paths) {
   base <- n_total %/% n_paths

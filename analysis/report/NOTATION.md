@@ -264,12 +264,12 @@ statement of its convention rather than from inspected code.
 
 | Paper | Driver was | Now |
 |---|---|---|
-| 01 | per path | driver allocates the total; re-run; stored `N` added as 70 (CO, OL+BDC) and 140 (Hybrid) |
+| 01 | per path | driver allocates the total; re-run at a matched $N = 70$ for all three designs |
 | 02, 05, 08, 10, 11 | total | already correct; untouched |
 | 03, 04 | coincident (single-path or path-free DGP) | unaffected |
 | 06 | per path | all drivers allocate the total; stored `N` migrated to totals; see the caveat below |
 | 07 | per path | driver allocates the total; re-run; stored `N` added as 70 |
-| 09 | per path | driver allocates the total; re-run; stored `N` added as 35, 70, 70, 140 by design |
+| 09 | per path | driver allocates the total; re-run at a matched $N = 70$ for all four designs |
 
 **How the corrections were validated.** Re-expressing a grid in totals
 and allocating across paths leaves the per-path counts unchanged, so
@@ -315,13 +315,39 @@ the formula ladders keyed on it are unaffected. Study-B recovery's
 three fits declare the argument but never read it; it is kept per-path
 there for consistency with the other drivers.
 
-**What remains open** is the substantive problem, not the labels. A
-driver that fixes the per-path count across designs with different $P$
-produces a comparison that is not matched on $N$, which is why the
-Hybrid readings in paper 01 and the design ordering in paper 09 are
-confounded with sample size. Both papers now say so in place. Fixing
-it means choosing equal totals and re-running, which changes the
-numbers rather than the labels, and has not been done.
+**The substantive problem was fixed on 2026-08-08.** Fixing the
+per-path count across designs with different $P$ leaves a comparison
+that is not matched on $N$, so papers 01 and 09 were re-run with every
+design at a common total of $N = 70$. This changes numbers rather than
+labels, and it changed conclusions in both papers.
+
+In paper 01 only the Hybrid column moved, since CO and OL+BDC were
+already at 70 and reproduced exactly. Hybrid power fell from about
+0.99 to 0.84, which took it off the ceiling and roughly tripled its
+measured carryover loss: 1.4 to 6.9 percent under mean moderation and
+5.1 to 15.4 percent under covariance moderation. The paper's headline
+architecture contrast survives, with the difference-of-differences
+$z$ at Hybrid moving from 3.96 to 2.80 and OL+BDC unchanged at 7.64,
+but its claim that mean-moderation losses are uniformly 1 to 3 percent
+did not, and the Hybrid design is no longer saturated anywhere in the
+grid.
+
+In paper 09 the OL and hybrid rows moved. The happy-accident ordering
+held, hybrid 0.968 above OL+BDC 0.950 above crossover 0.854 above OL
+0.088 at every dropout pattern, but the hybrid margin over OL+BDC
+collapsed to within one MCSE, and the paper's second conclusion, that
+the most powerful design is also the most dropout-robust, was
+withdrawn: hybrid loss under 40 percent biased dropout rose from 0.4
+to 5.8 percentage points, level with OL+BDC's 5.6, so the earlier
+near-immunity was a ceiling effect. The OL row also stopped
+coinciding with $\alpha$, moving from 0.022-0.046 to 0.086-0.112,
+which showed that reading it as a null-calibration check had been a
+numerical coincidence at one sample size rather than a property of the
+design.
+
+The lesson worth carrying: an unmatched design comparison does not
+merely inflate one design, it can manufacture a robustness finding out
+of a ceiling effect.
 
 ## Data columns
 

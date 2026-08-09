@@ -271,17 +271,26 @@ statement of its convention rather than from inspected code.
 | 07 | per path | driver allocates the total; re-run; stored `N` added as 70 |
 | 09 | per path | driver allocates the total; re-run at a matched $N = 70$ for all four designs |
 
-**How the corrections were validated.** Re-expressing a grid in totals
-and allocating across paths leaves the per-path counts unchanged, so
-the generated data should be identical and only the label should move.
-That was checked before each re-run by generating one replicate both
-ways and comparing: for papers 01 and 06 the drawn data and the fitted
+**How the corrections were validated.** The work ran in two stages,
+and it is worth keeping them apart. The first stage corrected the
+label only. Re-expressing a grid in totals and allocating across paths
+leaves the per-path counts unchanged, so the generated data should be
+identical and nothing but the recorded `N` should move. That was
+checked before each re-run by generating one replicate both ways and
+comparing: for every driver converted, the drawn data and the fitted
 coefficients were identical. The re-runs then reproduced the published
 cell power values exactly, in all 36 cells of paper 01, all 16 of
-paper 07 and all 16 of paper 09. Per-replicate coefficients moved by
-at most $7 \times 10^{-9}$ (paper 01), $0$ (paper 07) and
+paper 07 and all 16 of paper 09, with per-replicate coefficients
+moving by at most $7 \times 10^{-9}$ (paper 01), $0$ (paper 07) and
 $4 \times 10^{-5}$ (paper 09), which is `lme` convergence-tolerance
-noise on identical data, well below any reported precision.
+noise on identical data.
+
+The second stage, for papers 01 and 09 only, changed the sample sizes
+themselves to match the designs, so it was expected to change results
+and did. Its internal check is that the cells whose totals were
+already 70 must still reproduce exactly while the others move: in
+paper 01 the CO and OL+BDC cells came back bit-identical and only the
+Hybrid column changed, by up to 0.233 in power.
 
 **Paper 06 was migrated, not re-run.** Study A alone holds 200,000
 stored fits, so re-running it to change a column that the equivalence
@@ -514,6 +523,6 @@ The two are complementary: this file governs mathematics and
 identifiers, that one governs surface forms and acronym expansion.
 
 ---
-*Rendered on 2026-08-08 at 18:36 PDT.*<br>
+*Rendered on 2026-08-08 at 21:18 PDT.*<br>
 *Source: ~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/NOTATION.md*
 

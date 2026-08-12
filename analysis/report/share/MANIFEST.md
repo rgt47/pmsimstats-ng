@@ -154,3 +154,5 @@
 | `two-page-summary-2026-08-12-1105-7d9244c-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/two-page-summary.md` | `7d9244c-wip` | 2026-08-12 11:05 PDT |
 | `03-latent-class-mixture-application-2026-08-12-1109-7d9244c-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/03-latent-class-mixture-application/report.Rmd` | `7d9244c-wip` | 2026-08-12 11:09 PDT |
 | `03-latent-class-mixture-application-2026-08-12-1109-7d9244c-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/03-latent-class-mixture-application/report.Rmd` | `7d9244c-wip` | 2026-08-12 11:09 PDT |
+| `03-latent-class-mixture-application-2026-08-12-1116-7d9244c-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/03-latent-class-mixture-application/report.Rmd` | `7d9244c-wip` | 2026-08-12 11:16 PDT |
+| `03-latent-class-mixture-application-2026-08-12-1116-7d9244c-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/03-latent-class-mixture-application/report.Rmd` | `7d9244c-wip` | 2026-08-12 11:16 PDT |

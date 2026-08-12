@@ -109,3 +109,13 @@
 | `09-informative-dropout-by-design-2026-08-08-2026-e6d3606-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/09-informative-dropout-by-design/report.Rmd` | `e6d3606-wip` | 2026-08-08 20:26 PDT |
 | `01-dgp-mean-moderation-vs-mvn-2026-08-08-2033-e6d3606-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `e6d3606-wip` | 2026-08-08 20:33 PDT |
 | `09-informative-dropout-by-design-2026-08-09-1740-8b6a9a1-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/09-informative-dropout-by-design/report.Rmd` | `8b6a9a1-wip` | 2026-08-09 17:40 PDT |
+| `01-dgp-mean-moderation-vs-mvn-2026-08-12-0852-f3069ae-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `f3069ae-wip` | 2026-08-12 08:52 PDT |
+| `01-dgp-mean-moderation-vs-mvn-2026-08-12-0851-f3069ae-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `f3069ae-wip` | 2026-08-12 08:51 PDT |
+| `bullets-2026-08-12-0853-f3069ae-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/bullets.Rmd` | `f3069ae-wip` | 2026-08-12 08:53 PDT |
+| `bullets-2026-08-12-0853-f3069ae-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/bullets.Rmd` | `f3069ae-wip` | 2026-08-12 08:53 PDT |
+| `01-dgp-mean-moderation-vs-mvn-2026-08-12-0903-f3069ae-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `f3069ae-wip` | 2026-08-12 09:03 PDT |
+| `01-dgp-mean-moderation-vs-mvn-2026-08-12-0903-f3069ae-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `f3069ae-wip` | 2026-08-12 09:03 PDT |
+| `01-dgp-mean-moderation-vs-mvn-2026-08-12-0911-f3069ae-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `f3069ae-wip` | 2026-08-12 09:11 PDT |
+| `01-dgp-mean-moderation-vs-mvn-2026-08-12-0911-f3069ae-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `f3069ae-wip` | 2026-08-12 09:11 PDT |
+| `bullets-2026-08-12-0911-f3069ae-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/bullets.Rmd` | `f3069ae-wip` | 2026-08-12 09:11 PDT |
+| `bullets-2026-08-12-0911-f3069ae-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/bullets.Rmd` | `f3069ae-wip` | 2026-08-12 09:11 PDT |

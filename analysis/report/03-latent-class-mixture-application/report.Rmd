@@ -4,27 +4,24 @@ title: "Latent-class and mixture-model formulations for
 author: 'pmsimstats team'
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
-  pdf_document:
+  bookdown::pdf_document2:
     latex_engine: xelatex
     toc: true
+    toc_depth: 2
     number_sections: true
     keep_tex: true
     highlight: tango
     includes:
-      in_header:
-        - ../sim-preamble.tex
-        - claudecode.tex
-fontsize: 11pt
-geometry: "left=3cm,right=5cm,top=2cm,bottom=2cm"
+      in_header: ../sim-preamble.tex
 bibliography: references.bib
 csl: statistics-in-medicine.csl
 link-citations: true
+linestretch: 1.2
+fontsize: 12pt
+geometry: "left=2.5cm,right=6cm,top=2.5cm,bottom=2.5cm"
 header-includes:
   - \usepackage{amssymb}
-  - \usepackage{lineno}
-  - \linenumbers
-  - \usepackage{setspace}
-  - \setstretch{1.1}
+  - \usepackage{booktabs}
 knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path(d, 'tools', 'stamp-render.R')) && d != dirname(d)) d <- dirname(d); source(file.path(d, 'tools', 'stamp-render.R'))$value(input) })
 ---
 
@@ -62,7 +59,7 @@ growth mixture models, factor mixture models, regression
 mixtures) for application to within-subject longitudinal designs.
 We commit a heterogeneous-random-slopes generative data-generating
 process (DGP) and a
-class-aware analysis pipeline (`lcmm::hlme` with gridsearch
+class-aware analysis procedure (`lcmm::hlme` with gridsearch
 initialization), and run a 240-replicate-per-cell prototype
 simulation at $N = 70$, gating slope $\in \{0, 1.0, 1.5\}$,
 on a 4-core parallel implementation. Three test forms are
@@ -101,25 +98,6 @@ competitive.
 
 ## The aggregated N-of-1 trial and the biomarker-moderation question
 
-::: {.bullets data-latex=""}
-\textbf{The aggregated N-of-1 design pools within-person treatment
-contrasts across participants for population-level inference.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Each participant cycles between active treatment and control
-  across multiple within-person blocks.
-\item The design outperforms parallel-group trials in information per
-  participant when treatment response is reversible on a useful
-  timescale.
-\item Deployed in chronic pain, neuropsychiatric PTSD, and rare-disease
-  settings where parallel-group trials are infeasible.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The aggregated N-of-1 trial design is a class of clinical trials in
 which each enrolled participant cycles between active treatment and
 control across multiple within-person blocks, with within-person
@@ -136,26 +114,7 @@ size [@mirza2017]. It has been deployed in chronic pain
 in post-traumatic stress disorder [@hendrickson2020], and a growing
 portfolio of rare and orphan disease applications where parallel-group
 trials are infeasible [@lillie2011; @schork2015].
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The primary scientific estimand in biomarker-guided N-of-1
-trials is the biomarker-treatment interaction term.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item A predictive biomarker enables point-of-care treatment
-  stratification per the PATH framework.
-\item Power depends on moderation magnitude, within-participant
-  contrast precision, trial design, and carryover leakage.
-\item Carryover erodes the cleanness of within-subject contrasts and
-  is the principal nuisance parameter in power calculations.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Within this design class, a question of increasing scientific weight
 is whether treatment response is moderated by a measured pre-treatment
 biomarker. A biomarker that predicts which participants respond to
@@ -169,32 +128,11 @@ within-participant contrasts, the trial design (open-label, crossover,
 hybrid), and any time-dependent leakage between treatment phases,
 conventionally termed 'carryover', that erodes the cleanness of the
 within-subject contrasts.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The DGP encoding of biomarker moderation determines
-carryover-induced power loss, a question the prior literature raised
-but did not resolve.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Power loss under carryover varies sharply with how moderation
-  is encoded in the DGP.
-\item Two formal answers from outside biostatistics -- continuous
-  heterogeneity and latent-class structure -- dominate the available
-  options.
-\item This paper maps those traditions and their consequences for
-  N-of-1 trial design and analysis.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Recent methodological work has documented substantial power losses for
 biomarker-treatment interaction inference under realistic carryover,
-with the loss varying sharply by how the moderation effect is encoded
-in the data-generating process [@hendrickson2020]. The present paper
+with the loss varying sharply by how the moderation effect is
+represented in the data-generating process [@hendrickson2020]. The present paper
 takes up a question that the prior work raised but did not resolve:
 how should biomarker moderation be represented in the DGP itself? Two
 formal answers, drawn from a long history of work outside
@@ -202,29 +140,9 @@ biostatistics, dominate the available options. We begin by laying out
 these two answers and the methodological tradition behind each, before
 turning to the specific consequences for N-of-1 trial design and
 analysis.
-:::
 
 ## Two formal answers: continuous heterogeneity and latent-class structure
 
-::: {.bullets data-latex=""}
-\textbf{The continuous-heterogeneity answer encodes biomarker
-moderation as a smooth interaction in a single multivariate
-distribution.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Every participant has some treatment response; the response is a
-  linear function of the biomarker.
-\item Population heterogeneity is captured by a single distribution
-  with an interaction parameter $\beta_{bm:D}$.
-\item This is the dominant tradition in clinical biostatistics via
-  random slopes and fixed-effects interaction terms.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The first answer represents biomarker moderation as a graded
 continuous effect: every participant has some degree of treatment
 response, the response is a smooth (typically linear) function of the
@@ -237,27 +155,7 @@ regression. In its most economical form, the moderation enters the
 conditional mean of the outcome as $\beta_{bm:D} \cdot B \cdot D$,
 where $B$ is the biomarker and $D$ is the (possibly continuous-decay)
 treatment indicator.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The latent-class answer encodes biomarker moderation as
-discrete subpopulation structure, with the biomarker predicting class
-membership.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Participants belong to unobserved responder/non-responder classes
-  with qualitatively distinct treatment-response curves.
-\item Class membership is a Bernoulli draw with biomarker-dependent
-  mixing probabilities.
-\item Marginal moderation emerges from the mixture, not a smooth
-  conditional-mean function.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The second answer represents biomarker moderation as a discrete
 subpopulation structure: participants belong to one of a small number
 of unobserved classes (most commonly 'responder' and 'non-responder'),
@@ -268,29 +166,7 @@ membership is a Bernoulli or multinomial draw with mixing probabilities
 that depend on the biomarker, and the within-class outcome model is
 class-specific. The marginal moderation observed in the data emerges
 from the mixture rather than from a smooth conditional-mean function.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The two encodings reflect genuinely distinct biological
-hypotheses that diverge under the longitudinal structure of an N-of-1
-trial.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Continuous heterogeneity implies a graded physiological substrate
-  scaling drug effect; latent-class implies qualitatively distinct
-  phenotypes.
-\item Both views yield identical marginal associations at a single
-  timepoint but diverge once carryover and serial dependence are
-  engaged.
-\item Methodology from outside biostatistics -- with mature
-  formalization and identifiability analysis -- is directly applicable.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 These two answers correspond to genuinely different biological
 hypotheses. The continuous-heterogeneity view is consistent with a
 mechanism in which the biomarker reflects a graded physiological
@@ -308,29 +184,9 @@ heterogeneity. This is the substantive point at which methodology
 imported from outside biostatistics becomes useful: both traditions
 have long histories of formalization and identifiability analysis in
 their respective fields, and the corresponding tools are mature.
-:::
 
 ## Psychometric origins
 
-::: {.bullets data-latex=""}
-\textbf{The continuous-trait tradition traces to Spearman and the
-factor-analytic lineage of Thurstone and Lawley, in which heterogeneity
-is by assumption continuous.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Observed indicators are modeled as linear combinations of
-  unobserved continuous factors plus residual noise.
-\item Between-person heterogeneity is summarized by factor scores along
-  one or more dimensions.
-\item This tradition forms the psychometric foundation for the
-  continuous-heterogeneity encoding of biomarker moderation.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The continuous-trait view in formal statistical work originates with
 Spearman's two-factor theory of intelligence [@spearman1904], in
 which performance on cognitive tests was modeled as the sum of a
@@ -343,29 +199,7 @@ unobserved continuous factors plus residual noise [@thurstone1947;
 heterogeneity in any latent construct is by assumption continuous, and
 individual differences are summarized by factor scores along one or
 more dimensions.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The latent-class tradition originates with Lazarsfeld's local-
-independence formulation and was placed on rigorous ML footing by
-Goodman, then extended to longitudinal and covariate-dependent forms.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Local independence within classes is the founding assumption of
-  latent class analysis (LCA); Goodman derived identifiability
-  conditions and ML estimation.
-\item Extensions through the 1970s--1980s cover polytomous and
-  continuous indicators, multilevel data, and covariate-dependent
-  class probabilities.
-\item McLachlan and Peel's monograph is the standard entry point for
-  finite mixture models.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The discrete-class view emerged from a parallel but methodologically
 distinct literature beginning with Lazarsfeld's work on latent
 structure analysis in the 1950s [@lazarsfeld1950; @lazarsfeldhenry1968].
@@ -388,27 +222,7 @@ mixtures with covariate-dependent class probabilities
 [-@mclachlanpeel2000] unified much of this material into a
 comprehensive monograph on finite mixture models that is the standard
 entry point for quantitative researchers from outside the discipline.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The psychometric literature has never resolved the
-continuous-versus-discrete question, motivating hybrid factor mixture
-models.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Bartholomew argued the data rarely settle the continuous-discrete
-  choice without strong prior assumptions.
-\item Cognitive ability favors continuous factors; certain
-  psychopathologies favor discrete subtypes.
-\item Yung and Arminger developed factor mixture models combining
-  discrete classes with within-class continuous factors.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The defining tension in psychometric methodology has been whether a
 given pattern of observed heterogeneity is best understood as
 continuous or as discrete. Bartholomew [-@bartholomew1987] framed this
@@ -423,30 +237,9 @@ beginning with @yung1997 and @arminger1999, developed hybrid
 frameworks (factor mixture models) in which discrete classes coexist
 with within-class continuous factors. We return to these frameworks
 below.
-:::
 
 ## Econometric and marketing-science development
 
-::: {.bullets data-latex=""}
-\textbf{Heckman and Singer's econometric work on unobserved
-heterogeneity anticipated finite-mixture methodology, warning that
-structural estimates are sensitive to the assumed heterogeneity
-distribution.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The econometric concern was unobserved heterogeneity in
-  micro-econometric models where identical-agent assumptions fail.
-\item Heckman and Singer proposed non-parametric ML with the
-  heterogeneity distribution estimated as a discrete mixture.
-\item Lindsay unified the theory of mixture likelihoods; this work
-  directly informed biostatistical finite-mixture practice.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 A largely independent strand of work on finite mixtures developed in
 econometrics and quantitative marketing through the 1980s and 1990s.
 The motivating problems differed from psychometrics: rather than
@@ -464,27 +257,7 @@ with unknown support points and weights. Their estimator anticipated
 much of what would later become standard finite-mixture methodology in
 biostatistics, and Lindsay [-@lindsay1995] placed the broader theory
 of mixture likelihoods on a unified mathematical footing.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The marketing-science literature formalized covariate-dependent
-gating functions and clusterwise regression, providing the vocabulary
-now used in mixture-of-experts models.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item DeSarbo and Cron introduced clusterwise linear regression with
-  cluster-specific coefficients; Wedel and DeSarbo extended it to GLMs.
-\item The gating function -- class-membership probability as a function
-  of covariates -- became a first-class object.
-\item Jacobs et al. formalized the same structure as 'mixtures of
-  experts' in machine learning, supplying the standard vocabulary.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 In quantitative marketing, the parallel concern was customer
 segmentation. A population of consumers might respond to a marketing
 intervention differently depending on which unobserved segment they
@@ -504,26 +277,7 @@ Jacobs and colleagues [-@jacobs1991], working contemporaneously in
 machine learning, formalized an essentially identical structure under
 the name 'mixtures of experts', which provided much of the
 now-standard vocabulary.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{Two econometric themes translate directly to the N-of-1 trial
-setting: identifiability concerns at small $N$, and biomarker-as-gating-
-covariate structure.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Econometric identifiability concerns are acute when heterogeneity
-  is the principal inference target rather than a nuisance.
-\item The biomarker-treatment moderation question is whether the gating
-  function depends on the biomarker and within-class slopes differ.
-\item These two themes directly motivate the present paper's framing.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Two themes from the econometric strand are particularly relevant to the
 N-of-1 trial setting. First, the econometric tradition treated
 unobserved heterogeneity as a nuisance in many applications, and was
@@ -539,30 +293,9 @@ present paper. The biomarker-treatment moderation question, translated
 into econometric vocabulary, is whether the gating function depends on
 a single observed covariate (the biomarker) and whether the within-
 class regression coefficient on treatment differs across classes.
-:::
 
 ## Convergence on hybrid frameworks
 
-::: {.bullets data-latex=""}
-\textbf{Psychometric and econometric traditions converged on factor
-mixture models combining discrete class structure with within-class
-continuous heterogeneity.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Yung developed the factor mixture model (FMM) as a finite mixture
-  of confirmatory factor
-  models with class-specific loadings and residual covariances.
-\item Arminger placed FMMs in the Mplus structural equation framework.
-\item Lubke and Muthen provided the first systematic Monte Carlo
-  evaluation of conditions under which class structure is
-  distinguishable from continuous heterogeneity.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 By the late 1990s, both the psychometric and the econometric strands
 had converged on a hybrid formulation: combine continuous within-class
 factor structure with discrete between-class structure. Yung
@@ -577,28 +310,7 @@ which the discrete-class component was empirically distinguishable from
 continuous heterogeneity. Clark and colleagues [-@clark2013] surveyed
 the modeling strategies and presented an applied analysis of
 psychiatric comorbidity.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{Growth mixture models and group-based trajectory models extend
-the finite-mixture framework to longitudinal outcome trajectories.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Growth mixture models (GMMs) posit class-specific trajectories
-  with within-class
-  random-effects variation; group-based models constrain
-  within-class variance to zero.
-\item Nagin's group-based approach originated in criminology and is
-  now widely used in epidemiology and clinical research.
-\item Both families are the longitudinal analogues of the latent-class
-  DGP developed in the present paper.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 In parallel, the longitudinal extension of these ideas yielded the
 growth mixture model [@muthenshedden1999; @muthen2001; @muthen2004]
 and the closely related group-based trajectory model [@nagin1999;
@@ -612,30 +324,8 @@ primarily in criminology to characterize developmental trajectories of
 antisocial behavior, and has been widely applied in epidemiology,
 public health, and clinical research where trajectory heterogeneity is
 the principal scientific question.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{Overextraction hazards tempered early optimizm: GMMs can
-spuriously identify classes from non-gaussian single-component data,
-and reliable class recovery requires large samples.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Bauer and Curran showed GMMs extract apparent classes from
-  non-gaussian single-component DGPs.
-\item Lubke and Muthen documented analogous FMM hazards and identified
-  joint conditions on $N$, class separation, and parameter differences.
-\item Nylund et al. systematised class enumeration via Monte Carlo
-  evaluation of information criteria and the bootstrap likelihood-ratio
-  test (BLRT); the cumulative
-  message is that hundreds to thousands of participants are required.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
-The methodological optimizm around growth and factor mixture models
+The methodological optimism around growth and factor mixture models
 during the early 2000s was tempered by a series of papers documenting
 overextraction hazards. Bauer and Curran [-@bauercurran2003], in
 Psychological Methods, demonstrated through simulation that growth
@@ -656,31 +346,9 @@ literature is that mixture models can extract apparent class structure
 where none exists, and that distinguishing genuine from spurious class
 structure requires either substantial samples (typically several
 hundred to several thousand participants) or strong prior information.
-:::
 
 ## Translation into longitudinal biostatistics
 
-::: {.bullets data-latex=""}
-\textbf{Verbeke and Lesaffre introduced finite-mixture random-effects
-distributions into biostatistics via longitudinal HIV data, with Zhang
-and Davidian extending to semi-parametric specifications.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The model augments a standard random-intercept-and-slope linear
-  mixed model (LMM)
-  with a discrete latent class indicator on the random-effects
-  population.
-\item Their motivating application was qualitatively distinct CD4
-  trajectories in HIV-infected patient latent classes.
-\item Zhang and Davidian allowed more flexible heterogeneity
-  distributions via semi-parametric mixture specifications.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Mixture and latent-class methods entered biostatistical practice
 through several complementary channels. Verbeke and Lesaffre
 [-@verbekelesaffre1996], in the Journal of the American Statistical
@@ -694,28 +362,7 @@ linear mixed model augmented by a discrete latent class indicator.
 Zhang and Davidian [-@zhangdavidian2001] extended the framework to
 allow more flexible random-effects distributions via semi-parametric
 mixture specifications.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The \texttt{lcmm} and \texttt{flexmix} R packages translate
-finite-mixture longitudinal models into accessible software for
-biostatistical applications.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item \texttt{lcmm} implements joint latent-class mixed models for
-  longitudinal outcomes with optional joint survival modeling.
-\item \texttt{flexmix} provides a general regression-mixture framework
-  with user-definable component models including mixed-effects
-  specifications.
-\item Both have been used in pharmacokinetic, cognitive aging, and
-  clinical latent-class discovery applications.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Proust-Lima and colleagues developed a more comprehensive software
 framework with the \texttt{lcmm} R package [@proustlima2017], which
 implements joint latent-class mixed models for longitudinal continuous
@@ -728,27 +375,7 @@ general infrastructure for fitting mixtures of regression-style models
 with user-supplied component specifications, and has been used in
 pharmacokinetic and pharmacodynamic modeling where individual-level
 variation in dose-response curves motivates a mixture structure.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{Mixture and latent-class methods have not been systematically
-applied to aggregated N-of-1 designs; the biomarker-moderation
-question has been encoded exclusively as a continuous interaction.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Published N-of-1 methods focus on within-participant estimation,
-  Bayesian hierarchical models, and meta-analytic aggregation.
-\item Biomarker-moderation power calculations use continuous
-  interaction terms with no parallel latent-class formulation.
-\item The mixture-formulation question appears unaddressed in the
-  existing N-of-1 methodology literature.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Despite this translation activity, mixture and latent-class methods
 have not, to the best of our knowledge, been systematically applied to
 aggregated N-of-1 trial designs. The published N-of-1 methods
@@ -758,12 +385,11 @@ participant-specific effects [@zucker2010], and aggregated-evidence
 meta-analytic frameworks [@schork2015; @senn2018]. The
 biomarker-moderation question has received occasional treatment under
 the heading of precision-medicine power calculation [@gabler2011;
-@hendrickson2020], but in each case the moderation has been encoded as
+@hendrickson2020], but in each case the moderation has been specified as
 a continuous interaction term in a fixed-effects analysis, with no
 parallel treatment of the latent-class formulation. The
 mixture-formulation question appears to be unaddressed in the existing
 N-of-1 methodology literature.
-:::
 
 ## Why this matters for N-of-1 designs specifically
 
@@ -771,57 +397,18 @@ Three features of the aggregated N-of-1 design make the
 continuous-versus-discrete moderation question particularly
 consequential for design and analysis decisions.
 
-::: {.bullets data-latex=""}
-\textbf{Under a latent-class DGP, class membership is fixed across
-drug states and is in principle recoverable from the full trajectory
-even when on-drug contrasts are noisy.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Continuous-heterogeneity DGPs encode moderation in how the
-  within-participant contrast varies with the biomarker.
-\item Latent-class DGPs encode moderation in class membership, which
-  is invariant to drug state.
-\item The two encodings imply different efficient analysis strategies
-  and different power profiles under carryover.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 First, the within-participant longitudinal structure of an N-of-1
 trial provides repeated measurements at multiple drug states (on-drug,
 off-drug, in carryover). Under a continuous-heterogeneity DGP, the
-moderation signal is encoded in how the within-participant treatment
+moderation signal is carried by how the within-participant treatment
 contrast varies with the biomarker. Under a latent-class DGP, the
-moderation signal is encoded in class membership, which is fixed across
+moderation signal is carried by class membership, which is fixed across
 all measurements within a participant and is therefore in principle
 recoverable from the full trajectory even when individual on-drug
-contrasts are noisy. The two encodings imply different efficient
+contrasts are noisy. The two formulations imply different efficient
 analysis strategies and different power profiles under carryover
 [@hendrickson2020].
-:::
 
-::: {.bullets data-latex=""}
-\textbf{N-of-1 trial sample sizes are well below the threshold at which
-mixture-model identifiability has been validated, so a misspecified
-single-component analysis may be the more reliable tool.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Psychometric identifiability validation requires hundreds to
-  thousands of participants; N-of-1 trials operate at $N \in [30,150]$.
-\item Even a biologically correct latent-class DGP may yield
-  underpowered or unidentified mixture estimates at trial-relevant $N$.
-\item The mixture-versus-mitigation trade-off is an empirical question
-  not addressed at N-of-1-relevant sample sizes.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Second, N-of-1 trials are typically conducted at sample sizes of
 $N \in [30, 150]$, well below the sample sizes at which mixture-model
 identifiability has been validated in the psychometric literature. The
@@ -834,28 +421,7 @@ and a misspecified single-component analysis may be the more reliable
 inferential tool despite its bias. Resolving this trade-off is in part
 an empirical question that the existing psychometric simulation
 literature has not addressed at N-of-1-relevant sample sizes.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{Carryover erodes the moderation signal directly under
-continuous-heterogeneity but only indirectly under latent-class,
-predicting divergent power-loss profiles.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Under continuous heterogeneity, carryover attenuates $D_{bc,it}$
-  and thereby directly attenuates the moderation signal.
-\item Under latent-class structure, carryover erodes within-class drug
-  contrasts but does not directly attenuate class membership.
-\item The two formulations predict different power-loss profiles; this
-  difference is empirically large in the companion carryover-
-  sensitivity work.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Third, carryover, which enters the analysis as a continuous decay in
 the effective drug indicator $D_{bc,it} = \exp(-\lambda t_{sd,it})$,
 interacts differently with the two moderation encodings. In the
@@ -869,30 +435,9 @@ lost under the continuous-heterogeneity analysis. The two formulations
 therefore predict different power-loss profiles under carryover, and
 this difference is empirically large in the simulation literature
 accumulated by the companion carryover-sensitivity work.
-:::
 
 ## Aims and structure of the paper
 
-::: {.bullets data-latex=""}
-\textbf{The paper has four aims: formalize latent-class DGPs for N-of-1
-trials, characterize estimation strategies at small $N$, benchmark
-power via simulation, and re-analyze the prazosin-PTSD dataset.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Aims 1--2 are methodological: formal specification and
-  estimation/diagnostic characterization with explicit identifiability
-  conditions.
-\item Aim 3 is computational: a factorial simulation benchmarking
-  mixture-DGP against continuous-DGP power under carryover.
-\item Aim 4 is applied: re-analysis of the Hendrickson et al. (2020)
-  prazosin-PTSD data under the latent-class formulation.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 This paper has four aims. The first is to formalize the latent-class
 and finite-mixture formulations of biomarker-treatment interaction in
 aggregated N-of-1 trials, with explicit identifiability conditions
@@ -907,29 +452,7 @@ carryover. The fourth is to apply the developed methods to the
 prazosin-PTSD biomarker dataset of @hendrickson2020 and to compare
 conclusions with those obtained under the continuous-moderation
 analysis reported in the original paper.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The paper moves from notation and DGP specification through
-multivariate normal (MVN) approximation, identifiability analysis,
-model taxonomy, and spectrum
-organization to analysis implications and a discussion of open
-questions.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Sections on the faithful DGP, MVN approximation, and failure
-  regimes develop the theoretical core.
-\item The finite-mixture taxonomy and biomarker-moderation spectrum
-  organize the model landscape systematically.
-\item The discussion addresses three open questions and situates the
-  companion five-study simulation program.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The remainder of the paper is organized as follows. We begin in the
 notation section with a glossary that fixes terminology used
 throughout. The latent-class generative form, its MVN second-moment
@@ -946,30 +469,9 @@ three open methodological questions and references the five-study
 simulation program described in the companion simulation plan, which
 constitutes the empirical core of the present line of work and is the
 next deliverable in the program.
-:::
-
 
 # Notation
 
-::: {.bullets data-latex=""}
-\textbf{Core notation: $B_i$ is the biomarker, $BR_{it}$ the
-biological-response component, $D_{bc,it}$ the continuous-decay drug
-indicator, and $Z_i$ the unobserved class label.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Outcome is decomposed into $BR_{it}$, $TV_{it}$, and $PB_{it}$
-  following the Hendrickson framework.
-\item $D_{bc,it} = \exp(-\lambda t_{sd,it})$ off-drug and $1$ on-drug;
-  $\lambda = \ln 2 / t_{1/2}$.
-\item The DGP and analysis model are permitted to use different
-  carryover half-lives.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Throughout, $B_i$ denotes the pre-treatment biomarker value for
 participant $i$. $BR_{it}$ denotes the biological-response component of
 outcome for participant $i$ at time $t$, decomposed in the Hendrickson
@@ -986,7 +488,6 @@ continuous exposure-decayed indicator used here; the latter is the
 class label. The half-life of
 carryover is $t_{1/2} = \ln 2 / \lambda$ and is allowed to differ
 between the DGP and the analysis model.
-:::
 
 The principal psychometric and econometric terms used below are:
 
@@ -1034,25 +535,6 @@ parameters: peak response, onset rate, or both. Within-class temporal
 structure follows the same modGompertz form used in single-class
 formulations, with class-specific parameters substituted.
 
-::: {.bullets data-latex=""}
-\textbf{The faithful latent-class DGP is a finite mixture with
-biomarker-dependent class-membership probability and class-specific
-modGompertz drug-response distributions.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item $Z_i \mid B_i \sim \mathrm{Bernoulli}(\pi(B_i))$ with
-  $\pi(B_i)$ typically a logistic function of the biomarker.
-\item Class-conditional distributions $f_0$ and $f_1$ differ in
-  drug-response parameters (peak response, onset rate, or both).
-\item Within-class temporal structure uses the same modGompertz form
-  as single-class formulations.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 If a candidate predictive biomarker indexes an unobserved
 responder/non-responder dichotomy, the mechanistically faithful
 data-generating process is a finite mixture, with $Z_i \mid B_i$
@@ -1062,30 +544,7 @@ class-conditional response distributions $f_0$ and $f_1$ differing in
 their drug-response parameters. Within-class temporal structure uses
 the same modGompertz form as single-class formulations with
 class-specific parameters substituted.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{Class-label invariance preserves moderation information
-across carryover that the MVN-covariance encoding, where the signal is
-entirely in the second moment, cannot retain.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item $Z_i$ is fixed across drug states; it carries participant-level
-  moderation information even when between-class mean separation is
-  attenuated.
-\item Under a full carryover off-drug period, class-conditional means
-  converge
-  but $Z_i$ remains recoverable from the full trajectory.
-\item Under MVN-covariance encoding the carryover erosion of the
-  covariance is direct and no residual signal survives the off-drug
-  period.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 We note two consequences of this DGP form that are central to what
 follows. First, the class label $Z_i$ is fixed across all measurements
 within a participant; it is invariant to drug state and to time.
@@ -1099,7 +558,6 @@ between-class mean separation in $BR$ is fully attenuated. The
 MVN-covariance encoding of biomarker moderation, in contrast, has no
 such latent-label information to exploit: the covariance is the entire
 signal, and its erosion under carryover is direct.
-:::
 
 # MVN approximation to mixture-induced moderation
 
@@ -1123,55 +581,6 @@ intra-class correlations; if either class separation is small, the
 achievable marginal $c_{bm}$ is small even when class structure is
 otherwise well-defined.
 
-::: {.bullets data-latex=""}
-\textbf{The achievable marginal $c_{bm}$ under an MVN approximation
-is bounded by the geometric mean of the two between-class variance
-fractions.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item $c_{bm}^2$ equals the product of the between-class variance
-  fractions in $B$ and in $BR$.
-\item Small class separation in either variable limits the achievable
-  marginal $c_{bm}$ even when class structure is otherwise
-  well-defined.
-\item The MVN approximation reproduces the mixture's first two moments
-  under within-class independence.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
-A two-component mixture with class-dependent means and common
-within-class covariance produces a marginal joint distribution of
-$(B_i, BR_{it})$ whose first two moments are reproduced, to leading
-order, by a single multivariate normal with $\mathrm{Cor}(B, BR) =
-c_{bm}$. The achievable marginal $c_{bm}$ is bounded by the geometric
-mean of the two between-class variance fractions; if either class
-separation is small, the achievable $c_{bm}$ is small even when class
-structure is otherwise well-defined.
-:::
-
-::: {.bullets data-latex=""}
-\textbf{Within the regularity conditions, the MVN second-moment
-approximation is adequate for LMM power calculations and captures
-differential correlation across drug states.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The approximation yields elevated correlation on-drug and
-  shrinkage toward zero off-drug after carryover has decayed.
-\item Adequacy requires adequate class overlap and $\pi$ bounded
-  away from 0 and 1.
-\item For $t$-tests on $\beta_{bm:D}$ this approximation captures
-  covariance consequences without committing to a discrete DGP.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Under mild regularity conditions (adequate class overlap and mixing
 proportions $\pi$ bounded away from 0 and 1), the mixture's
 second-moment structure is well-approximated by a single MVN with
@@ -1183,7 +592,6 @@ mixed-effects model, this approximation is adequate within the
 regularity conditions and captures the covariance consequences of
 latent-class structure without committing to a discrete generative
 form.
-:::
 
 # Failure regimes of the MVN approximation
 
@@ -1214,7 +622,7 @@ with a distinct empirical signature.
   variance, or placebo-response parameters differ between classes,
   no single-component MVN can represent the generative structure.
   Analysis models assuming constant covariance are misspecified
-  regardless of whether they encode the biomarker interaction in
+  regardless of whether they represent the biomarker interaction in
   the mean or in the covariance. This is the latent-class analogue
   of heteroscedastic residual variance addressed in standard mixed-
   effects practice with `varIdent` or `weights` specifications,
@@ -1222,25 +630,6 @@ with a distinct empirical signature.
 
 # Implications for power under carryover
 
-::: {.bullets data-latex=""}
-\textbf{The power gap between a second-moment analysis and a
-mixture-faithful analysis upper-bounds what a class-aware procedure
-can recover, but the bound is asymptotic and may reverse at small $N$.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The 40--60\% covariance-only power loss reflects direct erosion
-  of a second-moment signal; class membership is carryover-invariant.
-\item The gap between covariance-only and mixture-faithful power
-  estimates upper-bounds the recoverable power.
-\item At finite $N$ in the trial-relevant range, finite-sample bias
-  can drive the realized gap below the bound or reverse its sign.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The substantial covariance-only power loss under carryover (40--60\%
 across designs in @hendrickson2020) reflects erosion of a
 second-moment signal. A mixture-model analysis fitted to mixture-DGP
@@ -1253,27 +642,7 @@ trial-relevant parameter regime is an empirical question not addressed
 by existing simulation infrastructure. The bound is asymptotic: at
 finite $N$, finite-sample bias can drive the realized gap below the
 bound or, in adverse identifiability regimes, reverse its sign.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The Study 1 factorial crosses two DGPs and two analyses to
-decompose approximation error from analysis-model mis-specification
-and to verify Type I error control.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The mixture-DGP/MVN-analysis vs.\ mixture-DGP/mixture-analysis
-  contrast quantifies power recoverable by a faithful analysis.
-\item The two MVN-analysis cells quantify approximation error in the
-  second-moment encoding.
-\item A null check on the MVN-DGP/mixture-analysis cell verifies no
-  spurious power extraction.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 A focused factorial simulation isolating second-moment approximation
 error from analysis-model mis-specification is described in the
 companion simulation plan (Study 1: mixture-vs-MVN factorial). The
@@ -1285,29 +654,9 @@ difference between the two MVN-analysis cells quantifies approximation
 error. A null check on the MVN-DGP/mixture-analysis cell verifies
 the mixture model does not extract spurious power on data with no
 latent class structure.
-:::
 
 # Identifiability at trial-relevant sample sizes
 
-::: {.bullets data-latex=""}
-\textbf{Mixture EM requires either informative class-probability priors
-or strong class separation; neither is assured at N-of-1 sample sizes,
-which fall well below identifiability validation thresholds.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Posterior entropy stabilization requires hundreds to thousands
-  of participants in published psychometric applications.
-\item N-of-1 trials operate at $N \in [30, 150]$, well below this
-  range.
-\item The identifiability cost is acute precisely when the moderation
-  effect's existence is uncertain.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Mixture modeling is attractive on faithfulness grounds but carries
 identifiability costs that are acute in N-of-1 settings. The EM
 algorithm for finite mixtures of mixed-effects models requires either
@@ -1322,27 +671,7 @@ class extraction in published psychometric applications
 [@bauercurran2003; @bauer2007; @nylund2007]. Aggregated N-of-1 trials
 of the size contemplated in current biomarker applications,
 $N \in [30, 150]$, are well below this range.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The operative question is not faithfulness but whether the
-fidelity gain is recoverable at realistic $N$, or whether standard
-analysis mitigations offer a better power-per-complexity trade.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Mixture analysis may be underpowered or unidentified even under
-  a genuinely mixture-structured DGP at trial-relevant $N$.
-\item Analysis-strategy mitigations within standard mixed-effects
-  practice have better-understood inferential properties at small $N$.
-\item Study 5 of the companion simulation plan addresses this
-  directly with small-$N$ identifiability and Type I error checks.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The methodological implication is that mixture analysis at
 trial-relevant sample sizes may be either underpowered or unidentified,
 even when the underlying DGP is genuinely mixture-structured. The
@@ -1357,7 +686,6 @@ mixture-versus-mitigation question empirically requires the simulation
 program described in the companion simulation plan; Study 5 in
 particular addresses small-$N$ identifiability and Type I error
 explicitly.
-:::
 
 # Finite-mixture taxonomy
 
@@ -1368,27 +696,6 @@ its origin, and its specific relevance to the N-of-1 trial setting.
 
 ## Latent class and latent profile analysis
 
-::: {.bullets data-latex=""}
-\textbf{LCA and latent profile analysis (LPA) are cross-sectional
-mixture models estimating
-class membership from observed indicators; in the trial context they
-characterize responder classes from response trajectories.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item LCA uses categorical indicators; LPA uses continuous indicators;
-  both return posterior class-membership probabilities.
-\item In the biomarker-trial context, an LPA-style model estimates
-  responder-class probabilities from on-drug and off-drug response
-  trajectories.
-\item Classical estimation is via EM; standard R implementations
-  include \texttt{poLCA} and Latent GOLD.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Latent class analysis and latent profile analysis are mixture models
 for cross-sectional data. Each participant belongs to one of a small
 number of unobserved classes; the observed variables have
@@ -1404,29 +711,9 @@ trajectories rather than from baseline covariates alone. Classical
 references include @lazarsfeldhenry1968, @goodman1974, @clogg1995, and
 @mclachlanpeel2000; the Vermunt and Magidson Latent GOLD software and
 the \texttt{poLCA} R package implement the standard EM estimation routines.
-:::
 
 ## Growth mixture models and group-based trajectory models
 
-::: {.bullets data-latex=""}
-\textbf{GMMs extend LPA to longitudinal data with class-specific
-drug-response curves and within-class random-effects variation;
-group-based trajectory models constrain within-class variance to zero.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item A GMM is a longitudinal LMM with the random-effects population
-  replaced by a mixture of multivariate normals.
-\item Group-based trajectory models are the degenerate case with zero
-  within-class random-effect variance.
-\item Both families model longitudinal trajectory heterogeneity as
-  the principal scientific question.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Growth mixture models [@muthenshedden1999; @muthen2001; @muthen2004]
 extend LPA to longitudinal data by specifying class-specific growth
 curves (or, in the trial setting, drug-response curves) with
@@ -1438,27 +725,7 @@ trajectory class. Group-based trajectory models [@nagin1999;
 random-effect variances are set to zero, so that participants within a
 class share an identical trajectory up to observation-level residual
 noise.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{GMM is the closest analogue of the faithful DGP in Section 3,
-but Bauer and Curran's overextraction cautions apply with full force
-at N-of-1 sample sizes.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item A biomarker-gated GMM is essentially the faithful latent-class
-  DGP with drug-state-invariant class labels.
-\item GMM can extract apparent class structure from single-class
-  non-gaussian data at realistic sample sizes.
-\item N-of-1 participant counts are typically well below those at
-  which GMM class-count recovery has been validated.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 GMM is the closest psychometric analogue of the latent-class
 generative form developed above: each participant belongs to a latent
 class with its own drug-response trajectory, and the class label is
@@ -1473,30 +740,9 @@ single-class non-gaussian processes. These cautions apply with full
 force to aggregated N-of-1 trials, where participant counts are
 typically well below the sample sizes at which GMM class-count
 recovery has been validated.
-:::
 
 ## Factor mixture models
 
-::: {.bullets data-latex=""}
-\textbf{Factor mixture models combine discrete class structure with
-within-class continuous factor heterogeneity, subsuming pure factor
-analysis and pure LCA as limiting cases.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Within-class variation is governed by a factor model;
-  between-class variation by class-specific means, loadings, or
-  residual covariances.
-\item The pure continuous (single-class factor) and pure discrete
-  (LCA) cases are special cases of the FMM framework.
-\item FMMs match a wider range of biological scenarios at the cost
-  of higher estimation requirements.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Factor mixture models [@yung1997; @arminger1999; @lubkemuthen2005]
 combine continuous latent factors with discrete latent classes,
 yielding a generative structure in which within-class variation is
@@ -1505,31 +751,11 @@ class-specific means and, optionally, class-specific factor loadings or
 residual covariances. The FMM framework subsumes both the pure
 continuous case (single-class factor model) and the pure discrete case
 (LCA with no within-class structure) as limits.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{In FMM, the biomarker can function simultaneously as a noisy
-class indicator via the gating function and a continuous within-class
-modulator via factor loadings.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The upper level assigns participants to classes as in LCA; the
-  lower level gives each class its own random-effects structure.
-\item The biological hypothesis is distinct responder classes with
-  additional continuous heterogeneity within each class.
-\item The hybrid representation is more biologically flexible than
-  either pure LCA or pure factor analysis.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 FMMs are two-level hierarchies. At the upper level, participants are
 assigned to one of a small number of classes, as in LCA. At the lower
 level, each class has its own within-class random-effects structure.
-The biological hypothesis the FMM encodes is that there are genuinely
+The biological hypothesis the FMM expresses is that there are genuinely
 distinct responder classes and that, within class, additional
 continuous heterogeneity is driven by covariates or unmeasured
 individual differences. For the biomarker-moderation problem, FMM
@@ -1539,30 +765,9 @@ within-class response (via factor loadings on the response factor). The
 hybrid representation matches more biological scenarios than either
 pure LCA or pure factor analysis, at the cost of correspondingly higher
 estimation requirements.
-:::
 
 ## Regression mixtures and mixtures of experts
 
-::: {.bullets data-latex=""}
-\textbf{Regression mixtures replace a single regression surface with
-class-specific surfaces governed by a covariate-dependent gating
-function, paralleling propensity-score stratification in causal
-inference.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Each class has its own regression surface; the gating model
-  governs which surface applies to each participant.
-\item The biomarker enters both the gating function and (via class
-  membership) the within-class regression coefficient on treatment.
-\item The two-stage structure parallels propensity-score
-  stratification followed by within-stratum effect estimation.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Regression mixtures [@desarbocron1988; @wedeldesarbo1995; @jedidi1997]
 and the closely related mixture-of-experts architecture [@jacobs1991]
 allow class-specific regression coefficients with class-membership
@@ -1576,57 +781,16 @@ participant. The two-stage structure (classification by the gating
 model, then prediction by the within-class regression) parallels the
 two-stage structure of causal-inference methods that use propensity
 scores to stratify before estimating within-stratum treatment effects.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{In the trial simulation idiom, regression mixtures implement a
-DGP where the biomarker governs both responder probability and
-within-responder effect magnitude; \texttt{flexmix} provides the R
-implementation.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The biomarker enters the gating function and determines
-  within-responder drug effect magnitude.
-\item \texttt{flexmix} implements this family with user-definable
-  component models including mixed-effects specifications.
-\item This family is suitable for repeated-measures DGP construction
-  in aggregated N-of-1 simulation.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 In the trial-simulation idiom, regression mixtures correspond to a DGP
 in which the biomarker governs both the probability of being a
 responder and the magnitude of the within-responder drug effect. The
 \texttt{flexmix} package in R [@leisch2004; @grunleisch2008] implements
 this family with user-definable component models, including
 mixed-effects components suitable for repeated-measures data.
-:::
 
 # The biomarker-moderation spectrum
 
-::: {.bullets data-latex=""}
-\textbf{Locating the covariance-only formulation within the broader
-DGP spectrum clarifies which features of the carryover-induced power
-loss are properties of the specification rather than the science.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The spectrum is organized by which moments the biomarker
-  moderates: mean, covariance, both, or higher moments.
-\item Covariance-only is the Hendrickson formulation; mean-and-
-  covariance and higher-moment forms are the generalizations.
-\item Understanding the spectrum is prerequisite to a complete
-  sensitivity analysis of carryover-induced power loss.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The covariance-only formulation of @hendrickson2020 specifies a
 biomarker-dependent covariance structure with population means held
 constant across biomarker values. Locating this formulation within the
@@ -1635,57 +799,17 @@ moment-by-moment organization of the spectrum (biomarker moderating the
 mean, the covariance, both, or higher moments) clarifies which features
 of the carryover-induced power loss are properties of the specification
 itself rather than of the underlying scientific question.
-:::
 
 ## Covariance-only moderation
 
-::: {.bullets data-latex=""}
-\textbf{The covariance-only specification fixes the conditional mean
-and encodes the interaction entirely in how strongly the biomarker
-co-varies with response during on-drug versus off-drug periods.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item High- and low-biomarker participants share the same expected
-  drug response but differ in their biomarker-response covariance.
-\item The interaction signal resides entirely in the second moment
-  and is eroded directly by carryover.
-\item This is the core DGP in Hendrickson et al. (2020).
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The covariance-only specification holds $E[BR_{it}]$ fixed across
-biomarker strata and encodes the interaction entirely in
+biomarker strata and places the interaction entirely in
 $\mathrm{Cov}(B_i, BR_{it} \mid D_{bc,it})$. High- and low-biomarker
 participants have the same expected drug response at any given time but
 differ in the covariance between biomarker and response, specifically
 in how strongly the biomarker co-varies with response during on-drug
 versus off-drug periods.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{Covariance-only is an unusual restriction in the psychometric
-tradition; its tractability for MVN power simulation is its main
-appeal, but it lacks a clean natural generative mechanism.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item FMM and GMM parameterizations typically allow class-specific
-  means at minimum; the means-constant-covariance-varies case tests
-  measurement invariance, not primary DGP structure.
-\item The encoding's appeal is tractability: the entire DGP reduces
-  to a single MVN draw with a constructed covariance.
-\item Its cost is the absence of a natural mechanistic
-  interpretation.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 This is an unusual restriction within the psychometric mixture
 tradition. Most standard FMM and GMM parameterizations permit
 class-specific means at a minimum, and the means-constant-covariance-
@@ -1700,28 +824,9 @@ tractability for power simulation under multivariate normality: the
 entire DGP reduces to drawing from a single MVN with a constructed
 covariance. Its cost is that it does not correspond cleanly to any
 natural generative mechanism.
-:::
 
 ## Combined mean and covariance moderation
 
-::: {.bullets data-latex=""}
-\textbf{The Arminger mean-and-covariance form is the general
-psychometric parameterization, subsuming both pure mean moderation and
-covariance-only as special cases.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Both the expected-response vector and the residual covariance
-  matrix may differ between classes and depend on covariates.
-\item Mean-moderation only and covariance-only are limiting cases.
-\item This is the general form against which both architectures A
-  and B are constrained submodels.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Arminger and colleagues [-@arminger1999] develop finite mixtures of
 conditional mean- and covariance-structure models in which both the
 expected-response vector and the residual covariance matrix differ
@@ -1730,28 +835,7 @@ This is the general psychometric form: it reduces to a mean-moderation
 model in the limit of a single class with covariate-dependent mean
 only, and to the covariance-only encoding in the limit of
 class-invariant means with covariate-dependent covariance only.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{Under combined moderation, the mean channel is robust to
-carryover and the covariance channel is eroded, predicting intermediate
-power loss and making this the most biologically plausible regime.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Both channels carry class-membership information; the mean
-  channel via $E[BR \mid B]$, the covariance channel via
-  $\mathrm{Var}[BR \mid B]$.
-\item Carryover attenuates the covariance channel but not the mean
-  channel, yielding intermediate power loss.
-\item The combined specification is plausibly the most biologically
-  faithful regime for biomarker-guided psychiatric trials.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 In the combined form, responders and non-responders differ both in
 typical drug response (mean moderation) and in how noisily that
 response is expressed within class (covariance moderation). Both
@@ -1768,29 +852,9 @@ Lesaffre [-@verbekelesaffre1996] provide the analogous treatment for
 linear mixed-effects models with heterogeneity in the random-effects
 population, which is the more direct generalization of the
 repeated-measures structure used in N-of-1 trial simulation.
-:::
 
 ## Location-scale moderation
 
-::: {.bullets data-latex=""}
-\textbf{GAMLSS-style distributional regression allows the biomarker
-to enter the mean, variance, and higher distributional moments
-simultaneously via separate link functions.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Standard regression models only the conditional mean; GAMLSS
-  models the mean, variance, skewness, and kurtosis each as a
-  separate function of covariates.
-\item The familiar special case is heteroscedastic linear regression
-  with covariate-dependent residual variance.
-\item GAMLSS generalizes this to arbitrary distributional shape.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Generalised additive models for location, scale, and shape
 [@gamlss2005] and the related distributional regression tradition
 [@klein2015] allow the biomarker to enter multiple parameters of the
@@ -1802,27 +866,7 @@ if appropriate the conditional skewness and kurtosis, each as a
 separate function of covariates. The familiar special case is
 heteroscedastic linear regression with covariate-dependent residual
 variance; GAMLSS generalizes this to arbitrary distributional shape.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{GAMLSS occupies an intermediate position between the mean-moderation architecture
-and B, allowing joint mean and scale moderation without discrete class
-structure.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item A GAMLSS DGP allows a shifted mean (the mean-moderation architecture location
-  effect) and altered variability (the covariance-moderation architecture analogue) jointly.
-\item It is the continuous-heterogeneity analogue of FMM, combining
-  mean and scale effects without requiring class structure.
-\item The intermediate position is attractive for sensitivity analysis
-  as it avoids committing to a class count.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 In the biomarker-trial context, a GAMLSS-based DGP would allow
 high-biomarker participants to have both a shifted mean drug response
 (a location effect, which is the mean-moderation architecture) and altered response
@@ -1834,30 +878,9 @@ occupies an intermediate position between the pure mean-moderation architecture 
 only) and the pure covariance-moderation architecture (covariance only). This intermediate
 position is attractive for sensitivity analysis because it does not
 require committing to a specific number of latent classes.
-:::
 
 ## Heterogeneous random-effects models
 
-::: {.bullets data-latex=""}
-\textbf{Heterogeneous random-effects models replace the single normal
-random-slope distribution with a mixture, so responder and
-non-responder classes have distinct treatment-slope distributions.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item In the standard LMM the random treatment slope is drawn from a
-  single normal; the heterogeneous extension replaces it with a
-  finite mixture.
-\item Responders draw from a large-slope component; non-responders
-  from a near-zero-slope component.
-\item The biomarker predicts which mixture component a participant
-  comes from.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Verbeke and Lesaffre [-@verbekelesaffre1996], Zhang and Davidian
 [-@zhangdavidian2001], and Proust-Lima and colleagues [-@proustlima2017]
 develop linear mixed-effects models in which the random-effects
@@ -1875,28 +898,7 @@ distribution with a large mean treatment slope and another fraction
 from a 'non-responder' distribution with a near-zero mean treatment
 slope. The biomarker predicts which mixture component a participant
 comes from.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{\texttt{lcmm} is the closest available tooling for
-heterogeneous random-effects N-of-1 analyses, fitting a mixture on the
-random-effects distribution and returning posterior class probabilities.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The framework represents responder heterogeneity at the
-  participant-specific random treatment effect -- the most clinically
-  transparent representation.
-\item The biomarker predicts class membership rather than entering
-  the fixed-effect mean structure.
-\item \texttt{lcmm} accepts standard LMM syntax and is the
-  lowest-friction extension of the existing simulation framework.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Applied to aggregated N-of-1 trial data, this framework represents
 responder heterogeneity directly at the participant-specific random
 treatment effect, which is arguably the most clinically transparent
@@ -1911,33 +913,12 @@ mixture on the random-effects distribution, and returns posterior class
 probabilities for each participant. For an extension of an existing
 aggregated N-of-1 simulation framework, \texttt{lcmm} is the
 lowest-friction entry point.
-:::
 
 # Implications for analysis and design
 
 Three implications follow from locating the covariance-only encoding
 within the broader spectrum.
 
-::: {.bullets data-latex=""}
-\textbf{The covariance-only DGP is the most restrictive case of a
-richer family; sensitivity analyses based on it alone risk overstating
-carryover-induced power loss.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Covariance-only places the entire biomarker-outcome signal in a
-  channel eroded by carryover by construction.
-\item Mean-structure signal survives carryover, attenuating overall
-  power loss under combined or mean-only specifications.
-\item A complete sensitivity analysis should span pure mean
-  moderation, pure covariance moderation, and a combined
-  specification.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 First, the covariance-only parameterization is the most restrictive
 operational case of a much richer family. The substantial power loss
 under carryover documented in @hendrickson2020 is a specific property
@@ -1955,28 +936,7 @@ loss is correspondingly attenuated. A complete sensitivity analysis
 should report power under at least three points on the spectrum: pure
 mean moderation, pure covariance moderation, and a combined
 specification.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{Identifiability concerns bound mixture-based analysis to a
-sensitivity and DGP role at N-of-1 sample sizes, not a primary
-analysis role.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Published FMM applications involve hundreds to thousands of
-  participants; N-of-1 trials at $N \in [30,150]$ are an order of
-  magnitude smaller.
-\item Mixture models should not be relied on as the primary analysis
-  at trial-relevant $N$.
-\item Mixture analysis retains value as a sensitivity check and as
-  a DGP stress-test for the primary linear-mixed analysis.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Second, the identifiability concerns documented in the GMM and FMM
 literatures [@bauercurran2003; @bauer2007; @lubkemuthen2005;
 @nylund2007] bound what can be asked of mixture-based analysis models
@@ -1992,27 +952,7 @@ class-structured residual pattern emerge from the pre-specified
 analysis?) and as a DGP for power simulation (does the primary
 analysis remain robust to class-structured departures from
 gaussianity?).
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The heterogeneous random-slopes form is the natural DGP
-extension target: it admits latent-class generative structure while
-preserving \texttt{nlme::lme} analysis-model compatibility.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Random-slopes parameterization extends the DGP in a direction
-  internal to the standard mixed-effects framework.
-\item The analysis model remains the pre-specified linear mixed-effects
-  fit, preserving the audit chain.
-\item Direct comparison against the covariance-only baseline is
-  possible under matched effect-size calibration.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Third, if N-of-1 simulation infrastructure pursues a richer DGP in
 subsequent work, the natural target is the heterogeneous random-slopes
 form rather than a full FMM. The random-slopes parameterization
@@ -2023,10 +963,9 @@ treatment slopes) while admitting the biologically faithful
 latent-class generative structure at the DGP level. The simulation DGP
 is extended in a direction internal to the standard mixed-effects
 framework, and the analysis model remains the pre-specified linear
-mixed-effects fit; this preserves the audit chain of the existing
+mixed-effects fit. This preserves the audit chain of the existing
 framework and permits direct comparison against the covariance-only
-baseline under matched effect-size calibration.
-:::
+baseline under matched effect-size tuning.
 
 # Software for mixture analyses
 
@@ -2060,25 +999,6 @@ case, are as follows.
   general but with steeper configuration cost than `lcmm` or
   `flexmix`.
 
-::: {.bullets data-latex=""}
-\textbf{Mplus is the reference implementation for GMM, FMM, and
-mixture-SEM; direct comparison with the identifiability literature
-occasionally requires access to it.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Mplus is the standard environment for the psychometric mixture-
-  model simulation literature on identifiability and overextraction.
-\item The Bauer-Curran, Lubke-Muthen, and Nylund studies all use
-  Mplus.
-\item Reproducing published benchmarks may require Mplus access
-  alongside the R implementations.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The reference implementation outside R is Mplus [@mplus], which
 remains the standard environment for GMM, FMM, and related
 mixture-SEM specifications. Much of the published psychometric
@@ -2086,36 +1006,15 @@ simulation literature on mixture-model identifiability and
 overextraction hazards [@bauercurran2003; @lubkemuthen2005; @nylund2007]
 uses Mplus, and direct comparison with that literature occasionally
 requires access to it.
-:::
 
 # Discussion
 
-::: {.bullets data-latex=""}
-\textbf{The biomarker-moderation problem sits at the intersection of
-biostatistical and psychometric traditions that have not previously
-engaged; recognizing the encoding choice opens both sensitivity-analysis
-and analysis-strategy programs.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Biostatistics has efficient within-participant estimators but
-  encodes moderation exclusively as a continuous interaction.
-\item Psychometrics has mature finite-mixture machinery applied only
-  to cross-sectional settings well above the N-of-1 range.
-\item The continuous-versus-discrete choice is a substantive
-  scientific question, not a parameterization convenience.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 We begin by noting that the biomarker-treatment moderation problem in
 aggregated N-of-1 trials sits at the intersection of two
 methodological traditions that have, until now, only weakly engaged
 with each other. The biostatistical tradition has developed efficient
 estimators for within-participant treatment contrasts and the
-meta-analytic machinery to combine them, but has typically encoded
+meta-analytic machinery to combine them, but has typically specified
 biomarker moderation as a continuous interaction in fixed-effects
 regression. The psychometric tradition has developed mature
 finite-mixture and latent-class machinery for representing discrete
@@ -2129,27 +1028,7 @@ recognizing this choice opens both a sensitivity-analysis program
 and an analysis-strategy program (class-aware mixture analyses where
 identifiability permits, and analysis-strategy mitigations where it
 does not).
-:::
 
-::: {.bullets data-latex=""}
-\textbf{Two limitations bound what the paper currently provides: the
-five-study simulation program has not been executed, and the
-prazosin-PTSD re-analysis has not been carried out.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The companion simulation plan describes but does not execute
-  the empirical core of the present line of work.
-\item The prazosin-PTSD dataset is the most immediate real-data
-  application target.
-\item Re-analysis should span at least three biomarker-moderation
-  encodings and a class-aware analysis where convergence permits.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Unfortunately, two limitations bound what the paper currently provides.
 First, the simulation program that would empirically resolve the
 mixture-versus-mitigation efficiency question at trial-relevant sample
@@ -2164,30 +1043,7 @@ out. The prazosin-PTSD analysis of @hendrickson2020 provides the most
 immediate target; the simulation program should run in parallel with
 re-analysis of that dataset under at least three biomarker-moderation
 encodings and a class-aware analysis where convergence permits.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{Three open questions remain: primary usability of class-aware
-analyses at small $N$, analysis half-life specification under a mixture
-DGP, and whether trial design should respond to the encoding question.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Whether class-aware analyses are usable as primary tests or
-  only as sensitivity checks requires direct simulation in the
-  trial-relevant regime.
-\item The continuous-decay $D_{bc,it}$ has a clean single-component
-  interpretation; its meaning under class-specific carryover
-  dynamics is less obvious.
-\item If a latent-class DGP is biologically more plausible, designs
-  minimizing carryover may gain power the standard hybrid design
-  surrenders.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Three open methodological questions remain. The first is whether
 class-aware analyses are usable as primary analyses at any realistic
 N-of-1 sample size, or only as sensitivity checks. The identifiability
@@ -2205,28 +1061,7 @@ to the moderation-encoding question: if a latent-class generative form
 is biologically more plausible than a continuous one, designs that
 maximize the per-participant contrast and minimize carryover may gain
 power that the standard hybrid design surrenders.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The five-study simulation program addresses the open
-questions sequentially, with pre-registered ADEMP designs, uniform
-analysis wrappers, and scoped infrastructure additions.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Factorial designs are pre-registered through ADEMP tables
-  committed before production runs.
-\item Class-aware analyses are wrapped uniformly for direct
-  cross-study comparability.
-\item The required DGP infrastructure additions are enumerated,
-  scoped, and sequenced to support both this paper and the companion
-  program.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The five-study simulation program described in the companion plan is
 structured to address each of these questions sequentially. The
 factorial designs are pre-registered through ADEMP [@morris2019] tables
@@ -2236,29 +1071,9 @@ studies; and the infrastructure required to add the necessary DGPs to
 the existing simulation framework is enumerated, scoped, and sequenced
 to support both this paper's revisions and the companion carryover and
 biomarker-interaction papers in the wider research program.
-:::
 
 ## Why the analysis model is simpler than the data-generating process
 
-::: {.bullets data-latex=""}
-\textbf{The asymmetry between a structured DGP and a simple four-term
-analysis model is intentional: a component-matched analysis is
-impractical at trial-relevant $N$.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The DGP decomposes into BR, PB, and TV components; the analysis
-  model is \texttt{Sx \textasciitilde{} bm + t + Dbc + bm:Dbc}.
-\item A component-by-component mirror would inflate the variance of
-  $\beta_{bm:D}$ at $N \in [30,150]$.
-\item Four reasons are given below for why the simpler analysis is
-  preferred.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 A natural reaction to the simulation program described above is that
 the DGP is structured (a three-component decomposition into biological
 response, placebo-belief response, and time-variant natural history
@@ -2270,27 +1085,7 @@ encountering this asymmetry is reasonable to ask why the analysis does
 not mirror the DGP component-by-component, and whether doing so would
 improve inference about the moderation estimand. The short answer, with
 brief justification, is the following.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{Component-matched analysis is impractical at trial-relevant
-$N$ for four reasons: identification requirements, parameter inflation,
-convergence fragility, and robustness of the moderation estimand.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Many designs supply only a subset of the contrasts needed to
-  identify BR, PB, and TV components separately.
-\item Each Gompertz component adds 3--4 population parameters,
-  inflating $\mathrm{Var}(\hat{\beta}_{bm:D})$ at $N \in [30,150]$.
-\item $\beta_{bm:D}$ is robust to BR-versus-PB attribution, making
-  the simpler model adequate for the validation question.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 A component-matched analysis (a non-linear mixed-effects model fitting
 Gompertz BR, PB, and TV components with participant-specific random
 effects) is impractical for trial-relevant $N$ for four reasons: the
@@ -2308,26 +1103,7 @@ BR-versus-PB attribution for the validation question, even though it is
 not robust to the larger questions of whether the moderation is
 class-structured (the present paper) or covariance-versus-mean-encoded
 (the \texttt{dgp-mean-moderation-vs-mvn} companion).
-:::
 
-::: {.bullets data-latex=""}
-\textbf{Adding a phase indicator is the minimal tractable extension
-that tests whether the apparent moderation shrinks under blinding.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The phase-indicator extension tests whether the drug effect and
-  its moderation shrink under blinding -- a PB-mediation signature.
-\item For papers where the primary estimand is the marginal
-  moderation, the simple four-term model is adequate.
-\item The phase-indicator extension is a candidate sensitivity
-  analysis for Study 1 once the primary cells are run.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The smallest extension that retains tractability while improving the
 BR-versus-PB sensitivity of the inference is a phase indicator plus its
 interaction with the drug indicator, schematically
@@ -2347,31 +1123,9 @@ sensitivity analysis to add to Study 1 (the mixture-vs-MVN factorial)
 once the primary cells are run. The document at
 \texttt{docs/24-component-decomposition-pedagogy.md} develops this
 point in more detail with worked numerical examples.
-:::
 
 ## The latent-class DGP as a generator of apparent subadditivity
 
-::: {.bullets data-latex=""}
-\textbf{The latent-class DGP is a natural generator of apparent
-subadditivity (a combined response smaller than the sum of the
-separate component responses) in a one-component analysis; the
-$\gamma > 0$ finding is ambiguous between direct mechanistic
-interaction and emergent class structure.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item No direct $BR \times PB$ interaction is required in the
-  class-conditional model to generate a non-zero $\hat{\gamma}$.
-\item Two mechanisms produce $\gamma > 0$: direct mechanistic coupling
-  and emergent covariance from class structure.
-\item The companion BR-PB-TV decomposition paper defines and tests
-  both mechanisms.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 A connection worth flagging explicitly: the latent-class DGP specified
 in Study 1 is a natural mechanism for generating apparent subadditivity
 in a downstream one-component analysis, even when no direct $BR \times
@@ -2382,28 +1136,7 @@ $BR \times PB$ interaction term in the conditional-mean specification
 of the additive decomposition, and notes that $\gamma > 0$ in a fitted
 additive-extension analysis is ambiguous between two distinct
 underlying mechanisms.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{Emergent subadditivity arises when class membership correlates
-with both $BR$ and $PB$ strength, producing a non-zero marginal
-$E[BR \cdot PB]$ covariance term that mimics a mechanistic
-interaction.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Responder-class participants having higher $BR$ and $PB$ on
-  average induces a positive $E[BR \cdot PB]$ covariance via the
-  unobserved class label.
-\item The magnitude depends on the gating function $\pi(B)$.
-\item From the additive-extension perspective this is
-  indistinguishable from a $\gamma$-weighted mechanistic interaction.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The first mechanism is direct mechanistic interaction: shared neural
 substrate, ceiling effects on the symptom scale, or belief-dynamics
 adaptation each produce a true non-additive coupling between drug and
@@ -2417,28 +1150,7 @@ PB$ over the unobserved class label has a non-zero covariance term
 whose magnitude depends on the gating function $\pi(B)$. From the
 additive-extension analysis this looks exactly like a
 $\gamma$-weighted interaction.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The Study 1 \texttt{pb\_class\_correlation} axis lets the
-analyst distinguish emergent from mechanistic subadditivity empirically
-within the simulation output.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The axis crosses PB-class-independent and PB-class-correlated
-  cells at matched marginal effect size.
-\item Large $\hat{\gamma}$ in the PB-class-correlated cell but small
-  in the PB-class-independent cell identifies the emergent mechanism.
-\item The cross-paper synthesis with the BR-PB-TV decomposition paper
-  directly falsifies or confirms class-aware versus mechanistic
-  interpretations of apparent subadditivity.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The Study 1 pre-registration accordingly includes a
 \texttt{pb\_class\_correlation} axis that varies
 $\mathrm{Cor}(BR, PB)$ across class labels: a PB-class-independent
@@ -2453,7 +1165,6 @@ paper is therefore not merely methodological convenience but a direct
 route to falsifying or confirming a class-aware versus
 mechanistic-interaction interpretation of any apparent subadditivity
 finding.
-:::
 
 ## Progress to date
 
@@ -2471,59 +1182,19 @@ Pre-registration. ADEMP tables for all five studies [@morris2019] are
 committed at `analysis/scripts/latent-class-mixture-application/
 00-ademp-pre-registration.md`, with cell counts (approximately 2,300
 cells across the program), seeded random-number control, an
-effect-size calibration sub-study, and a deviation-log specification.
+effect-size tuning sub-study, and a deviation-log specification.
 Subsequent production runs are diagnosed against these pre-registered
 estimands rather than against any post-hoc wrapper choice.
 
-::: {.bullets data-latex=""}
-\textbf{Phase 1 has committed three infrastructure components: ADEMP
-pre-registration, the \texttt{lcmm\_analysis()} wrapper, and the
-heterogeneous-random-slopes DGP.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item ADEMP tables cover approximately 2,300 cells across the five
-  studies with seeded RNG control and a deviation-log specification.
-\item The class-aware analysis wrapper uses a two-stage fit anchoring
-  gridsearch starts from a single-class \texttt{hlme}.
-\item The heterogeneous-random-slopes DGP adds a Bernoulli class-
-  membership channel with logistic gating in the standardized
-  biomarker.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Phase 1 of the simulation program has reached the
 infrastructure-and-pilot milestone. Three components are committed and
 exercised end-to-end on the host R session. ADEMP tables for all five
 studies are committed with approximately 2,300 cells across the
-program, seeded random-number control, an effect-size calibration
+program, seeded random-number control, an effect-size tuning
 sub-study, and a deviation-log specification. Subsequent production
 runs are diagnosed against these pre-registered estimands rather than
 against any post-hoc wrapper choice.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The \texttt{lcmm\_analysis()} wrapper extracts two moderation
-signals: the primary gating-coefficient z-test and the secondary
-within-class $\beta_{bm:D}$ t-test.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The two-stage fit anchors gridsearch starting values from a
-  single-class \texttt{hlme} before fitting \texttt{hlme(ng=2)}.
-\item The gating-coefficient z-test identifies whether the biomarker
-  predicts class membership.
-\item The within-class $\beta_{bm:D}$ t-test is retained for
-  inferential symmetry with the linear-mixed baseline.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Class-aware analysis wrapper. An \texttt{lcmm\_analysis()} wrapper
 around \texttt{lcmm::hlme} is committed at \texttt{01-lcmm-wrapper.R}
 with the same input-output contract as the existing
@@ -2535,27 +1206,7 @@ the biomarker (the primary class-aware moderation test, identifying
 whether the biomarker predicts class membership) and the within-class
 $\beta_{bm:D}$ t-test (the secondary signal, retained for inferential
 symmetry with the linear-mixed baseline).
-:::
 
-::: {.bullets data-latex=""}
-\textbf{Smoke-test results confirm the heterogeneous-random-slopes DGP
-produces the expected class structure and that \texttt{lcmm}
-discriminates it from the single-component MVN-DGP.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Single-replicate test at $N = 70$, gating slope 1.5 produces
-  46\% responders and marginal $\mathrm{Cor}(B, BR) = 0.63$.
-\item The linear-mixed \texttt{bm:Dbc} test detects the signal
-  ($p = 0.002$) without class awareness.
-\item \texttt{lcmm} returns entropy 0.86 and BIC 170 lower than the
-  matched single-component fit.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Heterogeneous-random-slopes DGP. A wrapper around \texttt{generateData()}
 that adds a Bernoulli class-membership channel with logistic gating in
 the standardized biomarker and class-specific multipliers on the BR
@@ -2569,26 +1220,7 @@ the \texttt{lcmm} fit returns a posterior class-assignment entropy of
 0.86 and a BIC 170 lower than the matched single-component MVN-DGP
 fit, indicating that the mixture model discriminates the two DGPs at
 this parameter cell.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The 100-replicate Study 5 pre-flight pilot establishes a 32:1
-per-replicate cost ratio for the class-aware versus linear-mixed
-analysis, with 96\% \texttt{lcmm} convergence.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Per-replicate timing: 0.05 s linear-mixed baseline; 1.57 s
-  class-aware analysis.
-\item \texttt{lcmm} convergence rate: 96\%; four failures arose from
-  gridsearch initialization.
-\item Results are checkpointed at \texttt{output/03-study5-pilot.rds}.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Study 5 pre-flight pilot. A 100-replicate pilot under the
 single-component null DGP (the covariance-moderation architecture with $c_{bm} = 0$, $N = 70$,
 hybrid open-label (OL) design) is reported at \texttt{output/03-study5-pilot.rds}.
@@ -2597,7 +1229,6 @@ s for the class-aware analysis (32:1 cost ratio, consistent with the
 smoke-test estimate). \texttt{lcmm} convergence rate is 96\%; the four
 non-converging replicates encountered numerical issues during the
 gridsearch initialization.
-:::
 
 Type I error at $\alpha = 0.05$ (MCSE 0.022)
 varies sharply across candidate test forms, motivating the choice of
@@ -2612,25 +1243,6 @@ the primary class-aware moderation test:
 | LRT chi-sq(df=4), naive reference        | 0.146          |
 | BIC-conditional gating procedure         | 0.000          |
 
-::: {.bullets data-latex=""}
-\textbf{The unconditional Wald-on-gating inflation is a finite-sample
-identifiability artifact: the conditional Wald SE underestimates true
-variability because the optimizer latches onto random class boundaries.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Empirical SD of the gating coefficient (63.9) is fifty times
-  the median within-replicate Wald SE (0.86).
-\item The gating coefficient is centered at zero with no systematic
-  bias; inflation is in the SE, not the estimate.
-\item This is the overextraction artifact predicted by Bauer and Curran (2003)
-  and Lubke and Muthén (2005).
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The unconditional Wald-on-gating test rejects at five times the nominal
 rate. Diagnosis of the rejecting replicates shows that the empirical
 standard deviation of the gating coefficient across replicates
@@ -2646,55 +1258,14 @@ the data have no class structure but \texttt{hlme} is forced to fit
 \texttt{ng=2}, the optimizer latches onto random patterns to define a
 class boundary, and the resulting Wald SE does not absorb the labeling
 uncertainty.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The naive likelihood-ratio test (LRT) is anti-conservative
-because the true
-distribution at the $ng=1$ boundary is chi-bar-squared, not
-chi-squared; the bootstrapped LRT is correct but too expensive.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Rejection rate 0.146 under the naive chi-squared($df=4$)
-  reference.
-\item The true LRT distribution at the $ng=1$ boundary is a
-  chi-bar-squared mixture (McLachlan and Peel, ch.\ 6).
-\item The Nylund et al. (2007) bootstrapped LRT is the standard calibration
-  but is too expensive at the class-aware simulation per-fit budget.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The naive LRT against a chi-squared($df=4$) reference is similarly
 anti-conservative (rejection 0.146), because the true LRT distribution
 at the \texttt{ng=1} boundary is a chi-bar-squared mixture rather than
 a chi-squared (@mclachlanpeel2000, ch. 6). The bootstrapped LRT of
 @nylund2007 is the standard calibration but is computationally
 expensive at the per-fit budget of a class-aware simulation.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The BIC-conditional gating procedure controls Type I at
-$N = 70$ under the null: BIC selects $ng=2$ in 1\% of replicates and
-none of those also reject the gating Wald.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The procedure requires $\Delta_{\text{BIC}} > 0$ (or
-  $> 6$ per Raftery 1995) before testing the gating coefficient.
-\item Zero conditional procedure rejections at the null gives Type I
-  = 0 at the pilot's resolution.
-\item Whether the procedure has adequate power under a true two-class
-  DGP is the central question for the rest of Study 5.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The pragmatic class-aware moderation test is therefore a
 BIC-conditional gating procedure: fit \texttt{ng=1} and \texttt{ng=2},
 prefer \texttt{ng=2} only if BIC supports it
@@ -2708,27 +1279,7 @@ test at trial-relevant $N$. Whether the same conditional procedure has
 adequate power to detect a true two-class DGP is the central question
 for the rest of Study 5; pilots at non-null cells will measure this
 directly.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The earlier claim that class-aware analyses are not usable as
-primary tests at small $N$ requires correction: it applies to the
-unconditional Wald test, not to the BIC-conditional procedure.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item The corrected proposition is that a single mixture-model
-  coefficient's Wald test is unreliable at small $N$.
-\item A model-comparison wrapper (BIC or BLRT) is required to control
-  Type I error.
-\item The BIC-conditional procedure is the pragmatic primary test at
-  trial-relevant $N$.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The diagnostic distinction matters for the paper's argument. The
 earlier proposition that 'class-aware analyses are not usable as
 primary at trial-relevant $N$' is too strong as stated: it applies to
@@ -2737,28 +1288,7 @@ procedure. The corrected proposition is that the unconditional Wald
 test on a single mixture-model coefficient is unreliable at small $N$
 and requires a model-comparison wrapper (BIC or BLRT) to control Type I
 error.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The full five-study program is feasible on a single
-workstation in approximately one week of background compute at 8--16
-cores.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Study 1's class-aware arm requires approximately 340 serial
-  hours, or 22--44 hours on 8--16 cores.
-\item Study 5 production is the largest block at approximately 60
-  hours per arm on 8 cores.
-\item The calibration sub-study and Study 5 pre-flight should run
-  first to finalise effect-size axes before committing to Studies
-  1, 2, and 3.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Production-budget implication. Extrapolated to the pre-registered cell
 counts (Study 1 has 768 cells $\times$ 1,000 replicates = 768,000 fits
 per analysis arm), the class-aware arm of Study 1 is approximately 340
@@ -2768,31 +1298,11 @@ across 8--16 cores reduces this to 22--44 hours per arm. Studies 2 and
 $\times$ three sample sizes $\times$ three class counts $\times$ three
 DGP families) is the largest single block at approximately 60 hours per
 arm on 8 cores. The full program is feasible on a single workstation
-over a week of background compute, with the calibration sub-study and
-Study 5 pre-flight running first to finalise effect-size axes and
-identifiability cuts before committing to Studies 1, 2, and 3.
-:::
+over a week of background compute, with the effect-size tuning
+sub-study and Study 5 pre-flight running first to finalise
+effect-size axes and identifiability cuts before committing to
+Studies 1, 2, and 3.
 
-::: {.bullets data-latex=""}
-\textbf{The open question raised by the pilot is whether the BIC
-selection step has sufficient sensitivity under true class structure:
-Pilot 4 will test this across gating slopes and class-separation
-values.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item A conservative null-controlling procedure that rarely fires
-  under true class structure provides no value.
-\item Expected pattern: BIC-conditional outperforms lme at large
-  class separations; underperforms at moderate separations.
-\item Pilot 4 will fit the BIC-conditional procedure to the
-  heterogeneous-slopes DGP from Study 3.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 Open question raised by the pilot. With Type I error of the
 BIC-conditional procedure controlled at the null at $N = 70$, the
 next-most-pressing identifiability question is whether the BIC
@@ -2810,27 +1320,9 @@ the linear-mixed \texttt{bm:Dbc} test at large class separations
 at moderate class separations (where BIC is undecided and the procedure
 falls back to a default that does not exploit the latent-class
 structure).
-:::
 
 ## Pilot results (Study 5, 240 replicates)
 
-::: {.bullets data-latex=""}
-\textbf{The 240-replicate Study 5 pilot crossed three gating-slope
-levels and three test forms at $N = 70$, with MCSE approximately
-$0.030$ at working power.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Wall time 558 s on 4-core \texttt{parallel::mclapply}.
-\item \texttt{lcmm} convergence: 92.9\% at the null, 98.3--98.8\% at
-  non-null cells.
-\item MCSE approximately $0.030$ at working power near $0.5$.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The Study 5 prototype was rerun at 240 replicates per cell on 4-core
 \texttt{parallel::mclapply} with three gating-slope levels
 (gs $\in \{0, 1.0, 1.5\}$) and three test forms (lme \texttt{bm:Dbc}
@@ -2840,29 +1332,7 @@ Wall time was 558 s; convergence was 92.9\% under the null and
 \texttt{analysis/data/quick-sim/03-latent-replicates.rds}; Morris ADEMP
 summary at \texttt{03-latent-summary.txt}. MCSE
 at the working power near $0.5$ is approximately $0.030$.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The unconditional Wald inflates Type I to $0.197$; the BIC-
-conditional procedure controls Type I but is severely under-powered,
-approximating a never-reject rule under heterogeneous slopes.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item Unconditional Wald Type I $0.197$ (95\% CI $[0.145, 0.250]$),
-  decisively above the nominal 0.05; power below the lme baseline
-  at both non-null cells.
-\item BIC-conditional Type I $0.004$ under the null; power $0.025$
-  at gs = $1.0$ and $0.004$ at gs = $1.5$.
-\item Non-monotonicity at gs = $1.5$ suggests the lme captures the
-  heterogeneous-slopes signal well enough that BIC continues to
-  favor $ng=1$.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The unconditional Wald-on-gating Type I error of $0.197$ (95\% binomial
 CI $[0.145, 0.250]$) is now decisively distinguishable from the nominal
 $0.05$ (more than five MCSE of separation) and is statistically
@@ -2879,30 +1349,7 @@ non-monotonicity (gs = $1.5$ below gs = $1.0$) suggests that as the
 heterogeneous-slopes signal strengthens, a single-class lme captures it
 well enough that BIC continues to favor \texttt{ng=1} and the
 conditional procedure does not fire.
-:::
 
-::: {.bullets data-latex=""}
-\textbf{The lme \texttt{bm:Dbc} test dominates both \texttt{lcmm}
-tests at this $N$ and DGP regime; a canonical 1,000-replicate run is
-required to map the regime where the BIC-conditional procedure becomes
-competitive.}
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-\item lme holds nominal Type I (0 of 240) and reaches 0.542 power
-  at gs = $1.5$.
-\item Neither class-aware test is competitive: the unconditional
-  test is anti-conservative; the BIC-conditional test is severely
-  under-powered.
-\item A canonical run at $N \in \{35, 70, 100\}$ with a wider
-  gating-slope grid is required to locate the competitive regime,
-  plausibly at large class separations.
-\end{itemize}
-:::
-
-::: {.rgt data-latex=""}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-:::
-
-::: {.orig data-latex=""}
 The lme \texttt{bm:Dbc} test holds nominal Type I (0 of 240 under the
 null) and reaches $0.542$ power at gs = $1.5$, dominating both
 \texttt{lcmm} tests at this sample size and DGP regime. We therefore
@@ -2916,7 +1363,6 @@ BIC-conditional test is severely under-powered. A canonical run at
 $N \in \{35, 70, 100\}$) is required to map the regime in which the
 BIC-conditional procedure does become competitive, plausibly at large
 class separations rather than under heterogeneous random slopes.
-:::
 
 # Conflict of interest
 
@@ -2972,13 +1418,3 @@ bibliography (`references.bib`), and SIM CSL file are at
 
 ::: {#refs}
 :::
-
-```{r footer, echo=FALSE, results='asis'}
-src <- sub("^/Users/zenn/(Library/CloudStorage/)?Dropbox/prj/", "~/prj/",
-           knitr::current_input(dir = TRUE))
-cat(sprintf(
-  "\n\\vfill\n\n---\n\n*Rendered on %s.*  \n*Source: `%s`*\n",
-  format(Sys.time(), "%Y-%m-%d at %H:%M %Z"),
-  src
-))
-```

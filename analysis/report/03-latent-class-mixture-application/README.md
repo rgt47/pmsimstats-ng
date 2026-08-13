@@ -23,19 +23,25 @@ the paper is preserved verbatim at
 `notes/source-revision-latent-class.md`. That note develops ten
 threads, the first five concerning statistical substance and the
 last five concerning the psychometric and econometric literatures
-from which the relevant machinery is drawn. The current `report.Rmd`
-is a section-stubbed scaffold that the manuscript will fill in.
+from which the relevant machinery is drawn. `report.Rmd` has since
+developed past the scaffold stage into a full manuscript reporting a
+240-replicate Study 5 pilot; the extended literature review and
+taxonomy material that note motivated now live in `supplement.Rmd`.
 
 ## Directory contents
 
 | File | Role |
 |---|---|
-| `report.Rmd` | Manuscript skeleton (sections stubbed) |
+| `report.Rmd` | Main manuscript (abstract, DGP, MVN approximation, identifiability, Study 5 pilot results) |
+| `supplement.Rmd` | Companion supplement: extended literature review, full finite-mixture taxonomy, full biomarker-moderation spectrum, secondary theoretical notes, and pre-flight pilot detail. Split out from `report.Rmd` on 2026-08-12 to bring the main manuscript to a working page length; section numbers and citation keys match the main text |
+| `bullets.Rmd` | Structured, section-by-section bullet summary of the manuscript (reading aid) |
+| `whitepaper-latent-class-mixture-summary.md` | Two-page white-paper summary |
 | `references.bib` | Seeded from `analysis/report/references.bib`; trim and extend as the paper develops |
 | `statistics-in-medicine.csl` | Citation style |
 | `notes/source-revision-latent-class.md` | Source exposition that motivates this paper |
 
-A `_cache/` and rendered PDFs will appear once the Rmd is knit.
+A `_cache/` and rendered PDFs appear once the Rmds are knit; `report.Rmd`
+and `supplement.Rmd` render independently via `tools/render.sh`.
 
 ## Scope
 

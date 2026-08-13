@@ -110,3 +110,15 @@ weighting is used, with the error asymmetric in the safer
 direction (under-assuming). Preventing dropout is a more effective
 use of design effort than any choice among these three
 specifications.
+
+One structural gap bounds these negative findings on the
+lagged-treatment remedy. Every carryover term evaluated here,
+lagged and a supplementary washout-adjusted check alike, enters the
+model only as a nuisance main effect, with no product term against
+the biomarker, so the finding is that a carryover main effect does
+not recover the attenuated interaction signal, not that no
+shape-free specification can. The natural untested candidate is a
+carryover term interacted with the biomarker (\texttt{bm:tsd}), a
+linear approximation to what exposure weighting does
+parametrically; this is the more promising candidate and the
+obvious next step.

@@ -8,7 +8,7 @@ header-includes:
 
 # White paper: the pmsimstats-ng manuscript compendium
 
-*2026-07-29 09:32 PDT*
+*2026-07-29 09:32 PDT, updated 2026-08-12*
 
 **A five-page review of the eleven manuscripts under
 `analysis/report/`, with an assessment of the contribution each makes
@@ -34,6 +34,21 @@ reported as the manuscripts report them. Assessments of contribution
 and of weakness are the reviewer's judgment; claims about draft state
 (placeholder counts, missing results, deferred sweeps) are verified by
 inspection of the sources.
+
+**Update, 2026-08-12.** This revision reflects work committed to the
+compendium between 2026-07-29 and 2026-08-12, established by
+`git diff` against commit `fdfa40e` (the commit that produced the
+original text below) and by reading the current working-tree sources.
+The comparison is source-level in the same sense as the original: no
+simulation was re-executed for this revision either, so a report that
+a number is unchanged means the manuscript still states that number,
+not that it was independently re-derived. Every paragraph below that
+changed is marked inline; paragraphs with no marker were checked
+against the current source and found unchanged. Papers 04, 05, and 08
+received only copy-edits (British-to-US spelling, an added units
+footnote reconciling this series' weekly $t_{1/2}$ convention with 04
+and 05's day-denominated one) and are otherwise as originally
+assessed.
 
 ## What the programme is
 
@@ -77,41 +92,61 @@ downstream.
 
 ## Paper-by-paper assessment
 
-**01. Two (three) data-generating architectures.** *Useful; the
-keystone paper.* Establishes that Architecture B loses 30.6% relative
-power at a one-week carryover half-life in the OL+BDC design against
-2.8% for Architecture A, with a difference-of-differences $z = 7.64$,
-while the crossover design shows no architecture effect. The mechanism
-is argued cleanly: Architecture B's signal lives in a correlation that
-decays off drug, so carryover attacks it twice. Type I error is checked
-across 18 null cells and an $N = 70$ robustness run preserves the
-ordering. This paper should be submitted first; the rest of the
-compendium cites it. Two weaknesses persist. The Architecture C
-material now duplicated in paper 11 uses an additive-on-the-probability
--scale benchmark to claim super-additivity, which is the wrong
-benchmark for a convex power function and inflates the apparent effect
-from roughly three Monte Carlo standard errors to nine. Section 6's
-power-recovery strategies are qualitative hypotheses with no simulation
-behind them.
+**01. Two data-generating architectures.** *Useful; the keystone
+paper, and materially strengthened since 2026-07-29.* [Updated.]
+Establishes that Architecture B loses 30.6% relative power at a
+one-week carryover half-life in the OL+BDC design against 2.8% for
+Architecture A, with a difference-of-differences $z = 7.64$, while the
+crossover design shows no architecture effect; these headline numbers
+are unchanged. What changed is the paper around them. It was retitled
+("Mean moderation and covariance moderation as data-generating
+architectures..."), rebuilt on `bookdown::pdf_document2` so
+cross-references resolve, and rewritten end to end: the three-part
+`bullets` / `rgt` / `orig` scaffold is gone entirely, replaced by
+continuous author prose with zero remaining placeholder blocks, the
+first of the eleven papers to reach that state (with 02 and 03,
+below). The $N$ convention was also corrected to a uniform $N = 70$
+total throughout, resolving the per-path-versus-total ambiguity the
+prior draft carried. Most consequentially, the Architecture C material
+was fully extracted rather than folded back as this review had
+recommended (see "Recommended consolidation," updated below); paper 01
+now contains no Architecture C content at all, so the duplication this
+review flagged no longer exists, but the super-additivity
+benchmark-scale problem travels with the material to paper 11 and is
+still unresolved there. Section 6's power-recovery strategies remain
+qualitative hypotheses with no simulation behind them. The directory's
+`README.md` is now stale in the other direction: it still asserts the
+`rgt` blocks carry `rgt to complete.` placeholders, which is no longer
+true of `report.Rmd`.
 
 **02. Carryover-mitigation analysis strategy.** *Useful; the strongest
-negative result in the compendium.* A 540-cell factorial establishes
-that the exposure-weighted specification A2, the framework's own
-default, attains the highest power in only 19% of non-null cells. It
-wins by about ten points under Architecture B in designs with a blinded
-discontinuation phase and loses badly under the classical crossover
-(0.488 against 0.830). A3, the Jones-Kenward lagged-term device, is
-shown to be numerically almost identical to A1 because its lagged term
-enters only as a main-effect nuisance. The paper also reports that 30%
-dropout collapses all three specifications to indistinguishability,
-which is the most actionable single sentence in the compendium.
-Remaining weaknesses: bias, MSE, and coverage in the headline table are
-scored against A2's estimand and are therefore not comparable across
-specifications (the paper says so, but the table invites the
-comparison anyway); the CR2 recalibration is validated in one stratum
-only; and the previously noted inconsistency with paper 01's
-carryover-loss figures should be re-verified after 01's final numbers
-settle.
+negative result in the compendium, and the scope has narrowed to its
+sharpest claim.* [Updated.] The five drafts this review counted
+(`report`, `-slim`, `-extra-slim`, `-extra-slim-rgt`, `-devresults`)
+were consolidated on 2026-07-30 into a single master `report.Rmd`,
+with the others moved to `archive/`; the scaffold is fully retired
+here too, with zero placeholder blocks remaining. The paper's scope
+narrowed with it: rather than the full 540-cell, three-specification,
+three-architecture factorial, the master now restricts to Architecture
+B, exponential and Weibull decay, and a head-to-head between the
+exposure-weighted specification (E2, formerly A2) and the
+lagged-treatment specification (E3, formerly A3) against an unadjusted
+baseline (E1, formerly A1), filtering to 216 of the original 540
+cells. The "19% of non-null cells" framing this review quoted is gone
+along with the broader grid; in its place the paper states directly
+that the exposure-weighted advantage is markedly inferior under the
+classical crossover design (0.488 against 0.830, unchanged from the
+number this review cited) and should not be extended there. Two of the
+three weaknesses flagged here are resolved: the CR2 cluster-robust
+recalibration is now validated across all five S6 stress cells rather
+than one, holding or widening the exposure-weighted advantage at four
+of them and narrowing only under high autocorrelation and heavy
+dropout; and the previously noted inconsistency with paper 01's
+carryover-loss figures was reconciled before this review was written
+and remains reconciled, since 01's headline numbers are unchanged. The bias/MSE/
+coverage cross-specification comparability caveat persists as a
+structural feature of the design (E1/E3 target a different coefficient
+than E2), not a defect to be fixed.
 
 **03. Latent-class and mixture formulations.** *Partially useful; a
 theory paper with a pilot attached.* Aims 1 and 2 (formalizing the
@@ -127,9 +162,18 @@ BIC-conditional test controls size but is essentially inert at 0.025
 power), but they rest on one sample size, one design, and one
 generative mechanism, and the regime where a class-aware test should
 win, large separation with genuinely bimodal response, was never
-tested. As drafted the paper claims less than it appears to; it should
-either be reframed explicitly as theory-plus-pilot or the canonical
-1,000-replicate run should be executed before submission.
+tested. [Updated.] The scaffold is now fully written out here as
+well, zero placeholder blocks remain, and the paper took the
+reframe-rather-than-rerun path this review offered as an alternative:
+the abstract and Results now state plainly, in the author's own
+prose, that the finding holds "in a 240-replicate-per-cell pilot" and
+"within the 240-replicate pilot," rather than presenting the pilot as
+if it carried the weight of the pre-registered production run. The
+canonical 1,000-replicate run at $N \in \{35, 70, 100\}$ over a wider
+gating-slope grid, including a genuinely bimodal separation regime,
+has not been executed, so the substantive limitation this review
+raised is unchanged; what changed is that the manuscript now discloses
+it correctly rather than needing to.
 
 **04. N-of-1 versus parallel-group RCT.** *Useful clinically, but
 carries an unaddressed comparison-fairness problem.* Reports that the
@@ -202,7 +246,10 @@ finding worth stating on its own. It remains a narrow paper: one design
 README promises to identify (non-saturating growth, biphasic patterns,
 breakpoint behavior) are discussed but not simulated, and the
 zero-carryover choice is awkward in a programme whose central finding
-is about carryover.
+is about carryover. [Checked, unchanged.] The 0.039 power-separation
+figure, the "exactly inert" result, and the paper's scope (one design,
+one sample size, zero carryover, 16 cells) are unchanged in the
+current source; the `rgt` layer still carries 51 placeholder blocks.
 
 **08. Test procedure and design.** *Useful; the cleanest practical
 message in the compendium.* The closed-form RM-ANOVA derivation is
@@ -220,22 +267,38 @@ design grid is specified in detail and then deferred, which leaves the
 title's second half unearned. Either run the grid or retitle the paper
 around the test-procedure axis.
 
-**09. Informative dropout by design.** *Promising but not yet a paper.*
-The gap is real and correctly identified: Hendrickson's Figure 4A
-implies a design-by-dropout coupling that the N-of-1 methods literature
-has not pursued, and no other manuscript here centers dropout. But the
-abstract's Results paragraph still reads "[Forthcoming]", the empirical
-content is a 500-replicate 16-cell prototype at one sample size, one
-value of $c_{bm}$, and Architecture A only, and the same prototype
-paragraph appears verbatim in both Results and Discussion. More
-seriously, the reported power ordering is measured at the ceiling:
-hybrid at approximately 1.00 and OL+BDC at approximately 0.95 cannot
-discriminate designs, and OL sits at nominal alpha by construction
-because it supplies no off-drug contrast. The design ordering claim
-therefore has almost no resolution in the cells that produced it. The
-"happy accident" randomization-path decomposition, which is the paper's
-most original idea, needs a cell where power is near 0.5 to be
-visible at all.
+**09. Informative dropout by design.** *Promising, and closer to a
+paper than it was.* [Updated.] The gap is real and correctly
+identified: Hendrickson's Figure 4A implies a design-by-dropout
+coupling that the N-of-1 methods literature has not pursued, and no
+other manuscript here centers dropout. The abstract's Results
+paragraph no longer reads "[Forthcoming]" (one internal methods note
+still uses that word, but the reader-facing Results and Discussion do
+not), and a `cover-letter.md` has been added. The ceiling-saturation
+problem this review raised is partly addressed: the design grid was
+re-run at a matched $N = 70$ and now reports all four designs rather
+than two, hybrid 0.968, OL+BDC 0.950, traditional crossover 0.854, and
+open-label 0.088, so the ordering has real resolution between crossover
+and the top two designs even though hybrid and OL+BDC still sit close
+to the ceiling and are explicitly flagged in the text as
+statistically inseparable ($z = 1.44$). The manuscript itself now
+argues that the hybrid design's earlier near-immunity to dropout was a
+ceiling artifact of running at half the matched sample size, which is
+the same diagnosis this review made independently. [Verified
+2026-08-12.] Two follow-up items are now checked directly. First, the
+verbatim-duplicate paragraph this review originally flagged is gone:
+Results (report.Rmd:947-961) and Discussion's "Prototype Monte Carlo
+confirmation" subsection (report.Rmd:1304-1328) cover the same
+prototype run but are no longer the same text; the Discussion version
+is longer and adds the per-path $N$ breakdown and the contrast with
+the earlier, unmatched 35-per-path run, so this is no longer a defect.
+Second, Architecture B and a wider $c_{bm}$ range were not added: the
+prototype remains single-architecture (mean-moderation only, at one
+value, $c_{bm} = 0.45$) and covariance-moderation coverage for the OL
+row is discussed only as a scoped future extension
+(report.Rmd:1423, 1439, 1561-1575), not run. The `rgt` layer still
+carries 50 placeholder blocks (still Lorem ipsum throughout the
+`.rgt` divs, e.g. report.Rmd:944, 1301).
 
 **10. Interaction-test calibration.** *Useful, and the most portable
 paper in the compendium.* It is the only manuscript whose contribution
@@ -253,27 +316,30 @@ worked example is the same prazosin cell as everything else, so the
 generality claim rests on argument rather than on a second application;
 and the paper has no README and no cover letter, indicating it has not
 been through the same submission-preparation pass as its neighbors.
+[Checked, unchanged.] Only cosmetic edits since 2026-07-29: US
+spelling corrections and relabeling the analysis specifications from
+A1/A2/A3 to E1/E2/E3 to stay synchronized with paper 02's new naming.
+Both gaps persist, the `rgt` layer still carries 37 placeholder
+blocks, and the directory still has no `README.md` or cover letter.
 
-**11. Combined DGP architecture (Architecture C).** *Not yet
-assessable; currently an extraction in progress.* The manuscript is
-3,762 words of source against a compendium median of about 13,000, has
-no rendered PDF, and its abstract states "[To be finalized after the
-common-driver boundary re-run]". Its content is the Architecture C
-material currently also present in paper 01, being split out per
-`01-.../architecture-c-extraction-plan.md`. Whether the split is
-warranted is doubtful: C is a sensitivity device rather than a co-equal
-third architecture, and the case for it is better made inside 01 than
-as an independent manuscript (see the consolidation section below).
-Two substantive issues must be fixed either way. The super-additivity
-claim needs the effect-size-scale
-benchmark rather than the probability-scale one, under which the
-observed excess shrinks to roughly three Monte Carlo standard errors.
-And the grid's carryover comparison is currently reported only for the
-crossover design, the one design in which paper 01 found no
-architecture-by-carryover interaction; the informative panel is OL+BDC.
-The paper should also state plainly that $c_{bm,A}$ and $c_{bm,B}$ are
-not separately identifiable from a fitted `bm:Dbc` coefficient, which
-makes C a simulation-side construct only.
+**11. Combined DGP architecture (Architecture C).** *Still not
+assessable, and the extraction this review questioned is now
+complete rather than reversed.* [Updated.] The author did not adopt
+this review's recommendation to fold 11 back into 01; instead the
+split was finished. Paper 01's `report.Rmd` no longer contains any
+Architecture C material, so the duplication this review originally
+flagged is gone, but that also means paper 11 now carries the entire
+burden of the material this review found weakest, with none of the
+consolidation risk addressed. The manuscript's own abstract still
+states "[To be finalized after the common-driver boundary re-run]",
+and the super-additivity claim still rests on the language "will
+confirm agreement to within Monte Carlo standard error" rather than a
+completed comparison, so the benchmark-scale problem (probability
+scale versus the effect-size scale this review argued for) has not
+been resolved. Twelve `rgt` placeholder blocks remain. The
+crossover-versus-OL+BDC panel question and the non-identifiability of
+$c_{bm,A}$ and $c_{bm,B}$ from a fitted `bm:Dbc` coefficient were not
+independently re-checked in this pass.
 
 ## What the compendium establishes collectively
 
@@ -307,13 +373,18 @@ and reported when they failed.
 
 ## Cross-cutting weaknesses
 
-**Author prose is absent everywhere.** All eleven manuscripts use the
-three-part `bullets` / `rgt` / `orig` scaffold, and no `rgt` block in
-any paper contains author text: papers 01, 02, and 11 hold a "to
-complete" placeholder and the remaining eight hold Lorem ipsum, 645
-blocks in total. This is the single binding constraint on submission and it is
-not a formatting task; the `rgt` layer is where the author's voice and
-argument are supposed to live.
+**Author prose was absent everywhere; it no longer is, in three
+papers.** [Updated.] At the original baseline all eleven manuscripts
+used the three-part `bullets` / `rgt` / `orig` scaffold with no author
+text in any `rgt` block, 645 placeholder blocks in total. As of
+2026-08-12, papers 01, 02, and 03 have been rewritten as continuous
+author prose with the scaffold removed entirely, zero placeholder
+blocks in each. The remaining eight still carry placeholders: 04
+(110), 06 (101), 08 (59), 05 (54), 07 (51), 09 (50), 10 (37), and 11
+(12), 474 blocks in total. This is progress on the compendium's single
+binding submission constraint, but eight of the eleven papers,
+including paper 10, which this review's next-steps list prioritized
+third, are unchanged on this dimension.
 
 **One reference parameter set.** Nearly every simulation is calibrated
 to the same prazosin/PTSD trajectory. Absolute power values are
@@ -331,11 +402,15 @@ pilot), 08 (deferred design grid), and 09 present pilots or partial
 grids as if they carried the weight of the pre-registered production
 runs. Each states this, but the abstracts do not always reflect it.
 
-**Duplicate and stale scaffolding.** Several READMEs still assert that
-driver directories "do not yet exist" when they do; paper 09 repeats a
-paragraph verbatim across two sections; papers 10 and 11 lack READMEs
-and cover letters. These are cheap to fix and they signal draft state
-to a referee.
+**Duplicate and stale scaffolding.** [Updated.] The READMEs that
+asserted driver directories "do not yet exist" have been corrected;
+none remain as of this pass. Paper 09 gained a `cover-letter.md`.
+Papers 10 and 11 still lack READMEs and cover letters. Paper 01's
+README is now stale in a new way (see paper 01, above): it still
+describes the `rgt` layer as unfilled placeholders after the paper was
+rewritten past that state. Paper 09's Results/Discussion duplication is
+confirmed resolved: the two sections cover the same prototype run in
+different prose, not a verbatim repeat.
 
 ## Recommended consolidation
 
@@ -359,7 +434,17 @@ content, all of which is worth keeping.
   counterpart. Its two legitimate uses, a boundary-cell correctness
   gate on the DGP implementation and a mixing-weight sweep when the
   mechanism is unknown, are arguments about how to use 01's framework
-  and read naturally as part of 01.
+  and read naturally as part of 01. **Status as of 2026-08-12: not
+  adopted.** The author completed the extraction instead, and paper 01
+  is now clean of Architecture C material while paper 11 stands alone,
+  still unfinished, still carrying the unresolved benchmark-scale
+  problem. This recommendation is renewed rather than withdrawn: paper
+  11 is 3,800-odd words against a compendium median near 13,000, has no
+  README or cover letter, and its abstract still reads as
+  "to be finalized." If the author's judgment is that Architecture C
+  earns independent-manuscript status on scientific grounds, that case
+  should be made explicitly in 11's Introduction, since nothing in the
+  current source argues for it.
 - **Publish 05 as supplementary material to 04.** Its twelve sweeps
   target the treatment main effect, not the interaction, which makes it
   a companion to 04 rather than to the programme's core, and its
@@ -373,63 +458,94 @@ content, all of which is worth keeping.
   slimmed for submission as recommended above, 07's sixteen cells fit
   comfortably in the technical companion.
 
-The result is seven or eight submittable papers of more even weight:
-01 (absorbing 11), 02, 04 (with 05 appended), 06 (absorbing 07), 08,
-10, and 03 and 09 once their outstanding simulation work completes.
+If adopted, the result would be seven or eight submittable papers of
+more even weight: 01 (absorbing 11), 02, 04 (with 05 appended), 06
+(absorbing 07), 08, 10, and 03 and 09 once their outstanding work
+completes. As of 2026-08-12 only the 03/09 half of that plan has moved
+forward on its own terms (03 by reframing, 09 by re-running toward
+resolvable cells); the 01/11 fold was not adopted, and 05-into-04 and
+07-into-06 have not been acted on either.
 
 ## Recommended next steps, in priority order
 
-1. **Write the `rgt` prose for paper 01, then 02, then 10.** Nothing
-   can be submitted until this is done, and 01 gates the citation chain
-   for the rest. Papers 02 and 10 are the next most nearly complete.
-   Run `~/bin/strip-claudecode` on each as its `rgt` layer closes.
+1. **Write the `rgt` prose for paper 01, then 02, then 10.** *Status:
+   01 and 02 done (2026-08-12); 03 done as well, ahead of its place in
+   this list, since it was rewritten in the same pass. Papers 06, 04,
+   08, 05, 07, 09, and 10 remain, in descending order of remaining
+   placeholder count (101, 110, 59, 54, 51, 50, 37). 10 is still next
+   in priority even though it is not the largest remaining count,
+   because it is the compendium's only non-N-of-1-specific
+   contribution and this review's next-most-portable paper after 01.*
+   Run `~/bin/strip-claudecode` on each as its `rgt` layer closes; 01
+   and 02 have not yet had it run, since neither has a `README.md`
+   confirming submission-preparation completion in the sense the other
+   finished papers do.
 2. **Settle the Architecture C question and re-verify 01's boundary
-   cells.** Adopt the consolidation above (fold 11 into 01) or defend
-   the extraction explicitly. Either way, recompute the
-   super-additivity comparison on the effect-size scale, replace the
-   crossover carryover panel with OL+BDC, and confirm that
-   $(c_{bm,A} = 0.45, c_{bm,B} = 0)$ and $(0, 0.45)$ reproduce 01's
-   published power figures exactly before accepting the grid. Re-check
-   the 01/02 carryover-loss consistency afterward.
+   cells.** *Status: not settled, and settled in the opposite direction
+   from this review's recommendation.* The extraction was completed
+   rather than reversed (see "Recommended consolidation," above). What
+   remains outstanding is unchanged: recompute the super-additivity
+   comparison on the effect-size scale, replace the crossover carryover
+   panel with OL+BDC, and confirm that $(c_{bm,A} = 0.45, c_{bm,B} = 0)$
+   and $(0, 0.45)$ reproduce 01's published power figures exactly
+   before accepting the grid. The 01/02 carryover-loss consistency has
+   already been re-checked and holds, since 01's published numbers did
+   not move.
 3. **Fix paper 04's comparison basis.** Add either a
    measurement-matched or a burden-matched RCT arm, or a stated,
    defended asymmetry, and put observation count in the Limitations.
    This is a one-sweep change and it removes the paper's most likely
    rejection reason.
-4. **Re-scope paper 09 around resolvable cells.** Re-run the
-   design-by-dropout grid at parameter values placing power near 0.5,
-   add Architecture B, extend beyond a single $c_{bm}$, and write the
-   Results paragraph of the abstract. Drop the duplicated prototype
-   paragraph.
-5. **Decide paper 08's scope.** Either run the cycle-by-period grid or
-   retitle around the test-procedure axis and promote the
-   dichotomization result to the headline.
-6. **Promote slim variants to canonical for 06 and 02.** Both exceed
-   plausible journal budgets in their full form. The full versions
-   become technical companions in `docs/`.
-7. **Add a second application to paper 10.** A non-N-of-1 longitudinal
-   example, even a small one, converts its generality claim from
-   argument to demonstration and makes the paper submittable to a
-   broader methods venue.
-8. **Run the canonical replication for paper 03, or reframe it.** A
-   1,000-replicate run at $N \in \{35, 70, 100\}$ over a wider
-   gating-slope grid, including a genuinely bimodal separation regime,
-   is required before the non-competitiveness result generalizes. If
-   that compute is not available, reframe as theory plus pilot and say
-   so in the abstract.
-9. **Housekeeping.** Refresh the stale READMEs, add READMEs and cover
-   letters for 10 and 11, update the compendium table in
-   `analysis/report/README.md` to cover papers 10 and 11, and record
-   the intended submission order.
+4. **Re-scope paper 09 around resolvable cells.** *Status: partially
+   done, now verified.* The design-by-dropout grid was re-run at a
+   matched $N = 70$ and now includes all four designs rather than two,
+   giving traditional crossover (0.854) and open-label (0.088) genuine
+   separation from the hybrid/OL+BDC pair, and the "[Forthcoming]"
+   abstract placeholder is gone. The duplicated-paragraph defect this
+   review originally flagged is confirmed removed: Results and
+   Discussion cover the same prototype run in different text, not a
+   verbatim repeat. Still open, and now confirmed rather than merely
+   flagged: Architecture B has not been added (the prototype remains
+   single-architecture, mean-moderation only) and $c_{bm}$ is still
+   evaluated at one value, 0.45, with no range.
+5. **Decide paper 08's scope.** Unchanged; no commits to this paper's
+   `report.Rmd` since 2026-07-29 beyond a spelling pass.
+6. **Promote slim variants to canonical for 06 and 02.** *Status: done
+   for 02, open for 06.* Paper 02's consolidation folded its slim
+   variant into the single master `report.Rmd` along with the scope
+   narrowing described above, which should bring it within journal
+   budget; this was not independently checked by page count in this
+   pass. Paper 06 is unchanged, still roughly 26,000 words of source
+   against `report-slim.Rmd`'s roughly 18,700, and the slim variant has
+   not been promoted.
+7. **Add a second application to paper 10.** Unchanged; no commits to
+   this paper's content since 2026-07-29 beyond a spelling and
+   specification-label pass.
+8. **Run the canonical replication for paper 03, or reframe it.**
+   *Status: reframed, not re-run.* The abstract and Results now state
+   directly, in the author's own prose, that the finding holds "in a
+   240-replicate-per-cell pilot," rather than presenting it as the
+   pre-registered production result. The 1,000-replicate run at
+   $N \in \{35, 70, 100\}$ over a wider gating-slope grid, including a
+   genuinely bimodal separation regime, has not been executed and would
+   still be required before the non-competitiveness result generalizes
+   beyond the pilot.
+9. **Housekeeping.** *Status: partially done.* The stale
+   "do not yet exist" README language has been refreshed compendium-
+   wide, and paper 09 gained a cover letter. Still open: READMEs and
+   cover letters for 10 and 11 (11 also still needs the compendium
+   table entry in `analysis/report/README.md` extended to cover it,
+   not independently re-checked this pass), and paper 01's own README
+   now needs refreshing in the opposite direction, since it undersells
+   a paper that no longer carries `rgt` placeholders.
 
-A reasonable submission sequence, assuming the consolidation above, is
-01 (absorbing 11) and 10 first, being the keystone and the most
-portable; 02 and 08 next, both close to complete and both carrying
-clean practical messages; then 06 in slim form with 07 as a robustness
-section; then 04 with 05 as supplementary material, once the
-comparison basis is repaired; with 03 and 09 last, as their
-outstanding simulation work completes.
-
----
-*Rendered on 2026-07-29 at 09:32 PDT.*<br>
-*Source: ~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/whitepaper-compendium-summary.md*
+A reasonable submission sequence, given that the consolidation above
+was not adopted for paper 11, is 01 first as the keystone (it no
+longer depends on 11 to be complete), then 02 and 10, both close to
+complete and 02 already carrying a clean practical message; then 08
+once its scope decision is made; then 06 in slim form with 07 as a
+robustness section, if that consolidation is adopted; then 04 with 05
+as supplementary material, once the comparison basis is repaired; with
+03, 09, and 11 last, as their outstanding work, reframing accepted for
+03, resolution and duplication cleanup for 09, and the benchmark-scale
+and completion problems for 11, is finished or explicitly closed.

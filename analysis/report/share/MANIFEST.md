@@ -179,3 +179,5 @@
 | `03-latent-class-mixture-application-2026-08-12-1806-2fd6d56-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/03-latent-class-mixture-application/report.Rmd` | `2fd6d56-wip` | 2026-08-12 18:06 PDT |
 | `10-interaction-test-calibration-2026-08-12-1806-2fd6d56-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/report.Rmd` | `2fd6d56-wip` | 2026-08-12 18:06 PDT |
 | `10-interaction-test-calibration-2026-08-12-1806-2fd6d56-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/report.Rmd` | `2fd6d56-wip` | 2026-08-12 18:06 PDT |
+| `04-treatment-main-effect-2026-08-15-1302-a8821fe-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/04-treatment-main-effect/report.Rmd` | `a8821fe-wip` | 2026-08-15 13:02 PDT |
+| `04-treatment-main-effect-2026-08-15-1302-a8821fe-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/04-treatment-main-effect/report.Rmd` | `a8821fe-wip` | 2026-08-15 13:02 PDT |

@@ -5,7 +5,7 @@
   11pt,
 ]{article}
 \usepackage{xcolor}
-\usepackage[left=3cm,right=5cm,top=2cm,bottom=2cm]{geometry}
+\usepackage[left=3cm,right=3cm,top=2.5cm,bottom=2.5cm]{geometry}
 \usepackage{amsmath,amssymb}
 \setcounter{secnumdepth}{5}
 \usepackage{iftex}
@@ -28,6 +28,7 @@
   \usepackage[]{microtype}
   \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
 }{}
+\usepackage{setspace}
 \makeatletter
 \@ifundefined{KOMAClassName}{% if non-KOMA class
   \IfFileExists{parskip.sty}{%
@@ -102,17 +103,29 @@
 \setlength{\emergencystretch}{3em} % prevent overfull lines
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
-% Three-part paragraph scaffolding for manuscript revision.
+% Paragraph scaffolding for manuscript revision.
 %
-% bullets  -- boiled-down topic sentence + bullet points
-%             small, sans-serif, dark gray; paragraph number [N] prepended
-% rgt      -- author's rewrite (initially a placeholder)
-%             small, italic, dark blue
-% orig     -- original Claude-authored draft
-%             normal size, light gray
+% Two environments, presented in this order per paragraph:
 %
-% Presentation order per paragraph: bullets -> rgt -> orig
-% Strip with: strip-claudecode -i report.Rmd
+%   rgt   -- author's rewrite (initially a placeholder)
+%            small, italic, dark blue
+%   orig  -- original Claude-authored draft, and until the rewrite
+%            replaces it, the body text of the manuscript
+%            normal size, gray
+%
+% The `bullets' environment (a boiled-down topic sentence plus bullet
+% points, one per paragraph) is no longer used inside manuscripts:
+% those blocks now live in a companion bullets.Rmd supplement in the
+% same report directory, which typesets them as plain \textbf{} +
+% itemize and needs no part of this file. The definition is retained
+% only so that a stray block left in a document still compiles.
+%
+% This file is identical across every manuscript that includes it.
+% It previously existed in two variants that swapped the sizes of
+% rgt and orig, so the same markup rendered differently depending on
+% which repository the manuscript lived in. The variant retained here
+% keeps orig at full size because orig, not rgt, currently carries
+% the prose in every manuscript in the pool.
 
 \usepackage{xcolor}
 
@@ -134,12 +147,51 @@
 
 % backward compat alias
 \newenvironment{claudecode}{\begin{orig}}{\end{orig}}
+%% tools/stamp.tex
+%% Provenance footer for PDFs rendered from this project.
+%% Vendored by zzcollab; this file is not project-specific. The
+%% footer prints the source document and the time of rendering.
+%% The git version is defined here too, and so is available to a
+%% project that wants it on the page, but it is left off the
+%% default footer: it already names the staged copy in share/ and
+%% appears in its manifest row. All values are supplied at render
+%% time by tools/stamp-render.R, which writes a small generated
+%% file that redefines the macros below. The \providecommand
+%% defaults keep a bare LaTeX compile working when the document is
+%% built without the wrapper.
+\usepackage{fancyhdr}
+\usepackage{xcolor}
+\providecommand{\stampsource}{\detokenize{(source not recorded)}}
+\providecommand{\stamptime}{(time not recorded)}
+\providecommand{\stampversion}{\detokenize{(version not recorded)}}
+\setlength{\footskip}{40pt}
+\newcommand{\stampfootcontent}{%
+  \footnotesize\color{gray}%
+  \parbox[b]{\textwidth}{%
+    \stamptime\hfill\thepage\\[2pt]%
+    \ttfamily\raggedright\stampsource}}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot[C]{\stampfootcontent}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0.4pt}
+%% The title page uses the `plain` page style; redefine it so the
+%% stamp appears there too.
+\fancypagestyle{plain}{%
+  \fancyhf{}%
+  \fancyfoot[C]{\stampfootcontent}%
+  \renewcommand{\headrulewidth}{0pt}%
+  \renewcommand{\footrulewidth}{0.4pt}}
+\renewcommand{\stampsource}{\textasciitilde{}/\allowbreak{}prj/\allowbreak{}res/\allowbreak{}36-pmsimstats-ng/\allowbreak{}pmsimstats-ng/\allowbreak{}analysis/\allowbreak{}report/\allowbreak{}08-test-procedure-design-sensitivity/\allowbreak{}report-slim.Rmd}
+\renewcommand{\stamptime}{2026-08-15 16:51 PDT}
+\renewcommand{\stampversion}{\detokenize{bc0b671-wip}}
 \usepackage{amsmath}
 \usepackage{amssymb}
-\usepackage{lineno}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{float}
+\usepackage[mathlines]{lineno}
 \linenumbers
-\usepackage{setspace}
-\setstretch{1.1}
 \usepackage{bookmark}
 \IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
 \urlstyle{same}
@@ -155,7 +207,7 @@
 
 \title{Test-procedure choice for the biomarker-treatment interaction in aggregated N-of-1 trials: dichotomization, classical RM-ANOVA, mixed-effects, and generalized estimating equations}
 \author{pmsimstats team}
-\date{2026-07-30}
+\date{August 15, 2026}
 
 \begin{document}
 \maketitle
@@ -164,6 +216,7 @@
 \setcounter{tocdepth}{2}
 \tableofcontents
 }
+\setstretch{1.1}
 \section{Abstract}\label{abstract}
 
 \textbf{Background.} Inference about the biomarker-treatment
@@ -183,13 +236,13 @@ predictors and the sphericity assumption, and relate it to the
 Wald \(t\)-test for the corresponding fixed-effects coefficient in
 a linear mixed model with continuous-time AR(1) residual
 correlation. We then conduct a Monte Carlo simulation study,
-designed and reported under the\textsuperscript{\citeproc{ref-morris2019}{1}} ADEMP framework,
+designed and reported under the\textsuperscript{\citeproc{ref-morris2019simulation}{1}} ADEMP framework,
 that crosses five test procedures (strict RM-ANOVA on the
 dichotomized biomarker; a continuous-biomarker within-subject
 contrast; the standard pmsimstats linear-mixed analysis with
 \texttt{corCAR1}; and GEE with naive and with Mancl-DeRouen small-sample
 sandwich variance) against the biomarker-moderation coefficient
-\(c_{bm} \in \{0, 0.45\}\) and sample size \(N \in \{25, 35, 70,
+\(\beta_{bm} \in \{0, 0.45\}\) and sample size \(N \in \{25, 35, 70,
 100\}\), a 40-cell factorial at the prazosin-PTSD reference design
 with 1000 replicates per power cell and 2000 per Type I cell.
 The continuous-biomarker contrast differs from strict RM-ANOVA
@@ -289,7 +342,7 @@ systematic review of\textsuperscript{\citeproc{ref-natesanbatley2023}{6}} docume
 the published N-of-1 studies they catalogue ignore autocorrelation
 entirely;\textsuperscript{\citeproc{ref-stunnenberg2022}{7}} and\textsuperscript{\citeproc{ref-shaffer2018}{8}} reach similar
 conclusions in neurology and behavioral-medicine subdomains.
-CONSORT extension reporting standards\textsuperscript{\citeproc{ref-vohra2015cent}{9},\citeproc{ref-shamseer2015cent}{10}} codify reporting quality but do not address
+CONSORT extension reporting standards\textsuperscript{\citeproc{ref-vohraCONSORTExtensionReporting2015}{9},\citeproc{ref-shamseer2015cent}{10}} codify reporting quality but do not address
 the analytic-model decision in any detail, and\textsuperscript{\citeproc{ref-kwasnicka2019}{11}}
 identifies the analytic-method gap as the highest-priority
 methodological problem in the field. It appears, then, that the
@@ -345,7 +398,7 @@ fixed-effects coefficient in a linear mixed model with
 continuous-time AR(1) residual correlation, identifying the
 conditions on residual covariance under which the two tests agree
 and the regimes in which they diverge. The derivation extends
-standard cross-over methodology\textsuperscript{\citeproc{ref-senn1994crossover}{22},\citeproc{ref-senn2002crossover}{23}} to the biomarker-stratified case and clarifies
+standard cross-over methodology\textsuperscript{\citeproc{ref-senn1994crossover}{22},\citeproc{ref-senn2002}{23}} to the biomarker-stratified case and clarifies
 the connection to the contemporary sphericity-violation literature\textsuperscript{\citeproc{ref-haverkamp2017sphericity}{2},\citeproc{ref-blanca2023sphericity}{5}}.
 
 Third, we conduct a Monte Carlo simulation study (\S4--\S5) that
@@ -359,12 +412,12 @@ continuous-biomarker contrast is the dichotomization-free
 analogue of the strict RM-ANOVA test and lets us separate the
 cost of dichotomizing the biomarker from the cost of the test
 procedure proper. The simulation runs on the pmsimstats package
-data-generating process under Architecture A (mean moderation)
+data-generating process under the mean-moderation architecture
 via \texttt{generateData()} and \texttt{lme\_analysis()}, holding fixed the
 response-curve and covariance-structure axes addressed in
 \texttt{analysis/report/07-gompertz-evaluation/} and
 \texttt{analysis/report/01-dgp-mean-moderation-vs-mvn/}. Results are
-reported in the\textsuperscript{\citeproc{ref-morris2019}{1}} ADEMP framework adopted as the
+reported in the\textsuperscript{\citeproc{ref-morris2019simulation}{1}} ADEMP framework adopted as the
 project-wide simulation-reporting standard.
 
 \section{Closed-form strict RM-ANOVA test of the biomarker-treatment interaction}\label{closed-form-strict-rm-anova-test-of-the-biomarker-treatment-interaction}
@@ -589,9 +642,9 @@ Wald \(t\)-statistic on the \texttt{bm:Dbc} coefficient. The two are
 asymptotically equivalent under three conditions: (i) the
 biomarker is dichotomized at the cut-point that defines the
 strata, (ii) the within-subject covariance is exactly
-compound-symmetric, and (iii) \texttt{Dbc} is binary, the A1
+compound-symmetric, and (iii) \texttt{Dbc} is binary, the E1
 specification of the carryover-sensitivity manuscript rather than
-the matched-decay A2 specification. When all three conditions
+the matched-decay E2 specification. When all three conditions
 hold, the two tests reach the same coefficient and the same
 standard error up to small-sample correction factors. When any
 one fails, the mixed-model test extracts more information than
@@ -682,7 +735,7 @@ severity.
   Under the pmsimstats DGP with \(t_{1/2} = 1\) week, this
   misspecification biases \(\hat L\) toward zero (attenuation
   by 30 to 35 percent in the production data, comparable to
-  the A1 specification evaluated in the carryover-sensitivity
+  the E1 specification evaluated in the carryover-sensitivity
   manuscript).
 \item
   \emph{Balanced design required.} Equations
@@ -724,7 +777,7 @@ in the interest of transparency, that the present paper narrows
 its scope to the test-procedure axis at the prazosin/PTSD
 reference design (Hendrickson hybrid open-label plus blinded
 discontinuation, OL+BDC; \(N \in \{25, 35, 70, 100\}\),
-\(c_{bm} \in \{0, 0.45\}\)), which the simulation infrastructure
+\(\beta_{bm} \in \{0, 0.45\}\)), which the simulation infrastructure
 does support at production rep counts. The \S6 recommendation is
 correspondingly scoped to test-procedure choice rather than the
 joint (cycle count, period length, test procedure) optimum that
@@ -734,7 +787,7 @@ a portfolio item.
 
 \section{Simulation design}\label{simulation-design}
 
-The simulation program follows the ADEMP framework of\textsuperscript{\citeproc{ref-morris2019}{1}}. The primary estimand is the biomarker-treatment
+The simulation program follows the ADEMP framework of\textsuperscript{\citeproc{ref-morris2019simulation}{1}}. The primary estimand is the biomarker-treatment
 interaction inference under each of the five test procedures.
 Four operate on the continuous biomarker and share the same
 interaction estimand \(\beta_{bm:D}\) on the symptom scale: a
@@ -807,15 +860,21 @@ Executed (this paper)
 \bottomrule\noalign{}
 \endlastfoot
 Test procedures & 3 (RM-ANOVA, LME, GEE-MD) & 5 (adds naive GEE and the continuous-biomarker contrast) \\
-Biomarker effect \(c_{bm}\) & \(\{0, 0.3, 0.6\}\) & \(\{0, 0.45\}\) (the project-wide reference effect size) \\
+Biomarker effect \(\beta_{bm}\) & \(\{0, 0.3, 0.6\}\) & \(\{0, 0.45\}\) (the project-wide reference effect size) \\
 Sample size \(N\) & \(\{35, 70, 100\}\) & \(\{25, 35, 70, 100\}\) (superset; adds \(N = 25\)) \\
 Replicates per cell & 1000 (5000 for Type I cells) & 1000 power, 2000 Type I \\
 Carryover half-life & \(t_{1/2} = 3\) days & \(t_{1/2} = 0\) (no carryover at the fixed reference) \\
 \end{longtable}
 
+\textbf{Units.} Carryover half-lives \(t_{1/2}\) are quoted in days in this
+table, following the pre-registration and the main-effect manuscripts
+of this series. The interaction-focused manuscripts quote \(t_{1/2}\) in
+weeks on the canonical grid \(\{0, 0.5, 1.0\}\); the conversion is
+1 week = 7 days. Timepoints \(t\) are weekly in both conventions.
+
 In the scope of the present paper (test-procedure axis only at
 the reference design), the simulation runs on the pmsimstats
-package data-generating process under Architecture A (mean
+package data-generating process under the mean-moderation architecture (mean
 moderation), exercised through \texttt{generateData()} and the standard
 \texttt{lme\_analysis()} fit, rather than on the reduced
 \texttt{implementations/simple} substrate. The factorial comprises
@@ -823,7 +882,7 @@ moderation), exercised through \texttt{generateData()} and the standard
 cell, across the 40 cells defined by procedure \(\in \{\)strict
 RM-ANOVA, continuous-biomarker contrast, linear-mixed with
 \texttt{corCAR1}, GEE with naive sandwich, GEE with Mancl-DeRouen
-small-sample correction\(\} \times c_{bm} \in \{0, 0.45\} \times
+small-sample correction\(\} \times \beta_{bm} \in \{0, 0.45\} \times
 N \in \{25, 35, 70, 100\}\). Execution uses
 \texttt{parallel::mclapply} with \texttt{RNGkind("L\textquotesingle{}Ecuyer-CMRG")} and
 \texttt{mc.set.seed\ =\ TRUE}, so each replicate draws from an
@@ -836,7 +895,7 @@ larger standard errors than the naive sandwich, and its SE for
 the interaction coefficient agrees with \texttt{geesmv::GEE.var.md} to
 within approximately 2.5\% (mean inline/\texttt{geesmv} ratio 1.02,
 standard deviation 0.02, over 25 probe replicates at
-\(N = 35\), \(c_{bm} = 0.45\)), so the correction magnitude is
+\(N = 35\), \(\beta_{bm} = 0.45\)), so the correction magnitude is
 externally validated rather than merely plausible.
 
 \section{Results}\label{results}
@@ -878,9 +937,9 @@ step measures the cost of the test procedure proper. Reading the
 two steps separately is the honest decomposition the earlier
 direct comparison lacked.
 
-Type I error at the null cell (\(c_{bm} = 0\)), percent \(\pm\)
+Type I error at the null cell (\(\beta_{bm} = 0\)), percent \(\pm\)
 MCSE, is shown in Table \ref{tab:type1}; power at
-\(c_{bm} = 0.45\) in Table \ref{tab:power}.
+\(\beta_{bm} = 0.45\) in Table \ref{tab:power}.
 
 \begin{longtable}[]{@{}
   >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2917}}
@@ -935,7 +994,7 @@ GEE (Mancl-DeRouen) & 6.35 \(\pm\) 0.55 & 5.30 \(\pm\) 0.50 & 6.25 \(\pm\) 0.54 
   >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1800}}
   >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1800}}@{}}
 \caption{\label{tab:power} Power (percent \(\pm\) MCSE) at
-\(c_{bm} = 0.45\), 1000 replicates per cell.}\tabularnewline
+\(\beta_{bm} = 0.45\), 1000 replicates per cell.}\tabularnewline
 \toprule\noalign{}
 \begin{minipage}[b]{\linewidth}\raggedright
 Procedure
@@ -1015,7 +1074,7 @@ efficiency gain.
 Third, the secondary estimands (Table \ref{tab:secondary})
 locate the procedures' behavior in the standard-error
 calibration that the rejection rates only summarize. At
-\(c_{bm} = 0.45\), the continuous-biomarker contrast and the
+\(\beta_{bm} = 0.45\), the continuous-biomarker contrast and the
 Mancl-DeRouen GEE are well-calibrated: their nominal-95\% CI
 coverage is \(93\)--\(95\%\) and their mean model-based SE is within
 a few percent of the empirical SE. Naive GEE under-covers at
@@ -1033,7 +1092,7 @@ is the same conservatism visible in its sub-nominal Type I error.
   >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1453}}
   >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1538}}
   >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1795}}@{}}
-\caption{\label{tab:secondary} Secondary estimands at \(c_{bm} = 0.45\)
+\caption{\label{tab:secondary} Secondary estimands at \(\beta_{bm} = 0.45\)
 for the four coefficient-bearing arms (the interaction estimand
 is \(\beta_{bm:D} = -2.21\), the Monte-Carlo reference value).
 Coverage is of the nominal-95\% Wald interval; SE ratio is mean
@@ -1165,7 +1224,7 @@ settles at the resolution it was run. The run on the 40-cell
 five-procedure factorial (procedure \(\in \{\)strict RM-ANOVA,
 continuous-biomarker contrast, linear-mixed with \texttt{corCAR1}, GEE
 with naive sandwich, GEE with Mancl-DeRouen small-sample
-correction\(\} \times c_{bm} \in \{0, 0.45\} \times N \in
+correction\(\} \times \beta_{bm} \in \{0, 0.45\} \times N \in
 \{25, 35, 70, 100\}\), with 1000 replicates per power cell and
 2000 per Type I cell) was executed in 587 s with 100\%
 convergence across all 60\{,\}000 fits. Per-replicate output is at
@@ -1270,7 +1329,7 @@ correction, \texttt{geesmv} (independent benchmark of that correction),
 \texttt{data.table}, and \texttt{parallel} (\texttt{mclapply} for the parameter-grid
 sweep), with \texttt{rmarkdown} plus \texttt{bookdown} for the manuscript
 build. The Study 1 simulation runs on the pmsimstats package
-data-generating process under Architecture A via \texttt{generateData()}
+data-generating process under the mean-moderation architecture via \texttt{generateData()}
 and \texttt{lme\_analysis()}, not on the reduced
 \texttt{implementations/simple} substrate.
 
@@ -1302,7 +1361,7 @@ The manuscript source, paper-specific bibliography
 
 \protect\phantomsection\label{refs}
 \begin{CSLReferences}{0}{1}
-\bibitem[\citeproctext]{ref-morris2019}
+\bibitem[\citeproctext]{ref-morris2019simulation}
 \CSLLeftMargin{1. }%
 \CSLRightInline{Morris TP, White IR, Crowther MJ. Using simulation studies to evaluate statistical methods. \emph{Statistics in Medicine}. 2019;38(11):2074-2102.}
 
@@ -1334,7 +1393,7 @@ The manuscript source, paper-specific bibliography
 \CSLLeftMargin{8. }%
 \CSLRightInline{Shaffer JA, Kronish IM, Falzon L, Cheung YK, Davidson KW. {N}-of-1 randomized intervention trials in health psychology: A systematic review and methodology critique. \emph{Annals of Behavioral Medicine}. 2018;52(9):731-742. doi:\href{https://doi.org/10.1093/abm/kax026}{10.1093/abm/kax026}}
 
-\bibitem[\citeproctext]{ref-vohra2015cent}
+\bibitem[\citeproctext]{ref-vohraCONSORTExtensionReporting2015}
 \CSLLeftMargin{9. }%
 \CSLRightInline{{Vohra S, Shamseer L, Sampson M, et al.} {CONSORT} extension for reporting {N}-of-1 trials ({CENT}) 2015 statement. \emph{Journal of Clinical Epidemiology}. 2015;76:9-17. doi:\href{https://doi.org/10.1016/j.jclinepi.2015.05.004}{10.1016/j.jclinepi.2015.05.004}}
 
@@ -1390,7 +1449,7 @@ The manuscript source, paper-specific bibliography
 \CSLLeftMargin{22. }%
 \CSLRightInline{Senn S. The {AB/BA} crossover: Past, present and future? \emph{Statistical Methods in Medical Research}. 1994;3(4):303-324. doi:\href{https://doi.org/10.1177/096228029400300402}{10.1177/096228029400300402}}
 
-\bibitem[\citeproctext]{ref-senn2002crossover}
+\bibitem[\citeproctext]{ref-senn2002}
 \CSLLeftMargin{23. }%
 \CSLRightInline{Senn S. \emph{Cross-over Trials in Clinical Research}. 2nd ed. Wiley; 2002.}
 
@@ -1419,12 +1478,5 @@ The manuscript source, paper-specific bibliography
 \CSLRightInline{Satterthwaite FE. An approximate distribution of estimates of variance components. \emph{Biometrics Bulletin}. 1946;2(6):110-114. doi:\href{https://doi.org/10.2307/3002019}{10.2307/3002019}}
 
 \end{CSLReferences}
-
-\vfill
-
-\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
-
-\emph{Rendered on 2026-07-30 at 14:14 PDT.}\\
-\emph{Source: \texttt{\textasciitilde{}/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/08-test-procedure-design-sensitivity/report-slim.Rmd}}
 
 \end{document}

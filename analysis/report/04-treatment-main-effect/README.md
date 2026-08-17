@@ -34,7 +34,7 @@ review surface.
 | File | Role |
 |---|---|
 | `report.Rmd` | Canonical manuscript source |
-| `report_short.Rmd` | Short-format companion |
+| `report_short.Rmd` | Superseded, not authoritative (see in-document warning); its `sim_workspace.RData` input has no reproducible generating script |
 | `report.tex`, `report.pdf` | Last rendered LaTeX and PDF |
 | `report_short.tex`, `report_short.pdf` | Short-format outputs |
 | `references.bib` | Manuscript-specific bibliography |

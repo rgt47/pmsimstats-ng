@@ -235,3 +235,5 @@
 | `bullets-2026-08-15-1652-bc0b671-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/bullets.Rmd` | `bc0b671-wip` | 2026-08-15 16:52 PDT |
 | `10-interaction-test-calibration-2026-08-15-1652-bc0b671-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/report.Rmd` | `bc0b671-wip` | 2026-08-15 16:52 PDT |
 | `10-interaction-test-calibration-2026-08-15-1652-bc0b671-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/report.Rmd` | `bc0b671-wip` | 2026-08-15 16:52 PDT |
+| `bullets-2026-08-16-1614-323b9ef-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/04-treatment-main-effect/bullets.Rmd` | `323b9ef-wip` | 2026-08-16 16:14 PDT |
+| `bullets-2026-08-16-1614-323b9ef-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/04-treatment-main-effect/bullets.Rmd` | `323b9ef-wip` | 2026-08-16 16:14 PDT |

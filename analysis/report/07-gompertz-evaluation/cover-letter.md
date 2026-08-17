@@ -1,5 +1,6 @@
 # Cover letter
-*2026-05-10 10:57 PDT*
+*2026-08-16 16:33 PDT (revised to match the corrected manuscript
+finding; see `docs/pub_review_remediation_2026-08-16.md`, series 07)*
 
 To the Editor,
 Statistics in Medicine
@@ -32,10 +33,23 @@ correlation) and two biomarker effect-size levels at the
 prazosin-PTSD reference cell. Performance measures follow the
 Morris, White, and Crowther (2019) ADEMP standard with
 binomial-proportion Monte Carlo standard errors. The headline
-finding is that trajectory family does not materially affect
-power or Type I error in this reference cell: the four
-families produce statistically indistinguishable performance
-at MCSE 0.013 to 0.016 per cell under both architectures.
+finding is architecture-conditional: under the
+covariance-moderation (MVN) architecture, trajectory family is
+exactly inert, as expected by construction, with matched
+random-number seeds returning identical decisions across all
+four families. Under the mean-moderation architecture, the four
+families separate by a real, if modest, 0.039 spread in power
+(0.743 for Gompertz to 0.782 for the symmetric logistic), with
+the Gompertz default the lowest-power, mildly conservative,
+family of the four. The Gompertz-logistic gap is approximately
+two standard errors of the difference (SE approximately 0.019)
+and is not attributable to simulation noise. An
+earlier draft of this manuscript, produced before a
+subject-invariant additive-shift implementation defect in the
+family-manipulation code was corrected (see
+`referee-report-2026-06-13.md`, item M1), had reported no
+detectable separation under either architecture; that earlier,
+pre-fix finding is superseded by the corrected result above.
 
 We acknowledge that the present submission is a focused
 factorial; the 144-cell extended grid (sample sizes, effect

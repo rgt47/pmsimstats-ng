@@ -45,6 +45,27 @@ sim_summary <- readRDS(here::here(
 sim_contam <- readRDS(here::here(
   'analysis/data/derived_data/component-decomposition',
   'study-contam-alt100-null100/study-contam-summary.rds'))
+sim_study_b <- readRDS(here::here(
+  'analysis/data/derived_data/component-decomposition',
+  'study-b-balanced/study-b-balanced-summary.rds'))
+```
+
+```{r study-b-helpers, include = FALSE}
+# Helper to pull a single Study B summary cell (analysis x N x
+# c_bm_pb) so every number quoted in the Study B prose below reads
+# directly from sim_study_b rather than being hardcoded (pub_review
+# Major Issue 2.11).
+study_b_cell <- function(analysis_type, n_val, c_bm_pb_val, col) {
+  row <- sim_study_b[
+    sim_study_b$analysis == analysis_type &
+      sim_study_b$N == n_val &
+      abs(sim_study_b$c_bm_pb - c_bm_pb_val) < 1e-8,
+  ]
+  stopifnot(nrow(row) == 1)
+  row[[col]]
+}
+n_prod_lo <- min(sim_study_b$N)
+n_prod_hi <- max(sim_study_b$N)
 ```
 
 # Abstract {-}
@@ -2324,23 +2345,43 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 ::: {.orig data-latex=""}
 The production run (1{,}000 replicates per cell, balanced-placebo design
 with three open-label, six covert on-drug, and six open-placebo
-timepoints, $N \in \{70, 300\}$, $c_{bm,PB} \in \{0, 0.1, 0.2, 0.3\}$)
-confirms the recovery at full resolution. At $N=300$ the mean estimated
+timepoints, $N \in \{`r n_prod_lo`, `r n_prod_hi`\}$,
+$c_{bm,PB} \in \{0, 0.1, 0.2, 0.3\}$) confirms the recovery at full
+resolution. At $N=`r n_prod_hi`$ the mean estimated
 $\hat\beta_{bm:D_{bc}}$ from the decomposition tracks the pharmacological
-target $-2.25$ across the entire contamination range, with bias
-$-0.022$, $+0.008$, $+0.021$, and $-0.026$ at $c_{bm,PB}=0, 0.1, 0.2,
-0.3$ respectively, every value within one MCSE
-(about $0.02$) of zero. The one-component estimator on the same data is
-unbiased only at $c_{bm,PB}=0$ and develops a monotone bias of $+0.16$,
-$+0.34$, and $+0.48$ as the biomarker-$PB$ correlation grows. Calibration
-tracks the bias: the decomposition holds near-nominal interval coverage
-($0.94$ to $0.96$), whereas one-component coverage degrades to $0.86$ at
-$c_{bm,PB}=0.3$. The $N=70$ cells show the same pattern with the
-decomposition unbiased (absolute bias $\le 0.08$) and lower power
-(about $0.66$ versus $0.93$ at $N=300$), the precision cost of the
-smaller sample and the extra belief-covariate terms. Convergence was
-complete in every cell. Per-replicate output and the cell-level summary
-are at
+target of approximately $-2.25$ across the entire contamination range,
+with bias
+$`r sprintf('%+.3f', study_b_cell('decomposition', n_prod_hi, 0.0, 'bias'))`$,
+$`r sprintf('%+.3f', study_b_cell('decomposition', n_prod_hi, 0.1, 'bias'))`$,
+$`r sprintf('%+.3f', study_b_cell('decomposition', n_prod_hi, 0.2, 'bias'))`$,
+and
+$`r sprintf('%+.3f', study_b_cell('decomposition', n_prod_hi, 0.3, 'bias'))`$
+at $c_{bm,PB}=0, 0.1, 0.2, 0.3$ respectively, every value within one
+MCSE (about $0.02$) of zero. The one-component estimator on the same
+data is unbiased only at $c_{bm,PB}=0$ and develops a monotone bias of
+$`r sprintf('%+.3f', study_b_cell('lumped', n_prod_hi, 0.1, 'bias'))`$,
+$`r sprintf('%+.3f', study_b_cell('lumped', n_prod_hi, 0.2, 'bias'))`$,
+and
+$`r sprintf('%+.3f', study_b_cell('lumped', n_prod_hi, 0.3, 'bias'))`$
+as the biomarker-$PB$ correlation grows. Calibration tracks the bias:
+the decomposition holds near-nominal interval coverage (about
+$`r sprintf('%.2f', min(sim_study_b$coverage[sim_study_b$analysis == 'decomposition' & sim_study_b$N == n_prod_hi]))`$
+to
+$`r sprintf('%.2f', max(sim_study_b$coverage[sim_study_b$analysis == 'decomposition' & sim_study_b$N == n_prod_hi]))`$),
+whereas one-component coverage degrades to
+$`r sprintf('%.2f', study_b_cell('lumped', n_prod_hi, 0.3, 'coverage'))`$
+at $c_{bm,PB}=0.3$. The $N=`r n_prod_lo`$ cells show the same pattern
+with the decomposition unbiased (absolute bias $\le$
+$`r sprintf('%.2f', max(abs(sim_study_b$bias[sim_study_b$analysis == 'decomposition' & sim_study_b$N == n_prod_lo])))`$)
+and lower power (about
+$`r sprintf('%.2f', mean(sim_study_b$power[sim_study_b$analysis == 'decomposition' & sim_study_b$N == n_prod_lo]))`$
+versus
+$`r sprintf('%.2f', mean(sim_study_b$power[sim_study_b$analysis == 'decomposition' & sim_study_b$N == n_prod_hi]))`$
+at $N=`r n_prod_hi`$), the precision cost of the smaller sample and the
+extra belief-covariate terms. Convergence was complete in every cell
+(minimum observed convergence rate
+$`r sprintf('%.3f', min(sim_study_b$conv_rate))`$). Per-replicate output
+and the cell-level summary are at
 \texttt{analysis/data/derived\_data/component-decomposition/study-b-balanced/}.
 The contamination range is bounded above by positive-definiteness: at
 $c_{bm,PB}=0.45$ the biomarker would have to correlate $0.45$ with both

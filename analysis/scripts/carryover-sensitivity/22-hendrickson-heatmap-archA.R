@@ -15,11 +15,13 @@
 ## 19-run-tier1-hendrickson-g9.R's
 ## Architecture B design exactly except for dgp_arch.
 ##
-## Panel C (G1-G3, decay-shape axis) needs no new simulation: the
-## production Tier 1 grid (02-grid-summary.rds, from
-## 01-run-factorial.R) already crosses both architectures at
-## n_sim = 500, so this panel is read directly from existing data at
-## full production precision, unlike Panels A/B.
+## Panel C (G1-G3, decay-shape axis) is from a dedicated 18-cell
+## simulation at the same more extreme Weibull range (k = 0.5, 2.0)
+## as the main manuscript's Figure 3
+## (24-run-decay-shape-sensitivity-archA.R,
+## 02-decay-shape-sensitivity-archA.rds, n_sim = 250, matching
+## Panels A/B's precision), not the shared production grid
+## (02-grid-summary.rds, still at the earlier k = 0.7, 1.0, 1.5).
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -30,9 +32,6 @@ repo_root <- here::here()
 
 source(file.path(repo_root,
   'analysis/scripts/carryover-sensitivity/spec-labels.R'))
-
-decay_levels <- c('Exponential', 'Weibull k=0.7', 'Weibull k=1.0',
-                  'Weibull k=1.5')
 
 fig_dir <- file.path(repo_root, 'analysis/figures')
 dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
@@ -100,15 +99,15 @@ ggsave(file.path(fig_dir, '02xs-heatmap-hendrickson-b-archA.pdf'),
   p_b, width = 7.6, height = 6.4)
 
 ## -----------------------------------------------------------------
-## Panel C: DGP decay shape, Architecture A (G1-G3, full production
-## precision, from the existing 540-cell grid)
+## Panel C: DGP decay shape, Architecture A (G1-G3, dedicated
+## decay-shape sensitivity data, k = 0.5, 2.0)
 ## -----------------------------------------------------------------
 
+decay_levels_c <- c('Exponential', 'Weibull k=0.5', 'Weibull k=2.0')
+
 grid_c <- readRDS(file.path(repo_root,
-  'analysis/data/02-grid-summary.rds'))$summary |>
-  dplyr::filter(dgp_arch == 'mean_moderation',
-                carryover_form %in% c('exponential', 'weibull'),
-                spec %in% spec_order) |>
+  'analysis/data/02-decay-shape-sensitivity-archA.rds'))$summary |>
+  dplyr::filter(spec %in% spec_order) |>
   dplyr::mutate(
     spec = spec_factor(spec),
     design = factor(design, levels = c('CO', 'Hybrid', 'OLBDC'),
@@ -117,12 +116,10 @@ grid_c <- readRDS(file.path(repo_root,
     decay_label = factor(
       dplyr::case_when(
         carryover_form == 'exponential' ~ 'Exponential',
-        weibull_shape == 0.7 ~ 'Weibull k=0.7',
-        weibull_shape == 1.0 ~ 'Weibull k=1.0',
-        weibull_shape == 1.5 ~ 'Weibull k=1.5'
-      ), levels = decay_levels)
-  ) |>
-  dplyr::filter(c_bm == 0.45, t1half == 1.0)
+        weibull_shape == 0.5 ~ 'Weibull k=0.5',
+        weibull_shape == 2.0 ~ 'Weibull k=2.0'
+      ), levels = decay_levels_c)
+  )
 
 p_c <- hendrickson_heatmap(grid_c, 'decay_label', 'DGP decay shape',
   expression('C (Architecture A): effect of DGP decay shape on power'~
@@ -130,9 +127,9 @@ p_c <- hendrickson_heatmap(grid_c, 'decay_label', 'DGP decay shape',
   theme(axis.text.x = element_text(angle = 20, hjust = 1, size = 7))
 
 ggsave(file.path(fig_dir, '02xs-heatmap-hendrickson-c-archA.pdf'),
-  p_c, width = 7.4, height = 4.6)
+  p_c, width = 8.0, height = 4.6)
 
 message('Wrote three Architecture A Hendrickson-style heatmaps to ', fig_dir, ':')
 message('  02xs-heatmap-hendrickson-a-archA.pdf (biomarker effect, G1-G9, n_sim=250)')
 message('  02xs-heatmap-hendrickson-b-archA.pdf (carryover half-life, G1-G9, n_sim=250)')
-message('  02xs-heatmap-hendrickson-c-archA.pdf (DGP decay shape, G1-G3, n_sim=500)')
+message('  02xs-heatmap-hendrickson-c-archA.pdf (DGP decay shape, G1-G3, n_sim=250)')

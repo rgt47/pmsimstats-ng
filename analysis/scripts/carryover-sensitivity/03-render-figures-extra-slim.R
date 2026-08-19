@@ -79,19 +79,30 @@ ggsave(file.path(fig_dir, '02xs-power-by-spec.pdf'),
 ## Figure 02xs-b: matched-vs-mismatched heatmap
 ## Cells: DGP decay form x analysis spec; fill = power
 ## Fixed: design = Hybrid, N = 70, c_bm = 0.45, t1half = 1.0
+## Reads the dedicated decay-shape sensitivity data
+## (23-run-decay-shape-sensitivity.R, k = 0.25, 0.5, 2.0, 4.0), not
+## the shared 02-grid-summary.rds grid (still at the earlier
+## k = 0.7, 1.0, 1.5, and retained there for Panel C / Figure 3,
+## which is fit separately; see report.Rmd Section 2.6 for why this
+## axis is not part of the shared production grid this manuscript
+## otherwise reads).
 ## -----------------------------------------------------------------
 
-d_b <- grid |>
-  dplyr::filter(design == 'Hybrid', c_bm == 0.45, N == 70, t1half == 1.0) |>
+d_b <- readRDS(file.path(repo_root,
+  'analysis/data/02-decay-shape-sensitivity.rds'))$summary |>
+  dplyr::filter(design == 'Hybrid', N == 70, spec %in% spec_order) |>
   dplyr::mutate(
+    spec = spec_factor(spec),
     dgp_label = dplyr::case_when(
       carryover_form == 'exponential' ~ 'Exponential',
-      carryover_form == 'weibull' & weibull_shape == 0.7 ~ 'Weibull (k=0.7)',
-      carryover_form == 'weibull' & weibull_shape == 1.0 ~ 'Weibull (k=1.0)',
-      carryover_form == 'weibull' & weibull_shape == 1.5 ~ 'Weibull (k=1.5)'
+      carryover_form == 'weibull' & weibull_shape == 0.25 ~ 'Weibull (k=0.25)',
+      carryover_form == 'weibull' & weibull_shape == 0.5 ~ 'Weibull (k=0.5)',
+      carryover_form == 'weibull' & weibull_shape == 2.0 ~ 'Weibull (k=2.0)',
+      carryover_form == 'weibull' & weibull_shape == 4.0 ~ 'Weibull (k=4.0)'
     ),
     dgp_label = factor(dgp_label, levels = c(
-      'Exponential', 'Weibull (k=0.7)', 'Weibull (k=1.0)', 'Weibull (k=1.5)'))
+      'Exponential', 'Weibull (k=0.25)', 'Weibull (k=0.5)',
+      'Weibull (k=2.0)', 'Weibull (k=4.0)'))
   )
 
 ## The twelve cells fall in a narrow high-power band, so a fill scale
@@ -125,7 +136,7 @@ p_b <- ggplot(d_b, aes(spec, dgp_label, fill = power)) +
   theme(axis.text.x = element_text(angle = 0, size = 8))
 
 ggsave(file.path(fig_dir, '02xs-heatmap-matched-vs-mismatched.pdf'),
-  p_b, width = 6.8, height = 3.6)
+  p_b, width = 6.8, height = 4.6)
 
 ## -----------------------------------------------------------------
 ## Figure 02xs-c: type-I error check

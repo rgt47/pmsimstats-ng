@@ -138,10 +138,34 @@ ggsave(file.path(fig_dir, '02xs-heatmap-hendrickson-b.pdf'),
   p_b, width = 7.6, height = 6.4)
 
 ## -----------------------------------------------------------------
-## Panel C: DGP decay shape (c_bm = 0.45, t1/2 = 1.0)
+## Panel C: DGP decay shape (c_bm = 0.45, t1/2 = 1.0). Reads the
+## dedicated decay-shape sensitivity data
+## (23-run-decay-shape-sensitivity.R, k = 0.25, 0.5, 2.0, 4.0), not
+## the shared `grid` object above (still at the earlier
+## k = 0.7, 1.0, 1.5); see report.Rmd Section 2.6 for why this axis
+## is evaluated separately from the shared production grid.
 ## -----------------------------------------------------------------
 
-d_c <- grid |> dplyr::filter(c_bm == 0.45, t1half == 1.0)
+decay_levels_c <- c('Exponential', 'Weibull k=0.25', 'Weibull k=0.5',
+                    'Weibull k=2.0', 'Weibull k=4.0')
+
+d_c <- readRDS(file.path(repo_root,
+  'analysis/data/02-decay-shape-sensitivity.rds'))$summary |>
+  dplyr::filter(spec %in% spec_order) |>
+  dplyr::mutate(
+    spec = spec_factor(spec),
+    design = factor(design, levels = c('CO', 'Hybrid', 'OLBDC'),
+                    labels = c('CO', 'Hybrid', 'OL+BDC')),
+    N_label = factor(paste0('N = ', N), levels = c('N = 35', 'N = 70')),
+    decay_label = factor(
+      dplyr::case_when(
+        carryover_form == 'exponential' ~ 'Exponential',
+        weibull_shape == 0.25 ~ 'Weibull k=0.25',
+        weibull_shape == 0.5 ~ 'Weibull k=0.5',
+        weibull_shape == 2.0 ~ 'Weibull k=2.0',
+        weibull_shape == 4.0 ~ 'Weibull k=4.0'
+      ), levels = decay_levels_c)
+  )
 
 p_c <- hendrickson_heatmap(d_c, 'decay_label', 'DGP decay shape',
   expression('C: Effect of DGP decay shape on power'~
@@ -149,7 +173,7 @@ p_c <- hendrickson_heatmap(d_c, 'decay_label', 'DGP decay shape',
   theme(axis.text.x = element_text(angle = 20, hjust = 1, size = 7))
 
 ggsave(file.path(fig_dir, '02xs-heatmap-hendrickson-c.pdf'),
-  p_c, width = 7.4, height = 4.6)
+  p_c, width = 8.0, height = 4.6)
 
 ## -----------------------------------------------------------------
 ## Panel D: Type I error under the null (c_bm = 0, N = 70), pooled

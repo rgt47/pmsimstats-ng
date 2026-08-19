@@ -67,14 +67,19 @@ knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path
        analysis/data/02-sensitivity-summary.rds (from Tier 2)
 
   4. Filtered Tier 1 figures (no linear decay, all
-     three specifications; writes analysis/figures/02xs-*.pdf):
+     three specifications; writes analysis/figures/02xs-*.pdf; the
+     matched-vs-mismatched panel (Figure 5) now reads
+     02-decay-shape-sensitivity.rds, step 4d, not 02-grid-summary.rds
+     directly - requires step 4d to have run first):
        Rscript analysis/scripts/carryover-sensitivity/03-render-figures-extra-slim.R
 
   4b. Annotated Tier 1 grid heatmap (writes
       analysis/figures/02xs-heatmap-hendrickson-{a,b,c}.pdf; Panel D
       is produced but no longer referenced by this document -
       Figures 1-2 (Panels A/B) were expanded to G1-G9 and superseded
-      the Panel D / boxplot Type I check, see step 4c):
+      the Panel D / boxplot Type I check, see step 4c; Panel C
+      (Figure 3) now reads 02-decay-shape-sensitivity.rds, step 4d,
+      not 02-grid-summary.rds - requires step 4d to have run first):
        Rscript analysis/scripts/carryover-sensitivity/12-hendrickson-heatmap.R
 
   4c. Tier 1 grid Panels A/B (Figures 1-2), G1-G9 extension (writes
@@ -82,6 +87,26 @@ knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path
       exponential DGP, Architecture B only, common random numbers
       within each cell; ~1500 sec at n_reps = 100 on 8 cores):
        Rscript analysis/scripts/carryover-sensitivity/19-run-tier1-hendrickson-g9.R
+
+  4d. Decay-shape sensitivity, Figures 3 and 5, at a more extreme
+      Weibull range (k = 0.25, 0.5, 2.0, 4.0, extended from an
+      initial k = 0.5, 2.0, itself replacing an earlier k = 0.7, 1.5;
+      k = 1.0 dropped as numerically identical to Exponential and so
+      not a distinct condition) than 01-run-factorial.R's shared grid
+      still uses; a standalone script rather than a change to that
+      shared driver, since its grid is also consumed by the archived
+      full-scope drafts and other manuscripts (writes
+      analysis/data/02-decay-shape-sensitivity.rds; 30 cells,
+      Architecture B only, G1-G3 only, common random numbers within
+      each cell; ~770 sec at n_reps = 500 on 8 cores):
+       Rscript analysis/scripts/carryover-sensitivity/23-run-decay-shape-sensitivity.R --reps 500
+
+  4e. Decay-shape sensitivity, Architecture A counterpart (Supplement
+      S12 Panel C), same k values as step 4d (writes
+      analysis/data/02-decay-shape-sensitivity-archA.rds; 30 cells,
+      G1-G3 only, common random numbers within each cell; n_reps to
+      match S12 Panels A/B's precision):
+       Rscript analysis/scripts/carryover-sensitivity/24-run-decay-shape-sensitivity-archA.R --reps 250
 
   5. Filtered Tier 2 sensitivity figures (writes
      analysis/figures/02xs-sens-S1..S5.pdf):
@@ -253,8 +278,11 @@ phase (Hybrid and OL+BDC), where its advantage is about 10
 percentage points (0.860 vs 0.766 for Unadjusted at the reference
 cell). Under the classical crossover (CO) design it is markedly
 inferior (0.488 vs 0.830). Where it leads, the lead is robust to
-decay-shape and half-life mis-specification and to autocorrelation
-strength. The model-based interaction test is mildly conservative
+half-life mis-specification and to autocorrelation strength, and
+widens under a light-tailed decay-shape mis-specification, but
+narrows to statistical insignificance under the two most
+heavy-tailed Weibull shapes examined. The model-based interaction
+test is mildly conservative
 for all three (mean null rejection 0.036 to 0.039), an artifact of
 the working covariance that a CR2 cluster-robust standard error
 removes without disturbing the ranking. Third, at the Hybrid
@@ -501,26 +529,34 @@ $$
 A shape parameter $k$ governs whether the elimination tail is
 heavier than exponential ($k < 1$, slower elimination) or lighter
 ($k > 1$, faster clearance), recovering the exponential form exactly
-at $k = 1$. We report $k = 0.7$ (a prolonged low-concentration
-tail) and $k = 1.5$ (faster clearance once concentration falls below
-some threshold), which with $k = 1.0$ (numerically indistinguishable
-from exponential) gives four decay-shape levels in the grid.
+at $k = 1$. We report four values, $k \in \{0.25, 0.5, 2.0, 4.0\}$,
+two on each side of exponential: $k = 0.5$ and the more extreme
+$k = 0.25$ (progressively more prolonged low-concentration tails),
+and $k = 2.0$ and the more extreme $k = 4.0$ (progressively faster
+clearance once concentration falls below some threshold). This is a
+wider sensitivity range than an earlier version of this grid used
+($k = 0.7, 1.5$ only). $k = 1.0$ is not a fifth Weibull condition: it
+is numerically indistinguishable from Exponential and so is not
+reported separately, giving five decay-shape levels in the grid
+rather than six.
 
-```{r fig-decay-curves, echo = FALSE, fig.cap = "The carryover decay multiplier $\\phi(t_{sd})$ at the reference half-life ($t_{1/2} = 1.0$ week) for exponential decay and the two distinguishable Weibull shapes. Weibull $k = 1.0$ (not plotted) is numerically identical to the exponential curve. Both dotted reference lines mark the defining half-life point ($\\phi = 0.5$ at $t_{sd} = t_{1/2}$), which all three curves pass through by construction; the shape parameter governs only how quickly $\\phi$ falls before that point and how slowly it decays after.", out.width = "60%"}
+```{r fig-decay-curves, echo = FALSE, fig.cap = "The carryover decay multiplier $\\phi(t_{sd})$ at the reference half-life ($t_{1/2} = 1.0$ week) for exponential decay and the four Weibull shapes. The dotted reference lines mark the defining half-life point ($\\phi = 0.5$ at $t_{sd} = t_{1/2}$), which all five curves pass through by construction; the shape parameter governs only how quickly $\\phi$ falls before that point and how slowly it decays after.", out.width = "70%"}
 knitr::include_graphics("../../figures/02xs-decay-curves.pdf")
 ```
 
 Figure \@ref(fig:fig-decay-curves) makes the shape difference
-concrete. The $k = 0.7$ curve has a heavier tail, and $\phi$ stays
-above the exponential curve for every $t_{sd} > t_{1/2}$. In
-practical terms, the analysis-side predictor picks up more residual
-carryover during a prolonged washout than the half-life alone would
-suggest. The $k = 1.5$ curve has a lighter tail and clears faster
-once concentration falls below the half-maximum threshold. All three
-curves pass through the same half-life-defining point
-($\phi = 0.5$ at $t_{sd} = 1.0$), so the three forms remain
-comparable at a fixed nominal half-life even though their shapes
-diverge on either side of it.
+concrete. The $k = 0.25$ and $k = 0.5$ curves have progressively
+heavier tails, and $\phi$ stays well above the exponential curve for
+every $t_{sd} > t_{1/2}$, most markedly at $k = 0.25$. In practical
+terms, the analysis-side predictor picks up substantially more
+residual carryover during a prolonged washout than the half-life
+alone would suggest, and increasingly so as $k$ falls further below
+one. The $k = 2.0$ and $k = 4.0$ curves have progressively lighter
+tails and clear sharply faster once concentration falls below the
+half-maximum threshold. All five curves pass through the same
+half-life-defining point ($\phi = 0.5$ at $t_{sd} = 1.0$), so the
+five forms remain comparable at a fixed nominal half-life even
+though their shapes diverge substantially on either side of it.
 
 ## Estimand and analysis specifications
 
@@ -545,7 +581,7 @@ Tier 1 three below, plus six Tier 2 additions introduced in the
 'Choice of analysis specifications' section that follows and tested
 in Blocks S7-S10 (Section 3.7). Internally, and in the code and data
 files described in the Reproducibility section, each specification
-is stored under an `E`-prefixed code (`G1`, `G3`, ...); this
+is stored under an `E`-prefixed code (`E1`, `E2`, ...); this
 manuscript's prose refers to all nine uniformly by the compact
 `G1`-`G9` code defined in `spec-labels.R`, or by name, per Table
 \@ref(tab:tab-spec-summary) below.
@@ -629,33 +665,69 @@ traverse anchored at Unadjusted, not an independent check.
 
 This specification uses Exposure-weighted's formula,
 $X = \text{Dbc}_{it}$, but chooses $\hat{t}_{1/2}$ from the data
-rather than assuming it. We refit the model at each of four
-candidate half-lives ($0.25$, $0.5$, $1.0$, $2.0$ weeks) and keep the
-fit with the lowest AIC [-@akaike1974new]. This mirrors
-`characterize_carryover()` (`R/carryover_analysis.R`), the package's
-own real-data half-life-selection routine. Like Exposure-weighted, it
-targets $\text{bm:}D_{bc,it}$. Unlike Exposure-weighted, it requires
-no half-life from the analyst at all. The cost is a post-selection
-inference risk [-@berk2013valid]: the same data drive the half-life
-choice and the subsequent test. Block S11 (Section 3.7) checks this
-risk directly.
+rather than assuming it. Writing $M(t_{1/2})$ for the `lme` fit of
+Section 2.4 with $D_{bc,it}$ constructed at a given candidate
+half-life, the selected half-life is
+
+$$
+\hat{t}_{1/2} = \operatorname*{arg\,min}_{t_{1/2} \,\in\, \mathcal{T}}
+  \text{AIC}\big(M(t_{1/2})\big), \qquad
+  \mathcal{T} = \{0.25,\ 0.5,\ 1.0,\ 2.0\}\ \text{weeks},
+$$
+
+with $\text{AIC}(M) = -2\log L(M) + 2p$, $L(M)$ the fitted model's
+likelihood and $p$ its number of estimated parameters
+[-@akaike1974new]. Reported power, the interaction coefficient, and
+its standard error are then read from $M(\hat{t}_{1/2})$ alone, the
+single winning fit, not pooled or averaged across $\mathcal{T}$. This
+mirrors `characterize_carryover()` (`R/carryover_analysis.R`), the
+package's own real-data half-life-selection routine. Like
+Exposure-weighted, it targets $\text{bm:}D_{bc,it}$. Unlike
+Exposure-weighted, it requires no half-life from the analyst at all.
+The cost is a post-selection inference risk [-@berk2013valid]: $M(\hat
+t_{1/2})$'s reported standard error and $p$-value treat $\hat
+t_{1/2}$ as though it were fixed in advance, when the same data in
+fact chose it, so the nominal inference does not formally account
+for the selection step. Block S11 (Section 3.7) checks whether this
+risk manifests as Type I error inflation in practice.
 
 ### Paired-difference (G5)
 
 This is a two-stage, correlation-structure-agnostic alternative,
 rather than an elaboration of the mixed-model family above. For each
-patient with both on- and off-drug observations, we compute the
-patient's own mean on-drug minus mean off-drug $S_x$, and regress
-that single per-patient difference on $bm$ across patients
-($\text{diff} \sim bm$, plain OLS). There is no repeated-measures
-model, no carryover representation, and no correlation structure of
-any kind. We view it as a direct biomarker-interaction extension of
-the paired t-test that Senn, Julious and Araujo [-@senn2014four]
-found to outperform carryover-adjusted mixed models for ordinary
-N-of-1 treatment-effect estimation. Patients contributing only
-on-drug or only off-drug observations (for instance, CO's
-never-discontinuing path) cannot form a within-patient difference
-and are dropped.
+patient $i$ with $n_i^{\text{on}} > 0$ on-drug and
+$n_i^{\text{off}} > 0$ off-drug occasions, define the patient's own
+on-drug and off-drug means,
+
+$$
+\bar{S}_{x,i}^{\text{on}} = \frac{1}{n_i^{\text{on}}}
+  \sum_{t:\, D_{it}=1} S_{x,it}, \qquad
+\bar{S}_{x,i}^{\text{off}} = \frac{1}{n_i^{\text{off}}}
+  \sum_{t:\, D_{it}=0} S_{x,it},
+$$
+
+and their difference $\Delta_i = \bar{S}_{x,i}^{\text{on}} -
+\bar{S}_{x,i}^{\text{off}}$. The second stage regresses this single
+per-patient value on the (centered) biomarker across the $N'
+\leq N$ patients contributing a difference,
+
+$$
+\Delta_i = \beta_0 + \beta_1\, bm_i + \varepsilon_i, \qquad
+i = 1, \dots, N',
+$$
+
+by plain OLS, with the interaction test on $\beta_1$. There is no
+repeated-measures model, no carryover representation, and no
+correlation structure of any kind: $\Delta_i$ collapses each
+patient's eight occasions to one number before $bm$ ever enters the
+model. We view it as a direct biomarker-interaction extension of the
+paired t-test that Senn, Julious and Araujo [-@senn2014four] found to
+outperform carryover-adjusted mixed models for ordinary N-of-1
+treatment-effect estimation. Patients contributing only on-drug or
+only off-drug observations (for instance, CO's never-discontinuing
+path) have $n_i^{\text{on}} = 0$ or $n_i^{\text{off}} = 0$, cannot
+form $\Delta_i$, and are dropped, so $N' < N$ whenever such a path
+exists in the design.
 
 ### CR2 cluster-robust variants (G6-G9)
 
@@ -765,30 +837,41 @@ alternatives remain untested and are discussed as future work
 
 ## Factorial grid and parameter settings
 
-The principal comparison crosses DGP decay form (exponential and
-Weibull at $k \in \{0.7, 1.0, 1.5\}$) against the three analysis
-specifications, under covariance moderation only, with the
-exponential row analyzed under Exposure-weighted as the matched
-reference cell.
+The principal comparison crosses biomarker moderation, carryover
+half-life, trial design, and sample size against the three analysis
+specifications, under covariance moderation and the exponential DGP.
 
 | Parameter | Values |
 |---|---|
 | Biomarker moderation ($c_{bm}$) | 0.0, 0.30, 0.45 |
 | Carryover half-life ($t_{1/2}$) | 0.0, 0.5, 1.0 weeks |
-| Weibull shape ($k$) | 0.7, 1.0, 1.5 (Weibull form only) |
 | Sample size ($N$) | 35, 70 |
 | Trial design | CO, N-of-1 (Hybrid), OL+BDC |
 | DGP architecture | B (covariance moderation) only |
 | Replicates per cell | 500 (target), 50 for development |
 
-The four decay-shape levels (exponential and three Weibull shapes)
-against three specifications, three designs, two sample sizes, and
-three biomarker levels give $4 \times 3 \times 3 \times 2 \times 3 =
-216$ cells. The $c_{bm} = 0$ row is the Type I error check against
-nominal 5%, and the $t_{1/2} = 0$ row, with no carryover, gives a
-best-case power reference at each combination of $N$, design, and
-$c_{bm}$ against which the cost of nonzero carryover can be read
-off directly.
+Three specifications, three half-lives, three designs, two sample
+sizes, and three biomarker levels give
+$3 \times 3 \times 3 \times 2 \times 3 = 162$ cells. The $c_{bm} = 0$
+row is the Type I error check against nominal 5%, and the
+$t_{1/2} = 0$ row, with no carryover, gives a best-case power
+reference at each combination of $N$, design, and $c_{bm}$ against
+which the cost of nonzero carryover can be read off directly.
+
+Decay-shape sensitivity (Figures 3 and 5) is evaluated separately,
+at the reference cell only ($c_{bm} = 0.45$, $t_{1/2} = 1.0$ weeks),
+rather than across the full grid above: exponential decay and four
+Weibull shapes ($k \in \{0.25, 0.5, 2.0, 4.0\}$, Section 2.3) crossed
+with the three specifications, three designs, and two sample sizes
+give $5 \times 3 \times 3 \times 2 = 90$ further cells
+(`23-run-decay-shape-sensitivity.R`). We restrict the decay-shape
+axis to this one cell because it is the axis every other result in
+this manuscript holds fixed at exponential; a full crossing of decay
+shape with the grid above would multiply the simulation cost several
+times over for a comparison this manuscript uses in only two
+figures. $k = 1.0$ is not a fifth Weibull condition here, or anywhere
+in this manuscript: it recovers the exponential form exactly
+(Section 2.3) and so is not a distinct decay-shape condition.
 
 ## Inference and the cluster-robust correction {#sec-cr2}
 
@@ -801,23 +884,63 @@ the companion calibration study [@pmsimstats_calibration2026] shows
 this does not match the covariance the data-generating mechanism
 actually induces, inflating the standard error by roughly six to ten
 percent and depressing the rejection rate correspondingly. We
-quantify this with the calibration ratio $\kappa$, the mean estimated
-SE divided by the empirical SD of the interaction estimate across
-replicates ($\kappa = 1$ is correctly calibrated, $\kappa > 1$
-conservative). At the null cell $\kappa$ runs 1.05 to 1.10 across
-specifications, with empirical Type I error 0.029 to 0.039 against
-nominal 0.05.
+quantify this with the calibration ratio
+
+$$
+\kappa = \frac{\overline{\widehat{SE}}}{SD\big(\hat\beta_{bm:X}\big)}
+       = \frac{\frac{1}{n_{sim}}\sum_{r=1}^{n_{sim}} \widehat{SE}_r}
+              {\sqrt{\frac{1}{n_{sim}-1}\sum_{r=1}^{n_{sim}}
+                \big(\hat\beta_{bm:X,r} - \bar{\hat\beta}_{bm:X}\big)^2}},
+$$
+
+the mean model-reported standard error across the $n_{sim}$
+simulation replicates, divided by the empirical standard deviation of
+the replicate-level point estimates $\hat\beta_{bm:X,r}$ themselves
+($\kappa = 1$ is correctly calibrated, since the model's own reported
+uncertainty then matches the estimator's actual sampling variability;
+$\kappa > 1$ means the model overstates that uncertainty, a
+conservative test). At the null cell $\kappa$ runs 1.05 to 1.10
+across specifications, with empirical Type I error 0.029 to 0.039
+against nominal 0.05.
 
 The remedy is a cluster-robust (sandwich) variance estimator, which
 derives the variance of $\hat\beta_{bm:X}$ from observed
 between-cluster variation rather than the assumed covariance, and so
 remains valid under mis-specification. Clusters are patients (eight
-occasions each, unique across randomization paths). Because the
-naive sandwich form is markedly downward-biased with few clusters
-($N = 35$ or $70$), we use the CR2 bias-reduced estimator of Bell
-and McCaffrey [-@bell2002bias], paired with Satterthwaite degrees of freedom (both
-via `clubSandwich`, replacing only the standard error, reference
-distribution, and $p$-value, leaving point estimates untouched).
+occasions each, unique across randomization paths). Writing
+$X_i$ for patient $i$'s rows of the fixed-effects design matrix and
+$\hat{e}_i = y_i - X_i\hat\beta$ for that patient's residual vector
+from the fitted model ($N$ patients, indexed $i = 1, \dots, N$), the
+naive (Liang-Zeger) sandwich estimator is
+
+$$
+\widehat{\text{Var}}_{\text{sandwich}}(\hat\beta) =
+  \left(\sum_{i=1}^{N} X_i' \hat{V}_i^{-1} X_i\right)^{-1}
+  \left(\sum_{i=1}^{N} X_i' \hat{V}_i^{-1} \hat{e}_i \hat{e}_i'
+    \hat{V}_i^{-1} X_i\right)
+  \left(\sum_{i=1}^{N} X_i' \hat{V}_i^{-1} X_i\right)^{-1},
+$$
+
+with $\hat{V}_i$ the working covariance from the `lme` fit. This
+formula is exactly the source of the standard-error inflation
+described above, reversed: it substitutes each patient's own,
+directly observed $\hat{e}_i\hat{e}_i'$ for the single assumed
+$\hat{V}_i$ everywhere it appears in the middle term, so a mismatched
+working covariance no longer biases the variance estimate, at the
+cost of needing enough clusters for that substitution to be stable.
+With only $N = 35$ or $70$ clusters, the naive form in
+$\widehat{\text{Var}}_{\text{sandwich}}$ is itself markedly
+downward-biased, so we use the CR2 bias-reduced estimator of Bell
+and McCaffrey [-@bell2002bias]. CR2 replaces each raw residual
+$\hat{e}_i$ above with an adjusted residual $\hat{e}_i^{\text{CR2}} =
+A_i \hat{e}_i$, where $A_i$ is a patient-specific matrix chosen so
+that $\widehat{\text{Var}}_{\text{sandwich}}$, recomputed with
+$\hat{e}_i^{\text{CR2}}$ in place of $\hat{e}_i$, is exactly unbiased
+under the working model (the construction of $A_i$ is given in full
+in Bell and McCaffrey [-@bell2002bias]; we do not reproduce it here).
+We pair this with Satterthwaite degrees of freedom (both via
+`clubSandwich`), replacing only the standard error, reference
+distribution, and $p$-value, leaving point estimates untouched.
 
 We apply the correction in two places. A null-cell diagnostic
 ($c_{bm} = 0$, exponential DGP, $t_{1/2} = 1.0$ weeks, Hybrid,
@@ -905,11 +1028,23 @@ knitr::kable(
   caption = 'Headline performance at the reference cell
     (exponential DGP, Hybrid design, $N = 70$,
     $c_{bm} = 0.45$, $n_{sim} = 500$). Power is the rejection rate of
-    $H_0: \\beta_{bm:X} = 0$ at $\\alpha = 0.05$. Bias is on the
-    calibrated effect-size scale,
+    $H_0: \\beta_{bm:X} = 0$ at $\\alpha = 0.05$, the primary outcome
+    of this manuscript. Bias is mean(estimate $-$
+    $\\theta_{\\text{true}}$) on the calibrated effect-size scale,
     $\\theta_{\\text{true}} = -c_{bm} \\cdot \\sigma_{BR} = -3.6$
-    (per docs/19 calibration). MCSEs are reported per Morris et al.
-    (2019, Table 6).'
+    (per docs/19 calibration; see the estimand-mismatch caveat above
+    for Unadjusted/Lag-adjusted). Empirical SE is the standard
+    deviation of the point estimates across replicates, the actual
+    sampling variability of the estimator, as distinct from
+    whatever SE any single fit reports (the comparison the
+    calibration ratio $\\kappa$ of Section 2.7 is built on). Coverage
+    is the proportion of replicates whose nominal 95\\% Wald CI
+    contains $\\theta_{\\text{true}}$; the low Unadjusted/Lag-adjusted
+    values reflect the same estimand mismatch as Bias, not
+    miscalibrated inference. MSE is bias$^2$ + Empirical SE$^2$, an
+    overall accuracy summary. Non-conv is the fraction of replicates
+    where `nlme::lme()` failed to converge (zero throughout at this
+    cell). MCSEs are reported per Morris et al. (2019, Table 6).'
 ) |>
   kableExtra::kable_styling(latex_options = "scale_down")
 ```
@@ -934,48 +1069,66 @@ not re-run.
 knitr::include_graphics("../../figures/02xs-heatmap-hendrickson-a.pdf")
 ```
 
+Two features are visible at a glance in Panel A that the headline
+table makes only cell by cell. First, within every design by $N$
+block, `G1` and `G2` (Unadjusted, Lag-adjusted) track each other
+closely at every biomarker level, differing by at most 0.03, within
+Monte Carlo noise at this preliminary $n_{sim} = 100$. This matches
+the higher-precision result of Section 3.4, where the two are
+numerically identical to two decimal places. Second, the
+Exposure-weighted family (`G3`, `G4`, and their CR2 variants `G8`,
+`G9`) visibly separates from `G1`/`G2`/`G6`/`G7` only in the Hybrid
+and OL+BDC columns. In the CO column the whole family underperforms
+at every biomarker level past zero. At the reference cell
+($c_{bm} = 0.45$, $t_{1/2} = 1.0$), for example, `G4` reaches 0.48
+against 0.86 to 0.89 for `G1`/`G2`/`G6`/`G7`. This is the
+design-dependence of Section 3.4, read directly off the grid now
+across all nine specifications rather than three. Whether that
+separation depends on carryover being present at all, Panel A alone
+cannot show, since it fixes $t_{1/2} = 1.0$ throughout.
+
 ```{r fig-hendrickson-b, echo = FALSE, fig.cap = "Tier 1 grid, carryover-axis, all nine G1-G9 specifications: power by trial design (columns), $N$ (row blocks), and analysis specification (rows within block), across $t_{1/2} \\in \\{0, 0.5, 1.0\\}$ weeks at $c_{bm} = 0.45$, exponential DGP, Architecture B (preliminary $n_{sim} = 100$).", out.width = "95%"}
 knitr::include_graphics("../../figures/02xs-heatmap-hendrickson-b.pdf")
 ```
 
-```{r fig-hendrickson-c, echo = FALSE, fig.cap = "Tier 1 grid, decay-shape axis: power by trial design (columns), $N$ (row blocks), and analysis specification (rows within block), across the four DGP decay-shape levels (exponential, Weibull $k \\in \\{0.7, 1.0, 1.5\\}$) at $c_{bm} = 0.45$, $t_{1/2} = 1.0$ weeks.", out.width = "95%"}
+Panel B answers that, for Hybrid and OL+BDC. At $t_{1/2} = 0$ the
+Exposure-weighted family's separation from `G1`/`G2`/`G6`/`G7`
+disappears in both designs (all nine specifications sit at
+0.94-1.00), and only opens up as the half-life increases, confirming
+the separation in Panel A is specifically a carryover effect there
+(the $t_{1/2} = 1.0$ column is shared with Panel A's reference cell).
+Under CO the picture is different: `G4` and `G9` are already
+collapsed at $t_{1/2} = 0$ (0.48 and 0.47, against 0.88-0.92 for the
+rest), before carryover enters the picture at all. This is the AIC
+mis-selection pathology of Block S9 read directly off the grid, not
+a carryover effect: `G4`'s half-life selection drifts to the largest
+candidate under CO's sparse off-drug sampling regardless of the true
+half-life, so its CO weakness predates $t_{1/2} > 0$ rather than
+growing from it. Panel B also adds a
+ranking result Panel A alone does not show. `G9` and `G8` lead, in a
+near-tie, at the Hybrid and OL+BDC reference cells (both around 0.88
+at Hybrid, 0.77 to 0.74 at OL+BDC). `G5`
+(Paired-difference) is the strongest specification at CO that is not
+`G1`/`G2` or a CR2 variant of them (0.77, versus 0.48 to 0.51 for
+the Exposure-weighted family there). This is consistent with `G5`
+discarding the carryover representation that costs the
+Exposure-weighted family power under CO.
+
+```{r fig-hendrickson-c, echo = FALSE, fig.cap = "Tier 1 grid, decay-shape axis: power by trial design (columns), $N$ (row blocks), and analysis specification (rows within block), across the five DGP decay-shape levels (exponential, Weibull $k \\in \\{0.25, 0.5, 2.0, 4.0\\}$) at $c_{bm} = 0.45$, $t_{1/2} = 1.0$ weeks.", out.width = "95%"}
 knitr::include_graphics("../../figures/02xs-heatmap-hendrickson-c.pdf")
 ```
 
-Four features are visible at a glance that the headline table and
-line plots elsewhere in this section make only cell by cell.
-
-First, within every design by $N$ block, `G1` and `G2` (Unadjusted,
-Lag-adjusted) track each other closely at every biomarker level and
-half-life in Panels A and B, differing by at most 0.03, within Monte
-Carlo noise at this preliminary $n_{sim} = 100$. This matches the
-higher-precision result of Section 3.4, where the two are
-numerically identical to two decimal places.
-
-Second, the Exposure-weighted family (`G3`, `G4`, and their CR2
-variants `G8`, `G9`) visibly separates from `G1`/`G2`/`G6`/`G7` only
-in the Hybrid and OL+BDC columns, and only once carryover is present
-(Figure \@ref(fig:fig-hendrickson-b)). In the CO column the whole
-family underperforms at every half-life past zero. At the reference
-cell ($c_{bm} = 0.45$, $t_{1/2} = 1.0$), for example, `G4` reaches
-0.48 against 0.86 to 0.89 for `G1`/`G2`/`G6`/`G7`. This is the
-design-dependence of Section 3.4, read directly off the grid now
-across all nine specifications rather than three.
-
-Third, `G9` and `G8` lead, in a near-tie, at the Hybrid and OL+BDC
-reference cells (both around 0.88 at Hybrid, 0.77 to 0.74 at
-OL+BDC). `G5` (Paired-difference) is the strongest specification at
-CO that is not `G1`/`G2` or a CR2 variant of them (0.77, versus 0.48
-to 0.51 for the Exposure-weighted family there). This is consistent
-with `G5` discarding the carryover representation that costs the
-Exposure-weighted family power under CO.
-
-Fourth, Figure \@ref(fig:fig-hendrickson-c) shows the
-Exposure-weighted row's advantage in the Hybrid and OL+BDC columns
-holding across every decay shape examined, including the
-heaviest-tailed Weibull form ($k = 0.7$). This is the decay-form
-robustness of Section 3.5, shown here across the full grid rather
-than at one cell.
+Panel C shows the Exposure-weighted row's advantage in the Hybrid
+and OL+BDC columns is not uniform across decay shape. It widens
+substantially on the light-tailed side ($k = 2.0$, $4.0$), reaching
+$+0.14$ to $+0.21$ absolute over Unadjusted/Lag-adjusted at OL+BDC.
+On the heavy-tailed side it narrows and, at the two most extreme
+shapes examined ($k = 0.25$, $0.5$), disappears: the three
+specifications are statistically indistinguishable at OL+BDC (gaps
+of $0.00$ to $0.02$, well under one MCSE), and only barely separated
+at Hybrid ($+0.01$ to $+0.04$). This is the decay-form sensitivity
+of Section 3.5, shown here across the full grid rather than at one
+cell.
 
 ## Matched-decay baseline
 
@@ -1037,20 +1190,33 @@ observations works against it (Section 4).
 
 ## Decay-form mis-specification
 
-```{r fig-heatmap-mismatch, echo = FALSE, fig.cap = "Power at the critical cell ($t_{1/2} = 1.0$ weeks, Hybrid, $N = 70$, $c_{bm} = 0.45$) across DGP decay forms (rows) and specifications (columns). Fill scale is stretched to the observed range, not [0,1], and not comparable to other figures.", out.width = "78%"}
+```{r fig-heatmap-mismatch, echo = FALSE, fig.cap = "Power at the critical cell ($t_{1/2} = 1.0$ weeks, Hybrid, $N = 70$, $c_{bm} = 0.45$) across five DGP decay forms (rows) and specifications (columns). Fill scale is stretched to the observed range, not [0,1], and not comparable to other figures.", out.width = "85%"}
 knitr::include_graphics("../../figures/02xs-heatmap-matched-vs-mismatched.pdf")
 ```
 
 The heatmap cell at the intersection of the exponential DGP row and
 the Exposure-weighted column is the matched reference, with power
-$0.860 \pm 0.016$. The Unadjusted and Lag-adjusted columns, invariant
-to the assumed decay form by construction, are near-identical
-throughout, as in Figure \@ref(fig:fig-power-by-spec), so variation
-down those columns is data-generating decay and Monte Carlo noise.
-The remaining Exposure-weighted rows give the cost of assuming
-exponential decay when the truth is Weibull. Even at the
-heaviest-tailed form examined ($k = 0.7$), its advantage narrows but
-does not reverse (Section 4).
+$0.850 \pm 0.016$ in this figure's own simulation (a dedicated
+decay-shape run, Section 2.6; the $0.860$ reported for the same
+nominal cell in Table \@ref(tab:headline) and Figure
+\@ref(fig:fig-power-by-spec) comes from an independent draw of the
+same DGP, and the two agree within one MCSE). The Unadjusted and
+Lag-adjusted columns, invariant to the assumed decay form by
+construction, are near-identical throughout, as in Figure
+\@ref(fig:fig-power-by-spec), so variation down those columns is
+data-generating decay and Monte Carlo noise. The remaining
+Exposure-weighted row gives the cost of assuming exponential decay
+when the truth is Weibull, and it is not symmetric. On the
+light-tailed side the advantage widens: at $k = 2.0$ it reaches
+$0.880$ against $0.788$ for both alternatives ($+0.092$), and at
+$k = 4.0$, $0.930$ against $0.786$/$0.788$ ($+0.142$ to $+0.144$).
+On the heavy-tailed side it narrows and, at the two most extreme
+shapes examined, is no longer distinguishable from noise: at
+$k = 0.5$, power $0.708$ against $0.676$ and $0.672$ ($+0.032$ to
+$+0.036$, roughly 1.5 MCSE), and at $k = 0.25$, $0.568$ against
+$0.558$ and $0.554$ ($+0.010$ to $+0.014$, well under one MCSE). We
+read this as the advantage eroding to nothing under a sufficiently
+heavy-tailed mis-specification, not reversing (Section 4).
 
 ## Type I error control and cluster-robust recalibration
 
@@ -1589,13 +1755,20 @@ not as a finding the design isolates directly.
 
 ## What the robustness checks add
 
-The Section 3.7 sensitivity blocks show that the exposure-weighted
-advantage, where it exists, is not fragile. It survives incorrect
-decay-shape assumptions (Figure \@ref(fig:fig-heatmap-mismatch)) and
-an incorrectly assumed half-life, short of a large over-assumption
-at a short true half-life (Block S2, Supplement Section S2). It also
-holds its five- to eight-point lead across the autocorrelation range
-examined (Block S1, Supplement Section S1).
+The Section 3.7 sensitivity blocks show the exposure-weighted
+advantage, where it exists, is not uniformly fragile, but it is not
+unconditionally robust either. Under incorrect decay-shape
+assumptions (Figure \@ref(fig:fig-heatmap-mismatch), Section 3.5) it
+widens on the light-tailed side and narrows to statistical
+insignificance on the heavy-tailed side, disappearing entirely at
+the two most extreme Weibull shapes examined ($k = 0.25$, $0.5$); it
+survives an incorrectly assumed half-life, short of a large
+over-assumption at a short true half-life (Block S2, Supplement
+Section S2); and it holds its five- to eight-point lead across the
+autocorrelation range examined (Block S1, Supplement Section S1).
+Decay-shape mis-specification is therefore the one robustness axis
+examined here that can erode the advantage away entirely, rather
+than only narrowing it.
 
 One caveat qualifies the Tier 1 figures throughout. Outside block
 S2, the analysis-side half-life is set equal to the data-generating
@@ -1623,15 +1796,18 @@ of pairwise comparisons:
 
 - **Covariance moderation (Architecture B), Hybrid or OL+BDC
   design.** Use Exposure-weighted with a CR2 cluster-robust standard
-  error. The advantage holds under decay-shape mis-specification
-  (Section 3.5), under half-life mis-specification short of a large
-  over-assumption (Section 3.7, Block S2), and across the
-  autocorrelation range examined (Block S1), and CR2 restores nominal
-  Type I error without disturbing the ranking (Block S6, validated at
-  $N \in \{35, 70\}$ in the Hybrid design specifically; OL+BDC was not
-  itself stress-tested under CR2). This remains the recommended
-  default: it has been through the full robustness battery `G4`/`G5`
-  have not (next point).
+  error. The advantage holds under half-life mis-specification short
+  of a large over-assumption (Section 3.7, Block S2), and across the
+  autocorrelation range examined (Block S1). It holds and widens
+  under decay-shape mis-specification on the light-tailed side, but
+  narrows to statistical insignificance at the two most extreme
+  heavy-tailed shapes examined (Section 3.5): this recommendation
+  should not be read as holding under an arbitrarily heavy-tailed
+  decay form. CR2 restores nominal Type I error without disturbing the
+  ranking (Block S6, validated at $N \in \{35, 70\}$ in the Hybrid
+  design specifically; OL+BDC was not itself stress-tested under
+  CR2). This remains the recommended default: it has been through
+  the full robustness battery `G4`/`G5` have not (next point).
 - **`G4` (AIC-selected half-life) and `G5` (paired-difference) are
   promising at this same cell, not yet validated defaults.** Both
   beat Exposure-weighted itself at the Hybrid, Architecture B
@@ -1840,8 +2016,11 @@ full-scope manuscript, revealed no such interaction.
 
 2. **Exposure weighting helps, but conditionally.** It achieves the
    highest power, about 10 points over the unadjusted benchmark, only
-   in the Hybrid and OL+BDC designs, and its lead survives
-   mis-specified decay shape and half-life there. Under crossover it
+   in the Hybrid and OL+BDC designs. Its lead survives mis-specified
+   half-life there, and widens under a light-tailed decay-shape
+   mis-specification, but narrows to statistical insignificance at
+   the two most heavy-tailed Weibull shapes examined; it is not
+   robust to an arbitrarily heavy decay tail. Under crossover it
    is markedly worse than the binary indicator (0.488 against 0.830)
    and should not be used. Where used, we recommend a CR2
    cluster-robust standard error (Block S6).
@@ -1981,11 +2160,21 @@ the `G1`-`G9` compact display-code layer (`g_code`, `g_labels`) used
 in S10's table and figure; `G8` (`G3`+CR2, stored as `E2cr2`) is reused directly from
 Block S6 rather than rerun, so it does not share common random
 numbers with the rest of S10's comparison. Figure
-\@ref(fig:fig-hendrickson-c) is produced from the same
-`02-grid-summary.rds` Tier 1 summary as the headline table, by
-`12-hendrickson-heatmap.R`, and retains the original three
-specifications (G1-G3), since it is the only Tier 1 panel varying
-DGP decay form. Figures \@ref(fig:fig-hendrickson-a) and
+\@ref(fig:fig-hendrickson-c), and the decay-form mismatch panel
+(Figure \@ref(fig:fig-heatmap-mismatch)), retain the original three
+specifications (G1-G3), since decay shape is the only axis those two
+figures vary. Both were regenerated from a dedicated 30-cell
+simulation at a more extreme Weibull shape range
+($k = 0.25, 0.5, 2.0, 4.0$, extended from an initial $k = 0.5, 2.0$,
+itself replacing an earlier $k = 0.7, 1.5$; $k = 1.0$ is
+not a separate condition, since it duplicates Exponential exactly)
+than the shared production grid (`02-grid-summary.rds`) still uses
+(`23-run-decay-shape-sensitivity.R`,
+`02-decay-shape-sensitivity.rds`, $n_{sim} = 500$, Architecture B
+only). This is a standalone script rather than a change to
+`01-run-factorial.R`'s shared grid, since that grid is also consumed
+by the archived full-scope drafts and other manuscripts. Figures
+\@ref(fig:fig-hendrickson-a) and
 \@ref(fig:fig-hendrickson-b) were later expanded to all nine G1-G9
 specifications, from a dedicated 30-cell simulation restricted to
 the exponential DGP and Architecture B

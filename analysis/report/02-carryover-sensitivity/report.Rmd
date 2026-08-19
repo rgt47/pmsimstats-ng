@@ -69,9 +69,23 @@ knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path
      three specifications; writes analysis/figures/02xs-*.pdf):
        Rscript analysis/scripts/carryover-sensitivity/03-render-figures-extra-slim.R
 
+  4b. Hendrickson-style Tier 1 heatmap (writes
+      analysis/figures/02xs-heatmap-hendrickson-{a,b,c}.pdf):
+       Rscript analysis/scripts/carryover-sensitivity/12-hendrickson-heatmap.R
+
   5. Filtered Tier 2 sensitivity figures (writes
      analysis/figures/02xs-sens-S1..S5.pdf):
        Rscript analysis/scripts/carryover-sensitivity/04-sensitivity-figures-extra-slim.R
+
+  5f. Hendrickson-style Tier 2 heatmaps for S1-S4, S7, S8, S9 (writes
+      analysis/figures/02xs-heatmap-sens-{S1,S2,S3,S4,S7,S8-a,S8-b,S9}.pdf;
+      requires steps 3, 5d, 5e, 5g to have run first):
+       Rscript analysis/scripts/carryover-sensitivity/13-hendrickson-heatmap-tier2.R
+
+  5g. S9 biomarker-interacted carryover terms under the CO design
+      (analysis/scripts/carryover-sensitivity/output/14-sensitivity-s9.rds),
+      2 cells (t1/2) x 4 specs, 500 reps each (~1.5 min):
+       Rscript analysis/scripts/carryover-sensitivity/14-run-sensitivity-s9.R
 
   5b. S6 cluster-robust recalibration data
       (analysis/scripts/carryover-sensitivity/output/diag-s6-cr2.rds)
@@ -87,6 +101,16 @@ knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path
   full-scope 02-*.pdf figures consumed only by the archived drafts.
   They are retained for that reason and are not part of this
   manuscript's build.
+
+  5d. S7 biomarker-interacted carryover terms
+      (analysis/scripts/carryover-sensitivity/output/09-sensitivity-s7.rds),
+      one reference cell, 500 reps (~40 sec):
+       Rscript analysis/scripts/carryover-sensitivity/09-run-sensitivity-s7.R
+
+  5e. S8 architecture sensitivity of the specification ranking
+      (analysis/scripts/carryover-sensitivity/output/10-sensitivity-s8.rds),
+      2 architectures x 3 half-lives x 5 specs, 500 reps each (~5.5 min):
+       Rscript analysis/scripts/carryover-sensitivity/10-run-sensitivity-s8.R
 
   6. Knit this Rmd (this step; ~1 min; no simulation code runs):
        Rscript -e "rmarkdown::render('analysis/report/02-carryover-sensitivity/report.Rmd')"
@@ -476,7 +500,7 @@ reference cell.
 | Weibull shape ($k$) | 0.7, 1.0, 1.5 (Weibull form only) |
 | Sample size ($N$) | 35, 70 |
 | Trial design | CO, N-of-1 (Hybrid), OL+BDC |
-| DGP architecture | B (MVN differential correlation) only |
+| DGP architecture | B (covariance moderation) only |
 | Replicates per cell | 500 (target), 50 for development |
 
 The four decay-shape levels (exponential and three Weibull shapes)
@@ -611,6 +635,51 @@ knitr::kable(
 ) |>
   kableExtra::kable_styling(latex_options = "scale_down")
 ```
+
+## Tier 1 grid overview
+
+Figures \@ref(fig:fig-hendrickson-a) through
+\@ref(fig:fig-hendrickson-c) give a full-grid view of the Tier 1
+results, in the annotated-heatmap style of Hendrickson et al.
+[-@hendrickson2020, Figure 4], with trial design as column facets, $N$
+as row-block facets, and a blue (low power) to red (high power) fill
+scale. Hendrickson's row axis within each $N$ block was a set of
+censoring parameters; there is no censoring axis in this
+manuscript's grid, so it is replaced with analysis specification,
+the axis this manuscript's grid varies instead. Each panel fixes two
+of the grid's remaining dimensions and varies a third, since no
+single two-dimensional heatmap can display all four simultaneously;
+Hendrickson's Figure 4A/4B have the same property (carryover fixed
+at zero in 4A, biomarker effect fixed at 0.6 in 4B).
+
+```{r fig-hendrickson-a, echo = FALSE, fig.cap = "Tier 1 grid, biomarker-effect axis: power by trial design (columns), $N$ (row blocks), and analysis specification (rows within block), across $c_{bm} \\in \\{0, 0.30, 0.45\\}$ at $t_{1/2} = 1.0$ weeks, exponential DGP.", out.width = "95%"}
+knitr::include_graphics("../../figures/02xs-heatmap-hendrickson-a.pdf")
+```
+
+```{r fig-hendrickson-b, echo = FALSE, fig.cap = "Tier 1 grid, carryover-axis: power by trial design (columns), $N$ (row blocks), and analysis specification (rows within block), across $t_{1/2} \\in \\{0, 0.5, 1.0\\}$ weeks at $c_{bm} = 0.45$, exponential DGP.", out.width = "95%"}
+knitr::include_graphics("../../figures/02xs-heatmap-hendrickson-b.pdf")
+```
+
+```{r fig-hendrickson-c, echo = FALSE, fig.cap = "Tier 1 grid, decay-shape axis: power by trial design (columns), $N$ (row blocks), and analysis specification (rows within block), across the four DGP decay-shape levels (exponential, Weibull $k \\in \\{0.7, 1.0, 1.5\\}$) at $c_{bm} = 0.45$, $t_{1/2} = 1.0$ weeks. This axis has no Hendrickson analogue, whose grid used one decay form.", out.width = "95%"}
+knitr::include_graphics("../../figures/02xs-heatmap-hendrickson-c.pdf")
+```
+
+Three features are visible at a glance that the headline table and
+line plots elsewhere in this section make only cell-by-cell. First,
+within every design x $N$ block, the Unadjusted and Lag-adjusted
+rows are numerically identical to two decimal places at every
+biomarker level, half-life, and decay shape, the clean null of
+Section 3.3 displayed across the entire grid at once rather than at
+one reference cell. Second, the Exposure-weighted row visibly
+separates from the other two only in the Hybrid and OL+BDC columns,
+and only once carryover is present (Figure \@ref(fig:fig-hendrickson-b));
+in the CO column it is weaker than the other two at every half-life
+past zero, the design-dependence of Section 3.4 read directly off
+the grid. Third, Figure \@ref(fig:fig-hendrickson-c) shows the
+Exposure-weighted row's advantage in the Hybrid and OL+BDC columns
+holding across every decay shape examined, including the
+heaviest-tailed Weibull form ($k = 0.7$), the decay-form robustness
+of Section 3.5 shown across the full grid rather than at one cell.
 
 ## Matched-decay baseline
 
@@ -817,16 +886,24 @@ where Exposure-weighted does not lead in the first place.
 
 ## Sensitivity analyses
 
-Four Tier 2 blocks perturb one axis at a time around a common
-reference cell (Hybrid, $N = 70$, $c_{bm} = 0.45$,
+Seven Tier 2 blocks (S1-S4, S7, S8, S9) perturb one axis at a time
+around a common reference cell (Hybrid, $N = 70$, $c_{bm} = 0.45$,
 exponential DGP, $t_{1/2} = 1.0$), holding the remaining factors
-fixed. The blocks are reported separately here and are not pooled
-with Tier 1 or with each other.
+fixed, except S9, which changes the trial design itself; an eighth,
+S6, applies the cluster-robust correction of Section 3.5 at that
+same cell plus four stress cells, and a ninth, S5, is exploratory
+and reported only in the archived full-scope drafts. The blocks are
+reported separately here and are not pooled with Tier 1 or with
+each other.
 
 ### S1: within-factor autocorrelation
 
 ```{r fig-sens-s1, echo = FALSE, fig.cap = "Power by analysis specification across AR(1) autocorrelation $\\rho \\in \\{0.5, 0.7, 0.8, 0.9\\}$.", out.width = "60%"}
 knitr::include_graphics("../../figures/02xs-sens-S1.pdf")
+```
+
+```{r fig-heatmap-sens-s1, echo = FALSE, fig.cap = "Block S1 as a Hendrickson-style annotated heatmap: same data as Figure \\@ref(fig:fig-sens-s1).", out.width = "70%"}
+knitr::include_graphics("../../figures/02xs-heatmap-sens-S1.pdf")
 ```
 
 All three specifications gain power monotonically with $\rho$, from
@@ -843,6 +920,10 @@ never differing by more than 0.008.
 
 ```{r fig-sens-s2, echo = FALSE, fig.cap = "Power as the analyst's assumed half-life departs from the true DGP half-life. Only Exposure-weighted consumes the assumed half-life. Unadjusted and Lag-adjusted are invariant to it by construction and appear as flat reference lines.", out.width = "80%"}
 knitr::include_graphics("../../figures/02xs-sens-S2.pdf")
+```
+
+```{r fig-heatmap-sens-s2, echo = FALSE, fig.cap = "Block S2 as a Hendrickson-style annotated heatmap: same data as Figure \\@ref(fig:fig-sens-s2), faceted by true half-life.", out.width = "90%"}
+knitr::include_graphics("../../figures/02xs-heatmap-sens-S2.pdf")
 ```
 
 Block S2 crosses two true half-lives ($t_{1/2} \in \{0.5, 1.0\}$
@@ -883,6 +964,10 @@ the estimand itself degenerate.
 knitr::include_graphics("../../figures/02xs-sens-S3.pdf")
 ```
 
+```{r fig-heatmap-sens-s3, echo = FALSE, fig.cap = "Block S3 as a Hendrickson-style annotated heatmap: same data as Figure \\@ref(fig:fig-sens-s3), faceted by dropout mechanism. The MAR arm has no $0\\%$ cell (Section 3.6); it shares the MCAR reference cell.", out.width = "80%"}
+knitr::include_graphics("../../figures/02xs-heatmap-sens-S3.pdf")
+```
+
 All three specifications lose power monotonically as dropout
 increases. At the MCAR baseline ($N = 70$, no dropout),
 Exposure-weighted gives $0.866 \pm 0.015$ against $0.764 \pm 0.019$
@@ -903,6 +988,10 @@ discrepancy being 0.010.
 knitr::include_graphics("../../figures/02xs-sens-S4.pdf")
 ```
 
+```{r fig-heatmap-sens-s4, echo = FALSE, fig.cap = "Block S4 as a Hendrickson-style annotated heatmap: same data as Figure \\@ref(fig:fig-sens-s4).", out.width = "70%"}
+knitr::include_graphics("../../figures/02xs-heatmap-sens-S4.pdf")
+```
+
 The power curve is sigmoidal for all three specifications. At
 $c_{bm} = 0$, empirical Type I error sits below nominal for each
 (0.026 to 0.030). Power then rises through the mid-range and
@@ -914,6 +1003,237 @@ $+0.042$ at $c_{bm} = 0.60$ as all three approach the ceiling, so
 the advantage matters most for trials targeting a moderate
 biomarker-treatment interaction. Lag-adjusted and Unadjusted
 coincide across the entire range, differing by at most 0.008.
+
+### S7: biomarker-interacted carryover terms
+
+Every carryover term evaluated so far, Lag-adjusted (Section 2.4)
+and the exploratory washout-adjusted check of Section 4.1, enters
+the model as a nuisance main effect only, so by construction neither
+can repair the attenuated $\text{bm:}D_{it}$ coefficient (Section
+1). Here we test the two elaborations Section 4.6 identifies as the
+natural next step: crossing the same lagged and washout carryover
+terms with $bm$, so the biomarker effect itself is allowed to
+decline across the washout rather than committing to a rate, `E5`
+($\text{Sx} \sim bm + t + D_{it} + \text{bm:}D_{it} + L_{it} +
+\text{bm:}L_{it}$) and `E6` ($\text{Sx} \sim bm + t + D_{it} +
+\text{bm:}D_{it} + t_{sd} + \text{bm:}t_{sd}$). Because these add a
+second interaction coefficient, the interaction test is not the same
+single-coefficient Wald statistic used elsewhere. We report the
+joint 2-df Wald test of $\text{bm:}D_{it}$ and the second coefficient
+together (`nlme::anova.lme(Terms = ...)`), the only test that
+reflects whether coupling the biomarker to the carryover term
+recovers power, against Unadjusted and the washout main-effect check
+(`E4`) as single-coefficient benchmarks.
+
+```{r tab-s7, echo = FALSE}
+suppressPackageStartupMessages(library(dplyr))
+s7 <- readRDS(here::here(
+  'analysis/scripts/carryover-sensitivity/output/09-sensitivity-s7.rds'))
+lab7 <- c(E1 = 'Unadjusted', E4 = 'Washout main effect',
+          E5 = 'Lag $\\times$ bm', E6 = 'Washout $\\times$ bm')
+tst7 <- c(E1 = 'Single-coef.', E4 = 'Single-coef.',
+          E5 = 'Joint (2 df)', E6 = 'Joint (2 df)')
+tab <- s7$summary |>
+  mutate(o = match(spec, names(lab7))) |>
+  arrange(o) |>
+  transmute(
+    Specification = lab7[spec],
+    Test = tst7[spec],
+    `Power (MCSE)` = sprintf('%.3f (%.3f)', power, mc_se_power),
+    `Mean bm:Db` = sprintf('%.3f', mean_estimate_bmDb),
+    `bm:Db alone, reject.\\ rate` = sprintf('%.3f', mean_p_bmDb_reject)
+  )
+knitr::kable(tab, booktabs = TRUE, escape = FALSE,
+  caption = 'Block S7: biomarker-interacted carryover terms at the
+    reference cell (Hybrid, $N = 70$, $c_{bm} = 0.45$,
+    $t_{1/2} = 1.0$, exponential DGP, $n_{sim} = 500$, all
+    replicates converged). Power for E5/E6 is the joint 2-df Wald
+    test of bm:Db and the second interaction coefficient together;
+    power for E1/E4 is the usual single-coefficient test. Mean bm:Db
+    is the average point estimate of the bm:Db coefficient alone in
+    each fitted model (comparable in form, not necessarily in
+    calibration, across rows). The last column is the rejection
+    rate of the bm:Db coefficient tested by itself, ignoring the
+    second term, shown as a diagnostic only.') |>
+  kableExtra::kable_styling(latex_options = "scale_down")
+```
+
+```{r fig-heatmap-sens-s7, echo = FALSE, fig.cap = "Block S7 as a Hendrickson-style annotated heatmap: same power figures as Table \\@ref(tab:tab-s7), E5/E6 columns are the joint 2-df test.", out.width = "75%"}
+knitr::include_graphics("../../figures/02xs-heatmap-sens-S7.pdf")
+```
+
+Table \@ref(tab:tab-s7) gives a clean negative result. Both
+interacted specifications have *lower* joint-test power than the
+unadjusted benchmark, `E5` by 5.8 points and `E6` by 4.4 points,
+despite each visibly moving the $\text{bm:}D_{it}$ point estimate
+relative to `E1`. `E5`'s estimate is less attenuated on average
+($-2.990$ against $-2.392$ for `E1`), consistent with the lagged
+interaction term absorbing some of the attenuation as intended, but
+the extra degree of freedom the joint test spends is not informative
+enough to turn that into a net power gain. `E6` is worse: its
+$\text{bm:}D_{it}$ estimate is pulled toward zero ($-1.561$) and its
+single-coefficient rejection rate collapses to $0.198$ from `E1`'s
+$0.748$, evidence of severe coefficient instability from
+collinearity between $\text{bm:}D_{it}$ and $\text{bm:}t_{sd}$, since
+$t_{sd}$ is a near-deterministic function of $D_{it}$ and elapsed
+time within this trial design. Interacting a carryover nuisance term
+with the biomarker is a theoretically motivated fix for the
+attenuation mechanism identified in Section 1, but at this reference
+cell it does not recover power over the unadjusted benchmark under
+either functional form, and the washout form additionally
+destabilizes the very coefficient it was meant to unbias. This
+closes the "adjacent specification... not evaluated" gap raised in
+Section 4.6, with a negative answer; it was checked at a single
+reference cell only and should not be read as ruling out every
+biomarker-interacted carryover term. Section 4.5 discusses what
+would need to be true for a term like this to help.
+
+### S8: architecture sensitivity of the specification ranking
+
+Every result reported to this point, Tier 1 and blocks S1-S7 alike,
+is restricted to Architecture B (covariance moderation), the
+manuscript's stated scope (Section 2.3). Block S8 asks a narrower
+question than a full architecture comparison, which is the purpose
+of the companion manuscript on DGP architectures
+[@pmsimstats_dgp_architectures2026]: does the ranking among analysis
+specifications established above under Architecture B hold under
+Architecture A (mean moderation) as well, or is the choice of
+carryover representation itself architecture-dependent? We refit the
+five specifications of block S7's table (`E1`, Lag-adjusted `E3`,
+Exposure-weighted `E2`, `E5`, `E6`) at the same reference cell under
+both architectures, now at three half-lives ($t_{1/2} \in \{0, 0.5,
+1.0\}$) rather than the single reference value, so the check covers
+whether the ranking is architecture-dependent uniformly or only once
+carryover is severe enough. Because $c_{bm}$ is not calibrated to
+equal power across architectures, the two produce materially
+different absolute power at the same nominal value (Section 1;
+[@pmsimstats_dgp_architectures2026] shows the mean-moderation channel
+requires several times the nominal effect size for a comparable
+power loss under carryover); only the within-architecture ranking is
+the object of interest here.
+
+```{r tab-s8, echo = FALSE}
+suppressPackageStartupMessages(library(dplyr))
+s8 <- readRDS(here::here(
+  'analysis/scripts/carryover-sensitivity/output/10-sensitivity-s8.rds'))
+lab8 <- c(E1 = 'Unadjusted', E3 = 'Lag-adjusted',
+          E2 = 'Exposure-weighted', E5 = 'Lag $\\times$ bm',
+          E6 = 'Washout $\\times$ bm')
+arch8 <- c(mvn = 'B (covariance)', mean_moderation = 'A (mean)')
+tab <- s8$summary |>
+  mutate(o = match(spec, names(lab8))) |>
+  arrange(match(dgp_arch, names(arch8)), t1half, o) |>
+  transmute(
+    Architecture = arch8[dgp_arch],
+    `t1/2` = t1half,
+    Specification = lab8[spec],
+    `Power (MCSE)` = sprintf('%.3f (%.3f)', power, mc_se_power),
+    `Non-conv` = sprintf('%.3f', non_convergence_rate)
+  )
+knitr::kable(tab, booktabs = TRUE, escape = FALSE,
+  caption = 'Block S8: analysis-specification ranking by DGP
+    architecture and carryover half-life, at the reference cell
+    (Hybrid, $N = 70$, $c_{bm} = 0.45$, exponential DGP,
+    $n_{sim} = 500$). E5/E6 power is the joint 2-df Wald test as in
+    Table \\@ref(tab:tab-s7). Absolute power is not comparable
+    between architectures at the same nominal $c_{bm}$; only the
+    within-architecture ranking is of interest.') |>
+  kableExtra::kable_styling(latex_options = "scale_down",
+                            font_size = 9)
+```
+
+```{r fig-heatmap-sens-s8a, echo = FALSE, fig.cap = "Block S8, Panel A (Architecture A, mean moderation): power by carryover half-life (rows) and analysis specification (columns). Same data as the Architecture A rows of Table \\@ref(tab:tab-s8).", out.width = "80%"}
+knitr::include_graphics("../../figures/02xs-heatmap-sens-S8-a.pdf")
+```
+
+```{r fig-heatmap-sens-s8b, echo = FALSE, fig.cap = "Block S8, Panel B (Architecture B, covariance moderation): power by carryover half-life (rows) and analysis specification (columns). Same data as the Architecture B rows of Table \\@ref(tab:tab-s8). Not directly comparable to Panel A in absolute terms (Section 3.6).", out.width = "80%"}
+knitr::include_graphics("../../figures/02xs-heatmap-sens-S8-b.pdf")
+```
+
+Table \@ref(tab:tab-s8) and Figures \@ref(fig:fig-heatmap-sens-s8a)/
+\@ref(fig:fig-heatmap-sens-s8b) show the ranking is architecture-dependent
+for exactly one specification, and the dependence grows with
+carryover severity rather than switching on at some threshold. At
+$t_{1/2} = 0$ every specification collapses to the same estimand in
+both architectures (no carryover to represent), so Unadjusted and
+Exposure-weighted agree there by construction in each panel (both
+$0.982$ under B, both $0.972$ under A). Under Architecture B,
+Exposure-weighted overtakes Unadjusted by $t_{1/2} = 0.5$ ($0.936$
+versus $0.922$, a 1.4-point edge) and leads clearly by $t_{1/2} = 1.0$
+($0.836$ versus $0.760$, an 7.6-point edge). Under Architecture A the
+pattern reverses in sign at both nonzero half-lives, though the
+magnitude stays small: Exposure-weighted trails by 0.2 points at
+$t_{1/2} = 0.5$ ($0.966$ versus $0.968$) and by 2.6 points at
+$t_{1/2} = 1.0$ ($0.946$ versus $0.972$), the latter about 1.5 MCSE
+and so a real, if modest, reversal rather than pure noise. This
+matches the pattern already reported from the full-scope grid in the
+archived drafts, that Exposure-weighted is marginally dominated in
+every design examined under mean moderation (Section 4.6), now
+confirmed directly within this manuscript across the half-life range
+rather than at one value alone. Lag-adjusted (`E3`) remains
+statistically indistinguishable from Unadjusted (`E1`) under both
+architectures at every half-life (largest gap 0.004, well under one
+MCSE), extending Section 3.3's clean null to Architecture A as well.
+The S7 negative result also replicates here: `E5` and `E6` sit below
+the `E1`/`E3` benchmark under both architectures at every half-life
+examined, including $t_{1/2} = 0$, where the extra degree of freedom
+still costs power even with no true carryover to model, so
+biomarker-interacted carryover terms recover power in neither
+architecture nor at any carryover severity tested. The one
+specification recommendation this manuscript makes, exposure
+weighting in the Hybrid and OL+BDC designs (Conclusions), is
+therefore itself conditional on Architecture B and grows more
+important as carryover worsens; this check confirms that restriction
+across the half-life range rather than at one cell,
+and the recommendation should not be extrapolated to Architecture A,
+where the archived full-scope drafts remain the authority.
+
+### S9: does a longer, graded washout help the biomarker-interacted terms?
+
+Block S7 (Section 3.6) found the two biomarker-interacted carryover
+specifications, `E5` and `E6`, underperform the unadjusted benchmark
+at the Hybrid reference cell, and traced part of the reason to a
+design artifact: `E6`'s $\text{bm:}t_{sd}$ coefficient is
+collinear with $\text{bm:}D_{it}$ because $t_{sd}$ barely varies
+across Hybrid's one- to two-occasion off-drug window (Section 4.5).
+The CO design's off-drug arm instead runs from 2.5 to 20 weeks
+post-discontinuation (Section 2.2), a far more graded range of
+$t_{sd}$ values. Block S9 asks whether refitting `E1`, `E4`, `E5`,
+and `E6` under CO, at two true half-lives, lets the interacted
+specifications close the gap.
+
+```{r fig-heatmap-sens-s9, echo = FALSE, fig.cap = "Block S9: power under the CO design at two true half-lives, same four specifications as block S7.", out.width = "75%"}
+knitr::include_graphics("../../figures/02xs-heatmap-sens-S9.pdf")
+```
+
+It does not, and the result refines rather than overturns Section
+4.5's explanation. At $t_{1/2} = 1.0$ under CO, `E1` and `E4` reach
+$0.834$ and $0.858$; `E5` and `E6` reach only $0.740$ and $0.770$ on
+the joint test, gaps of $-0.094$ and $-0.064$ against `E1`, both
+slightly *larger* than the corresponding Hybrid gaps of $-0.058$ and
+$-0.044$ from block S7. At $t_{1/2} = 0.5$ the pattern repeats
+($0.866$/$0.880$ for `E1`/`E4` against $0.780$/$0.810$ for
+`E5`/`E6`). The design-driven collinearity mechanism is nonetheless
+confirmed directly: `E6`'s $\text{bm:}D_{it}$ coefficient, evaluated
+alone and ignoring $\text{bm:}t_{sd}$, is rejected in only $19.8\%$
+of replicates at the Hybrid reference cell (Table
+\@ref(tab:tab-s7)) but in $73.0\%$ under CO at $t_{1/2} = 1.0$,
+nearly matching `E1`'s own $83.4\%$. The individual coefficient
+becomes far more estimable once $t_{sd}$ has room to vary. What does
+not follow is a joint-test power gain, because the joint test still
+spends a second degree of freedom on a term with no counterpart in
+the data-generating process: under both architectures examined here,
+a single decay parameter governs the entire carryover mechanism, so
+`E5`/`E6` are structurally over-parameterized relative to the truth
+being estimated regardless of how well the design identifies the
+extra coefficient. Relieving the collinearity changes *which*
+coefficient absorbs the estimation difficulty, not whether the extra
+parameter is worth its degree of freedom. A design or DGP in which
+the biomarker-treatment interaction's carryover decay genuinely
+differs from the main effect's, so that `bm:L`/`bm:tsd` corresponds
+to a real second parameter rather than a redundant one, remains
+untested and is the more fundamental condition under which these
+specifications would be expected to win (Section 4.5).
 
 ## A higher-precision check
 
@@ -937,7 +1257,7 @@ appends time since discontinuation as a linear main effect rather
 than the lagged indicator $L_{it}$ used in the Tier 1 grid. It is
 therefore not the Lag-adjusted specification of Section 2.4 and is
 not reported as such here. That alternative remains a reasonable
-specification we have not evaluated (Section 4.5).
+specification we have not evaluated (Section 4.6).
 
 # Discussion
 
@@ -1051,6 +1371,119 @@ the most signal, tend to leave first. Retaining patients in the
 trial yields considerably more power than any choice among these
 three specifications ever could.
 
+## What analysis is best in which situations, in practice
+
+Collecting the findings above into a decision rule rather than a set
+of pairwise comparisons:
+
+- **Covariance moderation (Architecture B), Hybrid or OL+BDC
+  design.** Use Exposure-weighted with a CR2 cluster-robust standard
+  error. The advantage holds under decay-shape mis-specification
+  (Section 3.5), under half-life mis-specification short of a large
+  over-assumption (Section 3.6, Block S2), and across the
+  autocorrelation range examined (Block S1), and CR2 restores nominal
+  Type I error without disturbing the ranking (Block S6, validated at
+  $N \in \{35, 70\}$ in the Hybrid design specifically; OL+BDC was not
+  itself stress-tested under CR2). This is the one specification
+  recommendation the grid supports without qualification, and it is
+  also the only cell type in which Exposure-weighted should be used
+  at all.
+- **Crossover (CO) design, any architecture.** Use Unadjusted.
+  Exposure-weighted is markedly worse under CO (Section 3.4), and
+  Block S9 (below) shows that adding a biomarker-interacted carryover
+  term does not rescue it. The classical lagged-treatment remedy adds
+  nothing here either (next point), including in the one design where
+  its washout is long enough to give it a chance (Section 4.1).
+- **Architecture uncertain, or known to be mean moderation
+  (Architecture A).** Use Unadjusted or Lag-adjusted, not
+  Exposure-weighted. Its advantage under covariance moderation
+  reverses, marginally, under mean moderation (Block S8), so it is
+  not a safe default when the biomarker's mechanism of action is not
+  established.
+- **Never rely on Lag-adjusted as a carryover remedy.** It is
+  statistically indistinguishable from Unadjusted everywhere tested
+  in this manuscript, Tier 1 and every Tier 2 block alike (Section
+  4.1). If a reviewer or protocol expects some carryover term to be
+  present, including it costs nothing measurable, but it should not
+  be reported as having adjusted for carryover.
+- **Do not use the biomarker-interacted carryover terms `E5`/`E6`**
+  under any condition examined (Blocks S7-S9); see below for what
+  would need to be true for them to help.
+- **Minimize dropout before optimizing specification choice.** It is
+  the single largest lever in the entire grid (Section 4.4), and no
+  specification offers any protection against it.
+
+### When would a biomarker-interacted carryover term help?
+
+Blocks S7-S9 establish that crossing a carryover term with the
+biomarker, `E5` ($\text{bm:}L_{it}$) or `E6` ($\text{bm:}t_{sd}$), does
+not recover power at any cell examined. Four conditions would need to
+hold simultaneously for that to change; only one has been tested
+directly.
+
+1. **A true DGP where the biomarker-carryover interaction has its own
+   decay parameter, separate from the main effect's.** This is the
+   structural issue underlying the other three. Under Architecture B,
+   $\text{Cor}(B_i, BR_{it}) = c_{bm} \cdot \phi(t_{sd})$: a single
+   decay function governs the entire carryover mechanism.
+   `E5`/`E6` add a second free parameter that has no counterpart in
+   that mechanism, so they are over-parameterized relative to the
+   truth being estimated, and two regressors chasing one true degree
+   of freedom will generally lose power to a correctly-specified
+   single-parameter model. These specifications would be expected to
+   help only under a DGP where the interaction's carryover decays at
+   a genuinely different rate than the main treatment effect's, for
+   instance a biomarker whose predictive value fades slower or faster
+   post-discontinuation than the drug's raw pharmacological effect.
+   Nothing in this manuscript's DGP does that, in either architecture
+   examined, and this condition remains untested; it would require
+   modifying the data-generating mechanism itself, not just the
+   design or grid.
+2. **A design with off-drug occasions spread over a wide, graded
+   range of $t_{sd}$, not the one- to two-week compressed washout
+   Hybrid and OL+BDC give.** This is the one condition testable
+   without touching the DGP, and Block S9 tests it directly by
+   refitting `E1`, `E4`, `E5`, and `E6` under the CO design (off-drug
+   arm spanning 2.5 to 20 weeks) at two true half-lives. The
+   mechanism is partially confirmed and partially not. `E6`'s
+   collinearity between $\text{bm:}D_{it}$ and $\text{bm:}t_{sd}$,
+   severe at the Hybrid reference cell (the $\text{bm:}D_{it}$
+   coefficient alone rejects in only $19.8\%$ of replicates there,
+   Table \@ref(tab:tab-s7)), is substantially relieved under CO
+   ($73.0\%$, close to `E1`'s own $83.4\%$ at the same cell): the
+   individual coefficient is far more estimable once $t_{sd}$ has
+   room to vary. But the joint-test power gap against `E1` does not
+   close, and is if anything slightly wider under CO than under
+   Hybrid ($-0.094$ versus $-0.058$ for `E5`; $-0.064$ versus
+   $-0.044$ for `E6`, at $t_{1/2} = 1.0$; the pattern repeats at
+   $t_{1/2} = 0.5$). Relieving the collinearity changes which
+   coefficient absorbs the estimation difficulty, not whether the
+   extra parameter is worth its degree of freedom, which is
+   condition 1's point restated with data behind it.
+3. **Larger $N$.** The joint test's power cost is partly a
+   finite-sample penalty for the extra estimated parameter, which
+   should shrink, though not vanish, as $N$ grows past the 70 used
+   throughout this grid. Untested here.
+4. **A short true half-life relative to the available washout
+   length**, so there is an actual steep decay for the second term to
+   trace rather than one that is already nearly complete or nearly
+   flat by the time off-drug data are observed. Block S9's two
+   half-lives ($t_{1/2} \in \{0.5, 1.0\}$ weeks against CO's 2.5- to
+   20-week washout) bear on this only weakly, since both are short
+   relative to CO's washout length and neither reverses the negative
+   result; a true half-life closer to or exceeding the washout length
+   itself was not tested.
+
+Taken together, the one lever tested (condition 2) confirms the
+mechanism behind `E6`'s specific failure mode without changing the
+practical conclusion: a longer, more graded washout makes the
+individual coefficients more estimable but does not overcome the
+structural cost of an extra, DGP-unmotivated parameter. Condition 1
+is the more fundamental requirement, and it is a statement about the
+data-generating process rather than the design or grid, so it is not
+addressable within this manuscript's simulation framework without
+building a new DGP.
+
 ## Scope, related work, and limits
 
 This manuscript deliberately narrows the full-scope grid to the
@@ -1076,18 +1509,25 @@ and more fundamentally the lagged term does not improve on ignoring
 carryover at all (Section 4.1), leaving no advantage for
 decay-shape mis-specification to erode.
 
-One adjacent specification was not evaluated, and it bounds the
-negative result of Section 4.1. Every carryover term considered
-here, lagged and washout-adjusted alike, enters as a nuisance main
-effect with no product against the biomarker, so our finding is that
-a carryover *main effect* does not recover the attenuated signal,
-not that no shape-free specification can. The natural candidate is a
-carryover term interacted with the biomarker, either
-`Sx ~ bm + t + Db + L + bm:Db + bm:L` or its washout-adjusted
-counterpart with `bm:tsd`, letting the biomarker effect decline
-across the washout without committing to a rate. The second, a
-linear approximation to what exposure weighting does parametrically,
-is the more promising candidate and the obvious next step.
+One adjacent specification bounds the negative result of Section
+4.1. Every carryover term considered there, lagged and
+washout-adjusted alike, enters as a nuisance main effect with no
+product against the biomarker, so that finding is that a carryover
+*main effect* does not recover the attenuated signal, not that no
+shape-free specification can. The natural candidate is a carryover
+term interacted with the biomarker, either `Sx ~ bm + t + Db + bm:Db
++ L + bm:L` or its washout-adjusted counterpart with `bm:tsd`,
+letting the biomarker effect decline across the washout without
+committing to a rate. Blocks S7-S9 (Section 3.6) test exactly these
+two specifications, under both trial designs and architectures
+examined in this manuscript, and find the same negative result
+extends to them throughout; Section 4.5 discusses the mechanism and
+what conditions would need to hold for that to change. Block S8
+further shows the Lag-adjusted null of Section 3.3 replicates under
+Architecture A, so it is not an artifact specific to covariance
+moderation. Only the Exposure-weighted advantage is
+architecture-sensitive, reversing in direction, though not
+significantly, under Architecture A (Section 3.6, Block S8).
 
 Two further limitations bound what we can conclude. The numbers
 presented here come from a single parameter set calibrated to a
@@ -1146,6 +1586,33 @@ full-scope manuscript, revealed no such interaction.
    claim of numerical agreement with the originally published power
    values (Section 3.2).
 
+7. **Biomarker-interacted carryover terms do not help either, and
+   the finding is not architecture- or design-specific.** Crossing a
+   lagged or washout carryover term with the biomarker, the natural
+   elaboration of the negative result in item 1, gives lower power
+   than the unadjusted benchmark once evaluated by the joint test
+   its extra coefficient requires (Block S7), and the washout form
+   additionally destabilizes the interaction coefficient it was
+   meant to unbias. Block S8 confirms this negative result, and the
+   Lag-adjusted null of item 1, hold under Architecture A as well as
+   B, across the full carryover-severity range tested
+   ($t_{1/2} \in \{0, 0.5, 1.0\}$). Block S9 confirms it does not
+   depend on Hybrid's compressed washout either: switching to the
+   crossover design, whose off-drug arm gives the interacted terms'
+   extra coefficient far more identifying information, relieves the
+   specific collinearity that destabilizes the washout form but does
+   not close the joint-test power gap, which if anything widens
+   slightly. Section 4.5 discusses why: both architectures examined
+   here generate carryover from a single decay parameter, so the
+   interacted specifications are structurally over-parameterized
+   relative to the truth being estimated regardless of how well any
+   given design identifies the extra coefficient. Only the
+   Exposure-weighted advantage is architecture-sensitive: it reverses
+   in direction under Architecture A, a small but real effect at
+   $t_{1/2} = 1.0$ (about 1.5 MCSE), confirming that item 2's
+   recommendation is conditional on Architecture B and should not be
+   extrapolated to Architecture A.
+
 # Conflict of interest
 
 The authors declare no conflicts of interest.
@@ -1181,8 +1648,28 @@ summaries, and driver scripts are versioned under
 `analysis/scripts/carryover-sensitivity/` and `analysis/data/` in
 the pmsimstats-ng repository, including the principal factorial, the
 S1 to S5 sensitivity blocks, the S6 cluster-robust recalibration,
-the washout-adjusted (E4) check of Section 4.1, and the
-high-precision prototype rerun of Section 3.7. The grid design and
+the washout-adjusted (E4) check of Section 4.1, the high-precision
+prototype rerun of Section 3.7, the S7 biomarker-interacted
+carryover terms block
+(`09-run-sensitivity-s7.R`, `output/09-sensitivity-s7.rds`), and the
+S8 architecture-sensitivity block, now crossed with half-life
+(`10-run-sensitivity-s8.R`, `output/10-sensitivity-s8.rds`), and the
+S9 CO-design block
+(`14-run-sensitivity-s9.R`, `output/14-sensitivity-s9.rds`), all
+added 2026-08-18 (master seed 20260415, 500 replicates per cell,
+Hybrid reference cell except S9, which uses CO). The
+five- and six-specification fitters for S7-S9
+(`fit_spec_s7`, `simulate_cell_s7`) are appended to
+`simulation-core.R` alongside the Tier 1 `fit_spec`/`fit_all_specs`
+pair, which they do not modify. Figures
+\@ref(fig:fig-hendrickson-a) through \@ref(fig:fig-hendrickson-c) are
+produced from the same `02-grid-summary.rds` Tier 1 summary as the
+headline table, by `12-hendrickson-heatmap.R`. The corresponding
+Tier 2 heatmaps (S1-S4, S7, S8, S9) are produced by
+`13-hendrickson-heatmap-tier2.R` from `02-sensitivity-summary.rds`
+and the S7/S8/S9 output `.rds` files, and are additional to, not
+replacements for, the existing S1-S4 line plots and S7/S8 kable
+tables. The grid design and
 Morris ADEMP pre-registration are in
 `simulation-grid-plan.md` in the same directory. Superseded
 wider-scope drafts are retained under `archive/`, documented in its

@@ -528,3 +528,159 @@ apply_dropout <- function(dat, design_set, rate, mechanism) {
 
   dat
 }
+
+## -----------------------------------------------------------------
+## Biomarker-interacted carryover terms (S7)
+##
+## E1 and E4 are refit here (not reused from fit_all_specs) so this
+## block is self-contained and does not disturb the Tier 1 E1-E4
+## pipeline. E5 and E6 are the two specifications proposed in
+## Section 4.5: a carryover term crossed with bm, so the biomarker
+## effect itself is allowed to decline across the washout, rather
+## than entering only as a nuisance main effect (E3/E4's structural
+## limitation).
+##
+##   E5 = Sx ~ bm + t + Db + bm:Db + L   + bm:L    (lagged form)
+##   E6 = Sx ~ bm + t + Db + bm:Db + tsd + bm:tsd  (washout form)
+##
+## Because E5/E6 add a second interaction coefficient, "the
+## interaction test" is not a single Wald statistic as it is for
+## E1-E4. fit_spec_s7() reports both: the bm:Db coefficient alone
+## (comparable in form, though not necessarily in magnitude, to
+## E1/E4's target, for a bias/attenuation diagnostic) and a joint
+## 2-df Wald test of bm:Db and bm:L (or bm:tsd) together via
+## nlme::anova.lme(Terms = ...), which is the test that actually
+## reflects whether coupling the biomarker to the carryover term
+## recovers power. `p_value` is always the joint test where one
+## exists (E5/E6); `p_value_bmDb` isolates the single-coefficient
+## figure for the diagnostic comparison.
+## -----------------------------------------------------------------
+
+fit_spec_s7 <- function(dat_long, spec) {
+  spec <- match.arg(spec, c('E1', 'E2', 'E3', 'E4', 'E5', 'E6'))
+
+  form <- switch(spec,
+    E1 = as.formula('Sx ~ bm + t + Db  + bm:Db'),
+    E2 = as.formula('Sx ~ bm + t + Dbc + bm:Dbc'),
+    E3 = as.formula('Sx ~ bm + t + Db  + bm:Db + L'),
+    E4 = as.formula('Sx ~ bm + t + Db  + bm:Db + tsd'),
+    E5 = as.formula('Sx ~ bm + t + Db  + bm:Db + L + bm:L'),
+    E6 = as.formula('Sx ~ bm + t + Db  + bm:Db + tsd + bm:tsd')
+  )
+
+  na_out <- tibble(spec = spec, estimate = NA_real_,
+                   std_error = NA_real_, p_value = NA_real_,
+                   estimate_bmDb = NA_real_, p_value_bmDb = NA_real_,
+                   converged = FALSE)
+
+  fit <- tryCatch(
+    nlme::lme(form, random = ~1 | ptID,
+              correlation = nlme::corCAR1(form = ~t | ptID),
+              data = dat_long,
+              control = nlme::lmeControl(
+                opt = 'optim', maxIter = 200, msMaxIter = 200)),
+    error = function(e) {
+      tryCatch(nlme::lme(form, random = ~1 | ptID, data = dat_long,
+                         control = nlme::lmeControl(opt = 'optim')),
+               error = function(e2) NULL)
+    }
+  )
+  if (is.null(fit)) return(na_out)
+
+  cc <- summary(fit)$tTable
+
+  ## E2 targets bm:Dbc, a different regressor/estimand from the
+  ## other five, which all target bm:Db; estimate_bmDb is left NA
+  ## for E2 rather than silently comparing across the estimand
+  ## divide (Section 2.6 of the manuscript).
+  if (spec == 'E2') {
+    tgt <- intersect(c('bm:Dbc', 'Dbc:bm'), rownames(cc))
+    if (length(tgt) == 0) return(na_out)
+    tgt <- tgt[1]
+    return(tibble(spec = spec,
+                  estimate  = cc[tgt, 'Value'],
+                  std_error = cc[tgt, 'Std.Error'],
+                  p_value   = cc[tgt, 'p-value'],
+                  estimate_bmDb = NA_real_,
+                  p_value_bmDb  = NA_real_,
+                  converged = TRUE))
+  }
+
+  bmdb <- intersect(c('bm:Db', 'Db:bm'), rownames(cc))
+  if (length(bmdb) == 0) return(na_out)
+  bmdb <- bmdb[1]
+
+  if (spec %in% c('E1', 'E3', 'E4')) {
+    return(tibble(spec = spec,
+                  estimate  = cc[bmdb, 'Value'],
+                  std_error = cc[bmdb, 'Std.Error'],
+                  p_value   = cc[bmdb, 'p-value'],
+                  estimate_bmDb = cc[bmdb, 'Value'],
+                  p_value_bmDb  = cc[bmdb, 'p-value'],
+                  converged = TRUE))
+  }
+
+  second <- if (spec == 'E5') intersect(c('bm:L',   'L:bm'),   rownames(cc))
+            else               intersect(c('bm:tsd', 'tsd:bm'), rownames(cc))
+  if (length(second) == 0) return(na_out)
+  second <- second[1]
+
+  joint <- tryCatch(anova(fit, Terms = c(bmdb, second)),
+                    error = function(e) NULL)
+  joint_p <- if (is.null(joint)) NA_real_ else
+    tryCatch(as.numeric(joint[['p-value']]), error = function(e) NA_real_)
+
+  tibble(spec = spec,
+         estimate  = cc[bmdb, 'Value'],
+         std_error = cc[bmdb, 'Std.Error'],
+         p_value   = joint_p,
+         estimate_bmDb = cc[bmdb, 'Value'],
+         p_value_bmDb  = cc[bmdb, 'p-value'],
+         converged = TRUE)
+}
+
+simulate_cell_s7 <- function(cell, n_reps,
+                             specs = c('E1', 'E4', 'E5', 'E6')) {
+  design_set <- build_design_set(cell$design)
+  resp_param     <- default_resp_param()
+  baseline_param <- default_baseline_param()
+  rho <- default_val(cell[['rho']], 0.7)
+
+  model_param <- list(
+    N = cell$N,
+    carryover_t1half = cell$t1half,
+    carryover_form = cell$carryover_form,
+    weibull_shape = cell$weibull_shape,
+    dgp_architecture = cell$dgp_arch,
+    c.bm = cell$c_bm,
+    c.tv = rho, c.pb = rho, c.br = rho,
+    c.cf1t = 0.2, c.cfct = 0.1
+  )
+
+  furrr::future_map_dfr(seq_len(n_reps), function(rep_i) {
+    dat <- tryCatch(
+      generate_data_multi_path(model_param, resp_param,
+                               baseline_param, design_set),
+      error = function(e) NULL
+    )
+    if (is.null(dat) || nrow(dat) == 0) {
+      return(tibble(rep = rep_i, spec = specs,
+                    estimate = NA_real_, std_error = NA_real_,
+                    p_value = NA_real_, estimate_bmDb = NA_real_,
+                    p_value_bmDb = NA_real_, converged = FALSE))
+    }
+
+    dat_long <- prepare_long_data(
+      dat, design_set,
+      carryover_t1half = cell$t1half,
+      carryover_form = cell$carryover_form,
+      weibull_shape = cell$weibull_shape,
+      analysis_t1half = cell$t1half,
+      analysis_form = cell$carryover_form,
+      analysis_shape = cell$weibull_shape
+    )
+
+    map_dfr(specs, ~ fit_spec_s7(dat_long, .x)) |>
+      mutate(rep = rep_i, .before = 1)
+  }, .options = furrr::furrr_options(seed = TRUE))
+}

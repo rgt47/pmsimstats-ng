@@ -611,18 +611,20 @@ cr2_extract <- function(fit, dat_long, target_candidates) {
 
 fit_spec_s7 <- function(dat_long, spec) {
   spec <- match.arg(spec, c('E1', 'E2', 'E3', 'E7', 'E9',
-                            'E1cr2', 'E3cr2', 'E7cr2'))
+                            'E1cr2', 'E3cr2', 'E2cr2', 'E7cr2'))
 
   na_out <- tibble(spec = spec, estimate = NA_real_,
                    std_error = NA_real_, p_value = NA_real_,
                    estimate_bmDb = NA_real_, p_value_bmDb = NA_real_,
                    best_t_half = NA_real_, converged = FALSE)
 
-  ## G6/G7: E1/E3 refit with a CR2 cluster-robust SE on bm:Db instead
-  ## of the model-based SE.
-  if (spec %in% c('E1cr2', 'E3cr2')) {
-    form <- if (spec == 'E1cr2') as.formula('Sx ~ bm + t + Db + bm:Db')
-            else as.formula('Sx ~ bm + t + Db + bm:Db + L')
+  ## G6/G7/G8: E1/E3/E2 refit with a CR2 cluster-robust SE instead of
+  ## the model-based SE (bm:Db for E1/E3, bm:Dbc for E2).
+  if (spec %in% c('E1cr2', 'E3cr2', 'E2cr2')) {
+    form <- switch(spec,
+      E1cr2 = as.formula('Sx ~ bm + t + Db + bm:Db'),
+      E3cr2 = as.formula('Sx ~ bm + t + Db + bm:Db + L'),
+      E2cr2 = as.formula('Sx ~ bm + t + Dbc + bm:Dbc'))
     fit <- tryCatch(
       nlme::lme(form, random = ~1 | ptID,
                 correlation = nlme::corCAR1(form = ~t | ptID),
@@ -631,6 +633,14 @@ fit_spec_s7 <- function(dat_long, spec) {
                   opt = 'optim', maxIter = 200, msMaxIter = 200)),
       error = function(e) NULL)
     if (is.null(fit)) return(na_out)
+    if (spec == 'E2cr2') {
+      r <- cr2_extract(fit, dat_long, c('bm:Dbc', 'Dbc:bm'))
+      if (is.null(r)) return(na_out)
+      return(tibble(spec = spec, estimate = r$estimate,
+                    std_error = r$std_error, p_value = r$p_value,
+                    estimate_bmDb = NA_real_, p_value_bmDb = NA_real_,
+                    best_t_half = NA_real_, converged = TRUE))
+    }
     r <- cr2_extract(fit, dat_long, c('bm:Db', 'Db:bm'))
     if (is.null(r)) return(na_out)
     return(tibble(spec = spec, estimate = r$estimate,
@@ -797,6 +807,19 @@ simulate_cell_s7 <- function(cell, n_reps,
   baseline_param <- default_baseline_param()
   rho <- default_val(cell[['rho']], 0.7)
 
+  ## analyst-assumed carryover parameters for E2/E2cr2's fixed Dbc
+  ## predictor. Default to DGP truth (perfectly specified), same
+  ## convention as simulate_cell(). E7/E7cr2 build their own Dbc via
+  ## internal AIC grid search and ignore these, so a mismatch here
+  ## affects only the fixed-assumption specifications, as intended.
+  analysis_t1half <- default_val(cell[['analysis_t1half']], cell$t1half)
+  analysis_form   <- default_val(cell[['analysis_form']],   cell$carryover_form)
+  analysis_shape  <- default_val(cell[['analysis_shape']],  cell$weibull_shape)
+
+  ## optional dropout block, same convention as simulate_cell()
+  dropout_rate <- default_val(cell[['dropout_rate']], 0)
+  dropout_mech <- default_val(cell[['dropout_mech']], 'MCAR')
+
   model_param <- list(
     N = cell$N,
     carryover_t1half = cell$t1half,
@@ -822,14 +845,20 @@ simulate_cell_s7 <- function(cell, n_reps,
                     converged = FALSE))
     }
 
+    if (dropout_rate > 0) {
+      dat <- apply_dropout(dat, design_set,
+                           rate = dropout_rate,
+                           mechanism = dropout_mech)
+    }
+
     dat_long <- prepare_long_data(
       dat, design_set,
       carryover_t1half = cell$t1half,
       carryover_form = cell$carryover_form,
       weibull_shape = cell$weibull_shape,
-      analysis_t1half = cell$t1half,
-      analysis_form = cell$carryover_form,
-      analysis_shape = cell$weibull_shape
+      analysis_t1half = analysis_t1half,
+      analysis_form = analysis_form,
+      analysis_shape = analysis_shape
     )
 
     map_dfr(specs, ~ fit_spec_s7(dat_long, .x)) |>

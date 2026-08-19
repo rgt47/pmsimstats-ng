@@ -38,18 +38,33 @@ spec_labels <- c(E1 = 'Unadjusted',
                  E3 = 'Lag-adjusted',
                  E2 = 'Exposure-weighted')
 
-## Five-specification G-code layer (Tier 2, Blocks S7-S9)
-g_order <- c('E1', 'E3', 'E2', 'E7', 'E9')
+## Nine-specification G-code layer (G1-G5: Tier 2 Blocks S7-S9;
+## G6-G9: CR2 cluster-robust variants, Blocks S10, S11, and the
+## 18-run-sensitivity-s6-g9.R / 17-run-sensitivity-s1234-g9.R
+## extensions of S1-S4/S6 to the full nine-specification set). G8
+## (E2cr2) is the same specification as the standalone `lme+CR2`
+## fitter used in Section 2.6/Block S6; where G8 is spliced in from
+## an independently-seeded run (Block S10) rather than fit directly
+## alongside the rest (S1-S4/S6/S11's g9 extensions), the surrounding
+## text says so.
+g_order <- c('E1', 'E3', 'E2', 'E7', 'E9',
+            'E1cr2', 'E3cr2', 'E2cr2', 'E7cr2')
 
-g_code <- c(E1 = 'G1', E3 = 'G2', E2 = 'G3', E7 = 'G4', E9 = 'G5')
+g_code <- c(E1 = 'G1', E3 = 'G2', E2 = 'G3', E7 = 'G4', E9 = 'G5',
+           E1cr2 = 'G6', E3cr2 = 'G7', E2cr2 = 'G8', E7cr2 = 'G9')
 
 g_labels <- c(E1 = 'G1: Unadjusted',
              E3 = 'G2: Lag-adjusted',
              E2 = 'G3: Exposure-weighted',
              E7 = 'G4: AIC-selected t1/2',
-             E9 = 'G5: Paired-difference')
+             E9 = 'G5: Paired-difference',
+             E1cr2 = 'G6: Unadjusted + CR2',
+             E3cr2 = 'G7: Lag-adjusted + CR2',
+             E2cr2 = 'G8: Exposure-weighted + CR2',
+             E7cr2 = 'G9: AIC-selected t1/2 + CR2')
 
-g_labels_short <- c(E1 = 'G1', E3 = 'G2', E2 = 'G3', E7 = 'G4', E9 = 'G5')
+g_labels_short <- c(E1 = 'G1', E3 = 'G2', E2 = 'G3', E7 = 'G4', E9 = 'G5',
+                    E1cr2 = 'G6', E3cr2 = 'G7', E2cr2 = 'G8', E7cr2 = 'G9')
 
 g_factor <- function(x) {
   factor(x, levels = g_order, labels = unname(g_labels[g_order]))

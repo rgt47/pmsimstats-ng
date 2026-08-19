@@ -6,20 +6,22 @@
 ## the same reference cell used by S1-S4 (Hybrid, N = 70,
 ## exponential DGP, t1/2 = 1.0, c_bm = 0.45).
 ##
-## Compares three analysis specifications:
-##   E1  Unadjusted           Sx ~ bm + t + Db + bm:Db
-##   E7  AIC-selected t1/2    E2's formula, half-life chosen by AIC
-##                            over {0.25, 0.5, 1.0, 2.0} rather than
-##                            assumed (targets bm:Dbc)
-##   E9  Paired-difference    Per-patient mean on-drug minus
-##                            off-drug Sx, regressed on bm across
-##                            patients (diff ~ bm, plain OLS); a
-##                            biomarker-interaction extension of the
-##                            paired t-test Senn, Julious & Araujo
-##                            (2014) found outperforms
-##                            carryover-adjusted mixed models for
-##                            ordinary N-of-1 treatment-effect
-##                            estimation
+## Compares all five G1-G5 specifications:
+##   E1  G1  Unadjusted           Sx ~ bm + t + Db + bm:Db
+##   E3  G2  Lag-adjusted         Sx ~ bm + t + Db + bm:Db + L
+##   E2  G3  Exposure-weighted    Sx ~ bm + t + Dbc + bm:Dbc
+##   E7  G4  AIC-selected t1/2    E2's formula, half-life chosen by
+##                                AIC over {0.25, 0.5, 1.0, 2.0}
+##                                rather than assumed (targets bm:Dbc)
+##   E9  G5  Paired-difference    Per-patient mean on-drug minus
+##                                off-drug Sx, regressed on bm across
+##                                patients (diff ~ bm, plain OLS); a
+##                                biomarker-interaction extension of
+##                                the paired t-test Senn, Julious &
+##                                Araujo (2014) found outperforms
+##                                carryover-adjusted mixed models for
+##                                ordinary N-of-1 treatment-effect
+##                                estimation
 ##
 ## An earlier version of this block tested E5 (Lag x bm) and E6
 ## (Washout x bm), carryover terms crossed with the biomarker; both
@@ -80,7 +82,8 @@ plan(multicore, workers = max(1, parallel::detectCores() - 1))
 
 t_start <- Sys.time()
 
-results <- simulate_cell_s7(ref, n_reps)
+specs_s7 <- c('E1', 'E3', 'E2', 'E7', 'E9')
+results <- simulate_cell_s7(ref, n_reps, specs = specs_s7)
 
 t_elapsed <- Sys.time() - t_start
 cat(sprintf('Completed in %.1f seconds\n',

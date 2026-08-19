@@ -18,9 +18,9 @@
 ## specifications.
 ##
 ## Two-cell grid: design = CO (all else as the S7/S8 reference cell)
-## crossed with t1/2 in {1.0, 0.5}. Same three specifications as S7
-## (E1, E7, E9); E3/E2 are not needed here since the CO-design
-## question is specific to E7/E9 against the E1 benchmark.
+## crossed with t1/2 in {1.0, 0.5}. Full five-specification G1-G5 set,
+## matching S7/S8, so the CO ranking is directly comparable to the
+## Hybrid one at every specification, not just E1/E7/E9.
 ##
 ## Usage:
 ##   Rscript analysis/scripts/carryover-sensitivity/14-run-sensitivity-s9.R [--dev] [--reps N]
@@ -52,7 +52,7 @@ n_reps <- if (!is.na(n_reps_override)) n_reps_override else
 seed <- 20260415L
 set.seed(seed)
 
-specs_s9 <- c('E1', 'E7', 'E9')
+specs_s9 <- c('E1', 'E3', 'E2', 'E7', 'E9')
 
 grid <- tibble::tibble(t1half = c(1.0, 0.5)) |>
   dplyr::mutate(

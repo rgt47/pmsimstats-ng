@@ -130,7 +130,48 @@ p_c <- hendrickson_heatmap(d_c, 'decay_label', 'DGP decay shape',
 ggsave(file.path(fig_dir, '02xs-heatmap-hendrickson-c.pdf'),
   p_c, width = 7.4, height = 4.6)
 
-message('Wrote three Hendrickson-style heatmaps to ', fig_dir, ':')
+## -----------------------------------------------------------------
+## Panel D: Type I error under the null (c_bm = 0, N = 70), pooled
+## across decay forms and half-lives, by design and specification.
+## Replaces the 02xs-type1-boxplots.pdf boxplot
+## (03-render-figures-extra-slim.R) with an annotated heatmap of the
+## mean rejection rate per design x spec cell. Type I error values
+## cluster in a narrow band near nominal 0.05, so the power heatmaps'
+## fixed 0-1 fill scale would show almost no contrast here; a
+## diverging scale centered at 0.05 (blue = conservative, red =
+## anti-conservative) is used instead, matching the calibration
+## framing of Section 3.5's kappa diagnostic.
+## -----------------------------------------------------------------
+
+d_d <- grid |>
+  dplyr::filter(c_bm == 0, N == 70) |>
+  dplyr::group_by(design, spec) |>
+  dplyr::summarise(type1 = mean(power), .groups = 'drop')
+
+type1_fill <- scale_fill_gradient2(
+  low = '#2166ac', mid = 'white', high = '#b2182b', midpoint = 0.05,
+  limits = range(c(d_d$type1, 0.05)),
+  breaks = scales::pretty_breaks(4),
+  guide = guide_colorbar(barwidth  = grid::unit(0.35, 'cm'),
+                         barheight = grid::unit(3.2, 'cm')))
+
+p_d <- ggplot(d_d, aes(x = design, y = spec, fill = type1)) +
+  geom_tile(colour = 'white', linewidth = 0.4) +
+  geom_text(aes(label = sprintf('%.3f', type1)),
+           colour = 'grey10', size = 2.8) +
+  type1_fill +
+  labs(x = 'Trial design', y = 'Analysis specification', fill = 'Type I error',
+      title = 'D: Empirical Type I error under the null',
+      subtitle = expression(c[bm]==0*','~N==70*','~
+                            'pooled across decay forms and half-lives'~
+                            '(nominal'~alpha==0.05*')')) +
+  theme_heat
+
+ggsave(file.path(fig_dir, '02xs-heatmap-hendrickson-d.pdf'),
+  p_d, width = 6.0, height = 3.2)
+
+message('Wrote four Hendrickson-style heatmaps to ', fig_dir, ':')
 message('  02xs-heatmap-hendrickson-a.pdf (biomarker effect)')
 message('  02xs-heatmap-hendrickson-b.pdf (carryover half-life)')
 message('  02xs-heatmap-hendrickson-c.pdf (DGP decay shape)')
+message('  02xs-heatmap-hendrickson-d.pdf (Type I error)')

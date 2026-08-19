@@ -530,48 +530,217 @@ apply_dropout <- function(dat, design_set, rate, mechanism) {
 }
 
 ## -----------------------------------------------------------------
-## Biomarker-interacted carryover terms (S7)
+## Biomarker-interacted carryover terms and their replacements (S7)
 ##
-## E1 and E4 are refit here (not reused from fit_all_specs) so this
-## block is self-contained and does not disturb the Tier 1 E1-E4
-## pipeline. E5 and E6 are the two specifications proposed in
-## Section 4.5: a carryover term crossed with bm, so the biomarker
-## effect itself is allowed to decline across the washout, rather
-## than entering only as a nuisance main effect (E3/E4's structural
-## limitation).
+## E1 is refit here (not reused from fit_all_specs) so this block is
+## self-contained and does not disturb the Tier 1 pipeline. E5/E6
+## (a carryover term crossed with bm) were tested in an earlier
+## version of this block and found to underperform E1 at every cell
+## examined (Blocks S7-S9, structurally over-parameterized relative
+## to a DGP with a single true decay parameter; Section 4.5). They
+## were replaced by two specifications answering different
+## questions about the same open problem (the analyst's unknown
+## true decay shape/half-life), rather than another interacted-term
+## variant expected to fail for the same reason:
 ##
-##   E5 = Sx ~ bm + t + Db + bm:Db + L   + bm:L    (lagged form)
-##   E6 = Sx ~ bm + t + Db + bm:Db + tsd + bm:tsd  (washout form)
+##   E7 = AIC-selected half-life. Refits E2's formula
+##        (Sx ~ bm + t + Dbc + bm:Dbc) across a half-life grid and
+##        keeps the model with the lowest AIC, mirroring
+##        R/carryover_analysis.R::characterize_carryover()'s
+##        candidate-grid-plus-AIC-selection logic (same
+##        carryover_decay() helper used everywhere else in this
+##        manuscript), reimplemented against this driver's
+##        precomputed dat_long rather than calling
+##        characterize_carryover()/lme_analysis() directly, whose
+##        wide-data/trialdesign_set interface is incompatible with
+##        this pipeline. Asks whether ESTIMATING the half-life
+##        recovers what assuming it correctly would have given you
+##        (Section 3.6, S2's question from the other direction).
 ##
-## Because E5/E6 add a second interaction coefficient, "the
-## interaction test" is not a single Wald statistic as it is for
-## E1-E4. fit_spec_s7() reports both: the bm:Db coefficient alone
-## (comparable in form, though not necessarily in magnitude, to
-## E1/E4's target, for a bias/attenuation diagnostic) and a joint
-## 2-df Wald test of bm:Db and bm:L (or bm:tsd) together via
-## nlme::anova.lme(Terms = ...), which is the test that actually
-## reflects whether coupling the biomarker to the carryover term
-## recovers power. `p_value` is always the joint test where one
-## exists (E5/E6); `p_value_bmDb` isolates the single-coefficient
-## figure for the diagnostic comparison.
+##   E9 = paired-difference regression. For each patient with both
+##        on- and off-drug observations, compute their own mean
+##        on-drug minus mean off-drug Sx (no repeated-measures model,
+##        no correlation structure at all), then regress that
+##        patient-level difference on bm across patients
+##        (diff ~ bm, plain OLS). A biomarker-interaction extension
+##        of the paired t-test method Senn, Julious & Araujo (2014)
+##        found outperforms carryover-adjusted mixed models for
+##        ordinary N-of-1 treatment-effect estimation; included as a
+##        genuinely different inferential paradigm (two-stage,
+##        correlation-agnostic) rather than another elaboration
+##        within the mixed-model family E1-E8 all belonged to.
+##
+## E7 targets bm:Dbc (single-coefficient test, like E2). E9 targets
+## the diff~bm slope, a different estimand again (not bm:Db or
+## bm:Dbc; estimate_bmDb is left NA for both). Neither adds a second
+## interaction coefficient the way E5/E6 did.
 ## -----------------------------------------------------------------
 
-fit_spec_s7 <- function(dat_long, spec) {
-  spec <- match.arg(spec, c('E1', 'E2', 'E3', 'E4', 'E5', 'E6'))
+## CR2 cluster-robust extraction shared by the E1cr2/E3cr2/E7cr2
+## (G6/G7/G9) branches below. Given an already-fitted lme object and
+## the target coefficient name(s) (first match wins), returns the
+## CR2-corrected SE and Satterthwaite p-value, point estimate
+## unchanged from the model fit (same convention as the existing
+## fit_cr2() used for G8/E2's CR2 variant).
+cr2_extract <- function(fit, dat_long, target_candidates) {
+  cc <- summary(fit)$tTable
+  tgt <- intersect(target_candidates, rownames(cc))
+  if (length(tgt) == 0) return(NULL)
+  tgt <- tgt[1]
+  ct <- tryCatch(
+    clubSandwich::coef_test(fit, vcov = 'CR2',
+                            cluster = dat_long$ptID,
+                            test = 'Satterthwaite'),
+    error = function(e) NULL)
+  if (is.null(ct)) return(NULL)
+  cf  <- if (!is.null(ct$Coef)) as.character(ct$Coef) else rownames(ct)
+  idx <- which(cf == tgt)
+  if (length(idx) == 0) return(NULL)
+  row  <- ct[idx[1], , drop = FALSE]
+  grab <- function(patterns) {
+    for (p in patterns) {
+      hit <- grep(p, names(row), value = TRUE, ignore.case = TRUE)
+      if (length(hit)) return(as.numeric(row[[hit[1]]]))
+    }
+    NA_real_
+  }
+  list(target = tgt, estimate = cc[tgt, 'Value'],
+      std_error = grab('^SE$'),
+      p_value = grab(c('^p_Satt', '^p_val', '^p\\.', '^p$', '^p')))
+}
 
-  form <- switch(spec,
-    E1 = as.formula('Sx ~ bm + t + Db  + bm:Db'),
-    E2 = as.formula('Sx ~ bm + t + Dbc + bm:Dbc'),
-    E3 = as.formula('Sx ~ bm + t + Db  + bm:Db + L'),
-    E4 = as.formula('Sx ~ bm + t + Db  + bm:Db + tsd'),
-    E5 = as.formula('Sx ~ bm + t + Db  + bm:Db + L + bm:L'),
-    E6 = as.formula('Sx ~ bm + t + Db  + bm:Db + tsd + bm:tsd')
-  )
+fit_spec_s7 <- function(dat_long, spec) {
+  spec <- match.arg(spec, c('E1', 'E2', 'E3', 'E7', 'E9',
+                            'E1cr2', 'E3cr2', 'E7cr2'))
 
   na_out <- tibble(spec = spec, estimate = NA_real_,
                    std_error = NA_real_, p_value = NA_real_,
                    estimate_bmDb = NA_real_, p_value_bmDb = NA_real_,
-                   converged = FALSE)
+                   best_t_half = NA_real_, converged = FALSE)
+
+  ## G6/G7: E1/E3 refit with a CR2 cluster-robust SE on bm:Db instead
+  ## of the model-based SE.
+  if (spec %in% c('E1cr2', 'E3cr2')) {
+    form <- if (spec == 'E1cr2') as.formula('Sx ~ bm + t + Db + bm:Db')
+            else as.formula('Sx ~ bm + t + Db + bm:Db + L')
+    fit <- tryCatch(
+      nlme::lme(form, random = ~1 | ptID,
+                correlation = nlme::corCAR1(form = ~t | ptID),
+                data = dat_long,
+                control = nlme::lmeControl(
+                  opt = 'optim', maxIter = 200, msMaxIter = 200)),
+      error = function(e) NULL)
+    if (is.null(fit)) return(na_out)
+    r <- cr2_extract(fit, dat_long, c('bm:Db', 'Db:bm'))
+    if (is.null(r)) return(na_out)
+    return(tibble(spec = spec, estimate = r$estimate,
+                  std_error = r$std_error, p_value = r$p_value,
+                  estimate_bmDb = r$estimate, p_value_bmDb = r$p_value,
+                  best_t_half = NA_real_, converged = TRUE))
+  }
+
+  ## G9: E7 (AIC-selected half-life) refit with a CR2 cluster-robust
+  ## SE on bm:Dbc at the selected half-life, instead of the
+  ## model-based SE. Tests whether CR2 offsets any part of the
+  ## post-selection inference risk AIC selection carries (untested
+  ## elsewhere in this manuscript; CR2 was not designed for that
+  ## specific problem and should not be assumed to fix it).
+  if (spec == 'E7cr2') {
+    half_lives <- c(0.25, 0.5, 1.0, 2.0)
+    fits <- purrr::map(half_lives, function(hl) {
+      dl <- dat_long
+      dl$Dbc <- ifelse(dl$Db == 1, 1, carryover_decay(dl$tsd, hl))
+      f <- tryCatch(
+        nlme::lme(Sx ~ bm + t + Dbc + bm:Dbc, random = ~1 | ptID,
+                  correlation = nlme::corCAR1(form = ~t | ptID),
+                  data = dl,
+                  control = nlme::lmeControl(
+                    opt = 'optim', maxIter = 200, msMaxIter = 200)),
+        error = function(e) NULL)
+      list(hl = hl, fit = f, dl = dl,
+          aic = if (is.null(f)) NA_real_ else AIC(f))
+    })
+    aics <- purrr::map_dbl(fits, ~ .x$aic)
+    if (all(is.na(aics))) return(na_out)
+    best <- fits[[which.min(aics)]]
+    r <- cr2_extract(best$fit, best$dl, c('bm:Dbc', 'Dbc:bm'))
+    if (is.null(r)) return(na_out)
+    return(tibble(spec = spec, estimate = r$estimate,
+                  std_error = r$std_error, p_value = r$p_value,
+                  estimate_bmDb = NA_real_, p_value_bmDb = NA_real_,
+                  best_t_half = best$hl, converged = TRUE))
+  }
+
+  if (spec == 'E7') {
+    half_lives <- c(0.25, 0.5, 1.0, 2.0)
+    fits <- purrr::map(half_lives, function(hl) {
+      dl <- dat_long
+      dl$Dbc <- ifelse(dl$Db == 1, 1, carryover_decay(dl$tsd, hl))
+      f <- tryCatch(
+        nlme::lme(Sx ~ bm + t + Dbc + bm:Dbc, random = ~1 | ptID,
+                  correlation = nlme::corCAR1(form = ~t | ptID),
+                  data = dl,
+                  control = nlme::lmeControl(
+                    opt = 'optim', maxIter = 200, msMaxIter = 200)),
+        error = function(e) NULL)
+      list(hl = hl, fit = f, aic = if (is.null(f)) NA_real_ else AIC(f))
+    })
+    aics <- purrr::map_dbl(fits, ~ .x$aic)
+    if (all(is.na(aics))) return(na_out)
+    best <- fits[[which.min(aics)]]
+    cc <- summary(best$fit)$tTable
+    tgt <- intersect(c('bm:Dbc', 'Dbc:bm'), rownames(cc))
+    if (length(tgt) == 0) return(na_out)
+    tgt <- tgt[1]
+    return(tibble(spec = spec,
+                  estimate  = cc[tgt, 'Value'],
+                  std_error = cc[tgt, 'Std.Error'],
+                  p_value   = cc[tgt, 'p-value'],
+                  estimate_bmDb = NA_real_,
+                  p_value_bmDb  = NA_real_,
+                  best_t_half = best$hl,
+                  converged = TRUE))
+  }
+
+  ## E9: two-stage paired-difference regression. No repeated-measures
+  ## model and no correlation structure at all; patients with only
+  ## on-drug or only off-drug observations (e.g. CO's
+  ## never-discontinuing path) cannot contribute a within-patient
+  ## difference and are dropped, mirroring the "only analyze folks
+  ## who are ever on drug" convention already used in
+  ## R/lme_analysis.R for the analogous varInDb == FALSE case.
+  if (spec == 'E9') {
+    pd <- dat_long |>
+      dplyr::group_by(ptID) |>
+      dplyr::summarise(
+        bm = dplyr::first(bm),
+        has_on  = any(Db == 1),
+        has_off = any(Db == 0),
+        diff = mean(Sx[Db == 1], na.rm = TRUE) -
+               mean(Sx[Db == 0], na.rm = TRUE),
+        .groups = 'drop'
+      ) |>
+      dplyr::filter(has_on, has_off)
+    if (nrow(pd) < 3) return(na_out)
+    fit9 <- tryCatch(stats::lm(diff ~ bm, data = pd), error = function(e) NULL)
+    if (is.null(fit9)) return(na_out)
+    cc9 <- tryCatch(summary(fit9)$coefficients, error = function(e) NULL)
+    if (is.null(cc9) || !('bm' %in% rownames(cc9))) return(na_out)
+    return(tibble(spec = spec,
+                  estimate  = cc9['bm', 'Estimate'],
+                  std_error = cc9['bm', 'Std. Error'],
+                  p_value   = cc9['bm', 'Pr(>|t|)'],
+                  estimate_bmDb = NA_real_,
+                  p_value_bmDb  = NA_real_,
+                  best_t_half = NA_real_,
+                  converged = TRUE))
+  }
+
+  form <- switch(spec,
+    E1 = as.formula('Sx ~ bm + t + Db  + bm:Db'),
+    E2 = as.formula('Sx ~ bm + t + Dbc + bm:Dbc'),
+    E3 = as.formula('Sx ~ bm + t + Db  + bm:Db + L')
+  )
 
   fit <- tryCatch(
     nlme::lme(form, random = ~1 | ptID,
@@ -590,7 +759,7 @@ fit_spec_s7 <- function(dat_long, spec) {
   cc <- summary(fit)$tTable
 
   ## E2 targets bm:Dbc, a different regressor/estimand from the
-  ## other five, which all target bm:Db; estimate_bmDb is left NA
+  ## other three, which all target bm:Db; estimate_bmDb is left NA
   ## for E2 rather than silently comparing across the estimand
   ## divide (Section 2.6 of the manuscript).
   if (spec == 'E2') {
@@ -603,6 +772,7 @@ fit_spec_s7 <- function(dat_long, spec) {
                   p_value   = cc[tgt, 'p-value'],
                   estimate_bmDb = NA_real_,
                   p_value_bmDb  = NA_real_,
+                  best_t_half = NA_real_,
                   converged = TRUE))
   }
 
@@ -610,37 +780,18 @@ fit_spec_s7 <- function(dat_long, spec) {
   if (length(bmdb) == 0) return(na_out)
   bmdb <- bmdb[1]
 
-  if (spec %in% c('E1', 'E3', 'E4')) {
-    return(tibble(spec = spec,
-                  estimate  = cc[bmdb, 'Value'],
-                  std_error = cc[bmdb, 'Std.Error'],
-                  p_value   = cc[bmdb, 'p-value'],
-                  estimate_bmDb = cc[bmdb, 'Value'],
-                  p_value_bmDb  = cc[bmdb, 'p-value'],
-                  converged = TRUE))
-  }
-
-  second <- if (spec == 'E5') intersect(c('bm:L',   'L:bm'),   rownames(cc))
-            else               intersect(c('bm:tsd', 'tsd:bm'), rownames(cc))
-  if (length(second) == 0) return(na_out)
-  second <- second[1]
-
-  joint <- tryCatch(anova(fit, Terms = c(bmdb, second)),
-                    error = function(e) NULL)
-  joint_p <- if (is.null(joint)) NA_real_ else
-    tryCatch(as.numeric(joint[['p-value']]), error = function(e) NA_real_)
-
   tibble(spec = spec,
          estimate  = cc[bmdb, 'Value'],
          std_error = cc[bmdb, 'Std.Error'],
-         p_value   = joint_p,
+         p_value   = cc[bmdb, 'p-value'],
          estimate_bmDb = cc[bmdb, 'Value'],
          p_value_bmDb  = cc[bmdb, 'p-value'],
+         best_t_half = NA_real_,
          converged = TRUE)
 }
 
 simulate_cell_s7 <- function(cell, n_reps,
-                             specs = c('E1', 'E4', 'E5', 'E6')) {
+                             specs = c('E1', 'E7', 'E9')) {
   design_set <- build_design_set(cell$design)
   resp_param     <- default_resp_param()
   baseline_param <- default_baseline_param()
@@ -667,7 +818,8 @@ simulate_cell_s7 <- function(cell, n_reps,
       return(tibble(rep = rep_i, spec = specs,
                     estimate = NA_real_, std_error = NA_real_,
                     p_value = NA_real_, estimate_bmDb = NA_real_,
-                    p_value_bmDb = NA_real_, converged = FALSE))
+                    p_value_bmDb = NA_real_, best_t_half = NA_real_,
+                    converged = FALSE))
     }
 
     dat_long <- prepare_long_data(

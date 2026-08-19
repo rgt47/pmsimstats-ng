@@ -17,17 +17,21 @@
 ## its stated scope; this block is the one architecture-sensitivity
 ## check.
 ##
-## Five specifications (E4 excluded; it was a one-off diagnostic
-## probe in Section 4.1, not a formal arm):
-##   E1  Unadjusted        Sx ~ bm + t + Db  + bm:Db
-##   E3  Lag-adjusted      Sx ~ bm + t + Db  + bm:Db + L
-##   E2  Exposure-weighted Sx ~ bm + t + Dbc + bm:Dbc
-##   E5  Lag x bm          Sx ~ bm + t + Db  + bm:Db + L   + bm:L
-##   E6  Washout x bm      Sx ~ bm + t + Db  + bm:Db + tsd + bm:tsd
+## Five specifications:
+##   E1  Unadjusted           Sx ~ bm + t + Db  + bm:Db
+##   E3  Lag-adjusted         Sx ~ bm + t + Db  + bm:Db + L
+##   E2  Exposure-weighted    Sx ~ bm + t + Dbc + bm:Dbc
+##   E7  AIC-selected t1/2    E2's formula, half-life chosen by AIC
+##                            over {0.25, 0.5, 1.0, 2.0}
+##   E9  Paired-difference    Per-patient on-drug minus off-drug Sx,
+##                            regressed on bm across patients
+##                            (diff ~ bm, plain OLS)
 ##
-## E5/E6 report the joint 2-df Wald test (see simulation-core.R,
-## "Biomarker-interacted carryover terms (S7)"); E1/E3/E2 report
-## their single-coefficient test as in the Tier 1 grid.
+## E7/E9 replace the earlier E5 (Lag x bm) / E6 (Washout x bm), which
+## underperformed E1 at every cell examined across S7-S9 (see
+## simulation-core.R, "Biomarker-interacted carryover terms and their
+## replacements (S7)"). All five specifications here report a
+## single-coefficient test, as in the Tier 1 grid.
 ##
 ## Usage:
 ##   Rscript analysis/scripts/carryover-sensitivity/10-run-sensitivity-s8.R [--dev] [--reps N]
@@ -60,7 +64,7 @@ n_reps <- if (!is.na(n_reps_override)) n_reps_override else
 seed <- 20260415L
 set.seed(seed)
 
-specs_s8 <- c('E1', 'E3', 'E2', 'E5', 'E6')
+specs_s8 <- c('E1', 'E3', 'E2', 'E7', 'E9')
 
 ## Reference configuration (must match the S1-S4/S7 reference cell,
 ## except t1half, which is now a 3-level grid axis rather than fixed)

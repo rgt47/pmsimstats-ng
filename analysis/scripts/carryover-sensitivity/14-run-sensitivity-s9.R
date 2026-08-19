@@ -2,24 +2,25 @@
 ##
 ## Tier 2 sensitivity block S9: does the CO design's longer, graded
 ## washout (off-drug occasions span 2.5-20 weeks, versus 1-2 weeks
-## under Hybrid/OL+BDC) let the biomarker-interacted carryover terms
-## (E5, E6) recover the power they lose to collinearity and the
-## extra-df penalty at the Hybrid reference cell (block S7)?
+## under Hybrid/OL+BDC) change how the alternative-paradigm
+## specifications (E7, E9; see 09-run-sensitivity-s7.R) perform
+## relative to E1, or is the Hybrid reference-cell ranking
+## design-general?
 ##
-## This tests one specific, testable lever identified in discussion
-## of S7/S8: E6's collinearity between bm:Db and bm:tsd is a design
-## artifact of t_sd barely varying across Hybrid's compressed
-## off-drug window. It does NOT test the other three conditions
-## identified there (a DGP where the interaction's carryover decays
-## at a different rate than the main effect's; larger N; a shorter
-## true half-life relative to washout length) except for a
-## half-life arm, added here as a second axis since it does not
-## require touching the DGP itself.
+## An earlier version of this block tested E5 (Lag x bm) / E6
+## (Washout x bm) here instead, asking whether CO's graded t_sd
+## range relieved E6's collinearity problem. It did (Section 4.5),
+## but the joint-test power gap did not close and was slightly wider
+## under CO than under Hybrid, consistent with the structural
+## over-parameterization diagnosis that led to replacing E5/E6 with
+## E7/E9 (simulation-core.R). This version re-asks the analogous
+## design-transferability question for the replacement
+## specifications.
 ##
 ## Two-cell grid: design = CO (all else as the S7/S8 reference cell)
-## crossed with t1/2 in {1.0, 0.5}. Same four specifications as S7
-## (E1, E4, E5, E6); E3/E2 are not needed here since the CO-design
-## question is specific to E5/E6 against the E1/E4 benchmarks.
+## crossed with t1/2 in {1.0, 0.5}. Same three specifications as S7
+## (E1, E7, E9); E3/E2 are not needed here since the CO-design
+## question is specific to E7/E9 against the E1 benchmark.
 ##
 ## Usage:
 ##   Rscript analysis/scripts/carryover-sensitivity/14-run-sensitivity-s9.R [--dev] [--reps N]
@@ -51,7 +52,7 @@ n_reps <- if (!is.na(n_reps_override)) n_reps_override else
 seed <- 20260415L
 set.seed(seed)
 
-specs_s9 <- c('E1', 'E4', 'E5', 'E6')
+specs_s9 <- c('E1', 'E7', 'E9')
 
 grid <- tibble::tibble(t1half = c(1.0, 0.5)) |>
   dplyr::mutate(

@@ -1,21 +1,35 @@
 ## analysis/scripts/carryover-sensitivity/09-run-sensitivity-s7.R
 ##
-## Tier 2 sensitivity block S7: biomarker-interacted carryover
-## terms, at the same reference cell used by S1-S4
-## (Hybrid, N = 70, exponential DGP, t1/2 = 1.0, c_bm = 0.45).
+## Tier 2 sensitivity block S7: alternative-paradigm specifications
+## addressing this manuscript's two open methodological questions
+## (unknown decay half-life; is a mixed model even necessary), at
+## the same reference cell used by S1-S4 (Hybrid, N = 70,
+## exponential DGP, t1/2 = 1.0, c_bm = 0.45).
 ##
-## Compares four analysis specifications, all targeting bm:Db:
-##   E1  Unadjusted        Sx ~ bm + t + Db + bm:Db
-##   E4  Washout-adjusted  Sx ~ bm + t + Db + bm:Db + tsd
-##   E5  Lag x bm          Sx ~ bm + t + Db + bm:Db + L   + bm:L
-##   E6  Washout x bm      Sx ~ bm + t + Db + bm:Db + tsd + bm:tsd
+## Compares three analysis specifications:
+##   E1  Unadjusted           Sx ~ bm + t + Db + bm:Db
+##   E7  AIC-selected t1/2    E2's formula, half-life chosen by AIC
+##                            over {0.25, 0.5, 1.0, 2.0} rather than
+##                            assumed (targets bm:Dbc)
+##   E9  Paired-difference    Per-patient mean on-drug minus
+##                            off-drug Sx, regressed on bm across
+##                            patients (diff ~ bm, plain OLS); a
+##                            biomarker-interaction extension of the
+##                            paired t-test Senn, Julious & Araujo
+##                            (2014) found outperforms
+##                            carryover-adjusted mixed models for
+##                            ordinary N-of-1 treatment-effect
+##                            estimation
 ##
-## E5/E6 add a second interaction coefficient (bm:L or bm:tsd), so
-## "power" for those two specifications is the rejection rate of a
-## joint 2-df Wald test of bm:Db and the second coefficient together
-## (nlme::anova.lme(Terms = ...)), not a single-coefficient test as
-## for E1/E4. See simulation-core.R, "Biomarker-interacted carryover
-## terms (S7)", for the rationale.
+## An earlier version of this block tested E5 (Lag x bm) and E6
+## (Washout x bm), carryover terms crossed with the biomarker; both
+## underperformed E1 at every cell examined across S7-S9 and were
+## replaced by E7/E9, which probe the analyst's unknown decay
+## half-life and inferential paradigm choice directly, rather than
+## adding a second, structurally redundant interaction coefficient
+## (Section 4.5). See
+## simulation-core.R, "Biomarker-interacted carryover terms and
+## their replacements (S7)", for the full rationale.
 ##
 ## Usage:
 ##   Rscript analysis/scripts/carryover-sensitivity/09-run-sensitivity-s7.R [--dev] [--reps N]
@@ -101,6 +115,7 @@ summary_s7 <- results |>
     mc_se_power = sqrt(power * (1 - power) / n_converged),
     mean_estimate_bmDb = mean(estimate_bmDb, na.rm = TRUE),
     mean_p_bmDb_reject = mean(p_value_bmDb < 0.05, na.rm = TRUE),
+    mean_best_t_half = mean(best_t_half, na.rm = TRUE),
     .groups = 'drop'
   )
 

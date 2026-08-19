@@ -16,11 +16,17 @@
 ## Panel A mirrors Hendrickson Fig. 4A (biomarker effect on the
 ## x-axis, carryover fixed): t1/2 fixed at 1.0 weeks (nonzero
 ## carryover, the manuscript's reference half-life), exponential
-## DGP, c_bm on the x-axis.
-##
-## Panel B mirrors Hendrickson Fig. 4B (carryover on the x-axis,
-## biomarker effect fixed): c_bm fixed at 0.45, exponential DGP,
-## t1/2 on the x-axis.
+## DGP, c_bm on the x-axis. Panel B mirrors Hendrickson Fig. 4B
+## (carryover on the x-axis, biomarker effect fixed): c_bm fixed at
+## 0.45, exponential DGP, t1/2 on the x-axis. Both panels are
+## Figures 1-2 of the manuscript and were expanded from the original
+## three specifications (G1-G3) to the full nine (G1-G9) via
+## 19-run-tier1-hendrickson-g9.R (analysis/data/
+## 02-grid-summary-hendrickson-g9.rds), replacing rather than
+## supplementing the three-spec version; this superseded the
+## separate Type I error figures (former Figures 6-9) since the
+## c_bm = 0 column of Panel A now covers Type I error for all nine
+## specifications directly.
 ##
 ## Panel C has no Hendrickson analogue (their grid had one decay
 ## form). It varies the manuscript's own decay-shape axis (Section
@@ -92,29 +98,44 @@ hendrickson_heatmap <- function(d, x_var, x_lab, title) {
 }
 
 ## -----------------------------------------------------------------
-## Panel A: biomarker effect (t1/2 = 1.0, exponential DGP)
+## Panels A/B: G1-G9, from 19-run-tier1-hendrickson-g9.R. Replaces
+## the original three-spec (G1-G3) version of both panels.
 ## -----------------------------------------------------------------
 
-d_a <- grid |> dplyr::filter(carryover_form == 'exponential', t1half == 1.0)
+grid_g9 <- readRDS(file.path(repo_root,
+  'analysis/data/02-grid-summary-hendrickson-g9.rds'))$summary |>
+  dplyr::mutate(
+    spec = factor(g_labels_short[spec], levels = unname(g_labels_short[g_order])),
+    design = factor(design, levels = c('CO', 'Hybrid', 'OLBDC'),
+                    labels = c('CO', 'Hybrid', 'OL+BDC')),
+    N_label = factor(paste0('N = ', N), levels = c('N = 35', 'N = 70'))
+  )
+
+## Panel A: biomarker effect (t1/2 = 1.0, exponential DGP)
+d_a <- grid_g9 |> dplyr::filter(panel == 'A')
 
 p_a <- hendrickson_heatmap(d_a, 'c_bm', expression('Biomarker moderation ('*c[bm]*')'),
   expression('A: Effect of trial design, analysis specification,'~
-             'and biomarker effect on power'~(t['1/2']==1.0)))
+             'and biomarker effect on power'~(t['1/2']==1.0))) +
+  labs(y = NULL)
 
 ggsave(file.path(fig_dir, '02xs-heatmap-hendrickson-a.pdf'),
-  p_a, width = 7.4, height = 4.6)
+  p_a, width = 7.6, height = 6.4)
 
-## -----------------------------------------------------------------
-## Panel B: carryover half-life (c_bm = 0.45, exponential DGP)
-## -----------------------------------------------------------------
-
-d_b <- grid |> dplyr::filter(carryover_form == 'exponential', c_bm == 0.45)
+## Panel B: carryover half-life (c_bm = 0.45, exponential DGP). The
+## t1half = 1.0 cell is shared with Panel A (c_bm = 0.45) rather than
+## refit; pull it back in from Panel A's data.
+d_b <- dplyr::bind_rows(
+  grid_g9 |> dplyr::filter(panel == 'B'),
+  grid_g9 |> dplyr::filter(panel == 'A', c_bm == 0.45)
+)
 
 p_b <- hendrickson_heatmap(d_b, 't1half', expression('Carryover half-life ('*t['1/2']*', weeks)'),
-  expression('B: Effect of carryover half-life on power'~(c[bm]==0.45)))
+  expression('B: Effect of carryover half-life on power'~(c[bm]==0.45))) +
+  labs(y = NULL)
 
 ggsave(file.path(fig_dir, '02xs-heatmap-hendrickson-b.pdf'),
-  p_b, width = 7.4, height = 4.6)
+  p_b, width = 7.6, height = 6.4)
 
 ## -----------------------------------------------------------------
 ## Panel C: DGP decay shape (c_bm = 0.45, t1/2 = 1.0)

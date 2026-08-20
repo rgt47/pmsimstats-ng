@@ -1,0 +1,2595 @@
+---
+title: "Carryover representation and inference for biomarker-treatment
+  interaction tests in aggregated N-of-1 trials under covariance
+  moderation: a factorial simulation comparison of nine analysis
+  specifications"
+author: 'pmsimstats team'
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    keep_tex: true
+    highlight: tango
+    includes:
+      in_header: ../sim-preamble.tex
+fontsize: 11pt
+linestretch: 1.1
+geometry: 'left=3cm,right=3cm,top=2.5cm,bottom=2.5cm'
+bibliography: references.bib
+csl: statistics-in-medicine.csl
+link-citations: true
+header-includes:
+  - \usepackage{amsmath}
+  - \usepackage{amssymb}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{float}
+  - \usepackage[mathlines]{lineno}
+  - \linenumbers
+knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path(d, 'tools', 'stamp-render.R')) && d != dirname(d)) d <- dirname(d); source(file.path(d, 'tools', 'stamp-render.R'))$value(input) })
+---
+
+<!--
+  bullets.Rmd -- paragraph-to-bullets outline of report.Rmd, generated
+  to give the author a structural outline for rewriting the narrative.
+  Every prose paragraph below is replaced by a bullet list of its
+  informational points; every equation, table, and figure chunk is
+  kept verbatim in its original position. Not intended to be rendered
+  as a manuscript.
+-->
+
+<!--
+  Build pipeline for this manuscript
+  ==================================
+
+  This is the single master source for this manuscript. Its scope is
+  the covariance-moderation architecture (MVN differential correlation), the exponential and
+  Weibull decay forms, and all three analysis specifications
+  (stored E1/E3/E2; displayed Unadjusted, Lag-adjusted,
+  Exposure-weighted via spec-labels.R).
+  Earlier, wider-scope drafts are retained under archive/ and are no
+  longer maintained; see README.md in this directory for the lineage
+  and for what each archived draft uniquely contains.
+
+  This Rmd does NOT run any simulation code. It loads pre-computed
+  summaries and figures produced by the scripts below. Re-run the
+  relevant steps when the DGP, analysis specs, or parameter grid
+  change. All paths are relative to the repo root.
+
+  1. Tier 1 principal factorial (heaviest step, ~85 min on 8 cores):
+       Rscript analysis/scripts/carryover-sensitivity/01-run-factorial.R
+     Writes: analysis/scripts/carryover-sensitivity/output/01-factorial.rds
+
+  2. Tier 2 sensitivity blocks S1..S5 (~4 min on 8 cores; requires
+     Tier 1 not to be running concurrently - both request all cores):
+       Rscript analysis/scripts/carryover-sensitivity/04-run-sensitivity-blocks.R
+     Writes: analysis/scripts/carryover-sensitivity/output/04-sensitivity.rds
+
+  3. Summarize both tiers into cell-level power/bias/convergence
+     (~seconds; re-run after either step 1 or step 2 changes):
+       Rscript analysis/scripts/carryover-sensitivity/02-summarise-grid.R
+     Writes:
+       analysis/data/02-grid-summary.rds        (from Tier 1)
+       analysis/data/02-sensitivity-summary.rds (from Tier 2)
+
+  4. Filtered Tier 1 figures (no linear decay, all
+     three specifications; writes analysis/figures/02xs-*.pdf; the
+     matched-vs-mismatched panel (Figure 5) now reads
+     02-decay-shape-sensitivity.rds, step 4d, not 02-grid-summary.rds
+     directly - requires step 4d to have run first):
+       Rscript analysis/scripts/carryover-sensitivity/03-render-figures-extra-slim.R
+
+  4b. Annotated Tier 1 grid heatmap (writes
+      analysis/figures/02xs-heatmap-hendrickson-{a,b,c}.pdf; Panel D
+      is produced but no longer referenced by this document -
+      Figures 1-2 (Panels A/B) were expanded to G1-G9 and superseded
+      the Panel D / boxplot Type I check, see step 4c; Panel C
+      (Figure 3) now reads 02-decay-shape-sensitivity.rds, step 4d,
+      not 02-grid-summary.rds - requires step 4d to have run first):
+       Rscript analysis/scripts/carryover-sensitivity/12-hendrickson-heatmap.R
+
+  4c. Tier 1 grid Panels A/B (Figures 1-2), G1-G9 extension (writes
+      analysis/data/02-grid-summary-hendrickson-g9.rds; 30 cells,
+      exponential DGP, Architecture B only, common random numbers
+      within each cell; ~1500 sec at n_reps = 100 on 8 cores):
+       Rscript analysis/scripts/carryover-sensitivity/19-run-tier1-hendrickson-g9.R
+
+  4d. Decay-shape sensitivity, Figures 3 and 5, at a more extreme
+      Weibull range (k = 0.25, 0.5, 2.0, 4.0, extended from an
+      initial k = 0.5, 2.0, itself replacing an earlier k = 0.7, 1.5;
+      k = 1.0 dropped as numerically identical to Exponential and so
+      not a distinct condition) than 01-run-factorial.R's shared grid
+      still uses; a standalone script rather than a change to that
+      shared driver, since its grid is also consumed by the archived
+      full-scope drafts and other manuscripts (writes
+      analysis/data/02-decay-shape-sensitivity.rds; 30 cells,
+      Architecture B only, G1-G3 only, common random numbers within
+      each cell; ~770 sec at n_reps = 500 on 8 cores):
+       Rscript analysis/scripts/carryover-sensitivity/23-run-decay-shape-sensitivity.R --reps 500
+
+  4e. Decay-shape sensitivity, Architecture A counterpart (Supplement
+      S12 Panel C), same k values as step 4d (writes
+      analysis/data/02-decay-shape-sensitivity-archA.rds; 30 cells,
+      G1-G3 only, common random numbers within each cell; n_reps to
+      match S12 Panels A/B's precision):
+       Rscript analysis/scripts/carryover-sensitivity/24-run-decay-shape-sensitivity-archA.R --reps 250
+
+  5. Filtered Tier 2 sensitivity figures (writes
+     analysis/figures/02xs-sens-S1..S5.pdf):
+       Rscript analysis/scripts/carryover-sensitivity/04-sensitivity-figures-extra-slim.R
+
+  5f. Annotated Tier 2 heatmaps for S1-S4, S7, S8, S9 (writes
+      analysis/figures/02xs-heatmap-sens-{S1,S2,S3,S4,S7,S8-a,S8-b,S9}.pdf;
+      requires steps 3, 5b, 5d, 5e, 5g, 5h, 5i to have run first):
+       Rscript analysis/scripts/carryover-sensitivity/13-hendrickson-heatmap-tier2.R
+
+  5g. S9 alternative-paradigm specifications under the CO design
+      (analysis/scripts/carryover-sensitivity/output/14-sensitivity-s9.rds),
+      2 cells (t1/2) x 3 specs, 500 reps each (~8 min):
+       Rscript analysis/scripts/carryover-sensitivity/14-run-sensitivity-s9.R
+
+  5h. S10 G1-G9 CR2 comparison at the Hybrid reference cell (writes
+      analysis/scripts/carryover-sensitivity/output/15-sensitivity-s10-g.rds;
+      requires 5b to have run first, for G8): 1 cell, 8 specs
+      (E1,E2,E3,E7,E9,E1cr2,E3cr2,E7cr2), 500 reps (~2 min):
+       Rscript analysis/scripts/carryover-sensitivity/15-run-sensitivity-s10.R
+
+  5i. S11 Type I error for G1-G5, G9 at the null (writes
+      analysis/scripts/carryover-sensitivity/output/16-sensitivity-s11.rds):
+      1 cell (c_bm = 0), 6 specs (E1,E2,E3,E7,E9,E7cr2), 2000 reps
+      (~7 min):
+       Rscript analysis/scripts/carryover-sensitivity/16-run-sensitivity-s11.R
+
+  5b. S6 cluster-robust recalibration data
+      (analysis/scripts/carryover-sensitivity/output/diag-s6-cr2.rds)
+      is produced by 06-cr2-recalibration.R; no re-run needed for a
+      plain re-knit.
+
+  5c. Filtered S6 Type I figure (writes
+      analysis/figures/02xs-type1-cr2.pdf; no longer referenced by
+      this document as of the Figure 1/2 G1-G9 expansion - retained
+      only because 06-cr2-recalibration.R's diag-s6-cr2.rds still
+      backs Table tab-s6, the power-gap table):
+       Rscript analysis/scripts/carryover-sensitivity/07-type1-cr2-figure-extra-slim.R
+
+  5j. S1-S4 G1-G9 extension (writes
+      analysis/data/02-sensitivity-summary-g9.rds; 25 cells, common
+      random numbers within each cell; ~900 sec at n_reps = 100):
+       Rscript analysis/scripts/carryover-sensitivity/17-run-sensitivity-s1234-g9.R
+
+  5k. S6 G1-G9 extension (writes
+      analysis/scripts/carryover-sensitivity/output/18-sensitivity-s6-g9.rds;
+      10 cells, common random numbers within each cell; ~450 sec at
+      n_reps = 100; no longer referenced by this document as of the
+      Figure 1/2 G1-G9 expansion, retained for archival/re-analysis):
+       Rscript analysis/scripts/carryover-sensitivity/18-run-sensitivity-s6-g9.R
+
+  The unsuffixed figure scripts (03-render-figures.R,
+  04-sensitivity-figures.R, 07-type1-cr2-figure.R) write the
+  full-scope 02-*.pdf figures consumed only by the archived drafts.
+  They are retained for that reason and are not part of this
+  manuscript's build.
+
+  5d. S7 biomarker-interacted carryover terms
+      (analysis/scripts/carryover-sensitivity/output/09-sensitivity-s7.rds),
+      one reference cell, 500 reps (~40 sec):
+       Rscript analysis/scripts/carryover-sensitivity/09-run-sensitivity-s7.R
+
+  5e. S8 architecture sensitivity of the specification ranking
+      (analysis/scripts/carryover-sensitivity/output/10-sensitivity-s8.rds),
+      2 architectures x 3 half-lives x 5 specs, 500 reps each (~5.5 min):
+       Rscript analysis/scripts/carryover-sensitivity/10-run-sensitivity-s8.R
+
+  6. Knit this Rmd (this step; ~1 min; no simulation code runs):
+       Rscript -e "rmarkdown::render('analysis/report/02-carryover-sensitivity/report.Rmd')"
+
+  6b. Decay-curve illustration (writes
+      analysis/figures/02xs-decay-curves.pdf; no simulation, closed-
+      form only; <1 sec):
+       Rscript analysis/scripts/carryover-sensitivity/20-decay-curve-figure.R
+
+  7. Supplement (same-directory companion document, added
+      2026-08-19 to keep the main text to a working length; moves
+      Blocks S1, S4, S10, S11 in full and S2/S8's cell-by-cell detail
+      out of the main text, keeping only a one-paragraph summary of
+      each there; also carries an exploratory Section S12, an
+      Architecture A counterpart to Figures 1-3, outside the main
+      manuscript's Architecture B scope). Requires steps 3, 5d, 5e,
+      5f/5j (for the S1/S2/S4 G1-G9 heatmaps), 5h (S10), 5i (S11), 5b
+      (S8's diag-s6-cr2.rds dependency for the G8 row in Table S10),
+      and 5l/5m (below, for S12) to have run first:
+       Rscript -e "rmarkdown::render('analysis/report/02-carryover-sensitivity/supplement.Rmd')"
+
+  5l. S12 Tier 1 Panels A/B, Architecture A counterpart (writes
+      analysis/data/02-grid-summary-hendrickson-g9-archA.rds; 30
+      cells, exponential DGP, Architecture A only, n_sim = 250 after
+      a 100-rep smoke test; ~30 min on 8 cores):
+       Rscript analysis/scripts/carryover-sensitivity/21-run-tier1-hendrickson-g9-archA.R --reps 250
+
+  5m. S12 heatmaps (writes analysis/figures/
+      02xs-heatmap-hendrickson-{a,b,c}-archA.pdf; Panel C reads the
+      existing 02-grid-summary.rds directly, no new simulation):
+       Rscript analysis/scripts/carryover-sensitivity/22-hendrickson-heatmap-archA.R
+
+  Grid design and rationale (full grid, of which this manuscript is
+  a slice):
+    analysis/scripts/carryover-sensitivity/simulation-grid-plan.md
+-->
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.path = "../../figures/02-cache-",
+  cache.path = "_cache/"
+)
+library(tibble)
+library(dplyr)
+library(knitr)
+
+## Display names for the three analysis specifications. Stored values
+## stay E1/E2/E3 everywhere; only the display layer maps them, so the
+## archived drafts and every .rds under analysis/data/ remain readable
+## without regeneration. Display order is Unadjusted, Lag-adjusted,
+## Exposure-weighted: the first two share the estimand bm:Db and are
+## comparable on every measure, while the third targets bm:Dbc.
+source(here::here(
+  'analysis/scripts/carryover-sensitivity/spec-labels.R'))
+```
+
+# Abstract {-}
+
+**Background.** Aggregated N-of-1 trials pool repeated within-patient
+on/off contrasts to validate predictive biomarkers.
+
+- Under covariance moderation (an MVN differential-correlation
+  architecture in which the biomarker-treatment interaction lives in
+  a treatment-state-dependent correlation), a companion study found
+  carryover costs up to roughly 31% of power in relative terms.
+- The analyst must still decide how to represent residual exposure in
+  the linear predictor.
+- It is not established which representation is most robust to the
+  ordinarily unknown pharmacokinetic decay shape.
+
+**Methods.** We compare nine analysis-model specifications for the
+drug-exposure regressor, in two tiers.
+
+- Tier 1 (primary evidence base): three specifications across a full
+  factorial grid.
+  - Unadjusted: the binary on-drug indicator, ignoring carryover
+    altogether.
+  - Lag-adjusted: augments that indicator with a lagged just-off-drug
+    term estimating carryover non-parametrically, the classical
+    crossover device.
+  - Exposure-weighted: a continuous indicator committing to a
+    parametric decay and half-life, the current package default.
+- These three are embedded in an ADEMP-structured factorial
+  simulation [@morris2019simulation] crossing two data-generating
+  decay forms (exponential, Weibull) with three trial designs, two
+  sample sizes, and three interaction strengths (216 cells, 500
+  replicates each), plus sensitivity blocks and a cluster-robust
+  recalibration.
+- All three are fitted to the same simulated datasets (paired
+  contrasts), and each performance measure is reported with its Monte
+  Carlo standard error (MCSE).
+- Tier 2 extension: six further specifications at a single reference
+  cell -- an AIC-selected half-life variant, a paired-difference
+  regression with no repeated-measures model at all, and CR2
+  cluster-robust variants of four of the above; a targeted comparison,
+  not a full grid.
+
+**Results.** Three findings stand out.
+
+- First, the lagged-treatment term buys nothing: Lag-adjusted and
+  Unadjusted are statistically indistinguishable across all 216 Tier
+  1 cells, differing by a mean of 0.003 in power against an MCSE of
+  0.018, and agreeing to three decimal places on bias, MSE, and
+  coverage -- a clean null, since the two share an estimand and differ
+  by exactly one nuisance term.
+- Second, Exposure-weighted attains the highest Tier 1 power only in
+  the two designs with a blinded-discontinuation phase (Hybrid and
+  OL+BDC), an advantage of about 10 percentage points (0.860 vs 0.766
+  for Unadjusted at the reference cell).
+  - Under the classical crossover (CO) design it is markedly inferior
+    (0.488 vs 0.830).
+  - Where it leads, the lead is robust to half-life mis-specification
+    and to autocorrelation strength, and widens under a light-tailed
+    decay-shape mis-specification, but narrows to statistical
+    insignificance under the two most heavy-tailed Weibull shapes
+    examined.
+  - The model-based interaction test is mildly conservative for all
+    three (mean null rejection 0.036 to 0.039), an artifact of the
+    working covariance that a CR2 cluster-robust standard error
+    removes without disturbing the ranking.
+- Third, at the Hybrid reference cell the Tier 2 extension finds that
+  combining the AIC-selected half-life with a CR2 standard error
+  outperforms every other specification tested, including the
+  CR2-corrected Exposure-weighted predictor, with Type I error held
+  at nominal despite the post-selection risk the half-life selection
+  step raises in principle.
+  - This result held at only that one cell, reported as a promising
+    direction rather than a validated recommendation.
+
+**Conclusions.** Four points warrant emphasis.
+
+- First, under covariance moderation we recommend the
+  exposure-weighted predictor, reported with a cluster-robust
+  standard error, for the Hybrid and OL+BDC designs; under a
+  crossover design it should not be used, and the unadjusted binary
+  indicator is materially better.
+- Second, the classical lagged-treatment remedy cannot be recommended
+  in any design examined here, since it never improved on ignoring
+  carryover altogether -- traced to its entering the model as a
+  nuisance main effect, which leaves the attenuation of the
+  interaction untouched.
+- Third, across all conditions anticipated dropout governs power far
+  more than the choice among specifications, and should dominate
+  design effort accordingly.
+- Fourth, the AIC-selected half-life specification with a CR2
+  correction merits further validation as a candidate default,
+  having outperformed every other specification at the one cell where
+  all nine were compared directly, but it has not yet been tested
+  against the same robustness battery the Tier 1 three have.
+- This manuscript restricts the grid to the covariance-moderation
+  architecture and to the exponential and Weibull decay forms; the
+  mean-moderation architecture and linear decay are evaluated in the
+  archived companion drafts `archive/report.Rmd` and
+  `archive/report-slim.Rmd`.
+
+**Section summary:**
+
+- The manuscript compares nine analysis-model specifications (Tier 1:
+  three; Tier 2: six more at one reference cell) for representing
+  drug exposure/carryover, restricted to covariance moderation, using
+  a 216-cell, 500-replicate-per-cell ADEMP-compliant simulation.
+- Three headline results: the lagged-treatment term is useless;
+  exposure weighting wins by ~10 points in Hybrid/OL+BDC but loses
+  badly under crossover; and a Tier-2 AIC-selected-half-life-plus-CR2
+  specification beats everything at one cell, provisionally.
+- The Conclusions recommend exposure weighting (with CR2) only for
+  Hybrid/OL+BDC under covariance moderation, reject the
+  lagged-treatment remedy outright, flag dropout as the dominant
+  practical lever, and flag the AIC+CR2 specification as promising
+  but not yet fully validated.
+
+# Introduction
+
+- In a single N-of-1 trial, one patient is crossed repeatedly between
+  active treatment and a comparator; the within-patient on/off
+  contrast estimates that patient's individual treatment effect.
+- An aggregated N-of-1 trial pools many such series into a mixed
+  model, trading within-patient resolution for population-level
+  inference at sample sizes considerably smaller than a
+  parallel-group trial would require [@hendrickson2020].
+- The estimand is the biomarker-treatment interaction: whether a
+  baseline covariate $B_i$ modifies the treatment effect.
+- Three trial designs, differing in how on-drug/off-drug occasions
+  are arranged, are examined: classical crossover (CO), open-label
+  followed by blinded discontinuation (OL+BDC), and a Hybrid N-of-1
+  design (each defined in Section 2.2).
+- Carryover is the inferential complication specific to this setting:
+  a drug's pharmacological effect decays over days or weeks rather
+  than switching off abruptly, so nominally off-drug observations
+  still carry residual exposure.
+- An exposure regressor ignoring this is mis-measured, and the
+  damage is twofold:
+  - The interaction contrast is diluted, since occasions still
+    carrying substantial drug effect are coded identically to
+    occasions carrying none, biasing the biomarker-by-exposure
+    coefficient toward zero (as any error-prone covariate would).
+  - Those same occasions are heterogeneous in a way the model does
+    not represent, so unexplained variation inflates the standard
+    error of the already-attenuated coefficient.
+- The test loses on both counts, and power falls accordingly.
+- This is a loss of power, not of validity: under the null
+  ($c_{bm}=0$), no biomarker-response association exists at any level
+  of residual exposure, so a mis-coded regressor has no interaction to
+  distort and test size is unaffected by exposure coding.
+- The mild conservatism observed in Section 3.6 has a separate origin
+  in the working covariance and applies equally across
+  specifications; carryover mis-specification is therefore a question
+  of efficiency, and the study is framed in terms of recovered power.
+- Three answers are available for representing residual exposure,
+  corresponding to three analyst positions toward the unknown decay:
+  deny it (strictly on/off coding), estimate it (add a nuisance term
+  whose magnitude the data determine), or assume it (commit to a
+  decay curve and half-life).
+- A companion study [@pmsimstats_dgp_architectures2026], building on
+  Hendrickson [-@hendrickson2020], shows that under covariance
+  moderation ($\text{Cor}(B_i, BR_{it}) = c_{bm} \cdot \phi(t_{sd})$),
+  carryover erodes power directly and design-dependently: at a
+  half-life of one week, the relative loss is roughly 31% under
+  OL+BDC but only 3 to 5% under crossover and Hybrid, against 1 to 3%
+  under an alternative architecture where the biomarker moderates the
+  mean response directly.
+- Attention is restricted here to covariance moderation, where the
+  carryover problem is largest and Hendrickson's original results
+  were obtained; that earlier work fixed the decay shape at
+  exponential and evaluated only one analysis specification, leaving
+  open which residual-exposure representation performs best when the
+  true decay shape is not known precisely (the ordinary case).
+- Three specifications form the primary evidence base:
+  - Unadjusted: the binary on-drug indicator, ignoring carryover
+    entirely, serving as the benchmark any remedy must beat.
+  - Lag-adjusted: augments it with a lagged just-off-drug term
+    estimating carryover magnitude without assuming a functional
+    form, following the classical crossover-trial device of Jones and
+    Kenward [-@jones2014crossover].
+  - Exposure-weighted: a continuous indicator committing to a
+    parametric decay form and half-life, the current pmsimstats-ng
+    default.
+- Unadjusted and Lag-adjusted estimate the same coefficient and are
+  fitted to the same simulated datasets, differing by exactly one
+  nuisance term, so their contrast isolates that term's contribution
+  alone; Exposure-weighted differs on a second axis too, since it
+  changes the regressor carrying the interaction.
+- All three are crossed against exponential and Weibull
+  data-generating decay forms, asking whether one specification can
+  be recommended outright or whether the choice depends on trial
+  design, following the ADEMP reporting framework of Morris, White,
+  and Crowther [-@morris2019simulation] throughout.
+- Six further specifications (an AIC-selected half-life variant, a
+  paired-difference regression, and CR2 cluster-robust variants of
+  four base specifications) are added later at a single reference
+  cell (Section 2.5), once the Tier 1 results raise specific new
+  questions the grid alone cannot answer.
+- Closing roadmap: Section 2 describes the simulation design in ADEMP
+  order, Section 3 gives the results, Section 4 takes up the
+  practical implications.
+
+**Section summary:**
+
+- Carryover degrades interaction-test power in aggregated N-of-1
+  trials through two distinct mechanisms (attenuation and inflated
+  residual variance), without biasing the null under $c_{bm}=0$.
+- A companion study shows carryover's relative power cost is sharply
+  design-dependent (~31% under OL+BDC vs 3-5% under CO/Hybrid, vs
+  1-3% under an alternative architecture), motivating this
+  manuscript's restriction to covariance moderation.
+- Three analyst positions toward unknown decay (deny/estimate/assume)
+  motivate the three Tier-1 specifications (Unadjusted, Lag-adjusted,
+  Exposure-weighted), with six further Tier-2 specifications added
+  later to answer questions the Tier 1 grid alone cannot.
+
+# Simulation design
+
+- The study simulates complete aggregated N-of-1 trials and analyzes
+  each one under every specification.
+- Single-replicate procedure:
+  - Patients are allocated across the randomization paths of the
+    chosen trial design (Section 2.2).
+  - For each patient, a pre-treatment biomarker plus three latent
+    response components (pharmacological response, natural-history
+    trend, placebo-belief) are drawn jointly across all eight
+    measurement occasions from a multivariate normal distribution.
+  - Component means follow modified Gompertz trajectories.
+  - Covariance carries within-component AR(1) autocorrelation,
+    cross-component correlations, and the treatment-state-dependent
+    biomarker-response correlation that encodes the interaction
+    (Section 2.3).
+  - Observed symptom score at each occasion = baseline severity minus
+    the sum of the three components (a beneficial effect lowers the
+    score).
+  - Carryover enters through a decay function of time since
+    discontinuation, keeping part of the pharmacological effect
+    present at nominally off-drug occasions.
+  - All three Tier-1 analysis specifications (Section 2.4) are then
+    fitted to that same simulated dataset, recording the interaction
+    coefficient, SE, and $p$-value from each.
+  - Repeated 500 times for every parameter combination in the grid
+    (Section 2.7).
+- Fitting all specifications to a common dataset is deliberate:
+  - Makes every contrast among them paired.
+  - Differences are estimated with substantially less Monte Carlo
+    variance than independent draws would give.
+- $N$ denotes the **total** number of patients in a trial, allocated
+  as evenly as possible across the design's randomization paths, so a
+  design with $P$ paths assigns about $N/P$ patients to each.
+- Worked example: at $N=70$ this is 35 per path under the two-path
+  designs and 17 or 18 per path under the four-path Hybrid design.
+
+**Section summary:**
+
+- Each simulated replicate draws a biomarker and three latent
+  response components jointly from an MVN structure with AR(1)
+  autocorrelation, cross-component correlations, and a
+  treatment-state-dependent biomarker-response correlation encoding
+  the interaction; carryover is applied through a post-discontinuation
+  decay function.
+- All specifications are fit to the same simulated dataset (common
+  random numbers), sharpening pairwise contrasts.
+- $N$ is always the total sample size across paths, allocated evenly;
+  this definitional point governs how per-path sample sizes should be
+  read throughout the manuscript.
+
+## Aims
+
+- The aim is to quantify, under covariance moderation, the cost of
+  mis-specifying the carryover representation in the analysis model,
+  and to determine which of the three candidate strategies performs
+  better across the grid of data-generating decay forms and trial
+  designs.
+- A second aim, addressed in the Tier 2 sensitivity blocks of Section
+  3.7, is to check whether the resulting ranking survives perturbation
+  of within-subject autocorrelation, dropout rate, half-life
+  accuracy, and interaction size.
+
+**Section summary:**
+
+- The study has two aims: rank the three carryover-handling
+  strategies under covariance moderation across decay forms and trial
+  designs, and stress-test that ranking's robustness in the Tier 2
+  sensitivity blocks.
+
+## Trial designs
+
+- The three designs differ in how on-drug/off-drug occasions are
+  arranged, and so in how much post-discontinuation information each
+  generates.
+- All three schedule eight measurement occasions per patient across
+  randomization paths, each a fixed on-drug/off-drug schedule.
+- Each design carries an expectancy weight (one during open-label
+  periods, one half during blinded periods) scaling the
+  placebo-belief component.
+- **Crossover (CO).** A traditional two-period within-patient
+  crossover, blinded throughout, occasions spaced 2.5 weeks apart
+  from 2.5 to 20 weeks.
+  - One path is active for the first four occasions then comparator.
+  - The other path reverses that order and so never discontinues,
+    contributing no post-discontinuation observations.
+- **Open-label followed by blinded discontinuation (OL+BDC).**
+  Open-label titration at 4, 8, 12, and 16 weeks, then weekly
+  follow-up to week 20 with a blinded late switch to placebo.
+  - The two paths discontinue after week 17 or 18, so only two or
+    three occasions follow.
+- **Hybrid.** The Hendrickson design and this program's reference.
+  - Open-label titration at weeks 4 and 8, followed by blinded
+    discontinuation weekly from week 9 to 12, then a brief
+    two-occasion crossover at weeks 16 and 20.
+  - The four paths vary discontinuation timing and crossover-arm
+    order.
+  - It is the richest of the three in on-off transitions and the only
+    one allowing more than one discontinuation per patient.
+- Practical consequence: the first post-discontinuation occasion
+  falls one week after switching under OL+BDC and Hybrid, but 2.5
+  weeks under CO.
+- At the half-lives examined, roughly half the pharmacological effect
+  persists into the first off-drug occasion under the two
+  non-crossover designs, against less than a fifth under CO, so the
+  designs differ substantially in how much carryover contamination
+  they can accumulate at all (Section 4.2).
+
+**Section summary:**
+
+- The three trial designs (CO, OL+BDC, Hybrid) share an 8-occasion
+  structure but differ sharply in schedule and in how soon after
+  discontinuation the first off-drug measurement occurs.
+- That timing difference (1 week vs 2.5 weeks) drives a large
+  difference in how much residual carryover effect remains at the
+  first off-drug occasion (roughly half vs under a fifth),
+  foreshadowing the design-dependent results in Section 3.4 and
+  beyond.
+
+## Data-generating mechanism
+
+- Under covariance moderation, the biomarker and biological response
+  are drawn jointly from a multivariate normal distribution with a
+  treatment-state-dependent correlation,
+  $\text{Cor}(B_i, BR_{it}) = c_{bm} \cdot \phi(t_{sd})$, where $\phi$
+  is the decay form and $t_{sd}$ the time since drug discontinuation.
+- Mean moderation and the combined dual-channel architecture fall
+  outside this manuscript's scope; the full cross-architecture
+  comparison is in the archived full-scope drafts
+  (`archive/report.Rmd`, `archive/report-slim.Rmd`).
+- The decay function $\phi : \mathbb{R}_+ \to [0, 1]$ maps $t_{sd}$ to
+  a residual-effect multiplier; two forms are evaluated here, each
+  matched to a common half-life $t_{1/2}$.
+- A third form, linear decay, appears in the full-scope manuscripts
+  but not here.
+
+### Exponential decay
+
+$$
+\phi_{\text{exp}}(t_{sd}) =
+  \exp\left(-\lambda t_{sd}\right), \qquad
+  \lambda = \frac{\ln 2}{t_{1/2}}
+$$
+
+- This is the decay form used throughout the companion manuscript.
+- Implemented in `functions.R` under `implementations/tidyverse/`.
+- Corresponds to classical first-order elimination kinetics, the
+  default pharmacokinetic assumption.
+- Serves as the reference form against which Weibull decay is
+  compared.
+
+### Weibull decay
+
+$$
+\phi_{\text{weib}}(t_{sd}) =
+  \exp\left(-\left(\lambda_w t_{sd}\right)^{k}\right), \qquad
+  \lambda_w = \frac{(\ln 2)^{1/k}}{t_{1/2}}
+$$
+
+- Shape parameter $k$ governs tail behavior:
+  - $k < 1$: heavier (slower) elimination tail than exponential.
+  - $k > 1$: lighter (faster) elimination tail than exponential.
+  - $k = 1$: recovers the exponential form exactly.
+- Four values reported: $k \in \{0.25, 0.5, 2.0, 4.0\}$, two on each
+  side of exponential.
+  - $k = 0.5$ and the more extreme $k = 0.25$: progressively more
+    prolonged low-concentration tails.
+  - $k = 2.0$ and the more extreme $k = 4.0$: progressively faster
+    clearance once concentration falls below some threshold.
+- This range is wider than an earlier version of the grid, which
+  used only $k = 0.7, 1.5$.
+- $k = 1.0$ is not reported as a fifth Weibull condition: it is
+  numerically indistinguishable from Exponential, giving five
+  decay-shape levels in the grid (not six).
+
+```{r fig-decay-curves, echo = FALSE, fig.cap = "The carryover decay multiplier $\\phi(t_{sd})$ at the reference half-life ($t_{1/2} = 1.0$ week) for exponential decay and the four Weibull shapes. The dotted reference lines mark the defining half-life point ($\\phi = 0.5$ at $t_{sd} = t_{1/2}$), which all five curves pass through by construction; the shape parameter governs only how quickly $\\phi$ falls before that point and how slowly it decays after.", out.width = "70%"}
+knitr::include_graphics("../../figures/02xs-decay-curves.pdf")
+```
+
+- Figure \@ref(fig:fig-decay-curves) shows the shape difference
+  concretely.
+- $k = 0.25$ and $k = 0.5$ curves have progressively heavier tails,
+  staying well above the exponential curve for every $t_{sd} >
+  t_{1/2}$, most markedly at $k = 0.25$.
+- Practical consequence: the analysis-side predictor picks up
+  substantially more residual carryover during a prolonged washout
+  than the half-life alone suggests, increasingly so as $k$ falls
+  further below one.
+- $k = 2.0$ and $k = 4.0$ curves have progressively lighter tails,
+  clearing sharply faster once concentration falls below the
+  half-maximum threshold.
+- All five curves pass through the same half-life-defining point
+  ($\phi = 0.5$ at $t_{sd} = 1.0$), so the five forms remain
+  comparable at a fixed nominal half-life despite diverging shapes on
+  either side of it.
+
+**Section summary:**
+
+- Two decay forms are used: exponential (the companion manuscript's
+  form, first-order elimination kinetics) and Weibull, with a shape
+  parameter $k$ controlling tail weight relative to exponential.
+- Five decay-shape levels are examined in total (exponential plus
+  four Weibull shapes, $k \in \{0.25, 0.5, 2.0, 4.0\}$); $k=1.0$ is
+  excluded as duplicating exponential.
+- All five decay curves are calibrated to the same half-life-defining
+  point, so comparisons across shape are not confounded by a shifted
+  half-life.
+
+## Estimand and analysis specifications
+
+- The interaction estimand is the on-drug biomarker-response
+  correlation $c_{bm}$, a dimensionless quantity.
+- Bias and empirical SE are reported on a calibrated effect-size
+  scale (expected on-drug response difference per SD of biomarker at
+  $t_{1/2}=0$), per `docs/19-mean-moderation-implementation-notes.tex`.
+- Power and Type I error are reported on the native test-statistic
+  scale, with null estimand $c_{bm} = 0$.
+- Shared model formula for the Tier 1 three: `nlme::lme(Sx ~ bm * X +
+  t, random = ~1 | ptID, correlation = corCAR1(form = ~ t | ptID))`,
+  differing only in how $X$ is constructed and whether a nuisance
+  term is added.
+- Unadjusted and Lag-adjusted both test $\text{bm:}D_{it}$, so every
+  performance measure is comparable between them.
+- Exposure-weighted tests a different quantity, $\text{bm:}D_{bc,it}$.
+  - Power and Type I error remain comparable across all three
+    specifications (properties of the test).
+  - Bias, MSE, and coverage are **not** comparable across that
+    divide (cross-referenced to Section 3.1).
+- Nine specifications total are evaluated across the manuscript:
+  the Tier 1 three, plus six Tier 2 additions (introduced in the next
+  section, tested in Blocks S7-S10, Section 3.7).
+- Internally (code and data files, Reproducibility section), each
+  specification is stored under an `E`-prefixed code (`E1`, `E2`,
+  ...); the manuscript's prose refers to all nine uniformly by the
+  compact `G1`-`G9` code (defined in `spec-labels.R`) or by name, per
+  Table \@ref(tab:tab-spec-summary) below.
+
+```{r tab-spec-summary, echo = FALSE}
+tab_spec <- tibble::tribble(
+  ~Code, ~Stored, ~Name, ~Formula, ~Target,
+  'G1', 'E1', 'Unadjusted', 'Sx ~ bm + t + Db + bm:Db', 'bm:Db',
+  'G2', 'E3', 'Lag-adjusted', 'Sx ~ bm + t + Db + bm:Db + L', 'bm:Db',
+  'G3', 'E2', 'Exposure-weighted', 'Sx ~ bm + t + Dbc + bm:Dbc', 'bm:Dbc',
+  'G4', 'E7', 'AIC-selected t1/2', 'G3 formula, t1/2 by AIC over \\{0.25,0.5,1.0,2.0\\}', 'bm:Dbc',
+  'G5', 'E9', 'Paired-difference', 'diff ~ bm (patient-level OLS)', 'bm slope',
+  'G6', 'E1cr2', 'Unadjusted + CR2', 'G1 formula, CR2 SE', 'bm:Db',
+  'G7', 'E3cr2', 'Lag-adjusted + CR2', 'G2 formula, CR2 SE', 'bm:Db',
+  'G8', 'E2cr2', 'Exposure-weighted + CR2', 'G3 formula, CR2 SE', 'bm:Dbc',
+  'G9', 'E7cr2', 'AIC-selected t1/2 + CR2', 'G4 formula, CR2 SE', 'bm:Dbc'
+)
+knitr::kable(tab_spec, booktabs = TRUE, escape = FALSE,
+  col.names = c('Code', 'Stored', 'Name', 'Formula', 'Target coefficient'),
+  caption = 'All nine analysis specifications evaluated in this
+    manuscript. G1-G3 are the Tier 1 headline three (Section 2.4);
+    G4-G5 are Tier 2 additions replacing the retired E4/E5/E6
+    (Blocks S7-S9, Section 3.7); G6-G9 are CR2 cluster-robust
+    variants of G1, G2, G4, and G3 respectively (Block S10). G10
+    (G5+CR2) does not apply and is omitted: G5 collapses to one row
+    per patient before fitting, leaving no repeated-measures cluster
+    structure for CR2 to correct.') |>
+  kableExtra::kable_styling(latex_options = "scale_down", font_size = 9)
+```
+
+### Unadjusted (G1): binary on-drug indicator
+
+- $X = D_{it}$, the binary on-drug indicator (one on drug, zero off).
+- Carryover is not represented at all.
+- An off-drug occasion still carrying most of the pharmacological
+  effect is coded identically to one carrying none.
+- This is the default an analyst obtains without considering
+  carryover; treated as the benchmark other specifications must
+  justify their added structure against.
+- Consumes no half-life; invariant to the analyst's pharmacokinetic
+  assumptions.
+
+### Lag-adjusted (G2): binary indicator plus estimated carryover term
+
+- Retains $X = D_{it}$; adds a lagged-treatment indicator,
+  $L_{it} = D_{i,t-1}(1 - D_{it})$, marking off-drug timepoints
+  immediately following an on-drug one.
+- This is the classical crossover-trial device of Jones and Kenward
+  [-@jones2014crossover].
+- Carryover magnitude is estimated from the data, not assumed; like
+  Unadjusted, this specification is invariant to the assumed
+  half-life.
+- $L_{it}$ enters only as a nuisance main effect; there is no
+  $\text{bm:}L_{it}$ product, so the interaction actually tested
+  remains $\text{bm:}D_{it}$.
+- Lag-adjusted can absorb mean-level carryover but cannot repair the
+  interaction's attenuation (Section 1).
+- Framed as Unadjusted with a carryover nuisance control added, not a
+  fundamentally different model of the interaction (Section 4.1).
+
+### Exposure-weighted (G3): continuous decayed predictor
+
+- $X = \text{Dbc}_{it}$, a continuous exposure-decayed predictor
+  matched to the analyst's assumed decay form and half-life; the
+  current pmsimstats-ng package default.
+- At on-drug timepoints, $D_{bc,it} = 1$.
+- Off drug it decays as
+  $D_{bc,it} = (1/2)^{t_{sd,it}/\hat{t}_{1/2}}$, losing half its
+  value every $\hat{t}_{1/2}$ weeks after discontinuation.
+- When the assumed decay form matches the true one, the predictor is
+  well matched; when it does not, it is mis-specified, probed
+  directly in Block S2.
+- The half-life assumption enters only through the predictor values
+  handed to `lme`, not the model formula, so this specification is in
+  effect a different model for each assumed half-life.
+- It is the only one of the three original specifications that
+  consumes a half-life at all; the S2 sensitivity contrast (Section
+  3.7) is designed to probe this.
+- Limiting relationship: as $\hat{t}_{1/2} \rightarrow 0$,
+  $D_{bc,it} \rightarrow D_{it}$, so Unadjusted is exactly the
+  boundary member of the Exposure-weighted family at zero assumed
+  half-life.
+- The S2 sweep is therefore a traverse anchored at Unadjusted, not an
+  independent check.
+
+### AIC-selected half-life (G4)
+
+- Uses Exposure-weighted's formula, $X = \text{Dbc}_{it}$, but
+  chooses $\hat{t}_{1/2}$ from the data rather than assuming it.
+
+$$
+\hat{t}_{1/2} = \operatorname*{arg\,min}_{t_{1/2} \,\in\, \mathcal{T}}
+  \text{AIC}\big(M(t_{1/2})\big), \qquad
+  \mathcal{T} = \{0.25,\ 0.5,\ 1.0,\ 2.0\}\ \text{weeks},
+$$
+
+- $\text{AIC}(M) = -2\log L(M) + 2p$, $L(M)$ the fitted model's
+  likelihood and $p$ its number of estimated parameters
+  [-@akaike1974new].
+- Reported power, coefficient, and SE are read from
+  $M(\hat{t}_{1/2})$ alone, the single winning fit, not pooled or
+  averaged across $\mathcal{T}$.
+- Mirrors `characterize_carryover()` (`R/carryover_analysis.R`), the
+  package's own real-data half-life-selection routine.
+- Like Exposure-weighted, targets $\text{bm:}D_{bc,it}$; unlike
+  Exposure-weighted, requires no half-life from the analyst at all.
+- Cost: a post-selection inference risk [-@berk2013valid] --
+  $M(\hat{t}_{1/2})$'s reported SE and $p$-value treat
+  $\hat{t}_{1/2}$ as fixed in advance, when the same data in fact
+  chose it, so nominal inference does not formally account for the
+  selection step.
+- Block S11 (Section 3.7) checks whether this risk manifests as Type
+  I error inflation in practice.
+
+### Paired-difference (G5)
+
+- A two-stage, correlation-structure-agnostic alternative, not an
+  elaboration of the mixed-model family above.
+- Stage 1: for each patient $i$ with $n_i^{\text{on}} > 0$ on-drug and
+  $n_i^{\text{off}} > 0$ off-drug occasions, define per-patient
+  on-drug and off-drug means:
+
+$$
+\bar{S}_{x,i}^{\text{on}} = \frac{1}{n_i^{\text{on}}}
+  \sum_{t:\, D_{it}=1} S_{x,it}, \qquad
+\bar{S}_{x,i}^{\text{off}} = \frac{1}{n_i^{\text{off}}}
+  \sum_{t:\, D_{it}=0} S_{x,it},
+$$
+
+- and their difference
+  $\Delta_i = \bar{S}_{x,i}^{\text{on}} - \bar{S}_{x,i}^{\text{off}}$.
+- Stage 2: OLS regression of $\Delta_i$ on centered biomarker across
+  $N' \leq N$ patients contributing a difference:
+
+$$
+\Delta_i = \beta_0 + \beta_1\, bm_i + \varepsilon_i, \qquad
+i = 1, \dots, N',
+$$
+
+- Interaction test is on $\beta_1$.
+- No repeated-measures model, no carryover representation, no
+  correlation structure of any kind: $\Delta_i$ collapses each
+  patient's eight occasions to one number before $bm$ ever enters.
+- Framed as a direct biomarker-interaction extension of the paired
+  t-test that Senn, Julious and Araujo [-@senn2014four] found to
+  outperform carryover-adjusted mixed models for ordinary N-of-1
+  treatment-effect estimation.
+- Patients contributing only on-drug or only off-drug observations
+  (e.g., CO's never-discontinuing path) have $n_i^{\text{on}} = 0$ or
+  $n_i^{\text{off}} = 0$, cannot form $\Delta_i$, and are dropped, so
+  $N' < N$ whenever such a path exists in the design.
+
+### CR2 cluster-robust variants (G6-G9)
+
+- Section 3.6 (Block S6) shows the model-based interaction test is
+  mildly conservative, and a CR2 bias-reduced cluster-robust SE
+  restores nominal size without disturbing the ranking among G1-G3.
+- Uses the estimator of Bell and McCaffrey [-@bell2002bias], via
+  `clubSandwich`, paired with Satterthwaite degrees of freedom.
+- That correction (`lme+CR2` in Section 2.7) was applied only to G3
+  there; Block S10 (Section 3.7) extends it to G1, G2, and G4 as
+  well, replacing only the SE, reference distribution, and $p$-value
+  on each specification's existing point estimate.
+- Mapping: G6 (G1+CR2), G7 (G2+CR2), G9 (G4+CR2).
+- G8 (G3+CR2) is the same specification already introduced in
+  Section 2.7 and Block S6, carried into the nine-way comparison at
+  Block S10 without rerunning it.
+- A tenth combination, G5+CR2, does not apply: G5 already collapses
+  to one row per patient before fitting, leaving no repeated-measures
+  cluster structure for CR2 to correct.
+
+**Section summary:**
+
+- Nine analysis specifications (G1-G9) are ultimately compared, built
+  from three families: the Tier 1 three (Unadjusted, Lag-adjusted,
+  Exposure-weighted), two Tier 2 additions (G4 AIC-selected half-life,
+  G5 paired-difference), and CR2 cluster-robust variants (G6-G9) of
+  the mixed-model specifications.
+- Unadjusted/Lag-adjusted share an estimand ($\text{bm:}D_{it}$) and
+  so are directly comparable on every measure; Exposure-weighted,
+  G4, G9 target a different estimand ($\text{bm:}D_{bc,it}$), so only
+  power and Type I error are comparable across that divide.
+- G5 discards the mixed-model framework entirely in favor of a
+  two-stage paired-difference regression, motivated by prior evidence
+  that simplicity is not obviously costly in N-of-1 analysis.
+- Internally all nine specifications are stored under `E`-prefixed
+  codes; the manuscript displays them uniformly as `G1`-`G9` via
+  `spec-labels.R`.
+
+## Choice of analysis specifications
+
+- Three considerations bounded which specifications were tested,
+  rather than surveying the wider N-of-1/crossover-trial literature.
+- The Tier 1 three were chosen because each represents a distinct,
+  established position an analyst can take toward unmeasured/assumed
+  decay, not because they exhaust the space:
+  - Unadjusted: the default any analyst obtains without considering
+    carryover at all; necessary benchmark.
+  - Lag-adjusted: follows Jones and Kenward's
+    [-@jones2014crossover] classical crossover-trial device.
+  - Exposure-weighted: the pmsimstats-ng package's own established
+    default, so the practical stakes of getting its behavior right
+    are correspondingly higher than for the other two.
+- Untested alternative model classes, left out by design:
+  - Bayesian hierarchical N-of-1 models.
+  - GEE and other marginal models (compared systematically, not just
+    as a robustness check, per Section 2.7).
+  - Randomization and permutation tests.
+  - Functional or spline-based flexible decay curves.
+  - State-space or Kalman-filter treatments of drug concentration.
+  - Two-stage "series of N-of-1 trials" meta-analytic combination.
+- This is a scoping decision, not an oversight: the manuscript's aim
+  is to compare carryover *representations* within a single, fixed
+  conditional mixed-model framework matching Hendrickson's
+  [-@hendrickson2020] original analysis model, not a comprehensive
+  methods bake-off (future work: Section 4.6).
+- Blocks S7-S9 (Section 3.7) revisit this scoping decision once, for
+  a specific reason: Section 4.1 shows no carryover term tested so
+  far can repair the interaction's attenuation as long as it enters
+  only as a nuisance main effect; the natural next model interacts
+  the carryover term with the biomarker directly.
+- An earlier version of Block S7 tested two such interacted
+  specifications:
+  - `E5`: a lagged term crossed with `bm`.
+  - `E6`: a continuous elapsed-time term crossed with `bm`.
+- Both underperformed Unadjusted at every cell examined, across three
+  blocks, two trial designs, two architectures, and three carryover
+  half-lives (Sections 3.6, 4.5).
+- Traced to a structural cause: the DGP has a single true decay
+  parameter, so crossing a second carryover term with the biomarker
+  adds a free parameter with no counterpart in the truth being
+  estimated; two collinear regressors chasing one true degree of
+  freedom lose power to a correctly specified single-parameter model
+  almost by construction.
+- A further variant of the same interacted-term family is expected to
+  fail on the same structural argument, so `E5`/`E6` were replaced by
+  two specifications answering different open questions about the
+  analyst's unknown true decay half-life:
+  - `G4` asks whether estimating the half-life from the data recovers
+    the power a correctly assumed half-life would give; selects by
+    AIC over a candidate grid, reusing the logic of
+    `characterize_carryover()` (`R/carryover_analysis.R`), already
+    used for real-data analysis; addresses Block S2's question from
+    the opposite direction (estimation instead of assumption).
+  - `G5` asks a more basic question raised by the wider literature:
+    is a conditional mixed model even necessary? Senn, Julious and
+    Araujo [-@senn2014four] compared four analysis strategies for
+    ordinary N-of-1 trials and found a simple paired t-test on
+    within-patient treatment differences achieved near-nominal Type I
+    error, higher power, and comparable bias/MSE relative to a
+    carryover-adjusted mixed model, recommending the mixed model only
+    when carryover is specifically suspected. `G5` is a direct
+    biomarker-interaction extension of their preferred method.
+- This remains a bounded comparison: `G4` and `G5` were chosen because
+  each is implementable within, or trivially adjacent to, the
+  existing analysis pipeline (Section 2.7), and each answers a
+  specific question the manuscript's own results raised, not because
+  they close the wider literature gap.
+- Bayesian, GEE-as-primary-model, randomization-test, and two-stage
+  meta-analytic alternatives remain untested and are discussed as
+  future work (Section 4.6).
+
+**Section summary:**
+
+- The Tier 1 three specifications were chosen as distinct, established
+  analyst positions, not as an exhaustive survey of the N-of-1
+  literature; a wide range of model classes was left untested by
+  deliberate scoping decision.
+- An earlier interacted-carryover-term family (`E5`/`E6`) failed
+  structurally because the DGP has a single true decay parameter, and
+  was replaced by `G4` (AIC-selected half-life) and `G5`
+  (paired-difference regression), each targeting the analyst's
+  unknown-half-life problem from a different angle.
+- `G4` and `G5` remain a bounded addition, not a comprehensive methods
+  comparison; several major alternative frameworks (Bayesian, GEE,
+  randomization tests, two-stage meta-analysis) are explicitly
+  deferred to future work.
+
+## Factorial grid and parameter settings
+
+- The principal comparison crosses biomarker moderation, carryover
+  half-life, trial design, and sample size against the three Tier-1
+  analysis specifications, under covariance moderation and the
+  exponential DGP.
+
+| Parameter | Values |
+|---|---|
+| Biomarker moderation ($c_{bm}$) | 0.0, 0.30, 0.45 |
+| Carryover half-life ($t_{1/2}$) | 0.0, 0.5, 1.0 weeks |
+| Sample size ($N$) | 35, 70 |
+| Trial design | CO, N-of-1 (Hybrid), OL+BDC |
+| DGP architecture | B (covariance moderation) only |
+| Replicates per cell | 500 (target), 50 for development |
+
+- Three specifications, three half-lives, three designs, two sample
+  sizes, three biomarker levels: $3 \times 3 \times 3 \times 2 \times
+  3 = 162$ cells.
+- The $c_{bm} = 0$ row is the Type I error check against nominal 5%.
+- The $t_{1/2} = 0$ row (no carryover) gives a best-case power
+  reference at each combination of $N$, design, and $c_{bm}$, against
+  which the cost of nonzero carryover can be read off directly.
+- Decay-shape sensitivity (Figures 3 and 5) is evaluated separately,
+  at the reference cell only ($c_{bm} = 0.45$, $t_{1/2} = 1.0$
+  weeks), not across the full grid:
+  - Exponential decay and four Weibull shapes ($k \in \{0.25, 0.5,
+    2.0, 4.0\}$, Section 2.3) crossed with three specifications,
+    three designs, two sample sizes give $5 \times 3 \times 3 \times
+    2 = 90$ further cells (`23-run-decay-shape-sensitivity.R`).
+- Rationale for restricting the decay-shape axis to one cell: it is
+  the axis every other result in this manuscript holds fixed at
+  exponential, and a full crossing would multiply simulation cost
+  several times over for a comparison used in only two figures.
+- $k = 1.0$ is not a fifth Weibull condition anywhere in this
+  manuscript: it recovers the exponential form exactly (Section 2.3).
+
+**Section summary:**
+
+- The principal factorial grid has 162 cells crossing $c_{bm}$,
+  $t_{1/2}$, $N$, and trial design against the three Tier-1
+  specifications, plus a separate 90-cell decay-shape sensitivity
+  grid evaluated only at the reference cell.
+- The $c_{bm}=0$ row anchors Type I error checks; the $t_{1/2}=0$ row
+  anchors the best-case (no-carryover) power reference used
+  throughout the Results.
+
+## Inference and the cluster-robust correction {#sec-cr2}
+
+- The interaction test described so far is model-based: the SE of
+  $\beta_{bm:X}$ is read from the fitted `lme` object, valid only if
+  the assumed residual covariance is correct.
+- This assumption is not innocuous: the working covariance (patient
+  random intercept plus `corCAR1` AR(1) residual correlation) does
+  not match the covariance the DGP actually induces
+  [@pmsimstats_calibration2026], inflating the SE by roughly six to
+  ten percent and depressing the rejection rate correspondingly.
+
+$$
+\kappa = \frac{\overline{\widehat{SE}}}{SD\big(\hat\beta_{bm:X}\big)}
+       = \frac{\frac{1}{n_{sim}}\sum_{r=1}^{n_{sim}} \widehat{SE}_r}
+              {\sqrt{\frac{1}{n_{sim}-1}\sum_{r=1}^{n_{sim}}
+                \big(\hat\beta_{bm:X,r} - \bar{\hat\beta}_{bm:X}\big)^2}},
+$$
+
+- $\kappa$ is the mean model-reported SE across replicates divided by
+  the empirical SD of replicate-level point estimates.
+  - $\kappa = 1$: correctly calibrated.
+  - $\kappa > 1$: model overstates uncertainty (a conservative test).
+- At the null cell, $\kappa$ runs 1.05 to 1.10 across specifications,
+  with empirical Type I error 0.029 to 0.039 against nominal 0.05.
+- Remedy: a cluster-robust (sandwich) variance estimator, valid under
+  covariance mis-specification, deriving variance from observed
+  between-cluster variation rather than the assumed covariance.
+- Clusters are patients (eight occasions each, unique across
+  randomization paths).
+
+$$
+\widehat{\text{Var}}_{\text{sandwich}}(\hat\beta) =
+  \left(\sum_{i=1}^{N} X_i' \hat{V}_i^{-1} X_i\right)^{-1}
+  \left(\sum_{i=1}^{N} X_i' \hat{V}_i^{-1} \hat{e}_i \hat{e}_i'
+    \hat{V}_i^{-1} X_i\right)
+  \left(\sum_{i=1}^{N} X_i' \hat{V}_i^{-1} X_i\right)^{-1},
+$$
+
+- This naive (Liang-Zeger) sandwich estimator substitutes each
+  patient's own observed $\hat{e}_i\hat{e}_i'$ for the single assumed
+  $\hat{V}_i$, so a mismatched working covariance no longer biases the
+  variance estimate -- at the cost of needing enough clusters for
+  stability.
+- With only $N = 35$ or $70$ clusters, the naive sandwich form is
+  itself markedly downward-biased, so the CR2 bias-reduced estimator
+  of Bell and McCaffrey [-@bell2002bias] is used instead.
+- CR2 replaces each raw residual $\hat{e}_i$ with an adjusted residual
+  $\hat{e}_i^{\text{CR2}} = A_i \hat{e}_i$, chosen so the recomputed
+  sandwich variance is exactly unbiased under the working model (full
+  construction of $A_i$ in Bell and McCaffrey [-@bell2002bias], not
+  reproduced here).
+- Paired with Satterthwaite degrees of freedom (both via
+  `clubSandwich`); replaces only SE, reference distribution, and
+  $p$-value, leaving point estimates untouched.
+- The correction is applied in two places:
+  - A null-cell diagnostic ($c_{bm} = 0$, exponential DGP,
+    $t_{1/2} = 1.0$ weeks, Hybrid, $N = 70$, 3,000 replicates)
+    establishing whether CR2 restores nominal size (Section 3.6).
+  - A five-cell block (reference cell plus four stress cells: small
+    $N$, high autocorrelation, half-life mis-specification, 30% MCAR
+    dropout; 500 replicates each; labeled S6), asking whether
+    restoring size disturbs the ranking (same section).
+- Blocks S1-S4 are the Tier 2 sensitivity analyses of Section 3.7.
+- Block S5 (exploratory autocorrelation-by-carryover interaction) is
+  outside the present scope, reported only in the archived
+  full-scope drafts.
+
+**Section summary:**
+
+- The default model-based interaction test is mildly conservative
+  because the working covariance does not match the true
+  data-generating covariance, quantified by the calibration ratio
+  $\kappa$ (1.05-1.10 at the null cell).
+- A CR2 bias-reduced cluster-robust SE (Bell and McCaffrey), paired
+  with Satterthwaite degrees of freedom, is the chosen remedy,
+  applied at a null-cell diagnostic and a five-cell stress block
+  (S6).
+- Blocks S1-S5 constitute the remaining Tier 2 sensitivity analyses;
+  S5 is out of scope here and reported only in archived drafts.
+
+## Performance measures and computing environment
+
+- Reported per cell: Power, Type I error, Bias, Empirical SE
+  (calibrated scale), Coverage of the nominal 95% Wald CI, MSE,
+  non-convergence rate, and the MCSE of each, following Morris et al.
+  [-@morris2019simulation, Tables 5-6].
+- $n_{sim} = 500$ chosen so the MCSE on power at $p = 0.5$ would not
+  exceed 0.022.
+- No simulation runs for this manuscript at render time; it filters
+  the same 540-cell production grid summary used in the archived
+  full-scope drafts down to the 216-cell slice defined by covariance
+  moderation and the two non-linear decay forms.
+- All three specifications are fit to the same simulated dataset
+  within each cell (common random numbers), so every pairwise
+  contrast -- especially Lag-adjusted minus Unadjusted -- carries
+  reduced Monte Carlo variance relative to independent draws.
+- The Tier 2 sensitivity blocks and S6 recalibration are filtered
+  from the same shared production outputs.
+- Exact file paths and versions are given in the Reproducibility
+  section.
+
+**Section summary:**
+
+- Performance is reported on the standard Morris et al. ADEMP measure
+  set, with $n_{sim}=500$ calibrated to an MCSE ceiling of 0.022 on
+  power.
+- This manuscript performs no new simulation at render time; it reads
+  and filters existing production outputs, relying on common random
+  numbers across specifications to sharpen pairwise contrasts.
+
+# Results
+
+- All reported results derive from the same 500-replicate production
+  run used in the full-scope manuscripts, filtered to the
+  covariance-moderation architecture and the exponential and Weibull
+  decay forms.
+- The Monte Carlo SE on power does not exceed 0.022 at $p = 0.5$;
+  differences smaller than this should not be over-interpreted.
+- Coverage of the nominal 95% Wald CI is reported for the reference
+  cell.
+- Non-convergence rates are reported per cell in the tables that
+  follow.
+
+**Section summary:**
+
+- Every Results figure and table is drawn from a single 500-replicate
+  production run (covariance moderation, exponential/Weibull decay
+  only), with an MCSE ceiling of 0.022 on power that should be used
+  to judge whether any reported gap is meaningful.
+
+## Headline performance table {#sec-headline}
+
+- Table \@ref(tab:headline) reports performance at the reference cell
+  (exponential DGP, Hybrid design, $N = 70$, $c_{bm} = 0.45$), where
+  non-convergence was zero throughout.
+- Bias, MSE, and coverage columns are computed against
+  Exposure-weighted's calibrated target,
+  $\theta_{\text{true}} = -c_{bm}\sigma_{BR} = -3.6$.
+- Unadjusted and Lag-adjusted estimate a different coefficient,
+  $\text{bm:}D_{it}$; their apparent bias and under-coverage reflect
+  this estimand mismatch, not an estimator defect.
+- Those columns are comparable within the Unadjusted/Lag-adjusted
+  pair but not across to Exposure-weighted.
+- For the three-way comparison, power and Type I error (properties of
+  the test rather than the coefficient) are the measures to rely on.
+
+```{r headline, echo = FALSE}
+suppressPackageStartupMessages({library(dplyr)})
+hd <- readRDS(here::here(
+  'analysis/data/02-grid-summary.rds'))$summary |>
+  filter(carryover_form == 'exponential', dgp_arch == 'mvn',
+         design == 'Hybrid', N == 70, c_bm == 0.45,
+         spec %in% spec_order) |>
+  mutate(
+    Specification = spec_factor(spec),
+    `t1/2` = t1half,
+    `Power (MCSE)` = sprintf('%.3f (%.3f)', power, mc_se_power),
+    `Bias (MCSE)` = sprintf('%+.3f (%.3f)', bias, mc_se_bias),
+    `Empirical SE` = sprintf('%.3f', empirical_se),
+    `Coverage (MCSE)` = sprintf('%.3f (%.3f)',
+                                  coverage, mc_se_coverage),
+    `MSE (MCSE)` = sprintf('%.3f (%.3f)', mse, mc_se_mse),
+    `Non-conv` = sprintf('%.3f', non_convergence_rate)
+  ) |>
+  arrange(`t1/2`, Specification) |>
+  select(`t1/2`, Specification, `Power (MCSE)`, `Bias (MCSE)`,
+         `Empirical SE`, `Coverage (MCSE)`, `MSE (MCSE)`,
+         `Non-conv`)
+
+knitr::kable(
+  hd, booktabs = TRUE,
+  caption = 'Headline performance at the reference cell
+    (exponential DGP, Hybrid design, $N = 70$,
+    $c_{bm} = 0.45$, $n_{sim} = 500$). Power is the rejection rate of
+    $H_0: \\beta_{bm:X} = 0$ at $\\alpha = 0.05$, the primary outcome
+    of this manuscript. Bias is mean(estimate $-$
+    $\\theta_{\\text{true}}$) on the calibrated effect-size scale,
+    $\\theta_{\\text{true}} = -c_{bm} \\cdot \\sigma_{BR} = -3.6$
+    (per docs/19 calibration; see the estimand-mismatch caveat above
+    for Unadjusted/Lag-adjusted). Empirical SE is the standard
+    deviation of the point estimates across replicates, the actual
+    sampling variability of the estimator, as distinct from
+    whatever SE any single fit reports (the comparison the
+    calibration ratio $\\kappa$ of Section 2.7 is built on). Coverage
+    is the proportion of replicates whose nominal 95\\% Wald CI
+    contains $\\theta_{\\text{true}}$; the low Unadjusted/Lag-adjusted
+    values reflect the same estimand mismatch as Bias, not
+    miscalibrated inference. MSE is bias$^2$ + Empirical SE$^2$, an
+    overall accuracy summary. Non-conv is the fraction of replicates
+    where `nlme::lme()` failed to converge (zero throughout at this
+    cell). MCSEs are reported per Morris et al. (2019, Table 6).'
+) |>
+  kableExtra::kable_styling(latex_options = "scale_down")
+```
+
+**Section summary:**
+
+- The headline table anchors the manuscript's reference cell
+  (exponential, Hybrid, $N=70$, $c_{bm}=0.45$); bias/MSE/coverage
+  columns are valid only within the Unadjusted/Lag-adjusted pair or
+  within Exposure-weighted alone, because the two families target
+  different estimands.
+- Power and Type I error are the only measures directly comparable
+  across all three Tier-1 specifications.
+
+## Tier 1 grid overview
+
+- Figures \@ref(fig:fig-hendrickson-a) through
+  \@ref(fig:fig-hendrickson-c) give a full-grid heatmap view of the
+  Tier 1 results: trial design as column facets, $N$ as row-block
+  facets, analysis specification as the row axis within each block,
+  blue-to-red fill scale for power.
+- Each panel fixes two grid dimensions and varies a third, since no
+  single 2D heatmap can display all four simultaneously.
+- Panels A and B report all nine G1-G9 specifications (a dedicated
+  simulation restricted to exponential DGP and Architecture B,
+  $n_{sim} = 100$, preliminary).
+- Panel C retains the original three (G1-G3), the only panel varying
+  DGP decay form, an axis the G1-G9 extension did not re-run.
+
+```{r fig-hendrickson-a, echo = FALSE, fig.cap = "Tier 1 grid, biomarker-effect axis, all nine G1-G9 specifications: power by trial design (columns), $N$ (row blocks), and analysis specification (rows within block), across $c_{bm} \\in \\{0, 0.30, 0.45\\}$ at $t_{1/2} = 1.0$ weeks, exponential DGP, Architecture B (preliminary $n_{sim} = 100$).", out.width = "95%"}
+knitr::include_graphics("../../figures/02xs-heatmap-hendrickson-a.pdf")
+```
+
+- Two features visible at a glance in Panel A that the headline table
+  only shows cell by cell:
+  - `G1` and `G2` track each other closely at every biomarker level
+    within every design/$N$ block, differing by at most 0.03 (within
+    Monte Carlo noise at this preliminary $n_{sim}=100$), matching
+    the higher-precision Section 3.4 result of numerical identity to
+    two decimal places.
+  - The Exposure-weighted family (`G3`, `G4`, and CR2 variants `G8`,
+    `G9`) separates from `G1`/`G2`/`G6`/`G7` only in Hybrid and OL+BDC
+    columns; in the CO column the whole family underperforms at every
+    biomarker level past zero.
+- At the reference cell ($c_{bm}=0.45$, $t_{1/2}=1.0$): `G4` reaches
+  0.48 against 0.86-0.89 for `G1`/`G2`/`G6`/`G7` -- the
+  design-dependence of Section 3.4, now visible across all nine
+  specifications.
+- Whether this separation depends on carryover being present at all
+  cannot be shown by Panel A alone, since it fixes $t_{1/2}=1.0$
+  throughout.
+
+```{r fig-hendrickson-b, echo = FALSE, fig.cap = "Tier 1 grid, carryover-axis, all nine G1-G9 specifications: power by trial design (columns), $N$ (row blocks), and analysis specification (rows within block), across $t_{1/2} \\in \\{0, 0.5, 1.0\\}$ weeks at $c_{bm} = 0.45$, exponential DGP, Architecture B (preliminary $n_{sim} = 100$).", out.width = "95%"}
+knitr::include_graphics("../../figures/02xs-heatmap-hendrickson-b.pdf")
+```
+
+- Panel B answers the above, for Hybrid and OL+BDC:
+  - At $t_{1/2}=0$ the Exposure-weighted family's separation from
+    `G1`/`G2`/`G6`/`G7` disappears in both designs (all nine sit at
+    0.94-1.00), opening up only as half-life increases -- confirming
+    the separation is specifically a carryover effect.
+  - Under CO the picture differs: `G4` and `G9` are already collapsed
+    at $t_{1/2}=0$ (0.48 and 0.47, against 0.88-0.92 for the rest),
+    before carryover enters at all -- the AIC mis-selection pathology
+    of Block S9, predating $t_{1/2}>0$ rather than growing from it.
+- Ranking result from Panel B: `G9` and `G8` lead in a near-tie at
+  Hybrid and OL+BDC reference cells (both around 0.88 at Hybrid, 0.77
+  to 0.74 at OL+BDC).
+- `G5` (Paired-difference) is the strongest non-`G1`/`G2`/CR2-variant
+  specification at CO (0.77, versus 0.48-0.51 for the
+  Exposure-weighted family there), consistent with `G5` discarding
+  the carryover representation that costs the Exposure-weighted
+  family power under CO.
+
+```{r fig-hendrickson-c, echo = FALSE, fig.cap = "Tier 1 grid, decay-shape axis: power by trial design (columns), $N$ (row blocks), and analysis specification (rows within block), across the five DGP decay-shape levels (exponential, Weibull $k \\in \\{0.25, 0.5, 2.0, 4.0\\}$) at $c_{bm} = 0.45$, $t_{1/2} = 1.0$ weeks.", out.width = "95%"}
+knitr::include_graphics("../../figures/02xs-heatmap-hendrickson-c.pdf")
+```
+
+- Panel C shows the Exposure-weighted row's advantage in Hybrid and
+  OL+BDC columns is not uniform across decay shape:
+  - Widens substantially on the light-tailed side ($k=2.0$, $4.0$),
+    reaching $+0.14$ to $+0.21$ absolute over Unadjusted/Lag-adjusted
+    at OL+BDC.
+  - Narrows on the heavy-tailed side, disappearing at the two most
+    extreme shapes ($k=0.25$, $0.5$): statistically indistinguishable
+    at OL+BDC (gaps of $0.00$ to $0.02$, well under one MCSE), barely
+    separated at Hybrid ($+0.01$ to $+0.04$).
+- This is the decay-form sensitivity of Section 3.5, shown here
+  across the full grid rather than at one cell.
+
+**Section summary:**
+
+- The three-panel Tier 1 heatmap view confirms, across the full grid,
+  that G1/G2 are numerically indistinguishable everywhere, and that
+  the Exposure-weighted family's advantage is confined to Hybrid/
+  OL+BDC designs, growing with carryover severity, and dependent on
+  decay-shape assumptions.
+- CO is uniformly unfavorable to the Exposure-weighted family, with
+  `G4`/`G9` showing an AIC mis-selection pathology visible even
+  without carryover ($t_{1/2}=0$).
+
+## Matched-decay baseline
+
+- At the matched cell (exponential DGP, exposure-weighted analysis,
+  $N=70$, $c_{bm}=0.45$, Hybrid design), power declines:
+  - $0.988 \pm 0.005$ at $t_{1/2}=0$.
+  - $0.948 \pm 0.010$ at $t_{1/2}=0.5$.
+  - $0.860 \pm 0.016$ at $t_{1/2}=1.0$ weeks.
+  - (point estimate $\pm$ MCSE, $n_{sim}=500$; all 500 replicates
+    converged at every half-life in this cell)
+- A previously reported comparison to Hendrickson et al.'s power of
+  0.82 for a comparable cell [@hendrickson2020] is withdrawn.
+- Reason: in the reference implementation, analysis-side and
+  data-generating carryover parameters are set independently; the
+  drivers reproducing the original figures supply a half-life only to
+  the data-generating step, leaving the analysis-side half-life at
+  its default of zero.
+- At a zero half-life, the exposure-decayed predictor collapses onto
+  the binary on-drug indicator, so the reference analysis is actually
+  Unadjusted, not Exposure-weighted.
+- The appropriate comparator is therefore the unadjusted power at the
+  same cell, $0.766$.
+- The grids also differ further on interaction strength and
+  half-life, so "the same cell" was approximate in any case.
+- What the published figure was computed under has not been
+  resolved; no claim of agreement or disagreement is made.
+- This does not affect the rest of the manuscript, since analysis
+  specifications are compared against one another within a single
+  simulation under common random numbers.
+
+**Section summary:**
+
+- A previously claimed numerical match to Hendrickson et al.'s
+  published power (0.82) is withdrawn: the reference implementation's
+  half-life default of zero means the true comparator is the
+  Unadjusted power (0.766), not Exposure-weighted.
+- This unresolved external-comparison issue does not affect any
+  internal comparison in the manuscript.
+
+## Power by analysis specification
+
+```{r fig-power-by-spec, echo = FALSE, fig.cap = "Power versus carryover half-life under the exponential DGP, by analysis specification and trial design.", out.width = "95%"}
+knitr::include_graphics("../../figures/02xs-power-by-spec.pdf")
+```
+
+- Two features of Figure \@ref(fig:fig-power-by-spec) carry the
+  substance of this study:
+  - Unadjusted and Lag-adjusted curves lie on top of one another in
+    every panel and every half-life: $0.766$ and $0.770$ at
+    $t_{1/2}=1.0$ weeks at the reference cell; across all 216 cells
+    the mean difference is 0.003, with mean bias, MSE, coverage
+    agreeing to three decimal places. This is read as a clean null:
+    the two share an estimand, are fitted to the same simulated
+    datasets, and differ by exactly one nuisance term (the
+    lagged-treatment term contributes nothing, Section 4.1).
+  - The three specifications give nearly identical power at
+    $t_{1/2}=0$ (no carryover), diverging as half-life increases, with
+    Exposure-weighted separating from the other two.
+- Exposure-weighted retains a modest but consistent advantage in
+  Hybrid and OL+BDC designs from $t_{1/2}=0.5$ weeks onward.
+- Under crossover, Exposure-weighted is markedly inferior to both
+  alternatives ($0.488$ against $0.830$ for Unadjusted).
+- Proposed mechanism: the within-subject correlation in a crossover
+  trial already carries most of the signal the decaying predictor
+  targets, so it gains little there while its down-weighting of
+  off-drug observations works against it (Section 4).
+
+**Section summary:**
+
+- Unadjusted and Lag-adjusted are statistically indistinguishable at
+  every half-life and every design, the manuscript's cleanest null
+  result.
+- Exposure-weighted's advantage over the other two grows with
+  half-life in Hybrid/OL+BDC but reverses sharply under crossover
+  (0.488 vs 0.830), attributed to crossover's within-subject
+  correlation already capturing the signal the decayed predictor
+  targets.
+
+## Decay-form mis-specification
+
+```{r fig-heatmap-mismatch, echo = FALSE, fig.cap = "Power at the critical cell ($t_{1/2} = 1.0$ weeks, Hybrid, $N = 70$, $c_{bm} = 0.45$) across five DGP decay forms (rows) and specifications (columns). Fill scale is stretched to the observed range, not [0,1], and not comparable to other figures.", out.width = "85%"}
+knitr::include_graphics("../../figures/02xs-heatmap-matched-vs-mismatched.pdf")
+```
+
+- The exponential-DGP/Exposure-weighted cell is the matched reference,
+  power $0.850 \pm 0.016$ in this figure's own (dedicated
+  decay-shape) simulation; the $0.860$ reported for the nominally
+  same cell in Table \@ref(tab:headline) and Figure
+  \@ref(fig:fig-power-by-spec) comes from an independent draw of the
+  same DGP, agreeing within one MCSE.
+- Unadjusted and Lag-adjusted columns, invariant to assumed decay form
+  by construction, are near-identical throughout, so variation down
+  those columns reflects data-generating decay and Monte Carlo noise
+  only.
+- The Exposure-weighted row gives the cost of assuming exponential
+  decay when the truth is Weibull, and it is asymmetric:
+  - Light-tailed side ($k=2.0$): $0.880$ against $0.788$ for both
+    alternatives ($+0.092$).
+  - Light-tailed side ($k=4.0$): $0.930$ against $0.786$/$0.788$
+    ($+0.142$ to $+0.144$).
+  - Heavy-tailed side ($k=0.5$): $0.708$ against $0.676$ and
+    $0.672$ ($+0.032$ to $+0.036$, roughly 1.5 MCSE).
+  - Heavy-tailed side ($k=0.25$, most extreme): $0.568$ against
+    $0.558$ and $0.554$ ($+0.010$ to $+0.014$, well under one MCSE).
+- Interpretation: the advantage erodes to nothing under a sufficiently
+  heavy-tailed mis-specification, rather than reversing (Section 4).
+
+**Section summary:**
+
+- Exposure-weighted's advantage under exponential-decay assumption
+  widens on the light-tailed Weibull side (up to $+0.144$ at $k=4.0$)
+  and shrinks toward zero on the heavy-tailed side, effectively
+  vanishing at the two most extreme shapes examined.
+
+## Type I error control and cluster-robust recalibration
+
+- Empirical Type I error at the $c_{bm}=0$ cells of Figure
+  \@ref(fig:fig-hendrickson-a) sits uniformly below nominal 0.05 for
+  all nine specifications, across every design and $N$ examined.
+- This is not sampling noise but the model-based test's conservatism
+  (Section 2.7), from a working covariance that does not match the
+  data-generating one.
+- Because the conservatism is uniform across specifications, it does
+  not disturb the comparison among them; the cluster-robust
+  recalibration below confirms CR2 restores nominal rejection without
+  changing which specification leads.
+- Also establishes that the Section 3.4 null result is not an
+  artifact of differential test size, since Unadjusted and
+  Lag-adjusted are conservative to the same degree.
+- Table \@ref(tab:tab-type1-cr2) makes this explicit at the null cell,
+  at a higher replicate count (3,000) than the Tier 1 grid affords.
+
+```{r tab-type1-cr2, echo = FALSE}
+suppressPackageStartupMessages(library(dplyr))
+t1 <- readRDS(here::here(
+  'analysis/scripts/carryover-sensitivity/output/diag-null-type1-cr2.rds'))
+tab <- t1$summary |>
+  filter(spec %in% spec_order) |>
+  arrange(match(spec, spec_order)) |>
+  transmute(
+    Specification    = spec_factor(spec),
+    `$\\kappa$ model` = sprintf('%.2f', mod_se_ratio),
+    `Type I model`    = sprintf('%.3f', type1_mod),
+    `$\\kappa$ CR2`    = sprintf('%.2f', cr2_se_ratio),
+    `Type I CR2`      = sprintf('%.3f', type1_cr2))
+knitr::kable(tab, booktabs = TRUE, escape = FALSE,
+  caption = 'Conservatism of the model-based interaction test and its
+    cluster-robust correction, at the null cell ($c_{bm} = 0$,
+    exponential DGP, $t_{1/2} = 1.0$ weeks, Hybrid design, $N = 70$,
+    3{,}000 replicates).
+    $\\kappa$ is the calibration ratio defined in Section 2.7.
+    $\\kappa > 1$ indicates a conservative
+    test. All three specifications are conservative under the
+    model-based test, most so Exposure-weighted ($\\kappa = 1.10$,
+    Type I $= 0.029$). The CR2 bias-reduced cluster-robust standard
+    error restores $\\kappa$ to near one and Type I to nominal (0.045
+    to 0.049) for all three.')
+```
+
+```{r tab-s6, echo = FALSE}
+suppressPackageStartupMessages({library(dplyr); library(tidyr)})
+s6 <- readRDS(here::here(
+  'analysis/scripts/carryover-sensitivity/output/diag-s6-cr2.rds'))
+ord <- c('Reference (N=70)', 'Small N (N=35)',
+         'High autocorr (rho=0.9)',
+         'Half-life mis-spec (assume 0.25)', '30% MCAR dropout')
+lab <- c('Reference, $N=70$', 'Small $N=35$',
+         'High autocorr, $\\rho=0.9$', 'Half-life mis-spec',
+         '30\\% MCAR dropout')
+## Both gaps are computed directly from s6$summary, which carries
+## per-specification power under each inference, rather than reused
+## from the pre-computed s6$gaps object.
+gaps <- s6$summary |>
+  filter(spec %in% spec_order) |>
+  select(cell, spec, power_mod, power_cr2) |>
+  pivot_wider(names_from = spec,
+              values_from = c(power_mod, power_cr2)) |>
+  transmute(cell,
+            gap_mod_ew = power_mod_E2 - power_mod_E1,
+            gap_cr2_ew = power_cr2_E2 - power_cr2_E1,
+            gap_mod_la = power_mod_E3 - power_mod_E1,
+            gap_cr2_la = power_cr2_E3 - power_cr2_E1)
+tab <- s6$summary |>
+  filter(spec == 'E2') |>
+  left_join(gaps, by = 'cell') |>
+  mutate(o = match(cell, ord)) |>
+  arrange(o) |>
+  transmute(
+    Cell = lab[o],
+    `$\\kappa$ model` = sprintf('%.2f', mod_se_ratio),
+    `$\\kappa$ CR2`   = sprintf('%.2f', cr2_se_ratio),
+    `EW model`        = sprintf('%.3f', power_mod),
+    `EW CR2`          = sprintf('%.3f', power_cr2),
+    `EW$-$U model`    = sprintf('%+.3f', gap_mod_ew),
+    `EW$-$U CR2`      = sprintf('%+.3f', gap_cr2_ew),
+    `LA$-$U model`    = sprintf('%+.3f', gap_mod_la),
+    `LA$-$U CR2`      = sprintf('%+.3f', gap_cr2_la),
+    `CR2 df`          = sprintf('%.0f', cr2_df))
+knitr::kable(tab, booktabs = TRUE, escape = FALSE,
+  caption = 'Cluster-robust recalibration at the reference cell and
+    four stress cells (500 replicates, $c_{bm} = 0.45$). EW is
+    Exposure-weighted,
+    LA is Lag-adjusted, U is Unadjusted. $\\kappa$ is the calibration
+    ratio of Section 2.7, here for Exposure-weighted. A value above
+    one is a
+    conservative test. The two gap pairs give each alternative
+    against the unadjusted benchmark under each inference. CR2 df is
+    the mean Satterthwaite degrees of freedom for the cluster-robust
+    test on Exposure-weighted. Computed with
+    \\texttt{clubSandwich}.') |>
+  kableExtra::kable_styling(latex_options = "scale_down")
+```
+
+- Table \@ref(tab:tab-s6) confirms this directly: model-based
+  rejection rate is below nominal across all five S6 cells and all
+  three specifications, while CR2 restores it to within the Monte
+  Carlo band around 0.05.
+- In information-rich cells, $\kappa$ runs 1.07 to 1.26 under the
+  model-based test, restored to about one under CR2, recovering two
+  to five points of power.
+- The Exposure-weighted advantage against the unadjusted benchmark,
+  under model-based vs CR2 inference:
+  - Reference cell: $+0.080$ to $+0.092$.
+  - Small-$N$ cell: $+0.066$ to $+0.086$.
+  - Half-life mis-specification cell: $+0.010$ to $+0.024$.
+  - High autocorrelation: narrows, $+0.052$ to $+0.032$ (still
+    leads).
+  - 30% MCAR dropout: small, $+0.010$ (read as the S3 finding
+    restated: dropout removes the off-drug information the advantage
+    depends on).
+- The Lag-adjusted gap is within $\pm 0.010$ of zero at every cell
+  under either inference, corroborating the Section 3.4 null under a
+  second procedure and at four additional stress cells.
+- This recalibration was validated only in the Hybrid, $N=70$ cells,
+  and should not be extended to the crossover design, where
+  Exposure-weighted does not lead in the first place.
+
+**Section summary:**
+
+- Model-based Type I error is uniformly conservative (below nominal
+  0.05) across all specifications and both grid extremes; CR2
+  restores nominal Type I error without disturbing the specification
+  ranking.
+- CR2 preserves or slightly widens the Exposure-weighted advantage at
+  most stress cells (reference, small $N$, half-life mis-spec) but
+  narrows it under high autocorrelation and dropout; this
+  recalibration was validated only for Hybrid at $N=70$.
+
+## Sensitivity analyses
+
+- Nine Tier 2 blocks (S1-S4, S7, S8, S9, S10, S11) perturb one axis at
+  a time around a common reference cell (Hybrid, $N=70$,
+  $c_{bm}=0.45$, exponential DGP, $t_{1/2}=1.0$), holding remaining
+  factors fixed.
+- Two exceptions: S9 changes the trial design itself; S11 sets
+  $c_{bm}=0$.
+- A tenth block, S6, applies the cluster-robust correction of Section
+  3.6 at the same cell plus four stress cells; an eleventh, S5, is
+  exploratory and reported only in the archived full-scope drafts.
+- Blocks are reported separately and are not pooled with Tier 1 or
+  with each other.
+- Reporting depth varies by block:
+  - S1, S4, S10, S11: one-paragraph summary here only, full detail in
+    Supplement.
+  - S2, S8: headline finding plus summary paragraph here, remainder
+    of detail in Supplement.
+
+### S1: within-factor autocorrelation
+
+- All nine specifications gain power monotonically with
+  autocorrelation $\rho \in \{0.5, 0.7, 0.8, 0.9\}$.
+- The Exposure-weighted advantage over Unadjusted/Lag-adjusted
+  (roughly 0.05 to 0.08 absolute power) is preserved at every level
+  examined.
+- Suggests autocorrelation strength and specification choice act
+  additively rather than interacting.
+- Lag-adjusted tracks Unadjusted throughout (Supplement, Section S1).
+
+### S2: analyst-truth half-life mismatch
+
+- Block S2 crosses two true half-lives ($t_{1/2} \in \{0.5, 1.0\}$
+  weeks) with four analyst-assumed values
+  ($\hat{t}_{1/2} \in \{0.25, 0.5, 1.0, 2.0\}$ weeks).
+- Penalty for an incorrect assumption is modest throughout
+  (Exposure-weighted stays within about 7 points of its
+  correctly-specified power at every cell but one).
+- Asymmetry: under-assuming the half-life is safer than
+  over-assuming it.
+- Explanation via the limiting-case relationship of Section 2.4:
+  shrinking $\hat{t}_{1/2}$ drives the predictor toward the binary
+  indicator (remains serviceable); inflating it drives the predictor
+  toward a constant, at which the on-off contrast and the estimand
+  itself degenerate.
+- Full cell-by-cell detail, figures, and the nine-specification
+  extension are in the Supplement, Section S2.
+
+### S3: dropout
+
+```{r fig-sens-s3, echo = FALSE, fig.cap = "Power at dropout rates $\\in \\{0, 0.1, 0.2, 0.3\\}$ under MCAR and MAR mechanisms.", out.width = "80%"}
+knitr::include_graphics("../../figures/02xs-sens-S3.pdf")
+```
+
+```{r fig-heatmap-sens-s3, echo = FALSE, fig.cap = "Block S3: power by dropout rate and analysis specification, faceted by dropout mechanism, same data as the line plot above. The MAR arm has no $0\\%$ cell (Section 3.7); it shares the MCAR reference cell.", out.width = "80%"}
+knitr::include_graphics("../../figures/02xs-heatmap-sens-S3.pdf")
+```
+
+```{r fig-heatmap-sens-s3-g9, echo = FALSE, fig.cap = "Block S3 extended to all nine G1-G9 specifications (preliminary $n_{sim} = 100$).", out.width = "90%"}
+knitr::include_graphics("../../figures/02xs-heatmap-sens-S3-g9.pdf")
+```
+
+- All three specifications lose power monotonically as dropout
+  increases.
+- At the MCAR baseline (N=70, no dropout), Exposure-weighted gives
+  $0.866 \pm 0.015$ against $0.764 \pm 0.019$ for the other two.
+- At 30% MCAR dropout, all three collapse to $0.122$ to $0.148$.
+- The Exposure-weighted advantage narrows steadily as dropout
+  worsens: about 0.10 absolute at zero dropout, 0.07 at 10%, 0.04 at
+  20%, 0.03 at 30% under MCAR, narrowing further under MAR at the
+  highest rate.
+- Consistent with the advantage originating in the exposure-weighted
+  contrast from off-drug observations, which contracts as those
+  observations are preferentially lost.
+- The advantage is preserved at dropout of 20% or below.
+- Lag-adjusted again tracks Unadjusted throughout (largest
+  discrepancy 0.010).
+
+### S4: biomarker-moderation effect-size curve
+
+- The power curve is sigmoidal for all three original specifications
+  across $c_{bm} \in \{0, 0.10, 0.20, 0.30, 0.45, 0.60\}$, saturating
+  once $c_{bm} \geq 0.45$.
+- The Exposure-weighted advantage over the unadjusted benchmark is
+  largest at intermediate effect sizes ($+0.10$ absolute at
+  $c_{bm}=0.45$), shrinking as all three approach the ceiling.
+- Implication: the advantage matters most for trials targeting a
+  moderate biomarker-treatment interaction.
+- Full curve and nine-specification extension: Supplement, Section
+  S4.
+
+### S7: alternative-paradigm specifications
+
+- An earlier version of this block tested two carryover terms crossed
+  with the biomarker:
+  - `E5`: $\text{Sx} \sim bm + t + D_{it} + \text{bm:}D_{it} +
+    L_{it} + \text{bm:}L_{it}$.
+  - `E6`: $\text{Sx} \sim bm + t + D_{it} + \text{bm:}D_{it} +
+    t_{sd} + \text{bm:}t_{sd}$.
+- Motivated by Section 4.1's observation that a nuisance-main-effect
+  carryover term cannot repair the interaction's attenuation.
+- Both underperformed Unadjusted at every cell examined, evaluated by
+  a joint 2-df Wald test (each adds a second interaction
+  coefficient).
+- Traced to a structural cause (Section 4.6): the DGP has a single
+  true decay parameter, so a second, DGP-unmotivated interaction
+  coefficient mostly adds estimation noise.
+- `E5`/`E6` were replaced by `G4` (AIC-selected half-life) and `G5`
+  (paired-difference regression), both single-coefficient tests,
+  unlike `E5`/`E6`.
+
+```{r tab-s7, echo = FALSE}
+suppressPackageStartupMessages(library(dplyr))
+s7 <- readRDS(here::here(
+  'analysis/scripts/carryover-sensitivity/output/09-sensitivity-s7.rds'))
+lab7 <- c(E1 = 'G1: Unadjusted', E3 = 'G2: Lag-adjusted',
+          E2 = 'G3: Exposure-weighted', E7 = 'G4: AIC-selected t1/2',
+          E9 = 'G5: Paired-difference')
+tab <- s7$summary |>
+  mutate(o = match(spec, names(lab7))) |>
+  arrange(o) |>
+  transmute(
+    Specification = lab7[spec],
+    `Power (MCSE)` = sprintf('%.3f (%.3f)', power, mc_se_power),
+    `Mean selected t1/2` = ifelse(is.na(mean_best_t_half), '--',
+                                   sprintf('%.2f', mean_best_t_half))
+  )
+knitr::kable(tab, booktabs = TRUE, escape = FALSE,
+  caption = 'Block S7: all five G1-G5 specifications at the
+    reference cell (Hybrid, $N = 70$, $c_{bm} = 0.45$,
+    $t_{1/2} = 1.0$, exponential DGP, $n_{sim} = 500$, all
+    replicates converged). G4 targets bm:Dbc at the AIC-selected
+    half-life (candidate grid 0.25, 0.5, 1.0, 2.0); G5 targets the
+    slope of the patient-level diff~bm regression. Neither is the
+    same estimand as bm:Db (G1/G2), so only power is comparable
+    across rows. Mean selected t1/2 is the average AIC-chosen
+    half-life for G4 across replicates, against a true half-life of
+    1.0.') |>
+  kableExtra::kable_styling(latex_options = "scale_down")
+```
+
+```{r fig-heatmap-sens-s7, echo = FALSE, fig.cap = "Block S7: power by analysis specification, same figures as the table above.", out.width = "75%"}
+knitr::include_graphics("../../figures/02xs-heatmap-sens-S7.pdf")
+```
+
+- Table \@ref(tab:tab-s7) gives a genuinely different result from the
+  retired `E5`/`E6` comparison: `G4` and `G5` both beat Unadjusted at
+  this cell, and `G4` edges out `G3` (Exposure-weighted) too.
+- Ranking at this cell: `G4` leads ($0.832$), `G3` follows ($0.826$),
+  then `G5` ($0.804$), then `G1`/`G2` tied at the back ($0.748$ each,
+  the Section 3.4 null replicated once more).
+- `G4`'s AIC selection is imperfect but usefully informative: mean
+  selected half-life is $1.31$ weeks against a true value of $1.0$,
+  with the selection distribution concentrating on the true value and
+  its immediate neighbor (a computed percentage choosing $1.0$ or
+  $2.0$ weeks, per the inline `r` computation in the source). This is
+  close enough to the truth that `G4` slightly exceeds `G3`'s own
+  oracle-half-life power at this cell.
+- Notable result in `G5`: it discards the repeated-measures structure,
+  correlation model, and any carryover representation entirely, and
+  still beats `G1`/`G2`, echoing Senn, Julious and Araujo's
+  [-@senn2014four] finding that simplicity is not obviously costly
+  for N-of-1 treatment-effect estimation.
+- These results should not be read as general: Block S9, next, tests
+  whether the ranking survives a different trial design, and it does
+  not for every specification equally.
+
+### S8: architecture sensitivity of the specification ranking
+
+- Every result reported to this point (Tier 1 and blocks S1-S7 alike)
+  is restricted to Architecture B (covariance moderation), the
+  manuscript's stated scope (Section 2.3).
+- Block S8 asks a narrower question than a full architecture
+  comparison (the purpose of the companion manuscript
+  [@pmsimstats_dgp_architectures2026]): does the specification
+  ranking established under Architecture B hold under Architecture A
+  (mean moderation), or is the choice of carryover representation
+  itself architecture-dependent?
+- Refits the five S7 specifications at the same reference cell under
+  both architectures, at three half-lives ($t_{1/2} \in \{0, 0.5,
+  1.0\}$).
+- The S7 result (`G4`/`G5` both beating `G1`) turns out to be
+  architecture-specific, joining Exposure-weighted in a pattern that
+  grows with carryover severity rather than switching on at a
+  threshold.
+- Under Architecture B at $t_{1/2}=1.0$: `G4` leads ($0.850$), ahead
+  of `G5` ($0.842$), `G3` ($0.836$), and `G1`/`G2` ($0.760$).
+- Under Architecture A the pattern reverses for `G4` and `G3` alike:
+  `G1`/`G2` lead ($0.972$/$0.976$), `G5` trails only slightly
+  ($0.964$), `G3` ($0.946$) and `G4` ($0.950$) trail by 2 to 3
+  points -- a real, if modest, reversal.
+- Matches the archived full-scope drafts' finding that
+  Exposure-weighted is marginally dominated under mean moderation
+  (Section 4.6); `G4` inherits the same sensitivity, sharing
+  Exposure-weighted's formula.
+- `G5` is comparatively more robust to architecture, never reversing
+  to a large disadvantage either way.
+- Lag-adjusted (`G2`) remains statistically indistinguishable from
+  Unadjusted (`G1`) under both architectures at every half-life,
+  extending Section 3.4's clean null to Architecture A as well.
+- The manuscript's one specification recommendation (exposure
+  weighting in Hybrid/OL+BDC) is therefore conditional on
+  Architecture B and grows more important as carryover worsens; the
+  same qualification now extends to `G4`.
+- Full cell-by-cell detail, table, and both architecture panels:
+  Supplement, Section S8.
+
+### S9: does the reference-cell ranking survive under CO?
+
+- Blocks S7-S8 found `G4` and `G5` both beat Unadjusted at the
+  Hybrid reference cell under Architecture B, with `G4` slightly
+  exceeding Exposure-weighted (`G3`) itself.
+- Block S9 asks whether that ranking is specific to Hybrid's short,
+  compressed washout, refitting all five G1-G5 specifications under
+  CO (off-drug arm spanning 2.5 to 20 weeks post-discontinuation,
+  Section 2.2) at two true half-lives.
+
+```{r fig-heatmap-sens-s9, echo = FALSE, fig.cap = "Block S9: power under the CO design at two true half-lives, all five G1-G5 specifications.", out.width = "80%"}
+knitr::include_graphics("../../figures/02xs-heatmap-sens-S9.pdf")
+```
+
+- It is not design-general, and including `G3` changes the diagnosis
+  reached from `G4` alone.
+- At $t_{1/2}=1.0$: `G1`/`G2` lead ($0.834$/$0.838$); `G5` trails
+  moderately ($0.750$); `G3` and `G4` both collapse, to $0.482$ and
+  $0.474$ respectively, statistically indistinguishable from each
+  other (gap $0.008$, well under one MCSE).
+- At $t_{1/2}=0.5$ the same pattern holds ($0.866$/$0.864$ for
+  `G1`/`G2`, $0.778$ for `G5`, $0.546$/$0.552$ for `G3`/`G4`, again
+  indistinguishable).
+- Because `G3` uses the *true* half-life (not estimated), its
+  near-identical collapse shows `G4`'s CO failure is inherited almost
+  entirely from Exposure-weighted's own established weakness under
+  this design (Section 3.4: $0.488$ versus $0.830$), not created by
+  the AIC-selection step.
+- A separately confirmed pathology exists in the selection step
+  itself: it concentrates overwhelmingly on the largest candidate
+  half-life ($2.0$ weeks, chosen in 483 of 500 replicates at
+  $t_{1/2}=1.0$, 435 of 500 at $t_{1/2}=0.5$, regardless of true
+  half-life), consistent with a weakly informative likelihood surface
+  when off-drug occasions are few and widely spaced.
+- But that mis-selection costs `G4` essentially nothing beyond what
+  `G3` already loses under CO with the correct half-life in hand; the
+  dominant story is the continuous decayed predictor's mismatch with
+  CO's design generally, with AIC selection an identified but
+  practically minor addition.
+- `G5`'s milder reversal has no comparable mechanical explanation: it
+  reflects that CO's own within-subject contrast already captures
+  most of the signal a between-patient paired-difference regression
+  is built to extract, so discarding the repeated-measures structure
+  costs more under CO than under Hybrid.
+- None of `G3`, `G4`, `G5`'s Hybrid-cell behavior is design-general;
+  the design-specific guidance in Section 4.5 should be read
+  accordingly: `G3`/`G4` should not be used under CO regardless of
+  whether the half-life is assumed or estimated.
+
+### S10: does a CR2 correction change the ranking among G1-G9?
+
+- Section 3.6 (Block S6) showed the model-based interaction test is
+  mildly conservative and CR2 recovers two to five points of power
+  without disturbing the ranking among `G1`, `G3`, `G2`; that
+  correction had not been applied to `G4` or `G5`.
+- This block asks whether CR2 helps `G4` and `G1`/`G2` the way it
+  already helps `G3`, and whether it changes which specification
+  leads at the Hybrid, Architecture B reference cell.
+- Uses the compact `G1`-`G9` naming layer: `G6`-`G9` cross CR2 with
+  `G1`, `G2`, `G4`, `G3`. `G5` has no CR2 variant (paired-difference
+  regression collapses to one row per patient before fitting, leaving
+  no cluster structure for CR2 to correct).
+- CR2 helps every specification it was applied to:
+  - `G1`/`G2` (both $0.748$ model-based) rise to `G6` $0.776$ and
+    `G7` $0.764$.
+  - The ranking among the five base specifications is unchanged by
+    these gains, since `G1`/`G2` remain well below `G3`-`G5`
+    regardless.
+- What does change the ranking: `G9` -- CR2 lifts `G4` ($0.832$
+  model-based) to $0.870$, a $3.8$-point gain, the largest CR2
+  correction observed anywhere in this manuscript, enough for `G9`
+  to overtake every other specification tested, including `G8`
+  ($0.863$).
+- This did not come with a Type I error cost (checked directly in
+  Section S11 of the Supplement): every replicate converged under
+  `G9`, and the power gain is consistent with CR2 correcting real
+  conservatism rather than papering over a different problem.
+- Full detail, reference-cell table, and heatmap: Supplement, Section
+  S10.
+
+### S11: is G4's Type I error controlled?
+
+- `G4` selects its half-life by AIC then tests the interaction
+  coefficient from the selected model, a post-selection inference
+  problem: the same data drive both selection and test, which can in
+  principle inflate Type I error beyond nominal.
+- Block S11 checks this directly, refitting `G1`-`G5` and `G9` at the
+  null ($c_{bm}=0$) at the Hybrid reference cell, with $n_{sim}=2000$
+  for tighter precision on a rate expected near $0.05$.
+- The concern does not materialize: `G4`'s Type I error is $0.038$,
+  conservative and in the same range as `G1`-`G3` ($0.034$-$0.036$),
+  not inflated by the selection step.
+- `G9` (`G4`+CR2) is $0.052$, indistinguishable from nominal $0.05$.
+- Read together with Section 3.6's power results: `G9`'s status as
+  the best-performing specification (Section 3.7, Block S10) is not
+  an artifact of an uncontrolled test -- it wins on power while
+  holding Type I error at nominal, the same standard `G3`+CR2 (`G8`)
+  is held to.
+- This does not generalize beyond the single cell tested.
+- Full detail and heatmap: Supplement, Section S11.
+
+**Section summary:**
+
+- Nine Tier 2 sensitivity blocks (S1-S4, S7-S11), plus S6 (CR2
+  recalibration) and an out-of-scope S5, perturb one axis at a time
+  around the Hybrid/$N$=70/$c_{bm}$=0.45/exponential/$t_{1/2}$=1.0
+  reference cell.
+- Robustness holds for the core Exposure-weighted advantage under
+  autocorrelation (S1) and moderate half-life mis-assumption (S2),
+  narrows under dropout (S3) and at extreme effect sizes (S4).
+- The alternative-paradigm specifications `G4` and `G5` (replacing
+  the structurally flawed `E5`/`E6`) beat Exposure-weighted at the
+  Hybrid Architecture-B reference cell (S7), but both results reverse
+  or collapse under Architecture A (S8) and under the CO design (S9),
+  so neither generalizes beyond that single cell type.
+- CR2 correction helps every specification, most dramatically `G4`
+  (yielding `G9`, the single best-performing specification found
+  anywhere in this manuscript), without inflating Type I error (S10,
+  S11) -- but again validated at only one cell.
+
+## A higher-precision check
+
+- Because a number of the Tier 1 gaps are small, a focused 24-cell
+  grid (OL+BDC design, $N \in \{35, 70\}$, true half-life $\in \{0.5,
+  1.0\}$) was rerun at 600 trials per cell, all converging.
+- Specifications were compared with a paired McNemar test,
+  considerably more sensitive than an independent-groups comparison
+  since all three are fit to the same trials.
+- Type I error across the twelve null cells fell in $[0.003, 0.053]$,
+  so nominal alpha holds.
+- Paired McNemar tests place Exposure-weighted ahead of the unadjusted
+  benchmark at all four alternative cells, by $+2.3$ to $+13.7$
+  percentage points.
+- Largest gap at the highest-leverage cell ($N=70$, true
+  $t_{1/2}=1.0$ weeks, $p = 6.6 \times 10^{-17}$), with $p \leq
+  0.015$ at the remaining three -- a sharper confirmation than the
+  Tier 1 grid alone provides.
+- One scope caveat governs the rerun's third arm: it was produced by
+  the package's `lme_analysis()` routine, whose carryover option
+  appends time since discontinuation as a linear main effect rather
+  than the lagged indicator $L_{it}$ used in the Tier 1 grid; it is
+  therefore **not** the Lag-adjusted specification of Section 2.4 and
+  is not reported as such here.
+- That alternative remains a reasonable specification not yet
+  evaluated (Section 4.6).
+
+**Section summary:**
+
+- A higher-precision, paired-McNemar rerun (600 trials/cell, 24
+  cells, OL+BDC only) confirms Exposure-weighted's advantage with
+  much sharper statistical significance than the Tier 1 grid alone,
+  while flagging that its third-arm comparator differs subtly from
+  the manuscript's own Lag-adjusted definition.
+
+# Discussion
+
+## The lagged-treatment term does no work
+
+- The clearest result of this study is a negative one: adding the
+  classical lagged-treatment indicator changed nothing measurable,
+  anywhere in the grid.
+- Across all 216 cells, mean power difference against the unadjusted
+  benchmark was 0.003 against an MCSE of 0.018; bias, MSE, coverage
+  agreed to three decimal places, in every sensitivity block and all
+  five cluster-robust stress cells under both inference procedures.
+- The strength of this conclusion rests on the design rather than
+  grid size: the two specifications estimate the same coefficient,
+  are fitted to the same simulated datasets under common random
+  numbers, and differ by exactly one term.
+- No confounding from a change of estimand, Monte Carlo variation
+  between arms, or differential test size (both conservative to the
+  same degree, Section 3.6); what is left is the term itself, and it
+  contributed nothing.
+- Mechanism follows from where the term sits: carryover damages the
+  interaction test on two fronts (Section 1) -- attenuates the
+  coefficient (contaminated occasions coded as drug-free) and
+  inflates residual variance (heterogeneity the model does not
+  represent).
+- The lagged indicator enters only as a nuisance main effect with no
+  $\text{bm:}L_{it}$ product, so the tested interaction remains
+  $\text{bm:}D_{it}$ and the attenuation is untouched.
+- It can in principle absorb some of the residual-variance effect,
+  but evidently absorbs too little to matter: it marks a single
+  occasion per randomization path and is constant thereafter, unable
+  to describe a graded decline across a two- to four-occasion
+  washout.
+- A targeted check on a more capable, elapsed-time-indexed nuisance
+  term (`Sx ~ bm + t + Db + bm:Db + tsd`, the "washout-adjusted"
+  specification `E4` from the reference implementation) was run
+  across the three designs at true half-lives 0.5 and 1.0 weeks
+  ($N=70$, $c_{bm}=0.45$, exponential DGP, 500 replicates):
+  - Type I error at nominal for both (mean 0.050 vs 0.045).
+  - Power exceeds the benchmark in all six cells by a mean of 1.3
+    points (sign test $p=0.031$).
+  - Reaches significance under crossover at both half-lives ($+1.8$,
+    $p=0.008$; $+2.2$, $p=0.003$) and OL+BDC at the longer half-life
+    ($+2.2$, $p=0.015$), but not Hybrid ($+1.0$, $p=0.27$).
+  - Mechanism matches Section 2.4's prediction: point estimates are
+    unchanged (nothing about attenuation is repaired), the entire
+    effect runs through the standard error, which only a long enough
+    washout gives it something to describe.
+  - Crossover places off-drug occasions 2.5 to 10 weeks post-
+    discontinuation, against one to two weeks for Hybrid.
+  - Practical ceiling on any carryover nuisance term is therefore
+    about two percentage points, only in long-washout designs,
+    against the nine to eleven points exposure weighting delivers
+    where it works.
+  - This check covers only the exponential DGP at a single $N$ and
+    effect size, so it is a probe rather than a fourth arm; it shares
+    every specification's structural limitation of entering carryover
+    as a main effect only (Section 4.6).
+- Practical implication: a carryover nuisance term of either form
+  should not be expected to recover meaningful power lost to
+  carryover, and reporting one does not constitute an effective
+  adjustment for it.
+
+**Section summary:**
+
+- Both the classical lagged-treatment term and a more capable
+  elapsed-time nuisance term (E4) fail to meaningfully repair the
+  interaction test's power loss from carryover, because a nuisance
+  main effect cannot touch the attenuation mechanism, only (weakly)
+  the residual-variance mechanism.
+- The practical ceiling on any nuisance-term-only carryover
+  adjustment is about two percentage points, in long-washout designs
+  only, versus the nine-to-eleven-point gain from exposure weighting
+  where it works.
+
+## The exposure-weighted advantage, and where it fails
+
+- At its best cell (Hybrid, $N=70$, $c_{bm}=0.45$, $t_{1/2}=1.0$), the
+  exposure-weighted predictor exceeds the unadjusted benchmark by
+  about 10 points of power (0.860 versus 0.766, roughly five MCSEs,
+  not attributable to chance), confirmed at all four cells of the
+  Section 3.8 high-precision rerun.
+- Under crossover it performs considerably worse (0.488 versus
+  0.830).
+- Proposed mechanism: the within-subject correlation under crossover
+  already carries most of the signal the decaying predictor was
+  designed to recover, so it gains little there while its
+  down-weighting of off-drug observations works against it.
+- The recommendation therefore holds only in the two non-crossover
+  designs and should not be extended to a crossover trial, where the
+  unadjusted binary indicator is materially better.
+- That the one specification addressing attenuation (Exposure-
+  weighted) is also the only one to gain power, while the one
+  addressing only residual variance (Lag-adjusted) gains nothing,
+  suggests attenuation is the mechanism that matters here -- read as
+  an interpretation consistent with the results, not a finding the
+  design isolates directly.
+
+**Section summary:**
+
+- Exposure weighting's power advantage is substantial (~10 points) in
+  Hybrid/OL+BDC designs but reverses under crossover, attributed to
+  crossover's own within-subject correlation already capturing the
+  signal the predictor targets.
+- The pattern (only the attenuation-addressing specification gains
+  power) is offered as a consistent interpretation, not a directly
+  isolated causal finding.
+
+## What the robustness checks add
+
+- The Section 3.7 sensitivity blocks show the exposure-weighted
+  advantage, where it exists, is not uniformly fragile but not
+  unconditionally robust either:
+  - Under incorrect decay-shape assumptions (Figure
+    \@ref(fig:fig-heatmap-mismatch), Section 3.5), it widens on the
+    light-tailed side and narrows to statistical insignificance on
+    the heavy-tailed side, disappearing entirely at the two most
+    extreme Weibull shapes examined ($k=0.25$, $0.5$).
+  - It survives an incorrectly assumed half-life, short of a large
+    over-assumption at a short true half-life (Block S2, Supplement
+    Section S2).
+  - It holds its five- to eight-point lead across the autocorrelation
+    range examined (Block S1, Supplement Section S1).
+- Decay-shape mis-specification is therefore the one robustness axis
+  examined here that can erode the advantage away entirely, rather
+  than only narrowing it.
+- One caveat governs the Tier 1 figures throughout: outside Block S2,
+  the analysis-side half-life is set equal to the data-generating
+  one, granting Exposure-weighted an oracle no real analyst
+  possesses, so its Tier 1 margins are upper bounds, and Block S2
+  gives the more realistic figure.
+
+**Section summary:**
+
+- Robustness of the exposure-weighted advantage varies by axis:
+  robust to autocorrelation and moderate half-life mis-assumption,
+  fragile to decay-shape mis-specification (can vanish entirely at
+  extreme shapes).
+- All Tier 1 figures outside Block S2 grant Exposure-weighted an
+  oracle half-life, so those margins should be read as upper bounds.
+
+## Dropout matters more than the method
+
+- The finding with the largest practical consequence concerns missing
+  data, not carryover: when patients drop out (Figure
+  \@ref(fig:fig-sens-s3)), power collapses for all three
+  specifications together, to between 0.12 and 0.25 at 30% dropout,
+  essentially indistinguishable.
+- No specification offers protection, since each can only organize
+  whatever data remain.
+- MAR dropout is somewhat worse than MCAR, because the sickest
+  patients, who carry the most signal, tend to leave first.
+- Retaining patients in the trial yields considerably more power than
+  any choice among the three specifications ever could.
+
+**Section summary:**
+
+- Dropout is the single largest power lever in the study, dwarfing
+  any effect of analysis-specification choice; no specification
+  offers protection against it.
+
+## What analysis is best in which situations, in practice
+
+Collecting the findings above into a decision rule rather than a set
+of pairwise comparisons:
+
+- **Covariance moderation (Architecture B), Hybrid or OL+BDC
+  design.** Use Exposure-weighted with a CR2 cluster-robust standard
+  error.
+  - The advantage holds under half-life mis-specification short of a
+    large over-assumption (Section 3.7, Block S2), and across the
+    autocorrelation range examined (Block S1).
+  - It holds and widens under decay-shape mis-specification on the
+    light-tailed side, but narrows to statistical insignificance at
+    the two most extreme heavy-tailed shapes examined (Section 3.5):
+    this recommendation should not be read as holding under an
+    arbitrarily heavy-tailed decay form.
+  - CR2 restores nominal Type I error without disturbing the ranking
+    (Block S6, validated at $N \in \{35, 70\}$ in the Hybrid design
+    specifically; OL+BDC was not itself stress-tested under CR2).
+  - This remains the recommended default: it has been through the
+    full robustness battery `G4`/`G5` have not (next point).
+- **`G4` (AIC-selected half-life) and `G5` (paired-difference) are
+  promising at this same cell, not yet validated defaults.**
+  - Both beat Exposure-weighted itself at the Hybrid, Architecture B
+    reference cell (Blocks S7-S8: `G4` $0.850$, `G5` $0.842$, `G3`
+    $0.836$, at $t_{1/2}=1.0$), and `G4` in particular removes the
+    need to assume a half-life at all.
+  - Neither has been tested against decay-shape mis-specification,
+    dropout, or under CR2 the way `G3` has, so this is grounds to
+    investigate them further, not to displace the established
+    default yet.
+  - Adding a CR2 correction to `G4` (`G9` in the nine-way naming
+    layer) goes further still: at this same cell it outperforms every
+    one of the other eight specifications, including `G3`+CR2, with
+    no accompanying Type I error inflation (Section 3.7, Blocks
+    S10-S11).
+  - This is the single best result anywhere in this manuscript, and
+    also the least validated: it rests on one cell, with none of
+    `G4`'s own robustness gaps yet closed.
+- **Crossover (CO) design, any architecture.** Use Unadjusted.
+  - Exposure-weighted is markedly worse under CO (Section 3.4), and
+    Block S9 shows `G4` and `G5` fail here too, `G4` catastrophically.
+  - `G4`'s AIC half-life selection systematically drifts to the
+    largest candidate in its grid under CO's sparse, widely spaced
+    off-drug sampling (chosen in over 85% of replicates regardless of
+    true half-life), collapsing its power to roughly half of
+    Unadjusted's; it should specifically be avoided under any design
+    with few, widely spaced off-drug observations.
+  - `G5` also underperforms Unadjusted under CO, though far more
+    mildly.
+  - The classical lagged-treatment remedy adds nothing here either,
+    including in the one design where its washout is long enough to
+    give it a chance (Section 4.1).
+- **Architecture uncertain, or known to be mean moderation
+  (Architecture A).** Use Unadjusted or Lag-adjusted, not
+  Exposure-weighted or `G4`.
+  - Both specifications' advantage under covariance moderation
+    reverses, marginally, under mean moderation (Block S8).
+  - `G5` is the one specification whose performance does not depend
+    much on which architecture generated the data (small under B,
+    smaller under A), but it has been tested at only one design and
+    reference cell outside the Hybrid comparison (Block S9).
+- **Never rely on Lag-adjusted as a carryover remedy.**
+  - It is statistically indistinguishable from Unadjusted everywhere
+    tested in this manuscript, Tier 1 and every Tier 2 block alike
+    (Section 4.1).
+  - If a reviewer or protocol expects some carryover term to be
+    present, including it costs nothing measurable, but it should not
+    be reported as having adjusted for carryover.
+- **Minimize dropout before optimizing specification choice.**
+  - It is the single largest lever in the entire grid (Section 4.4),
+    and no specification, including `G4`/`G5`, has been shown to
+    offer any protection against it; their behavior under dropout is
+    untested.
+
+### Why G4 and G5 succeed at Hybrid but fail under CO
+
+- Both new specifications' Hybrid, Architecture B advantage
+  evaporates under the CO design (Block S9), for two different,
+  design-specific reasons rather than a shared structural flaw of the
+  kind that sank `E5`/`E6` (Section 4.6).
+- `G4`'s failure is mechanical: with only a few, widely spaced
+  off-drug occasions, the likelihood surface across candidate
+  half-lives is weakly informative, and AIC selection drifts to the
+  boundary of its candidate grid rather than locating the true value,
+  systematically overestimating the half-life.
+- Section 3.7's S2 block already showed over-assumption is the more
+  damaging direction of half-life error when the half-life is fixed
+  by the analyst; under CO, `G4` reproduces that same damaging error
+  through the estimation procedure itself, on nearly every replicate.
+- Concrete, testable prediction: `G4` should be reliable whenever a
+  design gives several off-drug occasions across a graded range of
+  elapsed time (as Hybrid does despite its short overall washout),
+  and unreliable whenever off-drug sampling is sparse, however long
+  the washout runs in calendar time.
+- `G5`'s failure has no comparable mechanical account and is milder:
+  the most plausible explanation is that CO's own within-subject
+  contrast (Section 3.4) already carries most of the signal a
+  between-patient paired-difference regression is built to extract,
+  so discarding the repeated-measures and correlation structure costs
+  more under CO than under Hybrid, where that structure is doing more
+  work. This was not tested directly and would require comparing
+  `G5` against the within-cell decomposition of `G3`'s advantage to
+  confirm.
+- Two implications follow:
+  - These results reinforce rather than undercut the earlier
+    `E5`/`E6` diagnosis (Section 4.6): the more fundamental unresolved
+    question is not which design an alternative specification is
+    tested under, but whether the underlying DGP rewards that
+    specification's added structure at all -- neither `G4` nor `G5`
+    was tested against a DGP built to favor them specifically.
+  - The practical recommendation is narrower than "estimate the
+    half-life" or "use a simpler method": both `G4` and `G5` are
+    candidates worth validating further within the Hybrid/OL+BDC,
+    Architecture B cell where this manuscript's other recommendations
+    already concentrate, not general-purpose replacements for
+    Exposure-weighted or Unadjusted.
+
+**Section summary:**
+
+- The manuscript's practical decision rule is design- and
+  architecture-conditional: Exposure-weighted+CR2 for Hybrid/OL+BDC
+  under Architecture B; Unadjusted for crossover or uncertain/
+  Architecture A; Lag-adjusted never recommended as a standalone
+  remedy; dropout minimization takes priority over specification
+  choice.
+- `G4`/`G9` and `G5` are flagged as promising but under-validated,
+  with `G4`'s CO failure traced to a mechanical AIC boundary-drift
+  problem under sparse off-drug sampling, and `G5`'s milder CO
+  failure attributed (untested) to CO's within-subject contrast
+  already capturing the signal the paired-difference approach targets.
+
+## Scope, related work, and limits
+
+- This manuscript deliberately narrows the full-scope grid to the
+  covariance-moderation architecture and non-linear decay forms, in
+  the interest of a self-contained evaluation of manageable length.
+- The archived full-scope drafts (`archive/report.Rmd`,
+  `archive/report-slim.Rmd`) show the exposure-weighted advantage
+  documented here does not carry over to mean moderation, where
+  Exposure-weighted is marginally dominated in every design examined;
+  readers needing that cross-architecture comparison should consult
+  those drafts rather than extrapolate from this one.
+- Establishing what the originally published power values (Section
+  3.3) were computed under remains outstanding work.
+- The crossover tradition surveyed by Jones and Kenward
+  [-@jones2014crossover] would lead one to expect a shape-free
+  lagged term to outperform a parametric predictor once the decay
+  shape is mis-specified; results here do not support that
+  expectation over the range examined, for two reasons:
+  - The exposure-weighted penalty for an incorrect half-life is too
+    small to be overtaken (Section 3.7).
+  - More fundamentally, the lagged term does not improve on ignoring
+    carryover at all (Section 4.1), leaving no advantage for
+    decay-shape mis-specification to erode.
+- One adjacent specification bounds the negative result of Section
+  4.1: every carryover term considered there (lagged and
+  washout-adjusted alike) enters as a nuisance main effect with no
+  product against the biomarker, so the finding is that a carryover
+  *main effect* does not recover the attenuated signal, not that no
+  shape-free specification can.
+- The natural candidate not yet tested is a carryover term interacted
+  with the biomarker, either `Sx ~ bm + t + Db + bm:Db + L + bm:L` or
+  its washout-adjusted counterpart with `bm:tsd`, letting the
+  biomarker effect decline across the washout without committing to a
+  rate.
+- An earlier version of Block S7 tested exactly these two
+  specifications and found a clean negative result at every cell
+  examined, traced to a structural cause: the DGP has a single true
+  decay parameter, so a second, interacted carryover coefficient adds
+  estimation noise without a corresponding signal to recover.
+- They were replaced by `G4` (AIC-selected half-life) and `G5` (a
+  paired-difference regression with no carryover representation at
+  all), addressing the same open problem (unknown decay half-life)
+  from different angles.
+- Both beat Unadjusted at the Hybrid, Architecture B reference cell,
+  `G4` even edging out Exposure-weighted itself (Block S7); neither
+  survives a change of trial design or architecture (Blocks S8-S9).
+- `G4`'s AIC selection fails specifically under sparse off-drug
+  sampling (Section 4.5); `G5`'s advantage appears to depend on the
+  repeated-measures structure it discards being otherwise underused,
+  which is design-dependent.
+- Block S8 shows the Lag-adjusted null of Section 3.4 replicates
+  under Architecture A, so it is not an artifact specific to
+  covariance moderation. Exposure-weighted's advantage, and now
+  `G4`'s, are architecture-sensitive, reversing in direction (though
+  not substantially) under Architecture A (Section 3.7, Block S8).
+- Three further N-of-1 analysis approaches sit outside the G1-G9
+  family and are not evaluated here, each requiring substantial
+  independent methodological development rather than a drop-in
+  specification within the existing pipeline:
+  - Tang and Landes [-@tang2020ttests]: formula-based $t$-tests
+    correcting a single-subject paired-difference test's SE and
+    degrees of freedom for an estimated first-order serial
+    correlation -- the natural refinement `G5` lacks (`G5` discards
+    within-patient correlation entirely). Their tests have no
+    biomarker-moderation term, and would need a `diff ~ bm` extension
+    with a serial-correlation-aware variance to enter this
+    comparison.
+  - Schmid and Yang [-@schmid2022bayesian]: a Bayesian hierarchical
+    alternative to the frequentist mixed-model/sandwich-estimator
+    family spanning `G1`-`G9`, with partial pooling of individual-
+    level treatment-effect, trend, and autocorrelation parameters
+    across patients; they note carryover is tractable only in
+    aggregated, multi-individual analyses like this one, but a
+    biomarker-moderation extension of their model is a separate
+    undertaking.
+  - Daza [-@daza2018causal]: frames N-of-1 inference as a
+    counterfactual, time-varying-treatment problem, estimated via
+    g-computation or inverse-probability weighting -- a structurally
+    different paradigm from `G1`-`G9`'s explicit exponential-decay or
+    lag covariates, treating carryover as confounding to be
+    controlled rather than a predictor to be modeled.
+- None of the three is a candidate for a tenth specification within
+  this manuscript's scope, but each identifies a direction future
+  work on this estimand should consider.
+- Two further limitations bound what can be concluded:
+  - The numbers presented come from a single parameter set calibrated
+    to a prazosin and PTSD trajectory, so absolute power values
+    should be read as illustrative, and the ranking (itself
+    conditional on trial design) as the more portable result.
+  - The sensitivity checks vary one factor at a time and can
+    therefore miss genuine interactions between factors (e.g.,
+    between high autocorrelation and heavy dropout); the one joint
+    check available (Block S5 in the full-scope manuscript) revealed
+    no such interaction.
+
+**Section summary:**
+
+- This manuscript is a deliberately narrowed slice of a larger
+  full-scope study; the archived drafts remain the authority on mean
+  moderation and should be consulted before generalizing beyond
+  covariance moderation.
+- The crossover literature's expectation that a shape-free lagged
+  term would outperform a parametric predictor under decay-shape
+  mis-specification is not supported here, because the lagged term
+  fails even without mis-specification.
+- Three substantial alternative N-of-1 analysis paradigms (serial-
+  correlation-corrected paired tests, Bayesian hierarchical models,
+  counterfactual/causal-inference framing) remain outside this
+  manuscript's scope and are flagged as future-work directions, not
+  rejected findings.
+- Conclusions rest on a single calibrated parameter set and
+  one-factor-at-a-time sensitivity checks, so absolute power values
+  are illustrative and possible factor interactions beyond the one
+  jointly checked (autocorrelation x dropout, no interaction found)
+  remain unexamined.
+
+# Conclusions
+
+1. **The lagged-treatment term does nothing.**
+   - It never improved on ignoring carryover altogether, on any
+     measure, in any design, at any half-life, and in every
+     sensitivity block.
+   - A clean null given the two specifications share an estimand and
+     differ by a single term.
+   - The term enters as a nuisance main effect only, leaving the
+     attenuation of the interaction untouched.
+   - Should not be reported as an adjustment for carryover.
+
+2. **Exposure weighting helps, but conditionally.**
+   - Achieves the highest power, about 10 points over the unadjusted
+     benchmark, only in the Hybrid and OL+BDC designs.
+   - Its lead survives mis-specified half-life there, and widens
+     under a light-tailed decay-shape mis-specification, but narrows
+     to statistical insignificance at the two most heavy-tailed
+     Weibull shapes examined; not robust to an arbitrarily heavy
+     decay tail.
+   - Under crossover it is markedly worse than the binary indicator
+     (0.488 against 0.830) and should not be used there.
+   - Where used, a CR2 cluster-robust standard error is recommended
+     (Block S6).
+
+3. **An approximate half-life is adequate, but err short.**
+   - A fourfold error at a true half-life of one week costs 6.6
+     points of power, so a rough pharmacokinetic estimate suffices in
+     practice.
+   - The error is asymmetric: under-assuming drives the predictor
+     toward the still-serviceable binary indicator, while
+     over-assuming erodes the advantage to a tie.
+   - Outside Block S2 the analyst is granted the true half-life, so
+     the Tier 1 margins are upper bounds.
+
+4. **Dropout matters more than the choice of method.**
+   - Power falls sharply as dropout increases, roughly halving at
+     20%, equally across all three specifications.
+   - Preventing dropout is a more effective use of design effort than
+     any choice among them.
+
+5. **The interaction test is somewhat conservative, and correctably
+   so.**
+   - All three specifications reject slightly less often than nominal
+     under the null.
+   - A CR2 cluster-robust standard error restores the correct rate
+     while recovering modest power.
+   - The exposure-weighted advantage is held or widened under CR2 at
+     four of five S6 stress cells (Block S6).
+
+6. **This is a narrowed slice of a larger study.**
+   - Mean moderation and linear decay fall outside this manuscript's
+     scope.
+   - The archived drafts `archive/report.Rmd` and
+     `archive/report-slim.Rmd` are the authority on those comparisons
+     and should be consulted before generalizing beyond covariance
+     moderation.
+   - No claim of numerical agreement with the originally published
+     power values (Section 3.3) is made.
+
+7. **Carryover terms interacted with the biomarker do not help; two
+   alternative-paradigm specifications do, but only at the reference
+   cell.**
+   - Crossing a lagged or washout carryover term with the biomarker
+     gave lower power than the unadjusted benchmark at every cell
+     examined (Block S7's original version).
+   - Traced to a structural cause: the DGP has a single true decay
+     parameter, so a second, interacted coefficient adds estimation
+     noise without a corresponding signal to recover (item 1's
+     mechanism, restated).
+   - They were replaced by two specifications answering the same open
+     question (the analyst's unknown decay half-life) differently:
+     `G4` estimates it by AIC selection; `G5` discards the decay
+     representation and the mixed model itself for a two-stage
+     paired-difference regression following Senn, Julious and Araujo
+     [-@senn2014four].
+   - Both beat Exposure-weighted at the Hybrid, Architecture B
+     reference cell (Blocks S7-S8; `G4` $0.850$, `G5` $0.842$, `G3`
+     $0.836$ at $t_{1/2}=1.0$).
+   - Neither result generalizes: Block S8 shows both reverse, like
+     Exposure-weighted itself, under Architecture A, and Block S9
+     shows both fail under the crossover design, `G5` mildly and `G4`
+     catastrophically.
+   - `G4`'s CO failure has a clear mechanism: AIC selection
+     systematically drifts to the boundary of its candidate half-life
+     grid when off-drug sampling is sparse and widely spaced,
+     reproducing the S2 finding that over-assuming the half-life is
+     the more damaging error, now through the estimation procedure
+     itself rather than a fixed wrong assumption.
+   - Both specifications should be read as promising candidates for
+     further validation at the one cell type where this manuscript
+     already recommends Exposure-weighted, not as general-purpose
+     replacements for it or for Unadjusted.
+
+8. **Adding CR2 to the AIC-selected specification gives the single
+   best result in this manuscript, at one cell only.**
+   - `G9` (`G4` plus a CR2 cluster-robust standard error) outperforms
+     all eight other specifications at the Hybrid, Architecture B
+     reference cell, including `G3`+CR2.
+   - Its Type I error holds at nominal despite the post-selection risk
+     `G4`'s half-life selection step raises in principle (Section
+     3.7, Blocks S10-S11).
+   - Read as a promising direction, not a recommendation: `G9` has not
+     been tested against decay-shape mis-specification, dropout, a
+     crossover design, or an alternative architecture, all of which
+     item 2's specification (`G3`+CR2) has already been checked
+     against.
+
+**Section summary:**
+
+- The eight numbered conclusions rank by evidentiary weight: items
+  1-6 are grid-wide, well-validated findings (lagged term does
+  nothing, exposure weighting helps conditionally, half-life
+  robustness, dropout dominance, CR2 correctability, scope
+  boundaries), while items 7-8 flag `G4`/`G5`/`G9` as promising but
+  single-cell, not-yet-generalized results.
+- The manuscript's one unconditional recommendation (CR2-corrected
+  exposure weighting in non-crossover designs under covariance
+  moderation) is explicitly bounded by architecture and design; no
+  specification is recommended as universally best.
+
+# Conflict of interest
+
+- The authors declare no conflicts of interest.
+
+# Funding
+
+- This work received no specific funding.
+
+# Data availability statement
+
+- The data and code supporting the findings of this study are
+  available in the pmsimstats-ng project repository.
+- Per-replicate Monte Carlo outputs and ADEMP-compliant cell-level
+  summaries are versioned under `analysis/data/`.
+- Simulation drivers are at `analysis/scripts/carryover-sensitivity/`.
+- Exact paths for this manuscript are listed in the Reproducibility
+  section below.
+
+# Reproducibility
+
+- Manuscript rendered with R 4.6.0 inside the project's zzcollab
+  Docker container.
+- Production simulation ran under R 4.5.3 (\S3.6), with image hash in
+  `Dockerfile` and package set in `renv.lock`.
+- Simulation study uses `nlme` for the continuous-time linear-mixed
+  analysis, `parallel` for the 8-core parameter-grid sweep, and
+  `data.table` or `furrr`/`purrr` in the two simulation collections.
+- No simulation code runs during knitting; only pre-computed
+  checkpoints are loaded.
+- Each driver sets a master seed (20260507) and derives per-replicate
+  seeds from it via `parallel::mc.set.seed`.
+
+**Data and code availability.**
+
+- All simulation outputs, cell-level summaries, and driver scripts
+  are versioned under `analysis/scripts/carryover-sensitivity/` and
+  `analysis/data/` in the pmsimstats-ng repository.
+- This includes: the principal factorial; the S1-S5 sensitivity
+  blocks; the S6 cluster-robust recalibration; the washout-adjusted
+  (E4) check of Section 4.1; the high-precision prototype rerun of
+  Section 3.7.
+- Also includes:
+  - S7 alternative-paradigm block (`09-run-sensitivity-s7.R`,
+    `output/09-sensitivity-s7.rds`).
+  - S8 architecture-by-half-life block (`10-run-sensitivity-s8.R`,
+    `output/10-sensitivity-s8.rds`).
+  - S9 CO-design block (`14-run-sensitivity-s9.R`,
+    `output/14-sensitivity-s9.rds`).
+  - S10 CR2 comparison block (`15-run-sensitivity-s10.R`,
+    `output/15-sensitivity-s10-g.rds`).
+  - S11 Type I error block (`16-run-sensitivity-s11.R`,
+    `output/16-sensitivity-s11.rds`).
+- All five were added 2026-08-18/19 (master seed 20260415, 500
+  replicates per cell except S11's 2000; Hybrid reference cell except
+  S9, which uses CO, and S11, which sets $c_{bm}=0$).
+- `E5`/`E6` (biomarker-interacted carryover terms) were tested in an
+  earlier version of S7-S9 and are documented in Section 4.6; they
+  were replaced by `G4` (AIC-selected half-life, reusing the
+  candidate-grid logic of `characterize_carryover()`,
+  `R/carryover_analysis.R`) and `G5` (paired-difference regression).
+- The `E1`/`E3`/`E2`, `E7`, `E9` fitters, and the
+  `E1cr2`/`E3cr2`/`E7cr2` CR2 variants used by S10 (`cr2_extract()`,
+  `fit_spec_s7`, `simulate_cell_s7`), are appended to
+  `simulation-core.R` alongside the Tier 1 `fit_spec`/`fit_all_specs`
+  pair, which they do not modify.
+- `spec-labels.R` additionally defines the `G1`-`G9` compact
+  display-code layer (`g_code`, `g_labels`) used in S10's table and
+  figure; `G8` (`G3`+CR2, stored as `E2cr2`) is reused directly from
+  Block S6 rather than rerun, so it does not share common random
+  numbers with the rest of S10's comparison.
+- Figure \@ref(fig:fig-hendrickson-c), and the decay-form mismatch
+  panel (Figure \@ref(fig:fig-heatmap-mismatch)), retain the original
+  three specifications (G1-G3), since decay shape is the only axis
+  those two figures vary.
+- Both were regenerated from a dedicated 30-cell simulation at a more
+  extreme Weibull shape range ($k = 0.25, 0.5, 2.0, 4.0$, extended
+  from an initial $k = 0.5, 2.0$, itself replacing an earlier $k =
+  0.7, 1.5$; $k = 1.0$ is not a separate condition, since it
+  duplicates Exponential exactly) than the shared production grid
+  (`02-grid-summary.rds`) still uses
+  (`23-run-decay-shape-sensitivity.R`,
+  `02-decay-shape-sensitivity.rds`, $n_{sim} = 500$, Architecture B
+  only).
+- This is a standalone script rather than a change to
+  `01-run-factorial.R`'s shared grid, since that grid is also
+  consumed by the archived full-scope drafts and other manuscripts.
+- Figures \@ref(fig:fig-hendrickson-a) and
+  \@ref(fig:fig-hendrickson-b) were later expanded to all nine G1-G9
+  specifications, from a dedicated 30-cell simulation restricted to
+  the exponential DGP and Architecture B
+  (`19-run-tier1-hendrickson-g9.R`,
+  `02-grid-summary-hendrickson-g9.rds`, preliminary $n_{sim} = 100$).
+- This replaced the original three-specification version of both
+  panels rather than supplementing it, and superseded the separate
+  Type I error checks the manuscript previously reported at Figures
+  6-9 (the Tier 1 Type I boxplot/heatmap and the S6 G1-G3/G1-G9 Type
+  I dot plot/heatmaps), since the $c_{bm}=0$ column of Panel A now
+  reports Type I error for all nine specifications directly.
+- Those retired figures' underlying data and scripts
+  (`03-render-figures-extra-slim.R`,
+  `07-type1-cr2-figure-extra-slim.R`, `18-run-sensitivity-s6-g9.R`)
+  are retained for archival purposes but no longer referenced by this
+  document.
+- The corresponding Tier 2 heatmaps (S1-S4, S6, S7, S8, S9, S10, S11)
+  are produced by `13-hendrickson-heatmap-tier2.R` from
+  `02-sensitivity-summary.rds` and the S7/S8/S9/S10/S11 output `.rds`
+  files (plus `diag-s6-cr2.rds` for `G8` and Table
+  \@ref(tab:tab-s6)); these Tier 2 figures are additional to, not
+  replacements for, the existing S1-S4 line plots and the S7/S8
+  kable tables.
+- The grid design and Morris ADEMP pre-registration are in
+  `simulation-grid-plan.md` in the same directory.
+- Superseded wider-scope drafts are retained under `archive/`,
+  documented in its `README.md`.
+
+**Specification labels.**
+
+- All nine specifications are stored under `E`-prefixed codes (`E1`,
+  `E2`, `E3`, `E7`, `E9`, `E1cr2`, `E2cr2`, `E3cr2`, `E7cr2`) in every
+  data file and script, displayed uniformly as `G1`-`G9`, or by name,
+  at render time only.
+- The mapping is applied by `spec-labels.R`, so stored values and
+  archived outputs are unaffected: what a reader sees as `G3`
+  (Exposure-weighted) in the prose above is stored as `E2` in every
+  `.rds` file this manuscript reads.
+- Output archived before 2026-07-31 stores the specifications as
+  `A1`, `A2`, `A3`.
+- The migration is documented in `analysis/report/NOTATION.md`.
+
+**Section summary:**
+
+- The manuscript reads only pre-computed checkpoints at render time;
+  all simulation drivers, their output `.rds` paths, and master seeds
+  are catalogued here for reproduction.
+- Two notational layers exist in the underlying data (`E`-codes,
+  stored; `G1`-`G9`, displayed) plus a legacy `A1`-`A3` layer in
+  pre-2026-07-31 archives, all mapped via `spec-labels.R` and
+  documented in `NOTATION.md`.
+
+# References
+
+::: {#refs}
+:::
+
+<!--
+  No in-document footer chunk. The page footer (source path, render
+  time, git version) is injected at render time by tools/stamp.tex
+  via the knit: hook above, which wraps long paths correctly.
+-->
+</content>
+</invoke>

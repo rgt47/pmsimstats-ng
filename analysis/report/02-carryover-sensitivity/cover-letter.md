@@ -1,5 +1,5 @@
 # Cover letter
-*2026-05-09 09:50 PDT*
+*2026-08-20 11:05 PDT*
 
 To the Editor,
 Statistics in Medicine
@@ -14,32 +14,44 @@ research article in Statistics in Medicine.
 The biomarker-by-treatment interaction in aggregated N-of-1
 clinical trials is the inferential target of an emerging
 methodological literature on precision-medicine trial design. The
-analyst has three principal options for accommodating carryover
+analyst has several principal options for accommodating carryover
 effects in the within-subject treatment contrast: a binary
-on-drug indicator (A1), an exposure-weighted continuous indicator
-(A2), and a lagged-treatment specification (A3). Existing
-methodological treatments assess these specifications in
-isolation. The joint sensitivity of inference to
+on-drug indicator (Unadjusted, G1), an exposure-weighted continuous
+indicator committing to a parametric decay and half-life
+(Exposure-weighted, G3), and a lagged just-off-drug term estimating
+carryover non-parametrically (Lag-adjusted, G2), the classical
+crossover device. Existing methodological treatments assess these
+specifications in isolation. The joint sensitivity of inference to
 mis-specification at the data-generating and analyst layers,
 including the functional form of carryover decay and the
 analyst's assumed half-life, has not been comprehensively
 characterised.
 
 This manuscript reports an ADEMP-compliant factorial simulation
-study (Morris, White, and Crowther 2019) crossing three
-data-generating decay forms (linear, exponential, Weibull) with
-the three analysis specifications across two architectures,
-three trial designs, two sample sizes, and three
-biomarker-effect levels (540 cells at 500 replicates per cell),
-plus five Tier 2 sensitivity blocks. The principal finding is
-that the exposure-weighted A2 specification consistently
-dominates A1 and A3 by approximately 10 percentage points of
-power at the prazosin-calibrated reference cell, with the
-ranking robust to decay-form mis-specification and
-analyst-versus-truth half-life mismatch. A high-precision rerun
-at 600 replicates per cell on a 24-cell expansion confirms the
-ranking with paired McNemar $p = 6.6 \times 10^{-17}$ at the
-highest-leverage cell. The work also addresses the comparison
+study (Morris, White, and Crowther 2019) comparing nine
+analysis-model specifications for the drug-exposure regressor, in
+two tiers. The Tier 1 comparison, our primary evidence base, embeds
+the three specifications above in a full factorial grid crossing two
+data-generating decay forms (exponential, Weibull) with three trial
+designs, two sample sizes, and three interaction strengths (216
+cells, 500 replicates per cell). A Tier 2 extension adds six further
+specifications (an AIC-selected half-life variant, a
+paired-difference regression with no repeated-measures model, and
+CR2 cluster-robust variants of four of the above) at targeted
+reference cells, together with sensitivity blocks spanning
+autocorrelation strength, analyst-versus-truth half-life mismatch,
+dropout, biomarker-effect size, DGP decay shape, and cluster-robust
+recalibration, all at 500 replicates per cell. The principal finding
+is that the Exposure-weighted specification attains the highest
+power only in the two designs with a blinded-discontinuation phase
+(Hybrid and OL+BDC), leading by approximately 10 percentage points at
+the prazosin-calibrated reference cell, but is markedly inferior to
+Unadjusted under the classical crossover design (power 0.488 versus
+0.830). Where Exposure-weighted leads, that lead is robust to
+half-life mis-specification and to autocorrelation strength, and
+widens under light-tailed decay-shape mis-specification, but narrows
+to statistical insignificance under the two most heavy-tailed Weibull
+decay shapes examined. The work also addresses the comparison
 against prior methodological work, including Hendrickson and
 colleagues (2020), Jones and Kenward (2014), and Senn (2016).
 

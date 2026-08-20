@@ -10,8 +10,7 @@
 ## Panels A/B (G1-G9) are from a dedicated 30-cell simulation
 ## restricted to Architecture A
 ## (21-run-tier1-hendrickson-g9-archA.R,
-## 02-grid-summary-hendrickson-g9-archA.rds, n_sim = 250, after a
-## 100-rep smoke test passed sanity checks), mirroring
+## 02-grid-summary-hendrickson-g9-archA.rds, n_sim = 500), mirroring
 ## 19-run-tier1-hendrickson-g9.R's
 ## Architecture B design exactly except for dgp_arch.
 ##
@@ -19,7 +18,7 @@
 ## simulation at the same more extreme Weibull range (k = 0.5, 2.0)
 ## as the main manuscript's Figure 3
 ## (24-run-decay-shape-sensitivity-archA.R,
-## 02-decay-shape-sensitivity-archA.rds, n_sim = 250, matching
+## 02-decay-shape-sensitivity-archA.rds, n_sim = 500, matching
 ## Panels A/B's precision), not the shared production grid
 ## (02-grid-summary.rds, still at the earlier k = 0.7, 1.0, 1.5).
 
@@ -130,6 +129,6 @@ ggsave(file.path(fig_dir, '02xs-heatmap-hendrickson-c-archA.pdf'),
   p_c, width = 8.0, height = 4.6)
 
 message('Wrote three Architecture A Hendrickson-style heatmaps to ', fig_dir, ':')
-message('  02xs-heatmap-hendrickson-a-archA.pdf (biomarker effect, G1-G9, n_sim=250)')
-message('  02xs-heatmap-hendrickson-b-archA.pdf (carryover half-life, G1-G9, n_sim=250)')
-message('  02xs-heatmap-hendrickson-c-archA.pdf (DGP decay shape, G1-G3, n_sim=250)')
+message('  02xs-heatmap-hendrickson-a-archA.pdf (biomarker effect, G1-G9, n_sim=500)')
+message('  02xs-heatmap-hendrickson-b-archA.pdf (carryover half-life, G1-G9, n_sim=500)')
+message('  02xs-heatmap-hendrickson-c-archA.pdf (DGP decay shape, G1-G3, n_sim=500)')

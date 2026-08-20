@@ -303,3 +303,9 @@
 | `supplement-2026-08-19-1258-10040c0-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/supplement.Rmd` | `10040c0-wip` | 2026-08-19 12:58 PDT |
 | `02-carryover-sensitivity-2026-08-19-1258-10040c0-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report.Rmd` | `10040c0-wip` | 2026-08-19 12:58 PDT |
 | `02-carryover-sensitivity-2026-08-19-1258-10040c0-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report.Rmd` | `10040c0-wip` | 2026-08-19 12:58 PDT |
+| `02-carryover-sensitivity-2026-08-19-2005-6ae63a2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report.Rmd` | `6ae63a2-wip` | 2026-08-19 20:05 PDT |
+| `02-carryover-sensitivity-2026-08-19-2005-6ae63a2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report.Rmd` | `6ae63a2-wip` | 2026-08-19 20:05 PDT |
+| `supplement-2026-08-19-2005-6ae63a2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/supplement.Rmd` | `6ae63a2-wip` | 2026-08-19 20:05 PDT |
+| `supplement-2026-08-19-2005-6ae63a2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/supplement.Rmd` | `6ae63a2-wip` | 2026-08-19 20:05 PDT |
+| `bullets-2026-08-19-2052-6ae63a2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/bullets.Rmd` | `6ae63a2-wip` | 2026-08-19 20:52 PDT |
+| `bullets-2026-08-19-2052-6ae63a2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/bullets.Rmd` | `6ae63a2-wip` | 2026-08-19 20:52 PDT |

@@ -10,9 +10,14 @@ under `analysis/report/`. New manuscripts should adopt it rather than
 re-deriving symbols, and any deviation should be stated explicitly in
 the deviating paper's Methods section.
 
-The audit behind it is `analysis/report/whitepaper-notation-audit.md`,
-whose PDF binds this file in as its appendix so that the two cannot
-drift apart.
+`analysis/report/whitepaper-notation-audit.md` was intended to hold a
+cross-reference audit of this symbol table against each manuscript's
+actual usage, but as of 2026-08-20 that file contains only YAML front
+matter and no audit content (pub_review whitepaper, Major Issue 2.5).
+Until that audit is written, this file's consistency with the eleven
+manuscripts rests on the compendium-wide `tools/notation-lint.pl`
+mechanized check (Minor Issue 3.9) rather than on a written audit
+trail.
 
 Symbols and identifiers listed here were extracted from the manuscript
 sources, from `R/`, from the drivers under `analysis/scripts/`, and

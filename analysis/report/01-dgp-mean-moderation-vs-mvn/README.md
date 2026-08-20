@@ -18,8 +18,11 @@ mean-moderation-versus-MVN manuscript.
   randomization path and an $N = 70$ robustness check.
 - Tutorial framing aimed at applied statisticians new to the N-of-1
   setting, including an N-of-1 primer in the Introduction.
-- The three-part `bullets` / `rgt` / `orig` paragraph scaffolding,
-  with `rgt` blocks still carrying `rgt to complete.` placeholders.
+- The three-part `bullets` / `rgt` / `orig` paragraph scaffolding.
+  As of 2026-08-16, `report.Rmd` carries zero remaining `rgt`
+  placeholder markers (verified by grep); this manuscript has
+  reached zero-placeholder state, unlike most of the other series
+  in this compendium.
 
 All numerical results are typeset inline; the document loads no
 data and runs no simulation code during knit. It requires

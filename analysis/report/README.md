@@ -26,8 +26,9 @@ live inside each manuscript's own subdirectory.
   reference for every manuscript in this directory. New manuscripts
   should adopt it rather than re-deriving symbols, and any deviation
   should be stated explicitly in the deviating paper's Methods
-  section. The audit that produced it is
-  `whitepaper-notation-audit.md`.
+  section. `whitepaper-notation-audit.md` is a stub (front matter
+  only, no audit content as of 2026-08-20); consistency currently
+  rests on `tools/notation-lint.pl`, not on a written audit.
 
 ## Canonical YAML for all manuscripts
 

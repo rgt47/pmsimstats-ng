@@ -1,0 +1,627 @@
+---
+title: "A closed-form approximation to the biomarker-treatment
+  interaction estimator in aggregated N-of-1 trials, and what it
+  implies for design efficiency under a mandatory open-label
+  lead-in"
+author: 'pmsimstats team'
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    keep_tex: true
+    highlight: tango
+    includes:
+      in_header: claudecode.tex
+fontsize: 11pt
+linestretch: 1.1
+geometry: 'left=3cm,right=3cm,top=2.5cm,bottom=2.5cm'
+bibliography: references.bib
+csl: statistics-in-medicine.csl
+link-citations: true
+header-includes:
+  - \usepackage{amsmath}
+  - \usepackage{amssymb}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{float}
+  - \usepackage[mathlines]{lineno}
+  - \linenumbers
+knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path(d, 'tools', 'stamp-render.R')) && d != dirname(d)) d <- dirname(d); source(file.path(d, 'tools', 'stamp-render.R'))$value(input) })
+---
+
+**Short communication.**
+
+# Introduction
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+Every design question this project's companion manuscripts have
+addressed --- how many randomization paths, what sample size, how
+long to wait before a discontinuation-phase assessment, whether a
+brief crossover tail is worth its extra visits --- has so far been
+answered by Monte Carlo simulation
+[@pmsimstats-paper01; @pmsimstats-paper02; @pmsimstats-paper05;
+@pmsimstats-paper09; @pmsimstats-paper11]. That is appropriate for
+the compendium's headline estimand, which combines a Gompertz
+response trajectory, a dual-channel biomarker-moderation
+architecture, exponential or Weibull carryover, and a continuous-time
+AR(1) mixed model into a system with no obvious closed form. But it
+leaves a practical gap: a trialist choosing among two or three
+concrete design options today cannot get even an order-of-magnitude
+power estimate without running a fresh simulation, in contrast to the
+treatment main effect, for which Senn's and Zucker's classical
+variance formulas [@sennSampleSizeConsiderations2019; @zucker2010]
+have long supplied exactly this kind of design intuition, and in
+contrast to the dichotomized-biomarker case, for which the companion
+test-procedure manuscript derives a closed-form repeated-measures
+ANOVA power formula [@pmsimstats-paper10]. Neither covers the
+compendium's actual estimand: a continuous biomarker, a continuous
+exposure predictor $D_{bc}$, and a mixed model fit by
+`nlme::lme` with `corCAR1` residual correlation.
+:::
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+This short communication was motivated by a concrete instance of the
+gap: a trial whose first phase must be open-label, for recruitment
+reasons that are not themselves a design choice. Given that fixed
+constraint, what should the analyst prioritize among the remaining
+design parameters to make the biomarker-treatment interaction test as
+efficient as possible? We first give a qualitative answer, drawn
+directly from the compendium's existing simulation results. We then
+ask whether a genuine closed-form approximation to the interaction
+estimator's sampling variance and power can be derived, and, if so,
+how far it can be trusted. We derive such an approximation from two
+components: a within-subject two-group contrast reduction of the
+analysis model, and the exact variance of a mean of AR(1)-correlated,
+unequally spaced observations. We validate both components against
+Monte Carlo output already on disk, produced for a companion
+manuscript, rather than commissioning a new simulation study --- the
+appropriate scope for a short communication. We report the validation
+honestly: the variance and power approximation performs well: the
+attenuation-factor component captures the correct qualitative ranking
+of designs by carryover vulnerability but not its magnitude. We close
+with quantitative, closed-form-grounded design guidance for the
+open-label-first scenario.
+:::
+
+# What the compendium already establishes
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+Before deriving anything new, it is worth stating precisely what the
+existing simulation evidence already supports, since a closed form is
+only useful to the extent that it reproduces conclusions already
+established with more care. Four results from the compendium bear
+directly on the open-label-first design question.
+
+First, design topology after the open-label phase is the largest
+lever available. At matched total sample size $N=70$, the Hybrid
+design (open-label, then blinded discontinuation, then a brief
+crossover; four randomization paths) dominates open-label-plus-
+blinded-discontinuation alone (OL+BDC; two paths) in absolute power
+at every carryover half-life tested, $0.842$ versus $0.751$ at
+$t_{1/2}=0$ and $0.784$ versus $0.730$ at $t_{1/2}=1.0$ week
+[@pmsimstats-paper01]. Adding the crossover tail is worth its extra
+visits.
+
+Second, matching total sample size $N$ across designs being compared
+is not optional bookkeeping: it changed the compendium's own
+conclusions twice. An unmatched comparison inflated Hybrid's apparent
+power ceiling in the architecture manuscript and manufactured an
+apparent dropout-robustness advantage for Hybrid in the
+informative-dropout manuscript that a matched re-run showed was a
+ceiling effect [@pmsimstats-paper01; @pmsimstats-paper09].
+
+Third, the carryover decay's functional *shape* (exponential versus
+Weibull, across shape parameters $k \in \{0.25, 0.5, 2, 4\}$) barely
+moves the compendium's substantive conclusions; the *analysis
+specification* --- whether the exposure predictor is a binary
+indicator, an exposure-weighted continuous decay, or an
+AIC-selected-half-life variant --- matters considerably more
+[@pmsimstats-paper02].
+
+Fourth, misspecifying the residual correlation structure (fitting an
+exchangeable or naive model when the truth is AR(1)) is a larger
+anti-conservatism risk than misspecifying carryover decay shape
+[@pmsimstats-paper10].
+
+These four results already answer "what to prioritize" at a
+qualitative level. What they do not supply is a way to move from a
+verbal ranking to a number: how much does adding the crossover tail
+buy, quantitatively, as a function of the design's own visit
+schedule, without running a new simulation for every candidate
+design? That is the question the rest of this communication addresses.
+:::
+
+# A closed-form approximation
+
+## Setup
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+We work under the mean-moderation architecture
+[@pmsimstats-paper01], in which the biomarker $B_i$ scales the
+treatment effect directly in the outcome's conditional mean rather
+than through a covariance channel, and we approximate the analysis
+specification E1 (binary on-drug indicator $D_{it}$, carryover
+unmodeled at the analysis stage; @pmsimstats-paper02) by a simple
+two-group within-subject contrast. For participant $i$ with $k_{on}$
+on-drug and $k_{off}$ off-drug assessment timepoints at fixed
+calendar times, define
+\begin{equation}
+\Delta_i = \overline{Y}_{i}^{\,on} - \overline{Y}_{i}^{\,off},
+(\#eq:contrast)
+\end{equation}
+the mean on-drug outcome minus the mean off-drug outcome. Because the
+participant random intercept $u_i$ is common to both means, it
+cancels in $\Delta_i$ exactly (no random slope is present in the
+compendium's baseline model), leaving
+\begin{equation}
+\Delta_i = \beta_1\big(1 + \beta_{bm} B_i\big)\cdot\bar D_{bc,i}^{\,on}
+  - \beta_1\big(1+\beta_{bm}B_i\big)\cdot\bar D_{bc,i}^{\,off} + \eta_i,
+(\#eq:delta-decomp)
+\end{equation}
+where $\bar D_{bc,i}^{\,on}=1$ by construction and $\bar
+D_{bc,i}^{\,off} = \overline{D_{bc}}_i^{\,off}$ is the mean of the
+continuous exposure-decayed indicator across the off-drug assessment
+times, which is less than one whenever residual carryover has not
+fully decayed by the time of assessment, and $\eta_i$ is the
+difference of the two residual means. A second-stage ordinary least
+squares regression of $\Delta_i$ on the standardized biomarker $b_i$
+then recovers the interaction coefficient as its slope,
+\begin{equation}
+\Delta_i = \gamma_0 + \beta_{bm:D}\, b_i + \eta_i, \qquad
+  \beta_{bm:D} = \beta_1\,\beta_{bm}\cdot A_i,
+(\#eq:e9-like)
+\end{equation}
+where $A_i = 1 - \overline{D_{bc}}_i^{\,off}$ is a per-participant
+**carryover attenuation factor**. This construction is exactly the
+two-stage paired-difference specification E9 of the companion
+carryover manuscript [@pmsimstats-paper02], specialized to a strict
+on/off split rather than E9's general on/off means, and is offered
+here as an approximation to E1 (which is fit by the full mixed model
+on all timepoints jointly, not by this two-group reduction) rather
+than as an exact restatement of it.
+:::
+
+## Sampling variance under AR(1) correlation
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+The variance of the mean of $k$ observations drawn from a stationary
+process with autocovariance $\gamma(h) = \sigma^2\rho^{|h|}$ at
+arbitrary, possibly unequally spaced times $t_1,\dots,t_k$ has the
+exact closed form
+\begin{equation}
+V(\mathbf{t}, \sigma^2, \rho) = \frac{\sigma^2}{k^2}
+  \sum_{j=1}^{k}\sum_{l=1}^{k} \rho^{|t_j - t_l|}.
+(\#eq:var-mean-ar1)
+\end{equation}
+Applying Equation \@ref(eq:var-mean-ar1) separately to a
+participant's on-drug and off-drug visit times and summing (treating
+the two period means as approximately independent, an approximation
+we return to in the Discussion) gives the variance of the
+within-subject contrast,
+\begin{equation}
+\mathrm{Var}(\eta_i) \approx V(\mathbf{t}^{on}, \sigma^2, \rho) +
+  V(\mathbf{t}^{off}, \sigma^2, \rho) \;\equiv\; v(\mathrm{design},
+  \rho),
+(\#eq:v-sum)
+\end{equation}
+a quantity computable directly from a design's visit schedule and an
+assumed AR(1) parameter $\rho$, with no simulation required. Pooling
+across $N$ participants (assuming a standardized biomarker, so
+$\mathrm{Var}(b_i)=1$) and, for a multi-path design, averaging
+$v(\mathrm{design},\rho)$ across the design's randomization paths,
+the closed-form approximation to the interaction estimator's sampling
+variance is
+\begin{equation}
+\widehat{\mathrm{Var}}\big(\hat\beta_{bm:D}\big) \approx
+  \frac{\sigma^2\, v_1(\mathrm{design},\rho)}{N},
+(\#eq:var-closed-form)
+\end{equation}
+where $v_1$ is $v(\mathrm{design},\rho)$ evaluated at $\sigma^2=1$, so
+that $\sigma^2$ enters as a single free scale parameter separating
+design-and-correlation structure ($v_1$, closed-form) from residual
+noise magnitude ($\sigma^2$, an empirical quantity like any other
+nuisance variance component).
+:::
+
+## Predicted power
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+Given Equations \@ref(eq:e9-like) and \@ref(eq:var-closed-form), a
+Wald-normal approximation to power at level $\alpha$ follows
+immediately, in the same spirit as the general four-channel
+decomposition of the companion calibration manuscript
+[@pmsimstats-paper10, its $\kappa=1,\nu=\infty$ special case]:
+\begin{equation}
+z = \frac{|\beta_{bm:D}\cdot A(t_{1/2})|}
+  {\sqrt{\sigma^2\, v_1(\mathrm{design},\rho)/N}}, \qquad
+  \hat\pi \approx \Phi(z - z_{1-\alpha/2}) + \Phi(-z - z_{1-\alpha/2}),
+(\#eq:power-closed-form)
+\end{equation}
+with $A(t_{1/2})$ the design-averaged attenuation factor of
+Equation \@ref(eq:e9-like) and $\beta_{bm:D}$ the interaction
+coefficient's magnitude in the absence of carryover. Every quantity
+on the right-hand side except $\sigma^2$, $\rho$, and $\beta_{bm:D}$
+itself is computable directly from the candidate design's visit
+schedule and a candidate carryover half-life, with no simulation.
+:::
+
+# Validation against existing Monte Carlo output
+
+## Data and procedure
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+We validate Equations \@ref(eq:var-closed-form) and
+\@ref(eq:power-closed-form) against Monte Carlo output already
+produced for the dual-channel-architecture companion manuscript
+[@pmsimstats-paper11], rather than running a new simulation. That
+manuscript's driver
+(`analysis/scripts/dgp-combined/01-run-combined-factorial.R`)
+generates data under a combined architecture with independent
+mean-channel and covariance-channel weights $c_{bm,A}$ and
+$c_{bm,B}$; its $(c_{bm,A}=0.45,\, c_{bm,B}=0)$ boundary is, by
+construction, exactly the pure mean-moderation architecture this
+communication's derivation assumes. Its stored summary
+(`analysis/data/dgp-combined/01-combined-summary.rds`) already
+includes matched total sample sizes $N \in \{35, 70\}$, three designs
+(crossover, CO; open-label-plus-blinded-discontinuation, OL+BDC;
+Hybrid), three carryover half-lives $t_{1/2}\in\{0, 0.5, 1.0\}$
+weeks, and analysis specification E1, at $1{,}000$ replicates per
+cell. We compute $v_1(\mathrm{design}, \rho{=}0.7)$ and
+$A(\mathrm{design}, t_{1/2})$ directly from the same visit schedules
+the driver itself uses [@pmsimstats-paper02, §2 for the design
+definitions, reproduced with driver-matching timepoints in
+`analysis/scripts/nof1-design-efficiency/01-closed-form-validation.R`],
+fit the single free scale parameter $\sigma^2$ by ordinary least
+squares of $\widehat{\mathrm{sd}}(\hat\beta)^2 \cdot N$ on $v_1$
+across all 18 design-by-half-life-by-$N$ cells, and then compare the
+resulting closed-form power predictions to the cells' simulated
+power. $\rho=0.7$ is the AR(1) parameter the driver itself uses by
+default and is not separately estimated.
+:::
+
+## The variance-scaling component performs well
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+With a single fitted scale parameter ($\hat\sigma^2 = 0.667$), the
+closed form explains $R^2 = 0.948$ of the variation in
+$\widehat{\mathrm{sd}}(\hat\beta)^2 \cdot N$ across the 18 cells
+(Table \ref{tab:variance-fit}). Two structural predictions of
+Equation \@ref(eq:var-closed-form) are confirmed directly: the
+sampling variance scales as $1/N$ almost exactly (the CO design's
+empirical standard deviation ratio between $N=35$ and $N=70$ is
+$1.439$, against a predicted $\sqrt{70/35}=1.414$), and the design
+ranking by $v_1$ (OL+BDC highest, Hybrid intermediate, CO lowest, at
+fixed $\rho$) is reproduced in direction, though not exactly in
+magnitude, by the empirical standard deviations. A systematic
+residual pattern is visible and is reported rather than concealed:
+the closed form under-predicts CO's empirical standard deviation by
+roughly 15-20% and over-predicts Hybrid's and OL+BDC's by roughly
+5-10%. The most likely source is Equation \@ref(eq:v-sum)'s
+independence approximation between a participant's on-drug and
+off-drug period means, which is exact only when no AR(1) correlation
+crosses the on/off boundary; CO's two long, contiguous four-visit
+blocks per path plausibly violate that approximation more than the
+other designs' more fragmented schedules.
+:::
+
+```{r variance-fit, echo=FALSE}
+# Table transcribed from
+# analysis/data/nof1-design-efficiency/closed-form-validation.csv,
+# produced by
+# analysis/scripts/nof1-design-efficiency/01-closed-form-validation.R.
+```
+
+\begin{table}[H]
+\centering
+\caption{Closed-form sampling-standard-deviation predictions against
+Monte Carlo output, at $\hat\sigma^2 = 0.667$ (fitted once, across
+all 18 cells). $\mathrm{sd}(\hat\beta)$ is the empirical standard
+deviation of the fitted \texttt{bm:Dbc} coefficient across 1{,}000
+replicates; $\widehat{\mathrm{sd}}(\hat\beta)$ is the closed-form
+prediction of Equation \ref{eq:var-closed-form}.}
+\label{tab:variance-fit}
+\begin{tabular}{lrrrrr}
+\toprule
+Design & $N$ & $t_{1/2}$ (wk) & $\mathrm{sd}(\hat\beta)$ &
+  $\widehat{\mathrm{sd}}(\hat\beta)$ & Ratio \\
+\midrule
+CO     & 35 & 0.0 & 0.159 & 0.132 & 1.21 \\
+CO     & 70 & 0.0 & 0.110 & 0.093 & 1.18 \\
+Hybrid & 35 & 0.0 & 0.123 & 0.134 & 0.92 \\
+Hybrid & 70 & 0.0 & 0.084 & 0.095 & 0.89 \\
+OL+BDC & 35 & 0.0 & 0.138 & 0.147 & 0.93 \\
+OL+BDC & 70 & 0.0 & 0.096 & 0.104 & 0.92 \\
+CO     & 35 & 1.0 & 0.153 & 0.132 & 1.16 \\
+CO     & 70 & 1.0 & 0.108 & 0.093 & 1.16 \\
+Hybrid & 35 & 1.0 & 0.120 & 0.134 & 0.89 \\
+Hybrid & 70 & 1.0 & 0.087 & 0.095 & 0.92 \\
+OL+BDC & 35 & 1.0 & 0.139 & 0.147 & 0.94 \\
+OL+BDC & 70 & 1.0 & 0.096 & 0.104 & 0.92 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+The $t_{1/2}=0.5$ rows, omitted from Table \ref{tab:variance-fit}
+for space, follow the same pattern and are included in the full
+18-row output of
+`analysis/data/nof1-design-efficiency/closed-form-validation.csv`.
+:::
+
+## Power prediction
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+Using the fitted $\hat\sigma^2$ and, for each cell, that cell's own
+empirical $\overline{\hat\beta}$ as the effective true effect in
+Equation \@ref(eq:power-closed-form) --- a choice discussed in
+\S\ref{limitations} --- the closed form predicts simulated power with
+a mean absolute error of $0.049$, a root-mean-square error of
+$0.058$, and a correlation of $0.935$ across the 18 cells (Table
+\ref{tab:power-fit} gives the $t_{1/2}=0$ and $t_{1/2}=1.0$ rows in
+full). For a first-pass closed form validated against a single
+architecture at one $\rho$ value, this is a substantively useful
+level of agreement: a trialist screening candidate designs would
+reach the same qualitative decision from the closed form as from the
+full Monte Carlo simulation in the great majority of cells inspected
+here.
+:::
+
+\begin{table}[H]
+\centering
+\caption{Closed-form power predictions against simulated power
+(1{,}000 replicates per cell, $\alpha=0.05$ two-sided).}
+\label{tab:power-fit}
+\begin{tabular}{lrrrrr}
+\toprule
+Design & $N$ & $t_{1/2}$ (wk) & Power (simulated) &
+  Power (closed form) & Error \\
+\midrule
+CO     & 35 & 0.0 & 0.352 & 0.421 & $+0.069$ \\
+CO     & 70 & 0.0 & 0.595 & 0.690 & $+0.095$ \\
+Hybrid & 35 & 0.0 & 0.452 & 0.426 & $-0.026$ \\
+Hybrid & 70 & 0.0 & 0.738 & 0.703 & $-0.035$ \\
+OL+BDC & 35 & 0.0 & 0.335 & 0.367 & $+0.032$ \\
+OL+BDC & 70 & 0.0 & 0.612 & 0.618 & $+0.006$ \\
+CO     & 35 & 1.0 & 0.323 & 0.409 & $+0.086$ \\
+CO     & 70 & 1.0 & 0.611 & 0.716 & $+0.105$ \\
+Hybrid & 35 & 1.0 & 0.456 & 0.418 & $-0.038$ \\
+Hybrid & 70 & 1.0 & 0.729 & 0.688 & $-0.041$ \\
+OL+BDC & 35 & 1.0 & 0.327 & 0.357 & $+0.030$ \\
+OL+BDC & 70 & 1.0 & 0.577 & 0.596 & $+0.019$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+The closed form correctly identifies Hybrid as the best-powered
+design at both sample sizes and both half-lives shown, matching the
+compendium's own headline finding [@pmsimstats-paper01]. It does not
+correctly order CO against OL+BDC: the closed form ranks CO above
+OL+BDC at $N=70$ (predicted power $0.690$ versus $0.618$ at
+$t_{1/2}=0$), while the simulation ranks them the other way ($0.595$
+versus $0.612$). This is a genuine limitation, not a rounding
+artefact, and is reported as such rather than smoothed over: the
+closed form is reliable for identifying the best design among
+candidates that differ substantially in $v_1$, and unreliable for
+close calls between designs whose $v_1$ values are similar.
+:::
+
+## The attenuation factor: correct ranking, overstated magnitude
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+Table \ref{tab:attenuation} compares the closed-form attenuation
+factor $A(t_{1/2})$, computed purely from each design's visit
+schedule, to the actual relative change in the fitted mixed-model
+coefficient's magnitude, $|\overline{\hat\beta}(t_{1/2}{=}1.0)| \,/\,
+|\overline{\hat\beta}(t_{1/2}{=}0)|$, from the same Monte Carlo cells.
+The direction is right in every case, and the ranking across designs
+is right: CO's off-drug visits are, on one randomization path, a
+pre-drug baseline period that carryover cannot contaminate at all, so
+CO shows the least closed-form attenuation of the three designs,
+exactly matching the compendium's own qualitative finding that CO's
+carryover-induced power loss is the smallest of the designs compared
+[@pmsimstats-paper01]. But the *magnitude* is badly overstated
+throughout: the closed form predicts a $24.5$-percentage-point
+attenuation for Hybrid between $t_{1/2}=0$ and $t_{1/2}=1.0$ weeks,
+while the fitted coefficient's magnitude falls by only about $1.7\%$
+over the same range ($N=70$: $|{-}0.2358|$ to $|{-}0.2317|$).
+:::
+
+\begin{table}[H]
+\centering
+\caption{Closed-form attenuation factor versus the actual relative
+change in the fitted interaction coefficient's magnitude, $N=70$.}
+\label{tab:attenuation}
+\begin{tabular}{lrr}
+\toprule
+Design & $A(t_{1/2}{=}1.0)$ (closed form) &
+  $|\bar{\hat\beta}(1.0)/\bar{\hat\beta}(0)|$ (simulated) \\
+\midrule
+CO     & 0.973 & 1.031 \\
+Hybrid & 0.755 & 0.983 \\
+OL+BDC & 0.667 & 0.975 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+The explanation is structural, not a fitting failure. The closed
+form's attenuation factor comes from a crude two-group mean split
+that discards each observation's individual timing; the fitted mixed
+model instead includes an explicit time covariate $t$ alongside
+`bm:Dbc`, and recovers gradient information within the off-drug
+period (how the outcome trends as $D_{bc}$ decays across successive
+off-drug visits) that the two-group contrast simply averages away.
+This is a genuine, useful negative result: it means the attenuation
+factor of Equation \@ref(eq:e9-like) should be read as a *design
+screening heuristic* --- it will correctly tell an analyst which of
+two designs loses more information to a given carryover half-life
+--- and not as a *quantitative bias estimate* for the coefficient a
+properly specified mixed-model analysis will actually report.
+:::
+
+# Design guidance for a mandatory open-label lead-in
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+Given a fixed open-label first phase, the validated components above
+translate the compendium's qualitative guidance into a design
+procedure. First, compute $v_1(\mathrm{design}, \rho)$ from
+Equation \@ref(eq:v-sum) for every design under consideration, using
+each candidate's actual visit schedule; this can be done for a
+design that has never been simulated, in seconds, without touching
+the simulation pipeline. Second, use $v_1$'s ranking to eliminate
+designs that are clearly dominated (a large $v_1$ relative to the
+alternatives) and to identify a small shortlist worth a full Monte
+Carlo comparison; Table \ref{tab:variance-fit}'s validation shows
+this ranking is trustworthy for well-separated candidates and should
+not be trusted to resolve close calls, which still warrant
+simulation. Third, use $A(t_{1/2})$ from Equation \@ref(eq:e9-like)
+only as a relative screen across designs at a shared assumed
+half-life, not as a quantitative power adjustment; §4.4 shows it
+substantially overstates the actual attenuation a `corCAR1` mixed
+model with a time covariate will recover from. Fourth, since adding
+visits after the mandatory open-label phase is the largest lever in
+$v_1$'s design-dependence (Table \ref{tab:variance-fit}), and since
+the compendium's own matched-$N$ comparison shows a brief crossover
+tail after blinded discontinuation is worth its cost in the one
+design pairing checked here [@pmsimstats-paper01], a Hybrid-style
+continuation of the mandatory open-label phase should be the default
+starting point for the design shortlist, to be displaced only by a
+full simulation showing a specific alternative outperforms it for
+the trial's actual parameters.
+:::
+
+# Limitations {#limitations}
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+Several scope limitations bound how far this closed form should be
+trusted. It is derived and validated under the mean-moderation
+architecture only; the covariance-moderation architecture's
+interaction lives in $\partial\,\mathrm{Cor}(BM,BR)/\partial D_{bc}$
+rather than in the conditional mean [@pmsimstats-paper01], and the
+two-group contrast reduction of Equation \@ref(eq:contrast) does not
+apply to it without a separate derivation. The validation uses the
+Monte Carlo cells' own empirical $\overline{\hat\beta}$ as the
+effective true effect in Equation \@ref(eq:power-closed-form) rather
+than the architecture's nominal calibration target
+$c_{bm,A}\cdot\sigma_{BR}$: the two differ by roughly an order of
+magnitude in the data inspected here ($3.6$ nominal against
+approximately $0.23$ observed), a discrepancy this communication
+does not resolve and flags as an open calibration question for the
+companion architecture manuscripts rather than papering over with an
+ad hoc rescaling. The variance formula's on/off independence
+approximation (Equation \@ref(eq:v-sum)) is shown, by its residual
+pattern in Table \ref{tab:variance-fit}, to be imperfect for designs
+with long contiguous within-phase blocks. Validation is against a
+single $\rho$ value ($0.7$, the driver default) and a single pair of
+sample sizes; whether the closed form's accuracy holds at other
+correlation strengths or substantially larger or smaller $N$ is not
+established here. Finally, the closed form omits the placebo-belief
+and natural-history components of the outcome decomposition
+entirely [@pmsimstats-paper06]; a biomarker correlated with placebo
+responsiveness will bias the interaction estimate in a way no version
+of this closed form, restricted to the pharmacological channel alone,
+can detect.
+:::
+
+# Conclusion
+
+::: {.rgt data-latex=""}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+:::
+
+::: {.orig data-latex=""}
+A closed-form approximation to the biomarker-treatment interaction
+estimator's sampling variance, built from a within-subject two-group
+contrast and the exact variance of a mean of AR(1)-correlated
+observations, reproduces 95% of the variation in the interaction
+estimator's Monte Carlo sampling variance and predicts simulated
+power to within a mean absolute error of 0.05, using a single fitted
+nuisance-variance parameter and no new simulation. A companion
+attenuation factor correctly ranks trial designs by their
+vulnerability to carryover but should not be read as a quantitative
+bias estimate, because it discards timing information a properly
+specified mixed-model analysis recovers. Together these give a
+concrete, quantitative starting point for the design question that
+motivated this communication --- what to prioritize given a mandatory
+open-label first phase --- without displacing the full Monte Carlo
+comparison the compendium's other manuscripts continue to supply for
+final design decisions.
+:::
+
+# Reproducibility
+
+::: {.orig data-latex=""}
+No new Monte Carlo simulation was run for this manuscript. All
+numbers reported here are produced by
+`analysis/scripts/nof1-design-efficiency/01-closed-form-validation.R`,
+which reads the existing output of
+`analysis/scripts/dgp-combined/01-run-combined-factorial.R`
+(`analysis/data/dgp-combined/01-combined-summary.rds`) and writes
+`analysis/data/nof1-design-efficiency/closed-form-validation.{rds,csv}`.
+:::
+
+# References

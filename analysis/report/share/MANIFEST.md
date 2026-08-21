@@ -320,3 +320,5 @@
 | `08-test-procedure-design-sensitivity-2026-08-20-1719-faccea3-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/08-test-procedure-design-sensitivity/report.Rmd` | `faccea3-wip` | 2026-08-20 17:19 PDT |
 | `11-combined-dgp-architecture-2026-08-20-1720-faccea3-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/11-combined-dgp-architecture/report.Rmd` | `faccea3-wip` | 2026-08-20 17:20 PDT |
 | `11-combined-dgp-architecture-2026-08-20-1720-faccea3-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/11-combined-dgp-architecture/report.Rmd` | `faccea3-wip` | 2026-08-20 17:20 PDT |
+| `12-nof1-design-efficiency-2026-08-20-1807-e65895c.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/12-nof1-design-efficiency/report.Rmd` | `e65895c` | 2026-08-20 18:07 PDT |
+| `12-nof1-design-efficiency-2026-08-20-1807-nogit.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/12-nof1-design-efficiency/report.Rmd` | `nogit` | 2026-08-20 18:07 PDT |

@@ -1,0 +1,1461 @@
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue]{hyperref}
+\usepackage{titlesec}
+\usepackage{setspace}
+\usepackage{xcolor}
+
+\newcommand{\note}[1]{\textcolor{blue!60!black}{\small [#1]}}
+\newcommand{\code}[1]{\texttt{#1}}
+
+\titleformat{\section}{\normalfont\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries}{\thesubsection}{1em}{}
+
+\title{\textbf{The Mathematics of the pmsimstats-ng Manuscript
+Compendium}\\[0.3em]
+\large A unified account of the notation, data-generating processes,
+and analysis models across the eleven manuscripts under
+\code{analysis/report/}}
+\author{pmsimstats team}
+\date{2026-08-20}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+The eleven manuscripts of the pmsimstats-ng compendium share one
+outcome model, one family of trial designs, and one analysis-model
+convention, but each paper varies a different piece of that shared
+machinery to ask a different question. This document collects, in one
+place and in the compendium's own notation, the mathematics that each
+manuscript actually states: the response trajectory, the treatment-
+exposure and carryover mechanics, the two (and, jointly, three)
+architectures by which a biomarker moderates treatment response, a
+latent-variable reading of the covariance-moderation architecture, the
+decomposition of the treatment effect into its biological, placebo,
+and natural-history parts, and the inferential machinery used to test
+and calibrate the resulting interaction estimand. Where a manuscript's
+own presentation is thin, inconsistent, or silent on a point the
+compendium's design nonetheless raises, that gap is flagged explicitly
+rather than papered over with new derivation. Every equation below is
+attributed to the manuscript it came from.
+\end{abstract}
+
+\tableofcontents
+
+%=============================================================
+\section{Scope and reading order}
+%=============================================================
+
+The compendium's eleven manuscripts fall into two families. Nine share
+the biomarker-treatment interaction $\beta_{bm:D}$ as their estimand
+and the common outcome components of Section~\ref{sec:notation-outcome}; one
+(Paper~04) targets the treatment \emph{main} effect $\beta_D$ under a
+simpler, biomarker-free model; one (Paper~10) is written in
+deliberately general, non-N-of-1-specific notation to isolate what
+drives realized Type~I error in \emph{any} Wald test on a mixed-model
+interaction coefficient. This document orders the material so that
+each section can be read against the one before it:
+
+\begin{enumerate}[label=\textbf{\arabic*.}, itemsep=2pt]
+\item \textbf{Notation} (\S\ref{sec:notation}) fixes indices, the sign
+  convention, and the rule that $N$ is always a total across
+  randomization paths.
+\item \textbf{The response trajectory} (\S\ref{sec:gompertz}, Papers
+  06--07) gives the modified-Gompertz curve that every latent factor
+  in the outcome follows, and the alternative curve families used to
+  test whether the compendium's conclusions depend on that choice.
+\item \textbf{Trial designs, exposure, and carryover}
+  (\S\ref{sec:designs}, Papers 02, 05) gives the four designs, the
+  treatment-exposure indicators, and the carryover decay families that
+  every later section takes as fixed infrastructure.
+\item \textbf{Two architectures for a biomarker-treatment interaction}
+  (\S\ref{sec:architectures}, Paper 01) is the compendium's central
+  methodological contribution: the same interaction can live in the
+  outcome's first moment (mean moderation) or its second moment
+  (covariance moderation), and the two are not the same model wearing
+  different clothes.
+\item \textbf{A latent-variable reading of covariance moderation}
+  (\S\ref{sec:latent}, Paper 03) asks what generative mechanism a
+  fitted covariance-moderation model is secretly standing in for, and
+  gives the moment conditions under which a two-class mixture and a
+  single MVN are observationally close.
+\item \textbf{The dual-channel architecture}
+  (\S\ref{sec:dualchannel}, Paper 11) activates both channels at once
+  and shows their contributions to the interaction test are additive
+  to first order, with the two channel weights not separately
+  identifiable from a single fitted coefficient.
+\item \textbf{Partitioning the treatment effect}
+  (\S\ref{sec:partition}, Paper 06) decomposes the outcome itself into
+  biological, placebo-belief, and natural-history components, and
+  derives closed-form bias identities for what a one-component
+  analysis actually estimates when the true generative process has
+  three.
+\item \textbf{Informative dropout} (\S\ref{sec:dropout}, Paper 09)
+  gives the hazard mechanism used to censor participants as a function
+  of their own symptom trajectory, and the missingness classification
+  that follows from it.
+\item \textbf{Inference: from a fitted coefficient to a calibrated
+  test} (\S\ref{sec:inference}, Papers 08, 10, 02) collects the
+  analysis-model machinery: a closed-form repeated-measures ANOVA
+  derivation, a general four-channel decomposition of realized
+  Type~I error, and the cluster-robust sandwich-variance family used
+  to correct it.
+\item \textbf{The treatment main-effect track}
+  (\S\ref{sec:maineffect}, Paper 04) is the compendium's odd paper
+  out: no biomarker channel at all, a linear (not Gompertz) DGP, and
+  the classical closed-form power theory of Senn and of Zucker et al.
+  that the rest of the compendium replaces with simulation.
+\item \textbf{Shared performance measures}
+  (\S\ref{sec:performance}) collects the Monte Carlo standard error,
+  power, and calibration-ratio definitions used identically across
+  every paper.
+\end{enumerate}
+
+Every symbol is defined at first use and, where the compendium's own
+\code{NOTATION.md} governs it, cross-referenced to that governing
+rule. Sign convention throughout: the three outcome components are
+non-negative \emph{reductions} in symptom severity, so treatment and
+interaction coefficients are negative and moderation parameters are
+positive (\code{NOTATION.md} Rule 5).
+
+%=============================================================
+\section{Notation and conventions}
+\label{sec:notation}
+%=============================================================
+
+\subsection{Indices and structural counts}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Symbol & Meaning \\
+\midrule
+$i$ & participant index \\
+$t$ & timepoint index (weekly measurement occasions throughout) \\
+$j$, $ij$ & period or occasion index within participant (Papers 04, 06, 08) \\
+$N$ & \textbf{total} number of participants, across all randomization paths \\
+$P$ & number of randomization paths in a design; expected allocation $N/P$ per path \\
+$n_{\mathrm{reps}}$, $n_{\mathrm{sim}}$ & Monte Carlo replicates per cell \\
+$k$ & cycles per participant in a design sweep; also the Weibull shape parameter \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Rule (\code{NOTATION.md} Rule 4).} $N$ is always the total
+sample size across randomization paths, never a per-path count.
+Table~\ref{tab:paths} gives the path count $P$ for each design; the
+per-path allocation is $\lfloor N/P \rfloor$ with the remainder spread
+one per path.
+
+\begin{table}[h]
+\centering
+\caption{Trial designs and their randomization-path counts.}
+\label{tab:paths}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Design & $P$ & Paths \\
+\midrule
+OL (open-label) & 1 & on drug throughout \\
+CO (crossover) & 2 & drug-then-placebo, placebo-then-drug \\
+OL+BDC (blinded discontinuation) & 2 & discontinuation at either of two visits \\
+Hybrid & 4 & two discontinuation points $\times$ two crossover orders \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This distinction is not cosmetic: \code{NOTATION.md} documents a
+2026-08-08 compendium-wide correction in which several drivers had
+read \code{modelparam\$N} as a per-path count rather than a total.
+Re-matching every design to a common total $N=70$ moved Paper 01's
+Hybrid-design power from a ceiling of $\approx 0.99$ down to $0.84$
+(tripling its measured carryover loss) and withdrew Paper 09's
+second headline conclusion, that its most powerful design was also its
+most dropout-robust --- the earlier near-immunity turned out to be a
+ceiling effect at the wrong $N$. This is the compendium's clearest
+demonstration that an unmatched design comparison does not merely
+inflate one arm; it can manufacture an apparent robustness finding out
+of nothing.
+
+\subsection{Outcome and latent components}
+\label{sec:notation-outcome}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Symbol & Meaning \\
+\midrule
+$Y_{it}$ & observed symptom score, the modelled outcome (code column \code{Sx}) \\
+$\mathrm{BL}_i$ & participant-specific baseline level \\
+$BR_{it}$ & biological (pharmacological) response component \\
+$PB_{it}$ & placebo-belief response component \\
+$TV_{it}$ & time-variant natural-history component \\
+$\varepsilon_{it}$ & observation-level residual \\
+$u_i$, $b_i$ & participant random intercept \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Treatment exposure and carryover}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Symbol & Meaning \\
+\midrule
+$D_{it}$ & binary drug state: 1 on drug, 0 off drug \\
+$D_{bc,it}$ & continuous exposure-decayed drug indicator (code \code{Dbc}) \\
+$t_{sd}$ & time since discontinuation (code \code{tsd}) \\
+$t_{od}$ & cumulative time on drug (code \code{tod}) \\
+$t_{1/2}$ & carryover half-life (code \code{carryover\_t1half}) \\
+$\lambda$ & carryover decay rate, $\lambda = \ln 2 / t_{1/2}$ (code \code{lambda\_cor}) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Units.} $t_{1/2}$ is quoted in \emph{weeks} in the
+interaction-focused manuscripts (canonical grid $\{0, 0.5, 1.0\}$) and
+in \emph{days} in the main-effect and test-procedure manuscripts, on a
+pharmacokinetic scale with a 3-day baseline (1 week = 7 days).
+
+\subsection{Biomarker, moderation, and estimand}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Symbol & Meaning \\
+\midrule
+$B_i$ & participant-level pre-treatment biomarker (code \code{bm}) \\
+$b_i$ & standardized biomarker, $(B_i - \bar B)/s_B$ (code \code{bm\_z}) \\
+$c_{bm}$ & covariance-moderation parameter: on-drug $\mathrm{Cor}(B_i, BR_{it})$ \\
+$\beta_{bm}$ & mean-moderation parameter: multiplier scaling the treatment effect by $b_i$ \\
+$c_{bm,A}$, $c_{bm,B}$ & independent mean-channel and covariance-channel weights (dual-channel) \\
+$\beta_{bm:D}$ & the target estimand, the biomarker-by-treatment interaction (code \code{bm:Dbc}) \\
+$\pi$ & power, $\Pr(p < \alpha)$; $\alpha = 0.05$ throughout \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Rule (\code{NOTATION.md} Rule 2).} $c_{bm}$ is a correlation;
+$\beta_{bm}$ is a multiplier. They are calibrated to a common numeric
+scale --- the reference value $0.45$ denotes matched moderation
+strength under either architecture, because the mean-channel shift is
+applied as $\beta_{bm}\, b_i\, \sigma_{BR}$ on the standardized
+biomarker --- but the two symbols are not interchangeable, and a paper
+using both architectures at a matched value must say so explicitly.
+
+%=============================================================
+\section{The response trajectory: modified-Gompertz progression}
+\label{sec:gompertz}
+%=============================================================
+
+Every latent factor in the outcome model --- $BR$, $PB$, and $TV$ ---
+is generated as a trajectory in $t$ (or in $t_{od}$, cumulative time on
+drug) that rises from zero toward an asymptote. The default functional
+form throughout the package is a \emph{modified Gompertz curve}; Paper
+07 exists specifically to ask how much of the compendium's power and
+bias findings survive if that functional-form choice is wrong.
+
+\subsection{The modified Gompertz curve}
+
+Paper 07's canonical statement, with a vertical offset so the curve
+passes through the origin:
+\begin{equation}
+y(t) = \mathrm{maxr} \cdot \exp\!\left(-\mathrm{disp} \cdot
+       \exp(-\mathrm{rate} \cdot t)\right), \qquad y(0) = 0
+\label{eq:gompertz-07}
+\end{equation}
+with $\mathrm{maxr}$ the asymptotic maximum response, $\mathrm{rate}$
+governing the approach speed, and $\mathrm{disp}$ the curvature near
+$t=0$; the inflection occurs at $t^\ast =
+\log(\mathrm{disp})/\mathrm{rate}$.
+
+Paper 06's equivalent statement makes the offset explicit and gives it
+as a normalized curve on $[0,1]$ before scaling:
+\begin{equation}
+C(t) = m_C \exp\!\big(-d_C \exp(-r_C t)\big) - m_C \exp(-d_C),
+\label{eq:gompertz-06}
+\end{equation}
+for a generic component $C \in \{BR, PB, TV\}$, where $m_C$ is the
+scale/asymptote parameter, $d_C$ the displacement, and $r_C$ the onset
+rate; the offset $m_C\exp(-d_C)$ is precisely the value the unshifted
+curve would take at $t=0$, subtracted so $C(0)=0$. Equations
+\eqref{eq:gompertz-07} and \eqref{eq:gompertz-06} are the same curve;
+\code{NOTATION.md}'s own shorthand is $y = \mathrm{maxr}\cdot
+\exp(-\mathrm{disp}\cdot\exp(-\mathrm{rate}\cdot t))$ with a vertical
+offset adjustment, matching both.
+
+Paper 05's variant, folded into a normalized $[0,1]$ scale, is
+algebraically the same curve written as a min-max normalization:
+\begin{equation}
+y(t) = \mathrm{maxr} \cdot
+  \frac{\exp(-\mathrm{disp}\cdot\exp(-\mathrm{rate}\cdot t)) -
+        \exp(-\mathrm{disp})}{1 - \exp(-\mathrm{disp})}.
+\label{eq:gompertz-05}
+\end{equation}
+
+\subsection{Alternative response-curve families}
+
+Paper 07 evaluates three alternatives, each calibrated so its
+asymptotic maximum and its response level at a single anchor time
+($t=5$ weeks) match the Gompertz reference:
+
+\begin{align}
+\text{Logistic:} \qquad & y(t) = \frac{\mathrm{maxr}}{1 +
+  \exp(-\mathrm{rate}\cdot(t - t_0))} - \mathrm{offset}
+  \label{eq:logistic} \\
+\text{Hyperbolic tangent:} \qquad & y(t) = \mathrm{maxr}\cdot
+  \frac{\tanh(\mathrm{rate}\cdot(t-t_0)) + 1}{2} - \mathrm{offset}
+  \label{eq:tanh} \\
+\text{Piecewise-linear breakpoint:} \qquad & y(t) = \mathrm{maxr}\cdot
+  \min\!\left(1, \frac{t}{t_{\mathrm{bp}}}\right) +
+  \mathrm{post\_slope}\cdot\max(0,\, t - t_{\mathrm{bp}})
+  \label{eq:plb}
+\end{align}
+
+The logistic and hyperbolic-tangent curves are both symmetric around
+an inflection at $t_0$; the piecewise-linear form is the only
+non-differentiable member of the family, with a breakpoint at
+$t_{\mathrm{bp}}$. \code{NOTATION.md} additionally names a
+\textbf{piecewise-linear-breakpoint} family among the package's
+built-in \code{br\_family} options alongside logistic and hyperbolic
+tangent; Paper 07 confirms the hyperbolic-tangent form is formally a
+rescaled logistic, not an independent shape family.
+
+\subsection{How trajectory shape interacts with carryover and the
+two architectures}
+
+Under the \emph{mean-moderation} architecture the biomarker-dependent
+component of the treatment effect rides the trajectory itself:
+\begin{equation}
+Y_{it} = \mu_0 + \beta_1 D_{it}\,(1 + \beta_{bm} B_i) + \varepsilon_{it},
+\label{eq:gompertz-mean-mod}
+\end{equation}
+so a family with a slower early rise front-loads less of the
+interaction signal onto the earliest on-drug timepoints; Paper 07
+normalizes the per-timepoint moderation so its mean on-drug magnitude
+equals $\sigma_{BR}$, holding the marginal interaction effect size
+fixed while letting the temporal profile vary by family shape.
+
+Under the \emph{covariance-moderation} architecture (\S\ref{sec:architectures}),
+by contrast, the interaction lives in
+\begin{equation}
+\frac{\partial\, \mathrm{Cor}(BM, BR)}{\partial D_{bc}},
+\label{eq:gompertz-cov-independence}
+\end{equation}
+which is independent of the trajectory family $BR$ follows: the BM--BR
+covariance block is constructed directly, not derived from the mean
+curve, so trajectory-shape misspecification cannot move the
+covariance-channel interaction test at all. This is the structural
+reason Paper 07's 16-cell factorial (four families $\times$ two
+architectures $\times$ two biomarker-effect levels, $N=70$, Hybrid
+OL+BDC design, $t_{1/2}=0$ to isolate the trajectory effect from
+carryover) finds power differences of only a few percentage points
+across families under both architectures: the mean channel is only
+mildly shape-sensitive, and the covariance channel is not shape-
+sensitive at all by construction. Paper 07 is explicit that this
+16-cell grid deliberately fixes $t_{1/2}=0$; at $t_{1/2}>0$ the
+\code{bm:Dbc}-mediated information channel would be eroded differently
+by different trajectory shapes, because the off-drug exponential decay
+interacts with each family's own decay profile --- a combination the
+present submission does not evaluate.
+
+%=============================================================
+\section{Trial designs, treatment exposure, and carryover}
+\label{sec:designs}
+%=============================================================
+
+\subsection{Simple versus complex designs}
+
+The compendium compares four designs of increasing complexity, defined
+by their randomization-path structure (Table~\ref{tab:paths}) rather
+than by a closed-form exposure-sequence equation --- no manuscript in
+the compendium formalizes $D_{it}$ as an explicit function of path or
+sequence index; the designs are specified operationally, as
+visit-by-visit exposure schedules, and $D_{it}$ is simply read off that
+schedule.
+
+\begin{description}[leftmargin=2em]
+\item[OL (open-label).] Unblinded titration; no off-drug contrast, so
+  it supplies no within-subject interaction information.
+\item[CO (crossover).] Two-period within-subject crossover, blinded
+  throughout.
+\item[OL+BDC (blinded discontinuation).] Open-label titration followed
+  by a blinded switch to placebo.
+\item[Hybrid.] The Hendrickson (2020) reference design: open-label
+  titration, blinded discontinuation, then a brief crossover; four
+  randomization paths.
+\end{description}
+
+Design \emph{complexity}, in this compendium, is therefore a
+statement about $P$ and about how many within-subject on/off contrasts
+a design's path structure supplies --- not about a formal information
+functional of $P$. Paper 05, whose remit is exactly this comparison,
+contains no equation relating $P$ or switch count to the power of the
+interaction estimand $\beta_{bm:D}$; its own stated target is in fact
+the \emph{main} drug effect, not the interaction (that comparison is
+explicitly deferred to the companion architecture manuscript, Paper
+01). The one quantitative link Paper 05 does supply is between serial
+correlation and the effective information in a \emph{between}-subject
+contrast --- relevant to why the parallel-group RCT loses power under
+AR(1) autocorrelation while the within-subject N-of-1 designs do not:
+\begin{equation}
+\text{effective-$N$ shrinkage factor} = \frac{1}{1 + (k-1)\rho},
+\label{eq:effn-shrinkage}
+\end{equation}
+where $k$ is the number of repeated observations contributing to a
+between-subject mean and $\rho$ is the AR(1) correlation. Because the
+N-of-1 designs' primary contrast is within-subject, this shrinkage
+does not act on their information the way it acts on a parallel-arm
+comparator's.
+
+\subsection{Treatment exposure: binary versus continuous}
+
+\textbf{Rule (\code{NOTATION.md} Rule 1).} $D_{it}$ is binary;
+$D_{bc,it}$ is continuous. These are different objects and must never
+be substituted for one another:
+\begin{equation}
+D_{bc,it} = \begin{cases} 1 & D_{it} = 1 \text{ (on drug)} \\
+  \exp(-\lambda\, t_{sd,it}) & D_{it} = 0 \text{ (off drug)},
+\end{cases}
+\label{eq:dbc}
+\end{equation}
+with $t_{sd,it}$ the time since discontinuation. In the limit of an
+assumed zero half-life, the continuous predictor collapses exactly
+onto the binary one, $D_{bc,it} \to D_{it}$ as $\hat t_{1/2} \to 0$
+(Paper 02) --- the sense in which the compendium's ``Unadjusted''
+analysis specification is the boundary member of the continuous-
+exposure family.
+
+\subsection{Carryover decay families}
+
+Four decay forms are implemented, all normalized so $\phi(t_{1/2}) =
+0.5$:
+\begin{align}
+\text{Exponential:} \qquad & \phi_{\exp}(t_{sd}) = \exp(-\lambda\,
+  t_{sd}), \qquad \lambda = \frac{\ln 2}{t_{1/2}}
+  \label{eq:decay-exp} \\
+\text{Linear:} \qquad & \phi_{\mathrm{lin}}(t_{sd}) = \max\!\left(0,\,
+  1 - \frac{t_{sd}}{2\,t_{1/2}}\right)
+  \label{eq:decay-lin} \\
+\text{Weibull:} \qquad & \phi_{\mathrm{weib}}(t_{sd}) =
+  \exp\!\big(-(\lambda_w t_{sd})^k\big), \qquad \lambda_w =
+  \frac{(\ln 2)^{1/k}}{t_{1/2}}
+  \label{eq:decay-weib} \\
+\text{Power:} \qquad & \phi_{\mathrm{pow}}(t_{sd}) = \max\!\left(0,\,
+  \Big(1 - \frac{t_{sd}}{3\,t_{1/2}}\Big)^{\!p}\right)
+  \label{eq:decay-pow}
+\end{align}
+The Weibull family recovers the exponential exactly at shape $k=1$; a
+value $k<1$ produces a heavier elimination tail than exponential, and
+$k>1$ a lighter one. Paper 02, whose remit is this decay family, tests
+$k \in \{0.25, 0.5, 2.0, 4.0\}$ against the exponential default and
+finds the analysis-model conclusions materially unchanged --- the
+compendium's carryover-specification results are not an artifact of
+assuming the exponential form. Paper 05 additionally implements a
+carryover \emph{recursion} for the biological-response mean during
+off-drug periods,
+\begin{equation}
+\mu[t] = \mathrm{base}[t] + \mu[t-1]\cdot\phi(t_{sd}),
+\label{eq:carryover-recursion}
+\end{equation}
+so that off-drug decay compounds across consecutive off-drug
+timepoints rather than resetting at each one.
+
+\subsection{Covariance moderation with carryover}
+
+Under the covariance-moderation architecture (\S\ref{sec:architectures}),
+carryover attenuates the biomarker--response correlation itself, not
+just the mean:
+\begin{equation}
+\mathrm{Cor}(B_i, BR_{it}) = c_{bm}\cdot\phi(t_{sd}),
+\label{eq:cor-carryover}
+\end{equation}
+with $\phi$ any of Equations \eqref{eq:decay-exp}--\eqref{eq:decay-pow}
+(Paper 02); in the exponential-only presentation of Paper 01 this is
+written $\mathrm{Cor}(B_i, BR_{it}) = c_{bm}$ on drug and $c_{bm}\cdot
+e^{-\lambda t_{sd}}$ off drug. The conditional-mean interpretation of
+this construction, useful for connecting it to the mean-moderation
+architecture, is derived in Paper 01 as
+\begin{equation}
+E[BR_{it} \mid B_i = b, D_{it} = 1] = \mu_{BR}(t) + c_{bm}\cdot
+  \frac{\sigma_{BR}}{\sigma_B}\,(b - \mu_B),
+\label{eq:cor-conditional-mean}
+\end{equation}
+with the off-drug analogue carrying the same decay factor
+$c_{bm}\cdot\phi(t_{sd})$ in place of $c_{bm}$.
+
+\subsection{Analysis specifications for carryover: E1--E9}
+
+Paper 02 fixes the analysis model's carryover treatment across nine
+specifications, all fit as variants of
+\begin{equation}
+\code{nlme::lme(Sx \textasciitilde\ bm * X + t, random = \textasciitilde 1 | ptID,
+  correlation = corCAR1(form = \textasciitilde t | ptID))}
+\label{eq:e-base-model}
+\end{equation}
+differing only in the construction of the exposure predictor $X$ and,
+for the CR-variant rows, the standard-error estimator
+(\S\ref{sec:sandwich}). Table~\ref{tab:especs} reproduces the full
+specification table.
+
+\begin{table}[h]
+\centering\small
+\caption{The nine carryover analysis specifications (Paper 02).}
+\label{tab:especs}
+\begin{tabular}{@{}lllc@{}}
+\toprule
+Code & Name & $X$ / model & Target \\
+\midrule
+E1 & Unadjusted & $X = D_{it}$ (binary), no carryover term & $bm{:}D_{it}$ \\
+E3 & Lag-adjusted & $X = D_{it}$, plus nuisance $L_{it} = D_{i,t-1}(1-D_{it})$ & $bm{:}D_{it}$ \\
+E2 & Exposure-weighted & $X = D_{bc,it}$ & $bm{:}D_{bc,it}$ \\
+E7 & AIC-selected $\hat t_{1/2}$ & E2 form, $\hat t_{1/2}$ chosen by AIC over $\{0.25,0.5,1.0,2.0\}$ wk & $bm{:}D_{bc,it}$ \\
+E9 & Paired-difference & two-stage OLS on per-patient on/off means & biomarker slope \\
+E1cr2--E7cr2 & CR2 variants & E1/E3/E2/E7 formula, CR2 cluster-robust SE & (as above) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{E3, the lag-adjusted (Jones--Kenward) specification.} The
+nuisance indicator $L_{it} = D_{i,t-1}(1-D_{it})$ marks off-drug
+timepoints that immediately follow an on-drug one; it enters as a main
+effect only, so the interaction actually tested remains
+$bm{:}D_{it}$, not $bm{:}L_{it}$.
+
+\textbf{E7, the AIC-selected half-life.} With $M(t_{1/2})$ the E2 fit
+at a candidate half-life,
+\begin{equation}
+\hat t_{1/2} = \operatorname*{arg\,min}_{t_{1/2}\in\mathcal T}
+  \mathrm{AIC}\big(M(t_{1/2})\big), \qquad \mathrm{AIC}(M) =
+  -2\log L(M) + 2p, \qquad \mathcal T = \{0.25, 0.5, 1.0, 2.0\},
+\label{eq:e7-aic}
+\end{equation}
+with the reported coefficient, SE, and $p$-value read from
+$M(\hat t_{1/2})$ alone --- a post-selection-inference risk Paper 02
+notes explicitly (Berk et al., 2013): treating $\hat t_{1/2}$ as fixed
+in advance understates the true sampling variability of the reported
+interaction estimate.
+
+\textbf{E9, the paired-difference specification.} A correlation-
+structure-agnostic two-stage estimator. For patient $i$ with
+$n_i^{\mathrm{on}}, n_i^{\mathrm{off}} > 0$,
+\begin{equation}
+\bar S_{x,i}^{\mathrm{on}} = \frac{1}{n_i^{\mathrm{on}}}
+  \sum_{t:\,D_{it}=1} S_{x,it}, \qquad
+\bar S_{x,i}^{\mathrm{off}} = \frac{1}{n_i^{\mathrm{off}}}
+  \sum_{t:\,D_{it}=0} S_{x,it}, \qquad
+\Delta_i = \bar S_{x,i}^{\mathrm{on}} - \bar S_{x,i}^{\mathrm{off}},
+\label{eq:e9-diffs}
+\end{equation}
+followed by a second-stage OLS regression on the biomarker,
+\begin{equation}
+\Delta_i = \beta_0 + \beta_1\, bm_i + \varepsilon_i, \qquad i =
+  1,\dots,N',
+\label{eq:e9-ols}
+\end{equation}
+with the interaction test on $\beta_1$ and $N' \le N$ patients
+contributing (those without both on- and off-drug observations are
+dropped).
+
+An earlier, retired pair of specifications, E5 (adding
+$bm{:}L_{it}$) and E6 (adding $bm{:}t_{sd}$ as a direct
+carryover-by-biomarker interaction), underperformed the Unadjusted
+specification at every cell tested and were replaced by E7/E9; they
+are recorded here as historical context, not part of the active
+nine-specification set.
+
+%=============================================================
+\section{Two architectures for a biomarker-treatment interaction}
+\label{sec:architectures}
+%=============================================================
+
+Paper 01 is the compendium's central methodological result: the same
+target estimand, $\beta_{bm:D}$, can be encoded into the data-
+generating process in two structurally different ways, and the two
+encodings are \emph{not} numerically interchangeable once carryover is
+present.
+
+\subsection{Mean moderation (Architecture A)}
+
+The biomarker scales the treatment effect directly, in the outcome's
+conditional mean:
+\begin{equation}
+Y_{it} = \mu_0 + \beta_1\, D_{it}\,(1 + \beta_{bm} B_i) +
+  \varepsilon_{it}.
+\label{eq:archA}
+\end{equation}
+This is algebraically equivalent to the standard additive
+effect-modification form of Kent et al.,
+\begin{equation}
+Y_{it} = \beta_0 + \beta_1 D_{it} + \beta_2 B_i + \beta_3 D_{it}
+  B_i + \varepsilon_{it}, \qquad \beta_3 = \beta_1\,\beta_{bm},
+\label{eq:archA-kent}
+\end{equation}
+identifying the interaction coefficient $\beta_3$ with the product of
+the base treatment effect and the moderation multiplier. The mean-
+difference-between-participants identity that follows,
+\begin{equation}
+E[Y \mid b_1, D] - E[Y \mid b_2, D] = \beta_1\,\beta_{bm}\,(b_1 -
+  b_2)\, D,
+\label{eq:archA-contrast}
+\end{equation}
+shows that under mean moderation, carryover (which shrinks $D$'s
+continuous analogue $D_{bc}$ toward zero) shrinks the moderation
+contrast \emph{proportionally} for every biomarker level --- the
+mechanism is not selectively erased for any particular pair of
+participants.
+
+\subsection{Covariance moderation (Architecture B)}
+
+The biomarker and the biological-response component are instead drawn
+jointly from a bivariate normal whose correlation, not whose mean, is
+treatment-state dependent:
+\begin{equation}
+\begin{pmatrix} B_i \\ BR_{it} \end{pmatrix} \sim
+\mathrm{MVN}\!\left(
+  \begin{pmatrix}\mu_B \\ \mu_{BR}(t, D_{it})\end{pmatrix},\,
+  \Sigma(D_{it})\right), \qquad
+\mathrm{Cor}(B_i, BR_{it}) = \begin{cases}
+  c_{bm} & D_{it}=1 \\
+  c_{bm}\cdot e^{-\lambda t_{sd}} & D_{it}=0.
+\end{cases}
+\label{eq:archB}
+\end{equation}
+The corresponding conditional-mean expressions on and off drug are
+Equations \eqref{eq:cor-conditional-mean} and its carryover-decayed
+analogue,
+\begin{equation}
+E[BR \mid b, D=0, t_{sd}] = \mu_{BR,\mathrm{off}}(t_{sd}) +
+  c_{bm}\cdot e^{-\lambda t_{sd}}\cdot\frac{\sigma_{BR}}{\sigma_B}\,
+  (b - \mu_B).
+\label{eq:archB-offdrug}
+\end{equation}
+Here the biomarker-dependent part of the conditional mean decays
+\emph{exponentially} with time off drug, not proportionally: as
+$t_{sd}$ grows, the differential signal between biomarker strata is
+eliminated entirely, in a way Equation~\eqref{eq:archA-contrast}'s
+mean-moderation contrast never is. This structural asymmetry is the
+reason the two architectures diverge sharply once carryover enters:
+in Paper 01's matched-$N=70$ headline result, carryover power loss
+from $t_{1/2}=0$ to $t_{1/2}=1.0$ weeks in the Hybrid design is
+1.4--6.9 percentage points under mean moderation but 5.1--15.4 points
+under covariance moderation, with a difference-of-differences
+$z=2.80$ (Hybrid) and $z=7.64$ (OL+BDC).
+
+\subsection{The common analysis model}
+
+Both architectures are fit identically:
+\begin{equation}
+\code{Sx \textasciitilde\ bm + t + Dbc + bm:Dbc}
+\label{eq:common-analysis}
+\end{equation}
+via \code{nlme::lme} with \code{corCAR1(form = \textasciitilde
+t|ptID)} residual correlation and a participant random intercept ---
+the shared inferential machinery of \S\ref{sec:inference} does not
+know, and cannot distinguish, which architecture generated the data
+it is fitting.
+
+\note{Gap closed.} Paper 01's Methods now state the closed-form
+reference value explicitly, $\theta_{\mathrm{true}} = -c_{bm}\cdot
+\sigma_{BR}$, alongside its bias performance measure, with a citation
+to the same calibration used in Paper 02
+(Equation~\eqref{eq:theta-true} below) and Paper 06
+(Equation~\eqref{eq:beta-target}). This is consistent with Paper 01's
+reported mean estimates of $\hat\beta_{bm:D_{bc}} \approx -0.23$ to
+$-0.28$; the manuscript itself does not evaluate $\sigma_{BR}$
+numerically, so the identity is stated symbolically there, exactly as
+in the two companion papers.
+
+%=============================================================
+\section{A latent-variable reading of covariance moderation}
+\label{sec:latent}
+%=============================================================
+
+Paper 03 asks what mechanistic story a fitted covariance-moderation
+model could be a moment-matched summary of, if the true underlying
+process is a discrete responder/non-responder dichotomy rather than a
+continuously varying correlation.
+
+\subsection{The faithful latent-class data-generating process}
+
+If a candidate predictive biomarker indexes an unobserved
+responder/non-responder class,
+\begin{equation}
+Z_i \mid B_i \sim \mathrm{Bernoulli}\big(\pi(B_i)\big), \qquad
+  BR_{it} \mid Z_i = z \sim f_z(t, D_{bc,it}),
+\label{eq:latent-class}
+\end{equation}
+with $Z_i$ the unobserved class label and $\pi(B_i) = \Pr(Z_i=1\mid
+B_i)$ the class-membership probability, now given an explicit closed
+form in Paper 03's Notation section,
+\begin{equation}
+\pi(B_i) = \mathrm{expit}(\psi_0 + \psi_g\, b_i), \qquad b_i =
+  \frac{B_i - \bar B}{s_B},
+\label{eq:gating-logistic}
+\end{equation}
+with $\psi_g$ the \textbf{gating slope} (called \code{gs} in the
+code, and now given the symbol $\psi_g$ in the manuscript rather than
+left unnamed) and $\psi_0$ fixed so $\pi(0)=0.5$ throughout. $f_0,
+f_1$ are class-conditional response distributions differing in
+drug-response parameters. Within-class temporal structure follows the
+same modified-Gompertz form of \S\ref{sec:gompertz}, with class-
+specific parameters substituted.
+
+\note{Notation caveat, resolved.} Paper 03 previously referred to
+gating-function steepness only informally, as \code{gs} in prose and
+code, with no manuscript symbol attached and no closed form for
+$\pi(B_i)$ ever written out --- a gap this compendium originally
+flagged because a symbol $\gamma$ \emph{does} appear elsewhere in the
+compendium (Paper 06, \S\ref{sec:partition}) as the unrelated $BR
+\times PB$ subadditivity coefficient, inviting confusion between the
+two. Paper 03 now introduces $\psi_g$ and
+Equation~\eqref{eq:gating-logistic} explicitly, and its Notation
+section states in so many words that $\psi_g$ is not to be confused
+with Paper 06's $\gamma$. \code{NOTATION.md} has been updated to match:
+$\gamma$ is now documented compendium-wide as Paper 06's coefficient
+only, and $\psi_g$ is added as its own entry for Paper 03's gating
+slope.
+
+\subsection{The MVN approximation to mixture-induced moderation}
+
+Under within-class independence between $B_i$ and $BR_{it}$, a two-
+component mixture with class-dependent means and common within-class
+covariance produces a marginal joint distribution of $(B_i, BR_{it})$
+whose first two moments are reproduced, to leading order, by a single
+MVN with $\mathrm{Cor}(B, BR) = c_{bm}$, where
+\begin{equation}
+c_{bm}^2 = \underbrace{\frac{\pi(1-\pi)(\mu_B^1 - \mu_B^0)^2}
+  {\mathrm{Var}(B)}}_{\text{between-class fraction in } B} \; \cdot \;
+  \underbrace{\frac{\pi(1-\pi)(\mu_{BR}^1 - \mu_{BR}^0)^2}
+  {\mathrm{Var}(BR)}}_{\text{between-class fraction in } BR}.
+\label{eq:latent-mvn-approx}
+\end{equation}
+That is, $c_{bm}^2$ is the \emph{product} of the two components'
+between-class variance fractions, so the marginal correlation an MVN
+can reproduce is bounded above by the geometric mean of the two
+intra-class correlations. Equivalently: Paper 01's Architecture B is,
+under this reading, the leading-order MVN signature of a latent-class
+mixture whose class-conditional means separate on drug and whose
+separation is eroded by carryover off drug --- not necessarily a
+directly generative covariance mechanism in its own right. This
+reinterpretation gives covariance moderation a mechanistic story
+(discrete class membership) in addition to its literal one (a
+continuously specified correlation), and it identifies the conditions
+under which the approximation breaks down: strongly bimodal responses,
+a step-function (rather than smooth) $\pi(B_i)$, or class-varying
+(rather than common) within-class covariance.
+
+\subsection{Estimation and its two competing test statistics}
+
+The class-\emph{unaware} analysis is the compendium's common model,
+Equation~\eqref{eq:common-analysis}. The class-\emph{aware} analysis
+fits a two-class growth-mixture model (\code{lcmm::hlme}) and extracts
+two candidate signals: a Wald test on the biomarker's coefficient in
+the class-gating equation, and a within-class Wald test on
+$bm{:}D_{bc}$. A model-comparison gate is applied before either is
+trusted:
+\begin{equation}
+\text{prefer } ng=2 \text{ over } ng=1 \iff \Delta\mathrm{BIC} > 0
+  \ \ (\text{or, more conservatively,} > 6),
+\label{eq:bic-gate}
+\end{equation}
+following Raftery (1995), with the gating test interpreted only
+conditional on that selection. In Paper 03's 240-replicate pilot at
+$N=70$, the unconditional class-gating Wald test is markedly
+anti-conservative under the null (Type~I error $0.197$, 95\% CI
+$[0.145, 0.250]$), while the BIC-conditional version is
+under-powered relative to the class-unaware baseline (power $0.025$ at
+gating slope $1.5$ versus $0.542$ for the ordinary $bm{:}Dbc$ Wald
+test on the same cell) --- the class-aware machinery, in this pilot,
+buys correct calibration at a substantial power cost, and is not
+obviously the better default test.
+
+%=============================================================
+\section{The dual-channel architecture}
+\label{sec:dualchannel}
+%=============================================================
+
+Paper 11 activates the mean and covariance channels of
+\S\ref{sec:architectures} simultaneously, with independent weights
+$c_{bm,A}$ (mean channel) and $c_{bm,B}$ (covariance channel).
+
+\subsection{Construction}
+
+The covariance channel is built into the MVN sigma matrix exactly as
+in Equation~\eqref{eq:archB}, with $c_{bm}$ replaced by $c_{bm,B}$.
+The mean channel is then applied as a post-draw additive shift at
+on-drug timepoints,
+\begin{equation}
+\Delta BR_{it} = c_{bm,A}\cdot z_{B,i}\cdot\sigma_{BR}\cdot
+  \mathbf{1}[\text{on-drug}], \qquad z_{B,i} =
+  \frac{B_i - \mu_B}{\sigma_B}.
+\label{eq:dualchannel-shift}
+\end{equation}
+
+\subsection{The channels add on the covariance scale}
+
+Each channel's on-drug contribution to $\mathrm{Cov}(B, BR)$ can be
+computed separately:
+\begin{align}
+\text{Covariance channel alone:} \qquad &
+  \mathrm{Cov}(B, BR \mid \text{on-drug}) = c_{bm,B}\,\sigma_B\sigma_{BR}
+  \label{eq:dc-covB} \\
+\text{Mean channel alone:} \qquad &
+  \mathrm{Cov}(B, \Delta BR) = c_{bm,A}\,\sigma_B\sigma_{BR}
+  \label{eq:dc-covA}
+\end{align}
+and, because the combined-architecture on-drug response is the sum of
+the correlated draw and the mean shift, the two contributions add:
+\begin{equation}
+\mathrm{Cov}(B, BR_C \mid \text{on-drug}) = (c_{bm,A} +
+  c_{bm,B})\,\sigma_B\sigma_{BR}.
+\label{eq:dc-covC}
+\end{equation}
+To first order the interaction test's noncentrality is likewise
+additive across channels, $\eta_C \approx \eta_A + \eta_B$, and Paper
+11 reports empirical \emph{super}-additivity of power itself relative
+to the natural probability-scale benchmark: for rejection probability
+$\pi(\eta)$ as a function of noncentrality,
+\begin{equation}
+\pi(\eta_A + \eta_B) - \pi(0) \; > \;
+  \big[\pi(\eta_A) - \pi(0)\big] + \big[\pi(\eta_B) - \pi(0)\big].
+\label{eq:dc-superadditivity}
+\end{equation}
+At $(c_{bm,A}, c_{bm,B}) = (0.22, 0.22)$ in the Hybrid design, at the
+matched total $N=70$, for example, observed power is $0.577$ against
+an additive benchmark $p(0.22,0)+p(0,0.22)-p(0,0) = 0.214+0.138-0.040
+= 0.312$, an excess of $0.265$ --- direct confirmation of
+Equation~\eqref{eq:dc-superadditivity}.
+
+\subsection{Boundary reductions and an identifiability consequence,
+now stated}
+
+Setting either weight to zero recovers the corresponding pure
+architecture exactly, by direct substitution into
+Equations~\eqref{eq:dualchannel-shift} and~\eqref{eq:archB}:
+$c_{bm,B}=0$ recovers mean moderation; $c_{bm,A}=0$ recovers
+covariance moderation. Paper 11 treats these boundaries as internal
+validation gates --- a correctly implemented combined driver must
+reproduce the companion manuscripts' pure-architecture power values
+there, run under matched design, sample-size, and calibration
+settings. Equation~\eqref{eq:dc-covC} shows that the combined on-drug
+covariance --- and hence the fitted $bm{:}D_{bc}$ coefficient ---
+depends on $c_{bm,A}$ and $c_{bm,B}$ only through their \emph{sum}, so
+a single fitted interaction coefficient cannot separately recover the
+two channel weights; this non-identifiability, previously left
+unstated in Paper 11's \S2.2 (``Boundary reductions and
+identifiability''), is now given as an explicit consequence in the
+manuscript's \S3, immediately after the additive-covariance
+derivation.
+
+\note{A second gap, investigated rather than left flagged.} Paper
+11's driver (\code{analysis/scripts/dgp-combined/
+01-run-combined-factorial.R}) already allocates $N$ as a total, via
+the same \code{generate\_data\_multi\_path()} helper the companion
+paper uses, and its stored output already includes the matched
+$N=70$ cells --- so the sample-size-convention explanation an earlier
+version of \S4.2 gave for the boundary mismatch does not hold up.
+Reading the $N=70$, E2-specification boundary cells directly from
+that stored output and comparing them to Paper 01's $N=70$ baselines
+shows the two still do \emph{not} agree: at $t_{1/2}=0$ the
+mean-moderation boundary reads $0.595$/$0.738$/$0.612$ (CO/Hybrid/
+OL+BDC) against Paper 01's $0.739$/$0.842$/$0.751$, a gap of 10--19
+percentage points, far beyond the $\approx0.013$--$0.016$ MCSE at
+these cell sizes. The manuscript's \S4.2 has been rewritten to report
+this finding rather than the superseded $N$-convention explanation,
+and now names the likely locus of the mismatch (a calibration
+difference in \texttt{resp\_param}, \texttt{baseline\_param}, or the
+nuisance correlations \texttt{c.cf1t}/\texttt{c.cfct}/\texttt{rho}
+between the two drivers) as an open item for a follow-up revision.
+Paper 11's own $3\times3$ channel-weight power table has likewise been
+recomputed on the correct $N=70$ data already sitting in that same
+output file, in place of the earlier, uncorrected $N=35$ table.
+
+%=============================================================
+\section{Partitioning the treatment effect}
+\label{sec:partition}
+%=============================================================
+
+Paper 06 asks what a single-indicator (``lumped'') analysis of the
+treatment effect and its biomarker interaction actually estimates when
+the true generative process has three distinguishable components.
+
+\subsection{The outcome decomposition}
+
+\begin{equation}
+Y_{it} = \mathrm{BL}_i - \big[BR_{it} + PB_{it} + TV_{it}\big] +
+  \varepsilon_{it},
+\label{eq:decomposition}
+\end{equation}
+with each component following the modified-Gompertz form of
+Equation~\eqref{eq:gompertz-06}, and $PB_{it}$ additionally scaled by
+an \emph{expectancy multiplier} $\eta(\mathrm{phase})$ that
+operationalizes belief-driven placebo response (Kirsch, 1985):
+\begin{equation}
+PB(t \mid \mathrm{phase}) = \eta(\mathrm{phase})\cdot m_{PB}
+  \exp\!\big(-d_{PB}\exp(-r_{PB}t)\big) + \text{(offset)}, \qquad
+\eta = \begin{cases} 1.0 & \text{open-label, on drug} \\
+  \approx 0.5 & \text{blinded discontinuation} \\
+  \in(0,0.5) & \text{open-label placebo.}
+\end{cases}
+\label{eq:eta-scaling}
+\end{equation}
+Because $\eta$ scales both the mean and SD of $PB$ by the same factor,
+$\mathrm{SD}(PB\mid\mathrm{phase}) = \eta(\mathrm{phase})\cdot
+\sigma_{PB}^{\mathrm{baseline}}$, only the \emph{product} $\eta\cdot
+m_{PB}$ is identified from a two-phase (open-label + blinded) design;
+recovering $m_{PB}$ itself requires an open-label-placebo phase or a
+direct expectancy measurement.
+
+A generalized, non-additive form allows a $BR\times PB$ interaction:
+\begin{equation}
+Y_{it} = \mathrm{BL}_i - \big[BR_{it} + PB_{it} + TV_{it} +
+  \gamma\cdot BR_{it}\cdot PB_{it}\big] + \varepsilon_{it},
+\label{eq:decomposition-gamma}
+\end{equation}
+with \emph{subadditivity} of the two response mechanisms defined by
+the sign condition $\partial Y/\partial(BR\cdot PB) > 0$ on the
+reduction scale. Paper 06 explicitly distinguishes true $\gamma\ne0$
+subadditivity from an \emph{apparent} subadditivity that a latent
+responder-class gating function $\pi(B)$ (\S\ref{sec:latent}) could
+generate through confounding, without any real $BR$--$PB$ interaction
+being present.
+
+\subsection{What a one-component analysis actually estimates}
+
+Writing the within-participant symptom reduction as $R_{it} =
+\mathrm{BL}_i - Y_{it} = BR_{it} + PB_{it} + TV_{it} - \varepsilon_{it}$
+and fitting the one-component model $R_{it} = \alpha + \beta_D D_{it} +
+g(t) + u_i + e_{it}$, Paper 06 derives:
+\begin{equation}
+\operatorname*{plim}\hat\beta_D = m_{BR} + b_{PB} + b_{TV},
+\label{eq:plim-betaD}
+\end{equation}
+where $b_{PB} = E[PB\mid\text{on}] - E[PB\mid\text{off}]$ and $b_{TV}$
+is the natural-history contribution that fails to cancel under the
+contrast used (zero for a clean on/off within-participant contrast;
+$E[TV]$ itself for a baseline-anchored pre--post analysis). Both terms
+are generally non-negative for an improving outcome, so the
+one-component estimate systematically \emph{over-states} the
+pharmacological effect $m_{BR}$ --- and this is a property of the
+estimator's probability limit, unaffected as $N\to\infty$, not a
+finite-sample artifact correctable by more data.
+
+The same logic applied to the biomarker slope gives the compendium's
+key attenuation/inflation identity:
+\begin{equation}
+\beta_{bm}^{\mathrm{lumped}} = \beta_{bm}^{BR} + w_{PB}\,\beta_{bm}^{PB}
+  + w_{TV}\,\beta_{bm}^{TV}, \qquad
+\beta_{bm}^{C} = \frac{\operatorname{Cov}(m_C, B)}{\operatorname{Var}(B)}
+  \ \ (C \in \{BR, PB, TV\}),
+\label{eq:lumped-slope}
+\end{equation}
+with $w_{PB}, w_{TV}\ge0$ design-determined loadings. A biomarker
+correlated with placebo responsiveness or with the natural-history
+trajectory therefore registers a non-zero lumped slope even when its
+true pharmacological association $\beta_{bm}^{BR}$ is exactly zero ---
+and, because Equation~\eqref{eq:lumped-slope} is an \emph{identity},
+no amount of additional sample size can separate a genuinely
+pharmacological biomarker signal from a confounded one whenever
+$w_{PB}\beta_{bm}^{PB} + w_{TV}\beta_{bm}^{TV}\ne0$. Under
+$\gamma\ne0$ subadditivity (Equation~\eqref{eq:decomposition-gamma}),
+a further first-order correction proportional to
+$\operatorname{Cov}(m_{BR}\cdot m_{PB}, B)$ enters the slope; the
+identity above is the leading-order behavior in the additive case.
+
+The operative confound is a biomarker's correlation with individual-
+level \emph{variance} in placebo responsiveness, not with its
+\emph{mean}:
+\begin{equation}
+\text{contamination driver} = c_{bm,PB}\cdot\sigma_{PB}, \qquad
+  \text{not } c_{bm,PB}\cdot m_{PB}.
+\label{eq:contamination-driver}
+\end{equation}
+Paper 06's calibration target throughout its production studies is
+\begin{equation}
+\beta_{bm:D_{bc}} = -\frac{c_{bm}\,\sigma_{BR}}{\sigma_{bm}} = -2.25,
+\label{eq:beta-target}
+\end{equation}
+against which Study A (uncontaminated biomarker, $c_{bm,PB}=0$) shows
+bias within one Monte Carlo standard error of zero at every sample
+size tested ($N \in \{35,70,200,300\}$), confirming
+Equation~\eqref{eq:lumped-slope} collapses to zero bias exactly when
+$\beta_{bm}^{PB} = \beta_{bm}^{TV} = 0$; a contaminated-biomarker pilot
+at $c_{bm,PB} \in \{0, 0.15, 0.30, 0.45\}$ (constrained below $0.45$
+by positive-definiteness of the resulting covariance matrix) shows
+bias growing from $-0.06$ to $+0.51$ (about 30 MCSEs) as contamination
+increases, with the sign flip explained by an \emph{attenuation-
+toward-zero} mechanism: high-$c_{bm,PB}$ participants' elevated
+placebo response is partially absorbed by the biomarker main effect,
+leaving the interaction coefficient itself pulled toward zero rather
+than pushed away from it.
+
+Critically, Paper 06 emphasizes throughout that this bias lives in the
+\emph{location} of $\hat\beta_{bm:D_{bc}}$, not in the test's power or
+rejection rate --- a significance test of the lumped coefficient
+cannot, even in principle, detect this bias, because the bias does not
+move the point estimate toward the null.
+
+\subsection{Recovery, and its dependence on trial design}
+
+A phase-augmented analysis model is the smallest step toward
+component-aware inference:
+\begin{equation}
+\code{Sx \textasciitilde\ bm + t + Dbc + phase + Dbc:phase + bm:Dbc +
+  bm:Dbc:phase}
+\label{eq:phase-augmented}
+\end{equation}
+with random intercept and \code{corCAR1} residual correlation, where
+\code{phase} (open-label / blinded / post-crossover) absorbs
+systematic expectancy differences and \code{Dbc:phase},
+\code{bm:Dbc:phase} test whether the apparent drug effect and its
+moderation shrink under blinding. Whether this --- or full component-
+matched Gompertz-basis fitting --- actually recovers the true
+pharmacological slope $\beta_{bm}^{BR}$ is shown to be
+\emph{design-dependent}, not a property of decomposition per se: under
+the compendium's standard Hybrid design, belief-covariate
+decomposition, blinded-stratum contrasts, and full Gompertz-basis
+decomposition all fail to recover $\beta_{bm}^{BR}$, performing no
+better (and sometimes worse) than the lumped analysis, because
+$D_{bc}$ and the expectancy multiplier $\eta$ are positively
+correlated ($\approx+0.6$) under that design. A belief-decoupling
+\emph{balanced-placebo} design --- three open-label, six covert
+on-drug ($\eta=0$), and six open-placebo ($\eta=1$) timepoints ---
+reduces that correlation to $\approx-0.66$ and restores recovery: at
+matched $N$, decomposition-analysis bias stays within one MCSE of zero
+across $c_{bm,PB}\in\{0,0.1,0.2,0.3\}$ while the lumped estimator's
+bias grows monotonically over the same grid.
+
+%=============================================================
+\section{Informative dropout}
+\label{sec:dropout}
+%=============================================================
+
+Paper 09 evaluates a censoring mechanism whose hazard depends on the
+participant's own symptom trajectory, crossed with the four trial
+designs of \S\ref{sec:designs}.
+
+\subsection{The dropout hazard}
+
+Marginal per-timepoint censoring probability is the union of two
+independent components:
+\begin{equation}
+\Pr(\mathrm{drop}_{it}) = 1 - \big(1 - p^{\mathrm{flat}}_{it}\big)
+  \big(1 - p^{\mathrm{bias}}_{it}\big),
+\label{eq:dropout-hazard}
+\end{equation}
+with $p^{\mathrm{flat}}_{it}\propto t$ depending on elapsed time alone
+(calibrated to a marginal dropout fraction of $\beta_0(1-\beta_1)$)
+and $p^{\mathrm{bias}}_{it}\propto t\,(\Delta_{Sx}(t)+100)^{e_{b1}}$
+depending on the symptom change $\Delta_{Sx}(t)$ since baseline
+(calibrated to $\beta_0\beta_1$), where $\beta_0$ is the overall
+dropout rate, $\beta_1$ the fraction attributable to the symptom-
+biased mechanism, and $e_{b1}=2$ throughout. The additive shift of
+$100$ inside the biased component keeps its convex argument positive
+across the realized range of symptom scores, so that large
+improvement lowers dropout probability while worsening (or a small
+change) raises it. Once a participant is censored at a timepoint,
+every later timepoint for that participant is also set missing
+(monotone/absorbing dropout).
+
+\subsection{Missingness classification}
+
+Because the flat component depends only on a fully observed design
+variable (elapsed time), it induces missingness that is ignorable for
+likelihood-based inference on its own. Because the biased component's
+censoring indicator is a function of $\Delta_{Sx}(t)$ --- the same
+quantity realized at, and thereby rendered missing by, that
+timepoint --- Paper 09 argues the mechanism is MNAR for every dropout
+pattern with $\beta_1 > 0$: missingness of $Y_{it}$ depends on the
+value of $Y_{it}$ itself, the defining condition for missing-not-at-
+random data. No manuscript in the compendium gives a formal
+probability statement for MCAR/MAR/MNAR beyond this argument; the
+classification rests on the hazard construction of
+Equation~\eqref{eq:dropout-hazard} alone.
+
+\subsection{Interaction with design}
+
+The estimand is the same interaction test as elsewhere,
+$\pi = \Pr(p<0.05)$ for $H_0: \beta_{bm:D}=0$, fit post-dropout. Paper
+09 documents a ``happy accident'' selection effect, described
+qualitatively rather than by a closed-form path-conditional formula:
+participants with unambiguous open-label response are the most
+readily resolved and most prone to drop out early, which enriches the
+later, randomized (crossover/discontinuation) blocks for participants
+whose open-label response was ambiguous --- precisely the subgroup
+whose crossover contrasts are most informative for the interaction
+test. This selection effect is design-dependent: under the OL design,
+where $D_{bc}$ is identically one throughout, there is no within-
+subject contrast for $bm{:}D_{bc}$ at all, so dropout there can only
+reduce power, never selectively concentrate information. A
+quantified, per-path decomposition of the happy-accident effect is
+explicitly scoped for a future production-grade rerun and is not
+delivered in the version inspected here; as with several other design
+comparisons in this compendium (\S\ref{sec:notation}), an earlier
+mismatched-$N$ run of this same comparison had manufactured an
+apparent robustness finding (the Hybrid design appearing dropout-
+immune) that a matched-$N=70$ re-run showed was a ceiling effect
+rather than a real property of the design.
+
+%=============================================================
+\section{Inference: from a fitted coefficient to a calibrated test}
+\label{sec:inference}
+%=============================================================
+
+\subsection{A closed-form comparator: repeated-measures ANOVA}
+\label{sec:rmanova}
+
+Paper 08's principal analytic contribution, stated for comparison
+against the compendium's simulation-based test procedures, is a full
+closed-form treatment of the classical split-plot RM-ANOVA under a
+dichotomized biomarker. The model:
+\begin{equation}
+Y_{ijlk} = \mu + \alpha_i + \beta_j + (\alpha\beta)_{ij} +
+  \pi_{l(i)} + \tau_k + (\alpha\tau)_{ik} + (\beta\tau)_{jk} +
+  (\alpha\beta\tau)_{ijk} + e_{ijlk},
+\label{eq:rmanova-model}
+\end{equation}
+for biomarker stratum $i$, treatment phase $j$, subject $l$, and
+timepoint $k$, with $\pi_{l(i)}\sim N(0,\sigma_\pi^2)$ the random
+subject effect and $e_{ijlk}\sim N(0,\sigma_e^2)$ the within-subject
+error under compound-symmetric sphericity. The biomarker--treatment
+interaction $(\alpha\beta)_{ij}$ is the target; its test statistic is
+\begin{equation}
+F_{AB} = \frac{MS_{AB}}{MS_{B\times S(A)}} \sim F(df_{AB},\,
+  df_{B\times S(A)}) \text{ under } H_0,
+\label{eq:rmanova-f}
+\end{equation}
+which specializes, for $a=b=2$ strata/phases and $T$ within-phase
+timepoints, to a fully closed form. Writing the interaction contrast
+as $\hat L = (\bar\Delta_1 - \bar\Delta_2)$ with $\bar\Delta_i$ the
+stratum-$i$ mean of each subject's own phase-1-minus-phase-2 within-
+subject difference,
+\begin{equation}
+F_{AB} = \frac{nT\,\hat L^2}{4\,\hat\sigma_e^2}, \qquad t_{AB} =
+  \sqrt{\tfrac{nT}{4}}\cdot\frac{\hat L}{\hat\sigma_e}, \qquad
+  t_{AB}^2 = F_{AB}, \qquad df_1 = 1,\ df_2 = 2(n-1),
+\label{eq:rmanova-f-22}
+\end{equation}
+recovering the algebraic equivalence of the $2\times2$ interaction
+$F$-test to a two-sample $t$-test on within-subject differences. Power
+follows the noncentral $F$ distribution with noncentrality
+\begin{equation}
+\lambda = \frac{nT\,\Delta_0^2}{4\sigma_e^2}, \qquad 1-\beta =
+  \Pr\!\big[F_{AB} > F_{1,\,2(n-1),\,1-\alpha} \mid \lambda\big],
+\label{eq:rmanova-power}
+\end{equation}
+where $\Delta_0$ denotes the true value of the contrast $\hat L$
+under $H_1$, an effect size on the raw outcome scale. Paper 08
+originally called this quantity $\delta$, which collided with the
+unrelated \emph{standardized bias} $\delta$ of the general calibration
+framework in \S\ref{sec:calibration} below; the manuscript has been
+relabeled to $\Delta_0$, with an explicit note distinguishing it from
+Paper 10's $\delta$, so the symbol $\delta$ is now reserved
+compendium-wide for standardized bias alone. Paper 08 finds this
+closed form is the compendium's only fully analytic power result;
+GEE, Mancl--DeRouen, and the LME/\code{corCAR1} model it compares
+against are evaluated purely by simulation, with the sandwich/CR2
+machinery of \S\ref{sec:sandwich} providing the small-sample
+correction.
+
+\subsection{A general decomposition of realized Type~I error}
+\label{sec:calibration}
+
+Paper 10, written in deliberately general Wald-test notation
+(applicable to any fixed-effect interaction coefficient, not only
+$\beta_{bm:D}$), decomposes an estimator into a standardized component:
+\begin{equation}
+\hat\theta = \mu + \sigma Z^\ast, \qquad \mu = E(\hat\theta), \qquad
+  \sigma = \mathrm{SD}(\hat\theta), \qquad Z^\ast =
+  \frac{\hat\theta - \mu}{\sigma},
+\label{eq:theta-decomp}
+\end{equation}
+and rewrites the Wald statistic $T = \hat\theta/\widehat{\mathrm{SE}}$
+in terms of two dimensionless channels,
+\begin{equation}
+T \approx \frac{\mu + \sigma Z^\ast}{\kappa\sigma} =
+  \frac{1}{\kappa}\big(Z^\ast + \delta\big), \qquad
+  \kappa = \frac{\overline{\widehat{\mathrm{SE}}}}{\sigma}, \qquad
+  \delta = \frac{\mu}{\sigma}.
+\label{eq:theta-wald}
+\end{equation}
+Realized Type~I error follows directly:
+\begin{equation}
+\alpha_{\mathrm{real}} = \Pr\big(|T| > t_{\nu,1-\alpha/2}\big) \approx
+  \Pr\big(|Z^\ast + \delta| > \kappa\, t_{\nu,1-\alpha/2}\big),
+\label{eq:theta-alpha}
+\end{equation}
+and exactly \emph{four} channels can move it away from nominal: a
+standardized bias $\delta$, a scale-distortion $\kappa$ (model-based
+SE too large or small relative to the true sampling SD), a
+degrees-of-freedom channel $\nu$, and the shape of $Z^\ast$'s
+distribution (departures from normality). Calibration is recovered
+exactly when $\delta=0$, $\kappa=1$, $\nu=\infty$, and $Z^\ast\sim
+N(0,1)$. With the bias and reference-distribution channels inert, this
+reduces to a closed form in $\kappa$ alone,
+\begin{equation}
+\alpha_{\mathrm{real}} \approx 2\,\Phi\big(-\kappa\, t_{\nu,1-\alpha/2}\big)
+  \;\approx\; 0.05 - 0.23\,(\kappa - 1) \ \text{near } \kappa=1,
+\label{eq:theta-closed}
+\end{equation}
+with elasticity $d\log\alpha_{\mathrm{real}}/d\log\kappa \approx -4.6$
+at $\kappa=1$: a small overstatement of the model-based standard error
+produces a disproportionate collapse in realized Type~I error, which
+is the compendium's general explanation for why an idealized OLS
+analysis that ignores the participant random effect is anti-
+conservative --- its scale-distortion factor is approximately
+\begin{equation}
+\kappa_{\mathrm{OLS}}^2 \approx \frac{\sigma_b^2 +
+  \sigma_\varepsilon^2}{\sigma_\varepsilon^2},
+\label{eq:kappa-ols}
+\end{equation}
+exceeding one by exactly the random-intercept variance it omits.
+
+Paper 02 gives the compendium's operational estimator of $\kappa$
+directly on the interaction coefficient, using the notation
+$\hat\beta_{bm:X}$ for the fitted coefficient under carryover
+specification $X$:
+\begin{equation}
+\kappa = \frac{\overline{\widehat{SE}}}{\mathrm{SD}(\hat\beta_{bm:X})}
+  = \frac{\frac{1}{n_{\mathrm{sim}}}\sum_{r=1}^{n_{\mathrm{sim}}}
+  \widehat{SE}_r}{\sqrt{\frac{1}{n_{\mathrm{sim}}-1}
+  \sum_{r=1}^{n_{\mathrm{sim}}} (\hat\beta_{bm:X,r} -
+  \bar{\hat\beta}_{bm:X})^2}},
+\label{eq:kappa-estimator}
+\end{equation}
+and the calibrated true value against which bias is computed
+throughout the carryover-specification manuscript,
+\begin{equation}
+\theta_{\mathrm{true}} = -c_{bm}\,\sigma_{BR}.
+\label{eq:theta-true}
+\end{equation}
+
+\subsection{Cluster-robust sandwich variance and the CR2 correction}
+\label{sec:sandwich}
+
+The naive (Liang--Zeger) sandwich estimator, clustering on participant,
+\begin{equation}
+\widehat{\mathrm{Var}}_{\mathrm{sandwich}}(\hat\beta) =
+  \Big(\textstyle\sum_i X_i' \hat V_i^{-1} X_i\Big)^{-1}
+  \Big(\textstyle\sum_i X_i' \hat V_i^{-1} \hat e_i \hat e_i'
+  \hat V_i^{-1} X_i\Big)
+  \Big(\textstyle\sum_i X_i' \hat V_i^{-1} X_i\Big)^{-1},
+\label{eq:sandwich}
+\end{equation}
+is downward-biased at moderate cluster counts. Paper 10 gives the
+general CR family in the GLS-transformed metric,
+\begin{equation}
+\hat V_{\mathrm{CR}} = (\tilde X'\tilde X)^{-1}
+  \Big(\textstyle\sum_i \tilde X_i' A_i \tilde e_i \tilde e_i' A_i
+  \tilde X_i\Big) (\tilde X'\tilde X)^{-1},
+\label{eq:cr-family}
+\end{equation}
+indexed by the adjustment matrix $A_i$: $A_i = I$ (CR0, unadjusted);
+$A_i = (I-H_{ii})^{-1}$ (the jackknife form, equal to the
+Mancl--DeRouen correction in the marginal/GEE setting); and
+\begin{equation}
+A_i = (I - H_{ii})^{-1/2} \qquad \text{(CR2)},
+\label{eq:cr2}
+\end{equation}
+the symmetric square root that renders $\hat V_{\mathrm{CR}}$ exactly
+unbiased when the working covariance is correctly specified --- the
+cluster generalization of the HC2 estimator of MacKinnon and White.
+Its Satterthwaite degrees of freedom are recovered by matching the
+first two moments of the quadratic form's eigenvalues $\lambda_g$,
+\begin{equation}
+\nu = \frac{\big(\sum_g \lambda_g\big)^2}{\sum_g \lambda_g^2}.
+\label{eq:cr2-df}
+\end{equation}
+Paper 02's null-cell diagnostics find $\kappa$ in the range
+$1.05$--$1.10$ (empirical Type~I error $0.029$--$0.039$ against
+nominal $0.05$) for the model-based standard errors, and $\kappa$
+$1.07$--$1.26$ more broadly across specifications --- consistent, via
+Equation~\eqref{eq:theta-closed}, with the mild conservatism the
+compendium's Wald tests generally exhibit rather than
+anti-conservatism.
+
+%=============================================================
+\section{The treatment main-effect track}
+\label{sec:maineffect}
+%=============================================================
+
+Paper 04 targets a different estimand under a different, simpler DGP:
+the treatment \emph{main} effect $\beta_D$, with \textbf{no biomarker
+moderation channel at all}, and a linear (not Gompertz) data-
+generating model.
+
+\subsection{Data-generating model}
+
+For the N-of-1 arm,
+\begin{equation}
+Y_{ij} = \beta_0 + \beta_D\, D_{bc,ij} + \beta_t\, t_{ij} + u_i +
+  \varepsilon_{ij}, \qquad u_i \sim N(0,\sigma_u^2),
+\label{eq:me-nof1}
+\end{equation}
+with $\boldsymbol\varepsilon_i$ following a continuous-time AR(1)
+covariance $\mathrm{Cov}(\varepsilon_j,\varepsilon_k) = \sigma_w^2
+\rho^{|t_j-t_k|}$; carryover is applied as an additive exponential
+decay to the period immediately following a drug period, $\delta_c =
+\beta_D \exp\{-\ln(2)\,L/t_{1/2}\}$ with $L$ the period length in
+days. For the comparator parallel-group RCT arm, drawing patient
+baselines from a shared pool,
+\begin{equation}
+Y_i = \mu_0 + u_i + \beta_D Z_i + \varepsilon_i, \qquad u_i \sim
+  N(\mu_0, \sigma_\tau^2), \qquad Z_i \in \{0,1\}.
+\label{eq:me-rct}
+\end{equation}
+The two arms share the same $N=35$ patient pool (participant-count-
+matched, not observation-count-matched --- flagged by the paper itself
+as a limitation), fit respectively by \code{nlme::lme(Sx \textasciitilde\ Dbc +
+t\_wk, ..., correlation = corCAR1(...))} with Satterthwaite df, and by
+ANCOVA, \code{lm(endpoint \textasciitilde\ trt + baseline)}.
+
+\note{Internal inconsistency, resolved.} Paper 04 previously stated
+$\sigma_w = 1.0$ in the AR(1) covariance definition of its DGP
+(\S2.1) while separately citing $\sigma_w = 2.3$ as ``moderate
+within-patient measurement noise'' in its optimal-design-conditions
+discussion (\S6), with the two values never reconciled in the source
+text. Inspection of the production driver
+(\code{analysis/scripts/treatment-main-effect/production-run.R},
+constant \code{SIGMA\_WITHIN <- 2.3}) confirms $\sigma_w = 2.3$ is
+the value the simulation actually uses; \S2.1's $\sigma_w = 1.0$ was
+the error, and has been corrected in the manuscript to match both
+\S6 and the code.
+
+\subsection{Classical closed-form power theory (background, not the
+paper's own simulation)}
+
+Paper 04's literature-review section reproduces the closed-form
+power apparatus this compendium otherwise replaces with simulation,
+due to Senn (2018) and Zucker et al.:
+\begin{align}
+d_{ij} &= \delta_i + \varepsilon_{ij}, \qquad \delta_i \sim
+  N(\Delta,\tau^2), \qquad \varepsilon_{ij}\sim N(0, 2\sigma^2)
+  \label{eq:senn-model} \\
+\mathrm{Var}(\hat\Delta) &= \frac{\tau^2 + 2\sigma^2/k}{n} \qquad
+  \text{(random-effects, patient-mean analysis)}
+  \label{eq:senn-var-re} \\
+\lambda_{\mathrm{RE}} &= \frac{\Delta}{\sqrt{(\tau^2+2\sigma^2/k)/n}},
+  \quad df = n-1
+  \label{eq:senn-ncp-re} \\
+\lambda_{\mathrm{FE}} &= \frac{\Delta}{\sqrt{2\sigma^2/(nk)}}, \quad
+  df = n(k-1) \qquad \text{(fixed-effects, pools within-patient SS)}
+  \label{eq:senn-ncp-fe}
+\end{align}
+for $n$ patients and $k$ paired treatment cycles each, with $\tau^2$
+the between-patient (treatment-by-patient interaction) variance and
+$2\sigma^2$ the within-patient, within-cycle variance of paired
+differences. The paper notes standard software assuming $n-1$
+denominator df underestimates power here whenever $k>2$, because the
+fixed-effects analysis correctly pools within-patient degrees of
+freedom that the random-effects analysis discards. Zucker et al.'s
+equivalent precision formula,
+\begin{equation}
+\mathrm{Var}(\hat\Delta) = \frac{\tau^2 + \sigma_w^2/k}{n},
+\label{eq:zucker-var}
+\end{equation}
+makes explicit that the marginal benefit of additional cycles $k$
+diminishes once $\sigma_w^2/k \ll \tau^2$: past that point, adding
+cycles to existing patients buys far less precision than adding new
+patients, because the between-patient variance floor dominates.
+
+Paper 04's own simulation (2{,}000 replicates per cell, effect-size
+grid $\beta_D\in\{0,-0.5,-1.0,-2.0\}$ nightmares/week, carryover
+half-life sweep $t_{1/2}\in\{0.5,1.0,3.0,5.0,7.0\}$ days) does not
+invoke Equations~\eqref{eq:senn-var-re}--\eqref{eq:zucker-var}
+directly; it estimates power and Type~I error empirically, at the
+MCSE rates given in \S\ref{sec:performance} below.
+
+%=============================================================
+\section{Shared performance measures}
+\label{sec:performance}
+%=============================================================
+
+Every manuscript in the compendium reports the same three Monte Carlo
+performance quantities, following the ADEMP framework of Morris,
+White, and Crowther (2019):
+
+\begin{align}
+\hat\pi &= \frac{1}{n_{\mathrm{reps}}}\sum_{r=1}^{n_{\mathrm{reps}}}
+  \mathbf 1[p_r < \alpha] \qquad \text{(empirical power / Type~I error)}
+  \label{eq:perf-power} \\
+\mathrm{MCSE}(\hat\pi) &= \sqrt{\hat\pi(1-\hat\pi)/n_{\mathrm{reps}}}
+  \label{eq:perf-mcse-power} \\
+\mathrm{Bias} &= \frac{1}{n_{\mathrm{reps}}}\sum_r \hat\theta_r -
+  \theta_{\mathrm{true}}, \qquad \mathrm{MCSE(Bias)} =
+  \frac{s_{\hat\theta}}{\sqrt{n_{\mathrm{reps}}}}
+  \label{eq:perf-bias} \\
+\mathrm{MCSE}(\widehat{SE}) &= \frac{s_{\hat\theta}}
+  {\sqrt{2(n_{\mathrm{reps}}-1)}}
+  \label{eq:perf-mcse-se}
+\end{align}
+with $s_{\hat\theta}$ the empirical standard deviation of the
+replicate-level point estimates. A minimum replicate count of
+$n_{\mathrm{reps}}\ge625$ is the compendium's recurring target,
+derived from requiring $\mathrm{MCSE}(\hat\pi) < 0.02$ at the
+worst-case $\hat\pi=0.5$; most production runs use $n_{\mathrm{reps}}
+\in \{500, 1000\}$ for power/bias cells and up to $5000$ for
+null/Type-I cells, where the smaller true $\hat\pi$ near $\alpha$
+tightens the MCSE requirement at fixed sample size.
+
+For a difference-of-differences comparison across two conditions
+(e.g. the carryover-loss architecture contrast of \S\ref{sec:architectures}),
+Paper 01 gives
+\begin{equation}
+\mathrm{SE}\big(\Delta_B - \Delta_A\big) = \sqrt{
+  \frac{\hat\pi_{B,0}(1-\hat\pi_{B,0})}{n} +
+  \frac{\hat\pi_{B,1}(1-\hat\pi_{B,1})}{n} +
+  \frac{\hat\pi_{A,0}(1-\hat\pi_{A,0})}{n} +
+  \frac{\hat\pi_{A,1}(1-\hat\pi_{A,1})}{n}}, \qquad \Delta_X =
+  \hat\pi_{X,0} - \hat\pi_{X,1},
+\label{eq:perf-dod}
+\end{equation}
+the standard error of the within-architecture carryover-loss gap,
+used throughout the compendium to test whether two designs',
+architectures', or specifications' power differences are
+distinguishable from Monte Carlo noise.
+
+%=============================================================
+\section*{Summary: which manuscript supplies which piece}
+\addcontentsline{toc}{section}{Summary: which manuscript supplies which piece}
+%=============================================================
+
+\begin{longtable}{@{}p{2.3cm}p{9.5cm}p{2.3cm}@{}}
+\toprule
+Paper & Contribution to this compendium & Key equations \\
+\midrule
+\endhead
+01 & Mean- vs. covariance-moderation architectures; the central
+  carryover-divergence result & \eqref{eq:archA}--\eqref{eq:archB-offdrug} \\
+02 & Carryover decay families; nine analysis specifications E1--E9;
+  $\kappa$ calibration; sandwich/CR2 & \eqref{eq:decay-exp}--\eqref{eq:e9-ols}, \eqref{eq:kappa-estimator}--\eqref{eq:theta-true} \\
+03 & Latent-class reading of covariance moderation; MVN moment-matching
+  approximation & \eqref{eq:latent-class}--\eqref{eq:bic-gate} \\
+04 & Treatment main effect; simpler linear DGP; classical Senn/Zucker
+  power theory & \eqref{eq:me-nof1}--\eqref{eq:zucker-var} \\
+05 & Simple vs. complex designs; effective-$N$ shrinkage under AR(1);
+  Gompertz and carryover-recursion restatements & \eqref{eq:effn-shrinkage}, \eqref{eq:gompertz-05}, \eqref{eq:carryover-recursion} \\
+06 & Partitioning the treatment effect into $BR$/$PB$/$TV$; lumped-
+  slope bias identity; expectancy scaling & \eqref{eq:decomposition}--\eqref{eq:phase-augmented} \\
+07 & Modified-Gompertz curve and alternative trajectory families;
+  architecture-dependent shape sensitivity & \eqref{eq:gompertz-07}--\eqref{eq:gompertz-cov-independence} \\
+08 & Closed-form RM-ANOVA derivation; the compendium's only fully
+  analytic power result & \eqref{eq:rmanova-model}--\eqref{eq:rmanova-power} \\
+09 & Informative-dropout hazard; MNAR argument; design-dependent
+  ``happy accident'' selection effect & \eqref{eq:dropout-hazard} \\
+10 & General four-channel ($\delta,\kappa,\nu$, shape) decomposition
+  of realized Type~I error; CR family & \eqref{eq:theta-decomp}--\eqref{eq:cr2-df} \\
+11 & Dual-channel architecture; additive covariance, super-additive
+  power, unstated non-identifiability & \eqref{eq:dualchannel-shift}--\eqref{eq:dc-superadditivity} \\
+\bottomrule
+\end{longtable}
+
+\end{document}

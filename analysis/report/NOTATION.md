@@ -94,7 +94,8 @@ $e^{-(\lambda_w t)^k}$; power $\max(0, (1 - t/(3t_{1/2}))^p)$.
 | $\nu$ | denominator degrees of freedom |
 | $\alpha$ | nominal significance level; 0.05 throughout |
 | $\pi$ | power, $\Pr(p < \alpha)$ |
-| $\gamma$ | latent-class gating slope (paper 03); a $BR \times PB$ interaction coefficient (paper 06) |
+| $\gamma$ | a $BR \times PB$ interaction coefficient, the subadditivity/superadditivity term (paper 06) |
+| $\psi_g$ | latent-class gating slope: steepness of $\pi(B_i)$'s logistic dependence on the standardized biomarker (paper 03; called `gs` in code and earlier prose) |
 | $Z_i$ | unobserved latent class label (paper 03) |
 
 ## The five rules the symbols encode

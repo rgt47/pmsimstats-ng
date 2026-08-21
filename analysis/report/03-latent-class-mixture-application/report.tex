@@ -158,8 +158,8 @@
   \renewcommand{\headrulewidth}{0pt}%
   \renewcommand{\footrulewidth}{0.4pt}}
 \renewcommand{\stampsource}{\textasciitilde{}/\allowbreak{}prj/\allowbreak{}res/\allowbreak{}36-pmsimstats-ng/\allowbreak{}pmsimstats-ng/\allowbreak{}analysis/\allowbreak{}report/\allowbreak{}03-latent-class-mixture-application/\allowbreak{}report.Rmd}
-\renewcommand{\stamptime}{2026-08-15 16:48 PDT}
-\renewcommand{\stampversion}{\detokenize{bc0b671-wip}}
+\renewcommand{\stamptime}{2026-08-20 17:17 PDT}
+\renewcommand{\stampversion}{\detokenize{faccea3-wip}}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{booktabs}
@@ -182,7 +182,7 @@
 
 \title{Latent-class and mixture-model formulations for biomarker-treatment interaction in N-of-1 trials}
 \author{pmsimstats team}
-\date{August 15, 2026}
+\date{August 20, 2026}
 
 \begin{document}
 \maketitle
@@ -475,7 +475,10 @@ rate. Following the convention used throughout this series, \(D_{it}\) is
 reserved for the binary on-drug state and \(D_{bc,it}\) for the
 continuous exposure-decayed indicator used here; the latter is the
 \texttt{Dbc} regressor of the analysis model. \(Z_i\) denotes an unobserved
-class label. The half-life of
+class label, and \(\psi_g\) denotes the gating slope, the steepness of
+the class-membership probability's gradient in the standardized
+biomarker (defined formally below; called \texttt{gs} in the code and
+in earlier prose). The half-life of
 carryover is \(t_{1/2} = \ln 2 / \lambda\) and is allowed to differ
 between the DGP and the analysis model.
 
@@ -529,13 +532,28 @@ Z_i \mid B_i \sim \mathrm{Bernoulli}\bigl(\pi(B_i)\bigr), \qquad
 BR_{it} \mid Z_i = z \sim f_z(t, D_{bc,it}),
 \]
 
-where \(Z_i\) is the latent class indicator, \(\pi(B_i) = \Pr(Z_i = 1
-\mid B_i)\) is the class-membership probability (typically a logistic
-function of the biomarker), and the class-conditional response
-distributions \(f_0\) and \(f_1\) differ in their drug-response
-parameters: peak response, onset rate, or both. Within-class temporal
-structure follows the same modGompertz form used in single-class
-formulations, with class-specific parameters substituted.
+where \(Z_i\) is the latent class indicator and \(\pi(B_i) = \Pr(Z_i = 1
+\mid B_i)\) is the class-membership probability, taken throughout this
+paper to be a logistic function of the standardized biomarker \(b_i\),
+
+\[
+\pi(B_i) = \mathrm{expit}(\psi_0 + \psi_g \, b_i), \qquad
+b_i = (B_i - \bar B)/s_B,
+\]
+
+with \(\psi_g\) the \textbf{gating slope}, the steepness of the
+class-membership gradient in the biomarker (code and prose elsewhere
+in this paper call it \texttt{gs}; \(\psi_0\) sets the baseline class
+prevalence and is fixed so that \(\pi(0) = 0.5\) in all simulations
+below). This \(\psi_g\) is unrelated to the \(\gamma\) coefficient of the
+companion component-decomposition manuscript\textsuperscript{\citeproc{ref-pmsimstats-paper06}{43}}, which scales a \(BR \times PB\) interaction
+term rather than a class-membership gradient; the two symbols are
+kept distinct throughout the compendium to avoid that confusion. The
+class-conditional response distributions \(f_0\) and \(f_1\) differ in
+their drug-response parameters: peak response, onset rate, or both.
+Within-class temporal structure follows the same modGompertz form
+used in single-class formulations, with class-specific parameters
+substituted.
 
 Two consequences of this DGP form are central to what follows. First,
 the class label \(Z_i\) is fixed across all measurements within a
@@ -761,7 +779,7 @@ Behaviour under carryover
 \endlastfoot
 Covariance-only\textsuperscript{\citeproc{ref-hendrickson2020}{9}} & \(\mathrm{Cov}(B, BR)\) only; means constant & Signal is entirely in the eroded channel; power loss is largest \\
 Combined mean and covariance\textsuperscript{\citeproc{ref-arminger1999}{27}} & Both \(E[BR\mid B]\) and \(\mathrm{Var}[BR\mid B]\) & Mean channel survives carryover; power loss intermediate \\
-Location-scale (GAMLSS)\textsuperscript{\citeproc{ref-gamlss2005}{43},\citeproc{ref-klein2015}{44}} & Location and scale of the marginal distribution, no discrete classes & Analogue of the combined case without committing to a class count \\
+Location-scale (GAMLSS)\textsuperscript{\citeproc{ref-gamlss2005}{44},\citeproc{ref-klein2015}{45}} & Location and scale of the marginal distribution, no discrete classes & Analogue of the combined case without committing to a class count \\
 Heterogeneous random-effects\textsuperscript{\citeproc{ref-verbekelesaffre1996}{35},\citeproc{ref-proustlima2017}{37}} & Class-specific random-intercept/slope distributions & Class label is carryover-invariant; used for the Study 5 pilot below \\
 Pure mean moderation (Architecture A) & \(E[BR\mid B]\) only; covariance constant & Signal survives carryover essentially undiminished \\
 \end{longtable}
@@ -824,11 +842,11 @@ case: \texttt{lcmm}\textsuperscript{\citeproc{ref-proustlima2017}{37}}, the clos
 heterogeneous random-effects specification, with syntax closely
 related to \texttt{nlme::lme}; \texttt{flexmix}\textsuperscript{\citeproc{ref-leisch2004}{38},\citeproc{ref-grunleisch2008}{39}}, a
 more general regression-mixture framework requiring more
-configuration; \texttt{mclust}\textsuperscript{\citeproc{ref-mclust2016}{45}}, for cross-sectional
-latent-profile analyses of baseline biomarker panels; \texttt{gamlss}\textsuperscript{\citeproc{ref-gamlss2005}{43}}, for distributional regression; \texttt{poLCA}\textsuperscript{\citeproc{ref-linzerlewis2011}{46}}, for categorical-indicator LCA; and \texttt{OpenMx} and
+configuration; \texttt{mclust}\textsuperscript{\citeproc{ref-mclust2016}{46}}, for cross-sectional
+latent-profile analyses of baseline biomarker panels; \texttt{gamlss}\textsuperscript{\citeproc{ref-gamlss2005}{44}}, for distributional regression; \texttt{poLCA}\textsuperscript{\citeproc{ref-linzerlewis2011}{47}}, for categorical-indicator LCA; and \texttt{OpenMx} and
 \texttt{lavaan} with mixture extensions, for FMM-style structural-equation
 specifications at higher configuration cost. The reference
-implementation outside R is Mplus\textsuperscript{\citeproc{ref-mplus}{47}}, the standard environment
+implementation outside R is Mplus\textsuperscript{\citeproc{ref-mplus}{48}}, the standard environment
 for GMM, FMM, and related mixture-SEM work, and the environment used
 by much of the identifiability and overextraction literature cited
 above\textsuperscript{\citeproc{ref-bauercurran2003}{1},\citeproc{ref-lubkemuthen2005}{2},\citeproc{ref-nylund2007}{34}}.
@@ -893,7 +911,7 @@ genuine mechanistic interaction empirically.
 \subsection{Progress to date}\label{progress-to-date}
 
 The five-study production program is pre-registered under the ADEMP
-framework of Morris, White, and Crowther\textsuperscript{\citeproc{ref-morris2019simulation}{48}} at
+framework of Morris, White, and Crowther\textsuperscript{\citeproc{ref-morris2019simulation}{49}} at
 \texttt{analysis/scripts/latent-class-mixture-application/\ 00-ademp-pre-registration.md} (approximately 2,300 cells across the
 program, seeded random-number control, an effect-size tuning
 sub-study, and a deviation-log specification). Phase 1 has reached the
@@ -1173,28 +1191,32 @@ The manuscript source, bibliography, and CSL file are at
 \CSLLeftMargin{42. }%
 \CSLRightInline{Gabler NB, Duan N, Vohra S, Kravitz RL. {N}-of-1 trials in the medical literature: A systematic review. \emph{Medical Care}. 2011;49(8):761-768.}
 
-\bibitem[\citeproctext]{ref-gamlss2005}
+\bibitem[\citeproctext]{ref-pmsimstats-paper06}
 \CSLLeftMargin{43. }%
+\CSLRightInline{{pmsimstats team}. Three-component decomposition of treatment response in aggregated {N}-of-1 trials: Pharmacological, expectation-driven, and natural-history components. Published online 2026.}
+
+\bibitem[\citeproctext]{ref-gamlss2005}
+\CSLLeftMargin{44. }%
 \CSLRightInline{Rigby RA, Stasinopoulos DM. Generalized additive models for location, scale and shape. \emph{Journal of the Royal Statistical Society Series C}. 2005;54(3):507-554.}
 
 \bibitem[\citeproctext]{ref-klein2015}
-\CSLLeftMargin{44. }%
+\CSLLeftMargin{45. }%
 \CSLRightInline{Klein N, Kneib T, Klasen S, Lang S. {B}ayesian structured additive distributional regression for multivariate responses. \emph{Journal of the Royal Statistical Society Series C}. 2015;64(4):569-591.}
 
 \bibitem[\citeproctext]{ref-mclust2016}
-\CSLLeftMargin{45. }%
+\CSLLeftMargin{46. }%
 \CSLRightInline{Scrucca L, Fop M, Murphy TB, Raftery AE. {m}clust 5: Clustering, classification and density estimation using {G}aussian finite mixture models. \emph{The R Journal}. 2016;8(1):289-317.}
 
 \bibitem[\citeproctext]{ref-linzerlewis2011}
-\CSLLeftMargin{46. }%
+\CSLLeftMargin{47. }%
 \CSLRightInline{Linzer DA, Lewis JB. {p}o{LCA}: An {R} package for polytomous variable latent class analysis. \emph{Journal of Statistical Software}. 2011;42(10):1-29.}
 
 \bibitem[\citeproctext]{ref-mplus}
-\CSLLeftMargin{47. }%
+\CSLLeftMargin{48. }%
 \CSLRightInline{Muthén LK, Muthén BO. \emph{{M}plus User's Guide}. 8th ed. Muth{é}n; Muth{é}n; 1998-2017.}
 
 \bibitem[\citeproctext]{ref-morris2019simulation}
-\CSLLeftMargin{48. }%
+\CSLLeftMargin{49. }%
 \CSLRightInline{Morris TP, White IR, Crowther MJ. Using simulation studies to evaluate statistical methods. \emph{Statistics in Medicine}. 2019;38(11):2074-2102.}
 
 \end{CSLReferences}

@@ -309,3 +309,14 @@
 | `supplement-2026-08-19-2005-6ae63a2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/supplement.Rmd` | `6ae63a2-wip` | 2026-08-19 20:05 PDT |
 | `bullets-2026-08-19-2052-6ae63a2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/bullets.Rmd` | `6ae63a2-wip` | 2026-08-19 20:52 PDT |
 | `bullets-2026-08-19-2052-6ae63a2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/bullets.Rmd` | `6ae63a2-wip` | 2026-08-19 20:52 PDT |
+| `whitepaper-compendium-summary-2026-08-20-1629-faccea3-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/whitepaper-compendium-summary.md` | `faccea3-wip` | 2026-08-20 16:29 PDT |
+| `01-dgp-mean-moderation-vs-mvn-2026-08-20-1717-faccea3-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `faccea3-wip` | 2026-08-20 17:17 PDT |
+| `01-dgp-mean-moderation-vs-mvn-2026-08-20-1717-faccea3-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `faccea3-wip` | 2026-08-20 17:17 PDT |
+| `03-latent-class-mixture-application-2026-08-20-1717-faccea3-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/03-latent-class-mixture-application/report.Rmd` | `faccea3-wip` | 2026-08-20 17:17 PDT |
+| `03-latent-class-mixture-application-2026-08-20-1717-faccea3-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/03-latent-class-mixture-application/report.Rmd` | `faccea3-wip` | 2026-08-20 17:17 PDT |
+| `04-treatment-main-effect-2026-08-20-1718-faccea3-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/04-treatment-main-effect/report.Rmd` | `faccea3-wip` | 2026-08-20 17:18 PDT |
+| `04-treatment-main-effect-2026-08-20-1718-faccea3-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/04-treatment-main-effect/report.Rmd` | `faccea3-wip` | 2026-08-20 17:18 PDT |
+| `08-test-procedure-design-sensitivity-2026-08-20-1719-faccea3-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/08-test-procedure-design-sensitivity/report.Rmd` | `faccea3-wip` | 2026-08-20 17:19 PDT |
+| `08-test-procedure-design-sensitivity-2026-08-20-1719-faccea3-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/08-test-procedure-design-sensitivity/report.Rmd` | `faccea3-wip` | 2026-08-20 17:19 PDT |
+| `11-combined-dgp-architecture-2026-08-20-1720-faccea3-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/11-combined-dgp-architecture/report.Rmd` | `faccea3-wip` | 2026-08-20 17:20 PDT |
+| `11-combined-dgp-architecture-2026-08-20-1720-faccea3-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/11-combined-dgp-architecture/report.Rmd` | `faccea3-wip` | 2026-08-20 17:20 PDT |

@@ -1,8 +1,8 @@
 ---
-geometry: margin=0.85in
+geometry: left=0.85in,top=0.85in,bottom=0.85in,right=5cm
 fontsize: 10pt
 header-includes:
-  - \linespread{0.97}
+  - \linespread{1.3}
   - \setlength{\parskip}{0.4em}
 ---
 

@@ -177,7 +177,10 @@ the dual-channel architecture: a correctly implemented combined driver must
 reproduce the pure-architecture power values at the boundaries when
 run under matched design, sample-size, and calibration settings.
 Section~4.2 uses exactly this property to validate the simulation
-against the companion paper's baselines.
+against the companion paper's baselines. The two weights are in fact
+not separately identifiable from a single fitted interaction
+coefficient away from these boundaries either; Section~3 derives this
+explicitly once the additive covariance decomposition is in hand.
 
 We note that when both parameters are set to their full values
 ($c_{bm,A} = c_{bm,B} = 0.45$), the total interaction effect on the
@@ -264,6 +267,29 @@ mean channel inflates it only by the second-order term
 $c_{bm,A}^2 \sigma_{BR}^2$), so the noncentrality parameter of the
 interaction test is, to first order, additive across channels:
 $\eta_C \approx \eta_A + \eta_B$.
+
+This has a direct consequence for identifiability, stated here
+explicitly because Section~2.2 raises the question without answering
+it. Because $\mathrm{Cov}(B, BR_C \mid \text{on-drug})$, and hence
+the noncentrality that drives the fitted \texttt{bm:Dbc} coefficient,
+depends on $c_{bm,A}$ and $c_{bm,B}$ only through their sum
+$c_{bm,A} + c_{bm,B}$, any two weight pairs with the same sum are
+observationally equivalent to a single fitted interaction
+coefficient: $(0.45, 0)$, $(0.225, 0.225)$, and $(0, 0.45)$ all
+deliver the same leading-order noncentrality and, empirically, very
+similar power (Table~\ref{tab:arch-c-power} shows this is not exact
+off the diagonal, because the super-additivity derived above operates
+at second order, but the
+non-identifiability of the two channel weights from a single
+\texttt{bm:Dbc} coefficient is a first-order, structural fact, not a
+finite-sample limitation that more replicates would resolve). The two
+weights are separately identifiable only with auxiliary information
+outside the single interaction coefficient: for example, a design
+that independently manipulates expectancy (as in the belief-decoupling
+design of the companion component-decomposition manuscript
+[@pmsimstats-paper06]) or an external measurement of the biomarker's
+correlation with $BR$ specifically on-drug, as distinct from its
+association with the treatment-conditional mean.
 :::
 
 ::: {.rgt data-latex=""}
@@ -327,23 +353,39 @@ To be completed by rgt.
 :::
 
 ::: {.orig data-latex=""}
-\textbf{Status: pending re-run.} The combined-architecture results
-must be produced by a driver whose sample-size convention and
-Gompertz and biomarker calibration match the companion paper's
-production driver exactly, so that the boundary cells reproduce the
-pure-architecture power values numerically and not merely
-algebraically. An earlier combined driver used a different
-sample-size convention ($N = 35$ as a total rather than per
-randomization path), which made its boundary cells uniformly lower
-than, and not directly comparable to, the companion baselines. This
-section will report a boundary-validation table placing the combined
-driver's $c_{bm,B} = 0$ column and $c_{bm,A} = 0$ row alongside the
-companion paper's the mean-moderation architecture and the covariance-moderation architecture baselines, and
-will confirm agreement to within Monte Carlo standard error
-(approximately 0.013 to 0.016 at these cell sizes). The results in
-Section~4.3 are reported at the total-sample convention of the
-earlier driver and will be re-stamped once the matched re-run is
-complete.
+\textbf{Status: validation gate checked and not yet passed.} The
+combined driver (\texttt{analysis/scripts/dgp-combined/
+01-run-combined-factorial.R}) already allocates its \texttt{N}
+argument as a total across randomization paths, via the same
+\texttt{generate\_data\_multi\_path()} helper used by the companion
+paper's own production driver, and its stored output
+(\texttt{analysis/data/dgp-combined/01-combined-summary.rds})
+already includes the matched $N = 70$ cells alongside $N = 35$. The
+sample-size-convention explanation given in an earlier version of
+this section is therefore not the operative problem: reading the
+$N = 70$, E2-specification boundary cells directly from that stored
+output and comparing them to the companion paper's Table
+(Section~3.1 baselines, $c_{bm} = 0.45$) shows the two do
+\emph{not} agree, and the gap is far larger than the
+$\approx 0.013$--$0.016$ Monte Carlo standard error at these cell
+sizes would explain. At $t_{1/2} = 0$, for example, the combined
+driver's mean-moderation boundary cell reads $0.595$ (CO), $0.738$
+(Hybrid), $0.612$ (OL+BDC) against the companion paper's $0.739$,
+$0.842$, $0.751$; the covariance-moderation boundary cell reads
+$0.581$, $0.738$, $0.601$ against $0.745$, $0.840$, $0.777$. Every
+comparable cell checked is 10 to 19 percentage points below the
+companion baseline, which is inconsistent with sampling noise and
+implicates a calibration mismatch between the two drivers'
+\texttt{resp\_param}, \texttt{baseline\_param}, or nuisance
+correlation arguments (\texttt{c.cf1t}, \texttt{c.cfct}, the AR(1)
+parameter \texttt{rho}) rather than the sample-size bookkeeping this
+section previously blamed. The Section~4.3 table below is reported
+as originally produced; it should be treated as \emph{not yet
+validated} against the companion architecture baselines, and the
+boundary-reduction identities of Section~2.2 and Section~3 remain
+established analytically but not yet confirmed numerically in this
+driver. Locating and correcting the calibration mismatch is deferred
+to a follow-up revision of this manuscript.
 :::
 
 \subsection{4.3 Empirical power over the channel-weight grid}
@@ -352,34 +394,40 @@ complete.
 \small\centering
 \caption{the dual-channel architecture empirical power: $3 \times 3$ channel-weight
 panel at carryover $t_{1/2} = 1.0$ week, E2 analysis specification,
-1000 replicates per cell. Rows index $c_{bm,A}$ (mean channel);
-columns index $c_{bm,B}$ (covariance channel). Boundary column
-$c_{bm,B} = 0$ corresponds to the pure mean-moderation architecture; boundary row
-$c_{bm,A} = 0$ corresponds to the pure covariance-moderation architecture. Values are at the
-earlier driver's total-sample convention and are pending the matched
-re-run of Section 4.2; Monte Carlo standard error columns will be
-added at that time.}
+$N=70$ (total, matched to the companion paper's convention), 1000
+replicates per cell. Rows index $c_{bm,A}$ (mean channel); columns
+index $c_{bm,B}$ (covariance channel). Boundary column $c_{bm,B} =
+0$ corresponds to the pure mean-moderation architecture; boundary
+row $c_{bm,A} = 0$ corresponds to the pure covariance-moderation
+architecture. An earlier version of this table used $N=35$, which
+is not the matched-sample-size convention needed for the boundary
+cells to be checked against the companion paper's baselines; this
+version instead uses the driver's already-computed $N=70$ cells. As
+Section~4.2 reports, even at matched $N$ these boundary cells do not
+yet numerically reproduce the companion paper's single-architecture
+results, so the table should still be read as provisional pending
+resolution of that calibration mismatch.}
 \label{tab:arch-c-power}
-\begin{tabular}{lrrr}
+\begin{tabular}{lrrrr}
 \toprule
-& \multicolumn{3}{c}{$c_{bm,B}$ (covariance channel)} \\
+& \multicolumn{3}{c}{$c_{bm,B}$ (covariance channel)} & \\
 \cmidrule(l){2-4}
-$c_{bm,A}$ (mean channel) & 0.00 & 0.22 & 0.45 \\
+$c_{bm,A}$ (mean channel) & 0.00 & 0.22 & 0.45 & MCSE range \\
 \midrule
-\multicolumn{4}{l}{\textit{Crossover (CO)}} \\
-0.00 & 0.046 & 0.064 & 0.206 \\
-0.22 & 0.070 & 0.179 & 0.361 \\
-0.45 & 0.172 & 0.354 & 0.528 \\
+\multicolumn{5}{l}{\textit{Crossover (CO)}} \\
+0.00 & 0.058 & 0.118 & 0.288 & 0.007--0.014 \\
+0.22 & 0.103 & 0.306 & 0.550 & 0.010--0.016 \\
+0.45 & 0.325 & 0.574 & 0.813 & 0.012--0.016 \\
 \addlinespace
-\multicolumn{4}{l}{\textit{Hybrid}} \\
-0.00 & 0.034 & 0.083 & 0.273 \\
-0.22 & 0.108 & 0.299 & 0.621 \\
-0.45 & 0.389 & 0.642 & 0.870 \\
+\multicolumn{5}{l}{\textit{Hybrid}} \\
+0.00 & 0.040 & 0.138 & 0.473 & 0.006--0.016 \\
+0.22 & 0.214 & 0.577 & 0.897 & 0.010--0.016 \\
+0.45 & 0.656 & 0.918 & 0.995 & 0.002--0.015 \\
 \addlinespace
-\multicolumn{4}{l}{\textit{OL+BDC}} \\
-0.00 & 0.017 & 0.049 & 0.148 \\
-0.22 & 0.086 & 0.164 & 0.362 \\
-0.45 & 0.276 & 0.473 & 0.688 \\
+\multicolumn{5}{l}{\textit{OL+BDC}} \\
+0.00 & 0.024 & 0.080 & 0.277 & 0.005--0.014 \\
+0.22 & 0.117 & 0.370 & 0.693 & 0.010--0.015 \\
+0.45 & 0.498 & 0.791 & 0.950 & 0.007--0.016 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -397,13 +445,13 @@ with each channel weight, holding the other fixed, across all three
 designs, confirming that the channels contribute independently to
 detectability. Second, interior cells exceed the probability-scale
 additive benchmark. At ($c_{bm,A} = 0.22$, $c_{bm,B} = 0.22$) in the
-Hybrid design, power is 0.299; the additive baseline
-$p(0.22,0) + p(0,0.22) - p(0,0) = 0.108 + 0.083 - 0.034 = 0.157$ is
-exceeded by 0.142, the super-additivity predicted in Section~3.
+Hybrid design, power is 0.577; the additive baseline
+$p(0.22,0) + p(0,0.22) - p(0,0) = 0.214 + 0.138 - 0.040 = 0.312$ is
+exceeded by 0.265, the super-additivity predicted in Section~3.
 Third, the covariance and mean channels contribute comparably to
 carryover sensitivity, and design choice remains consequential: at
-the full-signal, one-week-carryover cell, Hybrid (0.870)
-substantially outperforms OL+BDC (0.688) and CO (0.528).
+the full-signal, one-week-carryover cell, Hybrid (0.995)
+substantially outperforms OL+BDC (0.950) and CO (0.813).
 :::
 
 \bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip

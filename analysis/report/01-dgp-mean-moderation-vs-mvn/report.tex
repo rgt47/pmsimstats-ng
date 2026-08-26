@@ -158,8 +158,8 @@
   \renewcommand{\headrulewidth}{0pt}%
   \renewcommand{\footrulewidth}{0.4pt}}
 \renewcommand{\stampsource}{\textasciitilde{}/\allowbreak{}prj/\allowbreak{}res/\allowbreak{}36-pmsimstats-ng/\allowbreak{}pmsimstats-ng/\allowbreak{}analysis/\allowbreak{}report/\allowbreak{}01-dgp-mean-moderation-vs-mvn/\allowbreak{}report.Rmd}
-\renewcommand{\stamptime}{2026-08-26 09:27 PDT}
-\renewcommand{\stampversion}{\detokenize{39ae459-wip}}
+\renewcommand{\stamptime}{2026-08-26 11:18 PDT}
+\renewcommand{\stampversion}{\detokenize{4b02b5b-wip}}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{booktabs}
@@ -571,6 +571,129 @@ by both architectures, while covariance moderation loses information
 through this quadratic variance-inflation channel as well, and it is
 this second, architecture-specific channel that produces the
 divergence in power documented in Section 3.
+
+\subsubsection{2.2.4 Relationship to Hendrickson et al.'s original
+implementation}
+
+Covariance moderation, as formalized in Section 2.2.2, is a
+corrected adaptation of Hendrickson et al.'s own published
+mechanism, not an identical reproduction of it. We verified this
+directly against Hendrickson et al.'s original public repository
+(\texttt{github.com/rchendrickson/pmsimstats}, the commit history
+closest to their 2020 acceptance date) rather than against a
+description of it, and found three concrete differences, together
+with a fourth consequence of the second that bears directly on this
+paper's choice of specification.
+
+First, Hendrickson et al.'s original data-generating process builds
+within-factor and cross-factor correlation from a single constant
+applied to every pair of timepoints regardless of separation,
+compound symmetry, whereas the architectures examined here use AR(1)
+decay, \(\text{Cor}(X_{t_i}, X_{t_j}) = \rho^{|t_i - t_j|}\), which we
+adopt for its greater clinical plausibility (nearby measurements
+should be more correlated than distant ones) as well as the
+numerical benefit described next. Second, the biomarker-BR
+correlation itself: inspection of the original
+\texttt{generateData.R} shows that Hendrickson et al.'s code does
+directly parameterize a drug-state-dependent Cor(BM, BR), discounted
+off drug by the same exponential decay applied to the BR mean, so
+the mechanism formalized in Section 2.2.2 is a faithful
+generalization of theirs, not a reinterpretation of an ambiguous
+original; the one difference is an additional, undocumented
+\texttt{scalefactor} constant (defaulting to 2) multiplying \(t_{sd}\)
+in the decay exponent, which we omit as unmotivated by any stated
+pharmacokinetic rationale. Third, and independently of the DGP,
+Hendrickson et al.'s own reproducibility vignette
+(\texttt{Produce\_Publication\_Results\_1\_generate\_data.Rmd},
+confirmed by direct inspection) sets the analysis model's
+\texttt{t\_random\_slope} option to \texttt{FALSE} for the
+published results, giving \texttt{lme4::lmer} with a random
+intercept only and no explicit residual correlation structure; this
+contradicts their own Methods section, which describes ``maximal
+random effects structure\ldots an unstructured variance-covariance
+matrix.'' We adopt \texttt{nlme::lme} with \texttt{corCAR1} (Section
+2.1) instead, consistent with the AR(1) DGP correction, because a
+model that ignores residual autocorrelation under an
+autocorrelated DGP is misspecified in a way that is already known to
+inflate Type\textasciitilde I error, a defect independent of, and additional to,
+the architecture question this paper addresses.
+
+The AR(1) correction has a direct numerical consequence for the
+range of \(c_{bm}\) values this paper's simulations can explore.
+Compound symmetry restricts how large a biomarker-BR correlation the
+covariance matrix can support before it fails to be positive
+definite, because a constant correlation applied uniformly across
+many timepoints depletes the matrix's degrees of freedom faster than
+a correlation that decays with lag. We confirmed this directly:
+holding every other parameter at this paper's calibration (OL+BDC
+design, \(t_{1/2} = 1.0\)), the raw, uncorrected covariance matrix
+under Hendrickson et al.'s original compound-symmetry construction
+loses positive definiteness beyond \(c_{bm} \approx 0.35\) and is
+already non-positive-definite at \(c_{bm} = 0.45\), the value used
+throughout Section 3; under the AR(1) construction used here, the
+same matrix remains positive definite up to \(c_{bm} \approx 0.50\),
+comfortably covering \(c_{bm} = 0.45\) without requiring the
+positive-definiteness correction step at all. This matches, and
+sharpens to this paper's own specific configuration, the general
+finding reported elsewhere in this project that AR(1) expands the
+positive-definite-feasible region of \(c_{bm}\) from a compound-symmetry
+maximum near 0.25 to 0.49 or higher. Every cell in Section 3 that
+uses \(c_{bm} = 0.45\) would therefore require
+\texttt{corpcor::make.positive.definite()} to silently force
+Hendrickson et al.'s original covariance matrix onto the nearest
+positive-definite matrix before every single simulated draw, a
+correction this paper's own architectures never need to invoke at
+this calibration.
+
+To characterize what these three differences do to the reported
+magnitudes, we ran a fourth, non-primary simulation arm: Hendrickson
+et al.'s original mechanism exactly as published (their
+compound-symmetry DGP with the default \texttt{scalefactor}\textsubscript{=}2
+decay, and their own random-intercept-only \texttt{lmer} analysis,
+including its use of a fixed, DGP-independent Dbc treatment, since
+their reproducibility code never passes the DGP's true
+\(carryover\_t1half\) into the analysis step) through the same three
+designs, carryover half-lives, and \(c_{bm} = 0.45\) used in Section
+3.1, at 300 replicates per cell (versus this paper's production
+1\{,\}000; MCSE on power near 0.5 is approximately 0.029). The
+relative loss from \(t_{1/2} = 0\) to \(t_{1/2} = 1.0\) was 4.2\% (CO),
+12.5\% (Hybrid), and 19.0\% (OL+BDC), the identical qualitative
+ordering reported for covariance moderation in Section 3.1, but
+smaller in magnitude than this paper's Architecture B at every
+design (3.0\%, 15.4\%, and 30.6\% respectively) and larger than
+Architecture A at every design (1.9\%, 6.9\%, 2.8\%). Hendrickson et
+al.'s original combination therefore sits between the two
+architectures examined in this paper, not on top of either: the
+covariance-based mechanism common to their DGP and Architecture B
+drives the same design-dependent ordering in both, while the three
+corrections, compounded, materially change its size, most visibly
+in OL+BDC, where this paper's matched-half-life \texttt{corCAR1}
+analysis reports over 1.6 times the relative loss Hendrickson et
+al.'s own original code would report on the same designs and
+calibration. This result is reported for context on the sensitivity
+of the reported magnitudes to implementation choices, not as a
+claim about which published figure is more correct; Hendrickson et
+al.'s own carryover grid (0, 0.1, 0.2 weeks) and step-function DGP
+decay differ from the smooth exponential decay and 0-1.0 week range
+used throughout this paper, so no single number from either
+implementation is directly comparable to Hendrickson et al.'s
+published Figure 4B.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{../../figures/quick-sim/hendrickson-original-comparison/three-dgp-power-heatmap.pdf}
+\caption{Power at $c_{bm} = 0.45$ across the three designs and
+carryover half-lives of Section 3.1, for all three
+DGP/analysis combinations discussed in this subsection.
+Hendrickson et al.'s original combination sits between mean
+moderation and covariance moderation in every design, sharing
+covariance moderation's design-dependent ordering (OL+BDC most
+sensitive, CO least) at a smaller magnitude, consistent with a
+shared covariance-based mechanism whose reported size is sensitive
+to the compound-symmetry-versus-AR(1), scale-factor, and
+analysis-model differences detailed above.}
+\label{fig:three-dgp-heatmap}
+\end{figure}
 
 \subsection{2.3 Simulation design}
 
@@ -1348,8 +1471,14 @@ Hybrid figures changed. A confirmatory run at \(N = 140\) on the
 Hybrid design, to check that the architecture-dependent ordering
 survives the power saturation that comes with a larger sample, is
 planned but has not yet been executed under the current
-N-matching convention and is not reported here. A structured,
-section-by-section summary of the argument, without the
+N-matching convention and is not reported here. The Hendrickson et
+al.~comparison arm of Section 2.2.4, including the vendored original
+source (with its one documented compatibility patch) and the
+positive-definiteness sweep, is at
+\texttt{analysis/scripts/quick-sim/hendrickson-original-comparison/},
+with its output at
+\texttt{analysis/data/quick-sim/hendrickson-original-comparison/}. A
+structured, section-by-section summary of the argument, without the
 derivations, tables, or citations, is provided as a supplementary
 document (\texttt{bullets.Rmd}).
 

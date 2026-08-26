@@ -322,3 +322,5 @@
 | `11-combined-dgp-architecture-2026-08-20-1720-faccea3-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/11-combined-dgp-architecture/report.Rmd` | `faccea3-wip` | 2026-08-20 17:20 PDT |
 | `12-nof1-design-efficiency-2026-08-20-1807-e65895c.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/12-nof1-design-efficiency/report.Rmd` | `e65895c` | 2026-08-20 18:07 PDT |
 | `12-nof1-design-efficiency-2026-08-20-1807-nogit.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/12-nof1-design-efficiency/report.Rmd` | `nogit` | 2026-08-20 18:07 PDT |
+| `01-dgp-mean-moderation-vs-mvn-2026-08-26-0821-ebe1eaf-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `ebe1eaf-wip` | 2026-08-26 08:21 PDT |
+| `01-dgp-mean-moderation-vs-mvn-2026-08-26-0821-ebe1eaf-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `ebe1eaf-wip` | 2026-08-26 08:21 PDT |

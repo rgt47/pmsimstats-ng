@@ -366,3 +366,5 @@
 | `02-carryover-sensitivity-2026-09-01-1731-5559bc8-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report.Rmd` | `5559bc8-wip` | 2026-09-01 17:31 PDT |
 | `02-carryover-sensitivity-2026-09-01-1927-4ac6c88-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report.Rmd` | `4ac6c88-wip` | 2026-09-01 19:27 PDT |
 | `02-carryover-sensitivity-2026-09-01-1927-4ac6c88-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/02-carryover-sensitivity/report.Rmd` | `4ac6c88-wip` | 2026-09-01 19:27 PDT |
+| `01-dgp-mean-moderation-vs-mvn-2026-09-02-1131-a799b39-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `a799b39-wip` | 2026-09-02 11:31 PDT |
+| `01-dgp-mean-moderation-vs-mvn-2026-09-02-1131-a799b39-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd` | `a799b39-wip` | 2026-09-02 11:31 PDT |

@@ -1,0 +1,405 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb,booktabs,geometry,array}
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+\setlength{\parskip}{6pt}\setlength{\parindent}{0pt}
+\title{Correlation structure of the \texttt{covar} and \texttt{orig}
+data-generating processes}
+\author{pmsimstats team}
+\date{\today}
+
+\newcommand{\bm}{\mathrm{BM}}
+\newcommand{\bl}{\mathrm{BL}}
+
+\begin{document}
+\maketitle
+
+\section{Variable ordering and block partition}
+
+Both implementations draw each participant's trajectory from a single
+multivariate normal over the same ordered variable list. With $n$
+measurement occasions at cumulative weeks
+$w_1 < w_2 < \cdots < w_n$, the vector is
+
+\[
+X = \bigl(\,\bm,\; \bl,\;
+TV_1,\dots,TV_n,\;
+PB_1,\dots,PB_n,\;
+BR_1,\dots,BR_n \,\bigr)^{\!\top},
+\qquad \dim X = 2 + 3n .
+\]
+
+The ordering is factor-major: all $n$ occasions of one factor are
+contiguous, rather than all three factors at one occasion. Writing
+$A_c$ for the $n \times n$ within-factor block of factor
+$c \in \{tv, pb, br\}$ and $C_{cc'}$ for the $n \times n$
+cross-factor block, the correlation matrix partitions as
+
+\[
+R \;=\;
+\begin{pmatrix}
+1 & 0 & 0^{\top} & 0^{\top} & b^{\top} \\[2pt]
+0 & 1 & 0^{\top} & 0^{\top} & 0^{\top} \\[2pt]
+0 & 0 & A_{tv}   & C_{tv,pb} & C_{tv,br} \\[2pt]
+0 & 0 & C_{pb,tv} & A_{pb}   & C_{pb,br} \\[2pt]
+b & 0 & C_{br,tv} & C_{br,pb} & A_{br}
+\end{pmatrix}.
+\]
+
+Two features hold in both implementations. The baseline term $\bl$ is
+uncorrelated with every other variable, so its row and column are
+those of the identity. The biomarker $\bm$ couples only to the
+response factor $BR$, through the vector $b \in \mathbb{R}^{n}$; its
+correlations with $TV$ and $PB$ are zero. The two implementations
+differ in the interior of $A_c$, in the interior of $C_{cc'}$, and in
+$b$.
+
+\section{Within-factor blocks $A_c$}
+
+Let $\rho_c$ denote the autocorrelation parameter of factor $c$
+(\texttt{c.tv}, \texttt{c.pb}, \texttt{c.br} in the code).
+
+\paragraph{\texttt{orig}: compound symmetry.}
+A single constant is assigned to every pair of occasions, irrespective
+of their separation:
+\[
+[A_c]_{ij} =
+\begin{cases}
+1, & i = j\\
+\rho_c, & i \neq j
+\end{cases}
+\qquad\Longleftrightarrow\qquad
+A_c = (1-\rho_c) I_n + \rho_c J_n ,
+\]
+with $J_n$ the $n \times n$ matrix of ones. For $n = 4$,
+\[
+A_c^{\text{orig}} =
+\begin{pmatrix}
+1 & \rho_c & \rho_c & \rho_c\\
+\rho_c & 1 & \rho_c & \rho_c\\
+\rho_c & \rho_c & 1 & \rho_c\\
+\rho_c & \rho_c & \rho_c & 1
+\end{pmatrix}.
+\]
+The block has two distinct eigenvalues, $1 + (n-1)\rho_c$ once and
+$1 - \rho_c$ with multiplicity $n-1$, so positive definiteness
+requires $-1/(n-1) < \rho_c < 1$. The upper bound on admissible
+correlation therefore tightens as occasions are added.
+
+\paragraph{\texttt{covar}: AR(1) in calendar time.}
+The correlation decays with the elapsed time between occasions, using
+the cumulative week gap rather than the index difference:
+\[
+[A_c]_{ij} = \rho_c^{\,|w_i - w_j|}.
+\]
+For $n = 4$, writing $d_{ij} = |w_i - w_j|$,
+\[
+A_c^{\text{covar}} =
+\begin{pmatrix}
+1 & \rho_c^{d_{12}} & \rho_c^{d_{13}} & \rho_c^{d_{14}}\\
+\rho_c^{d_{12}} & 1 & \rho_c^{d_{23}} & \rho_c^{d_{24}}\\
+\rho_c^{d_{13}} & \rho_c^{d_{23}} & 1 & \rho_c^{d_{34}}\\
+\rho_c^{d_{14}} & \rho_c^{d_{24}} & \rho_c^{d_{34}} & 1
+\end{pmatrix}.
+\]
+Because the exponent uses calendar time, unequally spaced designs
+produce unequal decay across consecutive occasions. In the Hybrid
+design, whose occasions fall at weeks
+$4, 8, 9, 10, 11, 12, 16, 20$, consecutive gaps of one week during
+the discontinuation phase yield much higher adjacent correlations
+than the four-week gaps at either end.
+
+\section{Cross-factor blocks $C_{cc'}$}
+
+Let $c_1$ denote the same-occasion cross-factor correlation
+(\texttt{c.cf1t}) and $c_{\times}$ the different-occasion cross-factor
+correlation (\texttt{c.cfct}).
+
+\paragraph{\texttt{orig}.} Both are constants:
+\[
+[C_{cc'}]_{ij} =
+\begin{cases}
+c_1, & i = j\\
+c_{\times}, & i \neq j
+\end{cases}
+\qquad\Longleftrightarrow\qquad
+C_{cc'} = c_{\times} J_n + (c_1 - c_{\times}) I_n .
+\]
+
+\paragraph{\texttt{covar}.} The same-occasion entry is unchanged, but
+the different-occasion entries inherit the AR(1) decay:
+\[
+[C_{cc'}]_{ij} =
+\begin{cases}
+c_1, & i = j\\
+c_{\times}\,\rho^{\,|w_i - w_j|}, & i \neq j .
+\end{cases}
+\]
+
+\section{Biomarker coupling vector $b$}
+
+The vector $b$ carries the biomarker-treatment interaction. This is
+the only place in $R$ where the two implementations differ in
+mechanism rather than in decay profile.
+
+\paragraph{\texttt{covar}.} The entry is gated on the drug indicator
+and decays with time since discontinuation $t_{sd,p}$ at rate
+$\lambda = \ln 2 / t_{1/2}$:
+\[
+b_p =
+\begin{cases}
+c_{bm}, & \text{occasion } p \text{ on drug}\\
+c_{bm}\,e^{-\lambda t_{sd,p}}, & \text{occasion } p \text{ off drug} .
+\end{cases}
+\]
+
+\paragraph{\texttt{orig}.} The entry is gated on whether the response
+mean $\mu_{BR,p}$ is nonzero, and takes only two values:
+\[
+b_p =
+\begin{cases}
+c_{bm}, & \mu_{BR,p} \neq 0\\
+0, & \mu_{BR,p} = 0 .
+\end{cases}
+\]
+
+Because carryover keeps $\mu_{BR,p}$ nonzero after discontinuation,
+the position of this step depends on the carryover half-life. At
+$t_{1/2} = 0$ the step coincides with the drug indicator and the two
+vectors are equal entry for entry. As $t_{1/2}$ grows they separate in
+opposite directions: the \texttt{covar} entries decay toward zero
+while the \texttt{orig} entries rise to $c_{bm}$. At
+$t_{1/2} = 1.0$ in the Hybrid design, $b^{\text{orig}} = c_{bm}
+\mathbf{1}_n$, so the vector carries no on-drug versus off-drug
+contrast at all.
+
+\section{A worked example}
+
+To make the three components concrete, take four occasions drawn from
+the Hybrid design at cumulative weeks
+$w = (10, 11, 12, 16)$, with the first and fourth on drug and the
+second and third off it, so that
+$t_{sd} = (0, 1, 2, 0)$. Set $\rho_{br} = 0.6$, $\rho_{pb} = 0.4$,
+$c_1 = 0.3$, $c_{\times} = 0.1$, $c_{bm} = 0.45$, and a carryover
+half-life of one week, giving $\lambda = \ln 2 \approx 0.693$. The
+matrix of week gaps is
+\[
+\bigl(|w_i - w_j|\bigr) =
+\begin{pmatrix}
+0 & 1 & 2 & 6\\
+1 & 0 & 1 & 5\\
+2 & 1 & 0 & 4\\
+6 & 5 & 4 & 0
+\end{pmatrix}.
+\]
+The unequal spacing matters: occasions one to three are a week apart,
+while the fourth sits four weeks after the third.
+
+\subsection{Within-factor block $A_{br}$}
+
+\[
+A_{br}^{\text{orig}} =
+\begin{pmatrix}
+1.0000 & 0.6000 & 0.6000 & 0.6000 \\
+0.6000 & 1.0000 & 0.6000 & 0.6000 \\
+0.6000 & 0.6000 & 1.0000 & 0.6000 \\
+0.6000 & 0.6000 & 0.6000 & 1.0000
+\end{pmatrix},
+\qquad
+A_{br}^{\text{covar}} =
+\begin{pmatrix}
+1.0000 & 0.6000 & 0.3600 & 0.0467 \\
+0.6000 & 1.0000 & 0.6000 & 0.0778 \\
+0.3600 & 0.6000 & 1.0000 & 0.1296 \\
+0.0467 & 0.0778 & 0.1296 & 1.0000
+\end{pmatrix}.
+\]
+
+Under \texttt{orig} every pair of occasions carries $0.6$, so the
+week-apart pair $(1,2)$ and the six-weeks-apart pair $(1,4)$ are
+treated as equally associated. Under \texttt{covar} the same two pairs
+carry $0.6$ and $0.0467$, a factor of thirteen apart. The consequence
+for the fourth occasion is the striking one: it is nearly independent
+of the first three under AR(1), and as strongly tied to them as they
+are to each other under compound symmetry.
+
+\subsection{Cross-factor block $C_{tv,pb}$}
+
+\[
+C_{tv,pb}^{\text{orig}} =
+\begin{pmatrix}
+0.3000 & 0.1000 & 0.1000 & 0.1000 \\
+0.1000 & 0.3000 & 0.1000 & 0.1000 \\
+0.1000 & 0.1000 & 0.3000 & 0.1000 \\
+0.1000 & 0.1000 & 0.1000 & 0.3000
+\end{pmatrix},
+\qquad
+C_{tv,pb}^{\text{covar}} =
+\begin{pmatrix}
+0.3000 & 0.0400 & 0.0160 & 0.0004 \\
+0.0400 & 0.3000 & 0.0400 & 0.0010 \\
+0.0160 & 0.0400 & 0.3000 & 0.0026 \\
+0.0004 & 0.0010 & 0.0026 & 0.3000
+\end{pmatrix}.
+\]
+
+The diagonal, which carries the same-occasion cross-factor
+correlation $c_1$, is identical in both. The off-diagonal entries
+decay under \texttt{covar} and do not under \texttt{orig}, and by the
+fourth occasion the difference is two orders of magnitude.
+
+A caution attaches to the \texttt{covar} block. In the implementation
+the decay rate applied to a cross-factor pair is taken from whichever
+factor the outer loop is currently visiting, and because each
+unordered pair is visited in both orders, the later write survives.
+The rate appearing in $C_{tv,pb}$ is therefore determined by loop
+order rather than by any modeling decision. The values above use
+$\rho_{pb}$ on that basis. This is an implementation artifact and not
+a property of the AR(1) specification.
+
+\subsection{Biomarker vector $b$}
+
+At a carryover half-life of one week,
+\[
+b^{\text{covar}} = (0.4500,\, 0.2250,\, 0.1125,\, 0.4500)^{\top},
+\qquad
+b^{\text{orig}} = (0.4500,\, 0.4500,\, 0.4500,\, 0.4500)^{\top}.
+\]
+The two off-drug entries halve and quarter under \texttt{covar},
+tracking $e^{-\lambda t_{sd}}$, whereas under \texttt{orig} they take
+the full $c_{bm}$, because carryover has left the response mean
+nonzero and the step therefore never fires.
+
+Removing carryover collapses the difference entirely:
+\[
+b^{\text{covar}} = b^{\text{orig}} =
+(0.4500,\, 0.0000,\, 0.0000,\, 0.4500)^{\top}
+\qquad (t_{1/2} = 0).
+\]
+
+This pair of displays is the essential comparison. The vector $b$ is
+the only channel through which the biomarker-treatment interaction
+enters the covariance, and an interaction is identified by $b$ varying
+between on-drug and off-drug occasions. At $t_{1/2} = 0$ the two
+implementations produce the same vector. At any positive half-life
+$b^{\text{orig}}$ is constant, so it carries no on-drug versus
+off-drug contrast, while $b^{\text{covar}}$ retains one. Across the
+grid $t_{1/2} \in \{0, 0.5, 1.0\}$ used in this paper, \texttt{orig}
+therefore supplies one cell identical to \texttt{covar} and two in
+which its interaction channel is degenerate.
+
+\section{The three data-generating processes}
+
+Organized by where each process writes the biomarker-treatment
+interaction into the multivariate normal $(\mu, \Sigma)$. All three
+share the same variable ordering and block partition of Section
+1, and differ only in the entries listed.
+
+\begin{center}
+\small
+\begin{tabular}{@{}
+  >{\raggedright\arraybackslash}p{3.5cm}
+  >{\raggedright\arraybackslash}p{2.5cm}
+  >{\raggedright\arraybackslash}p{3.5cm}
+  >{\raggedright\arraybackslash}p{3.5cm}@{}}
+\toprule
+ & \texttt{mean} & \texttt{covar} & \texttt{orig}\\
+\midrule
+Interaction written into
+  & $\mu$ & $\Sigma$ & $\Sigma$\\
+Interaction channel
+  & BR mean shift & $b$ vector & $b$ vector\\
+\addlinespace
+$A_c$ within-factor
+  & AR(1) $\rho_c^{|w_i-w_j|}$
+  & AR(1) $\rho_c^{|w_i-w_j|}$
+  & compound symmetry, constant $\rho_c$\\
+$C_{cc'}$ diagonal
+  & $c_1$ & $c_1$ & $c_1$\\
+$C_{cc'}$ off-diagonal
+  & $c_{\times}\rho^{|w_i-w_j|}$
+  & $c_{\times}\rho^{|w_i-w_j|}$
+  & constant $c_{\times}$\\
+\addlinespace
+$b$ on drug
+  & $0$ & $c_{bm}$ & $c_{bm}$\\
+$b$ off drug
+  & $0$ & $c_{bm}e^{-\lambda t_{sd}}$ & $0$ or $c_{bm}$\\
+$b$ off-drug profile
+  & n/a & graded & step\\
+$b$ gate
+  & n/a & \texttt{onDrug}, then $t_{sd}$ & $\mu_{BR} \neq 0$\\
+Gate position carryover-dependent
+  & n/a & no & \textbf{yes}\\
+\addlinespace
+$\mu$ shift on drug
+  & $c_{bm} z_i \sigma_{BR}$ & none & none\\
+$\mu$ shift off drug
+  & $0$ (step) & none & none\\
+\addlinespace
+Carryover on BR mean
+  & \multicolumn{3}{l}{identical line in all three}\\
+$\mathrm{BL}$ row and column
+  & \multicolumn{3}{l}{identity in all three}\\
+$\mathrm{BM}$--$TV$, $\mathrm{BM}$--$PB$
+  & \multicolumn{3}{l}{zero in all three}\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Three features of this comparison are worth drawing out.
+
+First, \texttt{mean} and \texttt{covar} share their entire covariance
+matrix apart from the vector $b$. Setting $b$ to zero and adding the
+mean shift converts one into the other, with every within-factor and
+cross-factor block untouched. This is the decomposition of Appendix A
+made concrete: the two architectures are not different models but the
+two places a single joint distribution can carry an interaction.
+
+Second, \texttt{orig} differs from \texttt{covar} on three rows
+simultaneously, in $A_c$, in the off-diagonal of $C_{cc'}$, and in
+$b$. No single row can therefore be held responsible for any
+difference in results obtained under it, and a comparison against
+\texttt{orig} bounds the joint effect of the three differences rather
+than decomposing them. Separating them would require running the
+correlation structure and the correlation gate as crossed factors.
+
+Third, only the $b$ row differs in mechanism rather than in decay
+profile. The $A_c$ and $C_{cc'}$ rows describe the same quantity
+decaying at different rates, or not decaying at all. The $b$ row
+describes different conditions being tested to decide whether the
+interaction is present. That distinction is what makes the gate row
+consequential: because \texttt{orig} tests the response mean rather
+than the drug indicator, and carryover keeps the response mean
+nonzero, its gate opens at off-drug occasions precisely when carryover
+is present, and its interaction channel loses the on-drug versus
+off-drug contrast on which identification depends.
+
+The final three rows record what all three processes hold in common.
+The baseline term is uncorrelated with everything, the biomarker
+couples to no factor other than the response, and the carryover
+adjustment to the response mean is implemented by the same line of
+code in every case.
+
+\section{Summary of differences}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Component & \texttt{orig} & \texttt{covar}\\
+\midrule
+$A_c$ interior & $\rho_c$ & $\rho_c^{|w_i - w_j|}$\\
+$C_{cc'}$, $i = j$ & $c_1$ & $c_1$\\
+$C_{cc'}$, $i \neq j$ & $c_{\times}$ & $c_{\times}\rho^{|w_i-w_j|}$\\
+$b_p$, on drug & $c_{bm}$ & $c_{bm}$\\
+$b_p$, off drug & $0$ or $c_{bm}$ & $c_{bm}e^{-\lambda t_{sd,p}}$\\
+$\bl$ row/column & identity & identity\\
+$\bm$--$TV$, $\bm$--$PB$ & $0$ & $0$\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The compound-symmetry form constrains $\rho_c$ more tightly than the
+AR(1) form as $n$ grows, which is the mechanism behind the narrower
+positive-definite range of $c_{bm}$ under \texttt{orig}.
+
+\end{document}

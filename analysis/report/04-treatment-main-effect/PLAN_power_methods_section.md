@@ -61,7 +61,7 @@ patient, not the patient themselves.
   delta = true treatment effect
   sigma_d = SD of within-patient period differences
   ```
-- Arends et al. (2019) extended this to determine both the number of
+- Senn (2019) also gives formulae determining both the number of
   patients (N) and cycles per patient (m) jointly.
 - Their key result: for a series of N-of-1 trials analyzed via
   random-effects meta-analysis, power depends on:
@@ -72,7 +72,7 @@ patient, not the patient themselves.
   tau^2 (between-patient variance of treatment effects)
   delta (population mean treatment effect)
   ```
-- Key refs: Senn & Julious 2024, Arends et al. 2019
+- Key refs: Senn & Julious 2024, Senn 2019
 
 ### 2.1.3 Extensions to Series of N-of-1 Trials
 
@@ -117,15 +117,15 @@ patient, not the patient themselves.
    additional power/sample-size references not yet in `nof1-pgt.bib`.
 2. **Retrieve full text** (via PubMed PMC) for key methodological
    papers:
-   - Arends et al. 2019 (PMID: 28882093) -- core sample size paper
+   - Senn 2019 (PMID: 28882093) -- core sample size paper
    - Senn & Julious 2024 (PMID: 38365817) -- paired cycles
    - Tang & Landes 2020 (PMID: 32040510) -- t-tests with correlation
    - Yap et al. 2024 -- carryover and power
    - Schmid et al. 2014 (AHRQ Ch. 4) -- design chapter
-3. **Extract specific formulas and notation** from Arends (2019) and
+3. **Extract specific formulas and notation** from Senn (2019) and
    Senn & Julious (2024) to present in consistent notation.
 4. **Check for recent (2024--2026) papers** on N-of-1 power methods
-   via PubMed search that may supersede or extend Arends (2019).
+   via PubMed search that may supersede or extend Senn (2019).
 5. **Write the section** in report.Rmd with LaTeX math blocks.
 6. **Update nof1-pgt.bib** with any new references found.
 
@@ -142,13 +142,13 @@ patient, not the patient themselves.
 
 | Cite Key | Short Description |
 |----------|-------------------|
-| `arendsSampleSizeConsiderations2019` | Core sample size paper |
+| `sennSampleSizeConsiderations2019` | Core sample size paper |
 | `sennAnalysisContinuousData2024` | Paired-cycles analysis |
 | `schmidStatisticalDesignAnalytic2014` | AHRQ design chapter |
 | `schmidBayesianModelsNof12021` | Bayesian N-of-1 models |
 | `zuckerIndividualNof1Trials2010` | Meta-analysis of N-of-1 |
 | `blackstonComparisonAggregatedNof12019` | Simulation comparison |
-| `chenComparisonAggregatedNof12020` | Simulation comparison |
+| `blackstonComparisonAggregatedNof12019` | Simulation comparison |
 | `tangTtestsNof1Trials2020` | Serial correlation |
 | `yapBehavioralCarryoverEffect2024` | Carryover and power |
 | `araujoComparisonFourMethods2014` | Analysis method comparison |
@@ -157,7 +157,7 @@ patient, not the patient themselves.
 
 - Duan et al. (2013) AHRQ full report on N-of-1 trials
 - Percha et al. (2019) or similar -- modern power software for N-of-1
-- Any 2024--2026 update to Arends (2019) framework
+- Any 2024--2026 update to the Senn (2019) framework
 - Senn (2002) "Cross-over Trials in Clinical Research" (textbook,
   foundational power formulas for crossover designs)
 

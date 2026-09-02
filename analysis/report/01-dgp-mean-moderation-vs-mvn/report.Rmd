@@ -109,20 +109,61 @@ clinical trial simulation; precision medicine; statistical power.
 
 \section{1. Introduction}
 
-Precision-medicine trials increasingly ask whether a baseline
-biomarker modifies the treatment effect, that is, whether a
-biomarker-treatment interaction is present. For simplified special
-cases, such as a balanced strict repeated-measures analysis of
-variance under sphericity, the power of the interaction test does
-have a closed form, and a companion paper [@pmsimstats-paper08]
-derives it together with its equivalence to a two-sample $t$-test.
-For the continuous-time mixed model and the N-of-1 designs
-considered here, however, no such closed form is available, so
-power is estimated by Monte Carlo simulation. Many trials are
-generated and analyzed, and the rejection rate is recorded. The
-simulation must itself specify the biomarker-treatment interaction
-in its data-generating process, and there is more than one way to
-do so.
+A crossover trial is built on balance: every participant moves through
+the same sequence of equal-length periods and receives each treatment
+once. The three designs compared here span the departure from that
+balance, from a conventional two-period crossover to a hybrid combining
+an unblinded open-label phase, a blinded randomized-withdrawal phase,
+and a single crossover cycle, with measurement spacing, randomization,
+and blinding all differing from phase to phase.
+
+N-of-1 and aggregated N-of-1 designs are being adopted with increasing
+frequency across clinical and behavioral research [@duan2013;
+@schork2015]. Systematic and scoping reviews document this growth
+across fields as varied as pediatric psychiatry [@punja2016],
+neurology [@stunnenberg2022],
+epilepsy care [@margolis2019], palliative care [@nikles2011],
+translational nutrition [@schork2017nutrition], and the single-case
+experimental designs of psychology and education [@smith2012], and a
+scoping review now assesses the effect of the design on clinical
+outcomes themselves [@samuel2022]. The design has acquired both a
+CONSORT reporting extension and a national policy agenda
+[@vohra2016cent; @davidson2018nam]. The principal advantage of these
+designs over a parallel-group alternative is efficiency: because each
+participant serves as their own control, the between-participant
+variance component is removed from the treatment contrast, so pooling a
+modest number of
+individual series in a mixed model yields population-level inference at
+sample sizes far below those a parallel-group trial would require
+[@zucker1997; @zucker2010; @senn2016mastering]. This efficiency gain
+has been quantified directly, in simulation-based comparisons of
+aggregated N-of-1 trials against parallel and crossover designs
+[@blackston2019; @wang2019] and in a developed literature on
+sample-size and power calculation for the N-of-1 setting, including the
+serial correlation that repeated within-participant measurement induces
+[@senn2019samplesize; @araujo2016; @tang2020; @tueller2022].
+Increasingly the target of inference in these designs is not the
+average treatment effect but a biomarker-treatment interaction, that
+is, whether a baseline marker identifies which participants respond
+[@kent2020path; @simon2010; @freidlin2014; @haller2018]. The repeated
+within-participant measurement that makes N-of-1 designs efficient for
+main effects makes them particularly attractive for this purpose, since
+interaction tests are notoriously underpowered in parallel-group
+trials, and aggregated N-of-1 designs have accordingly been proposed
+and evaluated specifically as a vehicle for predictive-biomarker
+validation [@hendrickson2020; @schork2022; @schork2023precision].
+
+Establishing such an interaction requires knowing the power of the test
+for it. For simplified special cases, such as a balanced strict
+repeated-measures analysis of variance under sphericity, that power
+does have a closed form, and a companion paper [@pmsimstats-paper08]
+derives it together with its equivalence to a two-sample $t$-test. For
+the continuous-time mixed model and the N-of-1 designs considered here,
+however, no such closed form is available, so power is estimated by
+Monte Carlo simulation. Many trials are generated and analyzed, and the
+rejection rate is recorded. The simulation must itself specify the
+biomarker-treatment interaction in its data-generating process, and
+there is more than one way to do so.
 
 We distinguish two architectures. The common one, direct
 mean moderation, adds an interaction term to the outcome
@@ -203,16 +244,28 @@ investigators reasoning by analogy from that trial can budget for
 the penalty explicitly and understand which design features control
 its size.
 
-In a single N-of-1 trial one participant is repeatedly crossed
-between active treatment and a comparator over a sequence of
-measurement occasions, so that the within-participant contrast
-between on-drug and off-drug conditions estimates that
-participant's individual treatment effect. An \emph{aggregated} N-of-1 trial pools many such
-series in a mixed model to obtain population-level inference at far
-smaller sample sizes than a parallel-group design. The feature that
-distinguishes these designs analytically is \emph{carryover}:
-residual drug effect that decays over days to weeks after
-discontinuation and contaminates off-drug occasions. Our focus is
+Within-participant designs are attractive for this question because of
+precision, not because they resolve individual response. Interaction
+parameters are estimated less precisely than main effects, for a binary
+marker by a factor equal to the inverse of the marker's prevalence, and
+the advantage of a within-participant over a parallel-group design for
+that interaction depends on the complement of the intraclass
+correlation [@grenet2020]. That result is derived for a two-period
+crossover with a binary marker, so it orients rather than describes the
+present setting, in which the biomarker is continuous and the designs
+run over many timepoints. Separating a genuine
+participant-by-treatment variance component from within-participant
+error is a different problem, requiring repeated treatment cycles
+within each participant [@senn2016mastering; @senn2011individual;
+@senn2019samplesize], which none of the designs studied here provides.
+The estimand throughout is accordingly the fixed biomarker-by-exposure
+coefficient of Section 2.1, and the latent-responder reading of
+residual heterogeneity is developed in a companion paper
+[@pmsimstats-paper03].
+
+The feature that distinguishes these designs analytically is
+\emph{carryover}: residual drug effect that decays over days to weeks
+after discontinuation and contaminates off-drug occasions. Our focus is
 the Hybrid N-of-1 design, the within-subject design behind the
 prazosin and PTSD reference application and the design this
 software was built to support, which alternates on-drug and
@@ -416,128 +469,96 @@ through this quadratic variance-inflation channel as well, and it is
 this second, architecture-specific channel that produces the
 divergence in power documented in Section 3.
 
-\subsubsection{2.2.4 Relationship to Hendrickson et al.'s original
+\subsubsection{2.2.4 Relationship to Hendrickson et al.'s published
 implementation}
 
-Covariance moderation, as formalized in Section 2.2.2, is a
-corrected adaptation of Hendrickson et al.'s own published
-mechanism, not an identical reproduction of it. We verified this
-directly against Hendrickson et al.'s original public repository
-(\texttt{github.com/rchendrickson/pmsimstats}, the commit history
-closest to their 2020 acceptance date) rather than against a
-description of it, and found three concrete differences, together
-with a fourth consequence of the second that bears directly on this
-paper's choice of specification.
+Covariance moderation, as formalized in Section 2.2.2, develops
+Hendrickson et al.'s approach rather than reproducing it. We compared
+against their public repository
+(\texttt{github.com/rchendrickson/pmsimstats}) at commit
+\texttt{58b32a9} of 19 November 2020, the last commit preceding
+publication and therefore the code behind the published results.
+Commits made to that repository in 2024 alter the data-generating
+process substantially, and the comparison below is against the
+published state only. Four differences matter.
 
-First, Hendrickson et al.'s original data-generating process builds
-within-factor and cross-factor correlation from a single constant
-applied to every pair of timepoints regardless of separation,
-compound symmetry, whereas the architectures examined here use AR(1)
-decay, $\text{Cor}(X_{t_i}, X_{t_j}) = \rho^{|t_i - t_j|}$, which we
-adopt for its greater clinical plausibility (nearby measurements
-should be more correlated than distant ones) as well as the
-numerical benefit described next. Second, the biomarker-BR
-correlation itself: inspection of the original
-\texttt{generateData.R} shows that Hendrickson et al.'s code does
-directly parameterize a drug-state-dependent Cor(BM, BR), discounted
-off drug by the same exponential decay applied to the BR mean, so
-the mechanism formalized in Section 2.2.2 is a faithful
-generalization of theirs, not a reinterpretation of an ambiguous
-original; the one difference is an additional, undocumented
-\texttt{scalefactor} constant (defaulting to 2) multiplying $t_{sd}$
-in the decay exponent, which we omit as unmotivated by any stated
-pharmacokinetic rationale. Third, and independently of the DGP,
-Hendrickson et al.'s own reproducibility vignette
-(\texttt{Produce\_Publication\_Results\_1\_generate\_data.Rmd},
-confirmed by direct inspection) sets the analysis model's
-\texttt{t\_random\_slope} option to \texttt{FALSE} for the
-published results, giving \texttt{lme4::lmer} with a random
-intercept only and no explicit residual correlation structure; this
-contradicts their own Methods section, which describes "maximal
-random effects structure...an unstructured variance-covariance
-matrix." We adopt \texttt{nlme::lme} with \texttt{corCAR1} (Section
-2.1) instead, consistent with the AR(1) DGP correction, because a
-model that ignores residual autocorrelation under an
-autocorrelated DGP is misspecified in a way that is already known to
-inflate Type~I error, a defect independent of, and additional to,
-the architecture question this paper addresses.
+First, the temporal correlation structure. The published code assigns
+a single constant to every pair of timepoints within a factor,
+irrespective of their separation, which is compound symmetry. The
+architectures examined here instead use AR(1) decay,
+$\text{Cor}(X_{t_i}, X_{t_j}) = \rho^{|t_i - t_j|}$, adopted for
+clinical plausibility, since nearby measurements should be more
+strongly correlated than distant ones, and for the numerical benefit
+described below.
 
-The AR(1) correction has a direct numerical consequence for the
-range of $c_{bm}$ values this paper's simulations can explore.
-Compound symmetry restricts how large a biomarker-BR correlation the
-covariance matrix can support before it fails to be positive
-definite, because a constant correlation applied uniformly across
-many timepoints depletes the matrix's degrees of freedom faster than
-a correlation that decays with lag. We confirmed this directly:
-holding every other parameter at this paper's calibration (OL+BDC
-design, $t_{1/2} = 1.0$), the raw, uncorrected covariance matrix
-under Hendrickson et al.'s original compound-symmetry construction
-loses positive definiteness beyond $c_{bm} \approx 0.35$ and is
-already non-positive-definite at $c_{bm} = 0.45$, the value used
-throughout Section 3; under the AR(1) construction used here, the
-same matrix remains positive definite up to $c_{bm} \approx 0.50$,
-comfortably covering $c_{bm} = 0.45$ without requiring the
-positive-definiteness correction step at all. This matches, and
-sharpens to this paper's own specific configuration, the general
-finding reported elsewhere in this project that AR(1) expands the
-positive-definite-feasible region of $c_{bm}$ from a compound-symmetry
-maximum near 0.25 to 0.49 or higher. Every cell in Section 3 that
-uses $c_{bm} = 0.45$ would therefore require
-\texttt{corpcor::make.positive.definite()} to silently force
-Hendrickson et al.'s original covariance matrix onto the nearest
-positive-definite matrix before every single simulated draw, a
-correction this paper's own architectures never need to invoke at
-this calibration.
+Second, and most consequentially, the biomarker-response correlation.
+In the published code $\text{Cor}(BM, BR_t)$ is set to the constant
+$c_{bm}$ at every timepoint at which the response mean is nonzero,
+with no dependence on drug state and no off-drug decay. The
+drug-state-dependent, exponentially decaying correlation that defines
+covariance moderation in Section 2.2.2 is therefore not a feature of
+the published implementation; it was introduced into that repository
+in 2024. Architecture B as studied here is accordingly a mechanism
+developed from Hendrickson et al.'s stated rationale, that the
+biomarker is informative because it shares variance with
+drug-responsive physiology, rather than a mechanism recovered from
+their published code.
 
-To characterize what these three differences do to the reported
-magnitudes, we ran a fourth, non-primary simulation arm: Hendrickson
-et al.'s original mechanism exactly as published (their
-compound-symmetry DGP with the default \texttt{scalefactor}~=~2
-decay, and their own random-intercept-only \texttt{lmer} analysis,
-including its use of a fixed, DGP-independent Dbc treatment, since
-their reproducibility code never passes the DGP's true
-$carryover\_t1half$ into the analysis step) through the same three
-designs, carryover half-lives, and $c_{bm} = 0.45$ used in Section
-3.1, at 300 replicates per cell (versus this paper's production
-1{,}000; MCSE on power near 0.5 is approximately 0.029). The
-relative loss from $t_{1/2} = 0$ to $t_{1/2} = 1.0$ was 4.2\% (CO),
-12.5\% (Hybrid), and 19.0\% (OL+BDC), the identical qualitative
-ordering reported for covariance moderation in Section 3.1, but
-smaller in magnitude than this paper's Architecture B at every
-design (3.0\%, 15.4\%, and 30.6\% respectively) and larger than
-Architecture A at every design (1.9\%, 6.9\%, 2.8\%). Hendrickson et
-al.'s original combination therefore sits between the two
-architectures examined in this paper, not on top of either: the
-covariance-based mechanism common to their DGP and Architecture B
-drives the same design-dependent ordering in both, while the three
-corrections, compounded, materially change its size, most visibly
-in OL+BDC, where this paper's matched-half-life \texttt{corCAR1}
-analysis reports over 1.6 times the relative loss Hendrickson et
-al.'s own original code would report on the same designs and
-calibration. This result is reported for context on the sensitivity
-of the reported magnitudes to implementation choices, not as a
-claim about which published figure is more correct; Hendrickson et
-al.'s own carryover grid (0, 0.1, 0.2 weeks) and step-function DGP
-decay differ from the smooth exponential decay and 0-1.0 week range
-used throughout this paper, so no single number from either
-implementation is directly comparable to Hendrickson et al.'s
-published Figure 4B.
+Third, carryover. The published code does apply carryover, to the
+response mean only, adding $\text{BR}_{p-1}(1/2)^{t_{sd}/t_{1/2}}$ to
+the response mean at off-drug timepoints, and this paper retains that
+functional form. The 2024 revision inserts an additional undocumented
+constant multiplying $t_{sd}$ in that exponent, defaulting to two and
+thereby halving the effective carryover half-life. Because it
+postdates publication and carries no stated pharmacokinetic
+rationale, it is not used here.
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{../../figures/quick-sim/hendrickson-original-comparison/three-dgp-power-heatmap.pdf}
-\caption{Power at $c_{bm} = 0.45$ across the three designs and
-carryover half-lives of Section 3.1, for all three
-DGP/analysis combinations discussed in this subsection.
-Hendrickson et al.'s original combination sits between mean
-moderation and covariance moderation in every design, sharing
-covariance moderation's design-dependent ordering (OL+BDC most
-sensitive, CO least) at a smaller magnitude, consistent with a
-shared covariance-based mechanism whose reported size is sensitive
-to the compound-symmetry-versus-AR(1), scale-factor, and
-analysis-model differences detailed above.}
-\label{fig:three-dgp-heatmap}
-\end{figure}
+Fourth, the analysis model. The published code fits \texttt{lmer}
+with the formula \texttt{Sx \textasciitilde{} bm + Db + t + bm*Db +
+(1|ptID)}, a random intercept with no residual correlation structure,
+in which \texttt{Db} is a binary on-drug indicator. We use
+\texttt{nlme::lme} with \texttt{corCAR1} and the continuous exposure
+variable \texttt{Dbc} of Section 2.1, because a model that ignores
+residual autocorrelation under an autocorrelated data-generating
+process is misspecified in a way already known to distort inference,
+a defect independent of the architecture question this paper
+addresses.
+
+The published source contains one further discrepancy, which we
+record because the repository's own history describes it as a fix and
+a reader may wonder whether it affected the published results. It did
+not. In the block assigning the cross-factor, same-timepoint
+correlation $c_{cf1t}$, the assignment \texttt{correlations[n1,n2]}
+appears twice, where the second was evidently meant to write the
+mirrored cell \texttt{correlations[n2,n1]}. That mirrored write is
+redundant here: the enclosing loop visits every \emph{ordered} pair
+of factors, so the mirrored cell is assigned on a later pass
+regardless. We confirmed by direct computation that the published
+loop, the corrected loop, and a variant with the duplicated line
+removed all produce identical correlation matrices. The published
+correlation matrix is symmetric and correct, and this discrepancy is
+excluded from the four differences above.
+
+The compound-symmetry-to-AR(1) change has a direct numerical
+consequence for the range of $c_{bm}$ the simulations can explore.
+Compound symmetry restricts how large a biomarker-response
+correlation the covariance matrix can support before it ceases to be
+positive definite, because a constant correlation applied uniformly
+across many timepoints depletes the matrix faster than a correlation
+that decays with lag. \textbf{[TO RE-VERIFY: the specific positive-
+definiteness thresholds previously reported here were computed under
+a construction that combined compound symmetry with the decaying
+biomarker-response correlation, which is not the published
+configuration. Re-run against \texttt{58b32a9} before restoring
+numeric thresholds.]}
+
+\textbf{[TO RE-RUN: the quantitative comparison arm previously
+reported in this subsection was executed against the 2024 state of
+the repository, including the scale-factor constant, and its power
+figures therefore do not describe the published implementation.
+Re-run the arm against \texttt{58b32a9} across the three designs and
+carryover half-lives of Section 3.1, and regenerate the accompanying
+heatmap, before restoring quantitative claims or the figure.]}
 
 \subsection{2.3 Simulation design}
 

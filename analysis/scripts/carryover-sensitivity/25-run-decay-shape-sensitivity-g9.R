@@ -15,11 +15,23 @@
 ## G1-G3 rows reproduce that script's results under common random
 ## numbers; only the specs argument differs.
 ##
-## Usage:
-##   Rscript analysis/scripts/carryover-sensitivity/25-run-decay-shape-sensitivity-g9.R [--dev] [--reps N]
+## Progressive save: each of the 30 cells is checkpointed to its own
+## file under a checkpoints/ subdirectory as soon as it completes,
+## keyed by (mode, n_reps) so a --dev and a production run never
+## collide. A rerun with the same mode/n_reps skips any cell whose
+## checkpoint already exists, so a run killed partway through (by an
+## interrupt, a session timeout, or a machine sleep) resumes from
+## where it left off rather than restarting the full grid. Delete
+## the checkpoint directory (or pass --restart) to force a clean
+## re-run.
 ##
-## --dev    : 3 reps/cell (smoke test); default is 500 (production).
-## --reps N : override the rep count for the current mode.
+## Usage:
+##   Rscript analysis/scripts/carryover-sensitivity/25-run-decay-shape-sensitivity-g9.R [--dev] [--reps N] [--restart]
+##
+## --dev     : 3 reps/cell (smoke test); default is 500 (production).
+## --reps N  : override the rep count for the current mode.
+## --restart : ignore and overwrite any existing checkpoints for this
+##             mode/n_reps combination.
 
 suppressPackageStartupMessages({
   library(tibble)
@@ -37,6 +49,7 @@ source(file.path(repo_root,
 
 args <- commandArgs(trailingOnly = TRUE)
 dev_mode <- '--dev' %in% args
+restart <- '--restart' %in% args
 reps_idx <- which(args == '--reps')
 n_reps_override <- if (length(reps_idx) && reps_idx < length(args))
   as.integer(args[reps_idx + 1]) else NA_integer_
@@ -68,20 +81,45 @@ cat(sprintf('Decay-shape sensitivity (k=0.25, 0.5, 2.0, 4.0; G1-G9): %d cells, n
 
 plan(multicore, workers = max(1, parallel::detectCores() - 1))
 
+out_dir <- file.path(repo_root, 'analysis/data')
+dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+
+mode_tag <- if (dev_mode) 'dev' else 'prod'
+ckpt_dir <- file.path(out_dir,
+  sprintf('checkpoints-decay-shape-g9-%s-n%d', mode_tag, n_reps))
+dir.create(ckpt_dir, showWarnings = FALSE, recursive = TRUE)
+
+if (restart) {
+  unlink(list.files(ckpt_dir, full.names = TRUE))
+  cat(sprintf('--restart: cleared existing checkpoints in %s\n', ckpt_dir))
+}
+
 t_start <- Sys.time()
 
-results <- purrr::map_dfr(seq_len(nrow(grid)), function(i) {
+for (i in seq_len(nrow(grid))) {
+  ckpt_file <- file.path(ckpt_dir, sprintf('cell-%02d.rds', i))
+  if (file.exists(ckpt_file)) {
+    cat(sprintf('[%2d/%d] skipping (checkpoint exists): %s\n',
+                i, nrow(grid), ckpt_file))
+    next
+  }
   cell <- grid[i, ]
+  cell_t0 <- Sys.time()
   cell_result <- simulate_cell_s7(cell, n_reps, specs = specs_g9)
-  dplyr::bind_cols(cell[rep(1, nrow(cell_result)), ], cell_result)
+  cell_result <- dplyr::bind_cols(cell[rep(1, nrow(cell_result)), ], cell_result)
+  saveRDS(cell_result, ckpt_file)
+  cat(sprintf('[%2d/%d] wrote %s (%.1f sec)\n',
+              i, nrow(grid), ckpt_file,
+              as.numeric(Sys.time() - cell_t0, units = 'secs')))
+}
+
+results <- purrr::map_dfr(seq_len(nrow(grid)), function(i) {
+  readRDS(file.path(ckpt_dir, sprintf('cell-%02d.rds', i)))
 })
 
 t_elapsed <- Sys.time() - t_start
 cat(sprintf('Completed in %.1f seconds\n',
             as.numeric(t_elapsed, units = 'secs')))
-
-out_dir <- file.path(repo_root, 'analysis/data')
-dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
 meta <- list(
   script = '25-run-decay-shape-sensitivity-g9.R',

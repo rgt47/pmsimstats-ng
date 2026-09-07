@@ -374,3 +374,17 @@
 | `12-nof1-design-efficiency-2026-09-06-1633-f1e47d6-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/12-nof1-design-efficiency/report.Rmd` | `f1e47d6-wip` | 2026-09-06 16:33 PDT |
 | `12-nof1-design-efficiency-2026-09-06-1636-f1e47d6-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/12-nof1-design-efficiency/report.Rmd` | `f1e47d6-wip` | 2026-09-06 16:36 PDT |
 | `12-nof1-design-efficiency-2026-09-06-1636-f1e47d6-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/12-nof1-design-efficiency/report.Rmd` | `f1e47d6-wip` | 2026-09-06 16:36 PDT |
+| `12-nof1-design-efficiency-2026-09-06-1822-0a7b6e2.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/12-nof1-design-efficiency/report.Rmd` | `0a7b6e2` | 2026-09-06 18:22 PDT |
+| `12-nof1-design-efficiency-2026-09-06-1822-0a7b6e2.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/12-nof1-design-efficiency/report.Rmd` | `0a7b6e2` | 2026-09-06 18:22 PDT |
+| `12-nof1-design-efficiency-2026-09-06-1825-0a7b6e2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/12-nof1-design-efficiency/report.Rmd` | `0a7b6e2-wip` | 2026-09-06 18:25 PDT |
+| `12-nof1-design-efficiency-2026-09-06-1825-0a7b6e2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/12-nof1-design-efficiency/report.Rmd` | `0a7b6e2-wip` | 2026-09-06 18:25 PDT |
+| `07-gompertz-evaluation-2026-09-06-1827-0a7b6e2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `0a7b6e2-wip` | 2026-09-06 18:27 PDT |
+| `07-gompertz-evaluation-2026-09-06-1827-0a7b6e2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `0a7b6e2-wip` | 2026-09-06 18:27 PDT |
+| `07-gompertz-evaluation-2026-09-06-1837-0a7b6e2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `0a7b6e2-wip` | 2026-09-06 18:37 PDT |
+| `07-gompertz-evaluation-2026-09-06-1837-0a7b6e2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `0a7b6e2-wip` | 2026-09-06 18:37 PDT |
+| `07-gompertz-evaluation-2026-09-06-1845-0a7b6e2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `0a7b6e2-wip` | 2026-09-06 18:45 PDT |
+| `07-gompertz-evaluation-2026-09-06-1845-0a7b6e2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `0a7b6e2-wip` | 2026-09-06 18:45 PDT |
+| `07-gompertz-evaluation-2026-09-06-1846-0a7b6e2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `0a7b6e2-wip` | 2026-09-06 18:46 PDT |
+| `07-gompertz-evaluation-2026-09-06-1846-0a7b6e2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `0a7b6e2-wip` | 2026-09-06 18:46 PDT |
+| `07-gompertz-evaluation-2026-09-06-1906-0a7b6e2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `0a7b6e2-wip` | 2026-09-06 19:06 PDT |
+| `07-gompertz-evaluation-2026-09-06-1906-0a7b6e2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `0a7b6e2-wip` | 2026-09-06 19:06 PDT |

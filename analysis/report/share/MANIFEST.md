@@ -388,3 +388,7 @@
 | `07-gompertz-evaluation-2026-09-06-1846-0a7b6e2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `0a7b6e2-wip` | 2026-09-06 18:46 PDT |
 | `07-gompertz-evaluation-2026-09-06-1906-0a7b6e2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `0a7b6e2-wip` | 2026-09-06 19:06 PDT |
 | `07-gompertz-evaluation-2026-09-06-1906-0a7b6e2-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `0a7b6e2-wip` | 2026-09-06 19:06 PDT |
+| `07-gompertz-evaluation-2026-09-07-1136-53dfeaa-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `53dfeaa-wip` | 2026-09-07 11:36 PDT |
+| `07-gompertz-evaluation-2026-09-07-1136-53dfeaa-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `53dfeaa-wip` | 2026-09-07 11:36 PDT |
+| `04-treatment-main-effect-2026-09-07-1157-53dfeaa-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/04-treatment-main-effect/report.Rmd` | `53dfeaa-wip` | 2026-09-07 11:57 PDT |
+| `04-treatment-main-effect-2026-09-07-1157-53dfeaa-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/04-treatment-main-effect/report.Rmd` | `53dfeaa-wip` | 2026-09-07 11:57 PDT |

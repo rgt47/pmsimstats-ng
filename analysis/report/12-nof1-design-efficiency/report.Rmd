@@ -32,6 +32,73 @@ header-includes:
 knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path(d, 'tools', 'stamp-render.R')) && d != dirname(d)) d <- dirname(d); source(file.path(d, 'tools', 'stamp-render.R'))$value(input) })
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+cf_rel <- file.path('analysis', 'data', 'nof1-design-efficiency',
+                    'closed-form-validation.csv')
+cf_path <- if (requireNamespace('here', quietly = TRUE) &&
+               file.exists(here::here(cf_rel))) {
+  here::here(cf_rel)
+} else {
+  file.path('..', '..', 'data', 'nof1-design-efficiency',
+            'closed-form-validation.csv')
+}
+
+cf <- read.csv(cf_path, stringsAsFactors = FALSE)
+cf$design_lab <- c(CO = 'CO', Hybrid = 'Hybrid',
+                   OLBDC = 'OL+BDC')[cf$design]
+cf <- cf[order(cf$t1half,
+               match(cf$design, c('CO', 'Hybrid', 'OLBDC')),
+               cf$N), ]
+
+fit_var    <- lm(I(sd_beta^2 * N) ~ 0 + v_sum, data = cf)
+sigma2_hat <- unname(coef(fit_var)[1])
+r2_var     <- summary(fit_var)$r.squared
+
+n_cells    <- nrow(cf)
+mae_power  <- mean(abs(cf$power_err))
+rmse_power <- sqrt(mean(cf$power_err^2))
+cor_power  <- cor(cf$power, cf$power_pred)
+
+cell <- function(dsg, n, t) {
+  cf[cf$design == dsg & cf$N == n & cf$t1half == t, ]
+}
+
+co_sd_ratio <- cell('CO', 35, 0)$sd_beta / cell('CO', 70, 0)$sd_beta
+
+pct_range <- function(v) sprintf('%.0f-%.0f', min(v), max(v))
+co_under  <- pct_range(100 * (cf$ratio_sd[cf$design == 'CO'] - 1))
+oth_over  <- pct_range(100 * (1 - cf$ratio_sd[cf$design != 'CO']))
+
+hyb_atten_pp <- 100 * (1 - cell('Hybrid', 70, 1)$A)
+hyb_b0       <- cell('Hybrid', 70, 0)$mean_beta
+hyb_b1       <- cell('Hybrid', 70, 1)$mean_beta
+hyb_beta_pct <- 100 * (1 - abs(hyb_b1) / abs(hyb_b0))
+
+mean_abs_beta <- mean(abs(cf$mean_beta))
+
+fmt <- function(x, d = 3) sprintf(paste0('%.', d, 'f'), x)
+
+# {-} keeps the minus typeset as an ordinary symbol inside |.|.
+fmt_signed <- function(x, d = 4) {
+  sprintf(paste0('%s%.', d, 'f'), ifelse(x < 0, '{-}', ''), abs(x))
+}
+
+# Labels and placement are emitted verbatim so the raw \ref{} cross
+# references in the prose keep resolving.
+latex_table <- function(x, col_names, align, caption, label) {
+  tab <- knitr::kable(x, format = 'latex', booktabs = TRUE,
+                      col.names = col_names, align = align,
+                      row.names = FALSE, escape = FALSE,
+                      linesep = '')
+  cat('\\begin{table}[H]\n\\centering\n',
+      '\\caption{', caption, '}\n',
+      '\\label{', label, '}\n',
+      tab, '\n\\end{table}\n', sep = '')
+}
+```
+
 **Short communication.**
 
 # Introduction
@@ -317,21 +384,25 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 :::
 
 ::: {.orig data-latex=""}
-With a single fitted scale parameter ($\hat\sigma^2 = 0.667$), the
-closed form explains $R^2 = 0.948$ of the variation in
-$\widehat{\mathrm{sd}}(\hat\beta)^2 \cdot N$ across the 18 cells
+With a single fitted scale parameter ($\hat\sigma^2 =
+`r fmt(sigma2_hat)`$), the
+closed form explains $R^2 = `r fmt(r2_var)`$ of the variation in
+$\widehat{\mathrm{sd}}(\hat\beta)^2 \cdot N$ across the
+`r n_cells` cells
 (Table \ref{tab:variance-fit}). Two structural predictions of
 Equation \@ref(eq:var-closed-form) are confirmed directly: the
 sampling variance scales as $1/N$ almost exactly (the CO design's
 empirical standard deviation ratio between $N=35$ and $N=70$ is
-$1.439$, against a predicted $\sqrt{70/35}=1.414$), and the design
+$`r fmt(co_sd_ratio)`$, against a predicted
+$\sqrt{70/35}=`r fmt(sqrt(2))`$), and the design
 ranking by $v_1$ (OL+BDC highest, Hybrid intermediate, CO lowest, at
 fixed $\rho$) is reproduced in direction, though not exactly in
 magnitude, by the empirical standard deviations. A systematic
 residual pattern is visible and is reported rather than concealed:
 the closed form under-predicts CO's empirical standard deviation by
-roughly 15-20% and over-predicts Hybrid's and OL+BDC's by roughly
-5-10%. The most likely source is Equation \@ref(eq:v-sum)'s
+roughly `r co_under`% and over-predicts Hybrid's and OL+BDC's by
+roughly `r oth_over`%. The most likely source is Equation
+\@ref(eq:v-sum)'s
 independence approximation between a participant's on-drug and
 off-drug period means, which is exact only when no AR(1) correlation
 crosses the on/off boundary; CO's two long, contiguous four-visit
@@ -339,42 +410,33 @@ blocks per path plausibly violate that approximation more than the
 other designs' more fragmented schedules.
 :::
 
-```{r variance-fit, echo=FALSE}
-# Table transcribed from
-# analysis/data/nof1-design-efficiency/closed-form-validation.csv,
-# produced by
-# analysis/scripts/nof1-design-efficiency/01-closed-form-validation.R.
+```{r variance-fit, results='asis'}
+d_var <- cf[cf$t1half %in% c(0, 1), ]
+latex_table(
+  data.frame(
+    design = d_var$design_lab,
+    N      = d_var$N,
+    t1half = sprintf('%.1f', d_var$t1half),
+    sd     = sprintf('%.3f', d_var$sd_beta),
+    pred   = sprintf('%.3f', d_var$pred_sd_beta),
+    ratio  = sprintf('%.2f', d_var$ratio_sd)
+  ),
+  col_names = c('Design', '$N$', '$t_{1/2}$ (wk)',
+                '$\\mathrm{sd}(\\hat\\beta)$',
+                '$\\widehat{\\mathrm{sd}}(\\hat\\beta)$', 'Ratio'),
+  align = 'lrrrrr',
+  caption = sprintf(paste0(
+    'Closed-form sampling-standard-deviation predictions against ',
+    'Monte Carlo output, at $\\hat\\sigma^2 = %.3f$ (fitted once, ',
+    'across all %d cells). $\\mathrm{sd}(\\hat\\beta)$ is the ',
+    'empirical standard deviation of the fitted \\texttt{bm:Dbc} ',
+    'coefficient across 1{,}000 replicates; ',
+    '$\\widehat{\\mathrm{sd}}(\\hat\\beta)$ is the closed-form ',
+    'prediction of Equation \\ref{eq:var-closed-form}.'),
+    sigma2_hat, nrow(cf)),
+  label = 'tab:variance-fit'
+)
 ```
-
-\begin{table}[H]
-\centering
-\caption{Closed-form sampling-standard-deviation predictions against
-Monte Carlo output, at $\hat\sigma^2 = 0.667$ (fitted once, across
-all 18 cells). $\mathrm{sd}(\hat\beta)$ is the empirical standard
-deviation of the fitted \texttt{bm:Dbc} coefficient across 1{,}000
-replicates; $\widehat{\mathrm{sd}}(\hat\beta)$ is the closed-form
-prediction of Equation \ref{eq:var-closed-form}.}
-\label{tab:variance-fit}
-\begin{tabular}{lrrrrr}
-\toprule
-Design & $N$ & $t_{1/2}$ (wk) & $\mathrm{sd}(\hat\beta)$ &
-  $\widehat{\mathrm{sd}}(\hat\beta)$ & Ratio \\
-\midrule
-CO     & 35 & 0.0 & 0.159 & 0.132 & 1.21 \\
-CO     & 70 & 0.0 & 0.110 & 0.093 & 1.18 \\
-Hybrid & 35 & 0.0 & 0.123 & 0.134 & 0.92 \\
-Hybrid & 70 & 0.0 & 0.084 & 0.095 & 0.89 \\
-OL+BDC & 35 & 0.0 & 0.138 & 0.147 & 0.93 \\
-OL+BDC & 70 & 0.0 & 0.096 & 0.104 & 0.92 \\
-CO     & 35 & 1.0 & 0.153 & 0.132 & 1.16 \\
-CO     & 70 & 1.0 & 0.108 & 0.093 & 1.16 \\
-Hybrid & 35 & 1.0 & 0.120 & 0.134 & 0.89 \\
-Hybrid & 70 & 1.0 & 0.087 & 0.095 & 0.92 \\
-OL+BDC & 35 & 1.0 & 0.139 & 0.147 & 0.94 \\
-OL+BDC & 70 & 1.0 & 0.096 & 0.104 & 0.92 \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 ::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
@@ -398,8 +460,9 @@ Using the fitted $\hat\sigma^2$ and, for each cell, that cell's own
 empirical $\overline{\hat\beta}$ as the effective true effect in
 Equation \@ref(eq:power-closed-form) --- a choice discussed in
 \S\ref{limitations} --- the closed form predicts simulated power with
-a mean absolute error of $0.049$, a root-mean-square error of
-$0.058$, and a correlation of $0.935$ across the 18 cells (Table
+a mean absolute error of $`r fmt(mae_power)`$, a root-mean-square
+error of $`r fmt(rmse_power)`$, and a correlation of
+$`r fmt(cor_power)`$ across the `r n_cells` cells (Table
 \ref{tab:power-fit} gives the $t_{1/2}=0$ and $t_{1/2}=1.0$ rows in
 full). For a first-pass closed form validated against a single
 architecture at one $\rho$ value, this is a substantively useful
@@ -409,31 +472,26 @@ full Monte Carlo simulation in the great majority of cells inspected
 here.
 :::
 
-\begin{table}[H]
-\centering
-\caption{Closed-form power predictions against simulated power
-(1{,}000 replicates per cell, $\alpha=0.05$ two-sided).}
-\label{tab:power-fit}
-\begin{tabular}{lrrrrr}
-\toprule
-Design & $N$ & $t_{1/2}$ (wk) & Power (simulated) &
-  Power (closed form) & Error \\
-\midrule
-CO     & 35 & 0.0 & 0.352 & 0.421 & $+0.069$ \\
-CO     & 70 & 0.0 & 0.595 & 0.690 & $+0.095$ \\
-Hybrid & 35 & 0.0 & 0.452 & 0.426 & $-0.026$ \\
-Hybrid & 70 & 0.0 & 0.738 & 0.703 & $-0.035$ \\
-OL+BDC & 35 & 0.0 & 0.335 & 0.367 & $+0.032$ \\
-OL+BDC & 70 & 0.0 & 0.612 & 0.618 & $+0.006$ \\
-CO     & 35 & 1.0 & 0.323 & 0.409 & $+0.086$ \\
-CO     & 70 & 1.0 & 0.611 & 0.716 & $+0.105$ \\
-Hybrid & 35 & 1.0 & 0.456 & 0.418 & $-0.038$ \\
-Hybrid & 70 & 1.0 & 0.729 & 0.688 & $-0.041$ \\
-OL+BDC & 35 & 1.0 & 0.327 & 0.357 & $+0.030$ \\
-OL+BDC & 70 & 1.0 & 0.577 & 0.596 & $+0.019$ \\
-\bottomrule
-\end{tabular}
-\end{table}
+```{r power-fit, results='asis'}
+d_pow <- cf[cf$t1half %in% c(0, 1), ]
+latex_table(
+  data.frame(
+    design = d_pow$design_lab,
+    N      = d_pow$N,
+    t1half = sprintf('%.1f', d_pow$t1half),
+    sim    = sprintf('%.3f', d_pow$power),
+    pred   = sprintf('%.3f', d_pow$power_pred),
+    err    = sprintf('$%+.3f$', d_pow$power_err)
+  ),
+  col_names = c('Design', '$N$', '$t_{1/2}$ (wk)',
+                'Power (simulated)', 'Power (closed form)', 'Error'),
+  align = 'lrrrrr',
+  caption = paste0(
+    'Closed-form power predictions against simulated power ',
+    '(1{,}000 replicates per cell, $\\alpha=0.05$ two-sided).'),
+  label = 'tab:power-fit'
+)
+```
 
 ::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
@@ -444,9 +502,13 @@ The closed form correctly identifies Hybrid as the best-powered
 design at both sample sizes and both half-lives shown, matching the
 compendium's own headline finding [@pmsimstats-paper01]. It does not
 correctly order CO against OL+BDC: the closed form ranks CO above
-OL+BDC at $N=70$ (predicted power $0.690$ versus $0.618$ at
-$t_{1/2}=0$), while the simulation ranks them the other way ($0.595$
-versus $0.612$). This is a genuine limitation, not a rounding
+OL+BDC at $N=70$ (predicted power
+$`r fmt(cell('CO', 70, 0)$power_pred)`$ versus
+$`r fmt(cell('OLBDC', 70, 0)$power_pred)`$ at
+$t_{1/2}=0$), while the simulation ranks them the other way
+($`r fmt(cell('CO', 70, 0)$power)`$
+versus $`r fmt(cell('OLBDC', 70, 0)$power)`$). This is a genuine
+limitation, not a rounding
 artefact, and is reported as such rather than smoothed over: the
 closed form is reliable for identifying the best design among
 candidates that differ substantially in $v_1$, and unreliable for
@@ -472,28 +534,39 @@ CO shows the least closed-form attenuation of the three designs,
 exactly matching the compendium's own qualitative finding that CO's
 carryover-induced power loss is the smallest of the designs compared
 [@pmsimstats-paper01]. But the *magnitude* is badly overstated
-throughout: the closed form predicts a $24.5$-percentage-point
+throughout: the closed form predicts a
+$`r fmt(hyb_atten_pp, 1)`$-percentage-point
 attenuation for Hybrid between $t_{1/2}=0$ and $t_{1/2}=1.0$ weeks,
-while the fitted coefficient's magnitude falls by only about $1.7\%$
-over the same range ($N=70$: $|{-}0.2358|$ to $|{-}0.2317|$).
+while the fitted coefficient's magnitude falls by only about
+$`r fmt(hyb_beta_pct, 1)`\%$
+over the same range ($N=70$: $|`r fmt_signed(hyb_b0)`|$ to
+$|`r fmt_signed(hyb_b1)`|$).
 :::
 
-\begin{table}[H]
-\centering
-\caption{Closed-form attenuation factor versus the actual relative
-change in the fitted interaction coefficient's magnitude, $N=70$.}
-\label{tab:attenuation}
-\begin{tabular}{lrr}
-\toprule
-Design & $A(t_{1/2}{=}1.0)$ (closed form) &
-  $|\bar{\hat\beta}(1.0)/\bar{\hat\beta}(0)|$ (simulated) \\
-\midrule
-CO     & 0.973 & 1.031 \\
-Hybrid & 0.755 & 0.983 \\
-OL+BDC & 0.667 & 0.975 \\
-\bottomrule
-\end{tabular}
-\end{table}
+```{r attenuation, results='asis'}
+d_att <- do.call(rbind, lapply(c('CO', 'Hybrid', 'OLBDC'),
+  function(dsg) {
+    r0 <- cf[cf$design == dsg & cf$N == 70 & cf$t1half == 0, ]
+    r1 <- cf[cf$design == dsg & cf$N == 70 & cf$t1half == 1, ]
+    data.frame(
+      design = r1$design_lab,
+      A      = sprintf('%.3f', r1$A),
+      ratio  = sprintf('%.3f', abs(r1$mean_beta / r0$mean_beta))
+    )
+  }))
+latex_table(
+  d_att,
+  col_names = c('Design', '$A(t_{1/2}{=}1.0)$ (closed form)',
+                paste0('$|\\bar{\\hat\\beta}(1.0)/',
+                       '\\bar{\\hat\\beta}(0)|$ (simulated)')),
+  align = 'lrr',
+  caption = paste0(
+    'Closed-form attenuation factor versus the actual relative ',
+    "change in the fitted interaction coefficient's magnitude, ",
+    '$N=70$.'),
+  label = 'tab:attenuation'
+)
+```
 
 ::: {.rgt data-latex=""}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
@@ -569,7 +642,8 @@ effective true effect in Equation \@ref(eq:power-closed-form) rather
 than the architecture's nominal calibration target
 $c_{bm,A}\cdot\sigma_{BR}$: the two differ by roughly an order of
 magnitude in the data inspected here ($3.6$ nominal against
-approximately $0.23$ observed), a discrepancy this communication
+approximately $`r fmt(mean_abs_beta, 2)`$ observed), a discrepancy
+this communication
 does not resolve and flags as an open calibration question for the
 companion architecture manuscripts rather than papering over with an
 ad hoc rescaling. The variance formula's on/off independence
@@ -597,9 +671,11 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 A closed-form approximation to the biomarker-treatment interaction
 estimator's sampling variance, built from a within-subject two-group
 contrast and the exact variance of a mean of AR(1)-correlated
-observations, reproduces 95% of the variation in the interaction
+observations, reproduces `r fmt(100 * r2_var, 0)`% of the variation
+in the interaction
 estimator's Monte Carlo sampling variance and predicts simulated
-power to within a mean absolute error of 0.05, using a single fitted
+power to within a mean absolute error of `r fmt(mae_power, 2)`,
+using a single fitted
 nuisance-variance parameter and no new simulation. A companion
 attenuation factor correctly ranks trial designs by their
 vulnerability to carryover but should not be read as a quantitative

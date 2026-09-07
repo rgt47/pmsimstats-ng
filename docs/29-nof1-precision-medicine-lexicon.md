@@ -13,7 +13,7 @@ precision-medicine articles in the project Zotero library
 (`nof1` collection, 72 curated articles; full text obtained and
 machine-read for 42). The statistical and psychometric supplement was
 compiled from standard methodology references. See the closing
-*Provenance and epistemic status* section for scope and caveats.
+*Provenance and status* section for scope and caveats.
 
 **How to read the synonym column.** Where biostatistics, psychometrics,
 and precision medicine use different names for the *same* underlying
@@ -346,7 +346,7 @@ precision-medicine perspective.
 
 ---
 
-## Provenance and epistemic status
+## Provenance and status
 
 - **Corpus.** The `nof1` collection of the project Zotero library holds
   72 curated N-of-1 / precision-medicine articles. Local full text was

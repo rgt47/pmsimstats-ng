@@ -392,3 +392,17 @@
 | `07-gompertz-evaluation-2026-09-07-1136-53dfeaa-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/07-gompertz-evaluation/report.Rmd` | `53dfeaa-wip` | 2026-09-07 11:36 PDT |
 | `04-treatment-main-effect-2026-09-07-1157-53dfeaa-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/04-treatment-main-effect/report.Rmd` | `53dfeaa-wip` | 2026-09-07 11:57 PDT |
 | `04-treatment-main-effect-2026-09-07-1157-53dfeaa-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/04-treatment-main-effect/report.Rmd` | `53dfeaa-wip` | 2026-09-07 11:57 PDT |
+| `04-treatment-main-effect-2026-09-07-1405-9a2047e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/04-treatment-main-effect/report.Rmd` | `9a2047e-wip` | 2026-09-07 14:05 PDT |
+| `04-treatment-main-effect-2026-09-07-1405-9a2047e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/04-treatment-main-effect/report.Rmd` | `9a2047e-wip` | 2026-09-07 14:05 PDT |
+| `05-nof1-design-sensitivity-2026-09-07-1405-9a2047e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/05-nof1-design-sensitivity/report.Rmd` | `9a2047e-wip` | 2026-09-07 14:05 PDT |
+| `05-nof1-design-sensitivity-2026-09-07-1405-9a2047e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/05-nof1-design-sensitivity/report.Rmd` | `9a2047e-wip` | 2026-09-07 14:05 PDT |
+| `06-component-decomposition-2026-09-07-1405-9a2047e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `9a2047e-wip` | 2026-09-07 14:05 PDT |
+| `06-component-decomposition-2026-09-07-1405-9a2047e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/06-component-decomposition/report.Rmd` | `9a2047e-wip` | 2026-09-07 14:05 PDT |
+| `08-test-procedure-design-sensitivity-2026-09-07-1405-9a2047e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/08-test-procedure-design-sensitivity/report.Rmd` | `9a2047e-wip` | 2026-09-07 14:05 PDT |
+| `08-test-procedure-design-sensitivity-2026-09-07-1405-9a2047e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/08-test-procedure-design-sensitivity/report.Rmd` | `9a2047e-wip` | 2026-09-07 14:05 PDT |
+| `09-informative-dropout-by-design-2026-09-07-1405-9a2047e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/09-informative-dropout-by-design/report.Rmd` | `9a2047e-wip` | 2026-09-07 14:05 PDT |
+| `09-informative-dropout-by-design-2026-09-07-1405-9a2047e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/09-informative-dropout-by-design/report.Rmd` | `9a2047e-wip` | 2026-09-07 14:05 PDT |
+| `10-interaction-test-calibration-2026-09-07-1405-9a2047e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/report.Rmd` | `9a2047e-wip` | 2026-09-07 14:05 PDT |
+| `10-interaction-test-calibration-2026-09-07-1405-9a2047e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/report.Rmd` | `9a2047e-wip` | 2026-09-07 14:05 PDT |
+| `11-combined-dgp-architecture-2026-09-07-1405-9a2047e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/11-combined-dgp-architecture/report.Rmd` | `9a2047e-wip` | 2026-09-07 14:05 PDT |
+| `11-combined-dgp-architecture-2026-09-07-1405-9a2047e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/11-combined-dgp-architecture/report.Rmd` | `9a2047e-wip` | 2026-09-07 14:05 PDT |

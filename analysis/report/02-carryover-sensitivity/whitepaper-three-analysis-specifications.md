@@ -453,7 +453,7 @@ against dilution rather than settling it.
 
 ## 6. What is known, and what must still be checked
 
-Epistemic status: the Lag-adjusted and Unadjusted figures below are
+Status: the Lag-adjusted and Unadjusted figures below are
 recomputed directly from the stored cell-level summaries under
 `analysis/data/`. **No Washout-adjusted results exist yet**; the
 specification has been added to `fit_spec()` but not run.

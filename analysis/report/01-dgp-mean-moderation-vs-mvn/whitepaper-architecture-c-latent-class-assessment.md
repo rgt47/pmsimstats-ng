@@ -691,7 +691,7 @@ None of these has been run here.
    reconciliation should be written down rather than left to the
    reader.
 
-## 11. Epistemic status
+## 11. Status
 
 **Verified by direct execution.** The calibration results in Table 3
 were produced by calling `generateData` from the installed package.

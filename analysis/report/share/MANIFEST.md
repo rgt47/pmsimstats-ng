@@ -406,3 +406,6 @@
 | `10-interaction-test-calibration-2026-09-07-1405-9a2047e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/10-interaction-test-calibration/report.Rmd` | `9a2047e-wip` | 2026-09-07 14:05 PDT |
 | `11-combined-dgp-architecture-2026-09-07-1405-9a2047e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/11-combined-dgp-architecture/report.Rmd` | `9a2047e-wip` | 2026-09-07 14:05 PDT |
 | `11-combined-dgp-architecture-2026-09-07-1405-9a2047e-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/11-combined-dgp-architecture/report.Rmd` | `9a2047e-wip` | 2026-09-07 14:05 PDT |
+| `whitepaper-covar-vs-orig-dgp-2026-09-08-1442-nogit.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/docs/whitepaper-covar-vs-orig-dgp.md` | `nogit` | 2026-09-08 14:42 PDT |
+| `whitepaper-covar-vs-orig-dgp-2026-09-08-1541-631a355-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/docs/whitepaper-covar-vs-orig-dgp.md` | `631a355-wip` | 2026-09-08 15:41 PDT |
+| `whitepaper-covar-vs-orig-dgp-2026-09-08-1552-631a355-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/docs/whitepaper-covar-vs-orig-dgp.md` | `631a355-wip` | 2026-09-08 15:52 PDT |

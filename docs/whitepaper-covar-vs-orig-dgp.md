@@ -18,20 +18,29 @@ answers a specific practical question: if the biomarker-response
 correlation `c_bm` is restricted to 0.35 or below, is there any
 remaining reason to prefer `covar` over `orig`?
 
-**There are four differences, not three, and the appendix's account of
-the most consequential one is inverted.** The three documented rows are
-the within-factor correlation form, the cross-factor off-diagonal, and
-the interaction vector `b`. A fourth, undocumented difference is that
-`orig` never assigns the biomarker-response correlation at the first
-measurement occasion. The appendix's description of `b` corresponds to
-code that is commented out in the vendored file; the active code
-behaves in the opposite direction.
+**There are five differences, not three, and the appendix describes
+the wrong version of the most consequential one.** The three
+documented rows are the within-factor correlation form, the
+cross-factor off-diagonal, and the interaction vector `b`. Two further
+differences are undocumented: `orig` never assigns the
+biomarker-response correlation at the first measurement occasion, and
+it decays the response mean at twice the nominal rate through a
+`scalefactor` parameter that `covar` lacks. The appendix's description
+of `b` corresponds to code that is commented out in the vendored file;
+the active code behaves in the opposite direction.
 
-**Only one of the four changes is required to fix positive
-definiteness.** A crossed decomposition over all 16 combinations of
-the four changes (Section 5) shows that switching compound symmetry to
-AR(1) accounts for the entire improvement, raising the worst-cell
-`c_bm` ceiling from 0.34 to 0.48. Applied alone it beats the full
+**The active `b` code is the better of the two, contrary to first
+appearance.** The commented-out published version raises the off-drug
+biomarker-response correlation to full strength as carryover grows,
+inverting the effect residual exposure should have. The 2024 revision
+repairs this. Its defects are the `scalefactor` default and the
+dropped occasion, not the change of gate itself (Section 3.3.1).
+
+**Only one of the four covariance-matrix changes is required to fix
+positive definiteness.** A crossed decomposition over all 16
+combinations of those four (Section 5) shows that switching compound
+symmetry to AR(1) accounts for the entire improvement, raising the
+worst-cell `c_bm` ceiling from 0.34 to 0.48. Applied alone it beats the full
 four-change `covar` set, which reaches only 0.45. The cross-factor
 change lowers the ceiling to 0.16 when applied without AR(1), and
 neither the `b` change nor the occasion-1 change moves it at all.
@@ -45,9 +54,25 @@ is PD at 0.35 the margin is thin enough to be fragile to any other
 parameter change. PD failure is repaired silently, so the realized
 correlation stops matching the nominal one without any warning. The
 dropped first occasion is a defect at every `c_bm`, including zero.
-And the `b` decay rate differs by a factor of two, so the two
-processes are not comparable at a matched nominal half-life regardless
-of correlation strength.
+And the `scalefactor` default halves the effective carryover
+half-life, so the two processes are not comparable at a matched
+nominal half-life regardless of correlation strength.
+
+**The vendored analysis model was also replaced, and carries a
+separate correctness bug.** The `orig` arm does not run the published
+analysis either: the binary `Db` regressor became the continuous
+`Dbc` in 2024. In that code every never-treated occasion, baseline
+included, is coded as fully on drug whenever `carryover_t1half > 0`,
+so the crossover design's never-discontinuing path contributes no
+on-drug versus off-drug contrast at all. The package's own
+`R/lme_analysis.R` already guards this case, so no result computed
+through the package pipeline is affected (Section 3.6).
+
+**The remedy is a corrected `orig`, not a choice between the two.**
+Three of the five 2024 DGP changes are sound and should be kept; the
+`scalefactor` default and the dropped occasion should be fixed; and
+the single AR(1) change of Section 5 resolves positive definiteness
+outright (Section 4.5).
 
 ## 2. Scope, method, and epistemic status
 
@@ -61,10 +86,13 @@ Sources examined:
 - `analysis/scripts/quick-sim/hendrickson-original-comparison/`
   (`vendored-hendrickson-generateData.R`,
   `01-hendrickson-orig-driver.R`, `02-pd-sweep.R`, `README.md`)
-- `R/generateData.R` (`buildSigma`, the `covar` construction)
+- `R/generateData.R` (`buildSigma`, the `covar` construction) and
+  `R/lme_analysis.R` (the package's own analysis model)
 - `implementations/original/R/generateData.R`
 - `analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd`,
   Appendix sections B.4 through B.7
+- The upstream repository `github.com/rchendrickson/pmsimstats`,
+  cloned in full (21 commits, 2020-02-22 to 2024-11-27)
 
 Computations run for this document:
 
@@ -75,12 +103,34 @@ Computations run for this document:
   minimum eigenvalue of Sigma under each process, minimized across the
   design's randomization paths.
 - Quantification of the distortion introduced by PD repair.
+- A crossed decomposition over all 16 combinations of the four
+  covariance-matrix changes (Section 5).
+- Comparison of the carryover mean adjustment at `scalefactor` 1 and
+  2 against a correct exponential decay from the last on-drug value
+  (Section 3.5).
+- Diffs of the vendored files against the upstream initial commit
+  (`42ac030`), the last pre-acceptance commit (`3035581`), and HEAD
+  (`06dac83`).
+- Evaluation of the `Dbc` exposure regressor across all occasions of
+  the CO and Hybrid designs, under both the vendored and the package
+  analysis code, at `t_half` in {0, 1.0} (Section 3.6).
+
+**Provenance correction.** The directory README states the vendored
+files come from `3035581` (dated there as 2026-06-28; the commit is
+actually 2020-06-27). They do not. Diffing establishes the base as
+HEAD, `06dac83`, 2024-11-27, from which the vendored copy differs by
+exactly the one documented `data.table` line. The README's claim that
+no other lines were changed is therefore true of the file that was
+vendored and false of the file it names. The `RON THOMAS`
+annotations are upstream, introduced by RC Hendrickson in commit
+`8609f12` (2024-05-06, 'Ron Thomas' edits, currated into working
+code'), not local edits.
 
 All computations used the package's own `extracted_rp` and
 `extracted_bp` parameter sets, `rho = 0.7`, `c.cf1t = 0.2`,
 `c.cfct = 0.1`, `N = 35`, `scalefactor = 2`.
 
-## 3. The four differences
+## 3. The five DGP differences, and the analysis model
 
 ### 3.1 Difference 1: within-factor correlation form
 
@@ -213,26 +263,61 @@ occasions. For comparison, at `t_half = 1.0` and one week off drug,
 `covar` gives `0.45 * exp(-ln2 * 1) = 0.225` while `orig` gives
 `0.1125`.
 
-**Arguments for the active form.** It is graded rather than a step,
-which is arguably more plausible than a binary gate, and it ties the
+#### 3.3.1 Which of the two is correct
+
+**Status: verified.** The natural reading of the paragraphs above is
+that the commented-out code is the correct target and the active code
+an unwarranted deviation from it. On assessment that reading is wrong,
+and it should be stated plainly before the arguments are weighed.
+
+The published gate tests `means[...] != 0`, where `means` is the
+**carryover-adjusted** response mean. The adjustment runs before the
+correlation loop, so at any off-drug occasion carrying residual
+effect, the adjusted mean is nonzero, the gate opens, and the occasion
+receives the **full** `c_bm`. The consequence is that increasing
+carryover progressively converts off-drug occasions into
+full-strength on-drug occasions in the covariance channel, until at
+`t_half = 1.0` in the Hybrid design the vector is `c_bm * 1_n` and no
+on-drug versus off-drug contrast survives at all.
+
+That behavior is backwards. Carryover should attenuate the
+biomarker-response coupling at off-drug occasions, not raise it to
+on-drug strength. The published DGP therefore has the property that
+more carryover means a *stronger*, not weaker, off-drug interaction
+signal, which is not a defensible representation of residual drug
+exposure.
+
+The active code gates on `brtest`, computed before the carryover
+adjustment (Difference 5, Section 3.5), so it identifies genuinely
+off-drug occasions, and then grades the correlation downward rather
+than holding it at full strength. **The direction is correct and the
+published version was wrong.** Whatever its implementation defects,
+the 2024 revision repairs a real error rather than introducing one.
+
+#### 3.3.2 Assessment
+
+**Arguments for the active form.** It fixes the inversion described
+above, which is the substantive point. It is graded rather than a
+step, which is the more plausible representation. And it ties the
 correlation channel to the same mean trajectory the carryover
-adjustment already modifies, which is a defensible internal
-consistency.
+adjustment already modifies, which is internally consistent.
 
-**Arguments against.** It is undocumented. Nothing in Paper 01, the
-vendored file's own header, or the directory README describes it. Its
-decay rate is set by `scalefactor`, a parameter whose own Roxygen
-comment in the vendored file reads `TODO update when understand what
-this does?`. And because it decays at twice `covar`'s rate, a
-comparison of the two at a matched nominal `t_half` is not a
-comparison at matched carryover.
+**Arguments against.** Its decay rate is set by `scalefactor`, whose
+default of 2 is itself an error (Section 3.5). It drops occasion 1
+(Section 3.4). And it is undocumented: nothing in Paper 01, the
+vendored file's header, or the directory README describes it, so a
+reader of the manuscript cannot know which behavior the `orig` arm
+has.
 
-**Assessment.** This is the most serious finding in this document. The
-paper's stated causal mechanism for `orig`'s behavior, that carryover
-opens its gate at off-drug occasions and destroys the contrast on
-which identification depends, is an accurate description of code that
-does not run. Any interpretation in Paper 01 resting on that mechanism
-requires revision, independent of anything else here.
+**Assessment.** The serious finding here is documentary rather than
+methodological. Paper 01's Appendix B.5 and B.6 describe the 2020
+code, which the `orig` arm does not run, and the appendix's causal
+story for `orig`, that carryover opens its gate and destroys the
+identifying contrast, is an accurate account of a defect that the
+running code has already fixed. Any interpretation in Paper 01 resting
+on that mechanism requires revision. But the fix should not be to
+restore the 2020 behavior; it should be to describe the 2024 behavior
+accurately and correct its two remaining implementation flaws.
 
 ### 3.4 Difference 4: the first occasion is never assigned
 
@@ -260,6 +345,182 @@ consequence of the undocumented modification, not an independent bug.
 **Assessment.** A defect rather than a difference in modeling
 philosophy. It is `c_bm`-independent and therefore is not addressed by
 restricting the correlation range.
+
+### 3.5 Difference 5: the scalefactor on the carryover mean
+
+**Status: verified.**
+
+Paper 01's Appendix B.6 records the carryover adjustment to the
+response mean as an 'identical line in all three' processes. It is
+not. `orig` carries a `scalefactor` multiplier that `covar` does not:
+
+```r
+## orig
+brmeans[p] <- brmeans[p] +
+  brmeans[p-1]*(1/2)^(scalefactor * d$tsd[p]/carryover_t1half)
+
+## covar
+brmeans[p] <- brmeans[p] +
+  brmeans[p-1]*(1/2)^(d$tsd[p]/carryover_t1half)
+```
+
+`scalefactor` defaults to 2, so `orig` decays the response mean at
+twice the nominal rate. This is a difference in the **mean** channel,
+distinct from the covariance-channel differences above, and it affects
+any power comparison between the two processes even though it does not
+enter Sigma and so does not appear in the Section 5 decomposition.
+
+The default is an error, not merely a choice. Comparing the adjustment
+against a correct exponential decay from the last on-drug value, at
+`t_half = 1.0` in the Hybrid design:
+
+| occasion | t_sd | sf = 1 | sf = 2 | correct |
+|---|---|---|---|---|
+| BD3 | 1 | 5.094 | 2.547 | 5.094 |
+| BD4 | 2 | 1.273 | 0.159 | 2.547 |
+| COp | 4 | 0.268 | 0.017 | 0.637 |
+
+As a ratio to the correct value: at `sf = 1` the first off-drug
+occasion is exact (1.000x) and later occasions over-decay (0.500x,
+0.420x). At `sf = 2` even the first occasion is wrong (0.500x), and
+the fourth is understated by a factor of 38 (0.026x). A dose one week
+old at a one-week half-life should retain half its effect; the shipped
+default gives it a quarter.
+
+The parameter is also undocumented in the strict sense: its Roxygen
+entry reads `@param scalefactor TODO update when understand what this
+does?`, so it was shipped with a behavior-changing default while
+recorded as not understood.
+
+The residual over-decay at `sf = 1` is a separate, pre-existing bug
+inherited from the published code. The recursion multiplies the
+previous **already-adjusted** value by `(1/2)^(cumulative t_sd)`,
+double-counting elapsed time. The correct form uses either the
+interval rather than cumulative `t_sd`, or cumulative `t_sd` applied
+to the last on-drug mean.
+
+**Arguments for.** None identified for the default of 2. The
+parameter itself is a harmless generalization if defaulted to 1.
+
+**Arguments against.** It breaks a case the published code got right,
+it compounds an existing over-decay rather than fixing it, and it
+silently changes the DGP for every caller that does not override it.
+
+**Assessment.** This is the change that should be removed. Setting
+`scalefactor = 1` restores correct behavior at the first off-drug
+occasion at no cost; fixing the recursion would correct the rest.
+
+### 3.6 The analysis model: lme_analysis
+
+**Status: verified.**
+
+The five differences above concern `generateData.R`. The comparison
+arm vendors a second file, `vendored-hendrickson-lme_analysis.R`,
+which supplies the analysis model. It is byte-identical to upstream
+HEAD, so the README's statement that it is unpatched is exactly true.
+Five commits changed it between `3035581` and HEAD, altering 110
+lines. Three findings follow.
+
+#### 3.6.1 The analysis model itself was replaced
+
+The published analysis and the running analysis test different
+coefficients:
+
+| | 2020 (`3035581`) | 2024 (HEAD, what runs) |
+|---|---|---|
+| exposure regressor | `Db`, binary `tod > 0` | `Dbc`, continuous decay |
+| formula term | `bm*Db` | `bm*Dbc` |
+| coefficient extracted | `bm:DbTRUE` | `bm:Dbc` |
+
+The change came in `f70f86d` (2024-05-06), the same day as the DGP
+changes. The `orig` arm therefore does not run the published analysis
+either. Its exposure regressor is structurally the same object this
+program calls Exposure-weighted (`G3`).
+
+This **corroborates** the retraction in Paper 02, Section 3.3. That
+section argues the reference analysis is effectively Unadjusted
+because the drivers leave the analysis-side half-life at its default
+of zero, at which the decayed predictor collapses onto the binary
+indicator. Verified directly: at `carryover_t1half = 0` the off-drug
+branch evaluates `(1/2)^(t_sd/0) = 0` and the on-drug branch 1, which
+is exactly `Db`. The reasoning in that section holds.
+
+#### 3.6.2 Never-treated occasions are coded as fully on drug
+
+`Dbc` is assigned to every `Db == FALSE` row as
+`(1/2)^(scalefactor * t_sd / t_half)`. That expression is meaningful
+only after discontinuation. For occasions before a patient's first
+dose, `buildtrialdesign` zeroes `t_sd` (multiplying by `everondrug`),
+so the expression returns `(1/2)^0 = 1`, the **maximum** exposure
+value.
+
+CO path B, the never-discontinuing arm, at `t_half = 1.0`:
+
+| occasion | on drug | t_sd | Dbc |
+|---|---|---|---|
+| BL | FALSE | 0 | **1.0** |
+| COa1 - COa4 | FALSE | 0 | **1.0** |
+| COb1 - COb4 | TRUE | 0 | 1.0 |
+
+All nine rows are coded `Dbc = 1`. Four pre-treatment occasions and
+baseline are indistinguishable from fully on drug, the path
+contributes no on-drug versus off-drug contrast at all, and untreated
+baseline data enter the model as treated. Under Hybrid the damage is
+one row per patient rather than five, but it is present in every
+design whenever `carryover_t1half > 0`.
+
+At `carryover_t1half = 0` the same rows evaluate `(1/2)^(0/0)` and
+return `NaN`, so baseline is silently dropped by `na.omit` instead of
+miscoded. Different symptom, same root cause. The current driver
+passes no `carryover_t1half` and so hits the `NaN` branch, which is
+why this has not surfaced as a visible failure.
+
+This is a genuine correctness bug, upstream, and distinct from
+anything in `generateData.R`.
+
+#### 3.6.3 The package's own lme_analysis is not affected
+
+**Status: verified.** `R/lme_analysis.R` in this package already
+guards the case, and its comment names the failure mode precisely:
+
+```r
+# Guard against 0/0 = NaN when carryover_t1half == 0 or
+# tsd == 0 for never-on-drug subjects; both collapse to Dbc=0.
+if (op$carryover_t1half == 0) {
+  data.m2[Db==FALSE, Dbc:=0]
+} else {
+  data.m2[Db==FALSE & tsd<=0, Dbc:=0]
+  data.m2[Db==FALSE & tsd>0,
+          Dbc:=((1/2)^(op$carryover_scalefactor*tsd/op$carryover_t1half))]
+}
+```
+
+Comparing the two on CO path B:
+
+| `t_half` | package | vendored |
+|---|---|---|
+| 0 | 0 0 0 0 0 1 1 1 1 | NaN NaN NaN NaN NaN 1 1 1 1 |
+| 1.0 | 0 0 0 0 0 1 1 1 1 | 1 1 1 1 1 1 1 1 1 |
+
+Finding 3.6.2 is therefore confined to the vendored comparison arm.
+No result in Paper 01 or Paper 02 that uses the package's own
+analysis pipeline is affected by it.
+
+#### 3.6.4 Minor
+
+`error(...)` is called in the guard against combining `simplecarryover`
+with a half-life-based carryover. No such function exists in base R
+(verified), so the guard halts with `could not find function "error"`
+rather than its intended message. It was evidently never exercised.
+
+Assessed and found unimportant: the `union(timeptnames, "BL")` change,
+which prevents `BL` being selected twice with no behavioral effect
+otherwise; and the refactor of the model formula from nested `if`
+blocks to string concatenation with `eval(parse(...))`, which is
+self-described in the source as 'poor programming form!' but is
+equivalent. Commit `325314f` changes only whitespace in this file, and
+`baf4127`, titled 'first commit. edit to lme_analysis', does not touch
+the file at all.
 
 ## 4. The c_bm <= 0.35 question
 
@@ -373,11 +634,13 @@ cell is not power at that `c_bm`.
    restriction that actually cleared the PD objection would be
    `c_bm <= 0.30`, and even then only if no other parameter moves.
 
-2. **The undocumented `b` modification is `c_bm`-independent.**
-   `orig`'s off-drug interaction decays at twice `covar`'s rate for
-   any correlation strength. The two processes are therefore not
-   matched on carryover at a matched nominal `t_half`, so a comparison
-   between them confounds carryover severity with everything else.
+2. **The `scalefactor` default is `c_bm`-independent and wrong.**
+   `orig` decays the response mean at twice the nominal rate at every
+   correlation strength (Section 3.5), understating residual exposure
+   by a factor of two at the first off-drug occasion and by up to 38
+   at the fourth. The two processes are therefore not matched on
+   carryover at a matched nominal `t_half`, so any comparison between
+   them confounds carryover severity with everything else.
 
 3. **The dropped first occasion is `c_bm`-independent.** It removes an
    on-drug occasion from the interaction channel at every parameter
@@ -387,41 +650,74 @@ cell is not power at that `c_bm`.
    realized effect size** in exactly the region where a restricted
    study would be operating closest to the boundary.
 
-5. **The fidelity argument does not survive inspection.** The strongest
-   reason to prefer `orig` at any `c_bm` is that it reproduces the
-   published reference. But the vendored file is not the published
-   reference. Its interaction assignment has been replaced, and the
-   original is commented out beneath it. Whatever `orig` currently
-   reproduces, it is not Hendrickson et al. as published.
+5. **The fidelity argument does not survive inspection, but not in
+   the way it first appears.** The strongest reason to prefer `orig`
+   at any `c_bm` is that it reproduces the published reference. The
+   vendored file does not: it is upstream HEAD (`06dac83`,
+   2024-11-27), four years after the paper, not the pre-acceptance
+   commit the directory README names. So `orig` as run is not
+   Hendrickson et al. as published.
+
+   The remedy is not to restore the published version. Section 3.3.1
+   shows the 2020 interaction gate is defective: it raises the
+   off-drug biomarker-response correlation to full strength as
+   carryover grows, inverting the effect residual exposure should
+   have. Pinning to the pre-acceptance commit would buy documentary
+   fidelity at the cost of reinstating a scientifically wrong DGP.
 
 Section 5 qualifies the first of these five reasons. A crossed
 decomposition shows the PD objection is narrower than it appears: it
 is an objection to compound symmetry alone, and one change fixes it.
 The other four reasons are not PD arguments and are unaffected.
 
-The fifth point deserves emphasis because it inverts the usual
-trade-off. One would ordinarily accept a narrower feasible parameter
-range as the price of matching a published method. Here that price is
-being paid without the benefit being received.
+The fifth point deserves the most emphasis, because it dissolves the
+trade-off rather than resolving it. One would ordinarily accept a
+narrower feasible parameter range as the price of matching a published
+method. Here neither branch is attractive: the current arm does not
+match the published method, and the published method is not worth
+matching. The way out is a corrected process rather than a choice
+between the two existing ones, which is the subject of Section 4.5.
 
 ### 4.5 What would change the answer
 
-The case for `orig` would be materially stronger under any of the
-following, none of which currently holds.
+Rather than choosing between the two existing processes, the better
+course is a corrected `orig`. Assessing the five 2024 changes
+individually (Sections 3.3 to 3.5) shows they are not of a piece:
+three are sound and two are defective.
 
-- The vendored file is restored to the genuine upstream code, with the
-  `RON THOMAS VERSION` block reverted and the original gate
-  uncommented. `orig` would then serve its stated fidelity purpose,
-  and Paper 01's Appendix B.6 would become an accurate description of
-  it.
-- The study is restricted to `c_bm <= 0.30` **and** to designs with
-  `t_half > 0` **and** the `p > 1` guard is fixed. Under those three
-  conditions the PD objection is genuinely resolved and the remaining
-  differences are defensible modeling choices rather than defects.
-- The correlation structure and the interaction gate are run as
-  crossed factors, as Paper 01's own Appendix B.6 suggests. This would
-  decompose the joint effect and permit a component-wise judgment
-  rather than the present all-or-nothing comparison.
+**Keep.** The `brtest` / `rawbrmeans` capture (Difference 5's
+infrastructure), which correctly separates pre-carryover state from
+post-carryover mean. The interaction gate replacement, which repairs
+the inversion in the published code (Section 3.3.1). The `verbose`
+diagnostic blocks, which are inert with respect to returned values and
+are the mechanism by which the `scalefactor` problem would have been
+caught.
+
+**Fix.** Set `scalefactor = 1`, or remove the parameter (Section 3.5).
+Remove the `p > 1` guard so occasion 1 is assigned (Section 3.4),
+which requires handling `p = 1` explicitly since the ratio has no
+predecessor there.
+
+**Fix separately.** The carryover recursion double-counts elapsed time
+by applying `(1/2)^(cumulative t_sd)` to an already-adjusted value.
+This is inherited from the published code and is present in `covar`
+as well, so correcting it changes both processes.
+
+A process so corrected would be better than the published original,
+better than current HEAD, and would isolate the correlation structure
+as the substantive remaining difference from `covar`. Combined with
+the single AR(1) change of Section 5, it would also resolve the PD
+objection outright.
+
+Two further conditions would independently strengthen any comparison:
+
+- Restricting the study to `c_bm <= 0.30` and to designs with
+  `t_half > 0`, under which the PD objection does not arise even
+  without the AR(1) change.
+- Running the correlation structure and the interaction gate as
+  crossed factors, as Paper 01's own Appendix B.6 suggests. Section 5
+  does this for positive definiteness; the power half remains
+  undone.
 
 ## 5. Decomposition: the minimum set of changes that fixes PD
 
@@ -571,14 +867,27 @@ of decay rate (Section 3.3) and Difference 4 is a defect (Section
    decision about future simulation work and should be treated as a
    correctness fix.
 
-3. **Verify the vendored files against the upstream repository**
-   (`github.com/rchendrickson/pmsimstats`, commit `3035581`). The
-   directory README states the files are verbatim apart from one
-   `data.table` indexing patch and that no other lines were changed.
-   At least two further edits are visible in the file: the
-   `RON THOMAS VERSION` block, and a typo fix at line 134 annotated
-   `##### <--------FIXING TYPO, this was [n1,n2] again`. Either the
-   README's provenance claim or the file needs correcting.
+3. **Correct the directory README's provenance paragraph.** The
+   vendored base is upstream HEAD `06dac83` (2024-11-27), not
+   `3035581`, and the date given for that commit (2026-06-28) is
+   wrong in both year and day (it is 2020-06-27). The 'no other lines
+   were changed' claim is accurate once the correct base is named.
+   The `RON THOMAS` annotations are upstream, from `8609f12`, and
+   should not be described as local modifications.
+
+3b. **Do not revert to the published version to resolve this.**
+   Section 3.3.1 shows the 2020 interaction gate is defective.
+   Pinning to `3035581` would buy documentary fidelity at the cost of
+   a scientifically wrong DGP. Correct the description and the two
+   remaining implementation flaws instead (Section 4.5).
+
+3c. **Report the `Dbc` never-treated bug upstream** (Section 3.6.2).
+   It is a genuine correctness defect in `rchendrickson/pmsimstats`
+   HEAD, it is independent of everything else in this document, and
+   the fix already exists in this package's `R/lme_analysis.R` and
+   can be offered directly. Until it is fixed, the `orig` arm must
+   not be run with `carryover_t1half > 0`, since its crossover
+   results would be meaningless.
 
 4. **Make PD repair loud.** Both implementations should record the
    repair in the returned object and warn. A silent change to the DGP
@@ -638,10 +947,20 @@ would require running the `orig` arm with and without the `p > 1`
 guard, and with the commented-out gate restored, which is the natural
 follow-up.
 
-The upstream provenance question is unresolved. The comparison against
-`github.com/rchendrickson/pmsimstats` was not performed, and the
-attribution of the `RON THOMAS VERSION` edits is therefore inferred
-from the annotation text alone.
+The upstream provenance question is now settled by direct comparison
+(Section 2), but one part of it is not. Commit `8609f12` is authored
+and committed by RC Hendrickson under the message 'Ron Thomas' edits,
+currated into working code'. The history cannot show which parts of
+that commit originated with Ron Thomas and which arose in the
+curation, so responsibility for the `scalefactor` default and the
+`p > 1` guard cannot be assigned from the record. This matters only
+for deciding with whom to raise them.
+
+The upstream code has not been executable on a current stack for some
+time: the pre-2021 `data.table` indexing idiom is present in all 21
+commits including HEAD, so `generateData()` fails outright without the
+vendored patch. The `orig` arm therefore reproduces upstream source
+but not upstream behavior, since upstream does not run unmodified.
 
 `implementations/original/R/generateData.R`, the package's other copy
 of the reference implementation, was inspected and found to differ

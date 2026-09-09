@@ -1,4 +1,10 @@
 # The Hendrickson approach, the hybrid design, and when
+
+> **SUPERSEDED (2026-09-09).** This document is merged into
+> `31-component-decomposition-and-reductions.md`, which also adds
+> Part IV on the two-component reductions (papers 13 and 14).
+> Retained for history; consult 31 instead.
+
 # component decomposition pays off
 
 *2026-06-17 10:40 PDT*

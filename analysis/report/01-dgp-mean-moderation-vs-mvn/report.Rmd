@@ -1621,9 +1621,15 @@ A_c^{\text{orig}} =
 \end{pmatrix}.
 \]
 The block has two distinct eigenvalues, $1 + (n-1)\rho_c$ once and
-$1 - \rho_c$ with multiplicity $n-1$, so positive definiteness
-requires $-1/(n-1) < \rho_c < 1$. The upper bound on admissible
-correlation therefore tightens as occasions are added.
+$1 - \rho_c$ with multiplicity $n-1$, so positive definiteness of the
+block requires $-1/(n-1) < \rho_c < 1$. We note that it is the lower
+bound that moves with $n$, and it binds only for negative $\rho_c$.
+At the positive values used throughout this paper the admissible
+range of $\rho_c$ is not affected by the number of occasions.
+
+Compound symmetry does restrict the moderation parameter $c_{bm}$
+more tightly than AR(1) does, but not by this route. The mechanism is
+given in B.7.
 
 \paragraph{\texttt{covar}: AR(1) in calendar time.}
 The correlation decays with the elapsed time between occasions, using
@@ -1877,7 +1883,8 @@ $\mu$ shift off drug
   & $0$ (step) & none & none\\
 \addlinespace
 Carryover on BR mean
-  & \multicolumn{3}{l}{identical line in all three}\\
+  & \multicolumn{2}{l}{anchored: $\mu_{BR,p^{\ast}}(1/2)^{t_{sd}/t_{1/2}}$}
+  & recursive: $\mu_{BR,p-1}(1/2)^{t_{sd}/t_{1/2}}$\\
 $\mathrm{BL}$ row and column
   & \multicolumn{3}{l}{identity in all three}\\
 $\mathrm{BM}$--$TV$, $\mathrm{BM}$--$PB$
@@ -1914,11 +1921,54 @@ nonzero, its gate opens at off-drug occasions precisely when carryover
 is present, and its interaction channel loses the on-drug versus
 off-drug contrast on which identification depends.
 
-The final three rows record what all three processes hold in common.
-The baseline term is uncorrelated with everything, the biomarker
-couples to no factor other than the response, and the carryover
-adjustment to the response mean is implemented by the same line of
-code in every case.
+The final two rows record what all three processes hold in common.
+The baseline term is uncorrelated with everything, and the biomarker
+couples to no factor other than the response.
+
+The carryover row requires explanation, since the three processes
+agreed on it until recently and a reader comparing code will want to
+identify the difference quickly.
+
+All three adjust the response mean at an off-drug occasion by adding
+a decayed fraction of the previous response. They differ in what is
+decayed. Writing $p^{\ast}$ for the most recent on-drug occasion,
+
+\[
+\underbrace{\mu_{BR,p} + \mu_{BR,p^{\ast}}\,
+  (1/2)^{t_{sd,p}/t_{1/2}}}_{\texttt{mean},\ \texttt{covar}}
+\qquad\text{against}\qquad
+\underbrace{\mu_{BR,p} + \mu_{BR,p-1}\,
+  (1/2)^{t_{sd,p}/t_{1/2}}}_{\texttt{orig}} .
+\]
+
+The published form multiplies the \emph{already adjusted} mean at
+$p-1$ while $t_{sd,p}$ is measured cumulatively from discontinuation,
+so elapsed time is counted twice. The corrected form applies the
+cumulative factor once, to the mean at discontinuation.
+
+Two consequences make the difference easy to spot in output. The
+first off-drug occasion of any run agrees exactly under both forms,
+since there is nothing yet to inherit. Divergence begins at the
+second. In the worked example of Section B.5, at
+$t_{1/2} = 1$ week, occasion 3 carries $0.25\,\mu_{BR,1}$ under the
+corrected form and $0.125\,\mu_{BR,1}$ under the published one, a
+factor of two. The gap widens with each further off-drug occasion, so
+designs with long uninterrupted washouts show it most.
+
+We corrected \texttt{mean} and \texttt{covar} in September 2026 and
+leave \texttt{orig} as published, since the object of that column is
+to describe the published code rather than to improve it.
+
+The consequence for the re-run flagged in Section 2.2.4 should be
+settled before that run is designed. A comparison of \texttt{covar}
+against \texttt{orig} now carries one difference beyond the four
+enumerated there, and it is of our making. Running \texttt{covar} as
+corrected asks what the architecture delivers today and credits the
+correction to \texttt{covar}. Running \texttt{covar} with the
+recursion restored isolates the four architectural differences and
+answers the question Section 2.2.4 poses. We prefer the second for
+the headline comparison, with the first reported alongside it, so
+that the cost of the correction remains visible.
 
 \subsection{B.7 Summary of differences}
 
@@ -1938,6 +1988,55 @@ $\mathrm{BM}$--$TV$, $\mathrm{BM}$--$PB$ & $0$ & $0$\\
 \end{tabular}
 \end{center}
 
-The compound-symmetry form constrains $\rho_c$ more tightly than the
-AR(1) form as $n$ grows, which is the mechanism behind the narrower
-positive-definite range of $c_{bm}$ under \texttt{orig}.
+\paragraph{The feasible range of $c_{bm}$.} The two forms differ in
+how much moderation the covariance can carry. The mechanism is worth
+setting out, because the obvious explanation is wrong and the
+direction of the difference is not constant.
+
+The binding constraint is not positive definiteness of the
+within-factor block. It is a Schur complement on the biomarker row.
+Dropping the $\mathrm{BL}$ row and column, which are those of the
+identity and factor out, write $M$ for the $3n \times 3n$ block of
+the three response factors and $\tilde b$ for the biomarker coupling
+extended by zeros. The matrix is positive definite if and only if $M$
+is and $1 - \tilde b^{\top} M^{-1} \tilde b > 0$. Writing
+$\tilde b = c_{bm} v$, where $v$ carries the on-drug and off-drug
+pattern of Section B.4, the exact ceiling is
+
+\[
+c_{bm}^{\ast} = \bigl(v^{\top} M^{-1} v\bigr)^{-1/2} .
+\]
+
+Two features of this expression matter. The ceiling depends on the
+correlation structure only through how the coupling pattern $v$ sits
+relative to $M^{-1}$, and it depends on $v$, which differs between
+the two processes and, under \texttt{orig}, changes with the
+carryover half-life.
+
+That second point reverses the comparison. At $t_{1/2} = 0$ the
+\texttt{orig} coupling is the on-drug indicator and its ceiling is
+the lower of the two. At any positive half-life the \texttt{orig}
+coupling becomes constant, as Section B.4 shows, and a constant $v$
+aligns with the direction in which $M$ is best conditioned. Its
+ceiling is then the higher of the two. The apparent gain is
+worthless: it arises precisely because the vector has lost the
+on-drug versus off-drug contrast on which identification depends. A
+process that can carry a larger nominal $c_{bm}$ while carrying no
+interaction is not thereby preferable.
+
+We note that the number of occasions is not what separates the two
+forms. Both ceilings fall as occasions are added, in similar
+proportion. The smallest eigenvalue of the compound-symmetric block
+$M$ is $(1-\rho_c) - (c_1 - c_{\times})$, which contains neither $n$
+nor the number of factors. An earlier version of this appendix
+attributed the difference to a constraint on $\rho_c$ that tightens
+with $n$; that attribution was incorrect.
+
+\textbf{[TO RE-VERIFY: the relations above were derived analytically
+and confirmed on an evenly spaced schedule. Design-specific
+thresholds for the CO, Hybrid and OL+BDC schedules of Section 2.3
+have not been computed, and none is quoted here. Evaluate
+$c_{bm}^{\ast}$ on those three designs, under
+\texttt{58b32a9} for \texttt{orig}, before restoring numeric
+thresholds.]}
+

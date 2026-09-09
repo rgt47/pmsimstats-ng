@@ -1,14 +1,21 @@
 ## analysis/scripts/two-component-dgp/01-run-grid.R
 ##
-## Driver for paper 13 (two-component BR+PB decomposition).
+## Driver for papers 13 and 14 (two-component decompositions).
 ##
 ## Paper 13 repeats paper 01's Architecture A versus Architecture B
 ## comparison under a reduced data-generating process that carries only
-## the pharmacological (BR) and placebo-belief (PB) components, dropping
-## the time-variant natural-history component (TV). Two changes from
+## the pharmacological (BR) and time-variant natural-history (TV)
+## components, dropping the placebo-belief component (PB). Retaining a
+## trend term and omitting a modelled belief component follows the
+## convention of the N-of-1 and crossover literature. Two changes from
 ## paper 01's grid:
 ##
-##   1. components = c('pb','br') is passed to generateData(), so the
+## NOTE: trialdesign$e (the expectancy weight) drives PB alone. With PB
+## dropped it has no effect on the DGP, so the open-label versus
+## blinded contrast is invisible to data generation and the designs
+## differ only through their on-drug patterns. See Section 2.2.3.
+##
+##   1. components = c('tv','br') is passed to generateData(), so the
 ##      covariance matrix is (2 + 2*nP) rather than (2 + 3*nP): 18x18
 ##      instead of 26x26 at eight occasions.
 ##   2. The 'orig' (vendored Hendrickson) arm is dropped. Paper 13
@@ -22,10 +29,12 @@
 ## Usage:
 ##   Rscript analysis/scripts/two-component-dgp/01-run-grid.R [--dev] [--reps N]
 ##
-##   --dev    : 20 reps/cell (smoke test); default 500 (production).
-##   --reps N : override the rep count.
+##   --dev     : 20 reps/cell (smoke test); default 500 (production).
+##   --reps N  : override the rep count.
+##   --drop X  : 'pb' (paper 13, BR+TV) or 'tv' (paper 14, BR+PB).
+##               Defaults to 'pb'.
 ##
-## Writes: analysis/data/13-two-component-grid.rds
+## Writes: analysis/data/{13-drop-pb,14-drop-tv}-grid.rds
 
 suppressPackageStartupMessages({
   library(data.table)
@@ -44,7 +53,17 @@ n_reps <- if (length(reps_idx) && reps_idx < length(args)) {
 } else if (dev_mode) 20L else 500L
 
 SEED <- 20260908L
-COMPONENTS <- c('pb', 'br')
+
+## Which component to drop. --drop pb  -> BR + TV (paper 13)
+##                          --drop tv  -> BR + PB (paper 14)
+drop_idx <- which(args == '--drop')
+DROP <- if (length(drop_idx) && drop_idx < length(args)) {
+  args[drop_idx + 1]
+} else 'pb'
+if (!DROP %in% c('pb', 'tv')) stop("--drop must be 'pb' or 'tv'")
+COMPONENTS <- setdiff(c('tv', 'pb', 'br'), DROP)
+PAPER <- if (DROP == 'pb') 13L else 14L
+OUTFILE <- sprintf('%d-drop-%s-grid.rds', PAPER, DROP)
 
 data(extracted_bp, package = 'pmsimstats', envir = environment())
 data(extracted_rp, package = 'pmsimstats', envir = environment())
@@ -157,10 +176,11 @@ grid <- tidyr::expand_grid(
   t1half  = c(0, 0.5, 1.0)
 )
 
-cat(sprintf('Paper 13 two-component grid: %d cells, n_reps = %d\n',
-            nrow(grid), n_reps))
-cat(sprintf('Components: %s (TV dropped)\n',
-            paste(COMPONENTS, collapse = ' + ')))
+cat(sprintf('Paper %d two-component grid: %d cells, n_reps = %d\n',
+            PAPER, nrow(grid), n_reps))
+cat(sprintf('Components: %s (%s dropped) -> %s\n',
+            paste(toupper(COMPONENTS), collapse = ' + '),
+            toupper(DROP), OUTFILE))
 
 t0 <- Sys.time()
 results <- vector('list', nrow(grid))
@@ -202,13 +222,15 @@ saveRDS(list(
     n_reps = n_reps,
     dev_mode = dev_mode,
     components = COMPONENTS,
+    dropped = DROP,
+    paper = PAPER,
     architectures = c('mean_moderation', 'mvn'),
     elapsed_secs = as.numeric(difftime(Sys.time(), t0, units = 'secs')),
     r_version = R.version.string,
     git_sha = tryCatch(
       system('git rev-parse --short HEAD', intern = TRUE),
       error = function(e) NA_character_))
-), file.path(out_dir, '13-two-component-grid.rds'))
+), file.path(out_dir, OUTFILE))
 
-cat(sprintf('\nWrote analysis/data/13-two-component-grid.rds (%.0f sec)\n',
+cat(sprintf('\nWrote analysis/data/%s (%.0f sec)\n', OUTFILE,
             as.numeric(difftime(Sys.time(), t0, units = 'secs'))))

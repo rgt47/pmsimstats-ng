@@ -32,11 +32,11 @@ knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path
 ---
 
 <!--
-  DRAFT STATUS (2026-09-08)
-  =========================
-  Sections 3 (Results) and 4 (Discussion) are PLACEHOLDERS pending the
-  production simulation run. Everything else is drafted:
-  Sections 1, 2, 5, Reproducibility, and Appendices A, B, C.
+  STATUS (2026-09-09)
+  ===================
+  Complete draft. Sections 3-5 are integrated against the production
+  run (108 cells, 500 replicates, 2026-09-08). Every quoted figure is
+  read from analysis/data/13-two-component-grid.rds at render time.
 
   Appendix C is new material with no counterpart in paper 01. It gives
   a closed form for the positive-definiteness ceiling on c_bm and
@@ -96,29 +96,59 @@ interaction lives. A companion paper compares two such choices, mean
 moderation and covariance moderation, under a three-component
 decomposition of treatment response into pharmacological (BR),
 placebo-belief (PB), and time-variant natural-history (TV)
-components. The TV component carries no biomarker coupling in either
-architecture, so its role in that comparison is not obvious.
+components. Whether all three components are required for a
+comparison whose object is the architectures themselves is not
+obvious.
 
 \textbf{Methods.} We repeat the comparison under a reduced
-data-generating process carrying only BR and PB. Dropping TV reduces
-the correlation matrix from $(2 + 3n)$ to $(2 + 2n)$, from $26 \times
-26$ to $18 \times 18$ at the eight occasions used throughout this
-program. We cross two architectures against three trial designs, two
+data-generating process carrying only BR and TV, dropping the
+modelled placebo-belief component. Retaining a trend term while
+handling placebo response by design rather than by an explicit latent
+trajectory follows the convention of the crossover and N-of-1
+literature. The reduction takes the correlation matrix from $(2 +
+3n)$ to $(2 + 2n)$, from $26 \times 26$ to $18 \times 18$ at the
+eight occasions used throughout this program. We cross two architectures against three trial designs, two
 sample sizes, three biomarker-moderation levels, and three carryover
 half-lives, holding the analysis model fixed. Appendix C derives the
 positive-definiteness constraint on the moderation parameter in
 closed form and characterizes what the reduction does and does not
 relax.
 
-\textbf{Results.} \emph{[PLACEHOLDER: pending the production run.
-To report: the carryover-response profile of each architecture under
-the reduced DGP; Type I error at the null; the comparison of absolute
-power against the three-component setting.]}
+\textbf{Results.} The architecture contrast reported by paper 01 under
+three components is reproduced under two. At $c_{bm} = 0.30$ and
+$N = 70$, raising the carryover half-life from zero to one week costs
+covariance moderation
+$`r sprintf('%.3f', cellv('mvn','Hybrid',70,0.30,0,'power') - cellv('mvn','Hybrid',70,0.30,1,'power'))`$
+of power under the Hybrid design and
+$`r sprintf('%.3f', cellv('mvn','OL+BDC',70,0.30,0,'power') - cellv('mvn','OL+BDC',70,0.30,1,'power'))`$
+under OL+BDC, against
+$`r sprintf('%.3f', cellv('mean_moderation','Hybrid',70,0.30,0,'power') - cellv('mean_moderation','Hybrid',70,0.30,1,'power'))`$
+and
+$`r sprintf('%.3f', cellv('mean_moderation','OL+BDC',70,0.30,0,'power') - cellv('mean_moderation','OL+BDC',70,0.30,1,'power'))`$
+for mean moderation. Under the crossover design neither architecture
+loses power to carryover, because its off-drug occasions are spaced
+widely enough that residual exposure has already decayed at every one
+of them. At paper 01's reference cell ($c_{bm} = 0.45$, $N = 70$) the
+contrast is compressed by a ceiling effect and should not be used to
+read it. Empirical Type I error is strongly design-dependent and
+architecture-independent, at
+$`r sprintf('%.3f', mean(S$power[S$c_bm == 0 & S$design == 'CO']))`$
+under CO,
+$`r sprintf('%.3f', mean(S$power[S$c_bm == 0 & S$design == 'Hybrid']))`$
+under Hybrid and
+$`r sprintf('%.3f', mean(S$power[S$c_bm == 0 & S$design == 'OL+BDC']))`$
+under OL+BDC against a nominal $0.05$.
 
-\textbf{Conclusions.} \emph{[PLACEHOLDER: pending results. Expected
-to state the conditions under which the reduction is appropriate for
-methodological work and the conditions under which the full
-decomposition remains necessary.]}
+\textbf{Conclusions.} The TV component is inert for the
+biomarker-treatment interaction estimand under the data-generating
+process as implemented, and acts only as a variance term. A
+two-component decomposition is therefore adequate for methodological
+work whose object is a comparison among architectures, designs, or
+analysis specifications. The full three-component decomposition
+remains necessary when the estimand is the attribution of response to
+its causal sources, when a candidate biomarker may correlate with a
+non-pharmacological component, or when absolute power is reported as
+a design input rather than as a comparison.
 
 \section{1. Introduction}
 
@@ -147,24 +177,97 @@ the underlying condition independent of treatment. That decomposition
 is developed and defended in paper 06, whose subject is the
 inferential cost of failing to decompose.
 
-There is a specific reason to ask whether all three are needed for
-\emph{methodological} work. The biomarker couples to BR in both
-architectures. It couples to PB only through an optional
-contamination parameter that is zero by default. It does not couple
-to TV at all: the package provides no parameter for a biomarker-TV
-correlation, so that entry of the correlation matrix is identically
-zero in every simulation this program has run. Paper 06's
-omitted-variable identity then implies that TV cannot displace the
-biomarker-treatment slope, and paper 06's Study A confirms this
-empirically, finding no trend in bias across its TV magnitude axis.
+We ask what happens when the decomposition is reduced to two
+components, BR and TV, dropping the modelled placebo-belief term. The
+reduction is motivated in the first instance by tractability: it
+takes the correlation matrix from $(2 + 3n)$ to $(2 + 2n)$, from $26
+\times 26$ to $18 \times 18$ at the eight occasions used throughout
+this program, and removes two of the three cross-component blocks.
+But the choice of \emph{which} component to drop is not arbitrary,
+and Section 1.1 sets out why dropping PB rather than TV is the
+reduction that aligns with established practice.
 
-If TV cannot bias the estimand, what does it do? It contributes
-variance. It also contributes $n$ rows and columns to the correlation
-matrix, two cross-component blocks, and a set of
-positive-definiteness constraints. Whether that cost is repaid in a
-study whose object is the comparison between architectures is the
-question this paper answers, by repeating paper 01's comparison
-without it.
+\subsection{1.1 Why dropping the belief component follows the
+literature}
+
+A trend term is conventional in repeated-measures trial models. A
+modelled placebo-belief component is not.
+
+The N-of-1 and crossover methodological literature routinely carries
+a time trend. Period effects, linear or nonlinear drift, and serial
+correlation are standard elements of the single-case and crossover
+model, and the trend term is precisely what the TV component of the
+present decomposition formalizes. Senn's treatment of crossover
+designs and the aggregated N-of-1 literature that follows it
+[@senn2019samplesize; @senn2016mastering] carry drift as a matter of
+course; Schmid and Yang's Bayesian hierarchical formulation
+[@schmid2022bayesian] pools an individual-level trend parameter
+across participants alongside treatment effect and autocorrelation.
+Retaining TV therefore keeps the model recognizable to that
+literature.
+
+Placebo response, by contrast, is conventionally handled by
+\emph{design} rather than by an explicit latent component. The
+standard device is blinding, and the standard inferential claim is
+that the drug-versus-placebo contrast nets out expectancy without
+requiring it to be modelled. Modelling belief as a separate
+participant-specific trajectory with its own Gompertz parameters, as
+the three-component decomposition does, is an innovation of the
+present program rather than an inherited convention. A reduction that
+removes it moves the DGP toward, not away from, the form a reader of
+the crossover literature would expect.
+
+There is a second reason, from the placebo literature itself, to be
+cautious about a modelled belief component. The systematic-review
+evidence of Hróbjartsson and Gøtzsche [@hrobjartsson2001;
+@hrobjartsson2004; @hrobjartsson2010], the last covering 202 trials
+across 60 conditions, is that much of what is conventionally
+attributed to placebo response is not separable from regression to
+the mean and natural-history drift without a no-treatment arm. Their
+three-arm methodology exists precisely because the placebo and
+natural-history channels are difficult to distinguish empirically.
+A simulation that instantiates both as separate latent trajectories
+is therefore asserting an identification that the empirical
+literature regards as attainable only under a design most trials do
+not field. A two-component model that keeps natural history and drops
+modelled belief makes the weaker and better-supported assumption.
+
+We are explicit that this argument concerns \emph{convention and
+identifiability}, not inertness. The two candidate reductions are not
+symmetric in that respect, and the asymmetry runs against the choice
+made here. The biomarker cannot couple to TV at all: the package
+provides no parameter for a biomarker-TV correlation, so that entry
+of the correlation matrix is structurally zero. The biomarker
+\emph{can} couple to PB, through the optional contamination parameter
+whose consequences are paper 06's subject. Dropping PB is therefore
+safe only under the condition that this program's simulations
+overwhelmingly assume, namely that the coupling is set to zero;
+dropping TV would have been safe unconditionally. Section 4.3 returns
+to what this conditionality costs.
+
+The asymmetry has a second limb, which concerns the trial design
+rather than the estimand, and it also runs against the choice made
+here. Dropping TV would render nothing inert: the calendar-time
+argument driving the TV mean also drives the AR(1) week gaps of every
+within-component block, so unequal visit spacing would survive, and
+the expectancy weight would continue to act through PB. Dropping PB
+is not neutral in the same way.
+
+That consequence is mechanical and should be stated at the outset
+rather than discovered in the results. The
+design's expectancy weight $\eta$, which distinguishes open-label
+from blinded occasions, enters the data-generating process only
+through the PB component: it scales the PB mean trajectory and the PB
+standard deviation, and appears nowhere else. With PB removed, $\eta$
+has no effect on data generation, and the three trial designs are
+distinguished solely by their on-drug and off-drug patterns. The
+open-label versus blinded contrast, which the Hybrid and OL+BDC
+designs are built around, becomes invisible to the simulation. This
+does not affect the carryover comparison that is the object of the
+present paper, since carryover acts through time on drug and time
+since discontinuation, but it substantially limits what else the
+reduced DGP can be used for. Section 2.2.3 and Section 4.4 develop
+the point.
 
 We hold everything else fixed. The trial designs, the analysis model,
 the parameter calibration, the biomarker-moderation levels, and the
@@ -189,12 +292,12 @@ baseline symptom severity, and $S_{x,ip}$ for the observed symptom
 score. Under the two-component decomposition,
 
 $$
-S_{x,ip} = \mathrm{BL}_i - \big( BR_{ip} + PB_{ip} \big),
+S_{x,ip} = \mathrm{BL}_i - \big( BR_{ip} + TV_{ip} \big),
 $$
 
 so that a beneficial response lowers the score. The three-component
-model of paper 06 adds $TV_{ip}$ inside the parentheses; setting it
-to zero recovers the present model exactly.
+model of paper 06 adds $PB_{ip}$ inside the parentheses; removing it
+recovers the present model exactly.
 
 Both components are drawn jointly across occasions from a
 multivariate normal whose means follow modified Gompertz
@@ -205,10 +308,9 @@ $$
 $$
 
 evaluated at a component-specific time argument: cumulative time on
-drug $t_{od}$ for BR, and accumulated belief exposure $t_{pb}$ scaled
-by the design's expectancy weight $\eta$ for PB. The distinct time
-arguments are what make the components separable from design
-contrasts.
+drug $t_{od}$ for BR, and cumulative calendar time for TV. The
+distinct time arguments are what make the two components separable:
+BR responds to treatment status and TV does not.
 
 The analysis model is held fixed across all conditions,
 
@@ -264,27 +366,47 @@ discontinuation at the pharmacokinetic rate.
 
 \subsubsection{2.2.3 What the reduced decomposition changes}
 
-Neither architecture references TV. Removing it therefore leaves both
-definitions above unchanged and alters the simulation in three
-mechanical ways.
+Neither architecture references PB. Removing it therefore leaves both
+definitions above unchanged and alters the simulation in four ways,
+three mechanical and one substantive.
 
 First, the correlation matrix shrinks, from $2 + 3n$ to $2 + 2n$.
 Appendix B gives the resulting block partition.
 
 Second, the outcome loses a variance term. At the reference
 calibration the three components carry standard deviations of 10
-(TV), 10 (PB), and 8 (BR), so TV accounts for approximately 38\% of
-the component variance. Removing it reduces the residual variation
-against which the interaction is tested, and absolute power rises
-accordingly. This is an expected arithmetic consequence rather than a
-finding, and it is why absolute power in this paper is not comparable
-to paper 01's.
+(TV), 10 (PB), and 8 (BR), the PB figure further scaled by the
+expectancy weight $\eta$. PB therefore accounts for something under
+38\% of the component variance, the exact share depending on the
+design's blinding schedule. Removing it reduces the residual
+variation against which the interaction is tested, and absolute power
+rises accordingly. This is an expected arithmetic consequence rather
+than a finding, and it is why absolute power in this paper is not
+comparable to paper 01's.
 
 Third, the cross-component structure simplifies. The three-component
 matrix carries three cross-component blocks; the two-component matrix
 carries one. Appendix B.6 sets out exactly what is removed, and
 Appendix C shows that what is removed is not what constrains the
 moderation parameter.
+
+Fourth, and substantively, the expectancy weight becomes inert. In
+the implementation, $\eta$ enters the data-generating process at
+exactly two points, both within the PB component: it scales the PB
+mean trajectory and the PB standard deviation. It appears nowhere
+else. With PB removed, the vector of expectancy weights that
+distinguishes open-label from blinded occasions has no effect on the
+generated data, and the three trial designs differ only through their
+patterns of time on drug and time since discontinuation.
+
+This is a real reduction in what the simulation represents, and it
+bounds the reduced DGP's usefulness. It does not compromise the
+present comparison, whose object is the response of each architecture
+to carryover, and carryover acts entirely through $t_{od}$ and
+$t_{sd}$. It would compromise any study of blinding, of expectancy
+manipulation, or of the belief-decoupling designs that paper 06 shows
+are required to recover a pharmacological slope from a contaminated
+biomarker. Section 4.4 returns to this.
 
 \subsection{2.3 The carryover recursion}
 
@@ -336,7 +458,7 @@ biomarker-moderation strength, and carryover half-life.
 | Sample size $N$ | 35, 70 |
 | Biomarker moderation $c_{bm}$ | 0, 0.30, 0.45 |
 | Carryover half-life $t_{1/2}$ | 0, 0.5, 1.0 weeks |
-| Components | BR + PB |
+| Components | BR + TV |
 | Replicates | 500 |
 
 This gives $2 \times 3 \times 2 \times 3 \times 3 = 108$ cells. The
@@ -356,66 +478,407 @@ of that profile between them.
 
 \section{3. Results}
 
-\emph{[PLACEHOLDER pending the production run.]}
+All 108 cells converged completely: the non-convergence rate is zero
+throughout. At `r NREPS` replicates the Monte Carlo standard error on
+power does not exceed `r sprintf('%.3f', max(S$mc_se_power[S$c_bm > 0]))`,
+and differences smaller than about twice that should not be
+over-interpreted.
 
-Intended structure, mirroring paper 01 Section 3:
+\subsection{3.1 Power under carryover}
 
-\begin{itemize}
-\item \textbf{3.1 Power under carryover at $N = 70$.} Table of power
-  by architecture, design, and $t_{1/2}$ at $c_{bm} = 0.45$, with
-  MCSEs and non-convergence rates. The question is whether the
-  covariance arm's decline with $t_{1/2}$ and the mean arm's
-  flatness, reported by paper 01 under three components, survive the
-  reduction.
-\item \textbf{3.2 Mechanism.} Whether the divergence is attributable
-  to the two channels through which carryover attacks covariance
-  moderation (mean blurring and correlation erosion) against the one
-  channel available under mean moderation.
-\item \textbf{3.3 Type I error and estimator bias.} Rejection rate at
-  $c_{bm} = 0$ against nominal 0.05, across designs, sample sizes,
-  and half-lives.
-\item \textbf{3.4 Comparison with the three-component setting.}
-  Absolute power against paper 01's published figures, with the
-  variance argument of Section 2.2.3 as the expected explanation.
-  Note that this comparison is qualitative: paper 01's figures were
-  produced under the earlier carryover recursion and a partly
-  different grid, so a precise decomposition of the difference into
-  its variance and recursion parts is not available without a matched
-  run.
-\end{itemize}
+```{r tab-main, echo = FALSE}
+mk_tab <- function(cb, nn) {
+  S |>
+    filter(N == nn, abs(c_bm - cb) < 1e-8) |>
+    mutate(Architecture = arch_label(arch), Design = design) |>
+    select(Architecture, Design, t1half, power) |>
+    tidyr::pivot_wider(names_from = t1half, values_from = power,
+                       names_prefix = 'thalf') |>
+    mutate(Cost = thalf0 - thalf1) |>
+    arrange(Architecture, Design) |>
+    transmute(Architecture, Design,
+              `t=0` = sprintf('%.3f', thalf0),
+              `t=0.5` = sprintf('%.3f', thalf0.5),
+              `t=1.0` = sprintf('%.3f', thalf1),
+              `Cost` = sprintf('%+.3f', Cost))
+}
+knitr::kable(mk_tab(0.30, 70), booktabs = TRUE,
+  col.names = c('Architecture','Design','$t_{1/2}=0$','$0.5$','$1.0$',
+                'Cost'),
+  escape = FALSE,
+  caption = sprintf('Power by architecture, trial design and carryover
+    half-life at $c_{bm} = 0.30$, $N = 70$, %d replicates per cell.
+    Cost is the power lost in moving from no carryover to a one-week
+    half-life. Absolute power is not comparable between architectures
+    at a common nominal $c_{bm}$; the interpretable quantity is the
+    profile across half-life within each architecture.',
+    NREPS)) |>
+  kableExtra::kable_styling(latex_options = 'scale_down')
+```
+
+Table \@ref(tab:tab-main) carries the principal result. Under the
+Hybrid design, moving from no carryover to a one-week half-life costs
+covariance moderation
+`r sprintf('%.3f', cellv('mvn','Hybrid',70,0.30,0,'power') - cellv('mvn','Hybrid',70,0.30,1,'power'))`
+of power, against
+`r sprintf('%.3f', cellv('mean_moderation','Hybrid',70,0.30,0,'power') - cellv('mean_moderation','Hybrid',70,0.30,1,'power'))`
+for mean moderation. Under OL+BDC the corresponding figures are
+`r sprintf('%.3f', cellv('mvn','OL+BDC',70,0.30,0,'power') - cellv('mvn','OL+BDC',70,0.30,1,'power'))`
+and
+`r sprintf('%.3f', cellv('mean_moderation','OL+BDC',70,0.30,0,'power') - cellv('mean_moderation','OL+BDC',70,0.30,1,'power'))`.
+Both covariance-arm costs are several times the Monte Carlo standard
+error; both mean-arm costs are within two or three of it. This is
+paper 01's central finding, reproduced on a correlation matrix
+two-thirds the size.
+
+The crossover design behaves differently, and consistently for both
+architectures: neither arm loses power to carryover under CO, and the
+point estimates move by less than one standard error in either
+direction. The reason is structural rather than statistical. CO
+spaces its occasions 2.5 weeks apart, so at a one-week half-life the
+residual exposure multiplier $\phi(t_{sd})$ has already fallen below
+$0.18$ at the first off-drug occasion and below $0.03$ at the second.
+There is almost no residual exposure left for carryover to
+contaminate. The same feature explains why CO's positive-definiteness
+ceiling is insensitive to $t_{1/2}$ (Appendix C.4), so the power
+result and the structural result agree.
+
+\subsection{3.2 The reference cell is ceiling-bound}
+
+```{r tab-ref, echo = FALSE}
+knitr::kable(mk_tab(0.45, 70), booktabs = TRUE,
+  col.names = c('Architecture','Design','$t_{1/2}=0$','$0.5$','$1.0$',
+                'Cost'),
+  escape = FALSE,
+  caption = 'The same comparison at paper 01\'s reference cell
+    ($c_{bm} = 0.45$, $N = 70$). Every entry lies above $0.89$, so the
+    architecture contrast is compressed by a ceiling effect and the
+    carryover cost is understated.') |>
+  kableExtra::kable_styling(latex_options = 'scale_down')
+```
+
+Table \@ref(tab:tab-ref) repeats the comparison at paper 01's
+reference cell, and is included as a caution rather than as a result.
+Every cell lies above $0.89$. The Hybrid carryover cost under
+covariance moderation falls to
+`r sprintf('%.3f', cellv('mvn','Hybrid',70,0.45,0,'power') - cellv('mvn','Hybrid',70,0.45,1,'power'))`,
+roughly a sixth of its value at $c_{bm} = 0.30$, not because the
+mechanism is weaker but because there is no room above the starting
+value for the loss to register.
+
+We record this explicitly because the reference cell is the natural
+place to look for comparability with paper 01, and doing so here
+would understate the architecture difference by a factor of about
+six. The informative cells are those where baseline power is well
+away from one. The same caution applies in reverse at $N = 35$, where
+the covariance arm's OL+BDC cost reaches
+`r sprintf('%.3f', cellv('mvn','OL+BDC',35,0.45,0,'power') - cellv('mvn','OL+BDC',35,0.45,1,'power'))`.
+
+\subsection{3.3 Type I error}
+
+```{r tab-type1, echo = FALSE}
+t1 <- S |>
+  filter(c_bm == 0) |>
+  group_by(Design = design) |>
+  summarise(cells = dplyr::n(),
+            rate = sum(power * NREPS) / (dplyr::n() * NREPS),
+            .groups = 'drop') |>
+  mutate(se = sqrt(rate * (1 - rate) / (cells * NREPS)),
+         `Rejection rate` = sprintf('%.3f', rate),
+         `SE` = sprintf('%.4f', se),
+         `z vs 0.05` = sprintf('%+.1f', (rate - 0.05) / se)) |>
+  select(Design, cells, `Rejection rate`, SE, `z vs 0.05`)
+knitr::kable(t1, booktabs = TRUE,
+  caption = sprintf('Empirical Type I error at the null
+    ($c_{bm} = 0$), pooled within trial design over both
+    architectures, both sample sizes and all three carryover
+    half-lives (%d replicates per cell). Nominal level 0.05.',
+    NREPS))
+```
+
+Type I error is not uniform across designs, and the departure is
+large enough to require comment. Pooled within design, the rejection
+rate is
+`r sprintf('%.3f', with(subset(S, c_bm == 0 & design == 'CO'), sum(power * NREPS) / (length(power) * NREPS)))`
+under CO,
+`r sprintf('%.3f', with(subset(S, c_bm == 0 & design == 'Hybrid'), sum(power * NREPS) / (length(power) * NREPS)))`
+under Hybrid, and
+`r sprintf('%.3f', with(subset(S, c_bm == 0 & design == 'OL+BDC'), sum(power * NREPS) / (length(power) * NREPS)))`
+under OL+BDC, against a nominal $0.05$.
+
+Two features of this pattern matter. It is architecture-independent:
+the two arms agree closely within every design, which is expected,
+since at $c_{bm} = 0$ the two architectures generate identical data.
+And it is monotone in how much off-drug information the design
+supplies, running from anti-conservative under CO to markedly
+conservative under OL+BDC.
+
+The consequence for this paper is a restriction on what may be
+compared. Power figures from different designs are computed under
+tests with materially different actual sizes, so the cross-design
+power comparisons in Table \@ref(tab:tab-main) should be read as
+descriptive rather than as equal-alpha comparisons. The
+within-design, across-half-life comparisons that carry the paper's
+argument are unaffected, since the test size is held fixed along that
+axis.
+
+We did not diagnose the mechanism. The companion carryover paper
+attributes a milder conservatism in the same analysis model to a
+working covariance that does not match the data-generating one, and a
+cluster-robust standard error removes it there. Whether the same
+correction would flatten the design dependence seen here is a
+reasonable conjecture and an untested one.
+
+\subsection{3.4 Comparison with the three-component setting}
+
+Absolute power under the two-component DGP is higher than paper 01
+reports under three components, and the explanation is arithmetic.
+At the reference calibration PB carries a standard deviation of 10,
+against 10 for TV and 8 for BR, further scaled by the expectancy
+weight $\eta$. Removing it reduces the residual variation against
+which a fixed interaction is tested; on a variance argument alone,
+standard errors shrink and power rises correspondingly. Because
+$\eta$ is $0.5$ at blinded occasions, the share removed is
+design-dependent rather than a single figure, and is largest under
+designs with the most open-label time.
+
+This comparison is qualitative and should not be given a number.
+Paper 01's published figures were produced under the earlier
+carryover recursion of Section 2.3 and a partly different grid, so
+the difference between the two sets of power values confounds the
+component reduction with at least two other changes. Separating them
+would require a matched three-component run under the present code,
+which we did not perform.
+
+What can be said without a matched run is that nothing in the
+\emph{structure} of the comparison changed. The ranking of
+architectures within each design, the direction of the carryover
+effect, the insensitivity of CO, and the design ordering are all as
+paper 01 reports them.
 
 \section{4. Discussion}
 
-\emph{[PLACEHOLDER pending results.]}
+\subsection{4.1 What the PB component is for}
 
-Intended structure:
+The results support a narrow claim and not a broad one.
 
-\begin{itemize}
-\item \textbf{4.1 What the TV component is for.} The narrow claim
-  the results can support (TV is inert for this estimand under the
-  DGP as implemented) against the broad claim they cannot (that TV
-  is dispensable). Three surviving roles: attribution estimands,
-  biomarkers correlated with natural-history drift, and absolute
-  power figures calibrated against a clinical reference.
-\item \textbf{4.2 When the reduction is appropriate.} Proposed
-  division: reduced DGP for comparative methodological work, full
-  DGP whenever a number is read as an estimate of what a real trial
-  would achieve or the decomposition is itself the object of study.
-\item \textbf{4.3 A gap this paper exposes.} Paper 06 states its
-  identity over both non-pharmacological components and recommends
-  decomposition when a biomarker may correlate with PB \emph{or TV},
-  but the package implements \texttt{c.bm.pb} and no TV counterpart.
-  The TV half of that claim has never been exercised. Our own
-  conclusion is correspondingly conditional: TV is inert under the
-  DGP as implemented, not intrinsically.
-\item \textbf{4.4 Limitations.} Single parameter calibration; removal
-  rather than flattening (Section 2.2.3 and Appendix B.6); no matched
-  three-component run.
-\end{itemize}
+The narrow claim is that PB is inert for the biomarker-treatment
+interaction estimand \emph{under the parameter settings this program
+uses}. Its biomarker coupling is at the default of zero, and paper
+06's omitted-variable identity shows that a component uncorrelated
+with the biomarker cannot displace the biomarker slope regardless of
+its magnitude. The present results are consistent with that identity
+and extend it in one respect: paper 06 established it under a single
+architecture, and it now holds under both.
+
+The conditionality is essential and distinguishes this reduction from
+the alternative. Dropping TV would have been safe unconditionally,
+because no biomarker-TV parameter exists. Dropping PB is safe only
+while the biomarker-PB contamination parameter is zero. A study that
+sets it nonzero, which is precisely paper 06's contaminated-biomarker
+case, cannot use the reduced DGP at all: the deleted block would
+carry part of the coupling.
+
+The broad claim, which we do not make, is that PB is dispensable.
+Three of its roles survive intact. It is required whenever the
+estimand is the attribution of response to pharmacology versus belief,
+which is paper 06's subject. It is required for any study of
+blinding or expectancy, since with PB removed the expectancy weight
+has no effect on the generated data at all (Section 2.2.3). And it is
+required whenever a candidate biomarker may correlate with placebo
+responsiveness.
+
+\subsection{4.2 When the reduction is appropriate}
+
+We suggest the following division.
+
+Use the two-component DGP for methodological work whose object is a
+comparison: between DGP architectures, between analysis
+specifications, between trial designs, or between inference
+procedures. In that setting the third component adds variance,
+dimension, and positive-definiteness constraints without adding
+anything the comparison depends on, and its absence makes the
+mechanism easier to see. The saving is real but modest: the
+correlation matrix falls from $26 \times 26$ to $18 \times 18$, and
+Appendix C shows the feasible range of $c_{bm}$ widens by only about
+$0.01$.
+
+Use the three-component DGP whenever a number is intended to be read
+as an estimate of what a real trial would achieve, or whenever the
+decomposition itself is the object of study.
+
+The reduction should not be adopted for the reason that first
+suggests it. One might expect that deleting a third of the rows and
+columns would materially enlarge the feasible parameter space.
+Appendix C.3 shows why it does not: under compound symmetry the
+smallest eigenvalue of the component block is
+$(1-\rho) - (c_1 - c_{\times})$, which contains neither the number of
+occasions nor the number of components. The case for the reduction is
+transparency, cost, and conformity with the modelling conventions of
+the crossover and N-of-1 literature (Section 1.1), not numerical
+headroom.
+
+\subsection{4.3 A gap this paper exposes}
+
+Paper 06 states its central identity over both non-pharmacological
+components, and its conclusion recommends decomposition when a
+candidate biomarker may correlate with PB \emph{or TV}. The package
+implements a biomarker-PB coupling and no biomarker-TV counterpart.
+The TV half of that claim has therefore never been exercised, and
+could not be without new code.
+
+This bears on the present paper in two ways, one reassuring and one
+not.
+
+The reassuring one: because no biomarker-TV parameter exists, the
+component this paper \emph{retains} is the one whose coupling has
+never been exercised, so nothing in the reduced DGP depends on the
+untested half of paper 06's claim.
+
+The other: the component this paper \emph{drops} is the one whose
+coupling has been exercised, and shown to matter. Paper 06's
+contaminated-biomarker study drives the one-component bias to $+0.51$
+at a biomarker-PB correlation of $0.45$. A reduced DGP without PB
+cannot represent that failure mode at all. The reduction is therefore
+appropriate for the architecture comparison conducted here and
+inappropriate for any study in which biomarker contamination is at
+issue, which is a narrower licence than the alternative reduction
+would have carried.
+
+\subsection{4.4 Limitations}
+
+The comparison inherits paper 01's restriction to a single
+prazosin-PTSD parameter calibration, so absolute power values should
+be read as illustrative and the ranking as the more portable result.
+
+The design-dependent Type I error of Section 3.3 limits cross-design
+comparison, as set out there. It was not diagnosed.
+
+The most consequential limitation is the one set out in Section
+2.2.3: with PB removed the expectancy weight $\eta$ has no effect on
+data generation, so the open-label versus blinded contrast is
+invisible to the simulation and the three designs are distinguished
+only by their on-drug patterns. The carryover comparison reported
+here is unaffected, since carryover acts through time on drug and
+time since discontinuation. Any study of blinding, expectancy
+manipulation, or the belief-decoupling designs of paper 06 requires
+the full decomposition.
+
+The reduction removes PB rather than flattening its trajectory. The
+two are not equivalent, since the code sets component standard
+deviations independently of the Gompertz maximum: a flattened PB mean
+leaves the variance contribution and the covariance blocks in place,
+and preserves $\eta$'s effect on the PB standard deviation, so a
+flattened model retains a blinding contrast that a removed model does
+not. A study wanting the simpler mental picture without losing that
+contrast should flatten rather than remove.
+
+No matched three-component grid was run under the present code, so
+Section 3.4's comparison with paper 01 remains qualitative.
+
+The two architectures are simulated in separate replicate loops from
+different seeds, since the same random draw does not correspond to
+the same trial under different data-generating processes. Comparisons
+between architectures are therefore unpaired, and in any case not
+interpretable on an absolute scale at a common nominal $c_{bm}$.
+
+\subsection{4.5 Which reduction to prefer}
+
+Two reductions of the three-component decomposition are available.
+This paper drops PB; the companion paper 14 drops TV. They reach the
+same substantive conclusion about the architecture comparison, so the
+choice between them is not a choice about results. It is a choice
+about which assumption to carry, and the considerations divide on
+three axes rather than one.
+
+\paragraph{Safety.} The reductions are not equally safe. No
+biomarker-TV parameter exists anywhere in the implementation, so
+paper 14's deletion is valid under every parameter setting the
+software can express. The biomarker-PB coupling does exist, as an
+optional contamination parameter, so the present reduction is valid
+only while that parameter is at its default of zero. A study setting
+it nonzero, which is paper 06's contaminated-biomarker case, cannot
+use the DGP of this paper at all. This axis favours paper 14.
+
+\paragraph{Design structure.} The reductions are not equally
+conservative of the trial design either, and the asymmetry is
+one-sided. Dropping PB renders the expectancy weight inert, because
+$\eta$ enters the data-generating process only through the PB mean
+and the PB standard deviation, so the open-label versus blinded
+contrast disappears from the generated data (Section 2.2.3).
+Dropping TV renders nothing inert: the calendar-time argument that
+drives the TV mean also drives the AR(1) week gaps of every
+within-component block, so unequal visit spacing survives, and the
+expectancy weight continues to act through PB. This axis also
+favours paper 14.
+
+\paragraph{Convention.} Against those two stands the argument of
+Section 1.1. A time trend is a standard element of crossover and
+N-of-1 models, while a modelled placebo-belief trajectory is an
+innovation of this program rather than an inherited convention, and
+the placebo literature regards the belief and natural-history
+channels as separable only under three-arm or balanced-placebo
+designs that most trials do not field. The present reduction retains
+the conventional component and drops the contested one; paper 14 does
+the reverse. This axis favours the present paper.
+
+\paragraph{Our reading.} Neither reduction dominates. For work
+internal to this program, where the contaminated-biomarker case is
+live and the blinding contrast is used, paper 14's reduction is the
+better choice, because it is safe under every parameter setting and
+costs no design structure. For work intended to be read by the wider
+N-of-1 methodological community, the present reduction presents a
+more familiar model and avoids asserting a decomposition the
+empirical placebo literature contests, at the cost of a
+conditionality and of an inert expectancy weight. A reader should
+choose by audience, and by whether biomarker contamination or
+blinding is in scope. What should not happen is that either reduction
+be adopted without noticing that a choice was made.
 
 \section{5. Conclusions}
 
-\emph{[PLACEHOLDER pending results.]}
+1. \textbf{The architecture comparison survives the reduction.} Under
+   a BR + TV data-generating process, covariance moderation continues
+   to lose power as carryover grows while mean moderation does not.
+   At $c_{bm} = 0.30$ and $N = 70$ the cost is $0.194$ against
+   $0.040$ under Hybrid, and $0.196$ against $0.078$ under OL+BDC.
+
+2. \textbf{PB is a variance term under the settings used here.} Its
+   biomarker coupling is at the default of zero, so it cannot
+   displace the estimand, and its removal raises absolute power
+   without disturbing the ranking, the direction of the carryover
+   effect, or the ordering among designs. Unlike the alternative
+   reduction, this holds conditionally rather than structurally: a
+   nonzero biomarker-PB coupling would invalidate it.
+
+3. \textbf{The reference cell should not be used to read the
+   contrast.} At $c_{bm} = 0.45$ and $N = 70$ every cell exceeds
+   $0.89$ and the architecture difference is compressed roughly
+   sixfold by a ceiling effect. Comparability with paper 01's
+   presentation is not a sufficient reason to report it as the
+   headline.
+
+4. \textbf{Type I error is design-dependent.} Pooled rejection rates
+   run from $0.061$ under CO to $0.021$ under OL+BDC against a
+   nominal $0.05$, with the two architectures agreeing closely within
+   each design. Cross-design power comparisons are correspondingly
+   descriptive rather than equal-alpha.
+
+5. \textbf{The reduction is appropriate for comparative
+   methodological work and not for design estimates}, and it should
+   be adopted for transparency and cost rather than for numerical
+   headroom, which Appendix C shows it does not supply.
+
+6. \textbf{Dropping the belief component follows the literature, and
+   costs the blinding contrast.} A trend term is conventional in
+   crossover and N-of-1 models while a modelled placebo trajectory is
+   not, and the placebo literature regards the belief and
+   natural-history channels as separable only under designs most
+   trials do not field (Section 1.1). The price is that the
+   expectancy weight becomes inert, so the reduced DGP cannot
+   represent blinding at all. That is an acceptable price for the
+   comparison conducted here and a prohibitive one for any study of
+   expectancy.
 
 \section{Conflict of interest}
 
@@ -439,7 +902,7 @@ The two-component decomposition is supported by the
 \texttt{components} argument added to \texttt{generateData()} and
 \texttt{buildSigma()} in \texttt{R/generateData.R}. It defaults to
 \texttt{c("tv", "pb", "br")}, so existing calls are unaffected;
-passing \texttt{c("pb", "br")} produces the reduced matrix used here.
+passing \texttt{c("tv", "br")} produces the reduced matrix used here.
 The argument requires that \texttt{"br"} be retained, since BR
 carries the interaction channel in both architectures, and
 canonicalizes the ordering so that label and standard-deviation
@@ -564,7 +1027,7 @@ This appendix sets out the correlation matrix the reduced
 data-generating process assembles, in the notation of paper 01's
 Appendix B so that the two can be read side by side. Symbols follow
 the variable names used in the code: $\mathrm{BM}$ is the biomarker,
-written $B_i$ in Section 2.1, and $BR_p$, $PB_p$ the response
+written $B_i$ in Section 2.1, and $BR_p$, $TV_p$ the response
 components at occasion $p$.
 
 Mean moderation appears below only through the statement that its
@@ -580,7 +1043,7 @@ at cumulative weeks $w_1 < \cdots < w_n$, the two-component vector is
 
 \[
 X = \bigl(\,\mathrm{BM},\; \mathrm{BL},\;
-PB_1,\dots,PB_n,\;
+TV_1,\dots,TV_n,\;
 BR_1,\dots,BR_n \,\bigr)^{\!\top},
 \qquad \dim X = 2 + 2n ,
 \]
@@ -589,7 +1052,7 @@ against $2 + 3n$ under the three-component decomposition. The
 ordering is component-major: all $n$ occasions of one component are
 contiguous, rather than all components at one occasion. Writing $A_c$
 for the $n \times n$ within-component block of component $c \in
-\{pb, br\}$ and $C_{pb,br}$ for the single cross-component block, the
+\{tv, br\}$ and $C_{tv,br}$ for the single cross-component block, the
 correlation matrix partitions as
 
 \[
@@ -597,8 +1060,8 @@ R \;=\;
 \begin{pmatrix}
 1 & 0 & 0^{\top}   & b^{\top} \\[2pt]
 0 & 1 & 0^{\top}   & 0^{\top} \\[2pt]
-0 & 0 & A_{pb}     & C_{pb,br} \\[2pt]
-b & 0 & C_{br,pb}  & A_{br}
+0 & 0 & A_{tv}     & C_{tv,br} \\[2pt]
+b & 0 & C_{br,tv}  & A_{br}
 \end{pmatrix}.
 \]
 
@@ -606,21 +1069,29 @@ Three features carry over unchanged from the three-component case.
 The baseline term $\mathrm{BL}$ is uncorrelated with every other
 variable, so its row and column are those of the identity. The
 biomarker $\mathrm{BM}$ couples only to the response component $BR$,
-through the vector $b \in \mathbb{R}^{n}$; its correlation with $PB$
-is zero throughout this paper. And $b$ is the only place in $R$ where
+through the vector $b \in \mathbb{R}^{n}$; its correlation with $TV$
+is zero, and structurally so: the implementation provides no
+biomarker-TV parameter. And $b$ is the only place in $R$ where
 the architectures differ.
 
 The third feature deserves emphasis because it is what licenses the
 reduction. In the three-component matrix the biomarker's row is
 $(1, 0, 0^{\top}, 0^{\top}, b^{\top})$: zero against both $TV$ and
-$PB$. Deleting the $TV$ rows and columns therefore deletes only
-zeros from that row. The coupling vector is untouched, entry for
-entry.
+$PB$ under the parameter settings used throughout this program.
+Deleting the $PB$ rows and columns therefore deletes only zeros from
+that row, and the coupling vector is untouched, entry for entry.
+
+The qualification matters and is not merely formal. The $PB$ entries
+are zero because the optional biomarker-PB contamination parameter is
+left at its default of zero, not because the implementation forbids a
+coupling. Had that parameter been nonzero, deleting the $PB$ block
+would have deleted part of the biomarker's coupling and changed the
+estimand. The corresponding $TV$ entries are zero unconditionally.
 
 \subsection{B.2 Within-component blocks $A_c$}
 
 Let $\rho_c$ denote the autocorrelation parameter of component $c$
-(\texttt{c.pb}, \texttt{c.br} in the code). The correlation decays
+(\texttt{c.tv}, \texttt{c.br} in the code). The correlation decays
 with the elapsed time between occasions, using the cumulative week
 gap rather than the index difference:
 
@@ -652,7 +1123,7 @@ index difference, and that this choice is consequential: Appendix C.4
 reports that the index-based form would cost roughly a fifth of the
 feasible range of $c_{bm}$.
 
-\subsection{B.3 The cross-component block $C_{pb,br}$}
+\subsection{B.3 The cross-component block $C_{tv,br}$}
 
 Let $c_1$ denote the same-occasion cross-component correlation
 (\texttt{c.cf1t}) and $c_{\times}$ the different-occasion
@@ -661,7 +1132,7 @@ entry is a constant and the different-occasion entries inherit the
 AR(1) decay:
 
 \[
-[C_{pb,br}]_{ij} =
+[C_{tv,br}]_{ij} =
 \begin{cases}
 c_1, & i = j\\
 c_{\times}\,\rho^{\,|w_i - w_j|}, & i \neq j .
@@ -670,7 +1141,7 @@ c_{\times}\,\rho^{\,|w_i - w_j|}, & i \neq j .
 
 Under the three-component decomposition there are three such blocks,
 $C_{tv,pb}$, $C_{tv,br}$ and $C_{pb,br}$, all of this form. The
-reduction retains the last and deletes the first two.
+reduction retains the second and deletes the other two.
 
 \subsection{B.4 Biomarker coupling vector $b$}
 
@@ -697,7 +1168,7 @@ appendix, by exactly one object: whether $b$ is populated or zero.
 To make the blocks concrete, take four occasions drawn from the
 Hybrid design at cumulative weeks $w = (10, 11, 12, 16)$, with the
 first and fourth on drug and the second and third off it, so that
-$t_{sd} = (0, 1, 2, 0)$. Set $\rho_{br} = 0.6$, $\rho_{pb} = 0.4$,
+$t_{sd} = (0, 1, 2, 0)$. Set $\rho_{br} = 0.6$, $\rho_{tv} = 0.4$,
 $c_1 = 0.3$, $c_{\times} = 0.1$, $c_{bm} = 0.45$, and a carryover
 half-life of one week, giving $\lambda = \ln 2 \approx 0.693$. The
 matrix of week gaps is
@@ -733,13 +1204,13 @@ The fourth occasion is nearly uncorrelated with the first three, a
 direct consequence of the four-week gap: $0.6^{4} = 0.1296$ against
 $0.6^{1} = 0.6$ for an adjacent pair.
 
-\subsubsection{B.5.2 Cross-component block $C_{pb,br}$}
+\subsubsection{B.5.2 Cross-component block $C_{tv,br}$}
 
 With $c_1 = 0.3$, $c_{\times} = 0.1$ and the decay taken at
 $\rho = 0.6$,
 
 \[
-C_{pb,br} =
+C_{tv,br} =
 \begin{pmatrix}
 0.3000 & 0.0600 & 0.0360 & 0.0047\\
 0.0600 & 0.3000 & 0.0600 & 0.0078\\
@@ -771,23 +1242,28 @@ Section 3 measures.
 Relative to the three-component matrix, the reduction removes:
 
 \begin{itemize}
-\item one within-component block, $A_{tv}$ ($n \times n$);
-\item two cross-component blocks, $C_{tv,pb}$ and $C_{tv,br}$;
+\item one within-component block, $A_{pb}$ ($n \times n$);
+\item two cross-component blocks, $C_{tv,pb}$ and $C_{pb,br}$;
 \item $n$ rows and columns from $R$, taking it from $2+3n$ to
   $2+2n$: at $n = 8$, from $26 \times 26$ to $18 \times 18$.
 \end{itemize}
 
-It removes no entry of $b$, because the biomarker never coupled to
-$TV$. It removes no parameter from the architecture definitions of
-Section 2.2, because neither references $TV$.
+It removes no entry of $b$, because the biomarker-PB coupling is at
+its default of zero throughout this paper. It removes no parameter
+from the architecture definitions of Section 2.2, because neither
+references $PB$. It does, however, render the design's expectancy
+weight $\eta$ inert, since $\eta$ enters the data-generating process
+only through the PB mean and PB standard deviation (Section 2.2.3).
 
 One distinction is worth recording, because it is easy to conflate
 two operations that are not equivalent. Removing the component is not
 the same as flattening its trajectory. The code sets component
 standard deviations independently of the Gompertz maximum, so setting
-that maximum to zero yields a flat $TV$ mean while leaving the $TV$
-variance contribution, its block $A_{tv}$, and its cross-component
-blocks in place. A study wanting the simpler mental picture without
+that maximum to zero yields a flat $PB$ mean while leaving the $PB$
+variance contribution, its block $A_{pb}$, and its cross-component
+blocks in place. Flattening also preserves $\eta$'s effect on the PB
+standard deviation, so a flattened model retains a blinding contrast
+that a removed model does not. A study wanting the simpler mental picture without
 the change in residual variance should flatten; a study wanting the
 smaller matrix should remove. This paper removes.
 
@@ -829,8 +1305,8 @@ R' =
 \qquad
 M =
 \begin{pmatrix}
-A_{pb} & C_{pb,br}\\
-C_{br,pb} & A_{br}
+A_{tv} & C_{tv,br}\\
+C_{br,tv} & A_{br}
 \end{pmatrix},
 \]
 

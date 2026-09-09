@@ -204,8 +204,12 @@ summary_tbl <- results |>
     non_convergence_rate = mean(!converged),
     power = mean(p < 0.05, na.rm = TRUE),
     mc_se_power = sqrt(power * (1 - power) / sum(!is.na(p))),
-    beta = mean(beta, na.rm = TRUE),
+    ## NOTE: empirical_se must be computed BEFORE `beta` is reassigned.
+    ## dplyr evaluates summarise() expressions in order, so putting
+    ## `beta = mean(beta)` first would leave sd() operating on a single
+    ## scalar and returning NA.
     empirical_se = stats::sd(beta, na.rm = TRUE),
+    beta = mean(beta, na.rm = TRUE),
     mean_model_se = mean(betaSE, na.rm = TRUE),
     .groups = 'drop')
 

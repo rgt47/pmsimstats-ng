@@ -88,7 +88,7 @@
 #' @export
 
 
-generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePositiveDefinite,seed=NA,lambda_cor=NA,verbose=FALSE,cached_sigma=NULL,dgp_architecture="mvn",br_family="gompertz",br_p2=NA,br_p3=NA,moderation_scaling="constant"){
+generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePositiveDefinite,seed=NA,lambda_cor=NA,verbose=FALSE,cached_sigma=NULL,dgp_architecture="mvn",br_family="gompertz",br_p2=NA,br_p3=NA,moderation_scaling="constant",components=c("tv","pb","br")){
 
   dgp_architecture<-match.arg(dgp_architecture, c("mvn", "mean_moderation", "combined"))
   moderation_scaling<-match.arg(moderation_scaling, c("constant", "trajectory"))
@@ -103,7 +103,8 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
   } else {
     built<-buildSigma(modelparam,respparam,blparam,trialdesign,makePositiveDefinite,lambda_cor,verbose,
                       dgp_architecture=dgp_architecture,
-                      br_family=br_family,br_p2=br_p2,br_p3=br_p3)
+                      br_family=br_family,br_p2=br_p2,br_p3=br_p3,
+                      components=components)
     sigma<-built$sigma
     means<-built$means
     labels<-built$labels
@@ -217,7 +218,7 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
 #'   defaults \code{NA} fall back to \code{respparam}'s disp/rate).
 #' @return List with sigma, means, labels, nP, cl, trialdesign
 #' @export
-buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefinite=TRUE,lambda_cor=NA,verbose=FALSE,dgp_architecture="mvn",br_family="gompertz",br_p2=NA,br_p3=NA){
+buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefinite=TRUE,lambda_cor=NA,verbose=FALSE,dgp_architecture="mvn",br_family="gompertz",br_p2=NA,br_p3=NA,components=c("tv","pb","br")){
 
   # Compute lambda_cor from carryover half-life if not specified
   if(is.na(lambda_cor)){
@@ -233,16 +234,32 @@ buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefini
   d[,onDrug:=(tod>0)]
   nP<-dim(trialdesign)[1]
 
-  cl<-c("tv","pb","br")
+  # Latent response components carried by the DGP. The default is the
+  # full three-component decomposition (TV natural history, PB
+  # placebo-belief, BR pharmacological). Reduced sets are permitted so
+  # long as BR is retained, since BR carries the biomarker-treatment
+  # interaction in every architecture; see paper 13 for the BR+PB
+  # two-component case.
+  cl<-components
+  if(!"br" %in% cl){
+    stop("components must include 'br': it carries the interaction channel.")
+  }
+  if(!all(cl %in% c("tv","pb","br"))){
+    stop("components must be a subset of c('tv','pb','br').")
+  }
+  cl<-c("tv","pb","br")[c("tv","pb","br") %in% cl]
+
   labels<-c(c("bm","BL"),
-            paste(trialdesign$timeptnames,cl[1],sep="."),
-            paste(trialdesign$timeptnames,cl[2],sep="."),
-            paste(trialdesign$timeptnames,cl[3],sep="."))
+            unlist(lapply(cl, function(cc)
+              paste(trialdesign$timeptnames,cc,sep="."))))
 
   sds<-c(blparam[cat=="bm"]$sd,blparam[cat=="BL"]$sd)
-  sds<-c(sds,rep(respparam[cat=="tv"]$sd,nP))
-  sds<-c(sds,rep(respparam[cat=="pb"]$sd,nP)*trialdesign$e)
-  sds<-c(sds,rep(respparam[cat=="br"]$sd,nP))
+  for(cc in cl){
+    s<-rep(respparam[cat==cc]$sd,nP)
+    # PB amplitude scales with the design's expectancy weight
+    if(cc=="pb") s<-s*trialdesign$e
+    sds<-c(sds,s)
+  }
   means<-c(blparam[cat=="bm"]$m,blparam[cat=="BL"]$m)
   for (cc in cl){
     rp<-respparam[cat==cc]
@@ -257,11 +274,18 @@ buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefini
       bp3<-if(is.na(br_p3)) rp$rate else br_p3
       brmeans<-trajectoryShape(br_family,d$tod,rp$max,bp2,bp3)
       if(nP>1){
-        for(p in 2:nP){
-          if(!d[p]$onDrug){
-            if(d[p]$tsd>0){
-              brmeans[p]<-brmeans[p]+brmeans[p-1]*(1/2)^(d$tsd[p]/modelparam$carryover_t1half)
-            }
+        # Carryover decays from the last on-drug mean, and tsd is
+        # cumulative time since discontinuation, so the decay factor is
+        # applied once to the value at discontinuation. Recursing on the
+        # already-adjusted brmeans[p-1] while also using cumulative tsd
+        # counts elapsed time twice and over-decays every off-drug
+        # occasion after the first in a run.
+        last_on<-0
+        for(p in 1:nP){
+          if(d[p]$onDrug){
+            last_on<-brmeans[p]
+          }else if(d[p]$tsd>0){
+            brmeans[p]<-brmeans[p]+last_on*(1/2)^(d$tsd[p]/modelparam$carryover_t1half)
           }
         }
       }

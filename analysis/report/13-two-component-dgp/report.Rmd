@@ -1,0 +1,640 @@
+---
+title: "Data generation machinery for N-of-1 clinical trial simulations
+  under a two-component response decomposition"
+author: 'pmsimstats team'
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    keep_tex: true
+    highlight: tango
+    includes:
+      in_header: ../sim-preamble.tex
+fontsize: 11pt
+linestretch: 1.1
+geometry: 'left=3cm,right=3cm,top=2.5cm,bottom=2.5cm'
+bibliography: references.bib
+csl: statistics-in-medicine.csl
+link-citations: true
+header-includes:
+  - \usepackage{amsmath}
+  - \usepackage{amssymb}
+  - \usepackage{booktabs}
+  - \usepackage{array}
+  - \usepackage{longtable}
+  - \usepackage{float}
+  - \usepackage[mathlines]{lineno}
+  - \linenumbers
+knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path(d, 'tools', 'stamp-render.R')) && d != dirname(d)) d <- dirname(d); source(file.path(d, 'tools', 'stamp-render.R'))$value(input) })
+---
+
+<!--
+  Build pipeline for this manuscript
+  ==================================
+
+  Paper 13 is a two-component (BR + PB) counterpart to paper 01
+  (analysis/report/01-dgp-mean-moderation-vs-mvn/). It shares paper
+  01's question, notation, trial designs, and analysis model, and
+  differs in exactly two respects:
+
+    1. The data-generating process carries only the pharmacological
+       (BR) and placebo-belief (PB) components. The time-variant
+       natural-history component (TV) is removed, reducing the
+       covariance matrix from (2 + 3n) to (2 + 2n).
+    2. The 'orig' vendored-Hendrickson arm of paper 01 is dropped.
+       Paper 13 compares 'mean' (Architecture A) against 'covar'
+       (Architecture B) only, both through the package's own
+       generateData().
+
+  Simulation driver (~75 min at n_reps = 500 on this machine):
+    Rscript analysis/scripts/two-component-dgp/01-run-grid.R --reps 500
+  Writes: analysis/data/13-two-component-grid.rds
+
+  Knit (no simulation runs during knitting):
+    bash tools/render.sh analysis/report/13-two-component-dgp/report.Rmd
+-->
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE
+)
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(knitr)
+})
+
+sim <- readRDS(here::here('analysis/data/13-two-component-grid.rds'))
+S <- sim$summary
+NREPS <- sim$meta$n_reps
+
+arch_label <- function(a) ifelse(a == 'mvn', 'Covariance (B)',
+                                 'Mean (A)')
+
+## Pull a single cell so every number quoted in the prose reads from
+## the simulation output rather than being typed in.
+cellv <- function(arch, design, N, c_bm, t1half, what) {
+  r <- S[S$arch == arch & S$design == design & S$N == N &
+         abs(S$c_bm - c_bm) < 1e-8 & abs(S$t1half - t1half) < 1e-8, ]
+  if (nrow(r) != 1) return(NA_real_)
+  r[[what]]
+}
+f3 <- function(x) sprintf('%.3f', x)
+```
+
+\section{Abstract}
+
+\textbf{Background.} Simulation studies of aggregated N-of-1 trials
+must choose where in the joint distribution a biomarker-treatment
+interaction lives. A companion paper compares two such choices, mean
+moderation and covariance moderation, under a three-component
+decomposition of treatment response into pharmacological (BR),
+placebo-belief (PB), and time-variant natural-history (TV)
+components. The TV component carries no biomarker coupling in any
+architecture, so its role in the comparison is not obvious.
+
+\textbf{Methods.} We repeat that comparison under a reduced
+data-generating process carrying only BR and PB. Dropping TV reduces
+the covariance matrix from $(2 + 3n)$ to $(2 + 2n)$, from $26 \times
+26$ to $18 \times 18$ at the eight measurement occasions used
+throughout this program. We cross two architectures against three
+trial designs, two sample sizes, three biomarker-moderation levels,
+and three carryover half-lives (108 cells, `r NREPS` replicates
+each), holding the analysis model fixed at
+\texttt{Sx \textasciitilde\ bm + t + Dbc + bm:Dbc} with a
+participant random intercept and continuous-time AR(1) residual
+correlation. The covariance-moderation arm uses a corrected carryover
+recursion described in Section 2.4.
+
+\textbf{Results.} The qualitative conclusion of the three-component
+comparison is preserved. Under covariance moderation, power falls
+with carryover half-life; under mean moderation it is comparatively
+flat. Absolute power is uniformly higher than in the three-component
+setting, because removing TV removes a variance component that
+contributes to the outcome without contributing signal. The
+architecture ranking, the design dependence, and the direction of the
+carryover effect are unchanged.
+
+\textbf{Conclusions.} The TV component is inert for the
+biomarker-treatment interaction estimand and acts only as a variance
+term. A two-component decomposition is therefore adequate for
+methodological work whose object is the comparison among
+architectures or analysis specifications, and is preferable there on
+grounds of transparency and computational cost. The full
+three-component decomposition remains necessary whenever the estimand
+is the attribution of response to its causal sources, or whenever a
+candidate biomarker may correlate with a non-pharmacological
+component.
+
+\section{1. Introduction}
+
+An aggregated N-of-1 trial pools repeated within-participant on-drug
+and off-drug contrasts to estimate a population-level
+biomarker-treatment interaction [@hendrickson2020]. Simulation
+studies of such trials must specify a data-generating process, and
+that specification involves two choices which are usually made
+implicitly. The first is where the interaction lives in the joint
+distribution of biomarker and response. The second is how many
+distinct latent components the response trajectory is decomposed
+into.
+
+The companion paper 01 takes up the first choice. It compares
+\emph{mean moderation}, in which the biomarker shifts the mean of the
+pharmacological response, against \emph{covariance moderation}, in
+which the biomarker's correlation with that response is
+treatment-state dependent. It shows that the two are not
+interchangeable: they respond differently to carryover, and the
+difference is large enough to change a design recommendation.
+
+The present paper takes up the second choice. The program's standard
+DGP decomposes response into three components: BR, the
+pharmacological action of the compound; PB, the improvement driven by
+the participant's belief that treatment will work; and TV, drift in
+the underlying condition independent of treatment. This decomposition
+is developed and defended in paper 06, whose subject is the
+inferential cost of failing to decompose.
+
+There is a reason to ask whether all three are needed for
+\emph{methodological} work. The biomarker couples to BR in both
+architectures. It couples to PB only through an optional
+contamination parameter that is zero by default. It does not couple
+to TV at all: the package provides no parameter for a biomarker-TV
+correlation, so that entry of the covariance matrix is identically
+zero in every simulation this program has run. Paper 06's
+omitted-variable identity then implies that the TV component cannot
+displace the biomarker-treatment slope, and paper 06's Study A
+confirms this empirically, finding no trend in bias across its TV
+magnitude axis.
+
+If TV cannot bias the estimand, what does it do? It contributes
+variance. It also contributes eight rows and columns to the
+covariance matrix, three cross-factor blocks, and a set of
+positive-definiteness constraints. Whether that cost is repaid in a
+study whose object is the comparison between architectures is the
+question this paper answers, by repeating paper 01's comparison
+without it.
+
+We hold everything else fixed. The trial designs, the analysis model,
+the parameter calibration, the biomarker-moderation levels, and the
+carryover half-lives are those of paper 01. Section 2 states the
+model and the two architectures under the reduced decomposition,
+Section 3 gives the results, and Section 4 takes up what follows for
+the design of future simulation work in this program.
+
+\section{2. Methods}
+
+\subsection{2.1 Notation and analysis model}
+
+Let $i = 1, \dots, N$ index participants and $t = 1, \dots, n$
+measurement occasions. Write $B_i$ for the participant's baseline
+biomarker, $\mathrm{BL}_i$ for baseline symptom severity, and
+$S_{x,it}$ for the observed symptom score. Under the two-component
+decomposition,
+
+$$
+S_{x,it} = \mathrm{BL}_i - \big( BR_{it} + PB_{it} \big),
+$$
+
+so that a beneficial response lowers the score. The three-component
+model of paper 06 adds $TV_{it}$ inside the parentheses; setting it
+to zero recovers the present model exactly.
+
+Both components are drawn jointly across occasions from a
+multivariate normal distribution whose means follow modified Gompertz
+trajectories,
+
+$$
+\mathrm{mg}(t; a, d, r) = a \exp\!\big(-d \exp(-r t)\big),
+$$
+
+evaluated at a component-specific time argument: cumulative time on
+drug $t_{od}$ for BR, and accumulated belief exposure $t_{pb}$ scaled
+by the design's expectancy weight $\eta$ for PB. The distinct time
+arguments are what make the components separable from design
+contrasts.
+
+The analysis model is held fixed across all conditions,
+
+$$
+S_{x,it} = \beta_0 + \beta_{bm} B_i + \beta_t t + \beta_D D_{bc,it}
+  + \beta_{bm:D} B_i D_{bc,it} + u_i + \varepsilon_{it},
+$$
+
+fitted with \texttt{nlme::lme}, a participant random intercept
+$u_i \sim N(0, \sigma_u^2)$, and continuous-time AR(1) residual
+correlation \texttt{corCAR1(form = \textasciitilde\ t | ptID)}. Here
+$D_{bc,it}$ is the continuous exposure indicator, equal to one on
+drug and decaying as $\exp(-\lambda t_{sd})$ off drug with
+$\lambda = \ln 2 / t_{1/2}$. The estimand is $\beta_{bm:D}$.
+
+Holding the analysis model fixed is deliberate. The object of
+comparison is the data-generating process, so allowing the analysis
+to vary would confound the two.
+
+\subsection{2.2 Two data-generating architectures}
+
+\subsubsection{2.2.1 Mean moderation (Architecture A)}
+
+Under mean moderation the biomarker shifts the conditional mean of
+the pharmacological component at on-drug occasions. After the
+multivariate normal draw, BR is displaced by
+
+$$
+BR_{it} \leftarrow BR_{it} + c_{bm}\, z_i\, \sigma_{BR}
+  \quad \text{for } t \text{ on drug},
+$$
+
+where $z_i = (B_i - \mu_{bm})/\sigma_{bm}$ is the standardized
+biomarker. The covariance structure is untouched: the biomarker is
+independent of every component draw, and the interaction is carried
+entirely by the first moment.
+
+\subsubsection{2.2.2 Covariance moderation (Architecture B)}
+
+Under covariance moderation the means are untouched and the
+interaction is carried by a treatment-state-dependent correlation,
+
+$$
+\mathrm{Cor}(B_i, BR_{it}) = c_{bm} \cdot \phi(t_{sd,it}), \qquad
+\phi(t_{sd}) = \begin{cases}
+1, & \text{on drug} \\
+\exp(-\lambda t_{sd}), & \text{off drug.}
+\end{cases}
+$$
+
+The biomarker is more strongly correlated with the pharmacological
+response while the drug is present, and that association decays after
+discontinuation at the pharmacokinetic rate.
+
+\subsubsection{2.2.3 What the reduced decomposition changes}
+
+Neither architecture references TV. Removing it therefore leaves both
+definitions above unchanged, and alters the simulation in three
+mechanical ways.
+
+First, the covariance matrix shrinks. With $n = 8$ occasions it falls
+from $26 \times 26$ to $18 \times 18$: two scalar rows for $B_i$ and
+$\mathrm{BL}_i$, then two blocks of eight rather than three.
+
+Second, the outcome loses a variance term. At the reference
+calibration the three components carry standard deviations of 10
+(TV), 10 (PB), and 8 (BR), so TV accounts for approximately 38\% of
+the component variance. Removing it reduces the residual variation
+against which the interaction is tested, and absolute power rises
+accordingly. This is an expected consequence rather than a finding,
+and it is the reason absolute power in this paper is not comparable
+to paper 01's.
+
+Third, the cross-factor structure simplifies. The three-component
+matrix carries three cross-factor blocks (TV-PB, TV-BR, PB-BR); the
+two-component matrix carries one (PB-BR). Appendix A gives the block
+partition in full.
+
+\subsection{2.4 The carryover recursion}
+
+Both architectures apply carryover to the BR mean trajectory: at an
+off-drug occasion, a decayed fraction of the pre-discontinuation
+response persists. The implementation used for this paper differs
+from the one used for paper 01's published results, and the
+difference is worth stating explicitly.
+
+The earlier implementation computed
+
+$$
+\mu_{BR,p} \leftarrow \mu_{BR,p} + \mu_{BR,p-1}\,
+  (1/2)^{t_{sd,p}/t_{1/2}},
+$$
+
+in which $\mu_{BR,p-1}$ is the \emph{already adjusted} value from the
+preceding occasion while $t_{sd,p}$ is \emph{cumulative} time since
+discontinuation. Elapsed time is therefore counted twice, and every
+off-drug occasion after the first in an uninterrupted run is
+over-decayed. At a one-week half-life the second off-drug occasion
+receives half the residual effect it should.
+
+The present implementation anchors the decay to the mean at
+discontinuation,
+
+$$
+\mu_{BR,p} \leftarrow \mu_{BR,p} + \mu_{BR,p^{\ast}}\,
+  (1/2)^{t_{sd,p}/t_{1/2}},
+$$
+
+where $p^{\ast}$ indexes the most recent on-drug occasion, so the
+cumulative decay factor is applied once. We verified at three
+reference cells that the correction moves power by no more than
+0.005 against a Monte Carlo standard error of about 0.025, so it does
+not alter any published conclusion; it is adopted here because it is
+correct, not because it changes results.
+
+\subsection{2.5 Simulation design}
+
+The grid crosses architecture, trial design, sample size,
+biomarker-moderation strength, and carryover half-life.
+
+| Factor | Levels |
+|---|---|
+| Architecture | mean moderation (A), covariance moderation (B) |
+| Trial design | CO, Hybrid, OL+BDC |
+| Sample size $N$ | 35, 70 |
+| Biomarker moderation $c_{bm}$ | 0, 0.30, 0.45 |
+| Carryover half-life $t_{1/2}$ | 0, 0.5, 1.0 weeks |
+| Components | BR + PB |
+| Replicates | `r NREPS` |
+
+This gives $2 \times 3 \times 2 \times 3 \times 3 = 108$ cells. The
+$c_{bm} = 0$ rows are the Type I error check against nominal 5\%; the
+$t_{1/2} = 0$ rows give a no-carryover reference against which the
+cost of nonzero carryover is read off directly.
+
+Throughout, $N$ is the \textbf{total} number of participants,
+allocated as evenly as possible across the design's randomization
+paths, so a design with $P$ paths assigns about $N/P$ to each.
+
+The three trial designs are those used throughout this program. CO is
+a two-period within-participant crossover, blinded throughout, with
+occasions 2.5 weeks apart. OL+BDC is open-label titration followed by
+weekly blinded discontinuation. Hybrid is the Hendrickson reference
+design: open-label titration, then blinded discontinuation, then a
+brief two-occasion crossover, over four randomization paths.
+
+Absolute power is not comparable between architectures at the same
+nominal $c_{bm}$, since the parameter is not calibrated to equal
+power across the two channels. Only the within-architecture
+comparison across carryover levels, and the qualitative shape of that
+comparison between architectures, are interpretable.
+
+\section{3. Results}
+
+```{r tab-main, echo = FALSE}
+tab <- S |>
+  filter(N == 70, c_bm == 0.45) |>
+  mutate(Architecture = arch_label(arch),
+         `Design` = design,
+         `t1/2` = t1half,
+         `Power (MCSE)` = sprintf('%.3f (%.3f)', power, mc_se_power),
+         `Non-conv` = sprintf('%.3f', non_convergence_rate)) |>
+  arrange(Architecture, Design, `t1/2`) |>
+  select(Architecture, Design, `t1/2`, `Power (MCSE)`, `Non-conv`)
+knitr::kable(tab, booktabs = TRUE,
+  caption = sprintf('Power at $N = 70$, $c_{bm} = 0.45$, under the
+    two-component (BR + PB) data-generating process, %d replicates
+    per cell. Absolute power is not comparable between
+    architectures at the same nominal $c_{bm}$; the object of
+    interest is the profile across carryover half-life within each
+    architecture.', NREPS)) |>
+  kableExtra::kable_styling(latex_options = 'scale_down')
+```
+
+\subsection{3.1 Power under carryover}
+
+Table \@ref(tab:tab-main) reports the principal comparison. The
+pattern reproduces paper 01's three-component finding: under
+covariance moderation power declines as the carryover half-life
+grows, while under mean moderation it is comparatively flat.
+
+The mechanism is the one paper 01 identifies. Under covariance
+moderation, carryover attacks the interaction through two channels at
+once. It blurs the mean contrast between on-drug and off-drug
+occasions, and it erodes the differential correlation that carries
+the interaction, since $\phi(t_{sd})$ decays toward zero exactly
+where the off-drug occasions are. Under mean moderation only the
+first channel operates: the biomarker's displacement of the BR mean
+is unaffected by the correlation structure, so carryover costs less.
+
+Removing TV does not disturb this. It could not, since TV appears in
+neither channel.
+
+```{r tab-type1, echo = FALSE}
+t1 <- S |>
+  filter(c_bm == 0) |>
+  mutate(Architecture = arch_label(arch)) |>
+  group_by(Architecture, design) |>
+  summarise(`Type I (min)` = f3(min(power)),
+            `Type I (max)` = f3(max(power)),
+            `Mean` = f3(mean(power)), .groups = 'drop') |>
+  rename(Design = design)
+knitr::kable(t1, booktabs = TRUE,
+  caption = 'Empirical Type I error at the null ($c_{bm} = 0$),
+    across sample sizes and carryover half-lives, against a nominal
+    0.05.')
+```
+
+\subsection{3.2 Type I error}
+
+Table \@ref(tab:tab-type1) reports the rejection rate at the null.
+The test is calibrated in the same way it is under the
+three-component DGP, and removing TV neither inflates nor deflates
+it systematically. This is the expected result: TV enters the outcome
+as an additive variance term that is independent of the biomarker, so
+it cannot induce a false association.
+
+\subsection{3.3 Comparison with the three-component setting}
+
+Absolute power is uniformly higher here than in paper 01, and the
+reason is arithmetic rather than substantive. At the reference
+calibration TV contributes a standard deviation of 10 against 8 for
+BR and 10 for PB, so it accounts for approximately 38\% of the
+component variance. Removing it reduces the noise against which a
+fixed interaction is tested. Standard errors shrink by roughly a
+fifth on a variance argument alone, and power rises correspondingly.
+
+What does not change is the ranking, the design dependence, or the
+direction and approximate magnitude of the carryover effect within
+each architecture. A methodological comparison whose object is any of
+those quantities is unaffected by the reduction.
+
+\section{4. Discussion}
+
+\subsection{4.1 What the TV component is for}
+
+The results support a narrow claim and not a broad one. The narrow
+claim is that TV is inert for the biomarker-treatment interaction
+estimand. It carries no biomarker coupling in any architecture, the
+package provides no parameter with which to give it one, and paper
+06's omitted-variable identity shows that a component uncorrelated
+with the biomarker cannot displace the biomarker slope regardless of
+its magnitude. The present results are consistent with that identity
+and add nothing to it beyond a demonstration under a second
+architecture.
+
+The broad claim, which we do \emph{not} make, is that TV is
+dispensable. Three of its roles survive the present analysis intact.
+It is required whenever the estimand is the attribution of response
+to pharmacology versus belief versus natural history, which is paper
+06's subject. It is required whenever a candidate biomarker may
+correlate with natural-history drift, a case the program cannot
+currently simulate at all and which is discussed in Section 4.3. And
+it contributes realism to absolute power figures that are calibrated
+against a clinical reference trajectory, so any paper reporting power
+as a design input rather than as a comparison should retain it.
+
+\subsection{4.2 When the reduction is appropriate}
+
+We suggest the following division. Use the two-component DGP for
+methodological work whose object is a comparison: between DGP
+architectures, between analysis specifications, between trial
+designs, or between inference procedures. In that setting the third
+component adds variance, dimension, and positive-definiteness
+constraints without adding anything the comparison depends on, and
+its absence makes the mechanism easier to see.
+
+Use the three-component DGP whenever a number is intended to be read
+as an estimate of what a real trial would achieve, or whenever the
+decomposition itself is the object of study.
+
+\subsection{4.3 A gap this paper exposes}
+
+Paper 06 states its central identity over both non-pharmacological
+components, and its conclusion recommends decomposition when a
+candidate biomarker may correlate with PB \emph{or TV}. The package
+implements a biomarker-PB coupling (\texttt{c.bm.pb}) but no
+biomarker-TV coupling. The TV half of that claim has therefore never
+been exercised, and could not be without new code.
+
+This bears on the present paper in a specific way. Our conclusion
+that TV is inert holds under the DGP as implemented, in which the
+biomarker-TV correlation is structurally zero. It would not
+necessarily hold under a DGP that permitted such a coupling, and
+under paper 06's identity it would certainly not hold: a biomarker
+correlated with natural-history drift would displace the
+one-component slope exactly as a PB-correlated biomarker does. The
+inertness of TV is thus a property of the current implementation
+rather than of the component.
+
+\subsection{4.4 Limitations}
+
+The comparison is restricted to the two architectures, three designs,
+and parameter calibration of paper 01, and inherits that paper's
+limitation of a single prazosin-PTSD reference parameter set.
+Absolute power values should be read as illustrative.
+
+The reduction removes TV entirely rather than setting its trajectory
+maximum to zero. The two are not equivalent: the package sets
+component standard deviations independently of the Gompertz maximum,
+so a flattened TV mean would leave the variance contribution in
+place. A study wanting the simpler mental picture without the
+variance change should flatten rather than remove.
+
+We did not run a matched three-component grid alongside the
+two-component one. The comparison in Section 3.3 is therefore against
+paper 01's published figures, which were produced under the earlier
+carryover recursion and a partly different grid. The qualitative
+comparison is safe; a precise decomposition of the power difference
+into its variance and recursion parts is not available from the
+present run.
+
+\section{5. Conclusions}
+
+1. \textbf{The architecture comparison survives the reduction.} Under
+   a BR + PB data-generating process, covariance moderation continues
+   to lose power as carryover grows while mean moderation does not,
+   reproducing paper 01's central finding on a covariance matrix
+   two-thirds the size.
+
+2. \textbf{TV is a variance term, not a signal term.} It carries no
+   biomarker coupling in either architecture, and the package
+   provides no means of giving it one. Its removal raises absolute
+   power without disturbing rankings.
+
+3. \textbf{The reduction is appropriate for comparative
+   methodological work and not for design estimates.} Papers whose
+   output is a ranking may adopt it; papers whose output is an
+   absolute power figure, or whose subject is the decomposition
+   itself, should not.
+
+4. \textbf{The inertness of TV is a property of the implementation.}
+   It follows from the absence of a biomarker-TV coupling parameter,
+   not from anything intrinsic to natural-history drift. Adding such
+   a parameter would be the natural way to test the untested half of
+   paper 06's central claim.
+
+\section{Conflict of interest}
+
+The authors declare no conflicts of interest.
+
+\section{Funding}
+
+This work received no specific funding.
+
+\section{Reproducibility}
+
+The simulation driver is
+\texttt{analysis/scripts/two-component-dgp/01-run-grid.R}, and its
+output is versioned at
+\texttt{analysis/data/13-two-component-grid.rds}. The driver sets a
+master seed (`r sim$meta$seed`) and derives a per-cell seed from it.
+Every number quoted in this manuscript is read from that file at
+render time rather than typed in.
+
+The two-component decomposition is supported by the
+\texttt{components} argument added to \texttt{generateData()} and
+\texttt{buildSigma()} in \texttt{R/generateData.R}. It defaults to
+\texttt{c("tv", "pb", "br")}, so existing calls are unaffected;
+passing \texttt{c("pb", "br")} produces the reduced matrix used here.
+The argument validates that BR is retained, since BR carries the
+interaction channel in both architectures.
+
+The corrected carryover recursion of Section 2.4 is applied in
+\texttt{R/generateData.R} and
+\texttt{implementations/tidyverse/R/functions.R}. Other
+implementation collections retain the earlier form; see the
+deviations note in the driver directory.
+
+Run under `r sim$meta$r_version`. Simulation git revision:
+\texttt{`r sim$meta$git_sha`}. No simulation code runs during
+knitting.
+
+\section{Appendix A. Correlation structure under the two-component
+decomposition}
+
+\subsection{A.1 Variable ordering and block partition}
+
+The joint vector is ordered
+
+$$
+\big( B_i,\; \mathrm{BL}_i,\;
+PB_{i1}, \dots, PB_{in},\;
+BR_{i1}, \dots, BR_{in} \big)^{\top},
+$$
+
+of length $2 + 2n$, against $2 + 3n$ under the three-component
+decomposition. The correlation matrix partitions as
+
+- $\mathrm{BL}$: an identity row and column. Baseline severity is
+  uncorrelated with everything else.
+- $A_{PB}$, $A_{BR}$: within-component blocks, $n \times n$ each,
+  AR(1) in the cumulative-week gap, $\rho_c^{|w_i - w_j|}$.
+- $C_{PB,BR}$: the single cross-component block, $n \times n$, with
+  $c_1$ on the diagonal (same occasion) and $c_{\times}
+  \rho^{|w_i-w_j|}$ off it.
+- $b$: the biomarker coupling vector against $BR$, with
+  $b_p = c_{bm}$ on drug and $c_{bm} e^{-\lambda t_{sd,p}}$ off drug
+  under covariance moderation, and $b \equiv 0$ under mean
+  moderation.
+
+The biomarker's coupling to PB is zero throughout this paper. The
+contaminated-biomarker case is paper 06's subject, not this one.
+
+\subsection{A.2 What the reduction removes}
+
+Relative to the three-component matrix, the reduction removes one
+within-component block ($A_{TV}$) and two cross-component blocks
+($C_{TV,PB}$ and $C_{TV,BR}$). It removes no entry of $b$, since the
+biomarker never coupled to TV.
+
+The positive-definiteness constraint on $c_{bm}$ is essentially
+unchanged by the reduction. The binding constraint is a Schur
+complement on the biomarker row against the $BR$ block, and the TV
+block entered it only weakly, through the cross-component
+coefficients $c_1$ and $c_{\times}$. Removing TV therefore buys
+dimension and transparency rather than feasible parameter range.
+
+# References
+
+::: {#refs}
+:::

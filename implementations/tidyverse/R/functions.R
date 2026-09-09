@@ -154,16 +154,21 @@ apply_carryover_to_component <- function(
     return(component_means)
   }
 
-  carryover_indices <- which(!trial_data$on_drug & trial_data$tsd > 0)
+  # tsd is cumulative time since discontinuation, so the decay factor is
+  # applied once to the component mean at the moment of discontinuation.
+  # Recursing on the already-adjusted previous value while also using
+  # cumulative tsd counts elapsed time twice, over-decaying every
+  # off-drug occasion after the first in a run.
+  last_on <- 0
 
-  if (length(carryover_indices) > 0) {
-    for (idx in carryover_indices) {
-      prev_idx <- idx - 1
-      time_lag <- trial_data$tsd[idx]
-      decay_factor <- carryover_decay(time_lag, halflife,
+  for (idx in seq_len(num_timepoints)) {
+    if (trial_data$on_drug[idx]) {
+      last_on <- component_means[idx]
+    } else if (trial_data$tsd[idx] > 0) {
+      decay_factor <- carryover_decay(trial_data$tsd[idx], halflife,
                                       form = form, shape = shape)
       component_means[idx] <- component_means[idx] +
-        component_means[prev_idx] * decay_factor
+        last_on * decay_factor
     }
   }
 

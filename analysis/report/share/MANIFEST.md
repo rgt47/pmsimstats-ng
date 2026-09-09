@@ -409,3 +409,5 @@
 | `whitepaper-covar-vs-orig-dgp-2026-09-08-1442-nogit.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/docs/whitepaper-covar-vs-orig-dgp.md` | `nogit` | 2026-09-08 14:42 PDT |
 | `whitepaper-covar-vs-orig-dgp-2026-09-08-1541-631a355-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/docs/whitepaper-covar-vs-orig-dgp.md` | `631a355-wip` | 2026-09-08 15:41 PDT |
 | `whitepaper-covar-vs-orig-dgp-2026-09-08-1552-631a355-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/docs/whitepaper-covar-vs-orig-dgp.md` | `631a355-wip` | 2026-09-08 15:52 PDT |
+| `13-two-component-dgp-2026-09-08-1900-955c604-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/13-two-component-dgp/report.Rmd` | `955c604-wip` | 2026-09-08 19:00 PDT |
+| `13-two-component-dgp-2026-09-08-1900-nogit.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/report/13-two-component-dgp/report.Rmd` | `nogit` | 2026-09-08 19:00 PDT |

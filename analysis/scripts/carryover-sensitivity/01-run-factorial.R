@@ -33,6 +33,8 @@ source(file.path(repo_root,
   'implementations/tidyverse/R/functions.R'))
 source(file.path(repo_root,
   'analysis/scripts/carryover-sensitivity/simulation-core.R'))
+# Progress reporting under simrun; both calls are no-ops otherwise.
+source(file.path(repo_root, 'analysis/scripts/simrun.R'))
 
 args <- commandArgs(trailingOnly = TRUE)
 dev_mode <- '--dev' %in% args
@@ -106,12 +108,14 @@ plan(
 )
 
 t_start <- Sys.time()
+simrun_progress_init(nrow(grid), 'factorial cells')
 
 results <- future_map_dfr(
   seq_len(nrow(grid)),
   function(i) {
     cell <- grid[i, ]
     cell_result <- simulate_cell(cell, n_reps, robust = robust_mode)
+    simrun_tick()
     bind_cols(
       cell[rep(1, nrow(cell_result)), ],
       cell_result

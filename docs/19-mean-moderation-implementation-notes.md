@@ -1,4 +1,4 @@
-# Mean Moderation Implementation Notes
+# Mean Moderation Implementation Notes {.unlisted .unnumbered}
 
 > **Note**: This is a quick-reference summary. For the full
 > mathematical derivation, the positive-definiteness ceiling
@@ -7,6 +7,13 @@
 > publication parameter grid under Architecture A, see the
 > comprehensive document `19-mean-moderation-implementation-notes.tex`
 > (rendered as `19-mean-moderation-implementation-notes.pdf`).
+
+```{=latex}
+\clearpage
+\tableofcontents
+\listoftables
+\clearpage
+```
 
 ## Summary
 
@@ -123,6 +130,8 @@ active and absent otherwise.
 | 0.0 | 0.74 | 0.82 |
 | 0.5 | 0.68 | 0.64 |
 | 1.0 | 0.72 | 0.50 |
+
+Table: N-of-1 power by $t_{1/2}$ for Architecture A and Architecture B
 
 Architecture A power is stable across carryover levels
 (variation is Monte Carlo noise at Nreps=50). Architecture B

@@ -1,9 +1,15 @@
-# The covar and orig Data-Generating Processes: A Component-Wise
-# Assessment, with Application to the c_bm <= 0.35 Regime
+# The covar and orig Data-Generating Processes: A Component-Wise Assessment, with Application to the c_bm <= 0.35 Regime {.unlisted .unnumbered}
 
 *2026-09-08 12:40 PDT*
 
 Author: pmsimstats team
+
+```{=latex}
+\clearpage
+\tableofcontents
+\listoftables
+\clearpage
+```
 
 ## 1. Executive summary
 
@@ -247,6 +253,8 @@ Re-running both code paths over the Hybrid path A design gives:
 | COd | yes | 4.281 | 0.4500 | 0.45 |
 | COp | no | 0.017 | 0.0018 | 0.45 |
 
+Table: Adjusted $\mu_{BR}$ and coefficient b by occasion, active versus commented-out code, Hybrid path A
+
 (`t_half = 1.0`, `scalefactor = 2`, `c_bm = 0.45`.)
 
 The commented-out column reproduces the appendix exactly. The active
@@ -380,6 +388,8 @@ against a correct exponential decay from the last on-drug value, at
 | BD4 | 2 | 1.273 | 0.159 | 2.547 |
 | COp | 4 | 0.268 | 0.017 | 0.637 |
 
+Table: Off-drug response-mean adjustment under scalefactor 1 and 2 versus correct decay, Hybrid design
+
 As a ratio to the correct value: at `sf = 1` the first off-drug
 occasion is exact (1.000x) and later occasions over-decay (0.500x,
 0.420x). At `sf = 2` even the first occasion is wrong (0.500x), and
@@ -432,6 +442,8 @@ coefficients:
 | formula term | `bm*Db` | `bm*Dbc` |
 | coefficient extracted | `bm:DbTRUE` | `bm:Dbc` |
 
+Table: Analysis model of the 2020 publication versus the 2024 running code
+
 The change came in `f70f86d` (2024-05-06), the same day as the DGP
 changes. The `orig` arm therefore does not run the published analysis
 either. Its exposure regressor is structurally the same object this
@@ -461,6 +473,8 @@ CO path B, the never-discontinuing arm, at `t_half = 1.0`:
 | BL | FALSE | 0 | **1.0** |
 | COa1 - COa4 | FALSE | 0 | **1.0** |
 | COb1 - COb4 | TRUE | 0 | 1.0 |
+
+Table: Drug indicator Dbc by occasion for CO path B at $t_{1/2} = 1.0$
 
 All nine rows are coded `Dbc = 1`. Four pre-treatment occasions and
 baseline are indistinguishable from fully on drug, the path
@@ -501,6 +515,8 @@ Comparing the two on CO path B:
 |---|---|---|
 | 0 | 0 0 0 0 0 1 1 1 1 | NaN NaN NaN NaN NaN 1 1 1 1 |
 | 1.0 | 0 0 0 0 0 1 1 1 1 | 1 1 1 1 1 1 1 1 1 |
+
+Table: Dbc from the package and vendored code on CO path B by half-life
 
 Finding 3.6.2 is therefore confined to the vendored comparison arm.
 No result in Paper 01 or Paper 02 that uses the package's own
@@ -553,6 +569,8 @@ Largest `c_bm` on the tested grid at which Sigma remains PD:
 | OL+BDC | 0.5 | 0.35 | 0.45 |
 | OL+BDC | 1.0 | 0.35 | 0.50 |
 
+Table: Largest positive-definite $c_{bm}$ on the tested grid by design and half-life, orig and covar
+
 Minimum eigenvalue at exactly `c_bm = 0.35`:
 
 | design | t_half | orig | covar | orig PD |
@@ -566,6 +584,8 @@ Minimum eigenvalue at exactly `c_bm = 0.35`:
 | OL+BDC | 0.0 | -0.3217 | 2.156 | no |
 | OL+BDC | 0.5 | 0.0869 | 2.300 | yes |
 | OL+BDC | 1.0 | 1.4385 | 2.344 | yes |
+
+Table: Minimum eigenvalue of Sigma at $c_{bm} = 0.35$ by design and half-life, orig and covar
 
 Three observations follow.
 
@@ -616,6 +636,8 @@ correlations after repair, for CO path A at `t_half = 1.0`:
 | 0.35 | 0.8645 | 0.3500 | no |
 | 0.40 | -2.8964 | 0.3955 | yes |
 | 0.45 | -7.3385 | 0.4370 | yes |
+
+Table: Minimum eigenvalue and realized correlation after silent repair by nominal $c_{bm}$, CO path A
 
 The distortion is modest in magnitude, roughly one to three points,
 but it is undisclosed and it is not constant across the grid, so it
@@ -762,6 +784,8 @@ turning on exactly one flag:
 | `bexp` only | 0.34 | none |
 | `occ1` only | 0.34 | none |
 
+Table: Worst-cell ceiling with exactly one change enabled, starting from orig
+
 The result is unambiguous. **The AR(1) change alone accounts for the
 entire PD improvement.** The other three contribute nothing positive,
 and one of them is actively harmful.
@@ -788,6 +812,8 @@ Per design and half-life:
 | OL+BDC | 0.0 | 0.34 | 0.48 | 0.45 |
 | OL+BDC | 0.5 | 0.35 | 0.49 | 0.49 |
 | OL+BDC | 1.0 | 0.36 | 0.52 | 0.53 |
+
+Table: Ceiling by design and half-life for orig, AR(1) only and full covar
 
 **Changing only the within-factor correlation form, and leaving the
 other three `orig` behaviors untouched, yields a higher worst-cell

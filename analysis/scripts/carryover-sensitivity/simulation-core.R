@@ -144,6 +144,17 @@ default_val <- function(x, y) {
 ## Build long-form data with Db / Dbc / L columns
 ## -----------------------------------------------------------------
 
+## Exposure-weighted drug indicator: 1 on drug, the decay weight off
+## drug after exposure, 0 off drug before any exposure. The design sets
+## tsd = 0 before first exposure, and carryover_decay(0, h) = 1 for
+## h > 0, so without the tsd > 0 guard a placebo-first CO participant
+## would be coded fully exposed at every visit (docs/45, Section 8).
+exposure_weight <- function(Db, tsd, halflife, form = 'exponential',
+                            shape = 1) {
+  w <- carryover_decay(tsd, halflife, form = form, shape = shape)
+  ifelse(Db == 1, 1, ifelse(tsd > 0, w, 0))
+}
+
 prepare_long_data <- function(dat, design_set, carryover_t1half,
                               carryover_form = 'exponential',
                               weibull_shape = 1,
@@ -176,12 +187,9 @@ prepare_long_data <- function(dat, design_set, carryover_t1half,
     mutate(
       Db  = as.numeric(Db_lg),
       L   = as.numeric(L_lg),
-      Dbc = dplyr::case_when(
-        Db_lg ~ 1,
-        TRUE  ~ carryover_decay(tsd, analysis_t1half,
-                                form = analysis_form,
-                                shape = analysis_shape)
-      )
+      Dbc = exposure_weight(Db, tsd, analysis_t1half,
+                            form = analysis_form,
+                            shape = analysis_shape)
     ) |>
     dplyr::select(-Db_lg, -L_lg, -D_prev)
 
@@ -609,6 +617,35 @@ cr2_extract <- function(fit, dat_long, target_candidates) {
       p_value = grab(c('^p_Satt', '^p_val', '^p\\.', '^p$', '^p')))
 }
 
+## AIC selection of the analysis half-life, shared by E7 (G4) and
+## E7cr2 (G9). The candidates differ in the Dbc column, i.e. in their
+## fixed-effect design, and REML log-likelihoods are not comparable
+## across different fixed-effect designs, so the candidates are fitted
+## by ML for the comparison and the selected model is refitted by REML
+## for inference. Returns NULL if no candidate or the refit fails.
+select_half_life_aic <- function(dat_long,
+                                 half_lives = c(0.25, 0.5, 1.0, 2.0)) {
+  fit_dbc <- function(dl, method) tryCatch(
+    nlme::lme(Sx ~ bm + t + Dbc + bm:Dbc, random = ~1 | ptID,
+              correlation = nlme::corCAR1(form = ~t | ptID),
+              data = dl, method = method,
+              control = nlme::lmeControl(
+                opt = 'optim', maxIter = 200, msMaxIter = 200)),
+    error = function(e) NULL)
+  cands <- purrr::map(half_lives, function(hl) {
+    dl <- dat_long
+    dl$Dbc <- exposure_weight(dl$Db, dl$tsd, hl)
+    f <- fit_dbc(dl, 'ML')
+    list(hl = hl, dl = dl, aic = if (is.null(f)) NA_real_ else AIC(f))
+  })
+  aics <- purrr::map_dbl(cands, ~ .x$aic)
+  if (all(is.na(aics))) return(NULL)
+  best <- cands[[which.min(aics)]]
+  fit <- fit_dbc(best$dl, 'REML')
+  if (is.null(fit)) return(NULL)
+  list(hl = best$hl, fit = fit, dl = best$dl)
+}
+
 fit_spec_s7 <- function(dat_long, spec) {
   spec <- match.arg(spec, c('E1', 'E2', 'E3', 'E7', 'E9',
                             'E1cr2', 'E3cr2', 'E2cr2', 'E7cr2'))
@@ -656,23 +693,8 @@ fit_spec_s7 <- function(dat_long, spec) {
   ## elsewhere in this manuscript; CR2 was not designed for that
   ## specific problem and should not be assumed to fix it).
   if (spec == 'E7cr2') {
-    half_lives <- c(0.25, 0.5, 1.0, 2.0)
-    fits <- purrr::map(half_lives, function(hl) {
-      dl <- dat_long
-      dl$Dbc <- ifelse(dl$Db == 1, 1, carryover_decay(dl$tsd, hl))
-      f <- tryCatch(
-        nlme::lme(Sx ~ bm + t + Dbc + bm:Dbc, random = ~1 | ptID,
-                  correlation = nlme::corCAR1(form = ~t | ptID),
-                  data = dl,
-                  control = nlme::lmeControl(
-                    opt = 'optim', maxIter = 200, msMaxIter = 200)),
-        error = function(e) NULL)
-      list(hl = hl, fit = f, dl = dl,
-          aic = if (is.null(f)) NA_real_ else AIC(f))
-    })
-    aics <- purrr::map_dbl(fits, ~ .x$aic)
-    if (all(is.na(aics))) return(na_out)
-    best <- fits[[which.min(aics)]]
+    best <- select_half_life_aic(dat_long)
+    if (is.null(best)) return(na_out)
     r <- cr2_extract(best$fit, best$dl, c('bm:Dbc', 'Dbc:bm'))
     if (is.null(r)) return(na_out)
     return(tibble(spec = spec, estimate = r$estimate,
@@ -682,22 +704,8 @@ fit_spec_s7 <- function(dat_long, spec) {
   }
 
   if (spec == 'E7') {
-    half_lives <- c(0.25, 0.5, 1.0, 2.0)
-    fits <- purrr::map(half_lives, function(hl) {
-      dl <- dat_long
-      dl$Dbc <- ifelse(dl$Db == 1, 1, carryover_decay(dl$tsd, hl))
-      f <- tryCatch(
-        nlme::lme(Sx ~ bm + t + Dbc + bm:Dbc, random = ~1 | ptID,
-                  correlation = nlme::corCAR1(form = ~t | ptID),
-                  data = dl,
-                  control = nlme::lmeControl(
-                    opt = 'optim', maxIter = 200, msMaxIter = 200)),
-        error = function(e) NULL)
-      list(hl = hl, fit = f, aic = if (is.null(f)) NA_real_ else AIC(f))
-    })
-    aics <- purrr::map_dbl(fits, ~ .x$aic)
-    if (all(is.na(aics))) return(na_out)
-    best <- fits[[which.min(aics)]]
+    best <- select_half_life_aic(dat_long)
+    if (is.null(best)) return(na_out)
     cc <- summary(best$fit)$tTable
     tgt <- intersect(c('bm:Dbc', 'Dbc:bm'), rownames(cc))
     if (length(tgt) == 0) return(na_out)

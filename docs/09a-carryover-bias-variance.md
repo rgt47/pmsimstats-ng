@@ -1,11 +1,18 @@
-# Carryover Effects and the Bias-Variance Tradeoff in Model Misspecification
+# Carryover Effects and the Bias-Variance Tradeoff in Model Misspecification {.unlisted .unnumbered}
 
-## A White Paper on Non-Monotonic Power in Precision Medicine Trials
+## A White Paper on Non-Monotonic Power in Precision Medicine Trials {.unlisted .unnumbered}
 
 **Date:** 2026-02-18
 **Project:** pmsimstats2025
 
 ---
+
+```{=latex}
+\clearpage
+\tableofcontents
+\listoftables
+\clearpage
+```
 
 ## Executive Summary
 
@@ -37,6 +44,8 @@ analyzed WITHOUT explicit carryover modeling:
 | 0.5 weeks    | ~58% (slight recovery) |
 | 1.0 weeks    | ~62% (continued recovery) |
 | 2.0 weeks    | ~68% (partial recovery) |
+
+Table: OL+BDC power by carryover half-life without explicit carryover modeling
 
 This non-monotonic pattern contradicts the naive expectation that increasing
 carryover should monotonically degrade power when unmodeled.
@@ -278,6 +287,8 @@ iterations each. The results reveal the dramatic impact of carryover modeling:
 | 1.50       | 17%             | 100%         | +73%             | +24%          |
 | 2.00       | 36%             | 100%         | +64%             | +32%          |
 
+Table: Power and bias by carryover half-life with and without carryover modeling
+
 *Source: simulation_carryover_spectrum.R (n=70, 100 iterations)*
 
 ### 5.2 Key Findings from Simulation
@@ -318,6 +329,8 @@ response varies with carryover:
 | 1.0 weeks    | 0.421                   | 0.177 |
 | 2.0 weeks    | 0.525                   | 0.276 |
 
+Table: Correlation and $R^2$ between the simple predictor and true BR by half-life
+
 Counterintuitively, the correlation INCREASES with longer carryover. This is
 because:
 
@@ -338,6 +351,8 @@ week 9):
 | 12   | 3   | 0.000  | 0.000  | 0.016  | 0.125  | 0.354  |
 | 16   | 7   | 0.000  | 0.000  | 0.000  | 0.008  | 0.088  |
 | 20   | 11  | 0.000  | 0.000  | 0.000  | 0.000  | 0.022  |
+
+Table: Carryover retention at off-drug weeks by carryover half-life
 
 At t½ = 0.1-0.2 weeks, the effect essentially vanishes after week 10, creating
 a mismatch between the constant predictor and the rapidly decaying true effect.

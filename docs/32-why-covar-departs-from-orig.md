@@ -1,8 +1,15 @@
-# Why Architecture B Departs from the Published Implementation
+# Why Architecture B Departs from the Published Implementation {.unlisted .unnumbered}
 
 *2026-09-09 10:57 PDT*
 
 Author: pmsimstats team
+
+```{=latex}
+\clearpage
+\tableofcontents
+\listoftables
+\clearpage
+```
 
 ## 1. Purpose
 
@@ -34,6 +41,8 @@ its later history does not settle anything.
 | Cross-factor $C_{cc'}$, $i \neq j$ | $c_\times$ | $c_\times \rho^{\lvert w_i - w_j \rvert}$ |
 | Coupling $b_p$, off drug | $0$ or $c_{bm}$ | $c_{bm} e^{-\lambda t_{sd,p}}$ |
 | Carryover on $\mu_{BR}$ | recursive | anchored |
+
+Table: Four differences between `orig` and `covar` by covariance component
 
 Everything else agrees. The same-occasion cross-factor entry, the
 on-drug value of the coupling vector, the baseline row and column, and
@@ -98,6 +107,8 @@ occasion schedule:
 | `orig`, $t_{1/2} > 0$ | 0.841 |
 | `covar` | 0.670 |
 
+Table: Ceiling on $c_{bm}$ for `orig` and `covar` on an evenly spaced schedule
+
 At positive carryover the published process admits a *larger*
 nominal moderation than Architecture B does. That looks like an
 advantage and is the opposite. A constant coupling vector aligns with
@@ -144,6 +155,8 @@ $4, 8, 9, 10, 11, 12, 16, 20$. With $\rho_c = 0.7$:
 | week 9 vs 10 | 1 wk | 0.700 | 0.70 |
 | week 4 vs 8 | 4 wk | 0.240 | 0.70 |
 | week 4 vs 20 | 16 wk | 0.003 | 0.70 |
+
+Table: AR(1) and compound-symmetry correlations for selected Hybrid visit pairs
 
 Compound symmetry asserts that a symptom measurement in week 4
 resembles one taken sixteen weeks later exactly as strongly as it

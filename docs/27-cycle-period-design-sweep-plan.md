@@ -4,7 +4,7 @@ author: "pmsimstats team"
 date: "2026-05-07"
 ---
 
-# Cycle-and-period design sweep: planning note
+# Cycle-and-period design sweep: planning note {.unlisted .unnumbered}
 
 *2026-05-07 06:47 PDT*
 
@@ -23,6 +23,13 @@ pmsimstats project [@hendricksonOptimizing2020]. It is the
 **S13** sensitivity block; numbering continues from the existing
 S1-S12 blocks documented at
 `analysis/scripts/nof1-design-sensitivity/sensitivity/`.
+
+```{=latex}
+\clearpage
+\tableofcontents
+\listoftables
+\clearpage
+```
 
 ## 1. Scientific motivation
 
@@ -185,6 +192,8 @@ titration).
 | Carryover half-life $t_{1/2}$ (weeks) | 0, 0.5, 1.0 | 3 |
 | Biomarker moderation $c_{\text{bm}}$ | 0, 0.45 | 2 |
 
+Table: Tier 1 principal factorial axes over cycles and period lengths
+
 Held fixed: $T_{\text{runin}} = 0$, $T_{\text{openlabel}} = 8$,
 $T_{\text{runout}} = 0$, density = 1 / wk, $N = 70$.
 
@@ -229,6 +238,8 @@ ratio.
 | $t_{1/2}$ | 0, 0.5, 1.0 | 3 |
 | $c_{\text{bm}}$ | 0, 0.45 | 2 |
 
+Table: Tier 2a within-cycle asymmetry sweep axes at $k = 2$
+
 Cell count: $5 \times 2 \times 3 \times 2 = 60$. Sample size
 fixed at $N = 70$. The expected pattern under the harmonic-mean
 prediction (§4) is a maximum at $(4, 4)$ and symmetric decay; the
@@ -249,6 +260,8 @@ duration constant at 16 weeks.
 | $t_{1/2}$ | 0, 0.5, 1.0 | 3 |
 | $c_{\text{bm}}$ | 0.45 | 1 |
 
+Table: Tier 2b across-cycle asymmetry sweep axes at fixed 16-week duration
+
 Cell count: $5 \times 2 \times 3 \times 1 = 30$.
 
 ### 3d. Tier 2c: sampling-density sweep
@@ -266,6 +279,8 @@ default.
 | Architecture | A, B | 2 |
 | $t_{1/2}$ | 0, 0.5, 1.0 | 3 |
 | $c_{\text{bm}}$ | 0.45 | 1 |
+
+Table: Tier 2c sampling-density sweep axes at the reference cell
 
 Cell count: $4 \times 2 \times 3 \times 1 = 24$. The 0.5 / wk
 level halves the observation count and reflects monthly visits;
@@ -289,6 +304,8 @@ existing protocol.
 | $t_{1/2}$ | 0.5 | 1 |
 | $c_{\text{bm}}$ | 0.45 | 1 |
 
+Table: Tier 2d sweep axes for the $N$ by $k$ trade-off
+
 Cell count: $4 \times 3 = 12$.
 
 ### Sweep totals
@@ -301,6 +318,8 @@ Cell count: $4 \times 3 = 12$.
 | 2c: sampling density | 24 | 500 | 12,000 |
 | 2d: $N \times k$ trade-off | 12 | 500 | 6,000 |
 | Total | 390 | | 195,000 |
+
+Table: Cells, replicates and cell-replicates for each tier of the S13 sweep
 
 At the Tier 1 production-run rate (approximately 13 cell-replicates
 per second on the existing 8-core hardware, per the

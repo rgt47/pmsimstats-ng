@@ -1,4 +1,4 @@
-# pmsimstats-ng Documentation Compendium
+# pmsimstats-ng Documentation Compendium {.unlisted .unnumbered}
 *2026-04-21 06:35 PDT*
 
 **Author:** pmsimstats team
@@ -20,6 +20,13 @@ normal differential correlation), and moved the pre-merge tidyverse
 pipeline (`analysis/2025/`) to an external archive.
 
 ---
+
+```{=latex}
+\clearpage
+\tableofcontents
+\listoftables
+\clearpage
+```
 
 ## 0. Source Document Inventory and Antiquation Map
 
@@ -64,6 +71,8 @@ than those files.
 | 24-component-decomposition-pedagogy.md | BR/ER/TV conceptual guide with prazosin-PTSD narrative | Current (migrated 2026-04-23 from pmsimstats2025) |
 | archive/correlation-structure-alternatives.md | Alternative correlation structures (Matern, rational-quadratic, power-law) | Historical (migrated 2026-04-23; exploratory) |
 | archive/hendrickson-pseudocode-comparison.md | Side-by-side pseudocode audit trail vs. Hendrickson original | Historical (migrated 2026-04-23) |
+
+Table: Source documents with their role and current standing
 
 Three key antiquation points to highlight:
 
@@ -215,6 +224,8 @@ Architecture B (MVN differential correlation):
 | CO | 0.40 | 0.40 | 0.32 |
 | OL+BDC | 0.62 | 0.38 | 0.24 |
 
+Table: Architecture B power by design and carryover half-life, 50 replicates
+
 Relative power loss at t1/2 = 1.0: N-of-1 39 percent, CO 20 percent,
 OL+BDC 61 percent.
 
@@ -225,6 +236,8 @@ Architecture A (mean moderation):
 | N-of-1 | 0.74 | 0.72 | 0.68 |
 | CO | 0.38 | 0.36 | 0.34 |
 | OL+BDC | 0.62 | 0.58 | 0.54 |
+
+Table: Architecture A power by design and carryover half-life, 50 replicates
 
 Relative power loss at t1/2 = 1.0: N-of-1 8 percent, CO 11 percent,
 OL+BDC 13 percent.
@@ -290,6 +303,8 @@ Decision table (doc 02):
 | Signal location | Mean structure | Covariance structure |
 | Carryover impact | Modest (10-15 pct) | Substantial (40-60 pct) |
 | Appropriate when | Biomarker determines effective dose or PK | Biomarker indexes latent subtype |
+
+Table: Decision criteria for choosing between Architecture A and Architecture B
 
 Reporting recommendation: simulation studies should explicitly state
 whether the biomarker-treatment interaction is mean moderation or
@@ -445,6 +460,8 @@ From the 2026-04-16 audit:
 | 6. Gompertz origin-passing | yes | yes | yes | partial |
 | 7. Updated defaults | yes | yes | yes | partial |
 
+Table: Status of the seven DGP corrections across the four implementations
+
 All seven corrections are embodied in the three production
 implementations. The simple sandbox omits some by design (it uses
 ANCOVA on phase-mean change scores rather than LME).
@@ -473,6 +490,8 @@ Failure rates by commit:
 | f6ee86d | Autocorr typo fix | 102 of 162 | 63.0 pct |
 | f70f86d | Carryover added | 102 of 162 | 63.0 pct |
 
+Table: Positive definiteness failure rates of covariance matrices by commit
+
 All 162 matrices in the standard parameter sweep were ill-conditioned
 (`kappa > 100`) under compound symmetry.
 
@@ -482,6 +501,8 @@ Condition number statistics (all 162 matrices):
 |---|---|---|---|---|
 | 42ac030 | 229 | 162/162 | 40/162 | 40/162 |
 | 8609f12 | 3.1 times 10^18 | 162/162 | 102/162 | 102/162 |
+
+Table: Covariance matrix condition number statistics by commit across 162 matrices
 
 Minimum eigenvalues of failed matrices ranged from -33.26 (worst) to
 -0.52 (least severe), on a dominant eigenvalue of approximately 700.
@@ -540,6 +561,8 @@ Maximum feasible `c.bm` by design:
 | CO | 0.25 | 0.61 |
 | N-of-1 | 0.25 | 0.53 |
 
+Table: Maximum feasible c.bm by design under original and revised parameters
+
 The publication value of `c.bm = 0.6` exceeds the PD-feasible range
 for every design except OL. The revised value of `c.bm = 0.45` is
 within range for all designs.
@@ -558,6 +581,8 @@ across 4 designs and 3 half-lives:
 | Feasible ceiling | approximately 0.45 | unconstrained |
 | Paths failing at 0.60 | 7 of 9 | 0 of 9 |
 | Paths failing at 0.95 | 9 of 9 | 0 of 9 |
+
+Table: Positive definiteness limits on c.bm for Architecture B and Architecture A
 
 ### 3.5 Residual PD Instrumentation Gap (Finding C1)
 
@@ -643,6 +668,8 @@ no censoring, no carryover):
 | CO | 0.17 | 0.13 |
 | N-of-1 | 0.06 | 0.08 |
 
+Table: Type I error by design and N under lme4::lmer analysis
+
 The CO design reaches 17 percent false positives at N=35, 3.4 times
 nominal. CO and OL are most affected because their drug indicators
 are most strongly confounded with time-dependent residual structure.
@@ -655,6 +682,8 @@ Under the revised `nlme::lme` plus `corCAR1` model:
 | OL+BDC | 0.03 | 0.04 |
 | CO | 0.06 | 0.08 |
 | N-of-1 | 0.04 | 0.06 |
+
+Table: Type I error by design and N under nlme::lme with corCAR1
 
 All within the 95 percent binomial CI for `p = 0.05` at n = 200
 (approximately [0.02, 0.09]). At 1,000 replicates (doc 04), Type I
@@ -785,6 +814,8 @@ N-of-1 Path A, `c.bm = 0.5`, `t_half = 1.0` week:
 | Spread | 8.0 | 4.0 |
 | Coefficient of variation | 0.785 | 0.786 |
 
+Table: On-drug and off-drug BR mean and correlation for N-of-1 Path A
+
 The spread halves as the mean halves. The coefficient of variation
 of the biomarker-specific component is preserved at 0.79. No
 participant has negative expected BR.
@@ -800,6 +831,8 @@ Off-drug conditional expectations at BD3 (`mu_BR = 5.09`,
 | Proportional (lambda_cor = lambda_drug) | 0.25 | 7.09 | 3.09 | Consistent |
 | Slow decay (lambda_cor = 1) | 0.18 | 6.57 | 3.61 | Under-predicts spread |
 | Full correlation (rho = c_bm) | 0.50 | 9.09 | 1.09 | Over-predicts spread |
+
+Table: Off-drug conditional expectations of BR under alternative decay rules
 
 Only proportional scaling produces a spread consistent with
 pharmacokinetic decay.
@@ -819,6 +852,8 @@ Numerical example at BD3 with 0.1-week half-life, `c.bm = 0.6`,
 | 109 (-1 SD) | -4.8 | +0.01 |
 | 124 (mean) | +0.01 | +0.01 |
 | 140 (+1 SD) | +4.9 | +0.01 |
+
+Table: Expected BR by biomarker level under original and revised decay
 
 Under the original rule, a low-biomarker participant's conditional
 expected BR is -4.8 at a timepoint where the drug effect has decayed
@@ -885,6 +920,8 @@ Source documents: 04-revised-power-analysis.tex;
 | Analysis model | nlme::lme + corCAR1 | Required for Type I control |
 | PD corrections | 0 of 162 | All matrices valid |
 
+Table: Revised parameter grid with values and rationale
+
 ### 6.2 Type I Error at 1,000 Replicates (c.bm = 0)
 
 | Design | N=35 | N=70 |
@@ -893,6 +930,8 @@ Source documents: 04-revised-power-analysis.tex;
 | OL+BDC | 0.030 | 0.031 |
 | CO | 0.053 | 0.058 |
 | N-of-1 | 0.040 | 0.030 |
+
+Table: Type I error by design and N at 1,000 replicates
 
 ### 6.3 Power at c.bm = 0.45, No Censoring, 1,000 Replicates
 
@@ -906,6 +945,8 @@ Source documents: 04-revised-power-analysis.tex;
 | OL+BDC | 70 | 0.62 | 0.44 | 0.21 | Large drop |
 | N-of-1 | 35 | 0.45 | 0.33 | 0.23 | Large drop |
 | N-of-1 | 70 | 0.75 | 0.63 | 0.43 | Large drop |
+
+Table: Power by design, N and half-life at c.bm = 0.45, 1,000 replicates
 
 The qualitative design ranking from the publication is preserved
 (N-of-1 greater than CO greater than OL+BDC greater than OL at
@@ -943,6 +984,8 @@ and implementations/README.md.
 | tidyverse | tidyverse | A + B | `implementations/tidyverse/` | Modern alternative |
 | simple | base R + tidyverse | A only | `implementations/simple/` | Pedagogical sandbox |
 
+Table: The four parallel implementation collections with style, architectures and role
+
 The installed package at root `R/` is effectively a copy of
 `original-extended` with additional plotting, carryover analysis, and
 documentation functions. The seven core R files are byte-identical
@@ -963,6 +1006,8 @@ threading in `generateData.R` and `generateSimulatedResults.R`.
 | plottingfunctions.R | 341 | `PlotModelingResults`, `plotfactortrajectories` |
 | utilities.R | 108 | `cumulative`, `modgompertz`, `reknitsimresults` |
 | carryover_analysis.R | 377 | `characterize_carryover`, `analyze_trial_extended`, `print_carryover_summary`, `print_trial_summary` |
+
+Table: Installed package R files with line counts and exports
 
 ### 7.3 Where Each Implementation Stands
 
@@ -1008,6 +1053,8 @@ From the 2026-04-16 audit:
 | `implementations/original-extended/tests/` | 0 | none | 0 | Empty |
 | `implementations/tidyverse/R/test-alignment.R` | 1 | sigma, Gompertz, data parity | 5 stopifnot | Manual sourcing; no formal framework |
 | `implementations/test-parity-extended-tidyverse.R` | 1 | cross-implementation | approximately 144 cells | Parity-only |
+
+Table: Test inventory by location with coverage, assertions and gaps
 
 The root `inst/tinytest/` suite covers core functions but has
 known coverage gaps flagged as audit finding C7: no test exercises
@@ -1161,6 +1208,8 @@ Drawing 500 participants with identical parameters
 | BR shift per SD of biomarker | 3.36 | 3.48 |
 | Residual SD | 5.23 | 3.89 |
 
+Table: Empirical BR shift and residual SD for Architecture A and Architecture B
+
 The shift magnitudes are comparable. Architecture A has slightly
 higher residual variance because the BM-BR correlation in the
 covariance matrix is absent (the noise components are independent),
@@ -1183,6 +1232,8 @@ combinations evaluable. Power at `c.bm = 0.6`, 50 replicates:
 | OL+BDC | 35 | 0.58 | 0.66 | 0.68 |
 | CO | 35 | 0.40 | 0.28 | 0.26 |
 
+Table: Architecture A power at c.bm = 0.6 by design, N and half-life
+
 Power at `c.bm = 0.3`, 50 replicates:
 
 | Design | N | t_half = 0 |
@@ -1190,6 +1241,8 @@ Power at `c.bm = 0.3`, 50 replicates:
 | N-of-1 | 70 | 0.48 |
 | OL+BDC | 70 | 0.36 |
 | CO | 70 | 0.26 |
+
+Table: Architecture A power at c.bm = 0.3 by design and N without carryover
 
 Type I error at `c.bm = 0` is 0.00 to 0.08 across all designs
 (nominal 5 percent). Observations:
@@ -1380,6 +1433,8 @@ cleaner contrast with the washed-out state.
 | Two-stage random slopes | No | Moderate | Unknown; separates estimation stages |
 | Exclude early off-drug | Some | Low | Moderate; improves contrast clarity |
 | Design modification | N/A | N/A | High; addresses root cause |
+
+Table: Alternative analysis strategies by data discarded, complexity and expected benefit
 
 ---
 
@@ -1659,6 +1714,8 @@ sphericity concerns.
 | Transitions | 0 | 1 | 1 | 3 |
 | Autocorr vulnerability | Low | Medium | Medium | Low per block |
 | Carryover vulnerability | None | Low | Low | High |
+
+Table: Interaction term and target of the test across the four designs
 
 ### 13.3 The OL Design Is a Fundamentally Different Test
 

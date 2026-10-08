@@ -1,4 +1,11 @@
-# Biomarker Interaction Implementation: Architecture Comparison
+# Biomarker Interaction Implementation: Architecture Comparison {.unlisted .unnumbered}
+
+```{=latex}
+\clearpage
+\tableofcontents
+\listoftables
+\clearpage
+```
 
 ## Empirical Comparison
 
@@ -18,6 +25,8 @@ Power under carryover half-life variation:
 | CO       |    0.40    |     0.40     |     0.32     |
 | OL+BDC   |    0.62    |     0.38     |     0.24     |
 
+Table: Architecture B power by design and carryover half-life
+
 Power declines substantially with increasing carryover:
 - N-of-1: 68% relative loss
 - CO: 20% relative loss
@@ -32,6 +41,8 @@ Power under carryover half-life variation:
 | N-of-1   |    0.74    |     0.72     |     0.68     |
 | CO       |    0.38    |     0.36     |     0.34     |
 | OL+BDC   |    0.62    |     0.58     |     0.54     |
+
+Table: Architecture A power by design and carryover half-life
 
 Power is largely preserved under carryover:
 - N-of-1: 8% relative loss

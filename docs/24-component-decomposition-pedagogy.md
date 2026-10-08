@@ -1,10 +1,17 @@
-# Understanding the BR-PB-TV Decomposition
+# Understanding the BR-PB-TV Decomposition {.unlisted .unnumbered}
 
-## An Intuitive Guide to Treatment Response in N-of-1 Trials
+## An Intuitive Guide to Treatment Response in N-of-1 Trials {.unlisted .unnumbered}
 
 *2026-05-07 08:51 PDT*
 
 ---
+
+```{=latex}
+\clearpage
+\tableofcontents
+\listoftables
+\clearpage
+```
 
 ## The Big Picture: Why Split Responses?
 
@@ -168,6 +175,8 @@ The three parameters have direct interpretations:
 | Onset rate | $r$ | How fast the patient approaches the ceiling. High $r$ means a fast onset (effect plateaus in one to two weeks); low $r$ means a slow climb (six to eight weeks to plateau). |
 | Displacement | $d$ | The shape of the climb. High $d$ is an early-onset curve that rises sharply at first; low $d$ is a more gradual climb. |
 
+Table: Modified Gompertz parameters for the BR component and their meanings
+
 For PTSD prazosin, calibrated values from the Hendrickson et al.
 (2020) reference dataset are roughly $m \approx 11$ (eleven points
 of nightmare score reduction at saturation), $r \approx 0.42$ per
@@ -302,6 +311,8 @@ Typical values of the expectancy factor:
 | Open-label on drug | 1.0 | Patient knows they are on the active drug. |
 | Blinded discontinuation | 0.5 | Patient believes they may or may not still be on drug; expectation is hedged. |
 | Open-label placebo | 0.0-0.5 | Patient told they are on placebo retains some residual expectation, especially if the previous active phase was beneficial. |
+
+Table: Expectancy factor $\eta$ by trial phase with reasoning
 
 The choice of $\eta = 0.5$ rather than $\eta = 0$ for the blinded
 phase is itself a modelling assumption. The empirical question is
@@ -571,6 +582,8 @@ different combination of components.
 | Blinded discontinuation | Hidden | Hedged | $BR \cdot \mathbf{1}_{\text{on drug}} + PB(\eta = 0.5) + TV$ |
 | Open-label crossover | Either | Knows | $BR \cdot \mathbf{1}_{\text{on drug}} + PB(\eta = 1) + TV$ |
 
+Table: Components present in each phase of the Hendrickson hybrid design
+
 Three phase-by-allocation contrasts then identify the three
 components:
 
@@ -623,6 +636,8 @@ have reached close to their saturation values:
 | Participant A | 4.0 | 6.0 | 1.0 | **11.0** |
 | Participant B | 8.0 | 1.0 | 1.0 | **10.0** |
 
+Table: Worked example components for participants A and B, open-label phase
+
 A clinician examining only the totals would conclude that the
 two participants are responding similarly: both improved by about
 ten points, both look like clinical successes. A simple t-test on
@@ -638,6 +653,8 @@ week 12, the components are:
 |---|---|---|---|---|
 | Participant A | 0.0 | 3.0 | 1.0 | **4.0** |
 | Participant B | 0.0 | 0.5 | 1.0 | **1.5** |
+
+Table: Worked example components for participants A and B, blinded discontinuation phase
 
 The two participants now look quite different. Participant A still
 shows a sizeable improvement (four points) under blinded placebo;
@@ -694,6 +711,8 @@ Compare the inferences:
 | 'If a biomarker predicts BR, is it useful here?' | Cannot answer (no $BR$ estimate). | Yes if the biomarker correlates with $\hat{m}_{BR}$. |
 | 'Should A be continued on this drug long-term?' | Cannot say (the response could be largely placebo). | Probably yes (BR = 4 is real and pharmacological), but the larger placebo component will not persist if expectations decay. |
 | 'What is the population mean drug effect?' | 7.75 points (biased; mixes BR and the discontinuation-induced drop in PB). | 6.0 points = $(4.0 + 8.0)/2$ (correctly the mean of $BR$). |
+
+Table: One-component versus three-component answers to clinical questions
 
 The one-component model has produced one biased average where the
 three-component model has produced six clinically actionable
@@ -1135,6 +1154,8 @@ is asked at all.
 | **PB** | Belief in treatment | Expectancy-modulated (hours-weeks) | Open-label vs. blinded contrasts | Placebo response, accounted for, not the target |
 | **TV** | Natural history | Disease-trajectory (weeks-months) | Off-drug timepoints | Confounding control |
 | **$\varepsilon$** | Measurement noise | Per-observation | Residuals | Fit diagnostics |
+
+Table: Summary of the BR, PB, TV, and noise components and their roles
 
 ---
 

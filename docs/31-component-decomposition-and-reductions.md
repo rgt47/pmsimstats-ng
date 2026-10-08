@@ -1,8 +1,15 @@
-# The BR-PB-TV Decomposition, Its Identification, and Its Reductions
+# The BR-PB-TV Decomposition, Its Identification, and Its Reductions {.unlisted .unnumbered}
 
 *2026-09-09 09:26 PDT*
 
 Author: pmsimstats team
+
+```{=latex}
+\clearpage
+\tableofcontents
+\listoftables
+\clearpage
+```
 
 ## 0. What this document is
 
@@ -46,6 +53,8 @@ are defensible.
 | IV | **The decomposition in the wider literature** | **new** |
 | V | **The two-component reductions** | **papers 13, 14 (new)** |
 | VI | Reference: questions, summary table, bibliography | doc 24 |
+
+Table: Reading order of the six parts, with content and source documents
 
 A reader familiar with the decomposition may begin at Part IV. A
 reader who wants only the practical guidance may read section 21,
@@ -223,6 +232,8 @@ The three parameters have direct interpretations:
 | Onset rate | $r$ | How fast the patient approaches the ceiling. High $r$ means a fast onset (effect plateaus in one to two weeks); low $r$ means a slow climb (six to eight weeks to plateau). |
 | Displacement | $d$ | The shape of the climb. High $d$ is an early-onset curve that rises sharply at first; low $d$ is a more gradual climb. |
 
+Table: Parameters of the modified Gompertz curve for the biological response
+
 For PTSD prazosin, calibrated values from the Hendrickson et al.
 (2020) reference dataset are roughly $m \approx 11$ (eleven points
 of nightmare score reduction at saturation), $r \approx 0.42$ per
@@ -358,6 +369,8 @@ Typical values of the expectancy factor:
 | Open-label on drug | 1.0 | Patient knows they are on the active drug. |
 | Blinded discontinuation | 0.5 | Patient believes they may or may not still be on drug; expectation is hedged. |
 | Open-label placebo | 0.0-0.5 | Patient told they are on placebo retains some residual expectation, especially if the previous active phase was beneficial. |
+
+Table: Typical values of the expectancy factor $\eta$ by trial phase
 
 The choice of $\eta = 0.5$ rather than $\eta = 0$ for the blinded
 phase is itself a modelling assumption. The empirical question is
@@ -633,6 +646,8 @@ different combination of components.
 | Blinded discontinuation | Hidden | Hedged | $BR \cdot \mathbf{1}_{\text{on drug}} + PB(\eta = 0.5) + TV$ |
 | Open-label crossover | Either | Knows | $BR \cdot \mathbf{1}_{\text{on drug}} + PB(\eta = 1) + TV$ |
 
+Table: Components present in each phase of the Hendrickson hybrid design
+
 Three phase-by-allocation contrasts then identify the three
 components:
 
@@ -752,6 +767,8 @@ different mixture of the three components:
 | Open-label on drug | Yes | Full (eta = 1) | BR + PB(eta=1) + TV |
 | Blinded discontinuation | Hidden | Hedged (eta = 0.5) | BR (on drug) + PB(eta=0.5) + TV |
 | Open-label crossover | Either | Knows (eta = 1) | BR (on drug) + PB(eta=1) + TV |
+
+Table: Hybrid design phase structure with drug, belief and components present
 
 The `on drug` qualifier on `BR` is shorthand for the continuous-decay
 drug state `Dbc`, not a binary switch.
@@ -1079,6 +1096,8 @@ have reached close to their saturation values:
 | Participant A | 4.0 | 6.0 | 1.0 | **11.0** |
 | Participant B | 8.0 | 1.0 | 1.0 | **10.0** |
 
+Table: Worked example: component values for participants A and B at week 8
+
 A clinician examining only the totals would conclude that the
 two participants are responding similarly: both improved by about
 ten points, both look like clinical successes. A simple t-test on
@@ -1094,6 +1113,8 @@ week 12, the components are:
 |---|---|---|---|---|
 | Participant A | 0.0 | 3.0 | 1.0 | **4.0** |
 | Participant B | 0.0 | 0.5 | 1.0 | **1.5** |
+
+Table: Worked example: component values for participants A and B at week 12
 
 The two participants now look quite different. Participant A still
 shows a sizeable improvement (four points) under blinded placebo;
@@ -1150,6 +1171,8 @@ Compare the inferences:
 | 'If a biomarker predicts BR, is it useful here?' | Cannot answer (no $BR$ estimate). | Yes if the biomarker correlates with $\hat{m}_{BR}$. |
 | 'Should A be continued on this drug long-term?' | Cannot say (the response could be largely placebo). | Probably yes (BR = 4 is real and pharmacological), but the larger placebo component will not persist if expectations decay. |
 | 'What is the population mean drug effect?' | 7.75 points (biased; mixes BR and the discontinuation-induced drop in PB). | 6.0 points = $(4.0 + 8.0)/2$ (correctly the mean of $BR$). |
+
+Table: One-component and three-component answers to clinical questions for the worked example
 
 The one-component model has produced one biased average where the
 three-component model has produced six clinically actionable
@@ -1292,6 +1315,8 @@ most 0.014):
 | 0.1 | 150 | 0.98 | 0.93 | +0.05 |
 | 0.2 | 150 | 0.97 | 0.93 | +0.04 |
 | 0.3 | 150 | 0.93 | 0.93 | -0.00 |
+
+Table: Study C power of one-component and decomposition analyses on the balanced-placebo design
 
 At zero contamination the one-component analysis is the more powerful of
 the two (by 0.19 at N = 70, 0.07 at N = 150), reflecting the degrees of
@@ -1616,6 +1641,8 @@ components are available:
 | 13 | BR + TV | placebo-belief (PB) |
 | 14 | BR + PB | natural history (TV) |
 
+Table: Components retained and dropped by the two-component reductions of papers 13 and 14
+
 Both take the matrix to `(2 + 2n) = 18` square with one cross-component
 block. Both reproduce paper 01's architecture comparison: covariance
 moderation loses power as carryover grows, mean moderation does not,
@@ -1635,6 +1662,8 @@ way.
 | **Design structure** | nothing becomes inert | expectancy weight inert | 14 |
 | **Analysis-model match** | `t` term fits nothing; PB unmodelled | DGP matches the fitted model | 13 |
 | **Convention** | deletes the conventional trend term | matches N-of-1 practice | 13 |
+
+Table: The TV-drop and PB-drop reductions compared on four axes
 
 ### 18.1 Safety
 
@@ -2110,6 +2139,8 @@ is asked at all.
 | **PB** | Belief in treatment | Expectancy-modulated (hours-weeks) | Open-label vs. blinded contrasts | Placebo response, accounted for, not the target |
 | **TV** | Natural history | Disease-trajectory (weeks-months) | Off-drug timepoints | Confounding control |
 | **$\varepsilon$** | Measurement noise | Per-observation | Residuals | Fit diagnostics |
+
+Table: Summary of the BR, PB, TV and noise components
 
 ---
 

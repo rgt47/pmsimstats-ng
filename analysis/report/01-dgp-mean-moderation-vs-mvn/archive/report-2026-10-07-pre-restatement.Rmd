@@ -1,0 +1,2357 @@
+---
+title: "Data Generation Machinery for N-of-1 Clinical Trial Simulations"
+  
+author: 'pmsimstats team'
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    keep_tex: true
+    highlight: tango
+    includes:
+      in_header: ../sim-preamble.tex
+fontsize: 11pt
+linestretch: 1.1
+geometry: 'left=3cm,right=3cm,top=2.5cm,bottom=2.5cm'
+bibliography: references.bib
+csl: statistics-in-medicine.csl
+link-citations: true
+header-includes:
+  - \usepackage{amsmath}
+  - \usepackage{amssymb}
+  - \usepackage{booktabs}
+  - \usepackage{array}
+  - \usepackage{longtable}
+  - \usepackage{float}
+  - \usepackage[mathlines]{lineno}
+  - \linenumbers
+knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path(d, 'tools', 'stamp-render.R')) && d != dirname(d)) d <- dirname(d); source(file.path(d, 'tools', 'stamp-render.R'))$value(input) })
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+\section{Abstract}
+
+\textbf{Background.} Simulation is the standard tool for power and
+sample-size calculation in aggregated N-of-1 trials. In this design
+each participant is repeatedly crossed on and off treatment, and
+many single-patient series are then pooled to validate a predictive
+biomarker. Any such simulation must specify how the biomarker
+moderates the treatment effect in its data-generating process
+(DGP). That specification is a substantive choice, not an
+implementation detail. Each of the two established
+parameterizations carries its own advantages and its own costs. We
+formalize both and ask one question. In the Hybrid N-of-1 design
+that motivates this software, why does carryover erode power so
+much more under one architecture than under the other?
+
+\textbf{Methods.} We define two DGP architectures. Under
+'mean moderation' the biomarker scales the treatment effect in the
+conditional mean. Under 'covariance moderation' the interaction is
+instead represented as a correlation that depends on drug-exposure
+condition (on drug versus off drug), within a joint multivariate
+normal (MVN) distribution. We hold the analysis model fixed at a
+linear mixed model with continuous-time AR(1) residual correlation.
+We then use Monte Carlo simulation to quantify the power to detect
+the interaction as carryover increases in the Hybrid N-of-1 design,
+the within-subject design used by the prazosin and PTSD reference
+application that motivates this software. We also run a traditional
+crossover (CO) and an open-label-plus-blinded-discontinuation
+design (OL+BDC) in parallel, at the same total $N$. These serve as
+contrast cases that isolate the design feature driving the
+architecture-dependent divergence.
+
+\textbf{Results.} Under mean moderation, power is nearly preserved
+in the Hybrid design. Carryover does not disrupt the biomarker's
+relationship to the treatment effect here. At $N = 70$ power falls
+only from 0.842 to 0.784 as the carryover half-life grows to one
+week, a relative loss of 6.9\% ($z = 3.34$). Under covariance
+moderation the same carryover instead erodes the differential
+correlation that carries the signal. Power falls from 0.840 to
+0.711, a relative loss of 15.4\% ($z = 2.80$, $p = 0.005$), more
+than double the mean-moderation loss. We trace this gap to a
+two-channel erosion mechanism. Carryover shrinks the drug-exposure
+contrast, a channel shared with mean moderation, and it
+independently decays the biomarker-response correlation itself, a
+channel unique to covariance moderation. The damage from this
+second channel scales with how much uninterrupted off-drug time a
+design exposes patients to. That is why the architecture contrast
+is negligible in the classical crossover (CO, $z = 0.29$), where
+within-subject AR(1) correlation already carries most of the signal
+covariance moderation depends on. The contrast is far larger in the
+open-label-plus-blinded-discontinuation design (OL+BDC,
+$z = 7.64$, $p < 10^{-13}$). Its extended blinded-discontinuation
+phase gives the correlation-decay channel the most uninterrupted
+time to act. The Hybrid design alternates on- and off-drug periods
+rather than sustaining either for long, so its intermediate
+carryover exposure places its architecture-dependent power loss
+between these two extremes.
+
+\textbf{Keywords.} N-of-1 trials; biomarker-treatment interaction;
+data-generating process; multivariate normal; carryover effects;
+clinical trial simulation; precision medicine; statistical power.
+
+\bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
+
+\section{1. Introduction}
+
+A crossover trial is built on balance: every participant moves through
+the same sequence of equal-length periods and receives each treatment
+once. We begin with the three designs compared here, which span the
+departure from that balance. At one end sits a conventional two-period
+crossover. At the other sits a hybrid design combining an unblinded
+open-label phase, a blinded randomized-withdrawal phase, and a single
+crossover cycle. Measurement spacing, randomization, and blinding all
+differ from phase to phase across this span.
+
+N-of-1 and aggregated N-of-1 designs are being adopted with increasing
+frequency across clinical and behavioral research [@duan2013;
+@schork2015]. Systematic and scoping reviews document this growth
+across fields as varied as pediatric psychiatry [@punja2016],
+neurology [@stunnenberg2022], epilepsy care [@margolis2019], palliative
+care [@nikles2011], translational nutrition [@schork2017nutrition],
+and the single-case experimental designs of psychology and education
+[@smith2012]. A scoping review now assesses the effect of the design
+on clinical outcomes themselves [@samuel2022], and the design has
+acquired both a CONSORT reporting extension and a national policy
+agenda [@vohra2016cent; @davidson2018nam].
+
+The principal advantage of these designs over a parallel-group
+alternative is efficiency. Because each participant serves as their
+own control, the between-participant variance component is removed
+from the treatment contrast. Pooling a modest number of individual
+series in a mixed model therefore yields population-level inference
+at sample sizes far below those a parallel-group trial would require
+[@zucker1997; @zucker2010; @senn2016mastering]. This efficiency gain
+has been quantified directly, in simulation-based comparisons of
+aggregated N-of-1 trials against parallel and crossover designs
+[@blackston2019; @wang2019] and in a developed literature on
+sample-size and power calculation for the N-of-1 setting, including
+the serial correlation that repeated within-participant measurement
+induces [@senn2019samplesize; @araujo2016; @tang2020; @tueller2022].
+
+Increasingly the target of inference in these designs is not the
+average treatment effect but a biomarker-treatment interaction. That
+is, the question is whether a baseline marker identifies which
+participants respond [@kent2020path; @simon2010; @freidlin2014;
+@haller2018]. We note that the repeated within-participant measurement
+that makes N-of-1 designs efficient for main effects also makes them
+particularly attractive for this purpose, since interaction tests are
+notoriously underpowered in parallel-group trials. Aggregated N-of-1
+designs have accordingly been proposed and evaluated specifically as a
+vehicle for predictive-biomarker validation [@hendrickson2020;
+@schork2022; @schork2023precision].
+
+Establishing such an interaction requires knowing the power of the
+test for it. For simplified special cases, such as a balanced strict
+repeated-measures analysis of variance under sphericity, that power
+does have a closed form, and a companion paper [@pmsimstats-paper08]
+derives it together with its equivalence to a two-sample $t$-test.
+For the continuous-time mixed model and the N-of-1 designs considered
+here, however, no such closed form is available. Power is instead
+estimated by Monte Carlo simulation: many trials are generated and
+analyzed, and the rejection rate is recorded. The simulation must
+itself specify the biomarker-treatment interaction in its
+data-generating process, and, as we shall show, there is more than
+one way to do so.
+
+We distinguish two architectures. The common one, direct mean
+moderation, adds an interaction term to the outcome equation so that
+the biomarker scales the size of the treatment effect. Essentially
+every standard trial-simulation framework uses it [@simon2010;
+@freidlin2014]. The second, covariance moderation through differential
+correlation, is the specification Hendrickson et al. [@hendrickson2020]
+used for N-of-1 trials. It instead makes the biomarker change the
+correlation between treatment response and outcome, so that the
+interaction is represented in the joint distribution rather than in
+the mean.
+
+On this reading, covariance moderation is the reduced-form
+second-moment representation of a latent responder-class mechanism, a
+point developed at length in a companion paper [@pmsimstats-paper03].
+Patients may belong to unobserved responder and non-responder groups,
+with the biomarker only an imperfect indicator of that status, so
+that two patients with the same biomarker value can still respond
+differently. Mean moderation cannot represent this situation, because
+it assumes that the biomarker fixes each patient's drug effect
+exactly. Covariance moderation represents it instead by letting
+biomarker and response track one another only while the drug is
+acting, as a tendency rather than a fixed rule, and that tendency
+fades once the drug washes out. As Section 4 shows, that difference is
+why carryover costs more power under covariance moderation than under
+mean moderation.
+
+Choosing between these two architectures is not a matter of
+computational convenience, because each carries a genuine advantage
+and a genuine cost. On the one hand, mean moderation is simple, has a
+single free parameter, and preserves the biomarker-treatment effect
+ratio under carryover. It commits, however, to a strong assumption,
+namely that the biomarker deterministically fixes each patient's drug
+response. That assumption is implausible whenever the biomarker is
+only a statistical proxy for an unobserved responder subtype.
+
+Covariance moderation, on the other hand, relaxes that assumption. As
+the reduced-form representation of a latent responder-class mechanism
+discussed above, it lets the biomarker predict response only
+probabilistically. This is the more defensible choice whenever
+responder status, rather than the biomarker itself, is the true
+causal driver, as is plausibly the case for the noradrenergic-tone
+hypothesis behind the prazosin and PTSD reference application used
+throughout this paper. That fidelity to the underlying biology comes
+at a real cost. Because the covariance-moderation signal lives in a
+correlation between biomarker and response that is sustained only
+while the drug is active, any off-drug erosion of drug effect
+directly erodes the statistical signal itself. This paper shows that
+the resulting power losses can run many times larger than under mean
+moderation. Investigators who adopt covariance moderation on
+biological grounds should therefore budget for its carryover cost at
+the design stage, rather than discover it after a trial has already
+been powered.
+
+Hendrickson et al. [@hendrickson2020] chose covariance moderation for
+exactly this reason when they designed the Monte Carlo simulation
+program behind the prazosin and PTSD trial. Given that trial's own
+results, covariance moderation was the logical, biologically
+appropriate specification. Representing the interaction in the mean
+would have imposed a deterministic biomarker-response relationship
+that the trial's biology did not support. Mean moderation, by
+contrast, was and remains the modal specification across the N-of-1
+and broader biomarker-simulation literature (Section 4.4), so
+Hendrickson's choice was a deliberate departure from convention
+rather than an oversight.
+
+What that departure costs, measured in statistical power under
+carryover, had not previously been quantified. Neither had the
+mechanism producing that cost been traced to specific,
+design-relevant features of the trial. Doing both is the central aim
+of this paper. We take the covariance-moderation choice as
+scientifically justified for the prazosin and PTSD application. In
+the Hybrid design that trial and this software's target applications
+use, we ask why carryover erodes power so much more severely under
+covariance moderation than under mean moderation, so that
+investigators reasoning by analogy from that trial can budget for the
+penalty explicitly and understand which design features control its
+size.
+
+Within-participant designs are attractive for this question because
+of precision, not because they resolve individual response.
+Interaction parameters are estimated less precisely than main
+effects, for a binary marker by a factor equal to the inverse of the
+marker's prevalence. The advantage of a within-participant over a
+parallel-group design for that interaction depends on the complement
+of the intraclass correlation [@grenet2020]. We note that this result
+is derived for a two-period crossover with a binary marker, so it
+orients rather than describes the present setting, in which the
+biomarker is continuous and the designs run over many timepoints.
+Separating a genuine participant-by-treatment variance component from
+within-participant error is a different problem. It requires repeated
+treatment cycles within each participant [@senn2016mastering;
+@senn2011individual; @senn2019samplesize], and none of the designs
+studied here provides that. The estimand throughout is accordingly
+the fixed biomarker-by-exposure coefficient of Section 2.1, and the
+latent-responder reading of residual heterogeneity is developed in a
+companion paper [@pmsimstats-paper03].
+
+The feature that distinguishes these designs analytically is
+\emph{carryover}: residual drug effect that decays over days to weeks
+after discontinuation and contaminates off-drug occasions. Our focus
+is the Hybrid N-of-1 design, the within-subject design behind the
+prazosin and PTSD reference application and the design this software
+was built to support. It alternates on-drug and off-drug periods
+rather than sustaining either for long. We run two further
+within-subject designs in parallel as contrast cases, chosen to
+isolate which feature of the Hybrid design's carryover exposure
+drives its architecture-dependent power loss. The first is a
+traditional crossover (CO), whose within-subject AR(1) correlation
+dominates any covariance-moderation signal. The second is an
+open-label-plus-blinded-discontinuation design (OL+BDC), whose
+extended blinded phase gives carryover the most uninterrupted time to
+act of the three. All three designs are defined in Section 3.
+
+\bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
+
+\section{2. Methods}
+
+\subsection{2.1 Notation and analysis model}
+
+The notation follows the project's shared conventions. The subscript
+$i$ indexes participants and the subscript $t$ indexes measurement
+occasions. $B_i$ denotes the biomarker value of participant $i$
+(code \texttt{bm}), with population mean $\mu_{bm}$ and standard
+deviation $\sigma_{bm}$, and $b_i = (B_i - \mu_{bm})/\sigma_{bm}$ its
+standardized value. $D_{it}$ is the binary on-drug indicator at
+occasion $t$ (1 on drug, 0 off drug). The observed symptom score
+(code \texttt{Sx}) is
+\[
+Y_{it} = \mathrm{BL}_i - \bigl(TV_{it} + PB_{it} + BR_{it}\bigr),
+\]
+where $\mathrm{BL}_i$ is baseline severity and $TV_{it}$, $PB_{it}$
+and $BR_{it}$ are the natural-history, placebo-belief and biological
+(pharmacological) response components, with $BR_{it}$ having standard
+deviation $\sigma_{BR}$. These symbols describe the
+data-generating-process layer.
+
+\textbf{Sign convention.} The three response components are
+reductions in symptom severity, so an increase in any of them lowers
+$Y_{it}$. Moderation parameters are positive: a participant with a
+higher biomarker value has a larger response component on drug.
+Treatment effects and interaction coefficients estimated on $Y_{it}$
+are consequently negative. The data-generating displays of Section 2.2
+are written for $BR_{it}$ and carry positive signs; the fitted
+coefficients of Section 3 carry negative ones.
+
+The analysis-model layer uses a related but distinct continuous
+drug-exposure variable $D_{bc,it}$ (code \texttt{Dbc}), the continuous
+analogue of $D_{it}$. It equals 1 during on-drug periods and
+$\exp(-\lambda t_{sd})$ during off-drug periods, where $t_{sd}$ is
+time since drug discontinuation and $\lambda$ is the carryover decay
+rate. This rate is typically derived from the drug's pharmacokinetic
+half-life as $\lambda = \ln 2 / t_{1/2}$. We note that whereas
+$D_{it}$ flips abruptly between 0 and 1, $D_{bc,it}$ captures the
+smooth shrinkage of residual drug effect during the off-drug period.
+Code-style identifiers in typewriter font refer to variables in the
+pmsimstats codebase or to R formula syntax; mathematical symbols are
+used otherwise. In particular, the time covariate \texttt{t} of the
+analysis formula is the occasion's cumulative study week, written
+$w_{it}$ where it appears in mathematics, and is distinct from the
+occasion subscript $t$.
+
+The analysis model is the same under both architectures: an
+\texttt{nlme::lme} fit of
+\texttt{Sx \textasciitilde{} bm + t + Dbc + bm:Dbc}
+with a \texttt{corCAR1} continuous-time autocorrelation
+structure and a random intercept. Its target is the coefficient on
+\texttt{bm:Dbc}, written $\beta_{bm:D}$ throughout and
+$\hat\beta_{bm:D}$ for its estimate, which tests whether the
+biomarker moderates the exposure-decayed drug effect. Under the sign
+convention above, $\beta_{bm:D} < 0$ when the biomarker amplifies the
+drug response.
+
+\subsection{2.2 Two data-generating architectures}
+
+Following the project's naming, we also refer to mean moderation as
+Architecture A and to covariance moderation as Architecture B. The
+two labels are used interchangeably with the descriptive names,
+chiefly in Section 2.2.4 and Appendix B, where the code-level
+comparison makes the short form convenient.
+
+\subsubsection{2.2.1 Mean moderation}
+
+In this architecture the biomarker enters the mean of the biological
+response component directly. At each on-drug occasion the response
+component of participant $i$ is shifted by
+\[
+\Delta_i = \beta_{bm}\, \sigma_{BR}\, b_i
+= \beta_{bm}\, \frac{\sigma_{BR}}{\sigma_{bm}} (B_i - \mu_{bm}),
+\]
+and at off-drug occasions it is not shifted at all. Here $\beta_{bm}$
+is the mean-moderation parameter, a dimensionless multiplier giving
+the shift in $BR_{it}$, in units of $\sigma_{BR}$, per standard
+deviation of the biomarker. The interaction is explicit,
+deterministic, and lives in the first moment of the outcome.
+Participants with higher biomarker values have proportionally larger
+treatment effects, and this population-level ratio is preserved under
+any proportional scaling of $D_{it}$, including the shrinkage that
+carryover imposes.
+
+This form maps directly onto the standard additive regression form
+for predictive biomarker effects used in the trial methodology
+literature, specifically the effect-modeling equation of Kent et al.
+[@kent2020path], $Y_{it} = \beta_0 + \beta_1 D_{it} + \beta_2 B_i +
+\beta_3 D_{it} B_i + \varepsilon_{it}$. Because $Y_{it}$ subtracts
+$BR_{it}$ (Section 2.1), the shift above corresponds to
+$\beta_3 = -\beta_{bm}\sigma_{BR}/\sigma_{bm}$. The additive form
+additionally accommodates a prognostic main effect $\beta_2$ for the
+biomarker, which the shift above sets to zero by construction. For
+power calculations on the interaction coefficient, however, the two
+forms are interchangeable up to this prognostic-effect distinction,
+and both fall within mean moderation.
+
+That shift is, by construction, the on-drug conditional mean that
+covariance moderation induces through the covariance, given at the
+end of Section 2.2.2, when $\beta_{bm} = c_{bm}$. We therefore run
+both architectures at a matched value and, following the project's
+notation conventions, write the shared value as $c_{bm}$ wherever a
+statement applies to both architectures. $\beta_{bm}$ is reserved
+for statements specific to mean moderation. The two architectures
+agree exactly in the first moment while the drug is acting, at
+matched $\beta_{bm} = c_{bm}$, and
+differ only in whether the biomarker-response association is written
+into the second moment as well. This is what licenses running both at
+a common parameter value: the power differences reported in Section 3
+are differences in where the interaction is encoded, not differences
+in the magnitude of the on-drug effect.
+
+One consequence of this gating deserves stating explicitly, because it
+is a point on which the data-generating process and the analysis model
+do not agree. The shift is applied at on-drug occasions and nowhere
+else, so the mean-moderation DGP places no interaction signal at
+off-drug occasions, whatever the carryover half-life. The analysis
+model of Section 2.1, however, regresses on the continuous exposure
+variable \texttt{Dbc}, which equals $e^{-\lambda t_{sd}}$ and is
+therefore nonzero at off-drug occasions whenever carryover is present.
+The fitted \texttt{bm:Dbc} coefficient consequently looks for a graded
+off-drug interaction that this architecture does not generate, whereas
+under covariance moderation the two use the same exponential form and
+agree.
+
+The assumption embedded in mean moderation is therefore that a
+biomarker which moderates the drug effect ceases to moderate anything
+once administration stops, even while residual drug effect persists in
+the response mean. That is defensible, since the biomarker scales an
+administered treatment effect rather than a pharmacological
+concentration, but it is an assumption rather than a neutral
+implementation choice, and it contributes to the architectures'
+differing sensitivity to carryover reported in Section 3.
+
+\subsubsection{2.2.2 Covariance moderation through differential
+correlation}
+
+In this architecture the biomarker and the biological response (BR)
+component are jointly drawn from a multivariate normal distribution
+with a correlation that depends on drug-exposure condition,
+
+\[\begin{pmatrix} B_i \\ BR_{it} \end{pmatrix} \sim
+\text{MVN}\left(\begin{pmatrix} \mu_{bm} \\ \mu_{BR}(t, D_{it})
+\end{pmatrix}, \Sigma(D_{it})\right), \qquad
+\text{Cor}(B_i, BR_{it}) = \begin{cases}
+c_{bm} & D_{it} = 1 \\
+c_{bm} \cdot e^{-\lambda t_{sd}} & D_{it} = 0,
+\end{cases}\]
+
+with the exponential-decay form as the default. The limiting cases
+$\lambda = 0$ (no decay) and $\lambda \to \infty$ (immediate decay)
+recover the two no-carryover model variants. The population mean of
+$BR_{it}$ is the same for all participants with the same treatment
+history, so the interaction is not in the mean structure. It
+instead emerges from the conditional distribution. Given $B_i$,
+
+\[E[BR_{it} \mid B_i, D_{it} = 1] = \mu_{BR}(t) + c_{bm} \cdot
+\frac{\sigma_{BR}}{\sigma_{bm}} \cdot (B_i - \mu_{bm})
+= \mu_{BR}(t) + c_{bm}\, \sigma_{BR}\, b_i.\]
+
+The interaction here is probabilistic rather than deterministic,
+lives in the second moment of the joint distribution, and persists
+with attenuated strength off drug, vanishing only in the limit of
+complete decay. Carryover in the DGP inflates the BR means during
+off-drug periods, making them resemble on-drug means. This reduces
+the differential in the correlation structure between drug-exposure
+conditions. Section 2.2.3 shows that this erosion leaves the
+analysis model's point estimate of the interaction largely
+unbiased, but it converts variance the biomarker previously
+explained into unexplained residual noise, which is the channel
+through which it costs power (Section 3.2).
+
+\subsubsection{2.2.3 Analytical comparison}
+
+Consider the expected outcome difference between two participants
+$i$ and $j$, with standardized biomarker values $b_i$ and $b_j$, at
+the same drug exposure level $D$. Under mean moderation,
+
+\[E[Y_{it} \mid B_i, D] - E[Y_{jt} \mid B_j, D] = -\beta_{bm}\,
+\sigma_{BR}\, (b_i - b_j) \cdot D,\]
+
+negative because $Y_{it}$ subtracts $BR_{it}$.
+
+This scales linearly with $D$ and therefore shrinks during off-drug
+periods, when $D$ is replaced by an exposure-decayed value.
+However, the \emph{ratio} of drug effect between high- and
+low-biomarker participants is preserved at every level of exposure,
+so the biomarker-treatment signal contracts in amplitude but does
+not lose identifiability under carryover. Under covariance
+moderation the analogous quantity, during off-drug periods with
+carryover, is
+
+\[E[BR_{it} \mid B_i, D_{it}=0, t_{sd}] = \mu_{BR,\text{off}}(t_{sd})
++ c_{bm} \cdot e^{-\lambda t_{sd}} \cdot \sigma_{BR}\, b_i.\]
+
+Here the biomarker-dependent component decays exponentially with
+time off drug. As $t_{sd}$ increases, the off-drug conditional
+expectation converges to $\mu_{BR,\text{off}}$ for all biomarker
+values, in contrast to mean moderation's preserved ratio.
+
+This convergence in the raw time since discontinuation is not, on
+its own, the source of the power loss documented in Section 3, and
+disentangling the two requires re-expressing the comparison in terms
+of the regressor the analysis model actually uses. The DGP's
+exponential decay factor, 1 on drug and $e^{-\lambda t_{sd,it}}$ off
+drug, matches the definition of $D_{bc,it}$ in Section 2.1 exactly
+when the analysis-model half-life is set equal to the DGP half-life,
+the base case examined in Section 3.1. Then $\text{Cor}(B_i, BR_{it})
+= c_{bm} \cdot D_{bc,it}$ by construction, and the conditional mean
+above is \emph{exactly linear} in $D_{bc,it}\, b_i$ at every value of
+$t_{sd}$, not only in the untouched limit:
+\[
+E[BR_{it} \mid B_i, D_{it}] = \mu_{BR}(t) + c_{bm}\, D_{bc,it}\,
+\sigma_{BR}\, b_i.
+\]
+Because the analysis model regresses the outcome on
+\texttt{bm:Dbc} using this same $D_{bc,it}$, its population
+(large-sample) estimate of the interaction slope recovers
+$\beta_{bm:D} = -c_{bm}\,\sigma_{BR}/\sigma_{bm}$ \emph{regardless of
+how much carryover has occurred}, to the same leading order that
+mean moderation's slope $-\beta_{bm}\sigma_{BR}/\sigma_{bm}$ is
+carryover-invariant. The
+biomarker-dependent signal is not eliminated by carryover in the
+sense that matters for the fitted interaction coefficient; only its
+raw amplitude at long $t_{sd}$ is. This is confirmed empirically in
+Section 3.3: the mean of $\hat\beta_{bm:D}$ under covariance
+moderation holds near $-0.234$ across every carryover level examined,
+rather than trending toward zero, exactly as this identity predicts.
+
+If the population slope is unaffected, the power loss under
+covariance moderation must arise instead from the precision with
+which that slope is estimated, and the bivariate normal structure of
+Section 2.2.2 gives that precision loss in closed form. Conditional
+on $B_i$, the variance of $BR_{it}$ is
+\[
+\mathrm{Var}(BR_{it} \mid B_i, D_{it}) = \sigma_{BR}^2
+\bigl(1 - c_{bm}^2\, D_{bc,it}^2\bigr),
+\]
+an exact consequence of the bivariate normal conditional-variance
+identity applied to a correlation of $c_{bm}\, D_{bc,it}$. On drug
+($D_{bc,it} = 1$), the biomarker explains a fixed $c_{bm}^2$ fraction
+of $BR$'s variance; as carryover erodes $D_{bc,it}$ toward zero off
+drug, that explained fraction shrinks \emph{quadratically}, not
+linearly, in $D_{bc,it}$, and the corresponding conditional variance
+rises toward the full unconditional $\sigma_{BR}^2$, adding pure
+noise that the fixed-effects analysis model, which assumes
+homoscedastic residual variance, cannot distinguish from
+measurement error. Mean moderation has no analogue of this channel:
+the conditional variance of $BR_{it}$ given $B_i$ is $\sigma_{BR}^2$
+by construction (Section 2.2.1), independent of $D_{it}$, so carryover
+there degrades
+only the regressor's contrast, never the noise floor around it. This
+is the quantitative content behind the qualitative two-channel
+account of Section 3.2: mean moderation loses information only
+through the design contrast in $D_{bc,it}$ itself, a channel shared
+by both architectures, while covariance moderation loses information
+through this quadratic variance-inflation channel as well, and it is
+this second, architecture-specific channel that produces the
+divergence in power documented in Section 3.
+
+\subsubsection{2.2.4 Relationship to Hendrickson et al.'s published
+implementation}
+
+Covariance moderation, as formalized in Section 2.2.2, develops
+Hendrickson et al.'s approach rather than reproducing it. We compared
+against their public repository
+(\texttt{github.com/rchendrickson/pmsimstats}) at commit
+\texttt{58b32a9} of 19 November 2020, the last commit preceding
+publication and therefore the code behind the published results.
+Commits made to that repository in 2024 alter the data-generating
+process substantially, and the comparison below is against the
+published state only. Four differences matter.
+
+First, the temporal correlation structure. The published code assigns
+a single constant to every pair of timepoints within a factor,
+irrespective of their separation, which is compound symmetry. The
+architectures examined here instead use AR(1) decay,
+$\text{Cor}(X_{t}, X_{s}) = \rho^{|w_t - w_s|}$ for occasions $t$ and
+$s$ at cumulative weeks $w_t$ and $w_s$, adopted for
+clinical plausibility, since nearby measurements should be more
+strongly correlated than distant ones, and for the numerical benefit
+described below.
+
+Second, and most consequentially, the biomarker-response correlation.
+Both the published code and Architecture B make
+$\text{Cor}(B_i, BR_{it})$ depend on drug state, and they switch the
+correlation on at the same occasions: on drug, and off drug after
+exposure whenever carryover is present. They differ in how large the
+off-drug correlation is. Architecture B takes the value $c_{bm}$ at
+on-drug timepoints and $c_{bm}\exp(-\lambda t_{sd})$ off drug, so the
+correlation falls in proportion to the residual drug effect in the
+response mean. The published code instead takes $c_{bm}$ wherever the
+response mean is nonzero and zero elsewhere, so the off-drug
+correlation is a step in the residual effect rather than a graded
+function of its size.
+
+That difference has a consequence that is easy to miss. Because
+carryover keeps the response mean nonzero after discontinuation, the
+published code assigns the full on-drug correlation to every
+post-exposure off-drug occasion as soon as any carryover is present,
+however small the residual effect. At $t_{1/2} = 0$ the residual effect
+is zero off drug and the two mechanisms are identical, timepoint for
+timepoint. For $t_{1/2} > 0$ both assign a nonzero off-drug
+correlation, but Architecture B's rises only as far as the residual
+fraction allows, whereas the published code's jumps to the full
+$c_{bm}$. In the Hybrid design, whose paths all begin on drug, the
+published code therefore assigns $c_{bm}$ at every timepoint, on drug
+and off, at any positive half-life, so its interaction channel carries
+no on-drug versus off-drug contrast at all. The
+graded off-drug decay that defines covariance moderation in
+Section 2.2.2 is therefore not a feature of the published
+implementation; it was introduced into that repository in 2024.
+Architecture B as studied here is accordingly developed from
+Hendrickson et al.'s stated rationale, that the biomarker is
+informative because it shares variance with drug-responsive
+physiology, rather than recovered from their published code.
+
+Third, carryover. The published code does apply carryover, to the
+response mean only, adding $\mu_{BR,t-1}(1/2)^{t_{sd,t}/t_{1/2}}$ to
+the response mean at off-drug timepoints. This paper retains that
+mechanism unchanged: the line implementing it in the current package
+is character-for-character the published one. The 2024 revision
+inserts an additional undocumented
+constant multiplying $t_{sd}$ in that exponent, defaulting to two and
+thereby halving the effective carryover half-life. Because it
+postdates publication and carries no stated pharmacokinetic
+rationale, it is not used here.
+
+Fourth, the analysis model. The published code fits \texttt{lmer}
+with a random intercept and no residual correlation structure, in
+which the exposure variable \texttt{Db} is a binary on-drug
+indicator. Its formula branches on whether expectancy varies within
+the design: for the Hybrid design, whose open-label phase is
+unblinded, the fitted model is \texttt{Sx \textasciitilde{} bm + De +
+Db + t + bm*Db + (1|ptID)}, carrying the expectancy term \texttt{De};
+for the CO and OL+BDC designs, whose expectancy is constant,
+\texttt{De} is dropped. We use
+\texttt{nlme::lme} with \texttt{corCAR1} and the continuous exposure
+variable \texttt{Dbc} of Section 2.1, because a model that ignores
+residual autocorrelation under an autocorrelated data-generating
+process is misspecified in a way already known to distort inference,
+a defect independent of the architecture question this paper
+addresses.
+
+The published source contains one further discrepancy, which we
+record because the repository's own history describes it as a fix and
+a reader may wonder whether it affected the published results. It did
+not. In the block assigning the cross-factor, same-timepoint
+correlation $c_{cf1t}$, the assignment \texttt{correlations[n1,n2]}
+appears twice, where the second was evidently meant to write the
+mirrored cell \texttt{correlations[n2,n1]}. That mirrored write is
+redundant here: the enclosing loop visits every \emph{ordered} pair
+of factors, so the mirrored cell is assigned on a later pass
+regardless. We confirmed by direct computation that the published
+loop, the corrected loop, and a variant with the duplicated line
+removed all produce identical correlation matrices. The published
+correlation matrix is symmetric and correct, and this discrepancy is
+excluded from the four differences above.
+
+The compound-symmetry-to-AR(1) change has a direct numerical
+consequence for the range of $c_{bm}$ the simulations can explore.
+Compound symmetry restricts how large a biomarker-response
+correlation the covariance matrix can support before it ceases to be
+positive definite, because a constant correlation applied uniformly
+across many timepoints depletes the matrix faster than a correlation
+that decays with lag. \textbf{[TO RE-VERIFY: the specific positive-
+definiteness thresholds previously reported here were computed under
+a construction that combined compound symmetry with the decaying
+biomarker-response correlation, which is not the published
+configuration. Re-run against \texttt{58b32a9} before restoring
+numeric thresholds.]}
+
+\textbf{[TO RE-RUN: the quantitative comparison arm previously
+reported in this subsection was executed against the 2024 state of
+the repository, including the scale-factor constant, and its power
+figures therefore do not describe the published implementation.
+Re-run the arm against \texttt{58b32a9} across the three designs and
+carryover half-lives of Section 3.1, and regenerate the accompanying
+heatmap, before restoring quantitative claims or the figure.]}
+
+\subsection{2.3 Simulation design}
+
+We ran identical simulation configurations under both architectures
+using the pmsimstats-ng framework, matching the DGP parameters as
+closely as possible. The non-biologic response components
+(time-varying response, placebo-belief accumulation, and residual
+noise) are generated from the same multivariate normal draw, with
+identical means, variances, within-factor AR(1) autocorrelation, and
+cross-factor correlations, under both architectures. We note that
+the two DGPs differ only in how the biomarker-to-biological-response
+linkage is specified. The divergent carryover behavior reported in
+Section 3 is therefore attributable to that parameterization alone,
+and not to any difference in how the other components are generated.
+
+We follow the ADEMP framework of Morris, White, and Crowther
+[@morris2019simulation], comprising Aims, Data-generating mechanisms,
+Estimands, Methods, and Performance measures. The Aim is to compare
+power to detect the biomarker-by-drug interaction across
+architectures as carryover increases. The Data-generating
+mechanisms are the two architectures of Section 2.2. The
+\textbf{primary estimand} is the interaction coefficient
+$\beta_{bm:D}$ in the model
+\texttt{Sx \textasciitilde{} bm + t + Dbc + bm:Dbc}. The
+\textbf{Methods} setup is as follows.
+
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Trial designs: CO (traditional crossover), Hybrid (N-of-1
+  Hybrid), OL+BDC (open-label with blinded discontinuation).
+\item Sample size: $N = 70$ in total for every design, allocated
+  across each design's randomization paths, so the three designs
+  are matched on $N$. The two-path CO and OL+BDC designs put 35 on
+  each path, and the four-path Hybrid design splits 70 as
+  18/18/17/17.
+\item Biomarker parameter: $\beta_{bm} = c_{bm} = 0.45$, entering as
+  the on-drug biomarker-response correlation $c_{bm}$ under
+  covariance moderation and as the mean-moderation multiplier
+  $\beta_{bm}$ of Section 2.2.1. The two are calibrated to the same
+  on-drug conditional mean, so this is a matched setting rather than
+  a coincidence of labels, and the shared value is written $c_{bm}$
+  below. The null cells set both to zero.
+\item DGP carryover half-life: $t_{1/2} \in \{0, 0.5, 1.0\}$ weeks,
+  with the analysis-model \texttt{Dbc} half-life matched to it.
+\item Replicates: 1{,}000 per cell (Monte Carlo standard error, MCSE,
+  on a binomial power estimate near 0.5 is approximately 0.016).
+\item Implementation: 8-core \texttt{parallel::mclapply}, full
+  factorial of 2 architectures $\times$ 3 designs $\times$ 3
+  $t_{1/2}$ $\times$ 2 $c_{bm}$ levels gives 36 cells and 36{,}000
+  fits, with 100\% convergence.
+\end{itemize}
+
+The \textbf{Performance measures} are power for $\beta_{bm:D}$ at
+$\alpha = 0.05$, Type I error under $c_{bm} = 0$ (both with MCSE
+$\sqrt{\hat\pi(1-\hat\pi)/n_\text{reps}}$), bias of
+$\hat\beta_{bm:D}$ relative to the reference true value
+$\theta_\text{true} = -c_{bm} \cdot \sigma_{BR}$, the same
+calibration used in the companion carryover-specification and
+component-decomposition manuscripts [@pmsimstats-paper02;
+@pmsimstats-paper06], the empirical MCSE of $\hat\beta_{bm:D}$ across
+replicates, and the convergence rate. The number of replicates per
+cell is chosen to achieve MCSE below 0.02 for power at $\hat\pi =
+0.5$, which corresponds to $n_\text{reps} \geq 625$. We use
+$n_\text{reps} = 1000$ throughout.
+
+The $N = 70$ choice is the smallest of the prazosin-PTSD-matched
+sample sizes used in the published methodological literature. It is
+a regime in which no design or architecture saturates power at the
+no-carryover cells (the highest cell in the grid is 0.842), so
+carryover-induced erosion is mechanically visible. This is the main
+practical gain from matching the designs on $N$. We note that at a
+previous per-path parameterization the Hybrid cells sat above 0.99,
+where no erosion could register.
+
+\bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
+
+\section{3. Results}
+
+Covariance moderation, as Section 1 argues, is often the more
+biologically defensible choice when a biomarker is best understood as
+predictive rather than causal, and it is the specification
+Hendrickson et al. selected for the prazosin and PTSD application on
+exactly these grounds. That defensibility, however, does not
+eliminate a carryover cost. What follows quantifies that cost in the
+Hybrid design and traces why it arises, so that the appeal of the
+architecture does not obscure a real design consideration. The
+crossover (CO) and open-label-plus-blinded-discontinuation (OL+BDC)
+designs are reported alongside Hybrid at every step. They are not
+objects of primary interest in their own right; rather, contrasting
+Hybrid against these two structurally different designs is what lets
+us identify which feature of a design's carryover exposure drives
+the architecture-dependent loss.
+
+\subsection{3.1 Power under carryover at \emph{N} = 70}
+
+\textbf{Mean moderation.}
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{lccc}
+\toprule
+Design & $t_{1/2} = 0$ & $t_{1/2} = 0.5$ & $t_{1/2} = 1.0$ \\
+\midrule
+CO & 0.739 & 0.739 & 0.725 \\
+Hybrid & 0.842 & 0.844 & 0.784 \\
+OL+BDC & 0.751 & 0.748 & 0.730 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Power declines only modestly under mean moderation. In the Hybrid
+design, the relative loss from $t_{1/2} = 0$ to $t_{1/2} = 1$ is
+6.9\%, and it is the only one of the three designs whose loss is
+separable from zero at 1{,}000 replicates per cell ($z = 3.34$). The
+two-period designs lose less (1.9\%, CO; 2.8\%, OL+BDC), and neither
+loss is distinguishable from Monte Carlo noise (CO $z = 0.71$; OL+BDC
+$z = 1.07$). All three values fall at or below the 8-13\%
+relative-loss range suggested by earlier exploratory runs in this
+project for direct-mean-moderation DGPs. That is, this erosion leaves
+power substantially intact, even in the Hybrid design, where it is
+largest.
+
+\textbf{Covariance moderation (differential correlation, MVN).}
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{lccc}
+\toprule
+Design & $t_{1/2} = 0$ & $t_{1/2} = 0.5$ & $t_{1/2} = 1.0$ \\
+\midrule
+CO & 0.745 & 0.754 & 0.723 \\
+Hybrid & 0.840 & 0.795 & 0.711 \\
+OL+BDC & 0.777 & 0.694 & 0.539 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Power declines more sharply under covariance moderation than under
+mean moderation in every design, but by very different amounts. In
+the Hybrid design, the relative loss from $t_{1/2} = 0$ to
+$t_{1/2} = 1$ is 15.4\%, more than double its matched mean-moderation
+loss (6.9\%). The two-period designs bracket this value from opposite
+sides. CO loses only 3.0\%, not significantly different from mean
+moderation's CO loss, while OL+BDC loses \textbf{30.6\%}, roughly 11
+times its matched mean-moderation loss (2.8\%) and twice the Hybrid
+loss. The CO cell shows a small, non-monotone fluctuation ($0.745 \to
+0.754 \to 0.723$), within one MCSE and consistent with no
+architecture-by-carryover interaction in that design. These figures
+fall below the 40-60\% relative-loss range suggested by earlier
+exploratory runs for the MVN differential-correlation DGP, but they
+confirm the qualitative finding of substantial, design-dependent
+erosion. We note that the Hybrid design occupies a genuine middle
+position here rather than resembling either contrast case.
+
+We compare the carryover-induced power loss between architectures
+using a difference-of-differences $z$-statistic. Let
+$\Delta_X = \hat\pi_{X,0} - \hat\pi_{X,1}$ denote the
+within-architecture loss from $t_{1/2} = 0$ to $t_{1/2} = 1.0$ for
+architecture $X$, estimated from $n = 1{,}000$ independent
+replicates per cell. The covariance-minus-mean gap
+$\Delta_B - \Delta_A$ has standard error
+
+\[
+\text{SE} = \sqrt{
+  \frac{\hat\pi_{B,0}(1-\hat\pi_{B,0})}{n}
++ \frac{\hat\pi_{B,1}(1-\hat\pi_{B,1})}{n}
++ \frac{\hat\pi_{A,0}(1-\hat\pi_{A,0})}{n}
++ \frac{\hat\pi_{A,1}(1-\hat\pi_{A,1})}{n}},
+\]
+
+since the four proportions come from independent replicate sets (all
+tests two-sided). In the Hybrid design, $\Delta_A = 0.842 - 0.784 =
+0.058$ and $\Delta_B = 0.840 - 0.711 = 0.129$, giving $\Delta_B -
+\Delta_A = 0.071$ (about 7 percentage points) and $z = 2.80$
+($p = 0.005$). That is, the architectures' carryover behavior differs
+well beyond Monte Carlo error, even in this intermediate design. The
+same contrast is much larger for OL+BDC ($\Delta_A = 0.021$,
+$\Delta_B = 0.238$, $\Delta_B - \Delta_A = 0.217$, about 22
+percentage points, $z = 7.64$, $p < 10^{-13}$), and it is
+indistinguishable from zero for CO ($z = 0.29$). This is because the
+CO design's within-subject AR(1) structure dominates the
+carryover-mediated correlation-decay channel that covariance
+moderation uses to represent the interaction, leaving little
+architecture-dependent signal for the contrast to detect.
+
+The ordering of the three designs on this contrast, OL+BDC well above
+Hybrid and Hybrid above CO, is the substantive result. It is
+consistent with a single explanatory factor: the amount of
+uninterrupted off-drug time each design's structure exposes patients
+to. We note that this ordering is read at a common $N = 70$ and is
+not a statement about the designs' relative power (Section 4.1).
+
+\subsection{3.2 Mechanism: why the architectures diverge}
+
+Recall that Section 2.2.3 identified two channels through which
+carryover degrades the interaction signal, and only one of them is
+shared by both architectures. \textbf{Design-contrast erosion}
+shrinks $\mathrm{Var}(D_{bc,it})$ as carryover pulls off-drug
+exposure values away from a clean 0/1 contrast. Because the
+interaction regressor is \texttt{bm:Dbc}, less contrast in
+\texttt{Dbc} means less information for the interaction coefficient
+under either architecture, and this channel alone explains mean
+moderation's modest, design-dependent loss (1.9-6.9\%).
+
+\textbf{Conditional-variance inflation} is unique to covariance
+moderation and is the channel that produces the much larger losses of
+Section 3.1. As $D_{bc,it} \to 0$ off drug, $\mathrm{Var}(BR_{it} \mid
+B_i, D_{it}) = \sigma_{BR}^2(1 - c_{bm}^2 D_{bc,it}^2)$ rises from its
+on-drug floor of $\sigma_{BR}^2(1-c_{bm}^2)$ toward the full
+unconditional $\sigma_{BR}^2$. This converts variance that was
+explained by the biomarker into unexplained residual noise, which a
+homoscedastic fixed-effects model cannot separate from measurement
+error. Mean moderation has no such channel: its residual variance is
+constant by construction, so it loses only design contrast, never
+precision around a fixed contrast. This is why the population
+interaction coefficient stays essentially unbiased under both
+architectures (Section 3.3) while power diverges sharply. That is,
+the loss is a precision effect specific to covariance moderation, not
+a bias effect shared by both.
+
+A rough, working-independence approximation to the interaction
+test's noncentrality parameter makes the connection to design and
+carryover explicit. Treating each observation's contribution to the
+Wald statistic as approximately additive and ignoring the
+\texttt{corCAR1} residual correlation that the actual analysis model
+estimates, the information available from an observation at exposure
+level $D_{bc,it} = x$, after partialling out the model's own
+\texttt{Dbc} main effect, is approximately proportional to
+$(x - \bar D_{bc})^2/\sigma_\epsilon^2$ under mean moderation and to
+$(x - \bar D_{bc})^2 / \bigl[\sigma_{BR}^2(1 - c_{bm}^2
+x^2)\bigr]$ under covariance moderation, where $\bar D_{bc}$ is the
+design's mean exposure level. Both summands shrink as carryover
+compresses $D_{bc,it}$ toward $\bar D_{bc}$ across the design, and
+the covariance-moderation summand is additionally discounted by the
+same conditional-variance-inflation factor derived above, so the
+total information lost accumulates fastest in designs that spend the
+most observation-weeks away from a clean on/off contrast.
+
+We evaluated this approximation numerically against each of the
+three designs' exact timepoint and phase schedules (constructed with
+the package's own \texttt{buildtrialdesign()}, at $c_{bm} = 0.45$),
+rather than leaving it as an unexecuted next step, and the result is
+mixed. Summing $(D_{bc,it} - \bar D_{bc})^2$ over every observation
+in each design correctly orders the three by predicted information
+loss from $t_{1/2} = 0$ to $t_{1/2} = 1.0$: 36.8\% in the focal
+Hybrid design, against 4.6\% in CO and 51.2\% in OL+BDC, matching the
+qualitative ordering of Section 3.1's power losses under either
+architecture. On the other hand, the covariance-moderation summand
+predicts an architecture-specific gap over mean moderation's own loss
+of under one percentage point at every design (37.1\% in Hybrid,
+4.7\% in CO, 50.9\% in OL+BDC) at $c_{bm} = 0.45$. That is far
+smaller than the large gap Section 3.1 actually reports (for example,
+Hybrid's 6.9\% mean-moderation loss against its 15.4\%
+covariance-moderation loss, or OL+BDC's 2.8\% against 30.6\%).
+
+We should be clear that the exact conditional-variance-inflation
+identity itself is not in question here; it is independently
+confirmed against realized Monte Carlo variability in Section 3.3.
+What this numeric check shows instead is that the
+working-independence simplification used to connect that identity to
+design and carryover analytically discards enough of the
+\texttt{corCAR1} structure to badly underpredict the size of the
+architecture gap, and not only its near-absence in CO. A full
+analytical account of the magnitude, rather than only its direction,
+would need to incorporate the within-subject autocorrelation
+directly, and this remains undone. The qualitative account below is
+offered as the mechanism for CO's particular robustness in place of
+that missing derivation.
+
+Qualitatively, the ordering of Section 3.1 follows the same
+information argument applied to each design's own pattern of
+drug-exposure alternation. Conditional-variance inflation needs
+sustained low-$D_{bc,it}$ time to accumulate. The longer a design
+lets $D_{bc,it}$ sit near zero before the next on-drug period resets
+it, the more of that period's information is converted to noise.
+OL+BDC sustains its off-drug window the longest of the three designs,
+so its variance-inflation channel does the most damage. CO alternates
+quickly enough, and leans on within-subject AR(1) correlation heavily
+enough to have already extracted most of the available signal by
+other means, that little conditional-variance inflation has room to
+act before the next on-drug period arrives. The Hybrid design's paths
+mix on- and off-drug periods at an intermediate cadence, so
+$D_{bc,it}$ rarely stays near zero as long as it does under OL+BDC.
+This caps how much variance inflation any single off-drug stretch can
+accumulate, and the design's intermediate architecture-dependent loss
+(Section 3.1) is the empirical signature of this intermediate
+exposure pattern.
+
+\subsection{3.3 Type I error and estimator bias}
+
+Across all 18 null cells of the Section 3.1 production run, Type I
+error sat in $[0.010, 0.074]$, with mean 0.042 and median 0.035, and
+no architecture-specific inflation. The uniformly sub-nominal rates
+are consistent with the \texttt{corCAR1} working-covariance
+miscalibration characterized in a companion calibration study
+[@pmsimstats-paper10], whose model-based standard error is
+over-stated by roughly 6 to 10 percent. Because this affects both
+architectures alike, it is common-mode with respect to the
+architecture contrast, and it does not affect it.
+
+Mean estimated $\hat\beta_{bm:D}$ at $c_{bm} = 0.45$ ranged from
+$-0.230$ to $-0.281$ across the 18 alternative cells, with the
+mean-moderation OL+BDC cell at $t_{1/2} = 1.0$ producing the largest
+absolute mean. Covariance-moderation cells, by contrast, maintained a
+mean near $-0.234$ across all $t_{1/2}$ values, exactly as the
+unbiasedness argument of Section 2.2.3 predicts. That is, the
+population interaction slope recovered from $D_{bc,it}$ does not
+depend on carryover once the analysis model's half-life matches the
+DGP's. Empirical SE of $\hat\beta_{bm:D}$ runs 0.07 to 0.10
+across cells, and the within-replicate model SE matches it at scale.
+This is consistent with nominal-95\% Wald coverage, although it was
+not directly verified by a coverage simulation.
+
+The conditional-variance-inflation mechanism of Section 3.2 can be
+checked directly against this same table, since it predicts where
+the empirical SE should grow with carryover and where it should not.
+We computed $|\hat\beta_{bm:D}|/\mathrm{SE}(\hat\beta_{bm:D})$
+at $c_{bm} = 0.45$ as a design- and architecture-specific proxy for
+the interaction test's signal-to-noise ratio, and compared its value
+at $t_{1/2} = 0$ against $t_{1/2} = 1.0$. Under covariance moderation
+this ratio falls by 12.2\% in OL+BDC (2.947 to 2.588) and 12.6\% in
+Hybrid (3.259 to 2.849). Under mean moderation, on the other hand, it
+falls by only 5.4\% in Hybrid (3.002 to 2.839) and is flat to
+slightly higher in OL+BDC ($-2.7\%$, 2.865 to 2.943) and in CO (0.6\%,
+mvn; 1.9\%, mean moderation). This is the pattern Section 3.2
+predicts. Covariance moderation's SNR erosion is driven almost
+entirely by SE growth (0.079 to 0.090 in OL+BDC, a 14.6\% increase)
+against an essentially flat numerator, consistent with the derived
+$\sigma_{BR}^2(1 - c_{bm}^2 D_{bc,it}^2)$ variance-inflation identity.
+Mean moderation shows no comparable SE trend, because its residual
+variance does not depend on $D_{bc,it}$.
+
+We verified this check directly from the committed cell-level
+summaries (\texttt{01-dgp-summary.txt}) rather than from a new
+simulation, and it substantiates the mechanism of Section 3.2
+quantitatively. It remains, however, a post hoc check on realized
+Monte Carlo variability, rather than a derivation of the
+noncentrality parameter from design and DGP parameters alone.
+
+\bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
+
+\section{4. Discussion}
+
+\subsection{4.1 Matching architecture to biological mechanism}
+
+The results of Section 3 reduce to a single trade-off, which this
+subsection develops at length. On the one hand, mean moderation is
+simpler, is essentially immune to carryover, and is directly
+comparable to the overwhelming majority of the published
+biomarker-simulation literature. It assumes, however, a mechanism
+that is often biologically wrong, namely that the biomarker fixes
+each patient's drug response exactly, rather than merely predicting
+it. On the other hand, covariance moderation is biologically
+faithful in exactly the cases where mean moderation is not, because
+it lets the biomarker predict response only probabilistically. That
+fidelity is purchased at a real, design-dependent power cost under
+carryover, and it is a cost that an investigator who ran their power
+calculation under mean moderation alone would never see in their own
+simulation, and would therefore not budget for.
+
+Neither architecture dominates the other in the abstract. The
+correct choice, and the size of the risk from choosing wrong, depends
+on the biology of the specific biomarker under study. This subsection
+substantiates that claim first from first principles and then from
+the finite-mixture formalism developed at length in a companion
+paper.
+
+The choice of architecture is a choice about \emph{why} the biomarker
+predicts response, and is therefore a biological statement rather
+than a coding preference. Mean moderation is appropriate when the
+biomarker mechanically sets the size of the drug effect, for example
+by fixing effective dose or receptor occupancy, so that doubling the
+biomarker roughly doubles the effect at every timepoint. Because
+carryover keeps the same proportion off drug, power is barely
+touched. Typical examples include drug clearance (kidney function
+setting the steady-state level of a renally cleared drug), receptor
+density, and metabolizer genotype.
+
+Covariance moderation, by contrast, is appropriate when the biomarker
+is only a proxy for a hidden responder status that it indexes
+imperfectly, so that identical biomarker values can still respond
+differently, and the biomarker predicts response only while the drug
+is acting. Once the drug washes out, the correlation that carried the
+signal fades. The analysis model's point estimate stays close to
+unbiased even so (Section 2.2.3), but the precision with which it can
+be estimated drops, and power falls sharply as a result (Section
+3.2). Typical examples include resting blood pressure as a marker of
+noradrenergic tone, inflammatory markers such as CRP or IL-6, and
+polygenic risk scores.
+
+A fully faithful model of the hidden responder-class idea would be a
+finite mixture. Covariance moderation is, essentially, a convenient
+correlation-level approximation, adequate for power calculations but
+not a claim about the true mechanism. A companion paper
+[@pmsimstats-paper03] develops the mixture and latent-class
+formulations, deriving when a single multivariate normal reproduces a
+two-component mixture's first two moments and cataloguing where it
+fails. We note that Senn [@senn2016mastering] also cautions that
+apparent biomarker-treatment effects are sometimes just variance
+artifacts, so covariance moderation's signal may be smaller than
+assumed.
+
+The pmsimstats software was built for a prazosin/PTSD trial
+[@raskind2013; @hendrickson2020], in which the biomarker, resting
+blood pressure, is thought to be a proxy for noradrenergic tone
+rather than a direct driver of drug levels, a covariance-moderation
+story. The carryover-driven power loss we find under covariance
+moderation is therefore a clinically relevant warning: designs with
+long off-drug periods may lose more power to detect this biomarker
+than a mean-moderation simulation would suggest.
+
+Three further considerations support covariance moderation as the
+more defensible specification for this application. First, resting
+blood pressure is a single-occasion vital sign subject to
+substantial physiological and measurement variability, so treating
+it as a precise multiplicative scale factor on the treatment effect
+assumes a level of measurement precision the biomarker does not
+have. A specification that asserts only an association, and its
+strength, is proportionate to that measurement error.
+
+Second, the distinction tracks an established one in the
+predictive-biomarker literature. The PATH framework of Kent et al.
+[@kent2020path] separates a causal treatment effect modifier from a
+biomarker that is merely predictive of response without being
+causally upstream of it. Covariance moderation is the natural
+representation of the predictive role, and mean moderation of the
+causal-mediator role, so classifying blood pressure as predictive
+rather than causal in this trial argues for covariance moderation on
+grounds already established in that literature.
+
+Third, mean moderation requires committing to a specific functional
+form for how the biomarker scales the treatment effect, typically
+linear in the centered biomarker. Covariance moderation makes the
+weaker assumption that biomarker and response are associated, without
+specifying the functional form of that association beyond its
+strength. This is the more parsimonious choice when investigators
+lack direct evidence for a particular dose-response shape.
+
+The two architectures considered here are the two poles of a wider
+spectrum, and drug and biomarker properties can place a candidate
+application closer to one boundary of that spectrum than to either
+pole outright. A companion paper on latent-class and mixture-model
+formulations [@pmsimstats-paper03] develops this spectrum at length
+and grounds covariance moderation as a specific, derivable
+approximation to a genuinely latent-class generative mechanism. We
+summarize that argument here because it is the strongest available
+justification for covariance moderation's biological faithfulness
+and, at the same time, the source of its principal limitation.
+
+The mixture argument begins from the observation that if a
+candidate biomarker indexes an unobserved responder or
+non-responder dichotomy, as the noradrenergic-tone hypothesis
+behind the prazosin and PTSD reference application supposes, the
+mechanistically faithful DGP is not a correlation but a finite
+mixture,
+\[
+Z_i \mid B_i \sim \mathrm{Bernoulli}\bigl(\pi(B_i)\bigr), \qquad
+BR_{it} \mid Z_i = z \sim f_z(t, D_{bc,it}), \qquad
+\pi(B_i) = \mathrm{expit}(\psi_0 + \psi_g\, b_i),
+\]
+where $Z_i$ is an unobserved class label fixed for participant $i$
+across the whole trial, $b_i$ is the standardized biomarker, and the
+gating slope $\psi_g$ governs how steeply the biomarker predicts
+class membership. Two properties of this generative form matter for
+what follows. First, $Z_i$ is invariant across drug state and time:
+once a participant is drawn into class 1 or class 0, that
+membership persists through every on-drug and off-drug measurement
+occasion in the trial, in principle recoverable from the full
+within-subject trajectory even at timepoints where the
+instantaneous drug-exposure contrast has decayed to near zero.
+Second, the class-conditional mean trajectory itself still depends
+on $D_{bc,it}$, so a full carryover off-drug period drives the two
+class-conditional means toward each other if the responder and
+non-responder distinction lies purely in drug response, exactly the
+mean-blurring channel that Section 3.2 identifies as common to both
+architectures examined here.
+
+Under within-class independence between $B_i$ and $BR_{it}$, a
+two-component mixture of this form induces a marginal joint
+distribution of $(B_i, BR_{it})$ whose first two moments are
+reproduced, to leading order, by a single multivariate normal with
+$\mathrm{Cor}(B_i, BR_{it}) = c_{bm}$, where
+\[
+c_{bm}^2 = \frac{\pi(1-\pi)(\mu_{bm}^1 - \mu_{bm}^0)^2}{\mathrm{Var}(B_i)}
+\cdot
+\frac{\pi(1-\pi)(\mu_{BR}^1 - \mu_{BR}^0)^2}{\mathrm{Var}(BR_{it})},
+\]
+with superscripts 1 and 0 denoting the class-conditional means. This
+is the product of the between-class variance fractions in the
+biomarker and in the biological-response component. Under mild
+regularity conditions (adequate class overlap, mixing proportion
+$\pi$ bounded away from 0 and 1), this second-moment structure
+carries a differential correlation across drug-exposure conditions,
+elevated where the class-conditional means separate on drug and
+shrinking toward zero where they coincide off drug after carryover
+has run its course, which is precisely the covariance-moderation DGP
+of Section 2.2.2. Covariance moderation is therefore not an
+arbitrary alternative to mean moderation; it is the specific
+second-moment approximation to a latent-class mechanism that a
+biomarker acting as an imperfect proxy for a hidden responder
+subtype would actually generate, which is the formal grounding for
+treating it as the more biologically faithful choice whenever that
+subtype story is plausible.
+
+That derivation also exposes covariance moderation's principal
+limitation directly. An MVN approximation reproduces only the first
+two moments of the mixture. It discards the class label $Z_i$ itself,
+along with the class-invariance property that made $Z_i$
+carryover-robust in the true generative form. A correlation, unlike a
+class label, must be estimated fresh from the currently observed
+joint distribution at every timepoint, with no persistent
+per-participant memory once off-drug attenuation has taken effect.
+This is why the power losses documented in Section 3 are a property
+of the covariance-moderation \emph{approximation} specifically, and
+not an inherent, unrecoverable cost of a genuinely latent-class
+biology.
+A class-aware analysis fitted to mixture-DGP data could, in
+principle, recover some of that apparent loss by using the
+carryover-invariant class label directly, up to an asymptotic bound
+set by the gap between the covariance-only and mixture-faithful
+power estimates. In practice, though, that recovery is bounded by
+identifiability: fitting a finite mixture (an EM algorithm, or its
+implementations in \texttt{lcmm} or \texttt{flexmix}) reliably
+distinguishes genuine class structure from noise only at sample
+sizes of several hundred to several thousand in the psychometric
+literature that developed these methods
+[@bauercurran2003; @lubkemuthen2005; @nylund2007], well above the
+$N \in [30, 150]$ typical of N-of-1 biomarker-validation trials. At
+trial-relevant $N$, mixture analysis may be underpowered or
+unidentified even when the underlying biology is genuinely
+mixture-structured, so a class-aware primary analysis is not
+generally a usable alternative to the standard mixed-model analysis
+of Section 2.1, only a sensitivity check where identifiability
+permits. Covariance moderation is therefore best understood as the
+pragmatic compromise this identifiability constraint forces: the
+representation that is faithful to the underlying biology at the
+level of the joint distribution's first two moments, without
+requiring an estimation strategy that trial-relevant sample sizes
+cannot support. When the biomarker is a
+near-deterministic class indicator, for example a genotype with
+near-perfect sensitivity and specificity for a metabolizing versus
+non-metabolizing phenotype, the class-membership gradient is steep
+and a thresholded mean-moderation specification is the better
+approximation even though the underlying mechanism is a latent
+subtype rather than a graded scaling. When the two response classes
+are well separated, as in some targeted-oncology indications with a
+driver mutation that essentially abolishes response in its absence,
+the marginal response distribution is genuinely bimodal and neither
+architecture is adequate: a full mixture DGP, not examined by
+simulation in this paper, is required to avoid understating the
+power achievable by a class-aware analysis. When covariance,
+autocorrelation, or placebo-response parameters differ by latent
+class rather than only the mean or the biomarker correlation, a
+single-component MVN of either architecture is misspecified
+regardless of which moment carries the interaction. Investigators
+should therefore treat mean moderation and covariance moderation as
+convenient limiting cases to be checked against, rather than an
+exhaustive pair of options, whenever pilot data suggest the
+biomarker may index a genuinely discrete or highly separated
+subgroup structure.
+
+The trial-design dependence documented in Section 3, largest in
+OL+BDC and smallest in CO, is the empirical signature of the same
+class-label discarding just established: because covariance
+moderation carries no persistent per-participant memory of
+responder status once off-drug attenuation has run its course, the
+signal it can offer a standard analysis shrinks with every
+additional unit of uninterrupted off-drug time a design imposes, in
+exactly the pattern Section 3.2 traces mechanistically across the
+three designs. So the design implication drawn in Section 4.4, that
+designs with long off-drug windows carry the largest
+architecture-dependent risk, should be read as a caution for trials
+analyzed with the standard mixed-model methods of Section 2.1
+specifically, not as a statement that latent-class biology makes
+long off-drug windows safe by construction; a class-aware analysis,
+where trial-relevant identifiability permits one, is not bound by
+the same limitation. For the same reason, the ordering of the three
+designs on architecture-sensitivity (Section 3.1) is a statement
+about how much power a fixed analysis model loses to the architecture
+choice, not a design-preference recommendation. At matched $N = 70$,
+covariance-moderation power under carryover happens to land close
+together for Hybrid (0.711) and CO (0.723) and well below both for
+OL+BDC (0.539), but the paths are allocated unevenly across the
+designs (18/18/17/17 for Hybrid's four paths versus 35/35 for CO's
+and OL+BDC's two), and design selection in practice turns on
+feasibility, blinding, and regulatory considerations that this power
+comparison alone does not capture. Investigators choosing among
+designs on carryover-robustness grounds should treat the Section
+3.1 ordering as a hypothesis to examine under their own design's
+path allocation, not as a ranking to adopt directly.
+
+\subsection{4.2 Reporting recommendations}
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{lcc}
+\toprule
+Criterion & Mean moderation & Covariance moderation \\
+\midrule
+Biomarker role & Causal mediator & Statistical predictor \\
+Mechanism & Deterministic scaling & Probabilistic association \\
+Signal location & Mean structure & Covariance structure \\
+Carryover impact & Modest (up to 7\%) &
+  Design-dependent, up to 31\% \\
+Appropriate when &
+  \parbox[t]{3cm}{Biomarker\\determines dose\\or PK} &
+  \parbox[t]{3cm}{Biomarker\\indexes a latent\\subtype} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The choice of DGP architecture should be guided by the hypothesized
+biological mechanism, as summarized above. When the mechanism is
+ambiguous, as it often is in early biomarker development, we
+recommend that investigators run the simulation under both
+architectures and report the range of power estimates. We suggest
+treating covariance moderation as the conservative default, because
+its larger carryover sensitivity keeps power estimates from being
+optimistic. Designing the
+trial to minimize carryover, through adequate washout periods, also
+reduces sensitivity to the architecture choice. More generally,
+simulation studies evaluating biomarker-moderated treatment effects
+should state explicitly the following.
+
+\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
+\item Whether the interaction is generated through mean moderation
+or covariance moderation.
+\item The biological rationale for the chosen mechanism.
+\item Whether any carryover model operates on the interaction signal
+consistently with that choice.
+\item When the mechanism is uncertain, sensitivity analyses under the
+alternative architecture.
+\end{itemize} These requirements specialize the Data-generating
+element of the ADEMP framework [@morris2019simulation] to the class
+of architecture-sensitive biomarker simulations.
+
+\subsection{4.3 Possible mitigation strategies}
+
+Under covariance moderation, the power loss has two sources. The
+drug-exposure variable's variance shrinks, which is recoverable, and
+the biomarker-response correlation genuinely fades off drug, which is
+lost information no model can recover. Because off-drug points carry
+less signal, methods that down-weight or drop them may recover part
+of the loss. Candidates include restricting the analysis to on-drug
+points, weighting observations by expected residual drug effect (via
+the \texttt{weights} argument in \texttt{nlme::lme}), a
+within-subject contrast regressing each patient's on-minus-off mean
+difference on the biomarker, a two-stage random-slopes approach, or
+excluding the most contaminated early off-drug points. We have not
+tested any of these strategies by simulation here; a companion paper
+on carryover-mitigation strategies takes that up. We regard a
+systematic simulation comparison, analogous to the factorial
+comparison of Section 3, as important future work, and we expect the
+on-drug-only restriction and the weighted analysis to be the most
+tractable candidates for a first empirical evaluation.
+
+\subsection{4.4 Relation to the wider literature}
+
+Almost every trial-simulation framework uses mean moderation. Simon
+[@simon2010], Freidlin and Korn [@freidlin2014], Renfro and Sargent
+[@renfro2017], and standard N-of-1 simulation studies all put the
+biomarker effect in the mean. We note that even methodological work
+on N-of-1 carryover sharing authors with Hendrickson et al.
+[@hendrickson2020] uses mean moderation, which suggests Hendrickson's
+differential-correlation choice was a one-off rather than a
+convention. The practical worry is that most published power
+estimates may be optimistic for biomarkers that really behave like
+covariance moderation, because they ignore the extra carryover-driven
+loss demonstrated here.
+
+The distinction matters most exactly in the designs precision
+medicine favors. Treatment-switching designs (crossover, N-of-1
+hybrid, basket/platform trials) put patients through off-drug phases
+where the covariance-moderation correlation decays, so the
+interaction signal in later periods is weaker than in the first.
+Parallel-group enrichment designs, with no off-drug phase, are
+immune, and give similar power under either architecture. Adaptive
+enrichment trials that use interim power calculations written in the
+mean-moderation idiom are at particular risk: if the truth is closer
+to covariance moderation and patients pass through washouts, the real
+power is lower than the rule assumes, which can trigger premature
+stopping or an over-narrow eligible population. This is a
+data-generating-process question, separate from, and not answered by,
+the analysis-model guidance in the PATH statement [@kent2020path]. In
+sum, the architecture choice matters most in exactly the
+within-subject designs precision medicine finds most attractive, and
+least in the parallel-group designs where it is often, wrongly,
+assumed to be harmless.
+
+\subsection{4.5 Limitations}
+
+Several limitations qualify these results. The magnitude of the
+covariance-moderation loss in the focal Hybrid design (15.4\%), and
+the largest value observed across the three designs, the 30.6\% loss
+in OL+BDC, both fall below the 40-60\% range suggested by earlier
+exploratory runs in this project. The precise figures should
+therefore be read as design- and calibration-specific rather than
+universal. A confirmatory run at $N = 140$ on the Hybrid design,
+analogous to the $N = 140$ OL+BDC check reported in an earlier
+version of this analysis, has not yet been re-executed under the
+current N-matching convention (see Reproducibility) and remains
+future work.
+
+The uniformly sub-nominal Type I error we observe reflects a known
+conservatism of the \texttt{corCAR1} Wald test that is common-mode
+across architectures but not itself resolved here. A cluster-robust
+remedy is characterized in a companion calibration study
+[@pmsimstats-paper10]. We note that nominal coverage was inferred
+from the correspondence between empirical and model-based standard
+errors, rather than verified by a dedicated coverage simulation. The
+mitigation strategies of Section 4.3 are mechanistic hypotheses, not
+simulation-tested recommendations. Finally, our results are matched
+to a single reference application (prazosin/PTSD) and three
+within-subject designs. Generalization to other biomarkers, designs,
+or effect sizes should be checked rather than assumed.
+
+\bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
+
+\section{5. Conclusions}
+
+\begin{enumerate}
+\item The choice between direct mean moderation and covariance
+  moderation for generating biomarker-treatment interactions in
+  clinical trial simulations has substantive consequences for power
+  estimates under carryover.
+
+\item Covariance moderation has intuitive appeal whenever a biomarker
+  is better understood as predictive than causal, and Section 4.1
+  sets out the reasons this is often the more defensible
+  specification. That appeal carries a measurable cost under
+  carryover, and the cost is design-dependent, because it is driven
+  by a mechanism (Section 3.2) that is itself design-dependent:
+  carryover erodes the biomarker-response correlation that carries
+  the covariance-moderation signal only during uninterrupted off-drug
+  time, so the loss scales with how long each design sustains an
+  off-drug period. In the focal Hybrid design, carryover reduces
+  power by 15.4\% under covariance moderation against 6.9\% under
+  mean moderation, roughly double. The crossover and
+  open-label-plus-blinded-discontinuation contrast designs bracket
+  this from opposite sides, from 3.0\% (crossover, not distinguishable
+  from zero, because within-subject AR(1) correlation already carries
+  most of the signal) to 30.6\% (OL+BDC, whose sustained blinded
+  off-drug phase gives the correlation-erosion mechanism the most
+  uninterrupted time to act).
+
+\item The choice should be guided by the hypothesized biological
+  mechanism. Mean moderation is appropriate for biomarkers that directly determine
+  drug pharmacokinetics or pharmacodynamics, covariance moderation
+  for biomarkers that statistically predict treatment response
+  through latent subtype membership.
+
+\item For the prazosin-PTSD application, with blood pressure as the
+  predictive biomarker, covariance moderation is the more
+  appropriate model, and the resulting power sensitivity to
+  carryover should inform trial-design decisions about off-drug
+  period duration.
+
+\item The existing clinical trial simulation literature uses mean
+  moderation almost exclusively. The Hendrickson et al. (2020) MVN
+  approach is, to the best of our knowledge, unique in the N-of-1
+  context. This means published power estimates for
+  biomarker-moderated crossover and N-of-1 designs may be
+  systematically optimistic for biomarkers that operate through a
+  correlation-based mechanism.
+
+\item Simulation studies for biomarker-moderated treatment effects
+  should explicitly report their DGP architecture and, when the
+  biological mechanism is uncertain, consider sensitivity analyses
+  under the alternative.
+\end{enumerate}
+
+\bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
+
+\section{Reproducibility}
+
+$N$ denotes the total number of participants across all
+randomization paths, and Section 3.1 runs every design at the same
+total, $N = 70$, allocated across that design's paths. The
+cross-design comparison in Section 3 is therefore a design
+comparison rather than a sample-size comparison. We note that an
+earlier version of this analysis fixed the per-path count at 35
+instead of the total, which gave the four-path Hybrid design 140
+participants against 70 for the two-path designs and confounded any
+Hybrid advantage with twice the sample. Section 3.1 has since been
+re-run at matched totals, and only the Hybrid figures changed. A
+confirmatory run at $N = 140$ on the Hybrid design, to check that the
+architecture-dependent ordering survives the power saturation that
+comes with a larger sample, is planned but has not yet been executed
+under the current N-matching convention, and is not reported here.
+
+The Hendrickson et al. comparison arm of Section 2.2.4, including the
+vendored original source (with its one documented compatibility
+patch) and the positive-definiteness sweep, is at
+\texttt{analysis/scripts/quick-sim/hendrickson-original-comparison/},
+with its output at
+\texttt{analysis/data/quick-sim/hendrickson-original-comparison/}. A
+structured, section-by-section summary of the argument, without the
+derivations, tables, or citations, is provided as a supplementary
+document (\texttt{bullets.Rmd}).
+
+# References
+
+::: {#refs}
+:::
+
+\bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
+
+\section{Appendix A. Why mean and covariance moderation}
+
+\subsection{A.1 The two channels exhaust the Gaussian case}
+
+The simulations in this paper draw participant trajectories from a
+multivariate normal distribution, and a multivariate normal is
+completely determined by its mean vector $\mu$ and its covariance
+matrix $\Sigma$. Any biomarker-treatment interaction written into
+such a data-generating process must therefore enter through $\mu$
+or through $\Sigma$. Mean moderation is the first route and
+covariance moderation the second. Within the Gaussian family there is
+no third place to put the interaction. This is why the two
+architectures are treated as a pair rather than as two entries in an
+open-ended list: they are not
+two options among many, but the two components of a decomposition.
+
+The exhaustiveness claim is specific to the Gaussian family and
+should not be read more broadly. A data-generating process built on
+a finite mixture, or on explicit latent responder classes, can carry
+an interaction in features that neither $\mu$ nor $\Sigma$ captures
+for a single component, and Senn notes finite mixtures as an
+alternative variance-component model
+[@senn2019samplesize]. Covariance moderation is best understood as
+the second-moment reduced form of such a mixture, which is why the
+latent-class treatment is developed separately
+[@pmsimstats-paper03].
+
+\subsection{A.2 What each channel asserts}
+
+The two channels are not merely different parameterizations of one
+mechanism; each commits to a distinct claim about what the biomarker
+is.
+
+Mean moderation asserts that the biomarker fixes a participant's drug
+effect. Two participants sharing a biomarker value share an expected
+treatment effect exactly, and any difference between their realized
+responses is measurement error. This is the appropriate commitment
+when the biomarker measures pathway engagement directly, or stands in
+a causal path between treatment and response.
+
+Covariance moderation asserts that the biomarker predicts response
+only probabilistically. Two participants sharing a biomarker value
+may still respond differently, because the biomarker indexes an
+unobserved responder status imperfectly rather than determining
+response. This is the appropriate commitment when the biomarker is a
+statistical proxy, which is the situation the prazosin and PTSD
+application was designed around.
+
+The distinction is substantive rather than technical. It determines
+what a fitted interaction coefficient means, and, as Section 3 shows,
+how much power carryover costs.
+
+\subsection{A.3 Standing in the literature}
+
+Mean moderation is the prevailing convention wherever
+biomarker-treatment interactions are simulated. Haller and Ulm
+[@haller2018] place the interaction in a regression mean, as do the
+oncology design literatures on enrichment and predictive-marker
+trials [@simon2010; @freidlin2014]. Grenet and colleagues
+[@grenet2020] use the same form for a crossover. That literature is,
+however, overwhelmingly parallel-group.
+
+The N-of-1 methodological literature does not adopt mean moderation,
+because it does not model an observed moderator at all. Its standard
+formulation carries a random participant-by-treatment interaction, a
+variance component describing unexplained heterogeneity with no
+covariate attached [@senn2019samplesize; @senn2016mastering;
+@wang2019]. Biomarker-validation simulation for N-of-1 designs is
+therefore close to unoccupied territory rather than a settled field
+with a convention to follow, and Hendrickson et al.
+[@hendrickson2020] is its principal entry. The present paper adopts
+the two-channel decomposition of A.1 precisely because no established
+N-of-1 convention exists to inherit.
+
+\subsection{A.4 Holding the analysis model fixed}
+
+Both architectures are analyzed with the identical model of Section
+2.1. This is deliberate and worth stating explicitly, because a
+data-generating process and an analysis model are separate objects,
+and a comparison that varies both attributes differences to neither.
+The continuous exposure variable \texttt{Dbc} loses contrast variance
+as carryover grows, and a binary on-drug indicator does not. A
+comparison in which one architecture carried a continuous regressor
+and the other a binary one would confound that effect with the
+architecture contrast it was meant to isolate. Holding the analysis
+model fixed across architectures means that every difference reported
+in Section 3 is attributable to the data-generating process alone.
+
+\bigskip\noindent\rule{\textwidth}{0.4pt}\bigskip
+
+\section{Appendix B. Correlation structure of the covariance-moderation
+and published data-generating processes}
+
+This appendix sets out the correlation matrix that each covariance-based
+data-generating process assembles, so that the differences discussed in
+Section 2.2.4 can be read off directly. Throughout, \texttt{covar}
+denotes Architecture B as defined in Section 2.2.2 and \texttt{orig}
+denotes the published implementation at commit \texttt{58b32a9}.
+Symbols follow Section 2.1, with the participant subscript $i$
+suppressed because every participant's trajectory is drawn from the
+same matrix: $B$ is the biomarker $B_i$, and $BR_t$ is the biological
+response component $BR_{it}$ at occasion $t$. The vector of
+biomarker-response correlations is written $r$, with entries $r_t$,
+so that $b_i$ keeps its meaning of the standardized biomarker. Mean
+moderation does not appear below, because it writes no
+biomarker-response correlation into the covariance at all; its vector
+$r$ is identically zero and its interaction is carried in the mean
+instead.
+
+\subsection{B.1 Variable ordering and block partition}
+
+Both implementations draw each participant's trajectory from a single
+multivariate normal over the same ordered variable list. With $n$
+measurement occasions at cumulative weeks
+$w_1 < w_2 < \cdots < w_n$, the vector is
+
+\[
+X = \bigl(\,B,\; \mathrm{BL},\;
+TV_1,\dots,TV_n,\;
+PB_1,\dots,PB_n,\;
+BR_1,\dots,BR_n \,\bigr)^{\!\top},
+\qquad \dim X = 2 + 3n .
+\]
+
+The ordering is factor-major: all $n$ occasions of one factor are
+contiguous, rather than all three factors at one occasion. Writing
+$A_c$ for the $n \times n$ within-factor block of factor
+$c \in \{tv, pb, br\}$ and $C_{cc'}$ for the $n \times n$
+cross-factor block, the correlation matrix partitions as
+
+\[
+R \;=\;
+\begin{pmatrix}
+1 & 0 & 0^{\top} & 0^{\top} & r^{\top} \\[2pt]
+0 & 1 & 0^{\top} & 0^{\top} & 0^{\top} \\[2pt]
+0 & 0 & A_{tv}   & C_{tv,pb} & C_{tv,br} \\[2pt]
+0 & 0 & C_{pb,tv} & A_{pb}   & C_{pb,br} \\[2pt]
+r & 0 & C_{br,tv} & C_{br,pb} & A_{br}
+\end{pmatrix}.
+\]
+
+Two features hold in both implementations. The baseline term $\mathrm{BL}$ is
+uncorrelated with every other variable, so its row and column are
+those of the identity. The biomarker $B$ couples only to the
+response factor $BR$, through the vector $r \in \mathbb{R}^{n}$; its
+correlations with $TV$ and $PB$ are zero. The two implementations
+differ in the interior of $A_c$, in the interior of $C_{cc'}$, and in
+$r$.
+
+\subsection{B.2 Within-factor blocks $A_c$}
+
+Let $\rho_c$ denote the autocorrelation parameter of factor $c$
+(\texttt{c.tv}, \texttt{c.pb}, \texttt{c.br} in the code).
+
+\paragraph{\texttt{orig}: compound symmetry.}
+A single constant is assigned to every pair of occasions, irrespective
+of their separation:
+\[
+[A_c]_{ij} =
+\begin{cases}
+1, & i = j\\
+\rho_c, & i \neq j
+\end{cases}
+\qquad\Longleftrightarrow\qquad
+A_c = (1-\rho_c) I_n + \rho_c J_n ,
+\]
+with $J_n$ the $n \times n$ matrix of ones. For $n = 4$,
+\[
+A_c^{\text{orig}} =
+\begin{pmatrix}
+1 & \rho_c & \rho_c & \rho_c\\
+\rho_c & 1 & \rho_c & \rho_c\\
+\rho_c & \rho_c & 1 & \rho_c\\
+\rho_c & \rho_c & \rho_c & 1
+\end{pmatrix}.
+\]
+The block has two distinct eigenvalues, $1 + (n-1)\rho_c$ once and
+$1 - \rho_c$ with multiplicity $n-1$, so positive definiteness of the
+block requires $-1/(n-1) < \rho_c < 1$. We note that it is the lower
+bound that moves with $n$, and it binds only for negative $\rho_c$.
+At the positive values used throughout this paper the admissible
+range of $\rho_c$ is not affected by the number of occasions.
+
+Compound symmetry does restrict the moderation parameter $c_{bm}$
+more tightly than AR(1) does, but not by this route. The mechanism is
+given in B.7.
+
+\paragraph{\texttt{covar}: AR(1) in calendar time.}
+The correlation decays with the elapsed time between occasions, using
+the cumulative week gap rather than the index difference:
+\[
+[A_c]_{ij} = \rho_c^{\,|w_i - w_j|}.
+\]
+For $n = 4$, writing $d_{ij} = |w_i - w_j|$,
+\[
+A_c^{\text{covar}} =
+\begin{pmatrix}
+1 & \rho_c^{d_{12}} & \rho_c^{d_{13}} & \rho_c^{d_{14}}\\
+\rho_c^{d_{12}} & 1 & \rho_c^{d_{23}} & \rho_c^{d_{24}}\\
+\rho_c^{d_{13}} & \rho_c^{d_{23}} & 1 & \rho_c^{d_{34}}\\
+\rho_c^{d_{14}} & \rho_c^{d_{24}} & \rho_c^{d_{34}} & 1
+\end{pmatrix}.
+\]
+Because the exponent uses calendar time, unequally spaced designs
+produce unequal decay across consecutive occasions. In the Hybrid
+design, whose occasions fall at weeks
+$4, 8, 9, 10, 11, 12, 16, 20$, consecutive gaps of one week during
+the discontinuation phase yield much higher adjacent correlations
+than the four-week gaps at either end.
+
+\subsection{B.3 Cross-factor blocks $C_{cc'}$}
+
+Let $c_1$ denote the same-occasion cross-factor correlation
+(\texttt{c.cf1t}) and $c_{\times}$ the different-occasion cross-factor
+correlation (\texttt{c.cfct}).
+
+\paragraph{\texttt{orig}.} Both are constants:
+\[
+[C_{cc'}]_{ij} =
+\begin{cases}
+c_1, & i = j\\
+c_{\times}, & i \neq j
+\end{cases}
+\qquad\Longleftrightarrow\qquad
+C_{cc'} = c_{\times} J_n + (c_1 - c_{\times}) I_n .
+\]
+
+\paragraph{\texttt{covar}.} The same-occasion entry is unchanged, but
+the different-occasion entries inherit the AR(1) decay:
+\[
+[C_{cc'}]_{ij} =
+\begin{cases}
+c_1, & i = j\\
+c_{\times}\,\rho^{\,|w_i - w_j|}, & i \neq j .
+\end{cases}
+\]
+
+\subsection{B.4 Biomarker coupling vector $r$}
+
+The vector $r$ carries the biomarker-treatment interaction. Both
+implementations write it in terms of the same quantity, the residual
+fraction of the on-drug response at occasion $t$,
+\[
+\phi_t =
+\begin{cases}
+(1/2)^{t_{sd,t}/t_{1/2}}, & \text{occasion } t \text{ off drug, after
+  first exposure, } t_{1/2} > 0\\
+0, & \text{otherwise},
+\end{cases}
+\]
+where $t_{sd,t}$ is the time since discontinuation. $\phi_t$ is zero
+throughout when $t_{1/2} = 0$ and at off-drug occasions before first
+exposure, and it is the factor by which carryover multiplies the
+on-drug response mean.
+
+\paragraph{\texttt{covar}.} The entry equals $c_{bm}$ on drug and is
+scaled by the residual fraction off drug:
+\[
+r_t =
+\begin{cases}
+c_{bm}, & \text{occasion } t \text{ on drug}\\
+c_{bm}\,\phi_t, & \text{occasion } t \text{ off drug} .
+\end{cases}
+\]
+Since $\phi_t = e^{-\lambda t_{sd,t}}$ with $\lambda = \ln 2 /
+t_{1/2}$, this is the exponential decay of Section 2.2.2.
+
+\paragraph{\texttt{orig}.} The entry equals $c_{bm}$ wherever the
+response mean $\mu_{BR,t}$ is nonzero and zero elsewhere. Because
+$\mu_{BR,t}$ is nonzero off drug exactly when $\phi_t > 0$, this is
+\[
+r_t =
+\begin{cases}
+c_{bm}, & \text{occasion } t \text{ on drug}\\
+c_{bm}\,\mathbf{1}[\phi_t > 0], & \text{occasion } t \text{ off drug} .
+\end{cases}
+\]
+
+The two vectors are therefore nonzero at the same occasions. The
+published code's condition on $\mu_{BR,t}$ and \texttt{covar}'s
+branch on the drug indicator switch the channel on in the same places,
+and they differ only in how large the off-drug entry is: graded in
+proportion to the residual effect under \texttt{covar}, and a step to
+the full on-drug value under \texttt{orig}. At $t_{1/2} = 0$,
+$\phi_t = 0$ at every off-drug occasion and the two vectors are equal
+entry for entry. For $t_{1/2} > 0$ both sets of off-drug entries rise
+above zero, but the \texttt{covar} entries rise only as far as the
+residual fraction allows, while the \texttt{orig} entries jump to
+$c_{bm}$. In a design whose every path begins on drug, such as the
+Hybrid design, $r^{\text{orig}} = c_{bm}\mathbf{1}_n$ at any positive
+half-life, so the vector carries no on-drug versus off-drug contrast
+at all.
+
+\subsection{B.5 A worked example}
+
+To make the three components concrete, take four occasions drawn from
+the Hybrid design at cumulative weeks
+$w = (10, 11, 12, 16)$, with the first and fourth on drug and the
+second and third off it, so that
+$t_{sd} = (0, 1, 2, 0)$. Set $\rho_{br} = 0.6$, $\rho_{pb} = 0.4$,
+$c_1 = 0.3$, $c_{\times} = 0.1$, $c_{bm} = 0.45$, and a carryover
+half-life of one week, giving $\lambda = \ln 2 \approx 0.693$. The
+matrix of week gaps is
+\[
+\bigl(|w_i - w_j|\bigr) =
+\begin{pmatrix}
+0 & 1 & 2 & 6\\
+1 & 0 & 1 & 5\\
+2 & 1 & 0 & 4\\
+6 & 5 & 4 & 0
+\end{pmatrix}.
+\]
+The unequal spacing matters: occasions one to three are a week apart,
+while the fourth sits four weeks after the third.
+
+\subsubsection{B.5.1 Within-factor block $A_{br}$}
+
+\[
+A_{br}^{\text{orig}} =
+\begin{pmatrix}
+1.0000 & 0.6000 & 0.6000 & 0.6000 \\
+0.6000 & 1.0000 & 0.6000 & 0.6000 \\
+0.6000 & 0.6000 & 1.0000 & 0.6000 \\
+0.6000 & 0.6000 & 0.6000 & 1.0000
+\end{pmatrix},
+\qquad
+A_{br}^{\text{covar}} =
+\begin{pmatrix}
+1.0000 & 0.6000 & 0.3600 & 0.0467 \\
+0.6000 & 1.0000 & 0.6000 & 0.0778 \\
+0.3600 & 0.6000 & 1.0000 & 0.1296 \\
+0.0467 & 0.0778 & 0.1296 & 1.0000
+\end{pmatrix}.
+\]
+
+Under \texttt{orig} every pair of occasions carries $0.6$, so the
+week-apart pair $(1,2)$ and the six-weeks-apart pair $(1,4)$ are
+treated as equally associated. Under \texttt{covar} the same two pairs
+carry $0.6$ and $0.0467$, a factor of thirteen apart. The consequence
+for the fourth occasion is the striking one: it is nearly independent
+of the first three under AR(1), and as strongly tied to them as they
+are to each other under compound symmetry.
+
+\subsubsection{B.5.2 Cross-factor block $C_{tv,pb}$}
+
+\[
+C_{tv,pb}^{\text{orig}} =
+\begin{pmatrix}
+0.3000 & 0.1000 & 0.1000 & 0.1000 \\
+0.1000 & 0.3000 & 0.1000 & 0.1000 \\
+0.1000 & 0.1000 & 0.3000 & 0.1000 \\
+0.1000 & 0.1000 & 0.1000 & 0.3000
+\end{pmatrix},
+\qquad
+C_{tv,pb}^{\text{covar}} =
+\begin{pmatrix}
+0.3000 & 0.0400 & 0.0160 & 0.0004 \\
+0.0400 & 0.3000 & 0.0400 & 0.0010 \\
+0.0160 & 0.0400 & 0.3000 & 0.0026 \\
+0.0004 & 0.0010 & 0.0026 & 0.3000
+\end{pmatrix}.
+\]
+
+The diagonal, which carries the same-occasion cross-factor
+correlation $c_1$, is identical in both. The off-diagonal entries
+decay under \texttt{covar} and do not under \texttt{orig}, and by the
+fourth occasion the difference is two orders of magnitude.
+
+A caution attaches to the \texttt{covar} block. In the implementation
+the decay rate applied to a cross-factor pair is taken from whichever
+factor the outer loop is currently visiting, and because each
+unordered pair is visited in both orders, the later write survives.
+The rate appearing in $C_{tv,pb}$ is therefore determined by loop
+order rather than by any modeling decision. The values above use
+$\rho_{pb}$ on that basis. This is an implementation artifact and not
+a property of the AR(1) specification.
+
+\subsubsection{B.5.3 Biomarker vector $r$}
+
+At a carryover half-life of one week,
+\[
+r^{\text{covar}} = (0.4500,\, 0.2250,\, 0.1125,\, 0.4500)^{\top},
+\qquad
+r^{\text{orig}} = (0.4500,\, 0.4500,\, 0.4500,\, 0.4500)^{\top}.
+\]
+The two off-drug entries halve and quarter under \texttt{covar},
+tracking $\phi_t = (1/2, 1/4)$, whereas under \texttt{orig} they take
+the full $c_{bm}$, because carryover has left the response mean
+nonzero and the step therefore returns the full on-drug value.
+
+Removing carryover collapses the difference entirely:
+\[
+r^{\text{covar}} = r^{\text{orig}} =
+(0.4500,\, 0.0000,\, 0.0000,\, 0.4500)^{\top}
+\qquad (t_{1/2} = 0).
+\]
+
+This pair of displays is the essential comparison. The vector $r$ is
+the only channel through which the biomarker-treatment interaction
+enters the covariance, and an interaction is identified by $r$ varying
+between on-drug and off-drug occasions. At $t_{1/2} = 0$ the two
+implementations produce the same vector. At any positive half-life
+$r^{\text{orig}}$ is constant, so it carries no on-drug versus
+off-drug contrast, while $r^{\text{covar}}$ retains one. Across the
+grid $t_{1/2} \in \{0, 0.5, 1.0\}$ used in this paper, \texttt{orig}
+therefore supplies one cell identical to \texttt{covar} and two in
+which its interaction channel is degenerate.
+
+\subsection{B.6 The three data-generating processes}
+
+The table below lists only the entries in which the three processes
+differ, grouped by what each group governs. Rows in which all three
+agree are recorded in prose beneath it, so that the table can be read
+as a list of differences rather than a full specification.
+
+\begin{center}
+\small
+\begin{tabular}{@{}
+  >{\raggedright\arraybackslash}p{3.1cm}
+  >{\raggedright\arraybackslash}p{2.9cm}
+  >{\raggedright\arraybackslash}p{3.1cm}
+  >{\raggedright\arraybackslash}p{3.1cm}@{}}
+\toprule
+ & \texttt{mean} & \texttt{covar} & \texttt{orig}\\
+\midrule
+\multicolumn{4}{@{}l}{\emph{Where the interaction is written}}\\
+Moment used
+  & $\mu$ & $\Sigma$ & $\Sigma$\\
+\addlinespace
+\multicolumn{4}{@{}l}{\emph{Correlation structure}}\\
+$A_c$ within-factor
+  & $\rho_c^{|w_t-w_s|}$
+  & $\rho_c^{|w_t-w_s|}$
+  & $\rho_c$ (constant)\\
+$C_{cc'}$ off-diagonal
+  & $c_{\times}\rho^{|w_t-w_s|}$
+  & $c_{\times}\rho^{|w_t-w_s|}$
+  & $c_{\times}$ (constant)\\
+\addlinespace
+\multicolumn{4}{@{}l}{\emph{Interaction channel}}\\
+$r_t$, on drug
+  & $0$ & $c_{bm}$ & $c_{bm}$\\
+$r_t$, off drug
+  & $0$ & $c_{bm}\,\phi_t$ & $c_{bm}\,\mathbf{1}[\phi_t > 0]$\\
+$\mu_{BR}$ shift, on drug
+  & $\beta_{bm} b_i \sigma_{BR}$ & none & none\\
+\addlinespace
+\multicolumn{4}{@{}l}{\emph{Carryover on the BR mean}}\\
+Decay anchored at
+  & $\mu_{BR,t^{\ast}}$ & $\mu_{BR,t^{\ast}}$ & $\mu_{BR,t-1}$\\
+\bottomrule
+\end{tabular}
+
+\vspace{0.6em}
+\begin{minipage}{0.92\textwidth}
+\footnotesize
+\emph{Notation.} $\mu$ and $\Sigma$ are the mean vector and
+covariance matrix of the multivariate normal from which each
+participant's trajectory is drawn. $c$ indexes the three response
+factors, $c \in \{tv, pb, br\}$, and $t$ indexes measurement
+occasions, which fall at cumulative weeks $w_1 < \cdots < w_n$.
+
+$A_c$ is the $n \times n$ within-factor block of factor $c$, giving
+the correlation between that factor at two occasions. $C_{cc'}$ is
+the $n \times n$ cross-factor block between two distinct factors. Its
+diagonal holds same-occasion entries and its off-diagonal
+different-occasion entries.
+
+$\rho_c$ is the within-factor autocorrelation parameter of factor $c$
+(\texttt{c.tv}, \texttt{c.pb}, \texttt{c.br} in the code). $\rho$
+without a subscript is the corresponding decay rate applied to
+cross-factor entries. $c_1$ is the same-occasion cross-factor
+correlation (\texttt{c.cf1t}) and $c_{\times}$ the
+different-occasion one (\texttt{c.cfct}). The exponent
+$|w_t - w_s|$ is the gap in cumulative weeks between occasions $t$
+and $s$, not the difference in occasion index.
+
+$r_t$ is the correlation between the biomarker and the response
+factor at occasion $t$, the vector through which covariance
+moderation carries the interaction. $c_{bm}$ is the moderation
+parameter, $t_{sd,t}$ the time since drug discontinuation, and
+$t_{1/2}$ the carryover half-life. $\phi_t = (1/2)^{t_{sd,t}/t_{1/2}}$
+is the residual fraction of the on-drug response at an off-drug
+occasion that follows drug exposure, and $\phi_t = 0$ otherwise,
+including throughout when $t_{1/2} = 0$ and at off-drug occasions
+before first exposure. \texttt{covar} and \texttt{orig} are nonzero
+at the same occasions; they differ in whether $r_t$ scales with the
+residual fraction or steps to its full on-drug value.
+
+$\mu_{BR}$ is the response factor's mean trajectory and
+$b_i = (B_i - \mu_{bm})/\sigma_{bm}$ the participant's standardized
+biomarker, so the mean-moderation shift $\beta_{bm} b_i \sigma_{BR}$ is
+expressed per standard deviation of the biomarker. $t^{\ast}$ denotes
+the most recent on-drug occasion and $t-1$ the immediately preceding
+occasion, which is the whole of the difference in the final row: all
+three processes apply the same factor $(1/2)^{t_{sd}/t_{1/2}}$ and
+differ only in what they apply it to.
+
+$\mathrm{BL}$ is baseline symptom severity, $B$ the
+biomarker, and $TV$, $PB$, $BR$ the natural-history, placebo-belief
+and pharmacological response factors respectively.
+\end{minipage}
+\end{center}
+
+Five entries agree across all three processes and are omitted above.
+The same-occasion cross-factor correlation is $c_1$ throughout. The
+baseline row and column are those of the identity. The biomarker
+correlates with neither the natural-history nor the placebo-belief
+factor. The off-drug $\mu_{BR}$ shift is absent everywhere, since
+mean moderation applies its shift only at on-drug occasions. And all
+three apply the same exponential decay factor
+$(1/2)^{t_{sd}/t_{1/2}}$, differing only in the value it multiplies,
+which is the last row of the table.
+
+Three features of this comparison are worth drawing out.
+
+First, \texttt{mean} and \texttt{covar} share their entire covariance
+matrix apart from the vector $r$. Setting $r$ to zero and adding the
+mean shift converts one into the other, with every within-factor and
+cross-factor block untouched. This is the decomposition of Appendix A
+made concrete: the two architectures are not different models but the
+two places a single joint distribution can carry an interaction.
+
+Second, \texttt{orig} differs from \texttt{covar} on three rows
+simultaneously, in $A_c$, in the off-diagonal of $C_{cc'}$, and in
+$r$. No single row can therefore be held responsible for any
+difference in results obtained under it, and a comparison against
+\texttt{orig} bounds the joint effect of the three differences rather
+than decomposing them. Separating them would require running the
+correlation structure and the off-drug coupling rule as crossed
+factors.
+The carryover row is a fourth difference, but it is of our making
+rather than Hendrickson's, and Section B.7 explains why it should be
+held fixed across arms rather than counted among the architectural
+differences.
+
+Third, the off-drug $r_t$ row is the consequential one, and it is
+consequential because of how $r_t$ is sized, not where it is
+nonzero. The two covariance-based processes switch the interaction
+channel on at exactly the same occasions: on drug, and off drug after
+exposure whenever $t_{1/2} > 0$. We confirmed this against the
+package's own matrix construction on every path of the three designs
+at each half-life in the grid. They differ in what happens there.
+Under \texttt{covar} the correlation is scaled by the residual
+fraction $\phi_t$, so that it falls in proportion to the residual
+drug effect in the response mean. Under \texttt{orig} it steps to the
+full $c_{bm}$ as soon as any residual effect is present, however
+small. With carryover, the published coupling is therefore constant
+at every post-exposure occasion, and its interaction channel loses the
+on-drug versus off-drug contrast on which identification depends.
+
+The carryover row requires explanation, since the three processes
+agreed on it until recently and a reader comparing code will want to
+identify the difference quickly.
+
+All three adjust the response mean at an off-drug occasion by adding
+a decayed fraction of the previous response. They differ in what is
+decayed. Writing $t^{\ast}$ for the most recent on-drug occasion,
+
+\[
+\underbrace{\mu_{BR,t} + \mu_{BR,t^{\ast}}\,
+  (1/2)^{t_{sd,t}/t_{1/2}}}_{\texttt{mean},\ \texttt{covar}}
+\qquad\text{against}\qquad
+\underbrace{\mu_{BR,t} + \mu_{BR,t-1}\,
+  (1/2)^{t_{sd,t}/t_{1/2}}}_{\texttt{orig}} .
+\]
+
+The published form multiplies the \emph{already adjusted} mean at
+$t-1$ while $t_{sd,t}$ is measured cumulatively from discontinuation,
+so elapsed time is counted twice. The corrected form applies the
+cumulative factor once, to the mean at discontinuation.
+
+Two consequences make the difference easy to spot in output. The
+first off-drug occasion of any run agrees exactly under both forms,
+since there is nothing yet to inherit. Divergence begins at the
+second. In the worked example of Section B.5, at
+$t_{1/2} = 1$ week, occasion 3 carries $0.25\,\mu_{BR,1}$ under the
+corrected form and $0.125\,\mu_{BR,1}$ under the published one, a
+factor of two. The gap widens with each further off-drug occasion, so
+designs with long uninterrupted washouts show it most.
+
+We corrected \texttt{mean} and \texttt{covar} in September 2026 and
+leave \texttt{orig} as published, since the object of that column is
+to describe the published code rather than to improve it.
+
+The consequence for the re-run flagged in Section 2.2.4 should be
+settled before that run is designed. A comparison of \texttt{covar}
+against \texttt{orig} now carries one difference beyond the four
+enumerated there, and it is of our making. Running \texttt{covar} as
+corrected asks what the architecture delivers today and credits the
+correction to \texttt{covar}. Running \texttt{covar} with the
+recursion restored isolates the four architectural differences and
+answers the question Section 2.2.4 poses. We prefer the second for
+the headline comparison, with the first reported alongside it, so
+that the cost of the correction remains visible.
+
+\subsection{B.7 Summary of differences}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Component & \texttt{orig} & \texttt{covar}\\
+\midrule
+$A_c$ interior & $\rho_c$ & $\rho_c^{|w_t - w_s|}$\\
+$C_{cc'}$, $t \neq s$ & $c_{\times}$ & $c_{\times}\rho^{|w_t-w_s|}$\\
+$r_t$, off drug & $c_{bm}\,\mathbf{1}[\phi_t > 0]$ & $c_{bm}\,\phi_t$\\
+Carryover on $\mu_{BR}$ & recursive & anchored\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The table lists only the entries that differ. Everything else in the
+correlation matrix agrees: the same-occasion cross-factor entry
+$c_1$, the on-drug value $c_{bm}$ of the coupling vector, the
+$\mathrm{BL}$ row and column, which are those of the identity in both
+processes, and the $B$--$TV$ and $B$--$PB$
+entries, which are zero in both. That last agreement is worth stating
+rather than leaving implicit, since it is the assumption that the
+biomarker couples to no factor other than the response, and a good
+deal rests on it.
+
+The four differences are independent decisions rather than
+consequences of one another, and they are not of equal standing. Only
+one of them repairs a defect. We set out what each is for, since a
+reader is entitled to ask whether a departure from published code was
+necessary or merely preferred.
+
+\paragraph{The off-drug coupling ($r_t$ off drug) corrects a
+defect.} This is the one substantive repair. Both processes switch the
+coupling on at the same occasions, so the defect is not where the
+published code opens the channel but how far. Under the published
+rule the off-drug correlation takes the full on-drug value $c_{bm}$
+at any occasion carrying residual drug effect, however small that
+residual is. The coupling is therefore a step function of the residual
+effect rather than a function of its size: an off-drug occasion at
+which the response mean has fallen to a few percent of its on-drug
+value is assigned the same biomarker-response correlation as an
+on-drug occasion. In a design whose paths all begin on drug, the
+coupling vector is then constant at every positive half-life, and the
+interaction channel carries no on-drug versus off-drug contrast at
+all. Since the interaction is identified by precisely that contrast,
+the introduction of any carryover at all removes it, which inverts
+the graded effect residual exposure should have. Architecture B
+instead scales the coupling by the residual fraction $\phi_t$, so that
+the biomarker-response correlation falls in proportion to the residual
+drug effect in the response mean. The ceiling discussion below shows
+that the published rule admits a wider nominal $c_{bm}$ only because
+its vector has stopped carrying an interaction, which is a further
+symptom of the same defect rather than a separate finding.
+
+The repository was itself revised in 2024, replacing the step with a
+graded coupling. We do not offer that revision as independent
+corroboration. The commit in question (\texttt{8609f12}, 6 May 2024)
+is authored by Hendrickson but its message describes it as the
+present author's edits curated into working code, so the two lines of
+reasoning are not independent. The argument for the graded form rests
+on the identification point above, not on the repository's later
+history.
+
+\paragraph{The within-factor form ($A_c$) is a modeling choice.} It
+is adopted for clinical plausibility, since nearby measurements
+should be more strongly correlated than distant ones, and for the
+wider feasible range discussed below. It repairs nothing. Compound
+symmetry is a defensible model of within-participant correlation, and
+it is the standard implication of a participant random intercept.
+
+\paragraph{The cross-factor form ($C_{cc'}$, $i \neq j$) follows from
+the previous row.} It is not listed among the four differences of
+Section 2.2.4, and on its own it would be difficult to defend. Taken
+without the AR(1) change it lowers the feasible range of $c_{bm}$
+substantially, which is the numerical signature of an incoherent
+structure: a constant cross-factor term alongside a decaying
+within-factor block asserts that a factor's correlation with a
+\emph{different} factor at eight occasions' remove equals its
+correlation with that factor at the adjacent occasion, while its
+correlation with \emph{itself} has decayed away. \texttt{covar} takes
+the two rows together for consistency, not because either entails the
+other.
+
+\paragraph{The carryover row is ours, not Hendrickson's.} All three
+processes originally adjusted the response mean by the recursive
+form, and we corrected \texttt{mean} and \texttt{covar} in September
+2026 for the reason given in Section B.6. The row is listed here
+because a reader comparing code will encounter it, but it should not
+be counted among the architectural differences that Section 2.2.4
+enumerates.
+
+\paragraph{The feasible range of $c_{bm}$.} The two forms differ in
+how much moderation the covariance can carry. The mechanism is worth
+setting out, because the obvious explanation is wrong and the
+direction of the difference is not constant.
+
+The binding constraint is not positive definiteness of the
+within-factor block. It is a Schur complement on the biomarker row,
+and we set the argument out in full because it replaces a grid search
+with a formula.
+
+Drop the $\mathrm{BL}$ row and column, which are those of the
+identity and therefore factor out of every determinant. Order the
+remainder with the biomarker first and partition accordingly:
+
+\[
+R = \begin{pmatrix} 1 & \tilde r^{\top}\\ \tilde r & M \end{pmatrix},
+\]
+
+where $M$ is the $3n \times 3n$ block of the three response factors
+and $\tilde r$ is the biomarker coupling vector extended by zeros,
+equal to $r$ on the $BR$ positions and vanishing on the others. The
+Schur complement of $M$ in $R$ is the scalar
+$1 - \tilde r^{\top} M^{-1} \tilde r$, and $R$ is positive definite
+if and only if $M$ is positive definite and that scalar is positive.
+
+The scalar has a statistical reading which makes the constraint
+intuitive rather than merely algebraic. On the correlation scale the
+biomarker has unit variance. The quantity
+$\tilde r^{\top} M^{-1} \tilde r$ is the coefficient of determination
+from regressing the biomarker on the whole set of response
+variables, and $1 - \tilde r^{\top} M^{-1} \tilde r$ is the residual
+variance of the biomarker once that regression is removed. The
+condition therefore says only this: the biomarker may not be more
+than perfectly predictable from the response factors. An analyst who
+specifies correlations strong enough to imply an $R^2$ above one has
+not specified a covariance matrix at all, having asked for a negative
+variance.
+
+Writing $\tilde r = c_{bm} v$, where $v$ carries the on-drug and
+off-drug pattern of Section B.4 with the moderation parameter
+factored out, the condition becomes
+$c_{bm}^{2}\, v^{\top} M^{-1} v < 1$ and the exact ceiling follows:
+
+\[
+c_{bm}^{\ast} = \bigl(v^{\top} M^{-1} v\bigr)^{-1/2} .
+\]
+
+The bound is attained rather than approached. At
+$c_{bm} = c_{bm}^{\ast}$ the implied $R^2$ is exactly one, the
+residual variance is exactly zero, and the smallest eigenvalue of $R$
+reaches zero at the same point. We have verified this correspondence
+directly on small cases, where the three quantities can be watched
+together as $c_{bm}$ is increased.
+
+Two features of this expression matter. The ceiling depends on the
+correlation structure only through how the coupling pattern $v$ sits
+relative to $M^{-1}$, and it depends on $v$, which differs between
+the two processes and, under \texttt{orig}, changes with the
+carryover half-life.
+
+That second point reverses the comparison. At $t_{1/2} = 0$ the
+\texttt{orig} coupling is the on-drug indicator and its ceiling is
+the lower of the two. At any positive half-life the \texttt{orig}
+coupling becomes constant, as Section B.4 shows, and a constant $v$
+aligns with the direction in which $M$ is best conditioned. Its
+ceiling is then the higher of the two. The apparent gain is
+worthless: it arises precisely because the vector has lost the
+on-drug versus off-drug contrast on which identification depends. A
+process that can carry a larger nominal $c_{bm}$ while carrying no
+interaction is not thereby preferable.
+
+We note that the number of occasions is not what separates the two
+forms. Both ceilings fall as occasions are added, in similar
+proportion. The smallest eigenvalue of the compound-symmetric block
+$M$ is $(1-\rho_c) - (c_1 - c_{\times})$, which contains neither $n$
+nor the number of factors. An earlier version of this appendix
+attributed the difference to a constraint on $\rho_c$ that tightens
+with $n$; that attribution was incorrect.
+
+\textbf{[TO RE-VERIFY: the relations above were derived analytically
+and confirmed on an evenly spaced schedule. Design-specific
+thresholds for the CO, Hybrid and OL+BDC schedules of Section 2.3
+have not been computed, and none is quoted here. Evaluate
+$c_{bm}^{\ast}$ on those three designs, under
+\texttt{58b32a9} for \texttt{orig}, before restoring numeric
+thresholds.]}
+
+\subsection{B.8 The mean-covariance contrast}
+
+Sections B.6 and B.7 compare Architecture B against the published
+implementation. We give the corresponding comparison for the contrast
+this paper actually reports, mean moderation against covariance
+moderation, because it is much the cleaner of the two.
+
+\paragraph{Where the interaction is written.} The two processes place
+the interaction in different objects, and the first table records
+only that.
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Component & \texttt{mean} & \texttt{covar}\\
+\midrule
+$r_t$, on drug & $0$ & $c_{bm}$\\
+$r_t$, off drug & $0$ & $c_{bm}\,\phi_t$\\
+$\mu_{BR}$ shift, on drug & $\beta_{bm} b_i \sigma_{BR}$ & none\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Everything else is shared. Both processes use the AR(1) within-factor
+form, the same cross-factor blocks, the same anchored carryover
+adjustment, the same baseline row and column, and the same zero
+correlations between the biomarker and the two non-response factors.
+Setting $r$ to zero and adding the mean shift converts one process
+into the other, and nothing else moves.
+
+\paragraph{A caution about the zero.} The entry $r_t = 0$ describes
+the covariance matrix from which the data are drawn. It does not say
+that the biomarker and the response are uncorrelated under mean
+moderation. The shift is applied after the draw, and it induces an
+association of its own. Reading the zero as an absence of
+biomarker-response dependence would be a mistake, and the second
+table is included to forestall it.
+
+\paragraph{What each process realizes.} Writing $\sigma$ for
+$\sigma_{BR}$, taking an on-drug occasion, and setting the two
+parameters to their matched value $\beta_{bm} = c_{bm}$, written
+$c_{bm}$ in the table, the two processes differ in every second
+moment while agreeing exactly on the first.
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Quantity & \texttt{mean} & \texttt{covar}\\
+\midrule
+$E[BR_t \mid B_i]$
+  & $\mu_{BR} + c_{bm}\dfrac{\sigma}{\sigma_{bm}}(B_i - \mu_{bm})$
+  & same\\[6pt]
+Slope of $BR_t$ on $B_i$
+  & $c_{bm}\sigma/\sigma_{bm}$ & same\\[3pt]
+$\mathrm{SD}[BR_t \mid B_i]$ & $\sigma$ & $\sigma\sqrt{1-c_{bm}^2}$\\[3pt]
+Marginal $\mathrm{SD}[BR]$ & $\sigma\sqrt{1+c_{bm}^2}$ & $\sigma$\\[3pt]
+$\mathrm{Cor}(B_i, BR_t)$
+  & $c_{bm}/\sqrt{1+c_{bm}^2}$ & $c_{bm}$\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+At $c_{bm} = 0.45$ and $\sigma = 8$ these give a realized correlation
+of $0.410$ under mean moderation against $0.450$ under covariance
+moderation, conditional standard deviations of $8.00$ against $7.15$,
+and marginal standard deviations of $8.77$ against $8.00$. A
+two-million-draw simulation reproduces each to three decimal places.
+
+Three things follow, and together they are the reason we prefer this
+comparison to the one against \texttt{orig}.
+
+First, the conditional means agree exactly. The mean shift is
+calibrated to reproduce the conditional expectation that Architecture
+B's covariance implies, so the two processes present the same
+regression slope to the analysis model. Whatever difference Section 3
+reports is not a difference in the quantity being estimated.
+
+Second, they reach that common slope by opposite routes, and this is
+the substantive content of the architecture distinction. Covariance
+moderation holds the marginal variance fixed and shrinks the
+conditional variance, so the biomarker explains variation already
+present in the population. Mean moderation holds the conditional
+variance fixed and inflates the marginal, so the biomarker introduces
+new between-patient spread. Appendix A.2 puts the same point
+qualitatively: a biomarker that indexes an unobserved responder
+status against one that fixes the drug effect. The dilution of the
+correlation from $0.450$ to $0.410$ is the arithmetic residue of the
+added variance.
+
+Third, the comparison is clean in a way the \texttt{orig} comparison
+is not. Section B.7 lists four differences, and a power difference
+observed against \texttt{orig} cannot be attributed to any one of
+them without further work. Here there is a single difference,
+expressed in two complementary rows, and its consequences are the
+five moments tabulated above.
+
+We note one practical implication. Because the marginal variances
+differ, absolute power is not comparable between the two
+architectures at a common nominal $c_{bm}$, and Section 3 accordingly
+compares the profile across carryover within each architecture rather
+than the levels between them.
+
+The two processes do not, however, carry the interaction at the same
+occasions. Mean moderation applies its shift only where the drug
+indicator is 1, so its interaction is absent at every off-drug
+occasion whatever the carryover half-life. Covariance moderation sets
+$r_t = c_{bm}$ at those same on-drug occasions and also carries a
+graded interaction, $c_{bm}\phi_t$, at off-drug occasions that follow
+exposure whenever $t_{1/2} > 0$. The two therefore agree exactly when
+$t_{1/2} = 0$ and diverge off drug as soon as carryover is present.
+This is the data-generating counterpart of the point made in Section
+2.2.1: the analysis regressor $D_{bc,it}$ has the same graded
+off-drug profile as $\phi_t$, so it matches covariance moderation's
+off-drug interaction and finds none under mean moderation. The
+published implementation shares covariance moderation's support but
+not its scaling, which is the difference Section B.7 identifies as
+consequential.

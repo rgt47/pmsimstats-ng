@@ -1,9 +1,16 @@
-# Manuscript Terminology Consistency Plan
+# Manuscript Terminology Consistency Plan {.unlisted .unnumbered}
 *2026-06-17 19:37 PDT*
 
 A plan to align the terminology in all `report.Rmd` and
 `report-slim.Rmd` manuscripts with the project lexicon
 (`docs/29-nof1-precision-medicine-lexicon.md`) and with each other.
+
+```{=latex}
+\clearpage
+\tableofcontents
+\listoftables
+\clearpage
+```
 
 ## Execution status (2026-07-30)
 
@@ -58,6 +65,8 @@ defaults are evidence-based (current corpus counts in parentheses).
 | D5 | "washout" usage | reserve `washout` for an inserted treatment-free clearance gap; use `off-drug period / occasions` for the general post-discontinuation span | off-drug 279 vs washout 92; the papers' own thesis is that carryover contaminates these spans, so "washout" is self-contradictory there (lexicon §2) |
 | D6 | Precision vs personalised medicine | `precision medicine` (primary), "personalised medicine" only as a glossed synonym | precision 11 vs personalised 4; lexicon §10 headword |
 | D7 | Participant unit noun | `participant` in prose; use "subject"/"cluster" only where theory requires (e.g. sandwich estimator) | papers 05/08 use participant; 10 mixes cluster/subject/participant |
+
+Table: Terminology decisions with recommended defaults and supporting corpus evidence
 
 ## 2. Tier 1 - project-wide standardisations (safe, high value)
 
@@ -125,6 +134,8 @@ blind replace).
 | 08 | Disambiguate `main effect`: use `average treatment effect (ATE)` for the population mean effect; keep "main effect" only for the ANOVA-factor sense. Introduce `anti-conservative (inflated Type I error)` once, then use one term. | "main effect" overload is a genuine ambiguity. |
 | 09 | Consolidate `informative dropout` (canonical) over "biased dropout"/"attrition" (keep "biased" only for cell labels). Use `ignorable` (not "non-informative") for the MAR component to avoid collision with "noninformative prior". Replace colloquial `estimand drift` -> "bias in the estimand" and `design surface area` -> a defined phrase. Normalise `MNAR` spelling. | See MCAR_25 flag in Section 6. |
 | 10 | Choose one orthography for `mis-specified`/`misspecified`. Introduce `cluster-robust (sandwich) standard error` once, then one term. Keep `working correlation structure` for the GEE object only; use `working covariance` for the LME structure. Fix participant noun (D7). | Most careful paper; fixes are orthographic. |
+
+Table: Per-paper terminology consistency fixes with notes
 
 ## 4. Tier 3 - glossing / definition additions
 

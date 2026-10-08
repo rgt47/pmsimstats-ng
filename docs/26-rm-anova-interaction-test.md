@@ -1,9 +1,14 @@
-# Strict classical repeated-measures ANOVA for the biomarker-treatment
-# interaction: closed-form derivation and limitations
+# Strict classical repeated-measures ANOVA for the biomarker-treatment interaction: closed-form derivation and limitations {.unlisted .unnumbered}
 
 *2026-05-07 06:30 PDT*
 
 **Author.** pmsimstats team
+
+```{=latex}
+\clearpage
+\tableofcontents
+\clearpage
+```
 
 ## 1. Motivation
 

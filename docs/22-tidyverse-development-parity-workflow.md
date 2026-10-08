@@ -4,7 +4,7 @@ author: "pmsimstats team"
 date: "2026-04-15"
 ---
 
-# Workflow for tidyverse-side development without losing parity
+# Workflow for tidyverse-side development without losing parity {.unlisted .unnumbered}
 
 This note captures the recommended workflow for editing
 `implementations/tidyverse/` while preserving numerical parity with
@@ -13,6 +13,12 @@ test at `analysis/scripts/parity/test-parity-extended-tidyverse.R` is the
 safety net; this document describes how to integrate it into
 day-to-day development rather than treat it as an after-the-fact
 audit.
+
+```{=latex}
+\clearpage
+\tableofcontents
+\clearpage
+```
 
 ## 1. Baseline before you start
 

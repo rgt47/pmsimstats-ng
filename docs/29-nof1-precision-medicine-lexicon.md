@@ -1,4 +1,4 @@
-# N-of-1 Trials and Precision Medicine: A Detailed Lexicon
+# N-of-1 Trials and Precision Medicine: A Detailed Lexicon {.unlisted .unnumbered}
 *2026-06-17 17:42 PDT*
 
 A working glossary of the terminology used across the N-of-1 / single-case
@@ -22,6 +22,13 @@ recognised whatever vocabulary a given paper adopts. A condensed
 same-concept / different-name map appears in Section 12.
 
 ---
+
+```{=latex}
+\clearpage
+\tableofcontents
+\listoftables
+\clearpage
+```
 
 ## 1. Trial designs and architectures
 
@@ -52,6 +59,8 @@ same-concept / different-name map appears in Section 12.
 | Platform trial | A standing trial framework evaluating multiple treatments against a shared control, adding or dropping arms over time. | -- |
 | Two-stage / multi-stage design | A trial run in phases with an interim analysis between them that can change later conduct. | two-stage adaptive design |
 
+Table: Trial design and architecture terms with definitions and synonyms
+
 ## 2. Periods, sequence, carryover, and washout
 
 | Term | Plain-language definition | Synonyms / aliases (by field) |
@@ -74,6 +83,8 @@ same-concept / different-name map appears in Section 12.
 | Condition- vs time-dependent crossover rule | Whether to switch treatments once the patient returns to baseline (condition-dependent) or after a fixed wait (time-dependent). | crossover rule |
 | On/off kinetics | How quickly a drug starts working and wears off, which sets how long a washout must be. | rapid onset / offset; drug half-life |
 
+Table: Period, sequence, carryover, and washout terms with definitions and synonyms
+
 ## 3. Randomization, blinding, and conduct
 
 | Term | Plain-language definition | Synonyms / aliases (by field) |
@@ -86,6 +97,8 @@ same-concept / different-name map appears in Section 12.
 | Placebo / placebo effect | An inert comparator made to look identical to the active treatment; the placebo effect is improvement wrongly credited to that inert treatment. | sham / dummy treatment; expectancy response |
 | Active comparator / control | The reference treatment (placebo, usual care, or an established drug) against which the test treatment is judged. | comparator; control condition; reference arm |
 | Equipoise | Genuine uncertainty about which compared treatment is better, which ethically justifies randomizing. | clinical equipoise |
+
+Table: Randomization, blinding, and conduct terms with definitions and synonyms
 
 ## 4. Analysis models
 
@@ -122,6 +135,8 @@ same-concept / different-name map appears in Section 12.
 | Intention-to-treat (ITT) | Analyzing participants by their assigned treatment regardless of adherence, preserving randomization. | ITT (modified ITT excludes those with no outcome data) |
 | Per-protocol analysis | Analyzing only participants who followed the protocol, which can introduce bias. | completers / per-protocol population |
 
+Table: Analysis model terms with definitions and synonyms
+
 ## 5. Serial correlation and time series
 
 | Term | Plain-language definition | Synonyms / aliases (by field) |
@@ -137,6 +152,8 @@ same-concept / different-name map appears in Section 12.
 | Cochrane-Orcutt / Prais-Winsten | Older regression procedures that adjust estimates for first-order autocorrelated errors. | -- |
 | Effective sample size | The smaller number of *independent* observations that correlated data are statistically worth; shrinks under positive correlation. | effective number of independent observations |
 | Slope-autocorrelation indeterminacy | The difficulty, in short series, of telling apart a genuine trend from trend produced by autocorrelated errors. | confounding of slope and autocorrelation |
+
+Table: Serial correlation and time-series terms with definitions and synonyms
 
 ## 6. Variance, power, and estimation
 
@@ -180,6 +197,8 @@ same-concept / different-name map appears in Section 12.
 | Pitman asymptotic relative efficiency | A ratio comparing how many subjects two designs need to reach the same power. | relative efficiency |
 | Information criterion (AIC / BIC / QIC) | Scores ranking models by fit while penalizing extra parameters; lower is better (QIC is the GEE analogue of AIC). | Akaike / Bayesian / quasi-likelihood information criterion |
 
+Table: Variance, power, and estimation terms with definitions and synonyms
+
 ## 7. Bayesian methods
 
 | Term | Plain-language definition | Synonyms / aliases (by field) |
@@ -204,6 +223,8 @@ same-concept / different-name map appears in Section 12.
 | Robust / mixture / power / commensurate prior | Priors designed to down-weight historical or external information when it conflicts with current data. | meta-analytic-predictive (MAP) prior; discounting prior |
 | Sequential probability ratio test (SPRT) | A method that tests a hypothesis after each new observation and stops once evidence is conclusive. | SPRT; bSPRT (bootstrapped); sequential analysis |
 
+Table: Bayesian methods terms with definitions and synonyms
+
 ## 8. Missing data and dropout
 
 | Term | Plain-language definition | Synonyms / aliases (by field) |
@@ -221,6 +242,8 @@ same-concept / different-name map appears in Section 12.
 | Selection model | A missing-data model that predicts the chance of dropping out from the (possibly unseen) outcome. | -- |
 | Pattern-mixture model | A missing-data model letting completers and dropouts have different outcome distributions. | -- |
 | Sensitivity analysis | Re-running an analysis under alternative assumptions to see how robust the conclusions are. | robustness analysis |
+
+Table: Missing data and dropout terms with definitions and synonyms
 
 ## 9. Single-case / psychometric effect measures
 
@@ -243,6 +266,8 @@ same-concept / different-name map appears in Section 12.
 | Standard error of measurement | The expected spread of measurement errors around a person's true score. | -- |
 | Measurement error | The discrepancy between an observed measurement and the true underlying value. | observation error; noise |
 | Floor / ceiling effect | Scores clustering at the lowest or highest possible value, hiding true differences. | -- |
+
+Table: Single-case and psychometric effect measures with definitions and synonyms
 
 ## 10. Biomarkers, precision medicine, and treatment-effect heterogeneity
 
@@ -272,6 +297,8 @@ same-concept / different-name map appears in Section 12.
 | SUTVA | The assumption that one unit's treatment does not affect another's outcome and there is only one version of each treatment. | stable unit treatment value assumption |
 | Pharmacogenomics | Using a patient's genetics to predict and tailor treatment response. | individualized / precision therapy |
 | Learning health system | An infrastructure that continually uses routine clinical data to learn which patients benefit from which treatments. | rapid-learning health system |
+
+Table: Biomarker, precision-medicine, and heterogeneity terms with definitions and synonyms
 
 ## 11. Clinical, pharmacology, and outcome terms
 
@@ -303,6 +330,8 @@ same-concept / different-name map appears in Section 12.
 | Prazosin | An alpha-1 adrenoceptor antagonist studied for PTSD trauma nightmares and sleep disturbance (the project's running clinical example). | alpha-1 blocker |
 | PTSD / CAPS | Post-traumatic stress disorder; the Clinician-Administered PTSD Scale (CAPS) is a structured interview rating its symptom frequency and intensity. | post-traumatic stress disorder; CAPS-IV |
 
+Table: Clinical, pharmacology, and outcome terms with definitions and synonyms
+
 ## 12. Cross-field synonym map (same concept, different name)
 
 The single concept on the left is named differently depending on whether
@@ -322,6 +351,8 @@ precision-medicine perspective.
 | Multiple measurements per unit over time | repeated measures; longitudinal data | single-case time series | -- |
 | Standardized magnitude of an effect | standardized mean difference; Cohen's d | Tau-U / NAP / PND (nonoverlap indices) | -- |
 | Real-time repeated outcome capture | -- | ecological momentary assessment (EMA) | micro-randomized trial sampling |
+
+Table: Cross-field synonym map across biostatistics, psychometric, and precision-medicine usage
 
 ## 13. Reporting guidelines and ethics
 
@@ -343,6 +374,8 @@ precision-medicine perspective.
 | Equipoise | Genuine uncertainty about which treatment is better, ethically justifying randomization. | clinical equipoise |
 | Informed consent / IRB approval | Ethical safeguards requiring participant agreement and institutional ethics-board review before research. | ethics-committee approval; written consent |
 | Patient and public involvement (PPI) | Involving patients and the public in designing, running, and interpreting research. | patient representatives |
+
+Table: Reporting guideline and ethics terms with definitions and synonyms
 
 ---
 

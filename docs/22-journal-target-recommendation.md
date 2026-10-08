@@ -1,4 +1,11 @@
-# Journal Target Recommendation: '02' DGP Architecture Comparison
+# Journal Target Recommendation: '02' DGP Architecture Comparison {.unlisted .unnumbered}
+
+```{=latex}
+\clearpage
+\tableofcontents
+\listoftables
+\clearpage
+```
 
 ## Manuscript summary
 
@@ -38,6 +45,8 @@ The manuscript sits at the intersection of three domains:
 | Arends et al. (2019) -- sample size for N-of-1 | Moderate | *Statistical Methods in Medical Research* |
 | Tang & Landes (2020) -- t-tests for N-of-1 with serial correlation | Moderate | *PLoS ONE* |
 | Chen et al. (2024) -- methodological review of N-of-1 | Moderate | *Trials* |
+
+Table: Most similar papers in the Zotero nof1 collection with similarity and journal
 
 ## Ranked journal targets
 

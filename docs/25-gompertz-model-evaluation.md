@@ -1,8 +1,15 @@
-# A critical evaluation of the Gompertz model in pmsimstats-ng
+# A critical evaluation of the Gompertz model in pmsimstats-ng {.unlisted .unnumbered}
 
 *2026-05-07 06:11 PDT*
 
 **Author.** pmsimstats team
+
+```{=latex}
+\clearpage
+\tableofcontents
+\listoftables
+\clearpage
+```
 
 ## 1. Motivation and scope
 
@@ -110,6 +117,8 @@ calibration is
 | BR | 10.99 | 5 | 0.42 |
 | TV | 10.99 | 5 | 0.42 |
 | PB |  6.51 | 5 | 0.35 |
+
+Table: Default modified Gompertz parameters for the BR, TV, and PB components
 
 producing curves that rise from zero at study entry, pass through
 inflection near $t = \ln(5)/0.42 \approx 3.8$ weeks for BR and
@@ -388,6 +397,8 @@ value next experiment for the founding interaction-test question.
 | Spline / GAM mean structure | Non-parametric, captures relapse and treatment escape | Loses the parsimony argument; harder to calibrate to a single target trajectory | [@brumback1998] |
 | Latent change score / GMM | Allows participant-level trajectory heterogeneity in shape | Heavy machinery; identifiability requires more timepoints than a typical N-of-1 trial provides | [@muthen2001growth] |
 | Stochastic differential equation | Endogenous treatment-escape and relapse | Loses closed-form simulation; substantially heavier compute | [@oksendalSDE] |
+
+Table: Alternative parametric response families with strengths, weaknesses, and references
 
 ## 8. Recommendations for pmsimstats-ng
 

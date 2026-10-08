@@ -18,21 +18,18 @@ mean-moderation-versus-MVN manuscript.
   randomization path and an $N = 70$ robustness check.
 - Tutorial framing aimed at applied statisticians new to the N-of-1
   setting, including an N-of-1 primer in the Introduction.
-- The three-part `bullets` / `rgt` / `orig` paragraph scaffolding.
-  As of 2026-08-16, `report.Rmd` carries zero remaining `rgt`
-  placeholder markers (verified by grep); this manuscript has
-  reached zero-placeholder state, unlike most of the other series
-  in this compendium.
+- Plain prose. The three-part `bullets` / `rgt` / `orig` paragraph
+  scaffolding was dropped on 2026-10-07; do not reintroduce it.
 
 All numerical results are typeset inline; the document loads no
 data and runs no simulation code during knit. It requires
-`claudecode.tex` for the scaffolding environments, `references.bib`,
-and `statistics-in-medicine.csl`, all in this directory.
+`../sim-preamble.tex`, `references.bib` and
+`statistics-in-medicine.csl`.
 
-Render with:
+Render through the stamping wrapper, from the repository root:
 
 ```bash
-Rscript -e "rmarkdown::render('analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd')"
+bash tools/render.sh analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd
 ```
 
 The current render is 21 pages.
@@ -42,9 +39,12 @@ The current render is 21 pages.
 - `title-page.md` is submission material.
 - `references.bib`, `statistics-in-medicine.csl` are the master's
   bibliography and citation style, shared with the archived drafts.
-- `claudecode.tex` supplies the `bullets` / `rgt` / `orig`
-  environments. A copy lives in `archive/` for the archived
-  comprehensive draft.
+- `claudecode.tex` defines the retired `bullets` / `rgt` / `orig`
+  environments. The master does not use it. The copy in `archive/`
+  is needed only to render the archived comprehensive draft.
+- `bullets.Rmd` is a standalone key-points summary of the master,
+  cited in its reproducibility notes; it is not part of the
+  paragraph scaffolding.
 - `whitepaper-dgp-architectures-summary.md` and
   `whitepaper-architecture-c-latent-class-assessment.md` are
   standalone summary whitepapers.
@@ -147,13 +147,14 @@ rather than per randomization path. The extraction plan records
 this as referee finding MC-1 and assigns the corrective re-run to
 paper 11. Read the archived grid with that correction in mind.
 
-## Known defects in the master
+## Known defects and pending changes in the master
 
-- One citation renders as a raw citekey: `[@pmsimstats-paper08]` in
-  the first Introduction bullet block. Citations placed inside the
-  raw-LaTeX `bullets` environments bypass pandoc citation
-  processing. Pre-existing, not introduced by consolidation.
-- The `rgt` blocks throughout are placeholders reading
-  `rgt to complete.` and await the author's prose. The
-  `~/bin/strip-claudecode` script finalizes the paper once that
-  writing is done.
+- None recorded. The raw-citekey defect listed here earlier
+  (`[@pmsimstats-paper08]` inside a raw-LaTeX `bullets` block) no
+  longer applies: the citation is now in plain prose and the key is
+  in `references.bib` (inspected; not yet confirmed by a render).
+- The manuscript's goal is being restated (2026-10-07): from a
+  comparison of two architectures to the specification of the
+  compendium's reference data-generating process, refined from the
+  published process for prazosin-like drugs. A section outline for
+  the restated paper is pending.

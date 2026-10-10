@@ -12,7 +12,11 @@ buildSigma(
   makePositiveDefinite = TRUE,
   lambda_cor = NA,
   verbose = FALSE,
-  dgp_architecture = "mvn"
+  dgp_architecture = "mvn",
+  br_family = "gompertz",
+  br_p2 = NA,
+  br_p3 = NA,
+  components = c("tv", "pb", "br")
 )
 }
 \arguments{
@@ -30,9 +34,21 @@ buildSigma(
 
 \item{verbose}{Print diagnostics?}
 
-\item{dgp_architecture}{DGP architecture (\code{"mvn"} or
-\code{"mean_moderation"}). Under mean moderation, the BM-BR
-correlation block is omitted from the covariance matrix.}
+\item{dgp_architecture}{DGP architecture (\code{"mvn"},
+\code{"mean_moderation"}, or \code{"combined"}). The BM-BR
+differential correlation block is included for \code{"mvn"}
+(using \code{c.bm}) and \code{"combined"} (using \code{c.bm_b});
+it is omitted for \code{"mean_moderation"}.}
+
+\item{br_family}{Trajectory family for the BR mean curve. One of
+\code{"gompertz"} (default), \code{"logistic"},
+\code{"hyperbolic_tangent"}, or \code{"piecewise_linear_breakpoint"}.
+The default reproduces the original modGompertz BR mean exactly.
+See \link{trajectoryShape}.}
+
+\item{br_p2, br_p3}{Family-specific shape parameters passed to
+\link{trajectoryShape} (for gompertz, \code{disp} and \code{rate};
+defaults \code{NA} fall back to \code{respparam}'s disp/rate).}
 }
 \value{
 List with sigma, means, labels, nP, cl, trialdesign

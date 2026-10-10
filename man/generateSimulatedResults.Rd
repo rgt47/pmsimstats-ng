@@ -63,8 +63,8 @@ random slopes, as well as random intercepts, for participants?}
 \link{generateData})}
 
 \item{dgp_architecture}{DGP architecture for the biomarker-treatment
-interaction (\code{"mvn"} or \code{"mean_moderation"}). See
-\link{generateData} for details.}
+interaction (\code{"mvn"}, \code{"mean_moderation"}, or
+\code{"combined"}). See \link{generateData} for details.}
 
 \item{rawdataout=FALSE}{Binary - output the raw data for all
 simulations?  This is memory intensive for large runs.}

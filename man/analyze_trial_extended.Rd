@@ -14,9 +14,10 @@ analyze_trial_extended(trialdesign_set, dat, op, threshold = NULL)
 \item{op}{Analysis options (same as lme_analysis)}
 
 \item{threshold}{Clinical significance threshold for the drug
-effect (e.g., 5 CAPS points). Used to compute the biomarker
-value at which predicted benefit exceeds this threshold.
-Default: NULL (no threshold computation).}
+effect, on the same signed scale as the drug coefficient (a
+symptom reduction of 5 CAPS points is \code{-5}). Used to compute
+the biomarker value at which the predicted drug effect equals this
+threshold. Default: NULL (no threshold computation).}
 }
 \value{
 A list with:
@@ -30,7 +31,11 @@ model}
 \item{\code{variance_components}}{  Random intercept variance,
 residual variance, AR(1) parameter}
 \item{\code{predicted_effect}}{  Function that takes a
-biomarker value and returns the predicted drug effect}
+biomarker value, on the scale of the data (not centered), and
+returns the predicted drug effect
+\eqn{\beta_D + \beta_{bm:D} \times bm}}
+\item{\code{biomarker_mean}, \code{biomarker_sd}}{  Mean and SD
+of the biomarker in the analysis data}
 \item{\code{threshold_bm}}{  Biomarker value at which the
 predicted drug effect equals the clinical threshold
 (if threshold is provided)}

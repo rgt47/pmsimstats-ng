@@ -27,6 +27,7 @@ generate the analyses and figures from the publication.
 
 Authors:
 \itemize{
+  \item Ronald G. Thomas \email{rgthomas@ucsd.edu}
   \item Rebecca C. Hendrickson \email{rebecca.hendrickson@va.gov}
 }
 

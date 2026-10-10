@@ -144,9 +144,10 @@ characterize_carryover <- function(trialdesign_set, dat,
 #' @param dat Data as produced by generateData or actual trial data
 #' @param op Analysis options (same as lme_analysis)
 #' @param threshold Clinical significance threshold for the drug
-#'   effect (e.g., 5 CAPS points). Used to compute the biomarker
-#'   value at which predicted benefit exceeds this threshold.
-#'   Default: NULL (no threshold computation).
+#'   effect, on the same signed scale as the drug coefficient (a
+#'   symptom reduction of 5 CAPS points is \code{-5}). Used to compute
+#'   the biomarker value at which the predicted drug effect equals this
+#'   threshold. Default: NULL (no threshold computation).
 #' @return A list with:
 #'   \itemize{
 #'     \item{\code{drug_effect}}{  Data.table with beta, SE, p-value
@@ -158,7 +159,11 @@ characterize_carryover <- function(trialdesign_set, dat,
 #'     \item{\code{variance_components}}{  Random intercept variance,
 #'       residual variance, AR(1) parameter}
 #'     \item{\code{predicted_effect}}{  Function that takes a
-#'       biomarker value and returns the predicted drug effect}
+#'       biomarker value, on the scale of the data (not centered), and
+#'       returns the predicted drug effect
+#'       \eqn{\beta_D + \beta_{bm:D} \times bm}}
+#'     \item{\code{biomarker_mean}, \code{biomarker_sd}}{  Mean and SD
+#'       of the biomarker in the analysis data}
 #'     \item{\code{threshold_bm}}{  Biomarker value at which the
 #'       predicted drug effect equals the clinical threshold
 #'       (if threshold is provided)}
@@ -248,26 +253,24 @@ analyze_trial_extended <- function(trialdesign_set, dat, op,
                ar1_phi = NA)
   })
 
-  # Biomarker mean from data
   bm_mean <- mean(fit_result$datamerged$bm, na.rm = TRUE)
+  bm_sd <- stats::sd(fit_result$datamerged$bm, na.rm = TRUE)
 
-  # Predicted drug effect as function of biomarker
-  # effect(bm) = beta_Dbc + beta_interaction * (bm - bm_mean)
+  # lme_analysis() fits the uncentered biomarker (Sx ~ bm + t + Dbc +
+  # bm:Dbc), so the Dbc coefficient is the drug effect at bm = 0 and the
+  # effect at biomarker value bm is beta_Dbc + beta_interaction * bm.
   if (!is.na(drug_effect$beta) && !is.na(interaction$beta)) {
     predicted_effect <- function(bm) {
-      drug_effect$beta + interaction$beta * (bm - bm_mean)
+      drug_effect$beta + interaction$beta * bm
     }
   } else {
     predicted_effect <- NULL
   }
 
-  # Clinical threshold: at what biomarker value does
-  # predicted benefit exceed the threshold?
   threshold_bm <- NA_real_
   if (!is.null(threshold) && !is.null(predicted_effect) &&
       !is.na(interaction$beta) && interaction$beta != 0) {
-    threshold_bm <- bm_mean +
-      (threshold - drug_effect$beta) / interaction$beta
+    threshold_bm <- (threshold - drug_effect$beta) / interaction$beta
   }
 
   list(
@@ -277,6 +280,7 @@ analyze_trial_extended <- function(trialdesign_set, dat, op,
     variance_components = vc,
     predicted_effect = predicted_effect,
     biomarker_mean = bm_mean,
+    biomarker_sd = bm_sd,
     threshold_bm = threshold_bm,
     threshold_value = threshold,
     model = fit,
@@ -359,13 +363,14 @@ print_trial_summary <- function(result) {
 
   if (!is.null(result$predicted_effect)) {
     bm <- result$biomarker_mean
+    bm_sd <- result$biomarker_sd
     cat("Predicted Drug Effect by Biomarker:\n")
     cat(sprintf("  At mean BM (%.1f): %.2f CAPS points\n",
       bm, result$predicted_effect(bm)))
-    cat(sprintf("  At BM +1 SD:       %.2f CAPS points\n",
-      result$predicted_effect(bm + 15.4)))
-    cat(sprintf("  At BM -1 SD:       %.2f CAPS points\n",
-      result$predicted_effect(bm - 15.4)))
+    cat(sprintf("  At BM +1 SD (%.1f): %.2f CAPS points\n",
+      bm + bm_sd, result$predicted_effect(bm + bm_sd)))
+    cat(sprintf("  At BM -1 SD (%.1f): %.2f CAPS points\n",
+      bm - bm_sd, result$predicted_effect(bm - bm_sd)))
   }
 
   if (!is.na(result$threshold_bm) && !is.null(result$threshold_value)) {

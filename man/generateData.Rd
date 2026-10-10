@@ -15,17 +15,40 @@ generateData(
   lambda_cor = NA,
   verbose = FALSE,
   cached_sigma = NULL,
-  dgp_architecture = "mvn"
+  dgp_architecture = "mvn",
+  br_family = "gompertz",
+  br_p2 = NA,
+  br_p3 = NA,
+  moderation_scaling = "constant",
+  components = c("tv", "pb", "br")
 )
 }
 \arguments{
 \item{modelparam}{a datatable with a single entry per named column:
 \itemize{
 \item{\code{N}}{  Number of simulated participants}
-\item{\code{c.bm}}{  Biomarker-BR parameter. Under MVN architecture
-(default), this is the correlation between biomarker and biological
-response. Under mean moderation architecture, this is the regression
-coefficient scaling the BR component by centered biomarker value.}
+\item{\code{c.bm}}{  Biomarker-BR parameter for \code{"mvn"} and
+\code{"mean_moderation"} architectures. Under MVN architecture
+(default), this is the BM-BR correlation. Under mean moderation,
+this is the regression coefficient scaling BR by centered biomarker.
+Not used under \code{"combined"} (use \code{c.bm_a} and \code{c.bm_b}
+instead).}
+\item{\code{c.bm_a}}{  Mean-moderation weight for \code{"combined"}
+architecture: regression coefficient scaling the BR mean shift by
+centered biomarker. Ignored under \code{"mvn"} and
+\code{"mean_moderation"}.}
+\item{\code{c.bm_b}}{  Covariance-channel weight for \code{"combined"}
+architecture: BM-BR differential correlation in the MVN covariance
+matrix. Ignored under \code{"mvn"} and \code{"mean_moderation"}.}
+\item{\code{c.bm.pb}}{  Optional biomarker-PB correlation for the
+\code{"mvn"} and \code{"combined"} architectures (the
+contaminated-biomarker DGP). Couples the biomarker to the PB
+component at every timepoint so that high-biomarker participants are
+also stronger placebo responders. Absent or zero (the default)
+reproduces the BR-only coupling exactly, leaving all existing runs
+unchanged. Because the PB column SDs already carry the
+expectancy scaling, the realised BM-PB covariance is automatically
+larger at high-belief (open-label) timepoints.}
 \item{\code{carryover_t1half}}{  Halflife of the carryover effect}
 \item{\code{c.tv}}{  Autocorrelation for the tv factor across timepoints}
 \item{\code{c.pb}}{ Autocorrelation for the pb factor across timepoints}
@@ -80,10 +103,13 @@ labels, nP, cl, trialdesign components). When provided, skips
 sigma construction entirely. Use \link{buildSigma} to create.}
 
 \item{dgp_architecture}{DGP architecture for the biomarker-treatment
-interaction. \code{"mvn"} (default) uses differential correlation
-in the covariance structure (Architecture B). \code{"mean_moderation"}
-uses direct mean scaling of the BR component by the biomarker
-(Architecture A). See the DGP architecture white paper for details.}
+interaction. \code{"mvn"} (default) uses differential BM-BR
+correlation in the covariance structure (Architecture B).
+\code{"mean_moderation"} uses direct mean scaling of BR by the
+biomarker (Architecture A). \code{"combined"} activates both
+channels simultaneously using independent weights \code{c.bm_a}
+(mean channel) and \code{c.bm_b} (covariance channel) (Architecture
+C). See the DGP architecture white paper for details.}
 }
 \value{
 A \code{dat} file that contains both the total symptom scores at each timepoint

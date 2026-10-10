@@ -65,7 +65,7 @@ interaction.
 
 **Data availability statement.** Per-replicate Monte Carlo outputs
 (800 reps × 16 cells), ADEMP cell-level summaries, the ADEMP
-pre-registration, and driver scripts (including the hand-rolled
+working protocol, and driver scripts (including the hand-rolled
 Mancl-DeRouen sandwich correction) are openly available in the
 pmsimstats-ng project repository at https://github.com/[organisation]/pmsimstats-ng (public-release organisation pending).
 Specific paths are documented in the Reproducibility section of

@@ -217,18 +217,18 @@ table/figure regeneration.
 
 **Status**: conceptual/methods paper with no Results section
 yet. The simulation programme's Phase 1 results are in the
-Discussion's 'Progress to date' subsection. Pre-registered
-five-study programme committed in
-`analysis/scripts/latent-class-mixture-application/00-ademp-pre-registration.md`.
+Discussion's 'Progress to date' subsection. The five-study
+programme is specified in the working ADEMP protocol
+`analysis/scripts/latent-class-mixture-application/00-ademp-protocol.md`.
 
 **Existing data**: Phase 1 pilot results at
 `analysis/scripts/latent-class-mixture-application/output/03-study5-pilot.rds`
-(per-replicate). The pre-registered Studies 1-4 production runs
+(per-replicate). The planned Studies 1-4 production runs
 have not been executed.
 
 **Migration action**:
-1. Run the pre-registered Studies 1-5 production simulations
-   per the ADEMP pre-registration document. Total cell count
+1. Run the Studies 1-5 production simulations
+   per the ADEMP protocol document. Total cell count
    ~2,300 (Study 1 alone is now 1,152 cells with the new
    pb_class_correlation axis).
 2. Move the Phase 1 pilot results from the Discussion to a
@@ -247,8 +247,8 @@ workstation.
 ### Paper 04-treatment-main-effect
 
 **Status**: nominal Results section exists but is a stub.
-ADEMP pre-registration committed in
-`analysis/scripts/treatment-main-effect/00-ademp-pre-registration.md`
+ADEMP protocol committed in
+`analysis/scripts/treatment-main-effect/00-ademp-protocol.md`
 covering M1 (primary comparison) and S1-S12 (sensitivity sweeps).
 
 **Existing data**: simulation infrastructure in
@@ -260,7 +260,7 @@ production cells have been run requires checking
 1. Verify production-run output at
    `analysis/data/derived_data/sim_workspace.RData` is
    per-replicate (not just summary) and aligned with the
-   pre-registration cell counts.
+   protocol cell counts.
 2. If yes: populate the canonical Results section from
    existing data.
 3. If no: extend the driver to write per-replicate output and
@@ -303,8 +303,8 @@ background compute if S1-S12 must be rerun.
 
 **Status**: methods paper with worked examples; the §6
 simulation-study placeholder describes the planned simulation
-but no Results section exists. Pre-registration committed in
-`analysis/scripts/component-decomposition/00-ademp-pre-registration.md`
+but no Results section exists. ADEMP protocol committed in
+`analysis/scripts/component-decomposition/00-ademp-protocol.md`
 covering three studies (A, B, C).
 
 **Existing data**: none — simulation has not been executed.
@@ -313,7 +313,7 @@ covering three studies (A, B, C).
 1. Implement the three studies (Study A: bias under
    three-component DGP; Study B: identifiability of full
    decomposition; Study C: subadditivity sensitivity).
-2. Run the production simulations per pre-registration.
+2. Run the production simulations per the protocol.
 3. Populate a new `# Results` section under the canonical
    structure.
 
@@ -325,8 +325,8 @@ Largest single budget in the programme; needs dedicated compute.
 
 ### Paper 07-gompertz-evaluation
 
-**Status**: stub Results section. Pre-registration committed in
-`analysis/scripts/gompertz-evaluation/00-ademp-pre-registration.md`
+**Status**: stub Results section. ADEMP protocol committed in
+`analysis/scripts/gompertz-evaluation/00-ademp-protocol.md`
 covering Study 0 (calibration), Study 1 (power across families),
 and Study 2 (sloppiness diagnostic).
 
@@ -344,8 +344,8 @@ and Study 2 (sloppiness diagnostic).
 
 ### Paper 08-test-procedure-design-sensitivity
 
-**Status**: stub Results section. Pre-registration committed in
-`analysis/scripts/test-procedure-design-sensitivity/00-ademp-pre-registration.md`
+**Status**: stub Results section. ADEMP protocol committed in
+`analysis/scripts/test-procedure-design-sensitivity/00-ademp-protocol.md`
 covering Study 1 (test comparison), Study 2 (cycle-by-period
 grid), Study 3 (joint design-by-test heatmap).
 
@@ -355,7 +355,7 @@ grid), Study 3 (joint design-by-test heatmap).
 1. Implement the three test-procedure variants (RM-ANOVA,
    linear-mixed, GEE) and the cycle-by-period DGP grid in
    `implementations/simple/simulation.R`.
-2. Run Studies 1-3 per pre-registration.
+2. Run Studies 1-3 per the protocol.
 3. Populate canonical Results section.
 
 **Rerun needed?** **Yes — full programme not yet run.**
@@ -364,8 +364,8 @@ grid), Study 3 (joint design-by-test heatmap).
 
 ### Paper 09-informative-dropout-by-design
 
-**Status**: stub Results section. Pre-registration committed in
-`analysis/scripts/informative-dropout-by-design/00-ademp-pre-registration.md`
+**Status**: stub Results section. ADEMP protocol committed in
+`analysis/scripts/informative-dropout-by-design/00-ademp-protocol.md`
 covering four studies (power × dropout, two-mode bias,
 'happy accident' decomposition, dropout-pattern misspecification).
 
@@ -374,7 +374,7 @@ covering four studies (power × dropout, two-mode bias,
 **Migration action**:
 1. Extend pmsimstats `R/censordata.R` infrastructure with
    the explicit dropout-pattern grid.
-2. Run Studies 1-4 per pre-registration.
+2. Run Studies 1-4 per the protocol.
 3. Populate canonical Results section.
 
 **Rerun needed?** **Yes — full programme not yet run.**
@@ -445,7 +445,7 @@ any sweeps that lack per-replicate granularity.
 ### Phase 4: Run and populate stub papers 07, 08, 09 (3-4 weeks)
 
 Build the simulation drivers for papers 07, 08, 09. Run the
-production cells per pre-registration. Populate canonical
+production cells per the protocol. Populate canonical
 Results sections.
 
 Order: 09 (smallest compute) → 07 → 08 (largest compute).
@@ -468,11 +468,10 @@ Results sections.
 
 ## Cross-cutting requirements
 
-- **Pre-registration discipline.** Each Results section is
-  populated from cells specified in the corresponding ADEMP
-  pre-registration document. Any deviation goes into
-  `02-deviations-log.md` for that paper before the production
-  runs commit.
+- **Protocol discipline.** Each Results section is
+  populated from cells specified in the corresponding working
+  ADEMP protocol. Any change to the protocol goes into
+  `02-deviations-log.md` for that paper.
 - **Per-replicate output mandatory.** Every driver writes
   per-replicate data to `analysis/data/<paper-slug>/`. No
   driver writes summary-only output as its primary checkpoint
@@ -498,7 +497,7 @@ Results sections.
 | Some papers' existing per-replicate data are missing or in non-canonical form | Verification step at the start of each paper's phase; rerun if necessary |
 | Compute budget exceeds available capacity | Run papers in priority order; defer Phase 5 until Phases 2-4 complete |
 | Helper functions need iteration once real papers exercise them | Phase 1 includes unit tests; helper API may evolve in early Phase 2 papers |
-| ADEMP pre-registration parameters need revision after Phase 2 results inform expectations | Deviation log mechanism already in place per paper |
+| ADEMP protocol parameters need revision after Phase 2 results inform expectations | Protocol change log already in place per paper |
 | Coverage analysis on rerun-resistant papers blocked | Document the gap and run dedicated short coverage sweeps where the full rerun is infeasible |
 
 ## Deliverables (consolidated)
@@ -512,7 +511,7 @@ By the end of the migration:
   populated from per-replicate output via the shared helpers.
 - Each paper's per-replicate output preserved at
   `analysis/data/<paper-slug>/<study-slug>-replicates.rds`.
-- Each paper's ADEMP pre-registration committed (already in
+- Each paper's ADEMP protocol committed (already in
   place after the previous turn) with `02-deviations-log.md`
   recording any in-flight changes.
 - A cross-paper synthesis document at

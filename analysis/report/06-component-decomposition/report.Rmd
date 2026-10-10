@@ -89,7 +89,7 @@ discontinuation, crossover) that supply identifiability. We derive
 the omitted-variable-bias identity for the one-component estimator,
 which expresses both the one-component treatment effect and the
 one-component biomarker slope as sums of component-specific terms.
-We then evaluate the analysis strategies in a pre-registered Monte
+We then evaluate the analysis strategies in an exploratory Monte
 Carlo study (Study A) calibrated to the prazosin-PTSD reference
 parameters, comparing a one-component design-contrast analysis with
 a phase-augmented analysis at 1,000 replicates per alternative cell
@@ -115,7 +115,8 @@ reaching $+0.51$ at a biomarker-PB correlation of $0.45$ ($N=300$,
 some 30 MCSEs from zero). The operative quantity is the biomarker's
 correlation with the individual-level PB \emph{variance}, not the
 population-mean placebo response, which does not enter the slope;
-the phase-augmented analysis does not remove this bias either. We
+the phase-augmented analysis (fitted, in every replicate, without
+the aliased `Dbc:phase` term) does not remove this bias either. We
 conclude that the inferential value of decomposition is conditional,
 not universal.
 
@@ -130,14 +131,20 @@ contrast is sufficient, and a parametric component model is
 counterproductive. A pragmatic specification for the cases that
 warrant it is
 `Sx ~ bm + t + Dbc + phase + Dbc:phase + bm:Dbc + bm:Dbc:phase`
-with random intercept and AR(1) residual correlation. A
+with random intercept and AR(1) residual correlation (corrected 2026-10-08:
+when every open-label visit is on drug, as in the Hybrid design, the
+`Dbc:phase` term is exactly aliased and is not estimable, and every
+phase-augmented result reported here is from the formula without it). A
 contaminated-biomarker study demonstrates the failure mode: the
 one-component slope is biased in proportion to the biomarker's
 correlation with PB. Study B shows that the bias is removable, but
 only under a design that decouples drug exposure from belief. On a
 balanced-placebo design the belief-covariate decomposition recovers
-the unbiased pharmacological slope (bias within one MCSE of zero
-across the feasible contamination range at N=300), while the
+the unbiased pharmacological slope (bias within about 1.3 MCSE of
+zero across the feasible contamination range at N=150; corrected
+2026-10-08 from within one MCSE at N=300: three of the four
+biases lie at 1.03 to 1.32 MCSE, and the largest Study B sample is
+150), while the
 one-component estimator does not; on the standard hybrid design no
 decomposition recovers it. Recovery is therefore conditional on the
 trial design, not on the analysis alone.
@@ -518,13 +525,20 @@ up to the factor $(1 - e^{-d_{BR}})$, which for the calibrated $d_{BR} \approx
 5$ exceeds $0.99$. The onset rate $r_{BR}$ controls how rapidly the
 participant approaches the ceiling: high $r_{BR}$ means a fast onset (effect
 plateaus in one to two weeks), low $r_{BR}$ a slow climb (six to eight weeks).
-The displacement $d_{BR}$ shapes the climb: high $d_{BR}$ gives an early-onset
-curve that rises sharply at first, and low $d_{BR}$ a more gradual climb. For
+The displacement $d_{BR}$ sets the length of the initial lag: high $d_{BR}$
+gives a sigmoid curve with a slow start and an inflection at $\ln d_{BR} /
+r_{BR}$, later for larger $d_{BR}$, and the maximum slope decreases as $d_{BR}$
+grows; low $d_{BR}$ ($d_{BR} \le 1$) gives a curve with no lag that rises
+fastest at the start. (Corrected 2026-10-08: this sentence previously stated
+the meaning of $d_{BR}$ reversed, as high $d_{BR}$ giving an early-onset curve
+that rises sharply at first. See
+\texttt{analysis/report/compendium-mathematics.tex}, Section ``Shipped
+parameters, landmarks, the displacement, and numerical conditioning''.) For
 PTSD prazosin, calibrated values from the @hendrickson2020 reference dataset
 are $m_{BR} \approx 11$ (eleven points of nightmare-score reduction at
 saturation), $r_{BR} \approx 0.42$ per week (half-maximum at roughly four to
-five weeks of sustained exposure), and $d_{BR} \approx 5$ (moderately steep
-early climb).
+five weeks of sustained exposure), and $d_{BR} \approx 5$ (a moderate initial
+lag, with the inflection at about 3.8 weeks).
 
 Two alternative families that do not capture the asymmetric saturation profile
 are worth noting for contrast. A linear function $BR = \beta t$ climbs without
@@ -732,7 +746,7 @@ when $\gamma$ is not estimated explicitly.
 A simulation study quantifying the magnitude of bias in the
 biomarker-treatment interaction estimate when the additive analysis is fitted
 to data generated under non-zero $\gamma$ is forthcoming as part of the
-simulation program described in section 7. The pre-registration is that bias
+simulation program described in section 7. The working hypothesis is that bias
 scales linearly with $\gamma$ at small $|\gamma|$, with the sign opposite to
 the true biomarker-by-$BR$ effect under subadditivity and aligned with it
 under superadditivity.
@@ -947,8 +961,19 @@ half-life for $TV$ to separate from a still-decaying $BR$. Where these
 conditions are weak the components are jointly identified only up to a
 near-collinear direction, and the symptom of that is the rank-deficiency the
 pilot of section 7 encountered when the full phase-augmented formula was
-fitted at $N = 35$. We therefore do not assert that the three components are
-always recoverable. The pre-registered identifiability diagnostics of section
+fitted at $N = 35$. (Corrected 2026-10-08: that rank deficiency is not a
+symptom of near-collinear component trajectories. It is an exact aliasing of
+the phase-augmented formula, present at every $N$: because every open-label
+visit is on drug, $D_{bc} = 1$ in the reference phase and
+$D_{bc} = 1 - \sum_{\ell \ne \mathrm{OL}} I_\ell + \sum_{\ell \ne \mathrm{OL}}
+D_{bc} I_\ell$ exactly, so the \texttt{Dbc} column is a linear combination of
+the intercept, the \texttt{phase} columns and the \texttt{Dbc:phase} columns.
+See section 5 and \texttt{analysis/report/compendium-mathematics.tex},
+Section ``Rank of the phase-augmented model, and the drug-expectancy
+correlation by design''. The argument of this paragraph about near-collinear
+trajectories stands as an argument, but this symptom is not evidence for it.)
+We therefore do not assert that the three components are
+always recoverable. The identifiability diagnostics of section
 7 (convergence rates of the component-matched fit, variance-inflation factors
 on the component-specific Gompertz parameters, and the sensitivity of the $BR$
 estimate to the assumed $\eta(\text{phase})$ multipliers) are the means by
@@ -1058,15 +1083,39 @@ shrinks under blinding, a signature that the biomarker-treatment interaction
 was partly biomarker-by-$PB$ rather than biomarker-by-$BR$.
 
 This extension adds three to four parameters at most, well within budget at
-any realistic $N$. It does not separately estimate $BR$ and $PB$ as
+any realistic $N$. (Corrected 2026-10-08: with three phase levels the formula
+adds six columns, two each for \texttt{phase}, \texttt{Dbc:phase} and
+\texttt{bm:Dbc:phase}, and with the two-level coding of the driver (phase set
+by $\eta_t \ge 0.99$) it adds three. In both cases one parameter fewer is
+identified, five and two respectively, whenever every open-label visit is on
+drug, as in the Hybrid design: $D_{bc} = 1$ in the open-label phase, so the
+\texttt{Dbc} column is an exact linear combination of the intercept, the
+\texttt{phase} columns and the \texttt{Dbc:phase} columns, at every $N$. The
+\texttt{bm:Dbc:phase} columns are not aliased. \texttt{nlme::lme} stops on
+the full formula with ``Singularity in backsolve'', and the driver,
+\texttt{phase\_augmented\_fit()} in
+\texttt{analysis/scripts/component-decomposition/00-common.R}, then refits
+without \texttt{Dbc:phase} (and omits the full formula without attempting it
+for $N < 70$). Every phase-augmented result reported in section 7 is
+therefore from the fallback formula
+\texttt{Sx \textasciitilde{} bm + t + Dbc + phase + bm:Dbc + bm:Dbc:phase},
+in which the reported \texttt{bm:Dbc} coefficient is an open-label versus
+blinded contrast, with drug state and expectancy changing together; the
+stored Study A replicates record \texttt{formula\_dropped} as
+\texttt{Dbc:phase} for all 100,000 phase-augmented fits (99,995 as
+\texttt{Dbc:phase} and 5 as \texttt{Dbc:phase+all}), and the
+contaminated-biomarker replicates do so for every fit. The simulations were
+not rerun. See \texttt{analysis/report/compendium-mathematics.tex}, Section
+``Rank of the phase-augmented model, and the drug-expectancy correlation by
+design''.) It does not separately estimate $BR$ and $PB$ as
 components, but it does identify the change in apparent drug effect that
 occurs when belief is hedged. For most analyses, this is the practically
 relevant question, and it can be answered without committing to the Gompertz
 parametric form. Where both the one-component and the phase-augmented analyses
 are reported, the additional \texttt{Dbc:phase} and \texttt{bm:Dbc:phase}
 terms introduce a small family of belief-attenuation tests, and the
-attribution inference they support should be treated as a pre-specified
-secondary analysis with its multiplicity acknowledged rather than as a second
+attribution inference they support should be treated as a secondary
+analysis with its multiplicity acknowledged rather than as a second
 bite at the primary interaction test.
 
 ## When to fit the full decomposition
@@ -1109,7 +1158,7 @@ benchmark linear models against G-estimation and Bayesian-network alternatives
 specifically under carryover. We adopt the exponential form because it ties
 directly to a pharmacokinetic half-life and conserves degrees of freedom for
 the moderation estimand at trial-relevant sample sizes, but the choice is an
-assumption rather than a finding. The pre-registered simulation program of
+assumption rather than a finding. The simulation program of
 section 7 should accordingly include a distributed-lag analysis arm, so that
 the cost of the exponential-decay restriction is quantified against the richer
 alternative rather than asserted.
@@ -1198,7 +1247,16 @@ one-component coefficient remains a well-estimated number with a valid Wald
 test of its own nullity, and that test rejects at the rate dictated by the
 displaced value. A significance test of the one-component coefficient
 therefore cannot, in principle, detect the bias, because the bias does not
-move the coefficient toward zero. Detecting it requires comparing
+move the coefficient toward zero. (Corrected 2026-10-08: the reason given is
+not the operative one. A test of nullity cannot distinguish a displaced
+coefficient from a true effect of the displaced size whatever the direction
+of the displacement; a displacement toward zero lowers the rejection rate but
+is equally undetectable as a bias. The statement that the bias does not move
+the coefficient toward zero concerns $\operatorname{plim}\hat\beta_D$ under
+non-negative $b_{PB}$ and $b_{TV}$; it does not carry over to
+$\hat\beta_{bm:D_{bc}}$, whose contamination bias in section 7.4 is toward
+zero. See \texttt{analysis/report/compendium-mathematics.tex}, Section ``What
+a one-component analysis actually estimates''.) Detecting it requires comparing
 $\hat\beta_D$ against $m_{BR}$, which is exactly the comparison the
 decomposition, or a phase contrast that isolates $m_{BR}$, makes available and
 the one-component analysis does not. Second, and as a corollary for the
@@ -1323,11 +1381,13 @@ decomposition is one of the formal tools that makes it tractable.
 
 # Simulation study
 
-The simulation study reported and pre-registered in this section is structured
+The simulation study reported in this section is structured
 under the @morris2019simulation ADEMP framework, specifying Aims,
 Data-generating mechanisms, Estimands, Methods, and Performance measures. The
-pre-registered plan is at
-\texttt{analysis/scripts/component-decomposition/00-ademp-pre-registration.md}.
+working ADEMP protocol is at
+\texttt{analysis/scripts/component-decomposition/00-ademp-protocol.md}.
+The study is exploratory: no analysis plan was registered in advance, and its
+findings should be confirmed in an independent study.
 A Monte Carlo simulation calibrated to the prazosin/PTSD reference parameters
 quantifies the bias and identifiability properties of the three analysis
 strategies described in section 5 across a parameter grid.
@@ -1336,7 +1396,7 @@ strategies described in section 5 across a parameter grid.
 
 The production simulation program is the empirical core of this manuscript;
 its first realized run, Study A, is reported in section 7.3, while the fuller
-pre-registered grid (section 7.2) remains partly outstanding. The pilot
+grid specified in the protocol (section 7.2) remains partly outstanding. The pilot
 reported here precedes both and confirms only that the analysis machinery runs
 end-to-end.
 
@@ -1365,6 +1425,9 @@ specification. First, at $N = 35$ the rank-deficiency of the full
 phase-augmented formula required dropping the $D_{bc}{:}\text{phase}$
 interaction term, removing the precise contrast that would have isolated the
 biomarker-treatment-by-phase signal the framework is designed to detect.
+(Corrected 2026-10-08: the rank deficiency is not specific to $N = 35$. The
+full formula is exactly aliased at every $N$ whenever every open-label visit
+is on drug, and the driver does not attempt it for $N < 70$; see section 5.)
 Second, the predicted bias of the one-component analysis arises in the
 regression coefficient $\hat\beta_{bm:D_{bc}}$, not in the indicator-level
 rejection rate, so power on the biomarker-treatment Wald test is not the right
@@ -1372,7 +1435,11 @@ summary statistic to detect the framework's predicted bias. The production
 program below addresses both observations through larger $N$, a richer trial
 design that admits the full phase-augmented formula, and reporting of the
 coefficient mean against the implied true value rather than the rejection rate
-alone.
+alone. (Corrected 2026-10-08: the sixteen-visit two-path design used for the
+larger cells does not admit the full formula either; its open-label phase is
+also entirely on drug, the model matrix loses one rank, and
+\texttt{nlme::lme} stops with ``Singularity in backsolve'' (verified,
+\texttt{analysis/scripts/compendium-mathematics/check-gompertz-rmanova-cycles.R}).)
 
 ## Production-simulation specification
 
@@ -1389,7 +1456,7 @@ interaction signal recovered as a function of $(m_{BR}, m_{PB}, m_{TV})$,
 which the one-component-total regression does not preserve. The
 \texttt{tidyverse} implementation collection drives the grid; driver scripts,
 checkpointed cell-level summaries, per-replicate output, and the committed
-ADEMP pre-registration all reside under
+ADEMP protocol all reside under
 \texttt{analysis/scripts/component-decomposition/}. The realized Study A run
 reported next used 1,000 replicates per alternative cell.
 
@@ -1453,7 +1520,18 @@ dropping the \texttt{Dbc:phase} term in the $N=35$ pilot, which we had
 advanced as the explanation for the pilot's inverted power ranking, is not
 operative in the production run: the inverted ranking persists with the full
 formula fitted and converged. The pilot's power inversion was therefore a
-genuine feature of this DGP, not an artifact of rank-deficiency.
+genuine feature of this DGP, not an artifact of rank-deficiency. (Corrected
+2026-10-08: the full formula was not fitted in the production run. It is
+exactly aliased at every $N$ (section 5), and the stored replicates record
+\texttt{formula\_dropped} as \texttt{Dbc:phase} for 99,995 of the 100,000
+phase-augmented fits and \texttt{Dbc:phase+all} for the remaining 5, at every
+$N$ (verified from
+\texttt{analysis/data/derived\_data/component-decomposition/study-a-alt1000-null5000/study-a-all-reps.rds}).
+The convergence rates above are those of the fallback formula. The inverted
+power ranking is therefore a property of the fallback formula, whose
+\texttt{bm:Dbc} coefficient is an open-label versus blinded contrast; whether
+it would persist under an identified phase-augmented specification was not
+tested.)
 
 Calibration is adequate for both analyses. Nominal-95\% confidence-interval
 coverage of $\beta_{bm:D_{bc}}$ ranges from $0.96$ to $0.99$ for the
@@ -1468,7 +1546,7 @@ Two conclusions follow for the Study A program. First, the result sharpens
 rather than supports the section 1 framing: the biomarker-validation failure
 is real as an identity, but it is driven by the biomarker's coupling to $PB$
 or $TV$, not by the magnitude of those components, and Study A as
-pre-registered varies the latter while holding the former at zero. The
+designed varies the latter while holding the former at zero. The
 decisive axis is the biomarker-$PB$ correlation $c_{bm,PB}$, which the
 contaminated-biomarker pilot in the following subsection varies directly.
 Second, on the present evidence the phase-augmented analysis carries a real
@@ -1493,7 +1571,13 @@ direction of bias is positive (toward zero): high-$c_{bm,PB}$ participants
 experience stronger $PB$, which in the open-label phase adds to the apparent
 drug effect, but this elevation is partially absorbed by the $bm$ main effect,
 leaving the $bm:D_{bc}$ interaction coefficient attenuated relative to the
-pure pharmacological value.
+pure pharmacological value. (Note 2026-10-08: this explanation of the
+positive sign was not reproduced. The compendium did not derive the sign of
+the contamination bias, which depends on the covariance construction,
+including any positive-definiteness repair; the bias is also negative,
+$-0.12$, at $c_{bm,PB} = 0.15$. The numbers reported here are unchanged. See
+\texttt{analysis/report/compendium-mathematics.tex}, Section ``Rank of the
+phase-augmented model, and the drug-expectancy correlation by design''.)
 
 The unexpected result is that $m_{PB}$ does not modulate the bias: at the
 contaminated cells ($c_{bm,PB} \geq 0.30$, $N=300$) the $m_{PB}=0$ and
@@ -1511,7 +1595,9 @@ because the relevant null was $c_{bm,PB}=0$, not $m_{PB}=0$.
 
 The phase-augmented analysis provides no protection: its bias at every
 $(c_{bm,PB}, m_{PB}, N)$ cell is indistinguishable from the one-component
-bias. Adding phase-by-treatment interactions to the model does not decompose
+bias. (Note 2026-10-08: every phase-augmented fit in this pilot is the
+fallback formula without \texttt{Dbc:phase}; see section 5.) Adding
+phase-by-treatment interactions to the model does not decompose
 the contamination because both analyses see the biomarker-$PB$ covariance
 through the same open-label versus blinded-discontinuation contrast; the
 contrast changes the weight on $PB$ (via expectancy) but does not isolate the
@@ -1565,7 +1651,19 @@ biomarker with both $D_{bc}$ and $\eta$ can therefore isolate
 $\beta_{bm}^{BR}$ on $bm{:}D_{bc}$, but only if $D_{bc}$ and $\eta$ vary
 independently in the design. In the standard hybrid
 open-label-plus-blinded-discontinuation design they do not: on-drug time and
-belief accumulate together (their analysis-stage correlation is about $+0.6$),
+belief accumulate together (their analysis-stage correlation is about $+0.6$;
+note 2026-10-08: this figure could not be reproduced. For the sixteen-visit
+two-path design of this study, pooled over visits with equal path weights,
+$\mathrm{Cor}(D, \eta) = 0.775$ with binary drug state and $0.753$ with
+$D_{bc}$ at $t_{1/2} = 1$ week ($0.785$ with a baseline row $D = \eta = 0$
+added); for the eight-visit four-path Hybrid it is $0.509$ and $0.485$
+($0.645$ with the baseline row). How the figure was computed, at which stage
+and over which rows, was not located. The balanced-placebo value below is
+reproduced: exactly $-2/3$ with binary drug state and $-0.656$ with $D_{bc}$.
+Verified,
+\texttt{analysis/scripts/compendium-mathematics/check-gompertz-rmanova-cycles.R};
+see \texttt{analysis/report/compendium-mathematics.tex}, Section ``Rank of
+the phase-augmented model, and the drug-expectancy correlation by design''),
 and we verified that the belief-covariate decomposition, a blinded-stratum
 drug contrast, and a Gompertz-basis component decomposition all fail to
 recover $\beta_{bm}^{BR}$ on that design, performing no better than, and
@@ -1589,8 +1687,13 @@ study_b_cell('decomposition', n_prod_hi, 0.0, 'bias'))`$, $`r sprintf('%+.3f',
 study_b_cell('decomposition', n_prod_hi, 0.1, 'bias'))`$, $`r sprintf('%+.3f',
 study_b_cell('decomposition', n_prod_hi, 0.2, 'bias'))`$, and $`r
 sprintf('%+.3f', study_b_cell('decomposition', n_prod_hi, 0.3, 'bias'))`$ at
-$c_{bm,PB}=0, 0.1, 0.2, 0.3$ respectively, every value within one MCSE (about
-$0.02$) of zero. The one-component estimator on the same data is unbiased only
+$c_{bm,PB}=0, 0.1, 0.2, 0.3$ respectively, every value within about 1.3 MCSE
+(MCSE about $0.02$) of zero. (Corrected 2026-10-08: this sentence previously
+said every value was within one MCSE of zero; in the stored summary three of
+the four lie between 1.0 and 1.4 MCSE, at 1.05, 1.03 and 1.32 MCSE for
+$c_{bm,PB} = 0$, $0.2$ and $0.3$, and the fourth at 0.41 (verified from
+\texttt{study-b-balanced-summary.rds}). The substantive conclusion is
+unaffected.) The one-component estimator on the same data is unbiased only
 at $c_{bm,PB}=0$ and develops a monotone bias of $`r sprintf('%+.3f',
 study_b_cell('lumped', n_prod_hi, 0.1, 'bias'))`$, $`r sprintf('%+.3f',
 study_b_cell('lumped', n_prod_hi, 0.2, 'bias'))`$, and $`r sprintf('%+.3f',
@@ -1698,7 +1801,9 @@ decomposition machinery at small $N$ (the \texttt{bm:Dbc:phase} interaction
 tests whether the biomarker-treatment effect attenuates under blinding, the
 practical proxy for biomarker-by-$PB$ contamination), but Study A shows this
 proxy earns its degrees of freedom only when such contamination is present:
-under an uncontaminated biomarker it reduced no bias and lost power. The full
+under an uncontaminated biomarker it reduced no bias and lost power (note
+2026-10-08: as fitted, without the aliased \texttt{Dbc:phase} term; see
+section 5). The full
 decomposition recovers the component-specific regressions explicitly when $N$
 permits and when the scientific question warrants the cost.
 
@@ -1868,8 +1973,8 @@ Per-replicate simulation outputs are checkpointed at
 \texttt{analysis/data/quick-sim/06-decomp-replicates.rds}; Morris ADEMP
 cell-level summaries at the companion \texttt{06-decomp-summary.txt}. Driver
 scripts are under \texttt{analysis/scripts/component-decomposition/}. The
-pre-registered ADEMP plan is at
-\texttt{analysis/scripts/component-decomposition/00-ademp-pre-registration.md}.
+working ADEMP protocol is at
+\texttt{analysis/scripts/component-decomposition/00-ademp-protocol.md}.
 The manuscript source, paper-specific bibliography (\texttt{references.bib}),
 and SIM CSL file are at \texttt{analysis/report/06-component-decomposition/}.
 

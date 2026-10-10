@@ -59,8 +59,8 @@ papers under 8,000 words; substantial trimming required.
 \bigskip
 
 **Data availability statement.** Prototype Monte Carlo outputs
-(100 reps × 6 cells), ADEMP cell-level summaries, the ADEMP
-pre-registration, and driver scripts are openly available in
+(100 reps × 6 cells), ADEMP cell-level summaries, the working
+ADEMP protocol, and driver scripts are openly available in
 the pmsimstats-ng project repository at https://github.com/[organisation]/pmsimstats-ng (public-release organisation pending).
 The full production simulation programme is specified in §6 and
 will be archived to `analysis/scripts/component-decomposition/`

@@ -183,8 +183,8 @@
   \renewcommand{\headrulewidth}{0pt}%
   \renewcommand{\footrulewidth}{0.4pt}}
 \renewcommand{\stampsource}{\textasciitilde{}/\allowbreak{}prj/\allowbreak{}res/\allowbreak{}36-pmsimstats-ng/\allowbreak{}pmsimstats-ng/\allowbreak{}analysis/\allowbreak{}report/\allowbreak{}08-test-procedure-design-sensitivity/\allowbreak{}report.Rmd}
-\renewcommand{\stamptime}{2026-09-07 14:05 PDT}
-\renewcommand{\stampversion}{\detokenize{9a2047e-wip}}
+\renewcommand{\stamptime}{2026-10-08 14:44 PDT}
+\renewcommand{\stampversion}{\detokenize{3238916-wip}}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{booktabs}
@@ -207,7 +207,7 @@
 
 \title{Test-procedure choice for the biomarker-treatment interaction in aggregated N-of-1 trials: dichotomization, classical RM-ANOVA, mixed-effects, and generalized estimating equations}
 \author{pmsimstats team}
-\date{September 07, 2026}
+\date{October 08, 2026}
 
 \begin{document}
 \maketitle
@@ -557,10 +557,13 @@ rest of the paper:
 \def\labelenumi{\arabic{enumi}.}
 \tightlist
 \item
-  Under sphericity and balance, the strict RM-ANOVA test of
+  Under balance, the strict RM-ANOVA test of
   the biomarker-treatment interaction is identical to a
   two-sample \(t\)-test on the within-subject treatment
-  differences, with degrees of freedom \(2(n-1)\).
+  differences, with degrees of freedom \(2(n-1)\), and is exact
+  for any within-participant covariance once each phase is
+  reduced to its mean (corrected 2026-10-08; previously stated
+  as conditional on sphericity).
 \item
   The closed form yields a clean non-central \(F\) power formula
   that we use as the analytic anchor for the simulation study
@@ -589,7 +592,7 @@ Specifically, we consider the following structural elements:
 \tightlist
 \item
   Two biomarker strata \(i \in \{1, 2\}\), formed by dichotomizing
-  the continuous biomarker at a pre-specified cut-point. Strict
+  the continuous biomarker at a fixed cut-point. Strict
   RM-ANOVA requires categorical predictors; the
   dichotomization is the price of admission to the framework.
 \item
@@ -629,11 +632,19 @@ Y_{ijlk} = {} & \mu + \alpha_i + \beta_j + (\alpha\beta)_{ij}
 with sum-to-zero constraints on each fixed effect, the random
 subject effect \(\pi_{l(i)} \sim N(0, \sigma_\pi^2)\) nested in
 stratum, and within-subject error \(e_{ijlk} \sim N(0,
-\sigma_e^2)\). The model presupposes the classical sphericity
-(compound symmetry) condition on the within-subject covariance:
-every pair of within-subject observations has the same covariance
-\(\sigma_\pi^2\), and every observation has the same total variance
-\(\sigma_\pi^2 + \sigma_e^2\).
+\sigma_e^2)\). The model implies compound symmetry of the
+within-subject covariance: every pair of within-subject
+observations has the same covariance \(\sigma_\pi^2\), and every
+observation has the same total variance \(\sigma_\pi^2 +
+\sigma_e^2\). The \(F\)-tests of within-subject effects require only
+the weaker condition of sphericity, that the variances of all
+pairwise differences between the levels of a within-subject factor
+be equal; compound symmetry is sufficient for sphericity but not
+necessary, and a within-subject factor with two levels is always
+spherical. (Corrected 2026-10-08: this passage previously equated
+sphericity with compound symmetry. See
+\texttt{analysis/report/compendium-mathematics.tex}, Section ``A
+closed-form comparator: repeated-measures ANOVA''.)
 
 \subsection{\texorpdfstring{Sums of squares and the interaction \(F\)-statistic}{Sums of squares and the interaction F-statistic}}\label{sums-of-squares-and-the-interaction-f-statistic}
 
@@ -748,9 +759,14 @@ stratum \(i\), averaged over \(T\) within-phase timepoints. Then
 \label{eq:rmanova-Delta}
 \end{equation}
 
-Under sphericity, \(\Delta_{il}\) are i.i.d.~within stratum with
+Under the model, \(\Delta_{il}\) are i.i.d.~within stratum with
 \(\mathrm{Var}(\Delta_{il}) = 2\sigma_e^2 / T\), since the random
-subject effect cancels in the within-subject difference. The
+subject effect cancels in the within-subject difference. More
+generally, for any within-participant covariance common to all
+participants, AR(1) included, the \(\Delta_{il}\) are i.i.d.~normal
+within stratum with a common variance; only that variance changes,
+and it is then the variance of the difference of phase means
+rather than \(2\sigma_e^2/T\). The
 variance of \(\hat L\) is therefore
 
 \begin{equation}
@@ -778,7 +794,18 @@ biomarker-treatment interaction reduces to a simple two-sample
 comparison of treatment-effect estimates between biomarker
 strata.
 
-That is, under sphericity and balance, the biomarker-treatment
+Because a pooled two-sample \(t\)-test needs only that the
+\(\Delta_{il}\) be i.i.d.~normal with a common variance in the two
+strata, the identity, and the exactness of the test at
+\(2(n-1)\) degrees of freedom, hold for any within-participant
+covariance once each phase is reduced to its mean; under AR(1)
+errors the power formula below must use the actual variance of
+the phase difference. (Corrected 2026-10-08: the reduction was
+previously stated as conditional on sphericity. See
+\texttt{analysis/report/compendium-mathematics.tex}, Section ``A
+closed-form comparator: repeated-measures ANOVA''.)
+
+That is, under balance, the biomarker-treatment
 interaction \(F\)-test asks simply whether the within-subject
 treatment effect differs between biomarker strata, and the answer
 is given by a two-sample \(t\)-test on those within-subject
@@ -819,17 +846,27 @@ within-stratum variation, the AR(1) covariance is modeled
 directly, and the continuous exposure-decay predictor draws on
 the off-drug trajectory.
 
-In the pmsimstats setting, the compound-symmetry condition is the
-binding one. Equation \eqref{eq:rmanova-f-22} presupposes
-sphericity: the within-subject covariance matrix is
-compound-symmetric. When sphericity fails, the nominal
+In the pmsimstats setting, the covariance condition is the
+binding one for the classical analysis that keeps the \(T\)
+within-phase timepoints as repeated levels. That analysis
+presupposes sphericity of its within-subject factors, a condition
+that compound symmetry implies but that is weaker than it; the
+pre-averaged \(2 \times 2\) form of equation
+\eqref{eq:rmanova-f-22} has a two-level within-subject factor and is
+spherical, and exact, for any within-participant covariance.
+(Corrected 2026-10-08: this paragraph previously stated that
+equation \eqref{eq:rmanova-f-22} presupposes sphericity and that
+sphericity means a compound-symmetric within-subject covariance.)
+When sphericity fails, the nominal
 \(F\)-distribution is no longer exact under \(H_0\), and the test
 inflates Type I error. Two diagnostics and two corrections are
 standard. Mauchly's test\textsuperscript{\citeproc{ref-mauchly1940}{37}} is a likelihood-ratio
-test for compound symmetry against an unstructured alternative;
+test of sphericity, that is, of a scalar covariance for an
+orthonormal set of within-subject contrasts, against an
+unrestricted alternative;
 it often rejects in moderate samples but is not informative about
 the direction of departure. Box's \(\epsilon\), with \(\epsilon = 1\)
-at compound symmetry and \(\epsilon \geq 1/(T-1)\) at maximum
+under sphericity (in particular at compound symmetry) and \(\epsilon \geq 1/(T-1)\) at maximum
 departure, is a scalar measure of departure from sphericity. The
 Greenhouse-Geisser correction\textsuperscript{\citeproc{ref-greenhouse1959}{5}} estimates
 \(\hat\epsilon\) from the observed within-subject covariance and
@@ -949,10 +986,15 @@ severity.
   \emph{Sphericity.} Compound-symmetric within-subject covariance
   is empirically rejected for time-series symptom data:
   nearby timepoints are more correlated than distant ones.
-  The AR(1) structure pmsimstats implements explicitly
-  violates sphericity. After Greenhouse-Geisser correction,
-  the test recovers nominal Type I error but loses degrees
-  of freedom and power.
+  The AR(1) structure pmsimstats implements violates
+  sphericity of a time factor with more than two levels.
+  After Greenhouse-Geisser correction, the test recovers
+  nominal Type I error but loses degrees of freedom and
+  power. This applies to the analysis that keeps the \(T\)
+  timepoints as levels; the pre-averaged two-phase contrast
+  is spherical for any covariance, and AR(1) affects it only
+  through the variance of the phase difference (clarified
+  2026-10-08).
 \item
   \emph{No carryover model.} Strict RM-ANOVA has no provision for
   residual drug effect during the off-drug period; the model treats
@@ -1046,33 +1088,35 @@ and Type I error MCSE follow the binomial-proportion form
 empirical SE of \(\hat{\beta}_{bm:D}\) are reported with the
 standard MCSE of the within-replicate mean estimator.
 
-We pre-register the full Aims, Data-generating mechanisms,
-Estimands, Methods, and Performance measures at
-\texttt{analysis/scripts/test-procedure-design-sensitivity/00-ademp-pre-registration.md},
-which fixes the test-procedure times design-grid factorial across
-three studies (Study 1: test-procedure comparison at fixed
+The full Aims, Data-generating mechanisms, Estimands, Methods,
+and Performance measures are recorded in the study's working
+protocol at
+\texttt{analysis/scripts/test-procedure-design-sensitivity/00-ademp-protocol.md},
+which describes the test-procedure times design-grid factorial
+across three studies (Study 1: test-procedure comparison at fixed
 design; Study 2: cycle-by-period grid at fixed test, 240 cells;
-Study 3: joint design-by-test heatmap, 240 cells) before the
-production runs commit. The present paper executes a revised
-Study 1; the executed design departs from the pre-registered
-Study 1 on several factor levels, and we document every departure
-in Table \ref{tab:deviations} below, in the interest of full
-ADEMP transparency.
+Study 3: joint design-by-test heatmap, 240 cells). The present
+paper executes a revised Study 1; the executed design differs
+from the working protocol's Study 1 on several factor levels, and
+we document every change in Table \ref{tab:deviations} below,
+in the interest of full ADEMP transparency. The study is
+exploratory, and its findings should be confirmed in an
+independent study.
 
 \begin{longtable}[]{@{}
   >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.2100}}
   >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3100}}
   >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4800}}@{}}
-\caption{\label{tab:deviations} Pre-registered versus executed Study 1.
-Departures are recorded for transparency; the executed superset
-of sample sizes (which restores the pre-registered \(N\) levels
+\caption{\label{tab:deviations} Working protocol versus executed Study 1.
+Changes are recorded for transparency; the executed superset
+of sample sizes (which restores the protocol's \(N\) levels
 and adds \(N = 25\)) and the added continuous-biomarker contrast
 arm respond to referee comments on the first internal draft.}\tabularnewline
 \toprule\noalign{}
 \begin{minipage}[b]{\linewidth}\raggedright
 Factor
 \end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
-Pre-registered
+Working protocol
 \end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
 Executed (this paper)
 \end{minipage} \\
@@ -1082,7 +1126,7 @@ Executed (this paper)
 \begin{minipage}[b]{\linewidth}\raggedright
 Factor
 \end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
-Pre-registered
+Working protocol
 \end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
 Executed (this paper)
 \end{minipage} \\
@@ -1098,7 +1142,7 @@ Carryover half-life & \(t_{1/2} = 3\) days & \(t_{1/2} = 0\) (no carryover at th
 \end{longtable}
 
 \textbf{Units.} Carryover half-lives \(t_{1/2}\) are quoted in days in this
-table, following the pre-registration and the main-effect manuscripts
+table, following the working protocol and the main-effect manuscripts
 of this series. The interaction-focused manuscripts quote \(t_{1/2}\) in
 weeks on the canonical grid \(\{0, 0.5, 1.0\}\); the conversion is
 1 week = 7 days. Timepoints \(t\) are weekly in both conventions.
@@ -1557,7 +1601,9 @@ rather than the naive sandwich.
 Second, the closed-form strict-RM-ANOVA test of the
 biomarker-treatment interaction (\S2) reduces to a two-sample
 \(t\)-test on the within-subject treatment differences under
-sphericity and balance. The reduction makes the strict-RM-ANOVA
+balance, for any within-participant covariance once each phase is
+reduced to its mean (corrected 2026-10-08 from ``under sphericity
+and balance''). The reduction makes the strict-RM-ANOVA
 result analytically transparent and connects the simulation
 findings to the classical split-plot literature. It also pins
 down what does and does not limit the test here. The strict
@@ -1640,9 +1686,9 @@ benchmark at \texttt{08-test-mancl-benchmark.txt}. The driver is
 \texttt{analysis/scripts/test-procedure-design-sensitivity/01-study1-test-procedure.R}
 (superseding the earlier
 \texttt{analysis/scripts/quick-sim/08-test-procedure-prototype.R}). The
-pre-registered ADEMP plan, and the deviations recorded in Table
+ADEMP working protocol, and the changes recorded in Table
 \ref{tab:deviations}, are at
-\texttt{analysis/scripts/test-procedure-design-sensitivity/00-ademp-pre-registration.md}.
+\texttt{analysis/scripts/test-procedure-design-sensitivity/00-ademp-protocol.md}.
 The manuscript source, paper-specific bibliography
 (\texttt{references.bib}), and SIM CSL file are at
 \texttt{analysis/report/08-test-procedure-design-sensitivity/}.

@@ -59,7 +59,7 @@ estimated 6,800-7,200 words. Within SIM's encouraged range.
 
 **Data availability statement.** Per-replicate Monte Carlo outputs
 across 12 sensitivity sweeps, ADEMP cell-level summaries, the
-ADEMP pre-registration, and driver scripts are openly available
+working ADEMP protocol, and driver scripts are openly available
 in the pmsimstats-ng project repository at https://github.com/[organisation]/pmsimstats-ng (public-release organisation pending).
 Specific paths are documented in the Reproducibility section of
 the manuscript.

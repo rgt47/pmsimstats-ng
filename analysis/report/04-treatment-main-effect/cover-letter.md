@@ -60,7 +60,7 @@ the pmsimstats team declares no conflicts of interest. The data
 and code that support the findings are openly available; the
 simulation workspace
 (`analysis/data/derived_data/sim_workspace.RData`) and ADEMP
-pre-registration (`analysis/scripts/treatment-main-effect/00-ademp-pre-registration.md`)
+working protocol (`analysis/scripts/treatment-main-effect/00-ademp-protocol.md`)
 are committed alongside the manuscript.
 
 **Suggested reviewers** (to be confirmed by the corresponding

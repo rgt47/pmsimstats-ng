@@ -133,7 +133,7 @@ values of $\alpha$) crossed with sample size, design, and the full
 carryover and analysis-half-life axes.
 
 **Estimands.** Power as a function of $\alpha$ at each carryover
-level. The pre-registered prediction is monotone interpolation:
+level. The working hypothesis is monotone interpolation:
 combined-form power loss between A and B at every carryover level.
 
 **Outputs.** A power surface over $(\alpha, t_{1/2})$ at fixed $N$
@@ -331,8 +331,8 @@ The dependencies imply the following ordering.
   with the cross-study calibration sub-study reported up front so
   that downstream effect-size axes are interpretable on a common
   scale.
-- Pre-registered ADEMP tables for each study, committed before the
-  production runs are executed.
+- ADEMP tables for each study in the working protocol
+  (`analysis/scripts/latent-class-mixture-application/00-ademp-protocol.md`).
 
 ---
 

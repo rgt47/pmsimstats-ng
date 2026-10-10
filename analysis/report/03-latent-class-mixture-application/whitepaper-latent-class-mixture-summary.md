@@ -45,7 +45,7 @@ and it pursues four aims:
    the latent-class formulation.
 
 Aims 1 and 2 are delivered in full. Aim 3 is delivered only as a
-240-replicate pilot of the last of five pre-registered studies. Aim 4
+240-replicate pilot of the last of five planned studies. Aim 4
 has not been carried out.
 
 ### Why the encoding matters under carryover
@@ -126,7 +126,7 @@ size-valid; its problem is sensitivity, not validity.
 At $N \in [30, 150]$, a mixture model should not be the primary
 analysis for the biomarker-treatment interaction. Its legitimate roles
 are as a sensitivity check and as a DGP for stress-testing the
-pre-specified linear mixed model. If the simulation infrastructure is
+fixed linear mixed model. If the simulation infrastructure is
 extended, the heterogeneous-random-slopes form is the right target,
 because it admits latent-class generative structure while leaving the
 analysis model a standard `nlme::lme` fit and preserving the audit
@@ -142,10 +142,12 @@ moderation, pure covariance moderation, and combined.
 ## Scope and limitations
 
 This is predominantly a theory and taxonomy paper with a pilot
-attached, and the paper says so. The five-study production programme
-(approximately 2,300 pre-registered ADEMP cells; estimated at about a
-week of background compute on 8-16 cores) has not been run, and the
-prazosin-PTSD re-analysis has not been attempted.
+attached, and the paper says so. The five-study production program
+(approximately 2,300 ADEMP cells in the working protocol; estimated at
+about a week of background compute on 8-16 cores) has not been run,
+and the prazosin-PTSD re-analysis has not been attempted. The study is
+exploratory, and its findings should be confirmed in an independent
+study.
 
 The empirical claims therefore rest on 240 replicates at a single
 sample size ($N = 70$), a single design, and one generative

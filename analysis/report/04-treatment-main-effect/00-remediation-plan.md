@@ -88,15 +88,14 @@ the comparative claims made about relative efficiency across conditions. The
 report acknowledges the limitation in a footnote, but the sweep results are
 nonetheless presented as evidence for design guidance.
 
-**Remediation.** Establish a single pre-specified n_sim for all conditions
+**Remediation.** Establish a single fixed n_sim for all conditions
 (primary, scenario sweep, and Type I) before production runs begin. We
 recommend n_sim = 2000, which gives a worst-case MCSE of approximately
 1.1% on a 75% power estimate and approximately 0.5% on a 5% Type I
 estimate. If the scenario sweep remains computationally prohibitive at
 n_sim = 2000 across all 540 cells, reduce the number of cells by collapsing
 less informative dimensions rather than reducing n_sim. Document the
-pre-specified n_sim in the ADEMP pre-registration file described in
-Problem 8 below.
+chosen n_sim in the ADEMP protocol file described in Problem 8 below.
 
 ---
 
@@ -203,21 +202,21 @@ guards that fail loudly if the expected objects are not present. Replace all
 
 ---
 
-## Problem 8. Absent ADEMP pre-registration file (Minor)
+## Problem 8. Absent ADEMP protocol file (Minor)
 
 Morris et al. (2019) recommend, and the pmsimstats-ng project's own ADEMP
-audit notes, that the simulation plan be fixed in a pre-registration document
-before production runs begin. No such file exists for paper 04.
+audit notes, that the simulation plan be documented in a written protocol.
+No such file exists for paper 04.
 
-**Remediation.** Create `00-ademp-pre-registration.md` in the
-`04-treatment-main-effect/` directory. The file should specify, in their
-final form before any production run: the Aims; the Data-generating
-mechanisms and their full parameter grid; the Estimands (formal definition
-under the Gompertz DGP); the Methods (lme/corCAR1, ANCOVA for RCT, KR
-correction); the Performance measures (power, Type I, coverage, bias,
-model SE, relative error); and the pre-specified n_sim with its MCSE
-justification. Once production runs begin, this file should not be modified;
-any post-hoc sensitivity analyses must be clearly labeled as exploratory.
+**Remediation.** Create `00-ademp-protocol.md` (now at
+`analysis/scripts/treatment-main-effect/00-ademp-protocol.md`). The file
+should specify: the Aims; the Data-generating mechanisms and their full
+parameter grid; the Estimands (formal definition under the Gompertz DGP);
+the Methods (lme/corCAR1, ANCOVA for RCT, KR correction); the Performance
+measures (power, Type I, coverage, bias, model SE, relative error); and the
+chosen n_sim with its MCSE justification. The study is exploratory, so the
+file serves as a working protocol; any later change to it should be recorded
+in its list of changes to the working protocol.
 
 ---
 
@@ -227,7 +226,7 @@ We may organize the remediation work into three phases:
 
 **Phase 1 (prerequisite for any further work).** Problems 1, 2, and 3.
 Consolidate to a single simulation implementation, fix RNG discipline, and
-establish a pre-specified n_sim. Until these are resolved, subsequent work
+establish a single fixed n_sim. Until these are resolved, subsequent work
 on performance reporting (Problem 6) will produce results that may change.
 
 **Phase 2 (correctness).** Problems 4 and 5. Verify estimand alignment,
@@ -236,8 +235,8 @@ corrected model and full n_sim. Confirm that Type I and coverage are at
 nominal levels before reporting final results.
 
 **Phase 3 (completeness).** Problems 6, 7, and 8. Expand the performance
-table, move the code into `R/`, and write the pre-registration file.
-Although the pre-registration file is formally a prerequisite for Phase 1,
+table, move the code into `R/`, and write the protocol file.
+Although the protocol file is formally a prerequisite for Phase 1,
 it is listed here because it can be drafted after the consolidation (Problem 1)
 clarifies what the canonical plan actually is.
 
@@ -248,10 +247,11 @@ Methods, removes an entire estimator that is known to have poor small-sample
 properties, and provides the foundation for all subsequent work. Second, the
 KR correction (Problem 4) is the most likely change to alter a reported
 numerical result, as the current prototype data suggest non-nominal Type I
-and coverage in the N-of-1 arm. Third, the pre-specified n_sim and ADEMP
-pre-registration (Problems 3 and 8) are the most important changes for
-long-term credibility of the simulation findings, since they prevent
-post-hoc selection of conditions that favor a desired conclusion.
+and coverage in the N-of-1 arm. Third, the single fixed n_sim and the ADEMP
+protocol (Problems 3 and 8) are the most important changes for
+long-term credibility of the simulation findings, since they make the
+choice of conditions transparent and reduce the scope for selecting
+conditions that favor a desired conclusion.
 
 ---
 

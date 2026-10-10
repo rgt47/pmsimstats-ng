@@ -59,7 +59,7 @@ range.
 
 **Data availability statement.** Per-replicate Monte Carlo outputs
 (500 reps × 16 cells covering 4 designs × 4 dropout patterns),
-ADEMP cell-level summaries, the ADEMP pre-registration, and
+ADEMP cell-level summaries, the working ADEMP protocol, and
 driver scripts are openly available in the pmsimstats-ng project
 repository at https://github.com/[organisation]/pmsimstats-ng (public-release organisation pending). The R/censordata.R
 hazard-based dropout module is also archived. Specific paths are

@@ -155,7 +155,7 @@ characterizing identifiability) are delivered and are the paper's real
 contribution, particularly the result that the achievable marginal
 correlation is bounded by the geometric mean of the two class
 separations. Aim 3 is a 240-replicate pilot of the last of five
-pre-registered studies; aim 4, the prazosin re-analysis, has not been
+studies in the working ADEMP protocol; aim 4, the prazosin re-analysis, has not been
 attempted. The pilot's findings are sharp (the unconditional
 class-aware Wald test rejects at 0.197 against nominal 0.05; the
 BIC-conditional test controls size but is essentially inert at 0.025
@@ -168,7 +168,7 @@ reframe-rather-than-rerun path this review offered as an alternative:
 the abstract and Results now state plainly, in the author's own
 prose, that the finding holds "in a 240-replicate-per-cell pilot" and
 "within the 240-replicate pilot," rather than presenting the pilot as
-if it carried the weight of the pre-registered production run. The
+if it carried the weight of the planned production run. The
 canonical 1,000-replicate run at $N \in \{35, 70, 100\}$ over a wider
 gating-slope grid, including a genuinely bimodal separation regime,
 has not been executed, so the substantive limitation this review
@@ -399,7 +399,7 @@ of interest.
 
 **Prototype-versus-production gap.** Papers 03, 06 (contaminated
 pilot), 08 (deferred design grid), and 09 present pilots or partial
-grids as if they carried the weight of the pre-registered production
+grids as if they carried the weight of the planned production
 runs. Each states this, but the abstracts do not always reflect it.
 
 **Duplicate and stale scaffolding.** [Updated.] The READMEs that
@@ -525,7 +525,7 @@ resolvable cells); the 01/11 fold was not adopted, and 05-into-04 and
    *Status: reframed, not re-run.* The abstract and Results now state
    directly, in the author's own prose, that the finding holds "in a
    240-replicate-per-cell pilot," rather than presenting it as the
-   pre-registered production result. The 1,000-replicate run at
+   planned production result. The 1,000-replicate run at
    $N \in \{35, 70, 100\}$ over a wider gating-slope grid, including a
    genuinely bimodal separation regime, has not been executed and would
    still be required before the non-competitiveness result generalizes

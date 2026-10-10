@@ -57,8 +57,11 @@ We confirm that the work received no specific funding and that
 the pmsimstats team declares no conflicts of interest. The data
 and code that support the findings are openly available; specific
 paths are documented in the Reproducibility section of the
-manuscript and an ADEMP pre-registration document is committed at
-`analysis/scripts/nof1-design-sensitivity/00-ademp-pre-registration.md`.
+manuscript and the study's working ADEMP protocol is committed at
+`analysis/scripts/nof1-design-sensitivity/00-ademp-protocol.md`.
+The study is exploratory; no analysis plan was registered in
+advance, and its findings should be confirmed in an independent
+study.
 
 **Suggested reviewers** (to be confirmed by the corresponding
 author):

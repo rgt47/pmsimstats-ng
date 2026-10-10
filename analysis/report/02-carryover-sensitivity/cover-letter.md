@@ -70,8 +70,10 @@ We confirm that the work received no specific funding and that
 the pmsimstats team declares no conflicts of interest. The data
 and code that support the findings are openly available; specific
 paths are documented in the Reproducibility section of the
-manuscript and an ADEMP pre-registration document is committed at
-`analysis/scripts/carryover-sensitivity/00-ademp-pre-registration.md`.
+manuscript, and the study's working ADEMP protocol is committed at
+`analysis/scripts/carryover-sensitivity/00-ademp-protocol.md`. The
+study is exploratory, and its findings should be confirmed in an
+independent study.
 
 <!-- Reviewer suggestions to be added at submission. -->
 

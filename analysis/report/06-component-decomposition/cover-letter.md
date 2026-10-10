@@ -39,9 +39,10 @@ on a 6-cell slice) confirms the analysis machinery runs
 end-to-end on the three-component data-generating process. A
 production simulation programme is specified in §6 of the
 manuscript to quantify bias-versus-power trade-offs across
-sample sizes $N \in \{35, 70, 100, 150\}$; the programme is
-ADEMP pre-registered and is the subject of forthcoming
-follow-up work.
+sample sizes $N \in \{35, 70, 100, 150\}$; the program follows a
+working ADEMP protocol and is the subject of forthcoming
+follow-up work. The study is exploratory, and its findings
+should be confirmed in an independent study.
 
 The paper aligns with Statistics in Medicine's editorial focus
 on methodological developments for clinical trials and provides
@@ -59,8 +60,8 @@ have approved the submission.
 We confirm that the work received no specific funding and that
 the pmsimstats team declares no conflicts of interest. The data
 and code that support the findings are openly available; the
-ADEMP pre-registration is committed at
-`analysis/scripts/component-decomposition/00-ademp-pre-registration.md`.
+working ADEMP protocol is committed at
+`analysis/scripts/component-decomposition/00-ademp-protocol.md`.
 
 **Suggested reviewers** (to be confirmed by the corresponding
 author):

@@ -64,8 +64,10 @@ have approved the submission.
 We confirm that the work received no specific funding and that
 the pmsimstats team declares no conflicts of interest. The data
 and code that support the findings are openly available; the
-ADEMP pre-registration is at
-`analysis/scripts/test-procedure-design-sensitivity/00-ademp-pre-registration.md`.
+ADEMP working protocol is at
+`analysis/scripts/test-procedure-design-sensitivity/00-ademp-protocol.md`.
+The study is exploratory, and its findings should be confirmed
+in an independent study.
 The hand-rolled Mancl-DeRouen sandwich correction is documented
 inline in the simulation driver.
 

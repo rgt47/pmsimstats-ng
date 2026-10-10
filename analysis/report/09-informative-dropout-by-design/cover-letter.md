@@ -63,8 +63,11 @@ have approved the submission.
 We confirm that the work received no specific funding and that
 the pmsimstats team declares no conflicts of interest. The data
 and code that support the findings are openly available; the
-ADEMP pre-registration is at
-`analysis/scripts/informative-dropout-by-design/00-ademp-pre-registration.md`.
+study's working ADEMP protocol is at
+`analysis/scripts/informative-dropout-by-design/00-ademp-protocol.md`.
+The study is exploratory; no analysis plan was registered in
+advance, and its findings should be confirmed in an independent
+study.
 
 **Suggested reviewers** (to be confirmed by the corresponding
 author):

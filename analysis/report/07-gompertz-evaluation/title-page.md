@@ -64,7 +64,7 @@ simulation.
 
 **Data availability statement.** Prototype Monte Carlo outputs
 (200 reps × 2 trajectory families under Architecture B), ADEMP
-cell-level summaries, the ADEMP pre-registration, and driver
+cell-level summaries, the ADEMP working protocol, and driver
 scripts are openly available in the pmsimstats-ng project
 repository at https://github.com/[organisation]/pmsimstats-ng (public-release organisation pending). Specific paths are
 documented in the Reproducibility section of the manuscript.

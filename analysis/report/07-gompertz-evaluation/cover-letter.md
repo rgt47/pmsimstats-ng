@@ -54,10 +54,11 @@ pre-fix finding is superseded by the corrected result above.
 We acknowledge that the present submission is a focused
 factorial; the 144-cell extended grid (sample sizes, effect
 sizes, DGP-side carryover crossed with family) anticipated in
-the project pre-registration is deferred as future work. The
+the study's working protocol is deferred as future work. The
 focused 16-cell factorial answers the central scientific
 question with statistical clarity, and is the appropriate
-scope for a Methods Note.
+scope for a Methods Note. The study is exploratory, and
+its findings should be confirmed in an independent study.
 
 This manuscript is original, has not been published
 elsewhere, and is not under consideration by another journal.
@@ -65,9 +66,9 @@ All authors have approved the submission. The work received
 no specific funding; the pmsimstats team declares no
 conflicts of interest. The data and code that support the
 findings are openly available; specific paths are documented
-in the Reproducibility section of the manuscript and an ADEMP
-pre-registration document is committed at
-`analysis/scripts/gompertz-evaluation/00-ademp-pre-registration.md`.
+in the Reproducibility section of the manuscript and the ADEMP
+working protocol is committed at
+`analysis/scripts/gompertz-evaluation/00-ademp-protocol.md`.
 
 <!-- Reviewer suggestions to be added at submission. -->
 

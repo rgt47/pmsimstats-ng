@@ -692,7 +692,7 @@ mitigation (Section 6 of the main document) is therefore more
 likely than mixture-model analysis to deliver recoverable power
 gains at realistic trial sizes. Mixture modelling remains useful as
 a sensitivity check (to see whether class-structured residuals are
-consistent with the pre-specified analysis) and as a DGP for
+consistent with the primary analysis) and as a DGP for
 simulation (to verify robustness of the primary analysis to
 class-structured departures from gaussianity).
 
@@ -708,7 +708,7 @@ forward: the simulation DGP is extended in a familiar direction (a
 mixture over random-slope distributions, which is a natural
 relaxation of the homogeneous-population assumption built into
 standard mixed-effects models) while the analysis model remains the
-pre-specified `nlme::lme` fit. This preserves the audit chain of
+fixed `nlme::lme` fit. This preserves the audit chain of
 the current framework and permits direct comparison with the
 covariance-only baseline under carryover.
 

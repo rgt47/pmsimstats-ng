@@ -61,7 +61,7 @@ interaction.
 
 **Data availability statement.** Per-replicate Monte Carlo outputs,
 ADEMP cell-level summaries, the prototype driver scripts (4-core
-mclapply lcmm pipeline), and the ADEMP pre-registration are
+mclapply lcmm pipeline), and the working ADEMP protocol are
 openly available in the pmsimstats-ng project repository at
 https://github.com/[organisation]/pmsimstats-ng (public-release organisation pending). Specific paths are documented in the
 Reproducibility section of the manuscript.

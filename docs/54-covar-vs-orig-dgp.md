@@ -1,8 +1,44 @@
-# The covar and orig Data-Generating Processes: A Component-Wise Assessment, with Application to the c_bm <= 0.35 Regime {.unlisted .unnumbered}
+# The covar and orig Data-Generating Processes: A Component-Wise Assessment, with Application to the $c_{bm} \le 0.35$ Regime {.unlisted .unnumbered}
 
 *2026-09-08 12:40 PDT*
 
-Author: pmsimstats team
+*Written 2026-09-08 as `whitepaper-covar-vs-orig-dgp.md`; numbered
+`docs/54` on 2026-10-09.*
+
+**Author.** pmsimstats team
+
+**Purpose.** This paper audits the stated differences between the
+package's covariance-moderation process (`covar`) and the vendored
+copy of the Hendrickson et al. [1] reference implementation used as
+paper 01's comparison arm, assesses each difference on its merits, and
+asks whether restricting $c_{bm}$ to 0.35 or below would remove the
+reason to prefer `covar`.
+
+**Review note (2026-10-07): what `orig` means here.** In this paper
+`orig` denotes the *vendored 2024 copy* of the upstream repository
+(HEAD `06dac83`, 2024-11-27), not the published code. Project
+convention has since fixed `orig` to mean commit `58b32a9`
+(2020-11-19), whose data-generating code is identical to the 2020
+initial commit: compound symmetry, a constant cross-factor block, step
+coupling on a nonzero carryover-adjusted response mean at every
+occasion including the first, no `scalefactor`, and `lmer` with a
+binary drug indicator (inspected, copy at
+`analysis/data/quick-sim/hendrickson-58b32a9/`; see `docs/32` and
+`docs/36`). Read with that convention, four statements below change.
+(a) Paper 01's description of the step coupling was a correct
+description of `orig`; it was the comparison arm that ran different
+code. (b) Differences 4 and 5 (the dropped first occasion and the
+`scalefactor`) are properties of the 2024 revision, not of `orig`.
+(c) At the published $\rho_{cs} = 0.8$ the published process's ceiling is
+0.256 (Hybrid, CO) to 0.262 (OL+BDC) without carryover, and 0.893 at
+any positive half-life in Hybrid and OL+BDC (`docs/36`, Section 4.2;
+recomputed in this review); the ceilings below are at $\rho = 0.7$ and
+for the 2024 coupling. Under the separable AR(1) form of `docs/35` the
+ceiling is 0.440 at $\rho = 0.8$, and 0.474 (Hybrid 0.480) at
+$\rho = 0.7$. (d) The Section 5 finding that AR(1) alone beats the full
+`covar` set is an artifact of the dropped first occasion (Section 5.3,
+note). Paper 01 has also been restructured; its Appendix B.5 to B.7
+cited below refer to the September 2026 draft.
 
 ```{=latex}
 \clearpage
@@ -11,31 +47,78 @@ Author: pmsimstats team
 \clearpage
 ```
 
+## Notation index and glossary
+
+Notation follows `analysis/report/NOTATION.md`. Symbols marked *local*
+are defined here and are not part of the canonical set. Code
+identifiers appear in backticks. (Notation, 2026-10-09: the coupling
+pattern $v$ is now $g$, padded $\tilde g$ in the quadratic form, as in
+`NOTATION.md` and the compendium; the compound-symmetry correlation is
+$\rho_{cs}$, and $\rho$ is the AR(1) correlation.)
+
+| Symbol | Meaning | Status |
+|----------|----------------------------------------|------|
+| $c_{bm}$ | covariance-moderation correlation: on-drug correlation of the biomarker with $BR$ (code `c.bm`) | canonical |
+| $\tilde r$ | biomarker coupling vector: correlations of the biomarker with $BR$ at each occasion (called "the interaction vector b" in earlier versions; renamed because $b$ is the canonical standardized biomarker) | local |
+| $\mathbf{1}_n$ | vector of $n$ ones | local |
+| $n$ | number of measurement occasions | local |
+| $w_t$, $w_s$ | cumulative calendar week of occasions $t$ and $s$ | local |
+| $\rho$ | AR(1) within-factor correlation per week (code `c.tv`, `c.pb`, `c.br` under `covar`) | canonical |
+| $\rho_{cs}$ | common within-factor correlation under compound symmetry (the same codes under `orig`); a comparison "at $\rho = 0.7$" sets both constructs' parameter to 0.7 | canonical |
+| $t_{1/2}$ | carryover half-life, weeks (code `carryover_t1half`) | canonical |
+| $t_{sd}$ | time since discontinuation (code `tsd`) | canonical |
+| $\lambda$ | carryover decay rate, $\ln 2 / t_{1/2}$ | canonical |
+| $\mu_{BR}$ | mean of the drug-response component $BR$ (code `brmeans`); $\mu_{BR,t}$ at occasion $t$ in `docs/53` and `docs/55` | canonical |
+| $s_f$ | scale factor on the carryover exponent in the 2024 revision (code `scalefactor`, default 2) | canonical |
+| $BR$, $PB$, $TV$ | the three response components | canonical |
+| $D_{bc}$ | exposure-decayed drug indicator (code column `Dbc`) | canonical |
+| $\Sigma$ | joint covariance matrix of biomarker, baseline and response components | local |
+| $M$ | correlation block of the three response components | canonical |
+| $g$, $\tilde g$ | coupling pattern, $\tilde r = c_{bm} g$, and the same pattern padded with zeros at the $TV$ and $PB$ entries of the response block (formerly $v$) | canonical |
+| $c_\times$ | cross-factor correlation at distinct occasions (code `c.cfct`) | canonical |
+
+Table: Notation index
+
+**Glossary.** *`orig`* (this paper only): the vendored 2024 copy of
+the Hendrickson et al. code; see the review note. *`covar`*: the
+package's covariance-moderation process (`dgp_architecture = 'mvn'`,
+formerly Architecture B). *Compound symmetry (CS)*: one constant
+correlation for every pair of occasions. *PD*: positive definite.
+*Ceiling*: the largest $c_{bm}$ at which $\Sigma$ is PD. *Silent
+repair*: `corpcor::make.positive.definite()` applied without warning
+when $\Sigma$ fails the PD check. *`scalefactor`*: multiplier on the
+carryover exponent added in the 2024 revision. *Step* versus *graded*
+coupling: $c_{bm}$ wherever any residual drug effect remains, versus a
+coupling that decays off drug.
+
 ## 1. Executive summary
 
 Paper 01 (`analysis/report/01-dgp-mean-moderation-vs-mvn/`) compares
 three data-generating processes, of which two are covariance-channel
-processes: `covar` (the package's Architecture B) and `orig` (a
+processes: `covar` (the package's covariance-moderation architecture) and `orig` (a
 vendored copy of the Hendrickson et al. reference implementation).
 Appendix B.6 of that paper states that `orig` differs from `covar` on
 three rows simultaneously. This white paper audits that claim against
 the code that runs, assesses each difference on its merits, and
 answers a specific practical question: if the biomarker-response
-correlation `c_bm` is restricted to 0.35 or below, is there any
+correlation $c_{bm}$ is restricted to 0.35 or below, is there any
 remaining reason to prefer `covar` over `orig`?
 
 **There are five differences, not three, and the appendix describes
 the wrong version of the most consequential one.** The three
 documented rows are the within-factor correlation form, the
-cross-factor off-diagonal, and the interaction vector `b`. Two further
+cross-factor off-diagonal, and the coupling vector $\tilde r$. Two further
 differences are undocumented: `orig` never assigns the
 biomarker-response correlation at the first measurement occasion, and
 it decays the response mean at twice the nominal rate through a
 `scalefactor` parameter that `covar` lacks. The appendix's description
-of `b` corresponds to code that is commented out in the vendored file;
-the active code behaves in the opposite direction.
+of $\tilde r$ corresponds to code that is commented out in the vendored file;
+the active code behaves in the opposite direction. *(With `orig`
+defined as `58b32a9`, as the project now does, the appendix's
+description is correct and the two undocumented differences belong to
+the 2024 revision only; see the review note.)*
 
-**The active `b` code is the better of the two, contrary to first
+**The active $\tilde r$ code is the better of the two, contrary to first
 appearance.** The commented-out published version raises the off-drug
 biomarker-response correlation to full strength as carryover grows,
 inverting the effect residual exposure should have. The 2024 revision
@@ -46,20 +129,26 @@ dropped occasion, not the change of gate itself (Section 3.3.1).
 positive definiteness.** A crossed decomposition over all 16
 combinations of those four (Section 5) shows that switching compound
 symmetry to AR(1) accounts for the entire improvement, raising the
-worst-cell `c_bm` ceiling from 0.34 to 0.48. Applied alone it beats the full
-four-change `covar` set, which reaches only 0.45. The cross-factor
-change lowers the ceiling to 0.16 when applied without AR(1), and
-neither the `b` change nor the occasion-1 change moves it at all.
+worst-cell $c_{bm}$ ceiling from 0.34 to 0.48. Applied alone it beats
+the full four-change `covar` set, which reaches only 0.45. The
+cross-factor change lowers the ceiling to 0.16 when applied without
+AR(1), and neither the $\tilde r$ change nor the occasion-1 change
+moves the worst cell when AR(1) is off. *(Corrected 2026-10-07: the
+advantage of AR(1) alone over the full set comes from leaving the
+first, on-drug occasion uncoupled; with it coupled, AR(1) alone
+reaches 0.438, below `covar`'s 0.452. The occasion-1 change does move
+the ceiling once AR(1) is on. Section 5.3 and 5.5 notes.)*
 
 **The answer to the practical question is yes, on five independent
-grounds.** Restricting `c_bm` to 0.35 does not rescue `orig`. The
-positive-definite (PD) ceiling under `orig` is 0.30 in five of nine
-design-by-half-life cells and 0.35 in the remaining four, so a study
+grounds.** Restricting $c_{bm}$ to 0.35 does not rescue `orig`. The
+positive-definite (PD) ceiling under `orig`, on a grid of step 0.05,
+is 0.30 in five of nine design-by-half-life cells and 0.35 in the
+remaining four, so a study
 run at 0.35 is non-PD in a substantial part of its own grid. Where it
 is PD at 0.35 the margin is thin enough to be fragile to any other
 parameter change. PD failure is repaired silently, so the realized
 correlation stops matching the nominal one without any warning. The
-dropped first occasion is a defect at every `c_bm`, including zero.
+dropped first occasion is a defect at every $c_{bm}$, including zero.
 And the `scalefactor` default halves the effective carryover
 half-life, so the two processes are not comparable at a matched
 nominal half-life regardless of correlation strength.
@@ -80,7 +169,7 @@ Three of the five 2024 DGP changes are sound and should be kept; the
 the single AR(1) change of Section 5 resolves positive definiteness
 outright (Section 4.5).
 
-## 2. Scope, method, and epistemic status
+## 2. Scope, method, and evidence status
 
 Findings below are labeled `verified` (code was executed and output
 observed), `inspected` (read in source and confirmed by reading), or
@@ -102,11 +191,12 @@ Sources examined:
 
 Computations run for this document:
 
-- Reconstruction of the `b` vector under both the active and the
-  commented-out code paths, Hybrid path A, at `t_half` in {0.5, 1.0}.
-- A PD sweep over `c_bm` in [0.10, 0.60] by 0.05, crossed with
-  `t_half` in {0, 0.5, 1.0} and the three trial designs, recording the
-  minimum eigenvalue of Sigma under each process, minimized across the
+- Reconstruction of the $\tilde r$ vector under both the active and the
+  commented-out code paths, Hybrid path A, at
+  $t_{1/2} \in \{0.5, 1.0\}$.
+- A PD sweep over $c_{bm} \in [0.10, 0.60]$ by 0.05, crossed with
+  $t_{1/2} \in \{0, 0.5, 1.0\}$ and the three trial designs, recording the
+  minimum eigenvalue of $\Sigma$ under each process, minimized across the
   design's randomization paths.
 - Quantification of the distortion introduced by PD repair.
 - A crossed decomposition over all 16 combinations of the four
@@ -119,11 +209,11 @@ Computations run for this document:
   (`06dac83`).
 - Evaluation of the `Dbc` exposure regressor across all occasions of
   the CO and Hybrid designs, under both the vendored and the package
-  analysis code, at `t_half` in {0, 1.0} (Section 3.6).
+  analysis code, at $t_{1/2} \in \{0, 1.0\}$ (Section 3.6).
 
 **Provenance correction.** The directory README states the vendored
 files come from `3035581` (dated there as 2026-06-28; the commit is
-actually 2020-06-27). They do not. Diffing establishes the base as
+actually 2020-06-28 04:00 UTC, 2020-06-27 Pacific). They do not. Diffing establishes the base as
 HEAD, `06dac83`, 2024-11-27, from which the vendored copy differs by
 exactly the one documented `data.table` line. The README's claim that
 no other lines were changed is therefore true of the file that was
@@ -133,8 +223,9 @@ annotations are upstream, introduced by RC Hendrickson in commit
 code'), not local edits.
 
 All computations used the package's own `extracted_rp` and
-`extracted_bp` parameter sets, `rho = 0.7`, `c.cf1t = 0.2`,
-`c.cfct = 0.1`, `N = 35`, `scalefactor = 2`.
+`extracted_bp` parameter sets, $\rho = 0.7$ (`c.tv`, `c.pb`, `c.br`),
+`c.cf1t = 0.2`, `c.cfct = 0.1`, `N = 35`, `scalefactor = 2`. The
+published results used $\rho_{cs} = 0.8$ (review note).
 
 ## 3. The five DGP differences, and the analysis model
 
@@ -145,7 +236,7 @@ All computations used the package's own `extracted_rp` and
 `orig` assigns a single constant to every within-factor occasion pair
 (`vendored-hendrickson-generateData.R:117-126`):
 
-```r
+```{.r}
 ac <- modelparam[[paste("c", c, sep = ".")]]
 for (p in 1:(nP-1)) for (p2 in (1+p):nP) {
   correlations[n1, n2] <- ac
@@ -153,8 +244,8 @@ for (p in 1:(nP-1)) for (p2 in (1+p):nP) {
 }
 ```
 
-This is compound symmetry. `covar` uses `rho^|w_i - w_j|`, an AR(1)
-form on the cumulative week scale.
+This is compound symmetry. `covar` uses $\rho^{\lvert w_t - w_s \rvert}$,
+an AR(1) form on the cumulative week scale.
 
 **Arguments for compound symmetry.** It is the form in the published
 reference, so it is the correct target if the goal is reproducing
@@ -167,12 +258,15 @@ that fits only a patient random intercept.
 **Arguments against.** It is clinically implausible for repeated
 symptom measurement, where adjacent occasions should correlate more
 strongly than distant ones. More seriously for present purposes, it
-constrains the feasible parameter space. A constant `rho` across `n`
-occasions requires `rho > -1/(n-1)` on its own, and once the
-biomarker-response block is added the joint constraint on `c_bm`
-tightens rapidly with `n`. Appendix B.7 identifies this as the
+constrains the feasible parameter space. A constant $\rho_{cs}$ across $n$
+occasions requires $\rho_{cs} > -1/(n-1)$ on its own, and once the
+biomarker-response block is added the joint constraint on $c_{bm}$
+tightens rapidly with $n$. Appendix B.7 identifies this as the
 mechanism behind the narrower PD range, and Section 4 below quantifies
-it.
+it. (Precisely: the response block's smallest eigenvalue does not
+depend on $n$, but the ceiling on $c_{bm}$ falls roughly as $n^{-1/2}$
+at a fixed on-drug share, `docs/34`, Section 5.1. At $\rho = 0.3$
+compound symmetry admits the higher ceiling, `docs/34`, Section 4.4.)
 
 **Assessment.** This difference is the dominant driver of the PD
 behavior and therefore of the answer to the paper's practical
@@ -186,7 +280,8 @@ all.
 
 `orig` assigns `modelparam$c.cfct` as a constant to every cross-factor
 pair at distinct occasions (line 140). `covar` assigns
-`c.cfct * rho^tg`, decaying in the lag `tg`.
+`c.cfct * rho^tg`, that is $c_\times \rho^{\lvert w_t - w_s \rvert}$,
+decaying in the lag `tg`.
 
 **Arguments for the constant form.** Again, fidelity to the reference.
 It also imposes no assumption about how quickly the coupling between
@@ -204,22 +299,31 @@ blocks raise the matrix's dependence on its smallest eigenvalue.
 same direction. It is not separately identifiable from Difference 1 in
 any comparison run to date, since the two always vary together.
 
-### 3.3 Difference 3: the interaction vector b
+*Correction (2026-10-07).* The crossed decomposition of Section 5,
+written after this paragraph, does separate the two, and contradicts
+it. Under compound symmetry the decaying cross-factor form lowers the
+ceiling (0.34 to 0.16), so the constant form of `orig` is the better
+of the two there; under AR(1) the decaying form raises it slightly
+(about 0.02 to 0.03; `docs/34`, Table 4.1). The constant form is
+therefore not in the same direction as Difference 1 in general.
 
-**Status: verified, and the paper's description is incorrect.**
+### 3.3 Difference 3: the coupling vector $\tilde r$
+
+**Status: verified, and the paper's description is incorrect** *(for
+the vendored 2024 copy; it is correct for `58b32a9`, review note)*.
 
 Appendix B.6 states that `orig` gates the interaction on whether the
-response mean is nonzero, giving a two-valued step of `{0, c_bm}`, and
-that at `t_half = 1.0` in the Hybrid design the vector becomes
-`c_bm * 1_n`, carrying no on-drug versus off-drug contrast at all. The
-worked example at B.5 prints `b^orig = (0.4500, 0.4500, 0.4500,
-0.4500)`.
+response mean is nonzero, giving a two-valued step of
+$\{0, c_{bm}\}$, and that at $t_{1/2} = 1.0$ in the Hybrid design the
+vector becomes $c_{bm}\mathbf{1}_n$, carrying no on-drug versus
+off-drug contrast at all. The worked example at B.5 prints
+$\tilde r^{\text{orig}} = (0.4500, 0.4500, 0.4500, 0.4500)$.
 
 That describes the following code, which is present in the vendored
 file but **commented out**, under the header
 `## Following commented out in Ron Thomas version:`
 
-```r
+```{.r}
 #if(means[which(n1==labels)]!=0){
 #  correlations[n1,'bm']<-modelparam$c.bm
 #  correlations['bm',n1]<-modelparam$c.bm
@@ -229,7 +333,7 @@ file but **commented out**, under the header
 The code that actually executes, under the header
 `## RON THOMAS VERSION:`, is line 153:
 
-```r
+```{.r}
 correlations["bm", n1] <- correlations[n1, "bm"] <-
   ifelse(brtest[p],
          ifelse(brmeans[p] == 0, 0, (mm1 / mm0) * modelparam$c.bm),
@@ -242,7 +346,7 @@ carryover adjustment, so it is TRUE exactly at off-drug occasions.
 
 Re-running both code paths over the Hybrid path A design gives:
 
-| occasion | on drug | adj mu_BR | b active | b commented-out |
+| occasion | on drug | adjusted $\mu_{BR}$ | $\tilde r$ active | $\tilde r$ commented-out |
 |---|---|---|---|---|
 | OL1 | yes | 4.281 | NA | 0.45 |
 | OL2 | yes | 9.223 | 0.4500 | 0.45 |
@@ -253,23 +357,28 @@ Re-running both code paths over the Hybrid path A design gives:
 | COd | yes | 4.281 | 0.4500 | 0.45 |
 | COp | no | 0.017 | 0.0018 | 0.45 |
 
-Table: Adjusted $\mu_{BR}$ and coefficient b by occasion, active versus commented-out code, Hybrid path A
+Table: Adjusted $\mu_{BR}$ and coupling $\tilde r$ by occasion, active versus commented-out code, Hybrid path A
 
-(`t_half = 1.0`, `scalefactor = 2`, `c_bm = 0.45`.)
+($t_{1/2} = 1.0$, `scalefactor = 2`, $c_{bm} = 0.45$.)
 
 The commented-out column reproduces the appendix exactly. The active
 column does the opposite: off-drug entries decay toward zero rather
-than rising to `c_bm`, and the on-drug versus off-drug contrast is
+than rising to $c_{bm}$, and the on-drug versus off-drug contrast is
 preserved rather than lost.
 
 The active decay belongs to the same exponential family as `covar`'s,
 but runs at twice the rate. The ratio `mm1 / mm0` inherits
-`(1/2)^(scalefactor * t_sd / t_half)` from the carryover adjustment at
-line 96, and with `scalefactor = 2` this is an effective half-life of
-`t_half / 2`, compounding multiplicatively across successive off-drug
-occasions. For comparison, at `t_half = 1.0` and one week off drug,
-`covar` gives `0.45 * exp(-ln2 * 1) = 0.225` while `orig` gives
-`0.1125`.
+`(1/2)^(scalefactor * tsd / carryover_t1half)` from the carryover
+adjustment at line 96, and with `scalefactor = 2` this is an effective
+half-life of $t_{1/2}/2$. Because the ratio is taken against the
+previous, already adjusted mean, the coupling itself is exactly
+$c_{bm}(1/2)^{2 t_{sd}/t_{1/2}}$ with cumulative $t_{sd}$; it does not
+compound across successive off-drug occasions, although the mean does
+(Section 3.5). (Corrected 2026-10-07; an earlier version said the
+coupling compounded. Derived, and consistent with the table: 0.1125
+and 0.0281 are $0.45 \cdot 2^{-2}$ and $0.45 \cdot 2^{-4}$.) For
+comparison, at $t_{1/2} = 1.0$ and one week off drug, `covar` gives
+$0.45\,e^{-\ln 2} = 0.225$ while `orig` gives $0.1125$.
 
 #### 3.3.1 Which of the two is correct
 
@@ -282,10 +391,11 @@ The published gate tests `means[...] != 0`, where `means` is the
 **carryover-adjusted** response mean. The adjustment runs before the
 correlation loop, so at any off-drug occasion carrying residual
 effect, the adjusted mean is nonzero, the gate opens, and the occasion
-receives the **full** `c_bm`. The consequence is that increasing
+receives the **full** $c_{bm}$. The consequence is that increasing
 carryover progressively converts off-drug occasions into
 full-strength on-drug occasions in the covariance channel, until at
-`t_half = 1.0` in the Hybrid design the vector is `c_bm * 1_n` and no
+$t_{1/2} = 1.0$ in the Hybrid design the vector is $c_{bm}\mathbf{1}_n$
+(as at any positive half-life, `docs/37`) and no
 on-drug versus off-drug contrast survives at all.
 
 That behavior is backwards. Carryover should attenuate the
@@ -334,7 +444,7 @@ accurately and correct its two remaining implementation flaws.
 The assignment loop at line 147 is guarded by `if (p > 1)`, and
 `correlations` is initialized as `diag(length(labels))` at line 106.
 The biomarker-response correlation at occasion 1 is therefore left at
-exactly zero under `orig`, regardless of `c_bm` and regardless of
+exactly zero under `orig`, regardless of $c_{bm}$ and regardless of
 whether occasion 1 is on drug. In the table above this appears as the
 `NA` in the OL1 row. `covar` assigns all eight occasions.
 
@@ -345,13 +455,13 @@ modeling choice.
 interaction channel, and it does so at an occasion that is on drug in
 every path of every design examined, so the loss falls on the most
 informative part of the series. It attenuates `orig`'s realized
-interaction relative to its nominal `c_bm` at every parameter setting.
+interaction relative to its nominal $c_{bm}$ at every parameter setting.
 It also interacts with Difference 3: the `p > 1` guard exists because
 line 153 needs `p - 1` to form the ratio, so the defect is a direct
 consequence of the undocumented modification, not an independent bug.
 
 **Assessment.** A defect rather than a difference in modeling
-philosophy. It is `c_bm`-independent and therefore is not addressed by
+philosophy. It is $c_{bm}$-independent and therefore is not addressed by
 restricting the correlation range.
 
 ### 3.5 Difference 5: the scalefactor on the carryover mean
@@ -362,7 +472,7 @@ Paper 01's Appendix B.6 records the carryover adjustment to the
 response mean as an 'identical line in all three' processes. It is
 not. `orig` carries a `scalefactor` multiplier that `covar` does not:
 
-```r
+```{.r}
 ## orig
 brmeans[p] <- brmeans[p] +
   brmeans[p-1]*(1/2)^(scalefactor * d$tsd[p]/carryover_t1half)
@@ -376,24 +486,37 @@ brmeans[p] <- brmeans[p] +
 twice the nominal rate. This is a difference in the **mean** channel,
 distinct from the covariance-channel differences above, and it affects
 any power comparison between the two processes even though it does not
-enter Sigma and so does not appear in the Section 5 decomposition.
+enter $\Sigma$ and so does not appear in the Section 5 decomposition.
 
 The default is an error, not merely a choice. Comparing the adjustment
 against a correct exponential decay from the last on-drug value, at
-`t_half = 1.0` in the Hybrid design:
+$t_{1/2} = 1.0$ in the Hybrid design:
 
-| occasion | t_sd | sf = 1 | sf = 2 | correct |
+| occasion | $t_{sd}$ | $s_f = 1$ | $s_f = 2$ | correct |
 |---|---|---|---|---|
 | BD3 | 1 | 5.094 | 2.547 | 5.094 |
 | BD4 | 2 | 1.273 | 0.159 | 2.547 |
-| COp | 4 | 0.268 | 0.017 | 0.637 |
+| COp | 4 | 0.268 | 0.017 | 0.268 |
 
 Table: Off-drug response-mean adjustment under scalefactor 1 and 2 versus correct decay, Hybrid design
 
-As a ratio to the correct value: at `sf = 1` the first off-drug
-occasion is exact (1.000x) and later occasions over-decay (0.500x,
-0.420x). At `sf = 2` even the first occasion is wrong (0.500x), and
-the fourth is understated by a factor of 38 (0.026x). A dose one week
+As a ratio to the correct value: at $s_f = 1$ the first off-drug
+occasion after each on-drug run is exact (1.000x at BD3 and COp) and
+the second over-decays (0.500x at BD4). At $s_f = 2$ even the first
+occasion is wrong (0.500x at BD3), and COp is understated by a factor of 16
+(0.0625x). *(Clarified 2026-10-08. The 0.500x holds only where
+$t_{sd} = t_{1/2}$. In general the ratio at the first off-drug occasion
+of a run is $2^{-(s_f - 1)t_{sd}/t_{1/2}}$: 0.500x at BD3
+($t_{sd} = 1$) and 0.0625x at COp ($t_{sd} = 4$), which is also the
+first off-drug occasion of its run. See
+`analysis/report/compendium-mathematics.tex`, Section "The 2024
+revision of the published code: a scale factor on the carryover
+exponent".)* *(Corrected 2026-10-07. An earlier version gave the correct
+COp value as 0.637, which decays from the BD2 mean of 10.187; but COp
+follows the on-drug occasion COd, whose mean of 4.281 is the last
+on-drug value, and $4.281 \times 2^{-4} = 0.268$. The earlier ratios
+0.420x and "a factor of 38" followed from that error. Derived from the
+table's own inputs.)* A dose one week
 old at a one-week half-life should retain half its effect; the shipped
 default gives it a quarter.
 
@@ -402,12 +525,16 @@ entry reads `@param scalefactor TODO update when understand what this
 does?`, so it was shipped with a behavior-changing default while
 recorded as not understood.
 
-The residual over-decay at `sf = 1` is a separate, pre-existing bug
+The residual over-decay at $s_f = 1$ is a separate, pre-existing bug
 inherited from the published code. The recursion multiplies the
-previous **already-adjusted** value by `(1/2)^(cumulative t_sd)`,
-double-counting elapsed time. The correct form uses either the
-interval rather than cumulative `t_sd`, or cumulative `t_sd` applied
-to the last on-drug mean.
+previous **already-adjusted** value by $(1/2)^{t_{sd}/t_{1/2}}$ with
+cumulative $t_{sd}$, double-counting elapsed time. The correct form
+uses either the interval rather than cumulative $t_{sd}$, or
+cumulative $t_{sd}$ applied to the last on-drug mean. *(Note
+2026-10-07: `covar` and the mean-moderation process have since been
+corrected to the anchored form, `R/generateData.R` lines 277 to 288,
+inspected; paper 01 applies the same correction to `58b32a9`, its
+Appendix B.3.)*
 
 **Arguments for.** None identified for the default of 2. The
 parameter itself is a harmless generalization if defaulted to 1.
@@ -444,37 +571,45 @@ coefficients:
 
 Table: Analysis model of the 2020 publication versus the 2024 running code
 
-The change came in `f70f86d` (2024-05-06), the same day as the DGP
-changes. The `orig` arm therefore does not run the published analysis
-either. Its exposure regressor is structurally the same object this
-program calls Exposure-weighted (`G3`).
+The change came in `325314f` (2024-05-10, "modified Db to include
+carryover; no effect"), four days after the DGP changes; `f70f86d`
+(2024-05-06) had refactored the formula construction and added the
+`simplecarryover` option, and `78c8635` (2024-11-27) corrected the
+extracted name from `bm:DbcTRUE` to `bm:Dbc`. *(Corrected 2026-10-07,
+verified against the upstream commit diffs with `gh api`; an earlier
+version attributed the change to `f70f86d`.)* The `orig` arm therefore
+does not run the published analysis either. Its exposure regressor is
+structurally the same object this program calls the exposure-weighted
+specification, E2 (`analysis/report/NOTATION.md`, Part 3; the earlier
+label `G3` is retired).
 
 This **corroborates** the retraction in Paper 02, Section 3.3. That
 section argues the reference analysis is effectively Unadjusted
 because the drivers leave the analysis-side half-life at its default
 of zero, at which the decayed predictor collapses onto the binary
 indicator. Verified directly: at `carryover_t1half = 0` the off-drug
-branch evaluates `(1/2)^(t_sd/0) = 0` and the on-drug branch 1, which
+branch evaluates `(1/2)^(tsd/0) = 0` and the on-drug branch 1, which
 is exactly `Db`. The reasoning in that section holds.
 
 #### 3.6.2 Never-treated occasions are coded as fully on drug
 
 `Dbc` is assigned to every `Db == FALSE` row as
-`(1/2)^(scalefactor * t_sd / t_half)`. That expression is meaningful
-only after discontinuation. For occasions before a patient's first
-dose, `buildtrialdesign` zeroes `t_sd` (multiplying by `everondrug`),
+`(1/2)^(carryover_scalefactor * tsd / carryover_t1half)`. That
+expression is meaningful only after discontinuation. For occasions
+before a patient's first dose, `buildtrialdesign` zeroes `tsd`
+(multiplying by `everondrug`),
 so the expression returns `(1/2)^0 = 1`, the **maximum** exposure
 value.
 
-CO path B, the never-discontinuing arm, at `t_half = 1.0`:
+CO path B, the never-discontinuing arm, at $t_{1/2} = 1.0$:
 
-| occasion | on drug | t_sd | Dbc |
+| occasion | on drug | `tsd` | `Dbc` |
 |---|---|---|---|
 | BL | FALSE | 0 | **1.0** |
 | COa1 - COa4 | FALSE | 0 | **1.0** |
 | COb1 - COb4 | TRUE | 0 | 1.0 |
 
-Table: Drug indicator Dbc by occasion for CO path B at $t_{1/2} = 1.0$
+Table: Drug indicator $D_{bc}$ (`Dbc`) by occasion for CO path B at $t_{1/2} = 1.0$
 
 All nine rows are coded `Dbc = 1`. Four pre-treatment occasions and
 baseline are indistinguishable from fully on drug, the path
@@ -497,7 +632,7 @@ anything in `generateData.R`.
 **Status: verified.** `R/lme_analysis.R` in this package already
 guards the case, and its comment names the failure mode precisely:
 
-```r
+```{.r}
 # Guard against 0/0 = NaN when carryover_t1half == 0 or
 # tsd == 0 for never-on-drug subjects; both collapse to Dbc=0.
 if (op$carryover_t1half == 0) {
@@ -511,12 +646,12 @@ if (op$carryover_t1half == 0) {
 
 Comparing the two on CO path B:
 
-| `t_half` | package | vendored |
+| $t_{1/2}$ | package | vendored |
 |---|---|---|
 | 0 | 0 0 0 0 0 1 1 1 1 | NaN NaN NaN NaN NaN 1 1 1 1 |
 | 1.0 | 0 0 0 0 0 1 1 1 1 | 1 1 1 1 1 1 1 1 1 |
 
-Table: Dbc from the package and vendored code on CO path B by half-life
+Table: `Dbc` from the package and vendored code on CO path B by half-life
 
 Finding 3.6.2 is therefore confined to the vendored comparison arm.
 No result in Paper 01 or Paper 02 that uses the package's own
@@ -534,30 +669,36 @@ which prevents `BL` being selected twice with no behavioral effect
 otherwise; and the refactor of the model formula from nested `if`
 blocks to string concatenation with `eval(parse(...))`, which is
 self-described in the source as 'poor programming form!' but is
-equivalent. Commit `325314f` changes only whitespace in this file, and
-`baf4127`, titled 'first commit. edit to lme_analysis', does not touch
-the file at all.
+equivalent. `baf4127`, titled 'first commit. edit to lme_analysis',
+does not touch the file at all (it edits a vignette), and `1cbdb39`
+changes one line, repairing `op*carryover_scalefactor` to
+`op$carryover_scalefactor` in the `Dbc` assignment. *(Corrected
+2026-10-07, verified with `gh api`: an earlier version said `325314f`
+changed only whitespace in this file; it is the commit that introduced
+`Dbc` and the `error(...)` guard, Section 3.6.1.)*
 
-## 4. The c_bm <= 0.35 question
+## 4. The $c_{bm} \le 0.35$ question
 
 ### 4.1 Why the question arises
 
 Compound symmetry constrains the feasible correlation range more
-tightly than AR(1), as Appendix B.7 notes. If the binding objection to
-`orig` were only that it cannot represent large `c_bm`, then
-restricting attention to `c_bm <= 0.35` would neutralize the
+tightly than AR(1), as Appendix B.7 notes, at the production
+$\rho = 0.7$; at $\rho = 0.3$ the order reverses (`docs/34`,
+Section 4.4). If the binding objection to
+`orig` were only that it cannot represent large $c_{bm}$, then
+restricting attention to $c_{bm} \le 0.35$ would neutralize the
 objection, and the choice between processes would come down to
 fidelity to the published reference, which would favor `orig`.
 
 ### 4.2 Positive-definiteness sweep
 
-**Status: verified.** Minimum eigenvalue of Sigma, minimized across
+**Status: verified.** Minimum eigenvalue of $\Sigma$, minimized across
 each design's randomization paths, at the parameter settings in
 Section 2.
 
-Largest `c_bm` on the tested grid at which Sigma remains PD:
+Largest $c_{bm}$ on the tested grid at which $\Sigma$ remains PD:
 
-| design | t_half | orig | covar |
+| design | $t_{1/2}$ | orig | covar |
 |---|---|---|---|
 | CO | 0.0 | 0.30 | 0.60 |
 | CO | 0.5 | 0.30 | 0.60 |
@@ -571,9 +712,9 @@ Largest `c_bm` on the tested grid at which Sigma remains PD:
 
 Table: Largest positive-definite $c_{bm}$ on the tested grid by design and half-life, orig and covar
 
-Minimum eigenvalue at exactly `c_bm = 0.35`:
+Minimum eigenvalue at exactly $c_{bm} = 0.35$:
 
-| design | t_half | orig | covar | orig PD |
+| design | $t_{1/2}$ | orig | covar | orig PD |
 |---|---|---|---|---|
 | CO | 0.0 | -0.3069 | 8.516 | no |
 | CO | 0.5 | -0.3069 | 8.516 | no |
@@ -585,38 +726,52 @@ Minimum eigenvalue at exactly `c_bm = 0.35`:
 | OL+BDC | 0.5 | 0.0869 | 2.300 | yes |
 | OL+BDC | 1.0 | 1.4385 | 2.344 | yes |
 
-Table: Minimum eigenvalue of Sigma at $c_{bm} = 0.35$ by design and half-life, orig and covar
+Table: Minimum eigenvalue of $\Sigma$ at $c_{bm} = 0.35$ by design and half-life, orig and covar
 
 Three observations follow.
 
-First, `c_bm = 0.35` is **not** a safe ceiling for `orig`. Sigma is
-non-PD in four of the nine design-by-half-life cells: all three CO
-cells, and the zero-carryover cells of both other designs. The safe
-ceiling across the full grid is 0.30, not 0.35.
+First, $c_{bm} = 0.35$ is **not** a safe ceiling for `orig`. $\Sigma$ is
+non-PD in five of the nine design-by-half-life cells: all three CO
+cells, and the zero-carryover cells of both other designs. *(Corrected
+2026-10-07 from "four of the nine", which disagreed with the table
+and with Section 1.)* The safe ceiling across the full grid is 0.30,
+not 0.35. The exact ceilings are 0.346 in every zero-carryover cell
+and in CO, and 0.351 (Hybrid and OL+BDC) at $t_{1/2} = 0.5$ (verified
+by closed form, Section 5.1 note).
 
 Second, where `orig` is PD at 0.35, it is marginal. Minimum
-eigenvalues of 0.083 and 0.087 at `t_half = 0.5` sit three orders of
-magnitude below `covar`'s at the same cells, and two orders below
-`orig`'s own values at `c_bm = 0.10`. A margin that thin is not robust
-to changes in `rho`, `c.cfct`, the number of occasions, or the
-response parameters, none of which were varied in this sweep.
+eigenvalues of 0.083 and 0.087 at $t_{1/2} = 0.5$ sit 26.5- to
+27.6-fold below `covar`'s at the same cells (an earlier version said three
+orders of magnitude; corrected 2026-10-07; "about 28-fold" corrected
+2026-10-08 to the ratios of the table, $2.300/0.0869 = 26.5$ in OL+BDC
+and $2.297/0.0831 = 27.6$ in Hybrid), and well below `orig`'s
+own values at $c_{bm} = 0.10$. These are eigenvalues of the covariance
+matrix, so their size also reflects the component variances. A margin
+that thin is not robust to changes in $\rho$, `c.cfct`, the number of
+occasions, or the response parameters, none of which were varied in
+this sweep.
 
 Third, the CO design is uniformly the binding case under `orig`, and
-its minimum eigenvalue does not vary with `t_half` at all. This is
-consistent with CO's off-drug occasions being spaced 2.5 weeks or more
-apart, so that the `orig` decay, at twice `covar`'s rate, has driven
-the off-drug `b` entries to effectively zero at every half-life
-examined.
+its minimum eigenvalue does not vary with $t_{1/2}$ at all. The more
+likely reason is that CO's binding path is the placebo-first path,
+whose occasions before first exposure have zero coupling at every
+half-life and which never discontinues, so its coupling pattern does
+not change with carryover (inferred; the same mechanism is verified
+for the step coupling in `docs/34`, Section 4.6). An earlier version
+attributed this to the fast `orig` decay driving the off-drug entries
+of the drug-first path to zero.
 
 ### 4.3 Silent repair
 
 **Status: verified.**
 
 Both implementations call `make.positive.definite(sigma, tol = 1e-3)`
-when the PD check fails, with no warning, no error, and no record in
-the returned object:
+when the PD check fails, with no error and no record in the returned
+object, and with no warning unless (in the package only)
+`verbose = TRUE` (`R/generateData.R` lines 376 to 389, inspected
+2026-10-07):
 
-```r
+```{.r}
 if (makePositiveDefinite) {
   if (!is.positive.definite(sigma)) {
     sigma <- make.positive.definite(sigma, tol = 1e-3)
@@ -626,9 +781,9 @@ if (makePositiveDefinite) {
 
 The consequence is that a non-PD cell does not fail. It silently
 becomes a different DGP. Measuring the realized biomarker-response
-correlations after repair, for CO path A at `t_half = 1.0`:
+correlations after repair, for CO path A at $t_{1/2} = 1.0$:
 
-| nominal c_bm | min eigenvalue | realized max | repaired |
+| nominal $c_{bm}$ | min eigenvalue | realized max | repaired |
 |---|---|---|---|
 | 0.20 | 5.5645 | 0.2000 | no |
 | 0.25 | 5.0361 | 0.2500 | no |
@@ -639,32 +794,36 @@ correlations after repair, for CO path A at `t_half = 1.0`:
 
 Table: Minimum eigenvalue and realized correlation after silent repair by nominal $c_{bm}$, CO path A
 
-The distortion is modest in magnitude, roughly one to three points,
-but it is undisclosed and it is not constant across the grid, so it
+The distortion is modest in magnitude, 0.005 and 0.013 in correlation
+in this example, but it is undisclosed and it is not constant across the grid, so it
 introduces a systematic and unreported difference between nominal and
 realized effect size precisely in the cells where `orig` is under the
-most strain. Power reported against a nominal `c_bm` in a repaired
-cell is not power at that `c_bm`.
+most strain. Power reported against a nominal $c_{bm}$ in a repaired
+cell is not power at that $c_{bm}$.
 
 ### 4.4 Answer
 
-**Restricting `c_bm` to 0.35 or below does not remove the case for
+**Restricting $c_{bm}$ to 0.35 or below does not remove the case for
 `covar`.** Five reasons remain, in descending order of force.
 
 1. **The restriction is not tight enough.** At exactly 0.35, `orig` is
-   non-PD in four of nine cells, including every CO cell. A
+   non-PD in five of nine cells, including every CO cell (corrected
+   from "four", 2026-10-07). At the published $\rho_{cs} = 0.8$ the
+   restriction would have to be tighter still: the published
+   process's ceiling is 0.256 without carryover (`docs/36`). A
    restriction that actually cleared the PD objection would be
-   `c_bm <= 0.30`, and even then only if no other parameter moves.
+   $c_{bm} \le 0.30$, and even then only if no other parameter moves.
 
-2. **The `scalefactor` default is `c_bm`-independent and wrong.**
+2. **The `scalefactor` default is $c_{bm}$-independent and wrong.**
    `orig` decays the response mean at twice the nominal rate at every
    correlation strength (Section 3.5), understating residual exposure
-   by a factor of two at the first off-drug occasion and by up to 38
-   at the fourth. The two processes are therefore not matched on
-   carryover at a matched nominal `t_half`, so any comparison between
+   by a factor of two at the first off-drug occasion and by a factor
+   of 16 at the off-drug occasion four weeks after COd (corrected from
+   "up to 38", Section 3.5). The two processes are therefore not matched on
+   carryover at a matched nominal $t_{1/2}$, so any comparison between
    them confounds carryover severity with everything else.
 
-3. **The dropped first occasion is `c_bm`-independent.** It removes an
+3. **The dropped first occasion is $c_{bm}$-independent.** It removes an
    on-drug occasion from the interaction channel at every parameter
    setting, including the null.
 
@@ -674,7 +833,7 @@ cell is not power at that `c_bm`.
 
 5. **The fidelity argument does not survive inspection, but not in
    the way it first appears.** The strongest reason to prefer `orig`
-   at any `c_bm` is that it reproduces the published reference. The
+   at any $c_{bm}$ is that it reproduces the published reference. The
    vendored file does not: it is upstream HEAD (`06dac83`,
    2024-11-27), four years after the paper, not the pre-acceptance
    commit the directory README names. So `orig` as run is not
@@ -686,6 +845,13 @@ cell is not power at that `c_bm`.
    carryover grows, inverting the effect residual exposure should
    have. Pinning to the pre-acceptance commit would buy documentary
    fidelity at the cost of reinstating a scientifically wrong DGP.
+
+   *Note added 2026-10-07.* The project has since resolved this
+   differently: `orig` is now `58b32a9` itself, run as published, and
+   the repair of the coupling rule is made as an explicit, documented
+   code change to it (graded coupling, paper 01 Appendix B.1), so
+   fidelity and correctness are reported separately rather than
+   traded.
 
 Section 5 qualifies the first of these five reasons. A crossed
 decomposition shows the PD objection is narrower than it appears: it
@@ -721,9 +887,11 @@ which requires handling `p = 1` explicitly since the ratio has no
 predecessor there.
 
 **Fix separately.** The carryover recursion double-counts elapsed time
-by applying `(1/2)^(cumulative t_sd)` to an already-adjusted value.
-This is inherited from the published code and is present in `covar`
-as well, so correcting it changes both processes.
+by applying $(1/2)^{t_{sd}/t_{1/2}}$, with cumulative $t_{sd}$, to an
+already-adjusted value. This is inherited from the published code and
+is present in `covar` as well, so correcting it changes both
+processes. *(Since done for `covar` and the mean-moderation process;
+Section 3.5, note.)*
 
 A process so corrected would be better than the published original,
 better than current HEAD, and would isolate the correlation structure
@@ -733,9 +901,11 @@ objection outright.
 
 Two further conditions would independently strengthen any comparison:
 
-- Restricting the study to `c_bm <= 0.30` and to designs with
-  `t_half > 0`, under which the PD objection does not arise even
-  without the AR(1) change.
+- Restricting the study to $c_{bm} \le 0.30$ and to designs with
+  $t_{1/2} > 0$, under which the PD objection does not arise even
+  without the AR(1) change. (This holds at $\rho = 0.7$. At the
+  published $\rho_{cs} = 0.8$ it does not: the CO ceiling is 0.256 at every
+  half-life, `docs/36`, Section 4.2.)
 - Running the correlation structure and the interaction gate as
   crossed factors, as Paper 01's own Appendix B.6 suggests. Section 5
   does this for positive definiteness; the power half remains
@@ -751,22 +921,23 @@ counterfactual which has not previously been tested: how many of the
 four changes are actually required to fix PD, and does each contribute
 in the direction assumed?
 
-**Status: verified.** A single Sigma constructor was written with one
+**Status: verified.** A single $\Sigma$ constructor was written with one
 flag per candidate change, reproducing `orig` when all four flags are
 off and `covar` when all four are on. The flags are:
 
-- `ar1`: AR(1) within-factor (`rho^|w_i - w_j|`) versus compound
-  symmetry (constant `rho`). Difference 1.
-- `cfd`: decaying cross-factor off-diagonal (`c.cfct * rho^|w_i-w_j|`)
-  versus constant `c.cfct`. Difference 2.
-- `bexp`: exponential `b` (`c_bm * exp(-lambda * t_sd)`) versus the
+- `ar1`: AR(1) within-factor, $\rho^{\lvert w_t - w_s \rvert}$, versus
+  compound symmetry (constant $\rho_{cs}$). Difference 1.
+- `cfd`: decaying cross-factor off-diagonal,
+  $c_\times \rho^{\lvert w_t - w_s \rvert}$ with $c_\times$ = `c.cfct`,
+  versus constant $c_\times$. Difference 2.
+- `bexp`: exponential coupling, $c_{bm} e^{-\lambda t_{sd}}$, versus the
   ratio-graded `orig` form. Difference 3.
 - `occ1`: assign the biomarker-response correlation at occasion 1
   versus skipping it. Difference 4.
 
 All 16 combinations were crossed with three designs and three
-half-lives. For each, `c_bm` was swept from 0.05 to 0.80 in steps of
-0.01, and the largest value at which Sigma remained PD across every
+half-lives. For each, $c_{bm}$ was swept from 0.05 to 0.80 in steps of
+0.01, and the largest value at which $\Sigma$ remained PD across every
 randomization path was recorded. The reported ceiling for a
 configuration is its worst cell over all nine design-by-half-life
 combinations.
@@ -801,7 +972,7 @@ top eight positions without exception.
 
 Per design and half-life:
 
-| design | t_half | orig | AR(1) only | full covar |
+| design | $t_{1/2}$ | orig | AR(1) only | full covar |
 |---|---|---|---|---|
 | CO | 0.0 | 0.34 | 0.59 | 0.61 |
 | CO | 0.5 | 0.34 | 0.59 | 0.61 |
@@ -823,12 +994,38 @@ minimal fix is not merely sufficient; it is strictly better than
 AR(1)-only matches or exceeds full `covar` in seven of the nine cells,
 and trails it by at most 0.01 in the remaining two.
 
+*Correction (2026-10-07).* The advantage of "AR(1) only" over the full
+set is an artifact of Difference 4. "AR(1) only" keeps `occ1` off, so
+its first occasion, which is on drug in every Hybrid and OL+BDC path,
+carries no coupling; fewer coupled occasions give a smaller
+$\tilde g^\top M^{-1} \tilde g$ and a higher ceiling. With the first occasion
+coupled, AR(1) with a constant cross-factor block has a no-carryover
+ceiling of 0.452 in Hybrid and 0.438 in OL+BDC, below the full set's
+0.456 and 0.452 (worst cell 0.438 against 0.452). Without it, the same
+computation reproduces this table's AR(1)-only column: 0.497 and 0.482
+(verified by an independent closed-form computation, 2026-10-07; the
+2024 ratio-graded coupling and the step coupling coincide at
+$t_{1/2} = 0$). The conclusion that AR(1) is the one change that
+matters for positive definiteness stands; the claim that it is
+"strictly better than `covar`" does not, since it is bought by
+leaving an on-drug occasion uncoupled.
+
+*(Clarified 2026-10-08.)* "AR(1) only" here means AR(1) within
+components with the published constant cross-factor block $c_\times$
+(`cfd` off). `docs/36` and `docs/44` use "AR(1) alone" for their
+configuration B, which applies AR(1) to the cross-factor block as well,
+$c_\times\rho^{|w_t - w_s|}$. The two are different constructs: at
+$\rho = 0.7$, no carryover and the first occasion coupled, they give
+0.438 (constant block) and 0.452 (decaying block) in OL+BDC. See
+`analysis/report/compendium-mathematics.tex`, Section "The 2024
+revision of the published code: which change fixes the ceiling".
+
 ### 5.4 Why the cross-factor change is harmful
 
 The `cfd` change, applied without `ar1`, lowers the ceiling from 0.34
 to 0.16, the worst configuration tested. The mechanism is structural
 incoherence. Under compound symmetry a factor's correlation with
-itself is a constant `rho` at every lag. Introducing a decaying
+itself is a constant $\rho_{cs}$ at every lag. Introducing a decaying
 cross-factor term makes a factor's correlation with a *different*
 factor fall away with lag while its correlation with *itself* does
 not. At long lags the matrix asserts strong within-factor coupling
@@ -844,17 +1041,38 @@ This is worth stating plainly: **Difference 2 was not a PD fix. In
 isolation it is a PD regression, and its only defensible justification
 is internal consistency with Difference 1.**
 
-### 5.5 Why the b and occasion-1 changes are irrelevant to PD
+### 5.5 Why the coupling and occasion-1 changes are irrelevant to PD
 
 Neither `bexp` nor `occ1` moved the ceiling by a single grid step in
 any configuration. This is expected on inspection. The
 biomarker-response entries occupy one row and one column of a matrix
-with `2 + 3n` dimensions, and their magnitudes are bounded by `c_bm`
-itself. The binding constraint comes from the `3n x 3n` within- and
-cross-factor blocks, not from the biomarker margin.
+with $2 + 3n$ dimensions, and their magnitudes are bounded by $c_{bm}$
+itself. The binding constraint comes from the $3n \times 3n$ within-
+and cross-factor blocks, not from the biomarker margin.
 
-The practical consequence is that Differences 3 and 4 cannot be
-defended on PD grounds at all. Difference 3 is an undocumented change
+*Correction (2026-10-07).* Both statements in the preceding paragraph
+are wrong. First, the changes do move the ceiling once `ar1` is on:
+`occ1` lowers the no-carryover ceiling from 0.497 to 0.452 (Hybrid)
+and from 0.482 to 0.438 (OL+BDC), and at positive half-lives the
+coupling form moves it by several hundredths (verified, Section 5.3
+note). They leave the *worst cell* unchanged only when `ar1` is off,
+where it is 0.346 either way (under compound symmetry the ceiling of a
+0/1 coupling pattern depends only on how many occasions are coupled,
+`docs/34`, Section 5.1). Second, the mechanism is the reverse of the one
+stated. The response block is positive definite in every
+configuration examined (smallest eigenvalues 0.015 to 0.33,
+`docs/34`, Table 4.2), and by the Schur complement $\Sigma$ fails only
+when $c_{bm}^2 \tilde g^\top M^{-1} \tilde g \ge 1$, so the biomarker row is always
+the binding constraint, and the ceiling depends on the coupling
+pattern $g$ as much as on the correlation structure (`docs/34`,
+Section 3.2; `docs/36`, Section 4.2).
+
+The practical consequence drawn below survives in substance. Dropping
+occasion 1 raises the ceiling under AR(1) only by removing the
+coupling from an on-drug occasion, which is not a defensible way to
+gain range, and Difference 3 does not move the worst cell. In that
+sense Differences 3 and 4 cannot be defended on PD grounds at all.
+Difference 3 is an undocumented change
 of decay rate (Section 3.3) and Difference 4 is a defect (Section
 3.4). Whatever their merits, the non-positive-definiteness of the
 `orig` matrix is not among them.
@@ -864,6 +1082,10 @@ of decay rate (Section 3.3) and Difference 4 is a defect (Section
 1. **The minimum set of changes that fixes the PD problem is one
    change: compound symmetry to AR(1).** Adopting it alone recovers
    more feasible parameter range than the full four-change set.
+   *(Qualified 2026-10-07: only while occasion 1 stays uncoupled; with
+   it coupled, AR(1) alone reaches 0.438 against the full set's 0.452,
+   Section 5.3 note. A separable AR(1) cross-factor block, `docs/35`,
+   raises the ceiling further, to 0.474 at $\rho = 0.7$.)*
 
 2. **Three of the four changes in `covar` are not PD fixes.** They may
    be justified on other grounds, but the PD rationale does not extend
@@ -884,10 +1106,10 @@ of decay rate (Section 3.3) and Difference 4 is a defect (Section
 ## 6. Recommendations
 
 1. **Do not adopt `orig` as a comparison arm on the strength of a
-   restricted `c_bm` range.** The restriction addresses one of four
+   restricted $c_{bm}$ range.** The restriction addresses one of four
    differences and does not fully address even that one.
 
-2. **Correct Paper 01, Appendix B.5 to B.7.** The `b` row, the worked
+2. **Correct Paper 01, Appendix B.5 to B.7.** The $\tilde r$ row, the worked
    example, and the third interpretive paragraph after the B.6 table
    describe code that does not run. This is independent of any
    decision about future simulation work and should be treated as a
@@ -896,7 +1118,9 @@ of decay rate (Section 3.3) and Difference 4 is a defect (Section
 3. **Correct the directory README's provenance paragraph.** The
    vendored base is upstream HEAD `06dac83` (2024-11-27), not
    `3035581`, and the date given for that commit (2026-06-28) is
-   wrong in both year and day (it is 2020-06-27). The 'no other lines
+   wrong in year (the commit is 2020-06-28 04:00 UTC, which is
+   2020-06-27 in US Pacific time; an earlier version said the day was
+   also wrong, which depends on the time zone). The 'no other lines
    were changed' claim is accurate once the correct base is named.
    The `RON THOMAS` annotations are upstream, from `8609f12`, and
    should not be described as local modifications.
@@ -926,7 +1150,8 @@ of decay rate (Section 3.3) and Difference 4 is a defect (Section
 
 6. **Construct an `orig + AR(1)` variant.** Section 5 shows this is a
    one-line change that fixes PD more effectively than the full
-   `covar` set. It isolates the correlation structure as the sole
+   `covar` set (but see the Section 5.3 note: the margin over `covar`
+   comes from the uncoupled first occasion). It isolates the correlation structure as the sole
    difference from the reference implementation and would let Paper 01
    report a decomposition rather than a confounded bound.
 
@@ -937,7 +1162,7 @@ of decay rate (Section 3.3) and Difference 4 is a defect (Section
 
 8. **If a full decomposition of the power results is wanted, run the
    crossed design.** Correlation structure (CS versus AR(1)) crossed
-   with interaction gate (step versus graded) at `c_bm <= 0.30`, three
+   with interaction gate (step versus graded) at $c_{bm} \le 0.30$, three
    designs, three half-lives. This is four DGP variants rather than
    two and would separate the effects the present comparison
    confounds. The PD half of that decomposition is already done
@@ -945,18 +1170,21 @@ of decay rate (Section 3.3) and Difference 4 is a defect (Section
 
 ## 7. Limitations
 
-The PD sweep used a single parameter set (`rho = 0.7`,
+The PD sweep used a single parameter set ($\rho = 0.7$,
 `c.cf1t = 0.2`, `c.cfct = 0.1`, `N = 35`, eight occasions, the
 package's `extracted_rp` and `extracted_bp`). The PD boundary depends
 on all of these, and the boundaries reported in Section 4.2 should not
-be read as general. In particular, larger `rho` will tighten the
-`orig` boundary further.
+be read as general. In particular, larger $\rho$ will tighten the
+`orig` boundary further. *(Confirmed 2026-10-07: at the published
+$\rho_{cs} = 0.8$ the compound-symmetry ceiling is 0.256 without carryover,
+`docs/36`, Section 4.2.)*
 
 The Section 5 decomposition is a statement about positive
 definiteness only. It establishes which changes widen the feasible
-`c_bm` range, not which produce better statistical behavior within
+$c_{bm}$ range, not which produce better statistical behavior within
 that range. An `orig + AR(1)` process has a higher PD ceiling than
-`covar` but was not evaluated for power, Type I error, or estimator
+`covar` (while its first occasion stays uncoupled; Section 5.3 note)
+but was not evaluated for power, Type I error, or estimator
 bias, and nothing here implies it would perform better on those.
 
 The Section 5 constructor reproduces both processes from the source
@@ -1001,3 +1229,17 @@ Audit conducted 2026-09-08 against the working tree at commit
 `3ce1162`. Computations executed on the host R session (R 4.6.1),
 outside the project container. Scratch scripts were not retained in
 the repository.
+
+The 2026-10-07 review corrections were checked with an independent
+base-R closed-form ceiling computation (not retained in the
+repository) and with `gh api` queries of the upstream commit history.
+
+## References
+
+1. Hendrickson RC, Thomas RG, Schork NJ, Raskind MA. Optimizing
+   aggregated N-of-1 trial designs for predictive biomarker validation:
+   statistical methods and theoretical findings. *Frontiers in Digital
+   Health* 2020;2:13. doi:10.3389/fdgth.2020.00013. (Verified via
+   Crossref, 2026-10-07.) Code: `github.com/rchendrickson/pmsimstats`;
+   the vendored copy discussed here is HEAD `06dac83`, and the
+   published state is commit `58b32a9`.

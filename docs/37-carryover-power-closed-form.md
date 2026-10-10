@@ -3,6 +3,24 @@
 
 **Author.** pmsimstats team
 
+**Purpose.** This paper gives closed-form moments and power for the
+paired-difference interaction statistic (E9) under the Hendrickson et
+al. (2020) data-generating process, and uses them to show how the
+carryover half-life acts on interaction power: only through the
+biomarker coupling gap between on-drug and off-drug visits. It is the
+closed-form reference for paper 01 and for `docs/38`. Its results are
+derived analytically and checked against direct Monte Carlo simulation
+and against the published mixed-model analysis.
+
+(Updated 2026-10-09: results at $t_{1/2} > 0$ now use anchored
+carryover; see `docs/53`. Values changed by at most 0.021 in power
+(closed form at most 0.017, in CO; at most 0.002 in Hybrid and
+OL+BDC; the larger Monte Carlo changes of the Hybrid validation table
+are mostly reseeding, see the note there) and by 2.7 in the CO
+path-mean term; conclusions unchanged. Every slope, contrast variance
+and ceiling, and every closed-form value at $t_{1/2} = 0$, is
+unchanged.)
+
 ```{=latex}
 \clearpage
 \tableofcontents
@@ -16,7 +34,22 @@
 The notation follows the compendium's canonical table,
 `analysis/report/NOTATION.md`. Symbols marked *canonical* carry the
 meaning given there; symbols marked *local* are introduced in this
-paper and chosen not to collide with any canonical symbol.
+paper and chosen not to collide with any canonical symbol. On
+2026-10-09 the contrast-biomarker correlation was renamed from
+$\rho_{\Delta B}$ to $r_{\Delta B}$ (as in
+`analysis/report/compendium-mathematics.tex`; $\rho$ is the canonical
+serial correlation), the E9 regression residual from $\varepsilon_i$
+to $e_i$, and the normal law written $\mathcal{N}$.
+
+(Notation, 2026-10-09: following the merged
+`analysis/report/NOTATION.md`, the residual variance of the contrast
+given the biomarker, previously $\tau^2$ and $\tau_p^2$, is now
+$\sigma_\Delta^2$ and $\sigma_{\Delta,p}^2$, because $\tau^2$ is the
+between-participant variance of the drug effect (treatment
+heterogeneity) in paper 04 and `docs/58`. The within-factor
+correlation of the compound-symmetry construct is now written
+$\rho_{cs}$, and $\rho$ is the AR(1) correlation per week only; both
+equal 0.8 at the published values.)
 
 **Conventions** (canonical). $N$ is the total number of patients
 across all randomization paths (70 throughout), never a per-path count.
@@ -35,14 +68,15 @@ multiplier); they are matched at 0.25 unless stated otherwise (rule 2).
 |----------|----------------------------------------|------|
 | $i$ | patient | canonical |
 | $t$, $s$ | visit; $t = 0$ is baseline, $t = 1, \ldots, 8$ the post-baseline visits | canonical |
-| $w_t$ | calendar time of visit $t$, in weeks | local |
+| $w_t$ | calendar time of visit $t$, in weeks | canonical |
 | $p$ | randomization path | local |
 | $P$ | number of paths: 4 for Hybrid, 2 for OL+BDC and CO | canonical |
 | $N$ | total number of patients, 70 | canonical |
 | $n_p$ | patients in path $p$: 18, 18, 17, 17 (Hybrid); 35, 35 (OL+BDC, CO) | local |
-| $q_p$ | share of patients in path $p$, $n_p/N$ | local |
-| $n_{\text{on}}$, $n_{\text{off}}$ | on-drug and off-drug post-baseline visits of a path | local |
-| $e_t$ | expectancy at visit $t$: 1 open-label, 0.5 blinded | local |
+| $n$ | patients in a single path, in the single-path argument of Section 4.4 | local |
+| $\varpi_p$ | share of patients in path $p$, $n_p/N$ (Notation, 2026-10-09: formerly $q_p$; $q$ is the canonical path index, and the compendium and the paper 04 protocol write $\varpi_p$) | local |
+| $n_{\text{on}}$, $n_{\text{off}}$ | on-drug and off-drug post-baseline visits of a path | canonical |
+| $\eta_t$ | design expectancy at visit $t$: 1 open-label, 0.5 blinded | canonical |
 
 Table: Notation index: design and index symbols
 
@@ -54,8 +88,9 @@ Table: Notation index: design and index symbols
 | $\mathrm{BL}$ | baseline level | canonical |
 | $TV_t$, $PB_t$, $BR_t$ | time-variant, placebo-belief and biologic-response components | canonical |
 | $S_t$ | sum of the components, $TV_t + PB_t + BR_t$ | local |
-| $\sigma_{TV}$, $\sigma_{PB,t}$, $\sigma_{BR}$ | component standard deviations: 10, $10e_t$, 8 | canonical ($\sigma_{BR}$) |
-| $\varepsilon_i$ | residual of the E9 regression | canonical |
+| $\sigma_{TV}$, $\sigma_{PB,t}$, $\sigma_{BR}$ | component standard deviations: 10, $\sigma_{PB}\eta_t = 10\eta_t$, 8 | canonical |
+| $\sigma_{PB}$ | placebo-belief standard deviation at full expectancy, 10 | canonical |
+| $e_i$ | residual of the E9 regression (not the canonical observation-level $\varepsilon_{it}$) | local |
 
 Table: Notation index: outcome and response component symbols
 
@@ -66,8 +101,9 @@ Table: Notation index: outcome and response component symbols
 | $D_t$ | binary drug state: 1 on drug, 0 off drug | canonical |
 | $t_{sd}$ | time since discontinuation | canonical |
 | $t_{1/2}$ | carryover half-life, in weeks | canonical |
-| $\phi_t$ | anchored decay factor, $2^{-t_{sd}/t_{1/2}}$ off drug; 0 before first exposure or when $t_{1/2} = 0$ | local |
-| $\mu_{BR,t}$ | mean drug response at visit $t$ | local |
+| $\phi_t$ | anchored decay factor, $2^{-t_{sd}/t_{1/2}}$ off drug; 0 before first exposure or when $t_{1/2} = 0$ | canonical |
+| $\mu_{BR,t}$, $\mu_{BR,\text{last}}$ | mean drug response at visit $t$; at the last on-drug visit ($\mu_{\text{last}}$ of NOTATION.md) | canonical |
+| $\mathbf 1[\cdot]$ | indicator function | local |
 
 Table: Notation index: treatment exposure and carryover symbols
 
@@ -78,15 +114,16 @@ Table: Notation index: treatment exposure and carryover symbols
 | $B$ | biomarker | canonical |
 | $\mu_{bm}$, $\sigma_{bm}$ | biomarker mean and standard deviation (124.33, 15.36) | canonical ($\sigma_{bm}$) |
 | $b$ | standardized biomarker, $(B - \mu_{bm})/\sigma_{bm}$ | canonical |
+| $\bar B$ | sample mean of the biomarker | canonical |
 | $c_{bm}$ | covariance-moderation strength: on-drug correlation of $B$ with $BR_t$ | canonical |
 | $\beta_{bm}$ | mean-moderation strength: the shift of $BR_t$ is $\beta_{bm}\sigma_{BR}b\,h_t$ | canonical |
-| $g_t$ | coupling: the fraction of $c_{bm}$ present in $\mathrm{Cor}(B, BR_t)$ | local |
+| $g_t$ | coupling: the fraction of $c_{bm}$ present in $\mathrm{Cor}(B, BR_t)$; $g_0 = 0$ at baseline | canonical |
 | $g_p$ | the coupling vector $(g_1, \ldots, g_8)$ of path $p$ | local |
 | $h_t$ | moderation profile: the fraction of the full mean shift present at visit $t$ | local |
-| $\bar g_{\text{off}}$, $\bar h_{\text{off}}$ | mean coupling or moderation over a path's off-drug visits | local |
-| $\bar g_{\text{on}} - \bar g_{\text{off}}$ | coupling gap | local |
+| $\bar g_{\text{on}}$, $\bar g_{\text{off}}$, $\bar h_{\text{off}}$ | mean coupling over a path's on-drug visits ($\bar g_{\text{on}} = 1$ in every rule), mean coupling or moderation over its off-drug visits | local |
+| $\mathcal G = \bar g_{\text{on}} - \bar g_{\text{off}}$ | coupling gap | canonical |
 | $\bar\phi_{\text{off}}$ | mean of $\phi_t$ over the off-drug visits | local |
-| $c_{bm}^{\ast}$ | ceiling: the largest $c_{bm}$ for which the correlation matrix is positive definite | local |
+| $c_{bm}^{\ast}$ | ceiling: the largest $c_{bm}$ for which the correlation matrix is positive definite | canonical |
 
 Table: Notation index: biomarker and interaction strength symbols
 
@@ -94,15 +131,16 @@ Table: Notation index: biomarker and interaction strength symbols
 
 | Symbol | Meaning | Status |
 |----------|----------------------------------------|------|
-| $\rho$ | within-factor correlation, 0.8: between any two visits under CS, per week of separation under AR(1) | canonical |
-| $c_1$, $c_\times$ | cross-factor correlation at the same visit (0.2) and at different visits (0.1) | local |
-| $A$ | AR(1) time kernel, $A_{ts} = \rho^{\lvert w_t - w_s\rvert}$ | local |
+| $\rho$ | AR(1) within-factor correlation per week of separation, 0.8 | canonical |
+| $\rho_{cs}$ | within-factor correlation between any two visits under CS, 0.8 | canonical |
+| $c_1$, $c_\times$ | cross-factor correlation at the same visit (0.2) and at different visits (0.1) | canonical |
+| $A$ | AR(1) time kernel, $A_{ts} = \rho^{\lvert w_t - w_s\rvert}$ | canonical |
 | $I$, $J$, $I_3$, $J_3$ | identity and all-ones matrices: the occasion and person-level time kernels, and their $3 \times 3$ factor forms | local |
-| $K$ | separable factor matrix, $(1 - c_1)I_3 + c_1J_3$ | local |
+| $K$ | separable factor matrix, $(1 - c_1)I_3 + c_1J_3$ | canonical |
 | $K_a$, $K_b$ | factor matrices of the `covar` decomposition | local |
 | $K_o$, $K_p$ | factor matrices of the CS decomposition (occasion and person level) | local |
-| $K^{(k)}$, $T^{(k)}$ | factor and time parts of term $k$ of a decomposition | local |
-| $s_t$ | vector of factor standard deviations at visit $t$ | local |
+| $K^{(\ell)}$, $T^{(\ell)}$ | factor and time parts of term $\ell$ of a decomposition | local |
+| $v_t$, $v$ | vector of factor standard deviations at visit $t$; $v$ when constant over visits | local |
 
 Table: Notation index: correlation structure symbols
 
@@ -110,21 +148,21 @@ Table: Notation index: correlation structure symbols
 
 | Symbol | Meaning | Status |
 |----------|----------------------------------------|------|
-| $a_t$ | contrast weight: $1/n_{\text{on}}$ on drug, $-1/n_{\text{off}}$ off drug | local |
-| $\Delta_i$ | patient $i$'s on-minus-off contrast, $\sum_t a_t Y_{it}$ | local |
-| $\beta_0$ | intercept of the E9 regression | local |
+| $a_t$ | contrast weight: $1/n_{\text{on}}$ on drug, $-1/n_{\text{off}}$ off drug | canonical |
+| $\Delta_i$ | patient $i$'s on-minus-off contrast, $\sum_t a_t Y_{it}$ | canonical |
+| $\beta_0$ | intercept of the E9 regression | canonical |
 | $\beta_{bm:D}$ | the interaction slope: the population slope of $\Delta$ on $B$, the estimand of E9 | canonical |
 | $\hat\beta_{bm:D}$ | its E9 estimate | canonical |
 | $\beta_{bm:D,p}$ | the slope in path $p$ | local |
 | $\bar\beta_{bm:D}$ | the patient-weighted mean slope over paths | local |
 | $\beta_{bm:D}^{\text{E9}}$, $\beta_{bm:D}^{\text{E9b}}$ | the slope under E9 and E9b | local |
-| $\mu$, $\mu_p$ | expected contrast, overall and in path $p$ | local |
-| $\tau^2$, $\tau_p^2$ | residual variance of $\Delta$ given $B$, overall and in path $p$ | local |
-| $\rho_{\Delta B}$ | correlation between contrast and biomarker | local |
-| $m_1$, $m_2$, $m_e$, $m_{ee}$, $m_{2e}$ | weight sums of the CS variance formula: $\sum a_t$, $\sum a_t^2$, $\sum a_te_t$, $\sum a_t^2e_t^2$, $\sum a_t^2e_t$ | local |
+| $\mu$, $\mu_p$, $\bar\mu$ | expected contrast, overall and in path $p$; $\bar\mu = \sum_p \varpi_p\mu_p$ | local |
+| $\sigma_\Delta^2$, $\sigma_{\Delta,p}^2$ | residual variance of $\Delta$ given $B$, overall and in path $p$ (formerly $\tau^2$, $\tau_p^2$) | canonical |
+| $r_{\Delta B}$ | correlation between contrast and biomarker | canonical |
+| $m_1$, $m_2$, $m_e$, $m_{ee}$, $m_{2e}$ | weight sums of the CS variance formula: $\sum a_t$, $\sum a_t^2$, $\sum a_t\eta_t$, $\sum a_t^2\eta_t^2$, $\sum a_t^2\eta_t$ | local |
 | $\mathrm{SS}_{bm}$ | biomarker sum of squares, $\sum_i (B_i - \bar B)^2$ | local |
 | $\sigma^2_{\text{res}}$ | pooled residual variance including the path-mean term | local |
-| $\Lambda$ | noncentrality of the $t$-statistic | local |
+| $\Lambda$ | noncentrality of the $t$-statistic | canonical |
 | $\alpha$ | significance level, 0.05 | canonical |
 | $z$ | Monte Carlo deviation: simulated minus closed-form power, in binomial standard errors (Section 6) | local |
 
@@ -179,7 +217,9 @@ Table: Notation index: symbols for the statistic and its moments
   correlation $c_\times\rho^{\text{gap}}$ (configuration F of
   `docs/36`).
 - **Separable.** Correlation that factors as a factor part times a time
-  part, $K \otimes A$ (configuration C of `docs/36`).
+  part, $K \otimes A$ (configuration C of `docs/36`, evaluated here at
+  $\rho = 0.8$; it is the covariance construct of the refined process
+  of paper 01, which uses $\rho = 0.7$).
 - **`58b32a9`.** The commit of Hendrickson's code that defines the
   published construct.
 - **Step rule.** The published coupling: $g_t = 1$ wherever the mean
@@ -245,7 +285,7 @@ factor-by-time (separable) form. The results:
    $c_{bm} = 0.25$) comes from the published analysis counting the
    baseline visit as off drug, which leaves a slope of
    $1/(n_{\text{off}} + 1)$ of its no-carryover value; the closed form
-   reproduces the published mean estimate to within 0.003.
+   reproduces the published mean estimate to within 0.004.
 3. **Under graded coupling, power declines monotonically, and the
    decline is provable.** With the coupling decaying as the drug
    effect does, $\bar g_{\text{off}}$ increases strictly with
@@ -319,8 +359,8 @@ severity $\mathrm{BL}$, biomarker $B$, and three response factors
 $TV_t$, $PB_t$, $BR_t$ at each visit, jointly normal; outcome
 $Y_t = \mathrm{BL} - (TV_t + PB_t + BR_t)$, and $Y_0 = \mathrm{BL}$ at
 baseline. Standard deviations $\sigma_{TV} = 10$,
-$\sigma_{PB,t} = 10e_t$, $\sigma_{BR} = 8$, $\sigma_{bm} = 15.36$.
-Correlations: within a factor, $\rho = 0.8$ between any two visits
+$\sigma_{PB,t} = 10\eta_t$, $\sigma_{BR} = 8$, $\sigma_{bm} = 15.36$.
+Correlations: within a factor, $\rho_{cs} = 0.8$ between any two visits
 (compound symmetry); between factors, $c_1 = 0.2$ at the same visit and
 $c_\times = 0.1$ at different visits. $\mathrm{BL}$ is uncorrelated
 with everything else. The biomarker is correlated with $BR_t$ only,
@@ -402,7 +442,7 @@ a_t = \begin{cases} 1/n_{\text{on}} & \text{on drug} \\
 $$
 
 followed by the ordinary least squares (OLS) regression
-$\Delta_i = \beta_0 + \beta_{bm:D} B_i + \varepsilon_i$ over all $N$
+$\Delta_i = \beta_0 + \beta_{bm:D} B_i + e_i$ over all $N$
 patients and a $t$-test of the estimate $\hat\beta_{bm:D}$ with $N - 2$
 degrees of freedom.
 
@@ -426,7 +466,7 @@ Two variants are treated:
 - **E9b**, the same with the baseline visit counted as one more
   off-drug observation ($n_{\text{off}} + 1$ off-drug rows). This is
   how the published analysis codes it: `lme_analysis()` adds a
-  baseline row with $t = 0$ and $D_b = 0$ before fitting
+  baseline row with $t = 0$ and `Db = 0` (binary drug state $D = 0$) before fitting
   `Sx ~ bm + Db + t + bm*Db + (1|ptID)`. E9b is not that mixed model,
   but Section 6 shows that its moments and power match the mixed
   model's closely in this setting, so it serves as a closed-form
@@ -450,7 +490,7 @@ $\Delta$ on $B$ is exactly linear,
 
 $$
 E(\Delta \mid B) = \mu + \beta_{bm:D} (B - \mu_{bm}), \qquad
-\mathrm{Var}(\Delta \mid B) = \tau^2 ,
+\mathrm{Var}(\Delta \mid B) = \sigma_\Delta^2 ,
 $$
 
 and three quantities per path determine everything: the variance of
@@ -458,16 +498,16 @@ $\Delta$, its covariance with $B$, and its mean.
 
 ### 4.1 The variance of the contrast
 
-With $m_1 = \sum a_t$, $m_2 = \sum a_t^2$, $m_e = \sum a_t e_t$,
-$m_{ee} = \sum a_t^2 e_t^2$ and $m_{2e} = \sum a_t^2 e_t$ (sums over the
+With $m_1 = \sum a_t$, $m_2 = \sum a_t^2$, $m_e = \sum a_t \eta_t$,
+$m_{ee} = \sum a_t^2 \eta_t^2$ and $m_{2e} = \sum a_t^2 \eta_t$ (sums over the
 eight post-baseline visits), expanding $\mathrm{Var}(a^\top S)$ over the
 CS structure gives
 
 $$
 \begin{aligned}
 \mathrm{Var}(\Delta) = {} & (\sigma_{TV}^2 + \sigma_{BR}^2)
-  \big[\rho m_1^2 + (1 - \rho) m_2\big]
-+ \sigma_{PB}^2 \big[\rho m_e^2 + (1 - \rho) m_{ee}\big] \\
+  \big[\rho_{cs} m_1^2 + (1 - \rho_{cs}) m_2\big]
++ \sigma_{PB}^2 \big[\rho_{cs} m_e^2 + (1 - \rho_{cs}) m_{ee}\big] \\
 & + 2\sigma_{TV}\sigma_{BR}\big[c_\times m_1^2 + (c_1 - c_\times) m_2\big]
 + 2(\sigma_{TV} + \sigma_{BR})\sigma_{PB}
   \big[c_\times m_1 m_e + (c_1 - c_\times) m_{2e}\big].
@@ -475,8 +515,8 @@ $$
 $$
 
 For E9, $m_1 = 0$, and the person-level part of every factor (the
-$\rho$ terms) cancels except where the placebo factor's
-visit-dependent scale $e_t$ keeps $m_e$ away from zero. Evaluated at
+$\rho_{cs}$ terms) cancels except where the placebo factor's
+visit-dependent scale $\eta_t$ keeps $m_e$ away from zero. Evaluated at
 the published values (verified, by hand for path 1 and by the script
 for all paths):
 
@@ -490,7 +530,7 @@ Table: Contrast variance $\mathrm{Var}(\Delta)$ under E9 and E9b by path, CS con
 **Proposition 1.** *$\mathrm{Var}(\Delta)$ does not depend on
 $t_{1/2}$.* The formula contains the response standard deviations and
 correlations only; the half-life enters the published construct
-through the response means ($\mu_{BR,t}$, with its recursive carryover)
+through the response means ($\mu_{BR,t}$, through its carryover term)
 and through the coupling $g_t$, and neither appears. The script
 confirms the value is identical at every half-life to the last digit
 (verified). The argument is not specific to CS: it holds for any
@@ -551,12 +591,12 @@ For the covariance rules (step and graded), $B$ explains part of the
 existing variance of $\Delta$, so
 
 $$
-\tau^2 = \mathrm{Var}(\Delta) - \beta_{bm:D}^2\sigma_{bm}^2 .
+\sigma_\Delta^2 = \mathrm{Var}(\Delta) - \beta_{bm:D}^2\sigma_{bm}^2 .
 $$
 
 Under mean moderation the shift adds variance rather than explaining
 it, so $\mathrm{Var}(\Delta)$ grows by $\beta_{bm:D}^2\sigma_{bm}^2$ and
-$\tau^2$ is the covariance-rule $\mathrm{Var}(\Delta)$ itself. This is
+$\sigma_\Delta^2$ is the covariance-rule $\mathrm{Var}(\Delta)$ itself. This is
 why, at the same slope, mean moderation has slightly less power than
 the covariance rules without carryover (Section 5).
 
@@ -564,7 +604,7 @@ Power depends on these only through the correlation between the
 contrast and the biomarker,
 
 $$
-\rho_{\Delta B} = \frac{\beta_{bm:D}\sigma_{bm}}{\sqrt{\mathrm{Var}(\Delta)}}
+r_{\Delta B} = \frac{\beta_{bm:D}\sigma_{bm}}{\sqrt{\mathrm{Var}(\Delta)}}
 = -c_{bm}\,\frac{\sigma_{BR}\,(1 - \bar g_{\text{off}})}{\mathrm{SD}(\Delta)}
 \quad \text{(E9, covariance rules)},
 $$
@@ -576,28 +616,28 @@ $$
 For a single path of $n$ patients, write
 $\mathrm{SS}_{bm} = \sum_i (B_i - \bar B)^2$. Conditional on the biomarker values
 the OLS slope is exactly normal,
-$\hat\beta_{bm:D} \mid B \sim N(\beta_{bm:D}, \tau^2/\mathrm{SS}_{bm})$, and its $t$-statistic
+$\hat\beta_{bm:D} \mid B \sim \mathcal{N}(\beta_{bm:D}, \sigma_\Delta^2/\mathrm{SS}_{bm})$, and its $t$-statistic
 is exactly noncentral $t$ with $n - 2$ degrees of freedom and
-noncentrality $\beta_{bm:D}\sqrt{\mathrm{SS}_{bm}}/\tau$. Since
+noncentrality $\beta_{bm:D}\sqrt{\mathrm{SS}_{bm}}/\sigma_\Delta$. Since
 $\mathrm{SS}_{bm} \sim \sigma_{bm}^2\chi^2_{n-1}$, power is the noncentral-$t$ tail
 probability averaged over that $\chi^2$ law, and
-$\mathrm{Var}(\hat\beta_{bm:D}) = \tau^2 E(1/\mathrm{SS}_{bm}) =
-\tau^2/\{\sigma_{bm}^2(n - 3)\}$. At $\mathrm{SS}_{bm} = \sigma_{bm}^2(n-1)$ the
+$\mathrm{Var}(\hat\beta_{bm:D}) = \sigma_\Delta^2 E(1/\mathrm{SS}_{bm}) =
+\sigma_\Delta^2/\{\sigma_{bm}^2(n - 3)\}$. At $\mathrm{SS}_{bm} = \sigma_{bm}^2(n-1)$ the
 noncentrality is
 
 $$
-\Lambda = \sqrt{n - 1}\;\frac{\rho_{\Delta B}}{\sqrt{1 - \rho_{\Delta B}^2}} ,
+\Lambda = \sqrt{n - 1}\;\frac{r_{\Delta B}}{\sqrt{1 - r_{\Delta B}^2}} ,
 $$
 
 so power is governed by the contrast-biomarker correlation alone.
 
 E9 pools the four paths with a common intercept. With
-$q_p = n_p/N$ and $\mu_p = E(\Delta)$ in path $p$, the pooled slope
-has mean $\bar\beta_{bm:D} = \sum_p q_p\beta_{bm:D,p}$, and the differences
+$\varpi_p = n_p/N$ and $\mu_p = E(\Delta)$ in path $p$, the pooled slope
+has mean $\bar\beta_{bm:D} = \sum_p \varpi_p\beta_{bm:D,p}$, and the differences
 between paths act as additional residual variance,
 
 $$
-\sigma^2_{\text{res}} = \sum_p q_p\big[\tau_p^2 + (\mu_p - \bar\mu)^2
+\sigma^2_{\text{res}} = \sum_p \varpi_p\big[\sigma_{\Delta,p}^2 + (\mu_p - \bar\mu)^2
   + \sigma_{bm}^2(\beta_{bm:D,p} - \bar\beta_{bm:D})^2\big],
 $$
 
@@ -608,8 +648,8 @@ $\bar\beta_{bm:D}\sqrt{\mathrm{SS}_{bm}}/\sigma_{\text{res}}$, $\mathrm{SS}_{bm}
 
 $$
 \mathrm{Var}(\hat\beta_{bm:D}) \approx
-\frac{\sum_p q_p\big[\tau_p^2 + (\mu_p - \bar\mu)^2\big]}{(N - 3)\,\sigma_{bm}^2}
-+ \frac{2}{N}\sum_p q_p(\beta_{bm:D,p} - \bar\beta_{bm:D})^2 .
+\frac{\sum_p \varpi_p\big[\sigma_{\Delta,p}^2 + (\mu_p - \bar\mu)^2\big]}{(N - 3)\,\sigma_{bm}^2}
++ \frac{2}{N}\sum_p \varpi_p(\beta_{bm:D,p} - \bar\beta_{bm:D})^2 .
 $$
 
 Power is computed by averaging the noncentral-$t$ tail probability over
@@ -621,10 +661,22 @@ is small: in Hybrid at most 0.30 against residual variances of 41-49,
 under 0.7% of the total, decreasing with $t_{1/2}$; in OL+BDC at most
 0.6% (verified). In CO it is not small (Section 5.7).
 
+(Note added 2026-10-08: the two expressions above treat the
+slope-heterogeneity term differently. The noncentrality carries it as
+$\sigma_{bm}^2(\beta_{bm:D,p} - \bar\beta_{bm:D})^2$ inside
+$\sigma^2_{\text{res}}$, which corresponds to a factor $1/N$ in the
+variance of the slope, while the variance expression has $2/N$, the
+value that follows from $\mathrm{Var}\{(B_i - \mu_{bm})^2\} =
+2\sigma_{bm}^4$ and that a Monte Carlo check matches to 1.1%. The
+inconsistency is negligible in every design evaluated, because the
+term is far smaller than the residual variance, and no reported power
+changes. See `analysis/report/compendium-mathematics.tex`, Section
+"Further moments of the paired-difference statistic".)
+
 ## 5. The effect of the half-life
 
 By Propositions 1 and 2, $t_{1/2}$ affects power only through
-$\bar g_{\text{off}}$, and $|\rho_{\Delta B}|$, the noncentrality and
+$\bar g_{\text{off}}$, and $|r_{\Delta B}|$, the noncentrality and
 power are all strictly decreasing in $\bar g_{\text{off}}$ (or
 $\bar h_{\text{off}}$ for the mean rules). The rules differ only in how
 that average depends on $t_{1/2}$. Sections 5.1 to 5.5 treat the Hybrid
@@ -637,9 +689,9 @@ Closed-form power and mean slope (verified):
 | Step (published) | E9 | 0.721 | 0.050 | 0.050 | 0.050 | 0.050 | 0.050 |
 | | E9b | 0.654 | 0.081 | 0.081 | 0.081 | 0.081 | 0.081 |
 | Graded | E9 | 0.721 | 0.721 | 0.712 | 0.631 | 0.473 | 0.278 |
-| | E9b | 0.654 | 0.653 | 0.647 | 0.586 | 0.473 | 0.328 |
+| | E9b | 0.654 | 0.653 | 0.647 | 0.586 | 0.472 | 0.327 |
 | Mean moderation | E9 | 0.681 | 0.681 | 0.682 | 0.682 | 0.682 | 0.682 |
-| | E9b | 0.619 | 0.619 | 0.620 | 0.620 | 0.621 | 0.621 |
+| | E9b | 0.619 | 0.619 | 0.620 | 0.620 | 0.620 | 0.620 |
 
 Table: Closed-form power by rule, variant, and $t_{1/2}$, Hybrid design under CS
 
@@ -648,26 +700,34 @@ Table: Closed-form power by rule, variant, and $t_{1/2}$, Hybrid design under CS
 | Step (published) | E9 | -0.130 | 0 | 0 | 0 | 0 | 0 |
 | | E9b | -0.130 | -0.029 | -0.029 | -0.029 | -0.029 | -0.029 |
 | Graded | E9 | -0.130 | -0.130 | -0.129 | -0.118 | -0.098 | -0.072 |
-| | E9b | -0.130 | -0.130 | -0.129 | -0.121 | -0.106 | -0.085 |
+| | E9b | -0.130 | -0.130 | -0.129 | -0.121 | -0.105 | -0.085 |
 | Mean moderation | both | -0.130 | -0.130 | -0.130 | -0.130 | -0.130 | -0.130 |
 
 Table: Closed-form mean slope by rule, variant, and $t_{1/2}$, Hybrid design under CS
 
-![Power of the paired-difference statistic against carryover half-life](figures/37-fig1-power-closed-form.png)
+(Corrected 2026-10-08: the graded E9b slope at $t_{1/2} = 1$ is
+$-0.105475$, which rounds to $-0.105$; the table first gave $-0.106$,
+from rounding $-0.1055$ a second time. Recomputed with
+`analysis/scripts/compendium-mathematics/check-closed-form-extensions.R`.)
 
-*Figure 1. Closed-form power (lines; filled points at $t_{1/2} = 0$)
-against carryover half-life on a logarithmic axis, with direct Monte
-Carlo estimates (open points), for the four rules (decayed mean
-moderation dashed; Section 5.6). Hybrid design, $N = 70$,
-$c_{bm} = \beta_{bm} = 0.25$, CS construct.*
+![Closed-form power of the paired-difference statistic (lines; filled
+points at $t_{1/2} = 0$) against carryover half-life on a logarithmic
+axis, with direct Monte Carlo estimates (open points), for the four
+rules (decayed mean moderation dashed; Section 5.6). Hybrid design,
+$N = 70$, $c_{bm} = \beta_{bm} = 0.25$, CS
+construct.](figures/37-fig1-power-closed-form.png)
 
 ### 5.1 Step coupling: a switch, not a decline
 
 Under the published rule $g_t = \mathbf 1[\mu_{BR,t} \neq 0]$. With
 $t_{1/2} > 0$ the off-drug mean is
-$\mu_{BR,t} = \mu_{BR,t-1}2^{-t_{sd}/t_{1/2}} > 0$ at every off-drug
-visit, because every off-drug visit in the Hybrid design follows an
-exposure. Hence $\bar g_{\text{off}} = 1$ for every $t_{1/2} > 0$, and
+$\mu_{BR,t} = \mu_{BR,\text{last}}\,2^{-t_{sd}/t_{1/2}} > 0$ at every
+off-drug visit, with $\mu_{BR,\text{last}}$ the mean at the last on-drug
+visit (anchored carryover, `docs/53`), because every off-drug visit in
+the Hybrid design follows an exposure. (The published code instead
+decays the previous visit's already-decayed mean by the cumulative
+$t_{sd}$, which compounds the decay; the mean is positive under either
+form, so the step rule is the same.) Hence $\bar g_{\text{off}} = 1$ for every $t_{1/2} > 0$, and
 by Proposition 2
 
 $$
@@ -689,13 +749,18 @@ present: with constant coupling the biomarker moderates on-drug and
 off-drug response equally, and there is no interaction left to
 detect.
 
-One numerical footnote. Below about 0.012 weeks the recursive
-off-drug mean at the latest off-drug visits underflows to exactly zero
-in double precision (it is about $2^{-1300}$ at the last off-drug visit
-of path 4 when $t_{1/2} = 0.01$), so the step rule, as coded both here
-and in the published code, switches those visits' coupling off. Figure
-1 therefore starts at 0.02 weeks. This is a floating-point effect, not
-a property of the model.
+One numerical footnote. At very short half-lives the off-drug mean at
+the latest off-drug visits underflows to exactly zero in double
+precision, so the step rule switches those visits' coupling off. Under
+anchored carryover this happens below about 0.0065 weeks (path 4's last
+off-drug visit, $t_{sd} = 7$, has factor $2^{-700}$ at
+$t_{1/2} = 0.01$, still representable); under the published code's
+compounding recursion it happens below about 0.012 weeks (about
+$2^{-1300}$ at the same visit when $t_{1/2} = 0.01$) (computed,
+updated 2026-10-09). The curves of Figure 1 start at 0.03 weeks
+(`01-e9-closed-form.R`; the text first said 0.02), above both
+thresholds. This is a floating-point effect, not a property of the
+model.
 
 The residual published power is explained exactly. E9b predicts mean
 slopes of $-0.1302/4 = -0.0325$ in paths 1 and 2 and
@@ -717,18 +782,18 @@ $$
 since every off-drug visit has $t_{sd,t} \ge 1$.
 
 **Proposition 3.** *Under graded coupling, in every path, $|\beta_{bm:D,p}|$
-is strictly decreasing and $\tau_p^2$ strictly increasing in
+is strictly decreasing and $\sigma_{\Delta,p}^2$ strictly increasing in
 $t_{1/2}$; hence the noncentrality, and the power of the path-stratified
 test, are strictly decreasing in $t_{1/2}$ on $(0, \infty)$.* With
 $\bar g_{\text{off}}$ strictly increasing, Proposition 2 gives the
-slope, Section 4.3 gives $\tau_p^2 = \mathrm{Var}(\Delta) -
+slope, Section 4.3 gives $\sigma_{\Delta,p}^2 = \mathrm{Var}(\Delta) -
 \beta_{bm:D,p}^2\sigma_{bm}^2$ with $\mathrm{Var}(\Delta)$ fixed
 (Proposition 1), and the noncentral $t$ tail probability is increasing
 in $|\Lambda|$. For the pooled E9 statistic as specified, with its common
 intercept, the path-mean term of Section 4.4 also moves with
 $t_{1/2}$; it is under 0.7% of the variance and decreases with
 $t_{1/2}$, and power is non-increasing at every step of a 120-point grid
-from 0.02 to 4 weeks for both E9 and E9b (verified), with steps too
+from 0.03 to 4 weeks for both E9 and E9b (verified), with steps too
 small to resolve only at the shortest half-lives, where the loss is
 $O(2^{-1/t_{1/2}})$.
 
@@ -755,11 +820,14 @@ retains part of the slope.
 ### 5.3 Mean moderation: no dependence
 
 Under mean moderation the interaction is a shift of the on-drug mean
-only, so $\beta_{bm:D} = -\beta_{bm}\sigma_{BR}/\sigma_{bm}$ and $\tau^2$ are both
+only, so $\beta_{bm:D} = -\beta_{bm}\sigma_{BR}/\sigma_{bm}$ and $\sigma_\Delta^2$ are both
 free of $t_{1/2}$, and power is constant (0.681-0.682 for E9). The
-recursive carryover of the mean response off drug changes $\mu_p$ but
-not $\beta_{bm:D,p}$ or $\tau_p^2$; it enters only through the negligible
-path-mean term.
+carryover of the mean response off drug changes $\mu_p$ but not
+$\beta_{bm:D,p}$ or $\sigma_{\Delta,p}^2$; it enters only through the negligible
+path-mean term. This holds for the anchored carryover used here and
+for the published compounding recursion alike: replacing one by the
+other changes only $\mu_p$ (verified in all 768 per-path rows,
+2026-10-09).
 
 ### 5.4 Power as a function of the coupling gap
 
@@ -785,18 +853,27 @@ is 1. Under graded coupling it is 0.991 at $t_{1/2} = 0.2$, 0.906 at
 0.5, 0.754 at 1 and 0.551 at 2 weeks (patient-weighted over paths).
 Under the published step rule it is 0 at every positive half-life.
 
-![Power against the coupling gap](figures/37-fig2-power-vs-gap.png)
-
-*Figure 2. Closed-form power against the coupling gap, the mean
-on-drug minus mean off-drug coupling over the post-baseline visits,
-with the positions of the coupling rules marked (E9). Under E9b the
-baseline row keeps zero coupling, so its power does not fall to the
-test size at gap 0. Hybrid design, $N = 70$, $c_{bm} = 0.25$.*
+![Closed-form power against the coupling gap, the mean on-drug minus
+mean off-drug coupling over the post-baseline visits, with the
+positions of the coupling rules marked (E9). Under E9b the baseline row
+keeps zero coupling, so its power does not fall to the test size at
+gap 0. Hybrid design, $N = 70$,
+$c_{bm} = 0.25$.](figures/37-fig2-power-vs-gap.png)
 
 Three things follow. First, power falls steeply with the gap: the
-noncentrality is proportional to it, so the sample size needed for a
-given power scales roughly as $1/\text{gap}^2$, and halving the gap
-calls for about four times as many patients. Second, the curve is
+noncentrality is approximately proportional to it, so the sample size
+needed for a given power scales roughly as $1/\text{gap}^2$, and
+halving the gap calls for about four times as many patients.
+(Corrected 2026-10-08: this sentence first said the noncentrality is
+proportional to the gap. Only $r_{\Delta B}$ is exactly
+proportional; the noncentrality
+$\sqrt{n-1}\,r_{\Delta B}/\sqrt{1-r_{\Delta B}^2}$ is
+approximately proportional when $r_{\Delta B}^2$ is small, and the
+$1/\text{gap}^2$ rule is approximate to the same degree. On Hybrid
+path 1, halving the gap from 1 to 0.5 raises
+$1/r_{\Delta B}^2 - 1$ by a factor of 4.3. See
+`analysis/report/compendium-mathematics.tex`, Section "Power through
+the coupling gap".) Second, the curve is
 steepest near gap 1 and flattest near 0: the first 0.1 of gap lost
 costs 0.097 of power (0.721 to 0.624), the last 0.1 only 0.007 (0.057
 to 0.050). Short carryover nevertheless costs almost nothing under
@@ -833,13 +910,11 @@ and the half-life (verified):
 
 Table: CS ceiling $c_{bm}^{\ast}$ by rule and $t_{1/2}$, Hybrid design
 
-![Power by biomarker effect and carryover half-life](figures/37-fig3-power-heatmap.png)
-
-*Figure 3. Closed-form power by interaction strength ($c_{bm}$ for the
+![Closed-form power by interaction strength ($c_{bm}$ for the
 covariance rules, $\beta_{bm}$ for the mean rules) and carryover
 half-life, for each of the four rules (columns) and each variant of the
 statistic (rows). Gray cells lie at or above the CS ceiling. Hybrid
-design, $N = 70$.*
+design, $N = 70$.](figures/37-fig3-power-heatmap.png)
 
 The figure shows the three behaviors of Section 5 at every effect size:
 
@@ -881,7 +956,7 @@ at every half-life power is a little lower than under graded coupling
 | Rule | $t_{1/2}$ = 0 | 0.1 | 0.2 | 0.5 | 1 | 2 |
 |---|---|---|---|---|---|---|
 | Graded coupling | 0.721 | 0.721 | 0.712 | 0.631 | 0.473 | 0.278 |
-| Decayed mean moderation | 0.681 | 0.681 | 0.674 | 0.598 | 0.454 | 0.271 |
+| Decayed mean moderation | 0.681 | 0.681 | 0.674 | 0.599 | 0.454 | 0.272 |
 | Mean moderation | 0.681 | 0.681 | 0.682 | 0.682 | 0.682 | 0.682 |
 
 Table: E9 power under graded coupling, decayed and plain mean moderation by $t_{1/2}$
@@ -915,7 +990,7 @@ exposure, one to three weeks after it. Its results are those of
 Sections 5.1 to 5.5 in every respect (CS, E9, closed form, verified):
 the step rule falls to the test size at every positive half-life, and
 graded coupling declines monotonically (0.598, 0.597, 0.586, 0.477,
-0.305, 0.156), faster than in Hybrid because its off-drug visits come
+0.305, 0.157), faster than in Hybrid because its off-drug visits come
 sooner after discontinuation.
 
 **CO** differs in one structural respect: path 2 receives placebo
@@ -936,7 +1011,7 @@ consequences follow.
   5.1).
 - **Under graded coupling CO is robust to short carryover**, because
   path 1's off-drug visits are 2.5 to 10 weeks after discontinuation:
-  power is 0.622 at every half-life up to 0.2 weeks and 0.581 at one
+  power is 0.622 at every half-life up to 0.2 weeks and 0.578 at one
   week.
 
 **The period effect in CO.** E9's common intercept assumes that the
@@ -946,9 +1021,9 @@ time-related and expectancy factors trend over the trial, so the mean
 contrasts differ (CS, mean moderation: $-2.3$ in path 1 against $-11.1$
 in path 2 without carryover). The path-mean term of Section 4.4 is
 then 19.5 against a residual variance of 35.9, 54% of it, and it grows
-with the half-life (to 25.5 at two weeks) because carryover narrows
+with the half-life (to 28.2 at two weeks) because carryover narrows
 path 1's contrast (verified). This term, not the interaction, is why
-E9 power under mean moderation falls in CO (0.590 to 0.548 over two
+E9 power under mean moderation falls in CO (0.590 to 0.531 over two
 weeks), and it is the main source of E9's inefficiency there relative
 to a mixed model with a time term. Setting the term to zero, as an
 analysis with path-specific intercepts would, gives (closed form, not
@@ -956,11 +1031,11 @@ simulated):
 
 | CO, CS, E9 | $t_{1/2}$ = 0 | 0.1 | 1 | 2 |
 |---|---|---|---|---|
-| Step, as specified | 0.622 | 0.199 | 0.193 | 0.184 |
+| Step, as specified | 0.622 | 0.199 | 0.192 | 0.178 |
 | Step, path term removed | 0.817 | 0.283 | 0.283 | 0.283 |
-| Graded, as specified | 0.622 | 0.622 | 0.581 | 0.497 |
+| Graded, as specified | 0.622 | 0.622 | 0.578 | 0.480 |
 | Graded, path term removed | 0.817 | 0.817 | 0.794 | 0.737 |
-| Mean moderation, as specified | 0.590 | 0.590 | 0.575 | 0.548 |
+| Mean moderation, as specified | 0.590 | 0.590 | 0.572 | 0.531 |
 | Mean moderation, path term removed | 0.771 | 0.771 | 0.771 | 0.771 |
 
 Table: CO design E9 power by rule and $t_{1/2}$, with and without the path term
@@ -980,7 +1055,7 @@ for E9 on the same replicates, and 0.736 to 0.770 when all 70
 patients follow one sequence. The mixed crossover is thus about as
 powerful as either sequence alone under `lmer`, whereas under E9 it
 loses about 0.2 to the period effect. Adding a fixed path effect to
-the `lmer` model changes its power by at most 0.001 in any cell. A
+the `lmer` model changes its power by at most 0.002 in any cell. A
 between-patient intercept shift is already covered by the random
 intercept, and it does not act on the within-patient contrast. The
 E9 analogue of the time term is a path-specific intercept in the
@@ -1000,30 +1075,30 @@ configuration F) and the separable form (cross-factor
 $c_1\rho^{\text{gap}}$, configuration C), with $\rho = 0.8$ per week of
 visit separation.
 
-**Factorization.** Writing $s_t = (\sigma_{TV}, \sigma_{PB,t},
+**Factorization.** Writing $v_t = (\sigma_{TV}, \sigma_{PB,t},
 \sigma_{BR})$ for the factor standard deviations at visit $t$, each
 structure's response correlation is a sum of factor-by-time Kronecker
 terms (`docs/36`, Appendix A.7), and the contrast variance factors
 accordingly:
 
 $$
-\mathrm{Var}(\Delta) = \sum_{k} \sum_{t,s} a_t a_s\, T^{(k)}_{ts}\,
-  \big(s_t^\top K^{(k)} s_s\big),
+\mathrm{Var}(\Delta) = \sum_{\ell} \sum_{t,s} a_t a_s\, T^{(\ell)}_{ts}\,
+  \big(v_t^\top K^{(\ell)} v_s\big),
 $$
 
-| Structure | Terms $K^{(k)} \otimes T^{(k)}$ |
+| Structure | Terms $K^{(\ell)} \otimes T^{(\ell)}$ |
 |---|---|
 | Separable AR(1) | $K \otimes A$, $K = (1 - c_1)I_3 + c_1J_3$ |
 | AR(1) `covar` | $K_a \otimes A + K_b \otimes I$, $K_a = (1 - c_\times)I_3 + c_\times J_3$, $K_b = (c_1 - c_\times)(J_3 - I_3)$ |
-| CS (published) | $K_o \otimes I + K_p \otimes J$, $K_o = (1 - \rho)I_3 + (c_1 - c_\times)(J_3 - I_3)$, $K_p = \rho I_3 + c_\times(J_3 - I_3)$ |
+| CS (published) | $K_o \otimes I + K_p \otimes J$, $K_o = (1 - \rho_{cs})I_3 + (c_1 - c_\times)(J_3 - I_3)$, $K_p = \rho_{cs} I_3 + c_\times(J_3 - I_3)$ |
 
 Table: Factor-by-time Kronecker terms of the three correlation structures
 
-with $A_{ts} = \rho^{|w_t - w_s|}$ the AR(1) time kernel, $I$ the
+with $A_{ts} = \rho^{\lvert w_t - w_s\rvert}$ the AR(1) time kernel, $I$ the
 occasion kernel and $J$ the all-ones (person-level) kernel. When the
-placebo scale $e_t$ is constant over the contrast, as in CO, the
+placebo scale $\eta_t$ is constant over the contrast, as in CO, the
 separable variance is a single product,
-$\mathrm{Var}(\Delta) = (s^\top K s)(a^\top A a)$. The separable
+$\mathrm{Var}(\Delta) = (v^\top K v)(a^\top A a)$. The separable
 ceiling factors as well,
 $c_{bm}^{\ast} = ([K^{-1}]_{33}\max_p g_p^\top A^{-1}g_p)^{-1/2}$. The
 factored variance agrees with the full-matrix value to $10^{-13}$ in
@@ -1043,13 +1118,13 @@ Table: Mean E9 contrast variance by design under CS and two AR(1) structures
 
 Under CS the person-level term $K_p \otimes J$ is constant across
 visits, so a contrast whose weights sum to zero cancels it, leaving only
-the occasion-level term, whose factor variances are $1 - \rho = 0.2$.
+the occasion-level term, whose factor variances are $1 - \rho_{cs} = 0.2$.
 Under AR(1) there is no constant component to cancel: the correlation
 between visits decays with their separation (0.8 at one week, 0.57 at
 the 2.5-week CO spacing, 0.33 at five weeks), so a contrast between
 visits weeks apart retains most of each factor's variance. The contrast
-variance is 2.6 times larger in Hybrid and up to 5.9 times larger in
-CO, and since the slope is
+variance is 2.6 to 2.7 times larger in Hybrid and up to 5.9 times
+larger in CO, and since the slope is
 the same under every structure, the comparison is at an identical
 interaction and only the noise differs. Power at $c_{bm} = \beta_{bm} = 0.25$ falls
 accordingly (E9, closed form, verified):
@@ -1059,12 +1134,12 @@ accordingly (E9, closed form, verified):
 | Hybrid | CS | 0.721 / 0.050 | 0.721 / 0.631 / 0.473 / 0.278 | 0.681 |
 | Hybrid | AR(1) `covar` | 0.326 / 0.050 | 0.326 / 0.276 / 0.205 / 0.130 | 0.317 |
 | Hybrid | Separable | 0.335 / 0.050 | 0.335 / 0.283 / 0.210 / 0.133 | 0.325 |
-| OL+BDC | CS | 0.598 / 0.050 | 0.598 / 0.477 / 0.305 / 0.156 | 0.568 |
+| OL+BDC | CS | 0.598 / 0.050 | 0.598 / 0.477 / 0.305 / 0.157 | 0.568 |
 | OL+BDC | AR(1) `covar` | 0.229 / 0.050 | 0.229 / 0.183 / 0.127 / 0.082 | 0.225 |
 | OL+BDC | Separable | 0.226 / 0.050 | 0.226 / 0.181 / 0.126 / 0.082 | 0.222 |
-| CO | CS | 0.622 / 0.199 | 0.622 / 0.615 / 0.581 / 0.497 | 0.590-0.548 |
-| CO | AR(1) `covar` | 0.199 / 0.086 | 0.199 / 0.198 / 0.190 / 0.170 | 0.196-0.192 |
-| CO | Separable | 0.192 / 0.084 | 0.192 / 0.190 / 0.183 / 0.164 | 0.189-0.186 |
+| CO | CS | 0.622 / 0.199 | 0.622 / 0.615 / 0.578 / 0.480 | 0.590-0.531 |
+| CO | AR(1) `covar` | 0.199 / 0.086 | 0.199 / 0.198 / 0.189 / 0.168 | 0.196-0.191 |
+| CO | Separable | 0.192 / 0.084 | 0.192 / 0.190 / 0.182 / 0.163 | 0.189-0.184 |
 
 Table: E9 closed-form power by design, structure, and rule at strength 0.25
 
@@ -1093,19 +1168,15 @@ In CO under CS the ceiling does not move with the half-life, because
 the placebo-first path's off-drug visits keep zero coupling and
 preserve the contrast that sets it.
 
-![Power against carryover half-life by response structure](figures/37-fig4-power-by-structure.png)
+![Closed-form power (lines) and Monte Carlo estimates (open points)
+against carryover half-life for the three response correlation
+structures, Hybrid design, $N = 70$,
+$c_{bm} = \beta_{bm} = 0.25$.](figures/37-fig4-power-by-structure.png)
 
-*Figure 4. Closed-form power (lines) and Monte Carlo estimates (open
-points) against carryover half-life for the three response
-correlation structures, Hybrid design, $N = 70$,
-$c_{bm} = \beta_{bm} = 0.25$.*
-
-![Power against carryover half-life by design and structure](figures/37-fig5-power-by-design.png)
-
-*Figure 5. E9 power against carryover half-life by design (columns) and
-response structure (rows), $N = 70$, $c_{bm} = \beta_{bm} = 0.25$. The CO step-rule
-curve stays above the test size because the placebo-first path keeps
-its contrast.*
+![E9 power against carryover half-life by design (columns) and
+response structure (rows), $N = 70$, $c_{bm} = \beta_{bm} = 0.25$. The
+CO step-rule curve stays above the test size because the placebo-first
+path keeps its contrast.](figures/37-fig5-power-by-design.png)
 
 ## 6. Validation
 
@@ -1120,37 +1191,46 @@ standard errors of about 0.007 on power, 0.0007 on the mean slope and
 
 | Rule | $t_{1/2}$ | Mean, closed | Mean, MC | SD, closed | SD, MC | Power, closed | Power, MC |
 |---|---|---|---|---|---|---|---|
-| Step | 0 | -0.1302 | -0.1299 | 0.0507 | 0.0508 | 0.721 | 0.715 |
-| Step | 0.1 | 0 | 0.0010 | 0.0531 | 0.0536 | 0.050 | 0.054 |
-| Step | 0.5 | 0 | -0.0010 | 0.0531 | 0.0525 | 0.050 | 0.050 |
-| Step | 2 | 0 | -0.0008 | 0.0531 | 0.0533 | 0.050 | 0.052 |
-| Graded | 0 | -0.1302 | -0.1301 | 0.0507 | 0.0498 | 0.721 | 0.723 |
-| Graded | 0.2 | -0.1290 | -0.1296 | 0.0508 | 0.0496 | 0.712 | 0.726 |
-| Graded | 0.5 | -0.1180 | -0.1190 | 0.0511 | 0.0516 | 0.631 | 0.634 |
-| Graded | 1 | -0.0982 | -0.0977 | 0.0517 | 0.0510 | 0.473 | 0.479 |
-| Graded | 2 | -0.0717 | -0.0724 | 0.0524 | 0.0516 | 0.278 | 0.273 |
-| Mean moderation | 0 | -0.1302 | -0.1307 | 0.0531 | 0.0521 | 0.681 | 0.688 |
-| Mean moderation | 1 | -0.1302 | -0.1314 | 0.0531 | 0.0538 | 0.682 | 0.681 |
-| Mean moderation | 2 | -0.1302 | -0.1284 | 0.0531 | 0.0529 | 0.682 | 0.677 |
+| Step | 0 | -0.1302 | -0.1307 | 0.0507 | 0.0502 | 0.721 | 0.725 |
+| Step | 0.1 | 0 | 0.0008 | 0.0531 | 0.0530 | 0.050 | 0.051 |
+| Step | 0.5 | 0 | 0.0001 | 0.0531 | 0.0529 | 0.050 | 0.050 |
+| Step | 2 | 0 | 0.0003 | 0.0531 | 0.0541 | 0.050 | 0.055 |
+| Graded | 0 | -0.1302 | -0.1300 | 0.0507 | 0.0509 | 0.721 | 0.723 |
+| Graded | 0.2 | -0.1290 | -0.1283 | 0.0508 | 0.0511 | 0.712 | 0.705 |
+| Graded | 0.5 | -0.1180 | -0.1174 | 0.0511 | 0.0506 | 0.631 | 0.631 |
+| Graded | 1 | -0.0982 | -0.0978 | 0.0517 | 0.0520 | 0.473 | 0.472 |
+| Graded | 2 | -0.0717 | -0.0725 | 0.0524 | 0.0511 | 0.278 | 0.273 |
+| Mean moderation | 0 | -0.1302 | -0.1296 | 0.0531 | 0.0525 | 0.681 | 0.685 |
+| Mean moderation | 1 | -0.1302 | -0.1302 | 0.0531 | 0.0529 | 0.682 | 0.682 |
+| Mean moderation | 2 | -0.1302 | -0.1301 | 0.0531 | 0.0533 | 0.682 | 0.673 |
 
 Table: Closed-form versus Monte Carlo mean, SD, and power of E9, Hybrid design
+
+(Updated 2026-10-09: the Monte Carlo columns are from the anchored
+rerun. The earlier values of these cells came from a legacy file
+simulated with different seeds; the rerun simulates every cell with its
+own per-cell seed, so the Monte Carlo values change by up to about 0.02
+mainly through reseeding, including at $t_{1/2} = 0$, where the
+data-generating process is unchanged. Paired on the same seeds, the
+change due to the carryover form alone is at most 0.0022 in power. The
+closed-form columns are unchanged at the precision shown.)
 
 The full validation covers 283 cells, each simulated with 5000 trials
 and analyzed with both statistics, 566 cell-variants in all (full
 table in `e9-closed-form-vs-mc.csv`; verified):
 
-| Block | Cell-variants | Largest $|z|$ | Mean $z$ | Beyond 2 SE | Largest mean difference |
+| Block | Cell-variants | Largest $\lvert z\rvert$ | Mean $z$ | Beyond 2 SE | Largest mean difference |
 |---|---|---|---|---|---|
-| Hybrid, CS, strength 0.25, four rules | 48 | 2.66 | 0.21 | 4 | 0.0017 |
+| Hybrid, CS, strength 0.25, four rules | 48 | 2.37 | 0.00 | 2 | 0.0014 |
 | Hybrid, CS, strengths 0.1, 0.2, 0.3 (Figure 3) | 134 | 2.45 | -0.21 | 2 | 0.0018 |
-| Hybrid, AR(1) structures | 96 | 2.18 | -0.01 | 2 | 0.0027 |
-| OL+BDC, three structures | 144 | 2.83 | 0.05 | 5 | 0.0038 |
-| CO, three structures | 144 | 2.63 | -0.09 | 4 | 0.0044 |
+| Hybrid, AR(1) structures | 96 | 2.18 | 0.00 | 2 | 0.0027 |
+| OL+BDC, three structures | 144 | 2.83 | 0.05 | 6 | 0.0038 |
+| CO, three structures | 144 | 2.44 | -0.09 | 4 | 0.0044 |
 
 Table: Summary of closed-form versus Monte Carlo agreement by validation block
 
 Here $z$ is the difference between simulated and closed-form power in
-binomial standard errors. Seventeen of 566 cell-variants (3.0%) lie
+binomial standard errors. Sixteen of 566 cell-variants (2.8%) lie
 beyond 2 standard errors, against about 5% expected by chance, with
 deviations of both signs. The heatmap rows of Figure 3 include cells
 close to the ceiling (graded coupling at $c_{bm} = 0.3$ and
@@ -1163,8 +1243,10 @@ monotone declines, are reproduced without exception.
 **Against the published mixed-model analysis.** `docs/36` simulated
 the published construct (configuration A, step rule) and mean
 moderation (configuration D) with the published `lmer` analysis, 500
-replicates per cell, at $c_{bm} = \beta_{bm} = 0.25$. E9b reproduces it
-(verified):
+replicates per cell, at $c_{bm} = \beta_{bm} = 0.25$; the run used here
+repeats it with anchored carryover and the same per-cell seeds
+(`power-summary-reps500-anchored.csv`), so both sides share the
+data-generating process. E9b reproduces it (verified):
 
 | Rule | $t_{1/2}$ | `lmer` mean | E9b mean | `lmer` SD | E9b SD | `lmer` power | E9b power |
 |---|---|---|---|---|---|---|---|
@@ -1172,19 +1254,20 @@ replicates per cell, at $c_{bm} = \beta_{bm} = 0.25$. E9b reproduces it
 | Step | 0.1 | -0.028 | -0.029 | 0.055 | 0.057 | 0.080 | 0.081 |
 | Step | 0.2 | -0.026 | -0.029 | 0.058 | 0.057 | 0.096 | 0.081 |
 | Step | 0.5 | -0.029 | -0.029 | 0.058 | 0.057 | 0.108 | 0.081 |
-| Step | 1 | -0.032 | -0.029 | 0.059 | 0.057 | 0.108 | 0.081 |
+| Step | 1 | -0.032 | -0.029 | 0.060 | 0.057 | 0.106 | 0.081 |
 | Mean moderation | 0 | -0.131 | -0.130 | 0.059 | 0.057 | 0.628 | 0.619 |
 | Mean moderation | 0.1 | -0.132 | -0.130 | 0.058 | 0.057 | 0.672 | 0.619 |
 | Mean moderation | 0.2 | -0.127 | -0.130 | 0.058 | 0.057 | 0.636 | 0.620 |
 | Mean moderation | 0.5 | -0.131 | -0.130 | 0.059 | 0.057 | 0.646 | 0.620 |
-| Mean moderation | 1 | -0.129 | -0.130 | 0.058 | 0.057 | 0.652 | 0.621 |
+| Mean moderation | 1 | -0.129 | -0.130 | 0.058 | 0.057 | 0.654 | 0.620 |
 
 Table: Published lmer analysis versus E9b mean, SD, and power by rule and $t_{1/2}$
 
 The Monte Carlo standard error of the `lmer` power is about 0.02 and
 of its mean estimate about 0.0026. The mean estimates agree to within
-0.003 and the standard deviations to within 0.002. Power agrees to
-within 0.03 in nine of the ten cells; the exception is mean moderation
+0.004 (the largest difference, 0.0040, is in the step cell without
+carryover; `e9-vs-lmer.csv`, inspected) and the standard deviations to
+within 0.003. Power agrees to within 0.034 in nine of the ten cells; the exception is mean moderation
 at $t_{1/2} = 0.1$ (0.672 against 0.619, about 2.6 Monte Carlo standard
 errors of the `lmer` estimate). Under mean moderation the mixed model
 is ahead in every cell (0.63-0.67 against 0.62), plausibly because it
@@ -1200,7 +1283,7 @@ of the step rule: $-0.078$ against $-0.075$ to $-0.082$ in CO, and
 $-0.038$ against $-0.034$ to $-0.040$ in OL+BDC. Its power is lower
 than the mixed model's, for two different reasons. In CO the mixed
 model is more efficient: its estimates vary less (SD 0.048-0.053
-against 0.058), because its time term absorbs the period effect of
+against 0.055-0.059), because its time term absorbs the period effect of
 Section 5.7 (verified by the single-path comparison below). In OL+BDC the SDs agree (0.063-0.070
 against 0.065-0.067), yet `lmer` power is higher (0.56-0.63 against
 0.49 under mean moderation, 0.12-0.13 against 0.087 under the step
@@ -1231,14 +1314,14 @@ Hybrid:
 | Rule | $t_{1/2}$ | `lmer` mix | `lmer` one path | E9 MC mix | E9 MC one path | Closed mix | Closed one path |
 |------|---|-----|-----------|-----|-----------|-----|-----------|
 | Step | 0 | 0.677 | 0.659-0.681 | 0.722 | 0.695-0.734 | 0.721 | 0.717-0.726 |
-| Step | 1 | 0.097 | 0.079-0.095 | 0.054 | 0.049-0.068 | 0.050 | 0.050-0.050 |
-| Step | 2 | 0.083 | 0.071-0.102 | 0.058 | 0.043-0.055 | 0.050 | 0.050-0.050 |
+| Step | 1 | 0.097 | 0.076-0.095 | 0.056 | 0.049-0.068 | 0.050 | 0.050-0.050 |
+| Step | 2 | 0.081 | 0.071-0.099 | 0.057 | 0.043-0.055 | 0.050 | 0.050-0.050 |
 | Graded | 0 | 0.682 | 0.644-0.673 | 0.742 | 0.697-0.748 | 0.721 | 0.717-0.726 |
-| Graded | 1 | 0.485 | 0.456-0.476 | 0.476 | 0.450-0.490 | 0.473 | 0.451-0.496 |
-| Graded | 2 | 0.324 | 0.286-0.360 | 0.265 | 0.238-0.331 | 0.278 | 0.250-0.307 |
+| Graded | 1 | 0.482 | 0.452-0.472 | 0.476 | 0.450-0.490 | 0.473 | 0.451-0.496 |
+| Graded | 2 | 0.323 | 0.286-0.356 | 0.266 | 0.238-0.331 | 0.278 | 0.250-0.307 |
 | Mean | 0 | 0.642 | 0.636-0.668 | 0.679 | 0.678-0.706 | 0.681 | 0.678-0.686 |
-| Mean | 1 | 0.635 | 0.630-0.656 | 0.686 | 0.664-0.688 | 0.682 | 0.678-0.686 |
-| Mean | 2 | 0.628 | 0.610-0.632 | 0.681 | 0.676-0.701 | 0.682 | 0.678-0.686 |
+| Mean | 1 | 0.633 | 0.628-0.654 | 0.687 | 0.664-0.688 | 0.682 | 0.678-0.686 |
+| Mean | 2 | 0.627 | 0.606-0.624 | 0.678 | 0.676-0.701 | 0.682 | 0.678-0.686 |
 
 Table: Hybrid design power under mixed allocation and single paths, lmer and E9
 
@@ -1247,14 +1330,14 @@ CO:
 | Rule | $t_{1/2}$ | `lmer` mix | `lmer` one path | E9 MC mix | E9 MC one path | Closed mix | Closed one path |
 |------|---|-----|-----------|-----|-----------|-----|-----------|
 | Step | 0 | 0.742 | 0.747-0.792 | 0.621 | 0.814-0.817 | 0.622 | 0.817-0.817 |
-| Step | 1 | 0.343 | 0.059-0.762 | 0.197 | 0.046-0.811 | 0.193 | 0.050-0.817 |
-| Step | 2 | 0.370 | 0.056-0.799 | 0.181 | 0.061-0.839 | 0.184 | 0.050-0.817 |
+| Step | 1 | 0.343 | 0.059-0.762 | 0.196 | 0.046-0.811 | 0.192 | 0.050-0.817 |
+| Step | 2 | 0.371 | 0.059-0.799 | 0.177 | 0.061-0.839 | 0.178 | 0.050-0.817 |
 | Graded | 0 | 0.746 | 0.729-0.792 | 0.611 | 0.804-0.832 | 0.622 | 0.817-0.817 |
-| Graded | 1 | 0.716 | 0.708-0.787 | 0.586 | 0.770-0.816 | 0.581 | 0.769-0.817 |
-| Graded | 2 | 0.678 | 0.572-0.806 | 0.464 | 0.672-0.830 | 0.497 | 0.644-0.817 |
+| Graded | 1 | 0.716 | 0.708-0.787 | 0.585 | 0.770-0.816 | 0.578 | 0.769-0.817 |
+| Graded | 2 | 0.678 | 0.575-0.806 | 0.450 | 0.672-0.830 | 0.480 | 0.644-0.817 |
 | Mean | 0 | 0.740 | 0.736-0.770 | 0.582 | 0.766-0.769 | 0.590 | 0.771-0.771 |
-| Mean | 1 | 0.737 | 0.725-0.778 | 0.558 | 0.780-0.792 | 0.575 | 0.771-0.771 |
-| Mean | 2 | 0.723 | 0.691-0.758 | 0.534 | 0.764-0.769 | 0.548 | 0.771-0.771 |
+| Mean | 1 | 0.738 | 0.725-0.778 | 0.554 | 0.780-0.792 | 0.572 | 0.771-0.771 |
+| Mean | 2 | 0.725 | 0.692-0.758 | 0.516 | 0.764-0.769 | 0.531 | 0.771-0.771 |
 
 Table: CO design power under mixed allocation and single paths, lmer and E9
 
@@ -1263,7 +1346,7 @@ The Monte Carlo standard error of each simulated power is at most
 
 - **The closed form holds on single paths.** Across the 72 cells
   (18 rows of mixed allocation, 54 of single paths), simulated E9
-  power lies within 2.61 standard errors of the closed form, with 2
+  power lies within 2.61 standard errors of the closed form, with 1
   of 72 beyond 2.
 - **In Hybrid, the mixture of paths does not affect power.** Under
   `lmer` the mixed allocation lies within 0.038 of every single path
@@ -1271,18 +1354,18 @@ The Monte Carlo standard error of each simulated power is at most
   standard error, and the sign varies. Which path is used matters
   slightly more than whether paths are mixed. Under graded coupling
   at $t_{1/2} = 2$ the single paths range from 0.286 (path 1,
-  discontinued at week 10, drug-first crossover) to 0.360 (path 4,
+  discontinued at week 10, drug-first crossover) to 0.356 (path 4,
   discontinued at week 9, placebo-first crossover), the ordering the
   closed form gives.
 - **In CO, the E9 loss under mixing is the period effect, and `lmer`
   does not show it.** Wherever neither sequence sits at the step
-  floor, mixed E9 power is 0.18 to 0.23 below the weaker sequence
+  floor, mixed E9 power is 0.18 to 0.25 below the weaker sequence
   alone; mixed `lmer` power is not (Section 5.7). Under carryover the mixed
   `lmer` power lies between the two sequences' values, because the
   placebo-first sequence has no visit after a discontinuation and
   keeps its full power (0.76 to 0.81) under every rule.
 - **A fixed path effect adds nothing to `lmer`.** With the path term,
-  power changes by at most 0.001 in any mixed cell.
+  power changes by at most 0.002 in any mixed cell.
 
 These results concern interaction power in a data-generating process
 in which the biomarker is associated only with the drug response.
@@ -1383,8 +1466,18 @@ Rscript analysis/scripts/quick-sim/carryover-closed-form/01-e9-closed-form.R \
 Run from the repository root. The script reads the published construct
 from `analysis/scripts/quick-sim/hendrickson-problems/04-power-simulation.R`
 (which reproduces the matrices of the `58b32a9` code exactly; `docs/36`,
-Section 6.5) and the `lmer` results from
-`analysis/data/quick-sim/hendrickson-problems/power-sim/power-summary-reps500.csv`.
+Section 6.5; its `build()` uses anchored carryover by default) and the
+`lmer` results from
+`analysis/data/quick-sim/hendrickson-problems/power-sim/power-summary-reps500-anchored.csv`,
+written by
+
+```bash
+Rscript analysis/scripts/quick-sim/hendrickson-problems/04-power-simulation.R --reps 500
+Rscript analysis/scripts/quick-sim/hendrickson-problems/05-summarize-power.R --reps 500
+```
+
+(about 37 minutes on 7 cores; the untagged `power-summary-reps500.csv`
+is the earlier run under the published recursion).
 It writes the per-path moments, the closed-form curves for all designs,
 structures and rules, the ceilings, the factorization check, the power
 heatmap and both validation tables to
@@ -1402,8 +1495,9 @@ Rscript analysis/scripts/quick-sim/carryover-closed-form/06-single-path-lme.R \
 It reuses the construct of `04-power-simulation.R` and the closed-form
 functions of `01-e9-closed-form.R`. It writes
 `analysis/data/quick-sim/carryover-closed-form/single-path-lme/summary-reps1000.csv`,
-with each cell cached under `cells-reps1000/` (about 36 minutes on
-8 cores).
+with each cell cached under `cells-reps1000/` (about 51 minutes on
+7 cores in the anchored rerun of 2026-10-08, 3,056 seconds; updated
+2026-10-09 from the earlier "about 36 minutes on 8 cores").
 
 The check of the code change in Appendix A:
 
@@ -1423,7 +1517,8 @@ and the results to `graded-patch-reps500.csv` in the same directory.
 1. Hendrickson RC, Thomas RG, Schork NJ, Raskind MA. Optimizing
    aggregated N-of-1 trial designs for predictive biomarker validation:
    statistical methods and theoretical findings. *Frontiers in Digital
-   Health* 2020; 2:13. Code: `github.com/rchendrickson/pmsimstats`,
+   Health* 2020; 2:13. doi:10.3389/fdgth.2020.00013. Code:
+   `github.com/rchendrickson/pmsimstats`,
    commit `58b32a9`.
 2. pmsimstats team. *Compendium mathematics*,
    `analysis/report/compendium-mathematics.tex` (specification E9;
@@ -1458,8 +1553,8 @@ Without carryover, the drug-response mean is zero at every off-drug
 visit, so the test separates on-drug from off-drug visits. With any
 carryover ($t_{1/2} > 0$), the mean at an off-drug visit after exposure
 is small but positive, the test succeeds, and the visit receives the
-full coupling $c_{bm}$. This is the step rule $g_t = \mathbf{1}\{\phi_t
-> 0\}$ of Section 5.1, which removes the on-off contrast in the
+full coupling $c_{bm}$. This is the step rule
+$g_t = \mathbf 1[\mu_{BR,t} \neq 0]$ of Section 5.1, which removes the on-off contrast in the
 biomarker coupling.
 
 **The replacement.** The block is replaced with one that couples in
@@ -1524,9 +1619,10 @@ The published-code figures at $t_{1/2} = 0.1$ and 0.2 (power 0.126 and
 0.092) can be set against the reconstruction of Section 6 (0.080 and
 0.096), an independent run with different seeds. At 0.2 they agree; at
 0.1 the difference of 0.046 is about 2.4 combined Monte Carlo standard
-errors, larger than expected but within the spread of the five step
-cells of Section 6 (0.080 to 0.108). The mean estimates agree to within
-0.001.
+errors, larger than expected, and 0.126 lies above the range of the
+four positive-half-life step cells of Section 6 (0.080 to 0.108). The
+mean estimates agree to within 0.003 (-0.028 against -0.028 at 0.1;
+-0.029 against -0.026 at 0.2).
 
 **What the change does not fix.**
 
@@ -1554,10 +1650,21 @@ cells of Section 6 (0.080 to 0.108). The mean estimates agree to within
   previous visit's mean decayed by the total time since discontinuation.
   At the second and later off-drug visits, the previous mean has already
   been decayed, so the decay compounds (inspected). This affects the
-  means, not the coupling, and is a separate defect. It is unlikely to
-  alter the result above, because the interaction is carried by the
-  coupling and the time term absorbs most of the mean (inferred; not
-  tested separately).
+  means, not the coupling, and is a separate defect, which the
+  replacement above leaves in place. (Updated 2026-10-09: it has now
+  been tested. In the published pipeline, correcting the mean to the
+  anchored form changes `lmer` power by at most 0.006 and at most 4 of
+  500 test decisions per cell, with or without graded coupling
+  (`docs/53`, Section 8.3, verified there). The closed-form and Monte
+  Carlo results of this paper were rerun with anchored carryover
+  (`01-e9-closed-form.R`, `06-single-path-lme.R` and the `lmer` run of
+  `04-power-simulation.R`). Closed-form power changes by at most 0.002
+  in Hybrid and OL+BDC and by up to 0.041 in CO, where the means enter
+  through the period effect of Section 5.7; Monte Carlo power on the
+  same seeds by at most 0.003 (Hybrid, OL+BDC) and 0.018 (CO); and the
+  `lmer` power of Section 6 by at most 0.008, with every mean estimate
+  unchanged to 0.0001. The project's results now use anchored carryover
+  throughout.)
 
 **The maintained version.** The package's `buildSigma()` in
 `R/generateData.R` (lines 343 to 355) implements the same rule:

@@ -14,6 +14,16 @@ evaluation). It corrects several errors in those documents (Section 11)
 and adds new Monte Carlo results on the form of the time adjustment
 (Section 9). Eight figures develop the intuition.
 
+(Updated 2026-10-09: results at $t_{1/2} > 0$ now use anchored
+carryover; see `docs/53`. Values changed by at most 0.008 in rejection
+rates and 0.53 points in the drug coefficient $\beta_D$ (the
+interaction estimates by at most 0.0003); Figure 2's lower row was
+regenerated, with off-drug $BR$ means from the second off-drug visit on
+now higher (2.55 instead of 1.27 at week 12 on path 1). Conclusions
+unchanged, except that `De` now removes half to four fifths of the
+linear-against-visit difference rather than half to two thirds
+(Section 9).)
+
 ```{=latex}
 \clearpage
 \tableofcontents
@@ -26,6 +36,11 @@ and adds new Monte Carlo results on the form of the time adjustment
 
 Notation follows `analysis/report/NOTATION.md`. Symbols marked *local*
 are defined here and are not part of the canonical set.
+(Notation, 2026-10-09: the linear-time coefficient $\beta_t$ is now
+$\beta_T$; the compound-symmetry correlation of the published process
+is $\rho_{cs}$, with $\rho$ kept for the AR(1) correlation per week;
+the expectation is $\mathbb E$. Entries formerly marked local that
+NOTATION.md now defines are marked canonical.)
 
 ### Notation index
 
@@ -36,13 +51,13 @@ are defined here and are not part of the canonical set.
 | $i$, $t$ | participant and visit indices | canonical |
 | $N$ | total participants across paths; 70 throughout | canonical |
 | $P$ | number of randomization paths; 4 for Hybrid | canonical |
-| $p$ | path index | local |
-| $w_t$ | calendar week of visit $t$ (4, 8, 9, 10, 11, 12, 16, 20) | local |
+| $q$ | path index, $q = 1, \ldots, P$ | canonical |
+| $w_t$ | calendar week of visit $t$ (4, 8, 9, 10, 11, 12, 16, 20) | canonical |
 | $t_{od}$ | time on drug in the current run (code `tod`) | canonical |
 | $t_{sd}$ | time since discontinuation (code `tsd`) | canonical |
 | $t_{pb}$ | time under positive expectancy (code `tpb`) | canonical |
 | $t_{1/2}$ | carryover half-life, weeks | canonical |
-| $e_t$ | design expectancy at visit $t$: 1 open label, 0.5 blinded, 0 at baseline (code `e`, regressor `De`) | local |
+| $\eta_t$ | design expectancy at visit $t$: 1 open label, 0.5 blinded, 0 at baseline (code `e`, regressor `De`); written $e_t$ before 2026-10-07 | canonical |
 
 Table: Notation index for trial, index and time symbols
 
@@ -56,8 +71,11 @@ Table: Notation index for trial, index and time symbols
 | $PB_{it}$ | placebo-belief (expectancy) response; Hendrickson's ER | canonical |
 | $TV_{it}$ | time-variant natural-course response; Hendrickson's TR | canonical |
 | $u_i$, $\varepsilon_{it}$ | participant random intercept and residual | canonical |
-| $G(t; m, d, r)$ | modified Gompertz curve, Section 4 | local |
-| $m_c$, $d_c$, $r_c$ | ceiling, displacement and rate of component $c$ (code `max`, `disp`, `rate`) | local |
+| $G(t; m, d, r)$ | modified Gompertz curve, Section 4 | canonical |
+| $m$, $d$, $r$ | ceiling, displacement and rate of a component's curve (code `maxr`, written `max` in `extracted_rp`; `disp`, `rate`) | canonical |
+| $t^*$ | inflection time of the Gompertz curve, $\ln(d)/r$ | canonical |
+| $\mu_{\mathrm{BL}}$ | population mean of the baseline score (83.07) | local |
+| $TV(w_t)$, $PB(t_{pb})$, $BR_q(t)$ | mean trajectories; $BR_q$ in path $q$ | local |
 
 Table: Notation index for outcome and response component symbols
 
@@ -69,9 +87,12 @@ Table: Notation index for outcome and response component symbols
 | $\sigma_{BR}$, $\sigma_{bm}$ | standard deviations of $BR$ (8) and of the biomarker (15.36) | canonical |
 | $c_{bm}$ | covariance-moderation strength: correlation of $B$ with $BR$ where coupled | canonical |
 | $\beta_{bm}$ | mean-moderation multiplier | canonical |
-| $g_t$ | coupling at visit $t$: fraction of $c_{bm}$ applied there | local |
-| $\rho$ | within-factor correlation, 0.8 at every lag (compound symmetry, CS) | canonical |
-| $c_1$, $c_\times$ | cross-factor correlation at the same visit (0.2) and at different visits (0.1) | local |
+| $g_t$ | coupling at visit $t$: fraction of $c_{bm}$ applied there | canonical |
+| $\bar g_{\text{on}}$, $\bar g_{\text{off}}$ | mean coupling over a path's on-drug and off-drug visits | canonical |
+| $\overline{\text{gap}}_{\text{on}}$, $\overline{\text{gap}}_{\text{off}}$ | biomarker band width ($\pm 1$ SD) averaged over on-drug and off-drug visits | local |
+| $\rho_{cs}$ | common within-component correlation of compound symmetry (CS), the same at every lag; 0.8 in the published process | canonical |
+| $\rho$ | AR(1) within-component correlation per week, $\rho^{\lvert w_t - w_s \rvert}$ (the refined process) | canonical |
+| $c_1$, $c_\times$ | cross-factor correlation at the same visit (0.2) and at different visits (0.1) | canonical |
 
 Table: Notation index for biomarker and moderation symbols
 
@@ -81,12 +102,14 @@ Table: Notation index for biomarker and moderation symbols
 |----------|----------------------------------------|------|
 | $D_{it}$ | binary drug state (code `Db`) | canonical |
 | $D_{bc,it}$ | exposure-decayed drug indicator (code `Dbc`) | canonical |
-| $\beta_0$, $\beta_B$ | intercept and biomarker main effect | local ($\beta_B$) |
-| $\beta_t$, $\beta_e$ | coefficients of linear time and of expectancy | local |
-| $\tau_t$ | visit effect when time enters as a factor | local |
+| $\beta_0$, $\beta_B$ | intercept and biomarker main effect | canonical |
+| $\beta_T$, $\beta_\eta$ | coefficients of linear time $w_t$ and of expectancy; $\beta_T$ was written $\beta_t$ before 2026-10-09 | canonical |
+| $\mu_t$ | visit effect (free mean of visit $t$) when time enters as a factor | canonical |
 | $\beta_D$ | drug main effect | canonical |
 | $\beta_{bm:D}$ | biomarker-by-drug interaction, the estimand | canonical |
-| $\alpha$, $\pi$ | test size (0.05) and power | canonical |
+| $\alpha$ | test size (0.05) | canonical |
+| $\mathbb E$ | expectation (written $E$ before 2026-10-09) | canonical |
+| $R^2$ | squared multiple correlation of `De` on `Db` and `t` | local |
 
 Table: Notation index for analysis model symbols
 
@@ -135,12 +158,12 @@ parameters $c_{bm}$ and $\beta_{bm}$ are positive.
    scaled by the blinding level, and natural course on calendar time.
    In the Hybrid design $TV$ and $PB$ are identical in every path: all
    paths share the visit schedule and the blinding pattern. Only $BR$
-   differs between paths (Section 3, Figure 3).
+   differs between paths (Section 3, Figure 2).
 3. **The Gompertz curve is a slow-start, saturating rise.** At the
    published parameters the drug response reaches 3% of its ceiling
    after one week, 39% after four and 84% after eight. Re-exposure
    starts the curve from zero, so a crossover period of four weeks on
-   drug recovers only 39% of the ceiling (Section 4, Figure 2).
+   drug recovers only 39% of the ceiling (Section 4, Figure 3).
 4. **The interaction is how much wider the biomarker band is on drug
    than off drug.** Drawn on Hendrickson's trajectory template, the
    expected trajectories of high- and low-biomarker participants
@@ -157,7 +180,7 @@ parameters $c_{bm}$ and $\beta_{bm}$ are positive.
    (Section 8).
 6. **The time adjustment changes the drug effect, not the
    interaction.** Linear `t`, a spline and visit-as-factor give the
-   same mean interaction estimate, within 0.0007. For the drug main
+   same mean interaction estimate, within 0.0009. For the drug main
    effect they differ by about 2 points in Hybrid, because linear time
    cannot absorb the expectancy drop at blinding and attributes the
    extra open-label improvement to the drug. A population-mean
@@ -165,7 +188,7 @@ parameters $c_{bm}$ and $\beta_{bm}$ are positive.
 7. **Flexible time adjustment is not a free gain in power.** Spline
    and visit-as-factor raise interaction power by 0.02 to 0.07 in
    Hybrid, but they also raise the Type I error. Under one-week
-   carryover it reaches 0.073 and 0.080, against 0.058 for linear `t`.
+   carryover it reaches 0.075 and 0.080, against 0.056 for linear `t`.
    In the crossover all three forms hold their size (Section 9,
    Figure 8).
 
@@ -202,7 +225,7 @@ Hybrid design was chosen for the trial.
   outpaced the budget [1]. The phase also titrates the dose; the paper
   takes prazosin titration to need 2.5 weeks each time the drug is
   started. Statistically, the open-label phase contributes on-drug
-  visits at full expectancy ($e_t = 1$). Drug and expectancy response
+  visits at full expectancy ($\eta_t = 1$). Drug and expectancy response
   are both present at full strength there and cannot be separated
   within the phase.
 - **Blinded discontinuation, weeks 8 to 12.** Participants are told
@@ -238,9 +261,9 @@ Table: Drug state, $t_{od}$ and $t_{sd}$ by visit for the four Hybrid paths
 Two features of this table matter later. First, the paths differ in
 drug state only at weeks 10, 16 and 20. At weeks 4, 8, 9, 11 and 12
 every path is in the same state. Second, on re-exposure in the
-crossover, time on drug restarts at 4 weeks rather than continuing
-from the earlier run. The simulated drug response therefore rebuilds
-from zero.
+crossover, time on drug restarts from zero rather than continuing from
+the earlier run, so it is 4 weeks at the re-exposure visit (week 16 or
+20). The simulated drug response therefore rebuilds from zero.
 
 ## 3. The three response components
 
@@ -258,7 +281,7 @@ its own clock.
 | Component | Clock | Mean at visit $t$ | SD |
 |----------------|--------------------|----------------------------------------|--------|
 | $BR$ | time on drug $t_{od}$ | $G(t_{od}; 10.99, 5, 0.42)$, plus carryover | 8 |
-| $PB$ | time under expectancy $t_{pb}$ | $e_t \, G(t_{pb}; 6.51, 5, 0.35)$ | $10\,e_t$ |
+| $PB$ | time under expectancy $t_{pb}$ | $\eta_t \, G(t_{pb}; 6.51, 5, 0.35)$ | $10\,\eta_t$ |
 | $TV$ | calendar time $w_t$ | $G(w_t; 6.51, 5, 0.35)$ | 10 |
 
 Table: Clock, mean trajectory and SD of each response component
@@ -283,7 +306,7 @@ assumption gives them equal parameters [1]. The split between $TV$ and
 $PB$ is therefore an assumption, not an estimate (`docs/25`, Section
 4; `docs/31`, Section 14).
 
-**Expectancy acts twice.** The design expectancy $e_t$ scales both the
+**Expectancy acts twice.** The design expectancy $\eta_t$ scales both the
 mean and the standard deviation of $PB$. Blinding at week 9 halves the
 expectancy response, and it also halves that response's variability.
 This is the only route by which blinding enters the data.
@@ -292,7 +315,7 @@ This is the only route by which blinding enters the data.
 the same visit weeks, and expectancy stays positive throughout, so
 $t_{pb} = w_t$ in every path. Hence $TV$ and $PB$ have identical means
 in all four paths. Only $BR$ differs, through the drug-state pattern
-(Figure 3; numbers in the table below, no carryover).
+(Figure 2; numbers in the table below, no carryover).
 
 | Week | 4 | 8 | 9 | 10 | 11 | 12 | 16 | 20 |
 |------------------|-----|-----|-----|-----|-----|-----|-----|-----|
@@ -307,7 +330,7 @@ Table: Expected component means by week and Hybrid path without carryover
 
 ![Expected component trajectories in each Hybrid path, without carryover (top) and with a one-week carryover half-life (bottom).](figures/40-fig3-component-trajectories.png)
 
-Figure 3 reproduces panel D of Hendrickson's Figure 3 from the
+Figure 2 reproduces panel D of Hendrickson's Figure 3 from the
 published parameters. Three things stand out:
 
 - **The total peaks at the end of open label** (18.8 points at week
@@ -320,13 +343,20 @@ published parameters. Three things stand out:
   response, against 9 to 10 at the end of open label. Time on drug
   restarts at zero (Section 4).
 
-**Carryover.** With $t_{1/2} > 0$, the off-drug mean of $BR$ is computed
-recursively: the previous visit's mean times $2^{-t_{sd}/t_{1/2}}$,
-with $t_{sd}$ cumulative. At $t_{1/2} = 1$ week, path 1 has 5.09 at week
-11, half of 10.19. At week 12 it has 1.27, where decay anchored at
-discontinuation would give 2.55. The recursion therefore decays faster
-than the stated half-life (`docs/38`, Section 3). Carryover affects
-only $BR$; $TV$ and $PB$ are unchanged. Prazosin itself leaves plasma
+**Carryover.** With $t_{1/2} > 0$, the off-drug mean of $BR$ is the
+mean at the last on-drug visit times $2^{-t_{sd}/t_{1/2}}$, with
+$t_{sd}$ the time since discontinuation (anchored carryover, the form
+used for every result and figure of this paper; `docs/53`). At
+$t_{1/2} = 1$ week, path 1 has 5.09 at week 11, half of 10.19, and
+2.55 at week 12, a quarter of it. The published code instead computes
+the mean recursively, the previous visit's mean times
+$2^{-t_{sd}/t_{1/2}}$ with $t_{sd}$ cumulative, which gives 1.27 at
+week 12: the decay compounds from the second off-drug visit on, so the
+published simulation decays faster than its stated half-life
+(`docs/38`, Section 3; `docs/53`). (Updated 2026-10-09: this paragraph
+first described the recursion as the construct, and Figure 2's lower
+row and the Section 9 results used it; both now use anchored
+carryover.) Carryover affects only $BR$; $TV$ and $PB$ are unchanged. Prazosin itself leaves plasma
 with a half-life of about 2.3 hours [4], so the carryover that matters
 on a weekly visit schedule is pharmacodynamic persistence of the
 response, not drug remaining in the body (`docs/38`, Section 2).
@@ -341,13 +371,23 @@ $$
 
 which is the code's `y = maxr * exp(-disp * exp(-rate * t))`, shifted to
 pass through zero at $t = 0$ and rescaled to approach $m$. Each
-parameter has a geometric meaning (Figure 2):
+parameter has a geometric meaning (Figure 3):
 
 - **Ceiling $m$** (`max`) scales the whole curve. It is the improvement
   reached after a long time on drug (or in the trial, for $TV$).
 - **Displacement $d$** (`disp`) sets how long the curve waits before it
-  rises. Larger $d$ gives a longer lag and a steeper rise once it
-  starts.
+  rises. Larger $d$ gives a longer lag, but not a steeper rise once it
+  starts: at fixed $m$ and $r$ the maximum slope,
+  $m r/(e(1 - e^{-d}))$ for $d \ge 1$ and $m r d/(e^{d} - 1)$ for
+  $d < 1$, decreases strictly in $d$, from $m r$ toward $m r/e$; over
+  $d \ge 1$ it falls by at most a factor $e/(e - 1) = 1.58$. At the
+  shipped $BR$ values the steepest rise is 1.71 points per week, at
+  week 3.83. (Corrected 2026-10-08: this item previously said that
+  larger $d$ gives "a steeper rise once it starts". Verified,
+  `analysis/scripts/compendium-mathematics/check-landmarks-hybrid-ceilings.R`,
+  block 2. See `analysis/report/compendium-mathematics.tex`, Section
+  "Shipped parameters, landmarks, the displacement, and numerical
+  conditioning".)
 - **Rate $r$** (`rate`, per week) compresses or stretches time.
   Doubling $r$ halves every landmark time.
 
@@ -410,13 +450,13 @@ biomarker makes it visible.
 **Covariance moderation.** In the published construct, the biomarker is
 correlated with $BR$ at visit $t$ with correlation $c_{bm} g_t$, and
 with nothing else. Under the multivariate normal model the expected
-drug response of a participant with standardized biomarker $b$ is
+drug response of a participant with standardized biomarker $b_i$ is
 
 $$
-E(BR_t \mid b) = E(BR_t) + c_{bm}\, g_t\, \sigma_{BR}\, b,
+\mathbb E(BR_{it} \mid b_i) = \mathbb E(BR_{it}) + c_{bm}\, g_t\, \sigma_{BR}\, b_i,
 $$
 
-and $TV$, $PB$ and baseline do not depend on $b$. **Mean moderation**
+and $TV$, $PB$ and baseline do not depend on $b_i$. **Mean moderation**
 gives the same form directly, with $\beta_{bm}$ in place of $c_{bm}$
 and the on-drug indicator in place of $g_t$. Participants one SD above
 and one SD below the biomarker mean therefore have expected
@@ -481,13 +521,15 @@ interaction information under carryover.
 
 ## 6. The correlation structure
 
-The published construct draws each participant's 26 variables jointly
+The published process draws each participant's 26 variables jointly
 from a multivariate normal distribution: biomarker, baseline, and
 $TV$, $PB$ and $BR$ at 8 visits. The correlation matrix (Figure 6) has
 four parts:
 
-- **Within each component, $\rho = 0.8$ between any two visits**,
+- **Within each component, $\rho_{cs} = 0.8$ between any two visits**,
   whatever the time between them. This is compound symmetry.
+  (Notation, 2026-10-09: the compound-symmetry correlation is
+  $\rho_{cs}$; $\rho$ is reserved for the AR(1) correlation per week.)
 - **Across components, $c_1 = 0.2$ at the same visit and
   $c_\times = 0.1$ at different visits.**
 - **Biomarker and $BR$: $c_{bm}$ at the coupled visits, 0 elsewhere.**
@@ -496,7 +538,7 @@ four parts:
   course (`docs/31`, Section 18.1).
 - **Baseline is uncorrelated with every response component.**
 
-![The published correlation matrix for path 1 at c_bm = 0.25, without carryover (left) and with a 0.1-week half-life (right).](figures/40-fig6-correlation-matrix.png)
+![The published correlation matrix for path 1 at $c_{bm} = 0.25$, without carryover (left) and with a 0.1-week half-life (right).](figures/40-fig6-correlation-matrix.png)
 
 **Why this matters.**
 
@@ -510,8 +552,8 @@ four parts:
   matrix is valid, and the interaction is gone. The two problems are
   the two sides of the step rule (`docs/36`, Section 5.4).
 - **The analysis has to match the covariance of the outcome.** Even
-  under the published compound-symmetry construct, the outcome is not
-  compound symmetric. The covariance of $Y$ computed from the construct
+  under the published process, whose components are compound
+  symmetric, the outcome is not compound symmetric. The covariance of $Y$ computed from the construct
   (path 1, no interaction) has three blocks:
 
   | Visits | Variance | Covariance within | Covariance with baseline |
@@ -545,8 +587,17 @@ more numerous but rest on modeling time and expectancy.
 - **Between paths at the same visit** (weeks 10, 16, 20): identifies
   $BR$, relying on the randomization only.
 - **Within a path, open label against blinded, on drug** (weeks 8 and
-  9): identifies the expectancy drop, $0.5\,PB$, relying on the
-  expectancy model.
+  9): identifies the expectancy drop, approximately $0.5\,PB$, relying
+  on the expectancy model and on a model of the belief curve's growth
+  between the two visits. In mean the contrast is
+  $\mathbb E(PB_8) - \mathbb E(PB_9) = G(8) - 0.5\,G(9) = 2.17$ points, against
+  $0.5\,G(9) = 2.62$, because the curve keeps rising from week 8 to
+  week 9 (verified,
+  `analysis/scripts/compendium-mathematics/check-landmarks-hybrid-ceilings.R`,
+  block 3). (Corrected 2026-10-08: this item previously said the
+  contrast identifies $0.5\,PB$ without qualification. See
+  `analysis/report/compendium-mathematics.tex`, Section "The published
+  Hybrid construct".)
 - **Within a path, on drug against off drug** (all visits): identifies
   $BR$ plus any difference in time and expectancy between the visits
   compared, relying on the time and expectancy terms.
@@ -580,11 +631,11 @@ unless it is estimated from the between-path comparisons alone
 
 ## 8. Building the analysis model
 
-The simulation's mean structure, for a participant in path $p$ with
-standardized biomarker $b$, is
+The simulation's mean structure, for a participant in path $q$ with
+standardized biomarker $b_i$, is
 
 $$
-E(Y_{it} \mid b) = \mu_{\mathrm{BL}} - TV(w_t) - e_t\,PB(t_{pb}) - BR_p(t) - [\text{moderation}]_t \, b .
+\mathbb E(Y_{it} \mid b_i) = \mu_{\mathrm{BL}} - TV(w_t) - \eta_t\,PB(t_{pb}) - BR_q(t) - [\text{moderation}]_t \, b_i .
 $$
 
 An analysis model replaces each part with something estimable. The
@@ -592,11 +643,11 @@ published model, under the publication settings (`useDE = FALSE`,
 `t_random_slope = FALSE`; `58b32a9` vignette 1, line 350), is
 
 $$
-Y_{it} = \beta_0 + \beta_B B_i + \beta_D D_{it} + \beta_t w_t + \beta_{bm:D}\, B_i D_{it} + u_i + \varepsilon_{it},
+Y_{it} = \beta_0 + \beta_B B_i + \beta_D D_{it} + \beta_T w_t + \beta_{bm:D}\, B_i D_{it} + u_i + \varepsilon_{it},
 $$
 
 in code `Sx ~ bm + Db + t + bm*Db + (1|ptID)`, fitted with `lmer`. The
-baseline enters as a row at $t = 0$ with $D = 0$. Term by term:
+baseline enters as a row at $t = 0$ with $D_{it} = 0$. Term by term:
 
 - **$\beta_0 + u_i$: baseline level and stable individual
   differences.** The random intercept matches compound symmetry. It
@@ -605,14 +656,14 @@ baseline enters as a row at $t = 0$ with $D = 0$. Term by term:
   simulation. The biomarker is uncentered (mean 124), so $\beta_D$ is
   the drug effect at a biomarker of zero. Centering fixes the
   interpretation and leaves $\beta_{bm:D}$ unchanged.
-- **$\beta_D D_{it}$: the drug response $BR_p(t)$.** One number for a
+- **$\beta_D D_{it}$: the drug response $BR_q(t)$.** One number for a
   response that is 4.3 at week 4, 10.2 at week 10 and 4.3 again after
   re-exposure.
-- **$\beta_t w_t$: the non-drug trends $TV(w_t) + e_t PB(t_{pb})$.** A
+- **$\beta_T w_t$: the non-drug trends $TV(w_t) + \eta_t PB(t_{pb})$.** A
   straight line through two sigmoids and a step. It is significant in
   every fit (Section 10).
 - **$\beta_{bm:D} B_i D_{it}$: the moderation,** the estimand.
-- **$\beta_e e_t$ (`De`): the expectancy step.** Present in the code,
+- **$\beta_\eta \eta_t$ (`De`): the expectancy step.** Present in the code,
   switched off for the publication.
 
 **The expectancy term.** Hendrickson et al. state that including
@@ -625,15 +676,15 @@ on drug, and every visit with `De = 0` is baseline. The collinearity
 is real but moderate. With $N = 70$ the term is estimable; its cost is
 precision, and it changes the drug effect (Section 9).
 
-**Time as a factor.** Replacing $\beta_t w_t$ by one free mean per visit,
-$\tau_t$ (code `factor(t)`), absorbs everything common to all
+**Time as a factor.** Replacing $\beta_T w_t$ by one free mean per visit,
+$\mu_t$ (code `factor(t)`), absorbs everything common to all
 participants at a visit. That includes $TV$, $PB$, the expectancy
 step, and the part of $BR$ that every path shares. At weeks 4, 8 and
 9 every path is on drug with the same time on drug, so the Gompertz
-rise of $BR$ during open label goes into $\tau_t$, not into $\beta_D$.
+rise of $BR$ during open label goes into $\mu_t$, not into $\beta_D$.
 The drug effect is then identified only by the between-path comparisons
 of Section 7: a randomized estimate, but a less precise one. With a
-single path, $D$ and $\tau_t$ are completely aliased. **A spline in
+single path, $D_{it}$ and $\mu_t$ are completely aliased. **A spline in
 time** (`ns(t, 3)`) is the intermediate choice. It captures the
 sigmoids but not the step at week 9, and it leaves the within-path
 on/off variation available for $\beta_D$.
@@ -703,10 +754,10 @@ Monte Carlo mean and SD over 500 replicates):
 
 | Time adjustment | Limit, $t_{1/2} = 0$ | Simulated | Limit, $t_{1/2} = 1$ | Simulated |
 |--------------------|------------|----------------|------------|----------------|
-| Linear `t` | $-8.21$ | $-8.16$ (0.86) | $-6.78$ | $-6.70$ (0.84) |
-| Linear `t` + `De` | $-7.28$ | not run | $-5.34$ | not run |
-| Spline | $-6.22$ | $-6.02$ (0.99) | $-3.97$ | $-3.78$ (0.94) |
-| Visit as factor | $-6.25$ | $-5.99$ (1.27) | $-4.52$ | $-4.28$ (1.19) |
+| Linear `t` | $-8.21$ | $-8.16$ (0.86) | $-6.38$ | $-6.31$ (0.84) |
+| Linear `t` + `De` | $-7.28$ | not run | $-4.81$ | not run |
+| Spline | $-6.22$ | $-6.02$ (0.99) | $-3.67$ | $-3.50$ (0.94) |
+| Visit as factor | $-6.25$ | $-5.99$ (1.27) | $-4.49$ | $-4.28$ (1.19) |
 
 Table: Limiting and simulated drug coefficient $\beta_D$ by time adjustment
 
@@ -714,15 +765,22 @@ Table: Limiting and simulated drug coefficient $\beta_D$ by time adjustment
 Monte Carlo mean with its SD in parentheses.
 
 The linear-`t` drug effect is about 2 points larger than the
-visit-factor effect, with or without carryover (2.0 and 2.3 points in
-the population-mean limit, 2.2 and 2.4 in simulation). The open-label
+visit-factor effect, with or without carryover (2.0 and 1.9 points in
+the population-mean limit, 2.2 and 2.0 in simulation). The open-label
 visits carry both drug and full expectancy, the expectancy then drops
 by half at week 9, and a straight line cannot follow the drop. The
 excess open-label improvement is therefore credited to the drug.
-Adding `De` removes half to two thirds of the difference (0.93 of 1.96
-points without carryover, 1.44 of 2.26 at a one-week half-life). In the crossover, where expectancy is constant, the three
-forms agree within 0.5 points (CO, graded, $t_{1/2} = 0$: $-6.82$,
-$-6.29$, $-6.74$).
+Adding `De` removes half to four fifths of the difference (0.93 of 1.96
+points without carryover, 1.57 of 1.89 at a one-week half-life).
+(Updated 2026-10-09: under the recursive carryover first used here the
+one-week figures were 2.3 and 2.4 points and 1.44 of 2.26, and the
+sentence said "half to two thirds"; with anchored carryover `De`
+removes a larger share at one week. The ordering of the forms is
+unchanged.) In
+the crossover, where expectancy is constant, the three forms agree
+within about 0.5 points (CO, graded, $t_{1/2} = 0$: $-6.82$, $-6.29$,
+$-6.74$, a largest difference of 0.53; verified,
+`summary-reps500.csv`).
 
 None of these numbers is 'the' drug effect. Each form targets a
 different weighted average of a drug response that varies from 4.3 to
@@ -731,7 +789,7 @@ contrasts at weeks 10, 16 and 20 alone, and pays for that in precision
 (SD 1.27 against 0.86).
 
 **The interaction does not depend on the time adjustment.** In every
-cell the three mean estimates of $\beta_{bm:D}$ agree to within 0.0007.
+cell the three mean estimates of $\beta_{bm:D}$ agree to within 0.0009.
 In Hybrid their empirical SDs also agree (graded, $t_{1/2} = 0$: 0.0562,
 0.0559, 0.0558). This is what Section 7 predicts: misfit of the time
 terms is unrelated to the biomarker.
@@ -741,12 +799,12 @@ terms is unrelated to the biomarker.
 | Design | Cell | Linear `t` | Spline | Visit as factor |
 |---|---|---|---|---|
 | Hybrid | null, $t_{1/2} = 0$ | 0.049 | 0.055 | 0.059 |
-| Hybrid | null, $t_{1/2} = 1$ | 0.058 | 0.073 | 0.080 |
+| Hybrid | null, $t_{1/2} = 1$ | 0.056 | 0.075 | 0.080 |
 | Hybrid | graded, $t_{1/2} = 0$ | 0.636 | 0.678 | 0.690 |
-| Hybrid | graded, $t_{1/2} = 1$ | 0.444 | 0.484 | 0.508 |
-| Hybrid | mean moderation, $t_{1/2} = 2$ | 0.626 | 0.682 | 0.696 |
+| Hybrid | graded, $t_{1/2} = 1$ | 0.442 | 0.488 | 0.510 |
+| Hybrid | mean moderation, $t_{1/2} = 2$ | 0.626 | 0.674 | 0.690 |
 | CO | null, $t_{1/2} = 0$ | 0.052 | 0.040 | 0.044 |
-| CO | null, $t_{1/2} = 1$ | 0.042 | 0.039 | 0.039 |
+| CO | null, $t_{1/2} = 1$ | 0.042 | 0.040 | 0.039 |
 | CO | graded, $t_{1/2} = 0$ | 0.734 | 0.750 | 0.772 |
 
 Table: Interaction test rejection rates by design, cell and time adjustment
@@ -760,8 +818,10 @@ Monte Carlo standard errors are about 0.007 for the null rates and
   Their estimates are no less variable than linear time's, yet they
   reject more often, so their model-based standard errors must be
   smaller. Under the null with one-week carryover their Type I error
-  is 0.073 and 0.080, about 3 and 3.5 Monte Carlo standard errors
-  above the nominal 0.05, against 0.058 (about 1) for linear time.
+  is 0.075 and 0.080, about 3 and 3.5 Monte Carlo standard errors
+  above the nominal 0.05 (standard errors at the observed rates, 0.0083
+  and 0.0086; verified, `summary-reps1000-null.csv`), against 0.056
+  (about 0.8) for linear time.
   Without carryover all three lie within 1.2 standard errors of 0.05.
   The power gains (0.02 to 0.07) are therefore not clean improvements.
   A size-adjusted comparison was not made.
@@ -873,7 +933,9 @@ Rscript analysis/scripts/quick-sim/hybrid-design-primer/01-figures.R
 Run from the repository root. The first two write
 `analysis/data/quick-sim/carryover-closed-form/time-adjustment/summary-reps500.csv`
 and `summary-reps1000-null.csv` (about 15 and 12 minutes on 8 cores).
-The third writes Figures 1 to 8 to `docs/figures/40-fig*.png` and the
+The third writes Figures 1 to 8 to `docs/figures/40-fig*.png` (the
+files `40-fig2` and `40-fig3` print as Figures 3 and 2, in order of
+appearance) and the
 supporting tables (Gompertz landmarks, component means, population-mean
 drug coefficients, per-path interaction slopes) to
 `analysis/data/quick-sim/hybrid-design-primer/`. All three read the
@@ -894,8 +956,9 @@ whose design paths and parameters match the `58b32a9` code.
    from Iraq and Afghanistan. *American Journal of Psychiatry* 2013;
    170(9):1003-1010. doi:10.1176/appi.ajp.2013.12081133.
 3. Gompertz B. On the nature of the function expressive of the law of
-   human mortality. *Philosophical Transactions of the Royal Society
-   of London* 1825; 115:513-583.
+   human mortality, and on a new mode of determining the value of life
+   contingencies. *Philosophical Transactions of the Royal Society of
+   London* 1825; 115:513-583. doi:10.1098/rstl.1825.0026.
 4. Hobbs DC, Twomey TM, Palmer RF. Pharmacokinetics of prazosin in man.
    *Journal of Clinical Pharmacology* 1978; 18(8-9):402-406.
    doi:10.1002/j.1552-4604.1978.tb02456.x.

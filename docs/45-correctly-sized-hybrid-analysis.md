@@ -3,7 +3,7 @@
 
 **Author.** pmsimstats team
 
-**Purpose.** This paper chooses a pre-specifiable primary analysis, and a
+**Purpose.** This paper chooses a primary analysis, and a
 set of sensitivity analyses, for the biomarker-by-drug interaction in a
 Hybrid N-of-1 trial of prazosin with blood pressure as the candidate
 predictive biomarker. The criterion is that the test must hold its
@@ -17,6 +17,25 @@ of the drug-exposure coding used in manuscript 02
 in `docs/40` to `docs/43` and corrects several statements made there
 before the results were in.
 
+**Status note (2026-10-07).** Two parts of this paper are superseded.
+(1) The primary recommendation (`us-KR` with $D_{bc,it}$, Sections 1
+and 9) is replaced by analysis F1 of the exploratory stress test
+(`docs/46`, Amendments 1 and 2; `docs/49`, Section 7). In that test the
+unstructured Kenward-Roger model (analysis A) rejected 0.057 pooled over
+the 11 standard null cells and 0.087 at $N = 35$, failing the strict
+size criterion, and rejected 0.195 to 0.416 in the three natural-course
+and placebo prognostic null cells (verified,
+`decision-screen-ds-nosym-all14.csv`). (2) Section 4.4 understates the
+flexible-time size excess; see the note there.
+
+(Updated 2026-10-09: the pre-exposure coding check
+(`10-dbc-preexposure-check.R`, the table of the section on manuscript
+02's coding) now uses anchored carryover at $t_{1/2} > 0$; see
+`docs/53`. Values changed by at most 0.004; conclusions unchanged. The
+covariance-study results elsewhere in this paper still come from the
+run with the published recursive carryover; its anchored rerun is
+pending and they have not been changed.)
+
 ```{=latex}
 \clearpage
 \tableofcontents
@@ -27,7 +46,9 @@ before the results were in.
 ## Notation index and glossary
 
 Notation follows `analysis/report/NOTATION.md`. Symbols marked *local*
-are defined here or in `docs/41`.
+are defined here or in `docs/41`. (Notation, 2026-10-09: the
+linear-time coefficient is $\beta_T$, reverting the $\beta_t$ of the
+first notation pass; the compound-symmetry correlation is $\rho_{cs}$.)
 
 | Symbol | Meaning | Status |
 |----------------|----------------------------------------|----------|
@@ -35,20 +56,26 @@ are defined here or in `docs/41`.
 | $\mathrm{BL}_i$ | baseline symptom score | canonical |
 | $B_i$ | biomarker (code `bm`); centered at its sample mean in every analysis | canonical |
 | $D_{it}$ | binary drug state (code `Db`); 0 at baseline | canonical |
-| $D_{bc,it}$ | exposure-decayed drug indicator (code `Dbc`): 1 on drug, $2^{-t_{sd}/t_{1/2}^{a}}$ off drug after exposure, 0 before any exposure | canonical; the pre-exposure value is made explicit here |
+| $D_{bc,it}$ | exposure-decayed drug indicator (code `Dbc`): 1 on drug, $2^{-t_{sd}/t_{1/2}^{a}}$ off drug after exposure, 0 before any exposure | canonical |
 | $t_{sd}$ | time since discontinuation, in weeks; 0 before first exposure | canonical |
 | $t_{1/2}$ | carryover half-life of the data-generating process, in weeks | canonical |
-| $t_{1/2}^{a}$ | half-life assumed by the analysis when it builds $D_{bc,it}$ | local |
+| $t_{1/2}^{a}$ | half-life assumed by the analysis when it builds $D_{bc,it}$ | canonical |
 | $\lambda$ | decay rate, $\ln 2 / t_{1/2}$ | canonical |
 | $c_{bm}$ | covariance-moderation strength: on-drug correlation of the biomarker with the drug response | canonical |
 | $\rho$ | AR(1) serial correlation per week | canonical |
-| $\beta_B$ | biomarker main effect | local (`docs/41`) |
+| $\rho_{cs}$ | common within-component correlation of compound symmetry, the same at every lag (0.8 in the CS construct) | canonical |
+| $\beta_B$ | biomarker main effect | canonical |
 | $\beta_D$, $\beta_{bm:D}$ | drug main effect; biomarker-by-drug interaction, the estimand | canonical |
 | $\alpha$ | nominal level, 0.05 | canonical |
-| $\pi$ | power, $\Pr(p < \alpha)$ | canonical |
 | $\kappa$ | mean model-based standard error over the empirical standard deviation of the estimate; below 1 means anticonservative | canonical |
 | $\nu$ | denominator degrees of freedom | canonical |
-| $\Sigma$ | covariance matrix of a participant's outcomes | canonical |
+| $\Sigma$ | covariance matrix of a participant's outcomes | local |
+| $\varepsilon_{it}$ | residual of the analysis model | canonical |
+| $\beta_0$, $\beta_T$ | intercept; coefficient of linear time $w_t$ (written $\beta_t$ before 2026-10-09) | canonical |
+| $w_t$ | calendar week of visit $t$ (code `t`) | canonical |
+| $X_{it}$ | exposure regressor of the analysis, $D_{it}$ or $D_{bc,it}$ | local |
+| $f(t)$ | time adjustment: linear, spline or visit factor | local |
+| $\mathbf{1}\{t = 0\}$ | indicator of the baseline row | local |
 | $N$ | total sample size, 70 | canonical |
 
 Table: Notation index and glossary of symbols, meanings and status
@@ -96,7 +123,11 @@ working covariance and inference, for example `BL+us-KR`.
 - **Construct.** The data-generating process. *CS* is the published
   compound-symmetry construct with graded coupling at $c_{bm} = 0.25$.
   *C07* is configuration C (separable AR(1), $\rho = 0.7$) with graded
-  coupling at $c_{bm} = 0.45$ (`docs/36`, `docs/44`).
+  coupling at $c_{bm} = 0.45$ (`docs/36`, `docs/44`). It is the
+  covariance construct of the refined process of paper 01, not the
+  refined process itself: this study kept the published recursive
+  carryover and the fixed published allocation (inspected in
+  `08-covariance-study.R`).
 - **Shared biomarker effect.** In the row coding, a single $\beta_B$
   describes the biomarker's association with the outcome at baseline
   and at every post-baseline off-drug visit.
@@ -156,11 +187,12 @@ working covariance and inference, for example `BL+us-KR`.
    0.256 to 0.556 under AR(1) (verified, Section 8). This is the likely
    cause of manuscript 02's finding that the exposure-weighted analysis
    collapses under CO.
-8. **Recommendation (Section 9).**
+8. **Recommendation (Section 9; superseded 2026-10-07 by `docs/46`
+   and `docs/49`, which recommend F1).**
    - **Primary analysis:** an MMRM with unstructured covariance and
      Kenward-Roger inference, baseline as a response row, linear time,
-     and $D_{bc,it}$ at a pre-specified $t_{1/2}^{a} = 0.5$ week.
-   - **Pre-specified sensitivity analyses:** the same model with
+     and $D_{bc,it}$ at a fixed $t_{1/2}^{a} = 0.5$ week.
+   - **Sensitivity analyses:** the same model with
      $\beta_B$ freed at baseline (equivalently, baseline as a
      covariate), and `RI+CAR1-CR2`.
    - **If the protocol cannot defend the constancy assumption,** the
@@ -168,7 +200,7 @@ working covariance and inference, for example `BL+us-KR`.
 
 ## 2. The question and the criterion
 
-A confirmatory test of a predictive biomarker is useful only if its
+A trial's primary test of a predictive biomarker is useful only if its
 Type I error is what the protocol states. In this setting, an analysis
 that rejects 8% of the time under the null cannot be rescued by its
 power, so the analyses are first screened on size, and power is
@@ -203,8 +235,8 @@ Hybrid, 35/35 in CO). Both use graded coupling: full coupling on drug,
 $c_{bm} 2^{-t_{sd}/t_{1/2}}$ off drug after exposure, zero before
 exposure (`docs/37`, Appendix A).
 
-- **CS:** compound symmetry within each response component (0.8 at
-  every lag), cross-component correlations 0.2 and 0.1, $c_{bm} = 0.25$
+- **CS:** compound symmetry within each response component
+  ($\rho_{cs} = 0.8$ at every lag), cross-component correlations 0.2 and 0.1, $c_{bm} = 0.25$
   (below the ceiling of 0.256).
 - **C07:** separable AR(1) at $\rho = 0.7$ per week, $c_{bm} = 0.45$
   (below the ceiling of 0.480 in Hybrid and 0.616 in CO).
@@ -226,7 +258,7 @@ $c_{bm} = 0$. Alternative cells have 250 replicates (power MCSE at most
 + f(t) + \beta_{bm:D} B_i X_{it}$, with $X_{it}$ either $D_{it}$ or
 $D_{bc,it}$ and $f(t)$ linear, spline or visit factor. The baseline
 coding, working covariance and inference vary as in the glossary. All
-analyses are fitted with `mmrm`, except `RI+CAR1` (`nlme` plus
+analyses are fitted with `mmrm` [4], except `RI+CAR1` (`nlme` plus
 `clubSandwich`).
 
 **Three passes, paired.**
@@ -352,10 +384,7 @@ about 0.07, for flexible time adjustments in Hybrid under carryover.
 | `cs-CR2` | 0.058 | | 0.058 |
 | `csh-CR2` | 0.060 | | 0.060 |
 
-Table: Null rejection rate in the CS Hybrid cell by time adjustment
-
-*Null rejection rate in the CS Hybrid cell at $t_{1/2} = 1$, by time
-adjustment (500 replicates, MCSE 0.0097).*
+Table: Null rejection rate in the CS Hybrid cell at $t_{1/2} = 1$ by time adjustment (500 replicates, MCSE 0.0097)
 
 The excess is confined to this one cell. It is 2.0 to 2.3 MCSE above
 nominal and absent under CR2. Averaged over the eight cells, the visit
@@ -363,6 +392,20 @@ factor and the spline have the same mean size as linear time in every
 analysis (0.058 for `us-KR`). The evidence for a systematic effect of
 the time form on size is therefore weak. Linear time is never worse in
 any cell, and it is the recommended form.
+
+**Correction (2026-10-07).** Calling this evidence weak is wrong. The
+excess in this cell under model-based and Kenward-Roger inference was
+found independently in `docs/42` (Section 4 table: 0.075 spline and
+0.080 visit factor against 0.056 linear after the 2026-10-09
+anchored-carryover update, 0.073, 0.080 and 0.058 before; MCSE about
+0.007), on different
+simulated trials, and is reproduced here (0.068 to 0.072). Two
+independent runs at 2 to 4 MCSE each make it a real size excess for
+model-based and Kenward-Roger inference in Hybrid under carryover, not
+Monte Carlo noise (inspected, `docs/42`; verified,
+`summary-alt250-null500-combined.csv`). It is absent under CR2. The
+recommendation of linear time stands, and is strengthened. The
+corresponding row of Section 10 should be read with this note.
 
 ## 5. Power among the correctly sized analyses
 
@@ -434,11 +477,10 @@ the biomarker effect at baseline.
 | `us-KR-sepbm` | 0.720 | 0.460 | 0.780 | 0.504 | 0.592 | 0.528 |
 | `BL+us-KR` | 0.704 | 0.456 | 0.792 | 0.484 | 0.600 | 0.572 |
 
-Table: Raw power of `us-KR` with shared versus freed baseline biomarker effect
+Table: Raw power of `us-KR` with shared versus freed baseline biomarker effect (visit-factor time adjustment, 250 replicates per cell; columns give construct, design and $t_{1/2}$)
 
-*Raw power with the visit-factor time adjustment, 250 replicates per
-cell (verified). Column labels give construct, design and $t_{1/2}$.
-`us-KR` shares $\beta_B$ with the baseline row; `us-KR-sepbm` frees it.*
+The figures are verified. `us-KR` shares $\beta_B$ with the baseline
+row; `us-KR-sepbm` frees it.
 
 Freeing $\beta_B$ at baseline removes the whole advantage. The freed
 row model and the covariate model then agree to within Monte Carlo
@@ -447,7 +489,7 @@ error in every cell. Their size is the same (0.058 and 0.059).
 **Correction to `docs/41`.** Section 7 of `docs/41` derived that, with
 complete data, an unstructured covariance and $\beta_B$ free at
 baseline, keeping baseline in the response is equivalent to conditioning
-on it. That derivation is confirmed. Its table, however, applied the
+on it (compare Liu et al. [5]). That derivation is confirmed. Its table, however, applied the
 equivalence to the published row coding, which shares $\beta_B$. That
 application is wrong: the shared form is a different, more constrained
 model, and under AR(1) data it is substantially more powerful.
@@ -517,7 +559,7 @@ interaction ($-0.129$). A longer assumed half-life overshoots it
 ($-0.151$ at $t_{1/2}^{a} = 2$; $-0.168$ without carryover). Under
 $D_{bc,it}$, $\beta_{bm:D}$ is the interaction per unit of modeled
 exposure, so its scale depends on $t_{1/2}^{a}$. The assumed half-life
-must be pre-specified, and the estimate is interpretable as the on-drug
+must be fixed, not chosen from the data, and the estimate is interpretable as the on-drug
 interaction only if the assumption is close to the truth.
 
 **For prazosin.** The pharmacokinetic half-life of prazosin is a few
@@ -542,7 +584,7 @@ to 183; the same pattern at lines 662 and 688). Two facts combine
 
 - the package sets $t_{sd} = 0$ before the first exposure
   (`R/buildtrialdesign.R`, line 105);
-- `carryover_decay(0, h)` returns $e^{0} = 1$ for any $h > 0$
+- `carryover_decay(0, h)` returns $e^{0} = 1$ for any half-life `h > 0`
   (`implementations/tidyverse/R/functions.R`, line 56, which the
   manuscript 02 driver uses; the `nof1power` copy behaves the same).
 
@@ -560,16 +602,12 @@ replicates per cell (verified):
 
 | Construct, design | $D_{it}$ | $D_{bc,it}$ corrected | $D_{bc,it}$ as in 02 | Constant indicator |
 |--------------------|----------|--------------|--------------|------------|
-| CS, Hybrid | 0.428 | 0.496 | 0.496 | 0 |
+| CS, Hybrid | 0.424 | 0.496 | 0.496 | 0 |
 | CS, CO | 0.744 | 0.744 | 0.484 | 35 |
-| C07, Hybrid | 0.476 | 0.576 | 0.576 | 0 |
-| C07, CO | 0.548 | 0.556 | 0.256 | 35 |
+| C07, Hybrid | 0.476 | 0.572 | 0.572 | 0 |
+| C07, CO | 0.548 | 0.552 | 0.256 | 35 |
 
-Table: Power under corrected and manuscript 02 pre-exposure coding of $D_{bc,it}$
-
-*Power with CR2 standard errors. The last column counts participants
-whose indicator is constant over all visits under manuscript 02's
-coding.*
+Table: Power (CR2 standard errors) under corrected and manuscript 02 pre-exposure coding of $D_{bc,it}$; the last column counts participants whose indicator is constant over all visits under manuscript 02's coding
 
 - **In Hybrid** the two codings give identical fits, as they must.
 - **In CO** the defect costs 0.26 to 0.30 in power, and it raises the
@@ -595,15 +633,28 @@ models all affected by the defect.
 Then rerun the CO cells of manuscript 02, its blocks S7 to S10 in
 particular.
 
+**Note (2026-10-07).** The driver now applies this fix through
+`exposure_weight()` (`simulation-core.R`, lines 147 to 156), so the
+line numbers cited above refer to the version inspected when this paper
+was written (inspected). Whether manuscript 02's CO cells have been
+rerun with the corrected coding was not established here.
+
 ## 9. Recommendation for a Hybrid trial of prazosin with blood pressure
 
 ### 9.1 Primary analysis
+
+**Superseded (2026-10-07).** This recommendation is replaced by
+analysis F1 (`docs/49`, Section 7; `docs/46`, Amendment 2). The
+exploratory stress test showed that this model fails the strict size
+criterion (0.057 pooled, 0.087 at $N = 35$) and that its shared
+baseline biomarker effect rejects 0.195 to 0.416 under a natural-course
+or placebo-prognostic biomarker. The text below is kept as written.
 
 An MMRM for all nine rows (baseline as a row at $t = 0$, coded off
 drug):
 
 $$
-Y_{it} = \beta_0 + \beta_B B_i + \beta_T t + \beta_D D_{bc,it}
+Y_{it} = \beta_0 + \beta_B B_i + \beta_T w_t + \beta_D D_{bc,it}
   + \beta_{bm:D} B_i D_{bc,it} + \varepsilon_{it},
 \qquad \operatorname{Var}(\boldsymbol\varepsilon_i) = \Sigma
   \text{ unstructured},
@@ -645,7 +696,7 @@ summary(fit)$coefficients['bmc:Dbc', ]
 - the handling of missing visits: MMRM under missing at random, which
   this study did not test (Section 11).
 
-### 9.2 Pre-specified sensitivity analyses
+### 9.2 Sensitivity analyses
 
 1. **$\beta_B$ freed at baseline.** Add `bmc:bl0`, where `bl0` is 1 at
    baseline. Equivalently, analyze the eight post-baseline visits with
@@ -696,7 +747,7 @@ summary(fit)$coefficients['bmc:Dbc', ]
 |----------------|------------------------------|----------------------------------------|
 | `docs/41`, Section 7 table | cLDA and ANCOVA coincide for the unstructured row model | True only with $\beta_B$ free at baseline; the published row coding shares it and differs (Section 6) |
 | `docs/41`, Section 8 | Recommends baseline as a covariate for the trial analysis | Superseded by Section 9: the covariate form is the sensitivity analysis, or the primary if constancy cannot be defended |
-| `docs/42` and `docs/43`, Section 4 | The flexible-time size excess persists under every covariance and its cause is unexplained | Confined to one cell, 2 MCSE, absent under CR2; no systematic effect (Section 4.4) |
+| `docs/42` and `docs/43`, Section 4 | The flexible-time size excess persists under every covariance and its cause is unexplained | Confined to one cell, absent under CR2 (Section 4.4); the excess under model-based and KR inference is real (2026-10-07 note, Section 4.4) |
 | `docs/43`, Sections 1 and 5 | `us-KR` is sized at 0.046 to 0.072 | Slightly liberal, mean 0.058; the CR2 analyses with parsimonious covariances are nominal (Section 4) |
 | `docs/43`, Section 6 | The follow-up questions are open | Answered here (Sections 4 to 7) |
 | Manuscript 02, Section 3.4 and blocks S7 to S10 | The exposure-weighted analysis collapses under CO | Likely an artifact of the pre-exposure coding (Section 8) |
@@ -708,7 +759,9 @@ Table: Corrections to statements in earlier documents
 - **Two constructs, both satisfying the constancy assumption.** No null
   cell has a prognostic biomarker, so the row coding's size when the
   assumption fails is unknown. This is the most important open
-  question for the recommendation.
+  question for the recommendation. (Answered 2026-10-07 in `docs/46`
+  and `docs/48`: under a natural-course or placebo-prognostic biomarker
+  the row coding is anticonservative, up to 0.416 for `us-KR`.)
 - **One sample size, no missing data.** $N = 70$ and complete data
   throughout. Kenward-Roger with `us` is known to degrade in small
   samples, and missing visits change both the covariance estimation
@@ -737,6 +790,8 @@ Table: Corrections to statements in earlier documents
 1. **Size of the row coding under a prognostic biomarker.** Couple the
    biomarker to the natural-course or expectancy component in the null
    cells. This decides between the primary and sensitivity analysis 1.
+   (Done in the stress test of `docs/46`, cells 11 to 13 and 40 to 41;
+   see `docs/48`, Section 2.)
 2. **The recommended primary and sensitivity analyses in the remaining
    conditions.** Run them at $t_{1/2} \in \{0.1, 0.2, 0.5\}$, at
    $N \in \{30, 50\}$, and with the published dropout mechanisms.

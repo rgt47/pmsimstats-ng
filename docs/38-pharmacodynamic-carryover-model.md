@@ -3,12 +3,86 @@
 
 **Author.** pmsimstats team
 
+**Purpose.** This paper proposes, from pharmacodynamic principles, a
+generative model of the drug response in which carryover is specified
+once and the mean, the biomarker moderation and the covariance of the
+response all follow from it. It sets out the model, derives its implied
+moments and the consequences for the interaction test, and compares it
+with the constructs in use. It is a proposal: its results are derived,
+not implemented or simulated.
+
 ```{=latex}
 \clearpage
 \tableofcontents
 \listoftables
 \clearpage
 ```
+
+## Notation index and glossary
+
+The notation follows `analysis/report/NOTATION.md`. Symbols marked
+*canonical* carry the meaning given there; symbols marked *local* are
+introduced here and chosen not to collide with canonical symbols. The
+proposal's sensitivity, moderation-strength and noise symbols were
+renamed on 2026-10-07 ($\theta$, $\kappa$, $u$, $\varepsilon$, $\gamma$
+in the first draft) because those letters carry other canonical
+meanings. On 2026-10-09 the contrast-biomarker correlation was renamed
+from $\rho_{\Delta B}$ to $r_{\Delta B}$, as in `docs/37` and
+`analysis/report/compendium-mathematics.tex` ($\rho$ is the canonical
+serial correlation), and the normal law written $\mathcal{N}$.
+
+| Symbol | Meaning | Status |
+|----------|----------------------------------------|------|
+| $i$, $t$, $s$ | patient; visit (two visits $t$, $s$) | canonical |
+| $B_i$, $b_i$ | biomarker; standardized biomarker $(B_i - \mu_{bm})/\sigma_{bm}$ | canonical |
+| $\mu_{bm}$, $\sigma_{bm}$ | biomarker mean and standard deviation | canonical |
+| $BR_{it}$ | drug (biological) response component | canonical |
+| $Y$ | symptom score, the outcome | canonical |
+| $c_{bm}$ | covariance-moderation strength of the published construct | canonical |
+| $D_{bc}$ | exposure-decayed continuous drug indicator | canonical |
+| $\beta_{bm:D}$ | interaction slope: population slope of the contrast $\Delta$ on $B$ | canonical |
+| $t_{sd}$, $t_{1/2}$ | time since discontinuation; carryover half-life as used by the published construct | canonical |
+| $t_{1/2}^{R}$ | response (pharmacodynamic offset) half-life | local |
+| $k_{\text{out}}$ | first-order turnover rate of the response, $\ln 2 / t_{1/2}^{R}$ | local |
+| $f(t)$ | population drug-response time course, scaled to 1 at full on-drug effect | local |
+| $f^{\ast}(t)$ | drug-driven target of the turnover model: 1 on drug, 0 off drug | local |
+| $t_{\text{stop}}$ | time of discontinuation | local |
+| $\omega_i$, $\bar\omega$ | patient $i$'s drug sensitivity and its population mean | local |
+| $\zeta$ | strength of multiplicative moderation of sensitivity by $b_i$ | local |
+| $v_i$, $\sigma_v$ | sensitivity variation not explained by the biomarker, and its SD | local |
+| $\xi_{it}$, $\sigma_\xi$, $r_\xi(t,s)$ | serial within-patient noise of $BR$, its SD and its correlation | local |
+| $c_{bm}^{\text{peak}}$ | biomarker-response correlation at full effect, a derived value | local |
+| $a_t$ | E9 contrast weights, $1/n_{\text{on}}$ on drug, $-1/n_{\text{off}}$ off drug | canonical |
+| $\Delta$, $\Delta_i$ | patient's on-minus-off contrast (E9) | canonical |
+| $F$ | contrast-weighted exposure, $\bar f_{\text{on}} - \bar f_{\text{off}}$ | local |
+| $\bar f_{\text{on}}$, $\bar f_{\text{off}}$ | mean of $f(t)$ over on-drug and off-drug visits | local |
+| $V_0$ | contrast variance from serial noise and the other response factors | local |
+| $r_{\Delta B}$ | correlation between contrast and biomarker | canonical |
+| $\mathrm{BL}$, $TV$, $PB$ | baseline level; natural-course and placebo-belief components | canonical |
+| $n_{\text{on}}$, $n_{\text{off}}$ | on-drug and off-drug visits of a path | canonical |
+| $G$, $H$ | shorthand $\bar\omega\zeta$ and $\bar\omega^2\zeta^2 + \sigma_v^2$ in the proof of Section 6 | local |
+
+Table: Notation index for the pharmacodynamic carryover model
+
+**Glossary.**
+
+- **Pharmacokinetic carryover.** Drug remaining in the body after the
+  last dose.
+- **Pharmacodynamic (disease-state) carryover.** Improvement that
+  persists after the drug has been eliminated.
+- **Turnover (indirect-response) model.** A response that relaxes
+  toward a drug-driven target at a first-order rate.
+- **Anchored decay.** Off-drug decay measured from the level reached at
+  discontinuation.
+- **Moderation profile.** The fraction of the full biomarker moderation
+  present at a visit (`docs/37`).
+- **Step rule, graded coupling, decayed mean moderation.** The coupling
+  rules of `docs/37`, Section 2.
+- **E9.** The paired-difference interaction statistic of `docs/37`,
+  Section 3.
+- **`orig`, `covar`, configurations C and D.** The published
+  (`58b32a9`) construct, the package's AR(1) construct, and the
+  configurations of `docs/36`, Appendix A.6.
 
 ## 1. Summary
 
@@ -28,7 +102,7 @@ The proposal:
 
 1. **Carryover is pharmacodynamic.** For the prazosin and
    posttraumatic stress disorder (PTSD) context, the drug leaves plasma
-   with a half-life of about 2.3 hours (Hobbs et al., 1978), so
+   with a half-life of approximately 2.3 hours (Hobbs et al., 1978), so
    pharmacokinetic carryover is essentially complete within a day.
    Persistence of benefit beyond that is a property of the response,
    and the half-life parameter should be the response (offset)
@@ -60,7 +134,7 @@ simulation results; nothing in it has been implemented or simulated.
 ## 2. Two kinds of carryover
 
 **Pharmacokinetic carryover** is drug remaining in the body after the
-last dose. For prazosin it is short: in 24 healthy subjects, drug left
+last dose. For prazosin it is short: in 24 normotensive subjects, drug left
 plasma with a half-life of approximately 2.3 hours (Hobbs et al.,
 1978). Five half-lives, about 12 hours, remove 97% of it. Hendrickson
 et al.'s half-lives of 0.1 and 0.2 weeks (17 and 34 hours) are on this
@@ -92,12 +166,12 @@ scaled so that $f = 1$ at the full on-drug effect. A minimal turnover
 model is
 
 $$
-\frac{df}{dt} = k\,\big(E(t) - f(t)\big), \qquad
-k = \frac{\ln 2}{t_{1/2}^{R}},
+\frac{df}{dt} = k_{\text{out}}\,\big(f^{\ast}(t) - f(t)\big), \qquad
+k_{\text{out}} = \frac{\ln 2}{t_{1/2}^{R}},
 $$
 
-where $E(t)$ is the drug-driven target: the on-drug effect while on
-drug, 0 off drug. For a target that is constant within each on-drug
+where $f^{\ast}(t)$ is the drug-driven target: the full on-drug effect
+(1 on this scale) while on drug, 0 off drug. For a target that is constant within each on-drug
 or off-drug interval, the solution is exact and piecewise: off drug,
 
 $$
@@ -135,16 +209,16 @@ terms it acts on sensitivity, the maximal effect or the potency of the
 drug in that patient. Write patient $i$'s drug response as
 
 $$
-BR_{it} = \theta_i\, f(t) + \varepsilon_{it}, \qquad
-\theta_i = \bar\theta\,(1 + \kappa z_i) + u_i ,
+BR_{it} = \omega_i\, f(t) + \xi_{it}, \qquad
+\omega_i = \bar\omega\,(1 + \zeta b_i) + v_i ,
 $$
 
-with $z_i$ the standardized biomarker, $\kappa$ the strength of
-moderation, $u_i \sim N(0, \sigma_u^2)$ the variation in sensitivity
-that the biomarker does not explain, and $\varepsilon_{it}$ serial
-within-patient noise with variance $\sigma_\varepsilon^2$, independent
-of $z_i$ and $u_i$. The mean response is $\bar\theta f(t)$, and the
-biomarker-dependent part, $\bar\theta\kappa z_i f(t)$, has the same
+with $b_i$ the standardized biomarker, $\zeta$ the strength of
+moderation, $v_i \sim \mathcal{N}(0, \sigma_v^2)$ the variation in sensitivity
+that the biomarker does not explain, and $\xi_{it}$ serial
+within-patient noise with variance $\sigma_\xi^2$, independent
+of $b_i$ and $v_i$. The mean response is $\bar\omega f(t)$, and the
+biomarker-dependent part, $\bar\omega\zeta b_i f(t)$, has the same
 time course as the response.
 
 The *moderation profile*, the fraction of the full moderation present
@@ -160,7 +234,7 @@ at visit $t$, is therefore $f(t)$ itself:
   (configuration D of `docs/36`), which shifts the response at on-drug
   visits only.
 
-The decayed mean moderation of the `docs/37` discussion, with an
+The decayed mean moderation of `docs/37` (Section 5.6), with an
 anchored profile equal to 1 on drug and $2^{-t_{sd}/t_{1/2}}$ off drug,
 is an approximation to this; the proportional profile $f(t)$ is the
 form the pharmacology implies.
@@ -168,18 +242,18 @@ form the pharmacology implies.
 ## 5. The implied covariance
 
 Under the model of Section 4 every second moment of the drug response
-follows from four quantities, $\bar\theta\kappa$, $\sigma_u$,
-$\sigma_\varepsilon$ and the serial correlation of $\varepsilon$
+follows from four quantities, $\bar\omega\zeta$, $\sigma_v$,
+$\sigma_\xi$ and the serial correlation $r_\xi$ of $\xi$
 (derived):
 
 $$
 \begin{aligned}
-\mathrm{Var}(BR_t) &= (\bar\theta^2\kappa^2 + \sigma_u^2)\, f(t)^2 + \sigma_\varepsilon^2, \\
-\mathrm{Cov}(BR_t, BR_s) &= (\bar\theta^2\kappa^2 + \sigma_u^2)\, f(t) f(s)
-  + \sigma_\varepsilon^2\, r_\varepsilon(t, s), \\
-\mathrm{Cov}(B, BR_t) &= \sigma_B\,\bar\theta\kappa\, f(t), \qquad
-\mathrm{Cor}(B, BR_t) = \frac{\bar\theta\kappa\, f(t)}
-  {\sqrt{(\bar\theta^2\kappa^2 + \sigma_u^2) f(t)^2 + \sigma_\varepsilon^2}} .
+\mathrm{Var}(BR_t) &= (\bar\omega^2\zeta^2 + \sigma_v^2)\, f(t)^2 + \sigma_\xi^2, \\
+\mathrm{Cov}(BR_t, BR_s) &= (\bar\omega^2\zeta^2 + \sigma_v^2)\, f(t) f(s)
+  + \sigma_\xi^2\, r_\xi(t, s), \\
+\mathrm{Cov}(B, BR_t) &= \sigma_{bm}\,\bar\omega\zeta\, f(t), \qquad
+\mathrm{Cor}(B, BR_t) = \frac{\bar\omega\zeta\, f(t)}
+  {\sqrt{(\bar\omega^2\zeta^2 + \sigma_v^2) f(t)^2 + \sigma_\xi^2}} .
 \end{aligned}
 $$
 
@@ -189,8 +263,8 @@ Four consequences:
   $f = 0$, rises and decays with $f$, and is never a step. The
   quantity the published framework calls $c_{bm}$ becomes a derived
   value, most naturally the correlation at full effect,
-  $c_{\text{peak}} = \bar\theta\kappa /
-  \sqrt{\bar\theta^2\kappa^2 + \sigma_u^2 + \sigma_\varepsilon^2}$.
+  $c_{bm}^{\text{peak}} = \bar\omega\zeta /
+  \sqrt{\bar\omega^2\zeta^2 + \sigma_v^2 + \sigma_\xi^2}$.
 - **The drug-response variance shrinks off drug.** As the effect washes
   out, the sensitivity term vanishes and only the serial noise remains.
   The published construct gives the drug-response factor its full
@@ -214,13 +288,13 @@ The other response factors follow the same logic. The time-related
 (natural history) and expectancy (placebo) factors are separate
 processes; correlation between them and the drug response should
 arise from shared patient-level effects, such as a patient's general
-responsiveness entering both $\theta_i$ and the expectancy effect,
+responsiveness entering both $\omega_i$ and the expectancy effect,
 rather than from constants placed in matrix cells. The resulting
 covariance is again a sum of positive semidefinite terms, in the form
 of the linear model of coregionalization of `docs/35`.
 
-Data from this model need no correlation matrix at all: draw $z_i$,
-$u_i$ and the serial noise, compute $f(t)$ for the patient's schedule,
+Data from this model need no correlation matrix at all: draw $b_i$,
+$v_i$ and the serial noise, compute $f(t)$ for the patient's schedule,
 and assemble $BR_{it}$. The construction is the factored generator of
 `docs/36`, Section 6.7, without the matrix.
 
@@ -235,24 +309,32 @@ $$
 F = \sum_t a_t f(t) = \bar f_{\text{on}} - \bar f_{\text{off}} .
 $$
 
-The drug-response part of each patient's contrast is
-$\theta_i F + \sum_t a_t\varepsilon_{it}$. Writing $V_0$ for the
-variance contributed by the serial noise and the other response
-factors, assumed independent of $\theta_i$,
+The drug-response part of the sum $\sum_t a_t BR_{it}$ is
+$\omega_i F + \sum_t a_t\xi_{it}$; because $Y = \mathrm{BL} - (TV + PB
++ BR)$, it enters the contrast $\Delta_i = \sum_t a_t Y_{it}$ with a
+negative sign. Writing $V_0$ for the variance contributed by the serial
+noise and the other response factors, assumed independent of
+$\omega_i$,
 
 $$
-\gamma = -\frac{\bar\theta\kappa\,F}{\sigma_B}, \qquad
-\mathrm{Var}(\Delta) = (\bar\theta^2\kappa^2 + \sigma_u^2)\,F^2 + V_0, \qquad
-\rho_{\Delta B} = \frac{\bar\theta\kappa\, F}
-  {\sqrt{(\bar\theta^2\kappa^2 + \sigma_u^2) F^2 + V_0}} .
+\beta_{bm:D} = -\frac{\bar\omega\zeta\,F}{\sigma_{bm}}, \qquad
+\mathrm{Var}(\Delta) = (\bar\omega^2\zeta^2 + \sigma_v^2)\,F^2 + V_0, \qquad
+r_{\Delta B} = -\frac{\bar\omega\zeta\, F}
+  {\sqrt{(\bar\omega^2\zeta^2 + \sigma_v^2) F^2 + V_0}} .
 $$
 
-**Proposition.** *$|\rho_{\Delta B}|$ is strictly increasing in $|F|$.*
-With $A = \bar\theta\kappa$, $C = \bar\theta^2\kappa^2 + \sigma_u^2$,
-$\rho = AF/\sqrt{CF^2 + V_0}$ has derivative
-$AV_0/(CF^2 + V_0)^{3/2} > 0$. Since power is increasing in
-$|\rho_{\Delta B}|$ (`docs/37`, Section 4.4), power is strictly
-increasing in the contrast-weighted exposure.
+(The first draft gave $r_{\Delta B}$ without the minus sign; the
+sign follows from that of $\beta_{bm:D}$ and does not affect power,
+which depends on $\lvert r_{\Delta B}\rvert$. Corrected 2026-10-07.)
+
+**Proposition.** *$\lvert r_{\Delta B}\rvert$ is strictly increasing
+in $\lvert F\rvert$.* With $G = \bar\omega\zeta > 0$ and
+$H = \bar\omega^2\zeta^2 + \sigma_v^2$,
+$\lvert r_{\Delta B}\rvert = G\lvert F\rvert/\sqrt{HF^2 + V_0}$, whose
+derivative in $\lvert F\rvert$ is $GV_0/(HF^2 + V_0)^{3/2} > 0$ for
+$V_0 > 0$. Since power is increasing in $\lvert r_{\Delta B}\rvert$
+(`docs/37`, Section 4.4), power is strictly increasing in the magnitude
+of the contrast-weighted exposure (derived).
 
 The half-life enters through $F$. Under anchored offset with the
 on-drug course held fixed, each off-drug $f(t)$ increases with
@@ -267,13 +349,15 @@ Two features differ from the published construct:
 
 - **Variance depends on carryover.** In `docs/37`, Proposition 1, the
   contrast variance did not depend on the half-life. Here the term
-  $(\bar\theta^2\kappa^2 + \sigma_u^2)F^2$ does, because sensitivity
+  $(\bar\omega^2\zeta^2 + \sigma_v^2)F^2$ does, because sensitivity
   variation contributes noise in proportion to the exposure contrast.
-- **Power is capped by what the biomarker explains.** As $F$ grows,
-  $\rho_{\Delta B} \to \bar\theta\kappa/\sqrt{\bar\theta^2\kappa^2 +
-  \sigma_u^2}$, the square root of the share of sensitivity variation
-  the biomarker accounts for. No design and no amount of exposure
-  contrast can exceed it. This is a property of the biology the model
+- **Power is capped by what the biomarker explains.** The bound
+  $\lvert r_{\Delta B}\rvert < \bar\omega\zeta/\sqrt{\bar\omega^2\zeta^2
+  + \sigma_v^2}$ holds for every $F$ and is approached as $HF^2$
+  dominates $V_0$; it is the square root of the share of sensitivity
+  variation the biomarker accounts for. Since $f \in [0, 1]$ gives
+  $\lvert F\rvert \le 1$, the attainable value is lower still. No
+  design and no amount of exposure contrast can exceed the bound. This is a property of the biology the model
   encodes, not of the simulation's construction, and it gives the
   effect size a direct interpretation.
 
@@ -296,6 +380,21 @@ source: `R/generateData.R` decays the off-drug mean from the last
 on-drug value, and `R/buildtrialdesign.R` resets time on drug to zero
 after an off-drug interval. The remaining `covar` entries summarize
 `docs/32` and `docs/36`.
+
+(Updated 2026-10-09: the "recursive (as published)" entries for
+configurations C and D describe the drivers as they were when this
+paper was written and the results stored from them. Since 2026-10-08
+the quick-sim drivers (`hendrickson-problems/04-power-simulation.R`,
+`carryover-closed-form/08-covariance-study.R` and
+`11-strawman-stress-test.R`) default to anchored carryover, with
+`--carryover recursive` reproducing the stored runs (`docs/53`;
+`analysis/scripts/quick-sim/carryover-closed-form/RERUN-anchored.md`).
+The power simulation reported in `docs/36`, the covariance study and
+the stress test were produced with the recursion. An anchored rerun of
+the `docs/36` power simulation with the published analysis is stored
+(`power-summary-reps500-anchored.csv`, used in `docs/37`, Section 6);
+anchored reruns of the covariance study and the stress test are
+pending on the simulation server.)
 
 ## 8. Implications for analysis and design
 
@@ -320,11 +419,11 @@ after an off-drug interval. The remaining `covar` entries summarize
 - **Package.** A new data-generating option alongside
   `dgp_architecture = 'mvn'` and `'mean_moderation'` in
   `R/generateData.R`, with parameters for sensitivity
-  ($\bar\theta$, matching the Gompertz maximum), moderation ($\kappa$
-  or $c_{\text{peak}}$), unexplained sensitivity variation
-  ($\sigma_u$), serial noise ($\sigma_\varepsilon$ and its correlation)
+  ($\bar\omega$, matching the Gompertz maximum), moderation ($\zeta$
+  or $c_{bm}^{\text{peak}}$), unexplained sensitivity variation
+  ($\sigma_v$), serial noise ($\sigma_\xi$ and its correlation)
   and the response half-life. No correlation matrix is formed.
-- **Checks.** With $\kappa = 0$ the interaction test must hold its size;
+- **Checks.** With $\zeta = 0$ the interaction test must hold its size;
   with $t_{1/2}^{R} \to 0$ the results must reduce to the no-carryover
   case; the simulated moments must match Section 5.
 - **Compendium.** Every paper that simulates through `generateData()`
@@ -341,29 +440,31 @@ offered as a proposal for decision, not as a completed revision.
 - **Derived, not tested.** Sections 3 to 6 are derivations. No part of
   the proposed model has been implemented or simulated.
 - **Pharmacological premises.** The prazosin plasma half-life is from
-  one study in healthy volunteers (Hobbs et al., 1978). The claim that
+  one study in 24 normotensive volunteers (Hobbs et al., 1978). The claim that
   persistent benefit in PTSD is pharmacodynamic rather than
   pharmacokinetic follows from that half-life and from general
   pharmacodynamic principles; the response half-life itself is unknown
   to us.
 - **Multiplicative moderation is a modeling choice.** It assumes the
   biomarker acts on sensitivity. A biomarker that acted on the onset or
-  offset rate would require moderation of $k$ instead, and would give a
+  offset rate would require moderation of $k_{\text{out}}$ instead, and would give a
   different moderation profile.
 - **Normality.** The derivations of Section 6 assume joint normality of
-  $z_i$, $u_i$ and the noise; with a multiplicative random effect
-  ($\theta_i f(t)$), the responses are normal for each schedule, but
+  $b_i$, $v_i$ and the noise; with a multiplicative random effect
+  ($\omega_i f(t)$, with $f$ a fixed function of the schedule), the
+  responses are normal for each schedule, but
   extensions with a nonlinear link would not be.
 - **Simplifications.** The other response factors are assumed
-  independent of $\theta_i$ in Section 6; shared patient-level effects
-  would add covariance terms to $V_0$ and to $\gamma$.
+  independent of $\omega_i$ in Section 6; shared patient-level effects
+  would add covariance terms to $V_0$ and to $\beta_{bm:D}$.
 
 ## 11. References
 
 1. Hendrickson RC, Thomas RG, Schork NJ, Raskind MA. Optimizing
    aggregated N-of-1 trial designs for predictive biomarker validation:
    statistical methods and theoretical findings. *Frontiers in Digital
-   Health* 2020; 2:13. Code: `github.com/rchendrickson/pmsimstats`,
+   Health* 2020; 2:13. doi:10.3389/fdgth.2020.00013. Code:
+   `github.com/rchendrickson/pmsimstats`,
    commit `58b32a9`.
 2. Hobbs DC, Twomey TM, Palmer RF. Pharmacokinetics of prazosin in man.
    *Journal of Clinical Pharmacology* 1978; 18(8-9):402-406.

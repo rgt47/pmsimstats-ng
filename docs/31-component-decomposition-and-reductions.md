@@ -2,7 +2,15 @@
 
 *2026-09-09 09:26 PDT*
 
-Author: pmsimstats team
+**Author.** pmsimstats team
+
+**Purpose.** This white paper consolidates the BR-PB-TV component
+decomposition of the symptom score (documents 24 and 28), sets out how
+trial design identifies the components and why the analysis model need
+not mirror them, places the decomposition in the clinical trials and
+N-of-1 literatures, and reports the two two-component reductions of
+papers 13 and 14, with revised guidance on when each form is
+defensible.
 
 ```{=latex}
 \clearpage
@@ -10,6 +18,64 @@ Author: pmsimstats team
 \listoftables
 \clearpage
 ```
+
+## Notation index and glossary
+
+Symbols follow `analysis/report/NOTATION.md` where it defines one
+(status *canonical*). Symbols local to this document are marked
+*local*. Code identifiers appear only in backticks.
+
+| Symbol | Meaning | Status |
+|---|---|---|
+| $i$, $t$ | participant index; timepoint (weekly occasion) index | canonical |
+| $n$ | number of measurement occasions per participant | local |
+| $N$ | total number of participants across all randomization paths | canonical |
+| $Y_{it}$ | observed symptom score (code column `Sx`) | canonical |
+| $\mathrm{BL}_i$ | participant baseline level | canonical |
+| $BR_{it}$, $PB_{it}$, $TV_{it}$ | biological, placebo-belief and natural-history response components, each a non-negative reduction in symptoms | canonical |
+| $\varepsilon_{it}$ | observation-level residual | canonical |
+| $u_{0i}$, $u_{1i}$ | participant random intercept and random time slope (section 23) | canonical ($u_{0i}$ as $u_i$); local ($u_{1i}$) |
+| $D_{bc,it}$ | exposure-decayed drug indicator: 1 on drug, $e^{-\lambda t_{sd}}$ off drug (code `Dbc`) | canonical |
+| $t_{sd}$, $t_{od}$, $t_{pb}$ | time since discontinuation; time on drug in the current on-drug period, reset to zero at re-exposure; time-by-belief accumulation | canonical |
+| $t_{1/2}$, $\lambda$ | carryover half-life; decay rate $\ln 2 / t_{1/2}$ | canonical |
+| $\eta$, $\eta_t$, $\eta(\text{phase})$ | expectancy: the design expectancy at occasion $t$ (1 open label, 0.5 blinded, 0 at baseline; code column `e`), written $\eta(\text{phase})$ where it is constant within a phase; it scales the PB mean and standard deviation | canonical |
+| $m$, $r$, $d$ | Gompertz maximum, onset rate and displacement (code `maxr`, `rate`, `disp`); subscripted $m_{BR}$, $m_{PB}$, $m_{TV}$ etc. by component | local |
+| $\sigma_{PB}^{\text{baseline}}$ | PB standard deviation at full expectancy | local |
+| $\beta_t$ | slope of a linear-in-time straw-man response (section 2) | local |
+| $c_{cf1t}$, $c_{cfct}$ | cross-component correlation at the same and at different timepoints (code `c.cf1t`, `c.cfct`) | local |
+| $c_1$, $c_{\times}$ | the same two correlations as written in papers 13 and 14 (section 20) | local |
+| $\rho$ | within-component serial correlation (AR(1); the common correlation under compound symmetry in section 20) | canonical |
+| $c_{bm}$ | on-drug biomarker-BR correlation of the covariance-moderation architecture; $c_{bm}^{*}$ its positive-definiteness ceiling | canonical |
+| $c_{bm,PB}$ | biomarker-PB correlation of paper 06's contamination studies (code `c.bm.pb`) | local (paper 06) |
+| $M$, $v$ | component correlation block and unit-scaled biomarker coupling vector in the ceiling formula | local |
+| $\beta_{bm}^{BR}$, $\beta_{bm}^{PB}$, $\beta_{bm}^{TV}$ | component-specific biomarker slopes | canonical |
+| $\beta_{bm}^{\text{lumped}}$ | one-component (lumped) biomarker slope | canonical |
+| $w_{PB}$, $w_{TV}$ | design-dependent weights in the omitted-variable identity | local |
+| $B_i$ | participant baseline biomarker value (code `bm`) | canonical |
+| $R_i$ | participant total response in the illustrative regression of section 24 | local |
+| $\beta_0$; $\beta_{0}^{BR}$, $\beta_{0}^{PB}$, $\beta_{0}^{TV}$ | intercepts (sections 23 and 24) | local |
+| $\xi_i$, $\xi_i^{BR}$, $\xi_i^{PB}$, $\xi_i^{TV}$ | regression errors in section 24 | local |
+| $\beta_{bm:D}$ | biomarker-by-treatment interaction estimand (`bm:Dbc`); true value $-2.25$ in paper 06 | canonical |
+| $\lambda_{\min}(M)$ | smallest eigenvalue of $M$ (section 20); not the decay rate | local |
+| $\alpha$ | nominal significance level, 0.05 | canonical |
+
+Table: Notation index for this document, with meaning and status
+
+**Glossary.** *BR*: biological (pharmacological) response. *PB*:
+placebo-belief (expectancy) response. *TV*: time-variant natural
+history. *Hybrid design*: open-label titration, blinded
+discontinuation, then a brief crossover (Hendrickson et al. 2020).
+*OL*, *CO*, *OL+BDC*: open-label, crossover, open-label plus blinded
+discontinuation. *Balanced-placebo (open-hidden) design*: a design
+that crosses drug exposure with told allocation, so belief varies
+independently of drug. *One-component (lumped) analysis*: the LME
+`Sx ~ bm + t + Dbc + bm:Dbc` with a random intercept and `corCAR1`
+residuals. *Phase-augmented analysis*: the lumped model plus a phase
+factor and its interactions with `Dbc` and `bm:Dbc`. *Flattening*:
+setting a component's Gompertz maximum to zero while keeping its
+variance and covariance blocks. *Evidence labels*: *derived* (follows
+algebraically), *simulated* (Monte Carlo result from a cited driver),
+*inspected* (read in the source), *argued* (reasoned position).
 
 ## 0. What this document is
 
@@ -87,8 +153,8 @@ clinical trial:
    and its pharmacological action is independent of whether you
    know you are taking it.
 2. **Expectation effect.** You believe the treatment will work, and
-   your belief activates well-characterised neurobiological
-   pathways: dopaminergic reward signalling, descending pain
+   your belief activates well-characterized neurobiological
+   pathways: dopaminergic reward signaling, descending pain
    modulation, anticipatory cortisol regulation. The placebo
    literature is now thirty years deep on this; it is not 'all in
    your head' in any dismissive sense.
@@ -148,7 +214,7 @@ at the population mean and infers that the drug is three times more
 powerful than it actually is. The structure is missed, and the
 inference is biased toward the lumped quantity rather than the
 quantity of clinical interest. Worse, the lumped quantity does not
-generalise: a population with stronger placebo expectations would
+generalize: a population with stronger placebo expectations would
 appear to have a more powerful drug, and a population with milder
 natural-history drift would appear to have a less powerful one.
 Neither inference would be correct.
@@ -180,7 +246,7 @@ relevant, but they are not the substance of pharmacological efficacy.
 
 Prazosin is an alpha-1-adrenergic antagonist originally developed
 for hypertension. It crosses the blood-brain barrier, and at the
-relevant doses it antagonises noradrenergic activity in the locus
+relevant doses it antagonizes noradrenergic activity in the locus
 coeruleus and prefrontal cortex during REM sleep. The mechanism for
 nightmare reduction is reasonably specific: prazosin damps the
 adrenergic surge that accompanies trauma-related dream content,
@@ -195,9 +261,10 @@ plasma. This produces a characteristic on-drug / off-drug pattern:
   the first few doses. Nightmare scores begin to fall. The first-
   week reduction is typically small because the patient has not
   yet had many drug-on REM cycles to integrate.
-- **Weeks 2-3 on drug.** Effect accumulates as the patient
-  experiences several weeks of drug-on REM sleep. The reduction
-  approaches its plateau.
+- **Weeks 2-8 on drug.** Effect accumulates as the patient
+  experiences several weeks of drug-on REM sleep. Under the
+  reference calibration below, the reduction passes half its maximum
+  at about week 5 and approaches its plateau by week 8.
 - **Steady state.** Once the brain has fully adapted, additional
   weeks on drug produce essentially no further reduction. This is
   the saturating-curve property: the body has a ceiling for how
@@ -220,25 +287,30 @@ BR follows a saturating curve known as the modified Gompertz
 function, which has the form
 
 $$
-BR(t) \;=\; m \,\exp\bigl(-d \,\exp(-r t)\bigr) - m\exp(-d),
+BR(t) \;=\; m \,
+\frac{\exp\bigl(-d \,\exp(-r t)\bigr) - \exp(-d)}{1 - \exp(-d)},
 $$
 
-rescaled so that $BR(0) = 0$ and $BR(t) \to m$ as $t \to \infty$.
-The three parameters have direct interpretations:
+where $t$ here is the time on drug $t_{od}$. Subtracting $\exp(-d)$
+gives $BR(0) = 0$, and dividing by $1 - \exp(-d)$ restores the
+asymptote, so $BR(t) \to m$ as $t \to \infty$ (derived; this is the
+form computed by `modgompertz` in `R/utilities.R`, inspected). The
+three parameters have direct interpretations:
 
 | Parameter | Symbol | Meaning |
 |---|---|---|
 | Maximum response | $m$ | The biological ceiling. The largest reduction the drug can produce, even with infinite time on treatment. |
-| Onset rate | $r$ | How fast the patient approaches the ceiling. High $r$ means a fast onset (effect plateaus in one to two weeks); low $r$ means a slow climb (six to eight weeks to plateau). |
-| Displacement | $d$ | The shape of the climb. High $d$ is an early-onset curve that rises sharply at first; low $d$ is a more gradual climb. |
+| Onset rate | $r$ | How fast the patient approaches the ceiling. High $r$ means a fast onset; low $r$ a slow climb. |
+| Displacement | $d$ | The length of the initial lag. The inflection point lies at $t = \ln(d)/r$, so a high $d$ gives a long slow start, and a low $d$ (near 1 or below) gives a curve that rises almost immediately. At fixed $m$ and $r$ a higher $d$ does not make the rise steeper: the maximum slope, $m r/(e(1 - e^{-d}))$ for $d \ge 1$ and $m r d/(e^{d} - 1)$ for $d < 1$, decreases strictly in $d$, from $m r$ toward $m r/e$. (Corrected 2026-10-08: this entry previously said a high $d$ gives "a long slow start followed by a steep rise". See `analysis/report/compendium-mathematics.tex`, Section "Shipped parameters, landmarks, the displacement, and numerical conditioning", equation `eq:invc-maxslope`.) |
 
 Table: Parameters of the modified Gompertz curve for the biological response
 
-For PTSD prazosin, calibrated values from the Hendrickson et al.
-(2020) reference dataset are roughly $m \approx 11$ (eleven points
-of nightmare score reduction at saturation), $r \approx 0.42$ per
-week (half-maximum at about eighteen days), $d \approx 5$
-(moderately steep early climb).
+For PTSD prazosin, the calibrated values shipped with the package
+(`data/extracted_rp.rda`, inspected) are $m \approx 11$ (10.99 points
+of nightmare score reduction at saturation), $r = 0.42$ per week and
+$d = 5$. With these values the curve inflects at about 3.8 weeks,
+reaches half its maximum at about 4.7 weeks (33 days) and 84 percent
+of it by week 8 (computed from the formula above).
 
 The Gompertz family was chosen because it captures the
 'asymptote-from-below' shape that physiological dose-response
@@ -247,16 +319,19 @@ this shape:
 
 - A linear function in $t$ ($BR = \beta_t \cdot t$) climbs without
   bound and is biologically implausible past a few weeks.
-- An exponential decay ($BR = m(1 - \exp(-rt))$) is acceptable for
-  fast-onset drugs but lacks the slow-start phase that characterises
-  most chronic-condition responses, where receptor adaptation,
-  feedback regulation, and downstream gene-expression changes
-  produce a measurable lag.
+- An exponential approach to the ceiling ($BR = m(1 - \exp(-rt))$)
+  is acceptable for fast-onset drugs but lacks the slow-start phase
+  that characterizes most chronic-condition responses, where receptor
+  adaptation, feedback regulation, and downstream gene-expression
+  changes produce a measurable lag.
 
-The Gompertz interpolates between exponential decay (in the
-high-$d$ limit) and a linear increase (in the low-$d$ limit), and
-its three-parameter form is flexible enough to fit a wide range of
-real pharmacodynamic profiles without overfitting.
+The rescaled Gompertz contains the exponential approach as its
+low-$d$ limit: as $d \to 0$ the ratio above tends to
+$1 - \exp(-rt)$ (derived). Increasing $d$ lengthens the initial lag
+and moves the inflection point to $\ln(d)/r$, producing the
+sigmoidal slow-start shape. The three-parameter form is flexible
+enough to fit a wide range of pharmacodynamic profiles without
+overfitting (argued).
 
 ### Why this matters for design
 
@@ -290,8 +365,8 @@ drug.
 
 It is essential to be precise about what PB is and is not. PB is
 not 'fake' improvement, and it is not 'all in the patient's head'
-in any dismissive sense. The placebo response is mediated by well-
-characterised neurobiological pathways. Belief-driven release of
+in any dismissive sense. The placebo response is mediated by well-characterized
+neurobiological pathways. Belief-driven release of
 endogenous opioids and dopamine produces measurable analgesia and
 mood elevation. Anticipatory regulation of the
 hypothalamic-pituitary-adrenal axis modulates cortisol and
@@ -313,7 +388,7 @@ Consider a sixteen-week N-of-1 trial structured in three phases:
 
 - **Weeks 1-8 (open-label on drug).** The patient knows they are
   receiving prazosin. Belief in treatment is at full strength
-  (expectancy multiplier 1.0, in the model parameterisation
+  (expectancy multiplier 1.0, in the model parameterization
   introduced below).
 - **Weeks 9-12 (blinded discontinuation).** The patient is told
   that, at some unannounced point during this window, they may be
@@ -373,11 +448,13 @@ Typical values of the expectancy factor:
 Table: Typical values of the expectancy factor $\eta$ by trial phase
 
 The choice of $\eta = 0.5$ rather than $\eta = 0$ for the blinded
-phase is itself a modelling assumption. The empirical question is
+phase is itself a modeling assumption. The empirical question is
 how much expectation a patient carries when uncertain about
 allocation, and the published placebo literature suggests it is
 substantial: residual expectations of 30-60% of the open-label
-level are reported across pain, depression, and PTSD trials. Setting
+level are reported across pain, depression, and PTSD trials (no
+primary source is given for this range here; it is an unverified
+summary and should be sourced before it is relied on). Setting
 $\eta = 0.5$ in the blinded phase is a reasonable default, but
 sensitivity analyses should vary it to confirm that conclusions are
 not driven by this single number.
@@ -392,13 +469,16 @@ suggestibility patients may show large $PB$, low-suggestibility
 patients may show essentially none, and the population variance is
 correspondingly large. When $\eta$ is low (blinded), the placebo
 response is uniformly attenuated, and the patient-to-patient
-variance shrinks accordingly. The model parameterisation reflects
+variance shrinks accordingly. The model parameterization reflects
 this with a phase-dependent standard deviation:
 
 $$
 \mathrm{SD}(PB \mid \text{phase}) \;=\;
 \eta(\text{phase}) \cdot \sigma_{PB}^{\text{baseline}}.
 $$
+
+(Inspected: `generateData` multiplies the PB standard deviation and
+the PB mean trajectory by the design's expectancy column `e`.)
 
 This heteroscedastic structure is not optional: ignoring it leads
 to inflated standard errors in the open-label phase (where $PB$
@@ -444,7 +524,7 @@ shape of TV is one of the things the decomposition is designed to
 recover.
 
 **Acute conditions tend to TV-positive.** A cold, a sprained ankle,
-a post-operative pain syndrome, an episode of acute back pain --
+a post-operative pain syndrome, an episode of acute back pain:
 these conditions resolve, on average, on a timescale of days to
 weeks even without intervention. A trial of ibuprofen for tension
 headache or of a topical analgesic for ankle sprain will see
@@ -492,11 +572,11 @@ estimates the residual trend.
 **Selection-induced TV is real and rarely zero.** Even a chronic
 stable condition can show TV-positive average trajectory in a
 trial population because of how participants are recruited.
-Patients enrol at a moment of clinical engagement, which often
+Patients enroll at a moment of clinical engagement, which often
 coincides with a recent worsening that triggered the
-help-seeking behaviour. Regression to the mean alone -- the
+help-seeking behavior. Regression to the mean alone (the
 statistical fact that an extreme observation tends to be followed
-by less extreme observations on average -- can produce several
+by less extreme observations on average) can produce several
 points of apparent TV-improvement in the early weeks of a trial,
 even in a population whose underlying condition is stable. This
 is the famous failure mode of single-arm trials in chronic-pain
@@ -513,7 +593,7 @@ how they are perceived and reported) are all real, all
 participant-mediated, and all confounded with calendar time. They
 appear in the data as TV-improvement that is independent of any
 pharmacological or placebo response, and they apply equally to
-all arms of the trial. Modelling them as part of TV is the
+all arms of the trial. Modeling them as part of TV is the
 appropriate handling.
 
 ### Can we assume no TV effect?
@@ -523,7 +603,7 @@ support. The longer answer:
 
 - **TV may be assumed zero only if** the disease is in a stable
   chronic phase, the trial is short relative to the disease
-  timescale, the recruitment process does not favour participants
+  timescale, the recruitment process does not favor participants
   at peak severity, and the trial protocol does not introduce
   ancillary care that itself improves symptoms. For most chronic
   trials in psychiatric or pain conditions, at least one of these
@@ -562,7 +642,9 @@ appeared to show large effects, until a careful natural-history
 arm revealed that the apparent effect was almost entirely a
 regression-to-the-mean phenomenon driven by the selection of
 patients at peak symptom severity. The patients would have improved
-similarly with no intervention. TV in the model is the formal way
+similarly with no intervention. (This example is illustrative; no
+specific trials are cited for it, and it should not be quoted as
+documented history without a source.) TV in the model is the formal way
 to handle this risk.
 
 The attribution problem is not symmetric. TV is positively
@@ -578,7 +660,7 @@ including trial phases in which BR and PB are absent.
 
 ### Mathematical pattern
 
-TV also follows a Gompertz curve but parameterised independently of
+TV also follows a Gompertz curve but parameterized independently of
 BR and PB:
 
 $$
@@ -587,9 +669,11 @@ TV(t) \;=\; m_{TV} \,\exp\bigl(-d_{TV} \exp(-r_{TV} t)\bigr) \,+\,
 $$
 
 The maximum $m_{TV}$ can be either positive (natural improvement)
-or negative (natural worsening), and is a participant-level random
-effect drawn from the population distribution of natural-history
-trajectories. A trial design that aggregates over many participants
+or negative (natural worsening). Conceptually it varies across
+participants; in the current implementation $m_{TV}$ is a fixed
+population value and participant-level variation in $TV$ enters
+through the multivariate normal draw around the mean trajectory
+(inspected; see section 9). A trial design that aggregates over many participants
 can identify both the population mean and the population variance
 of $m_{TV}$, but only if there are enough off-drug timepoints to
 constrain the curve.
@@ -648,15 +732,35 @@ different combination of components.
 
 Table: Components present in each phase of the Hendrickson hybrid design
 
+*Implementation note (inspected 2026-10-07).* In the Hybrid design as
+coded (`analysis/scripts/figure4/04-generate-power-head.R` and the
+paper 13/14 driver `two-component-dgp/01-run-grid.R`), the
+eight occasions fall at weeks 4, 8, 9, 10, 11, 12, 16 and 20 (a
+twenty-week schedule, not the sixteen weeks of the narrative example),
+and the expectancy vector is
+$\eta = (1, 1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)$: full expectancy at the
+two open-label occasions and $0.5$ at all six later occasions,
+including the final crossover, which is blinded
+(Hendrickson et al. 2020 describe it as a brief crossover after
+blinded discontinuation). The third row of the table, an open-label
+crossover with $\eta = 1$, and the "weeks 13-16 open-label crossover"
+of the example in section 3, therefore describe a variant of the
+design, not the coded Hybrid design. The identification argument is
+unaffected in kind, but in the coded design the open-label versus
+blinded contrast comes only from the first two occasions.
+
 Three phase-by-allocation contrasts then identify the three
 components:
 
 - **Phase 1 vs. phase 2 (within drug):** $PB(\eta = 1) - PB(\eta =
-  0.5) \approx 0.5 \cdot PB$. Isolates the belief component.
+  0.5) \approx 0.5 \cdot PB$. Isolates the belief component, but only
+  approximately: the belief curve keeps rising between the compared
+  visits (section 7.2 gives the size of the approximation).
 - **Phase 2 on drug vs. phase 2 placebo:** $BR$ alone (because $PB$
   and $TV$ match across allocation arms within phase 2).
-- **All phases off drug:** $TV$ alone (no $BR$, no $PB$ at the
-  off-drug expectation level).
+- **Off-drug occasions:** $TV$ plus any residual off-drug $PB$, with
+  no active $BR$ beyond carryover (section 7.2 states this contrast
+  in the same form).
 
 Each contrast targets a different component, and the analyst
 combines them through the linear-mixed-effects model fitted to the
@@ -683,28 +787,30 @@ The founding pmsimstats question is the detection of a
 biomarker-by-treatment interaction in an aggregated N-of-1 trial. The
 Hendrickson reference implementation
 (`implementations/original/`) is the historical anchor for the whole
-programme. Its defining feature, and the starting point for paper 06,
-is an asymmetry between how it generates data and how it analyses it.
+program. Its defining feature, and the starting point for paper 06,
+is an asymmetry between how it generates data and how it analyzes it.
 
-### 2.1 The data-generating process is fully decomposed
+### 6.1 The data-generating process is fully decomposed
 
 The DGP in `implementations/original/R/generateData.R` builds the
 observed symptom score as the sum of three causally distinct
 components, each a modified Gompertz trajectory with
 participant-specific random effects:
 
-- `BR` (biological response, the pharmacological component), driven
-  by cumulative time on drug, decaying off drug with a carryover
-  half-life;
-- `PB` (placebo-belief response), driven by cumulative time on
-  belief and scaled by the phase expectancy multiplier eta;
-- `TV` (natural-history component), driven by time
+- $BR$ (biological response, the pharmacological component), driven
+  by the time on drug $t_{od}$ in the current on-drug period, which
+  restarts at zero on re-exposure (inspected in `buildtrialdesign.R`),
+  and decaying off drug with a carryover half-life;
+- $PB$ (placebo-belief response), driven by the time-by-belief
+  accumulation $t_{pb}$ and scaled by the phase expectancy weight
+  $\eta$;
+- $TV$ (natural-history component), driven by time
   since trial entry.
 
-The components are summed and subtracted from baseline (lines near
-99 and 104 of `generateData.R`):
+The components are summed and subtracted from baseline (lines 99 and
+104 of `generateData.R`, inspected). Schematically:
 
-```
+```{.r}
 D_t  = rowSums(t.br + t.pb + t.tv)   # total response at timepoint t
 Sx_t = BL - D_t                       # symptom = baseline minus total
 ```
@@ -712,38 +818,40 @@ Sx_t = BL - D_t                       # symptom = baseline minus total
 The raw simulated data retain the individual component values
 (`t1.br`, `t1.pb`, `t1.tv`, and so on for each timepoint), so the
 ground truth is three-component by construction. The prazosin-PTSD
-calibration used throughout the programme draws its Gompertz
+calibration used throughout the program draws its Gompertz
 parameters from the Hendrickson et al. (2020) dataset
-(`m_BR` approximately 11, `r_BR` approximately 0.42 per week,
-`d_BR` approximately 5).
+($m_{BR} \approx 11$, $r_{BR} = 0.42$ per week, $d_{BR} = 5$;
+`data/extracted_rp.rda`, inspected).
 
-### 2.2 The analysis model is a single lumped drug indicator
+### 6.2 The analysis model is a single lumped drug indicator
 
 The analysis in `implementations/original/R/lme_analysis.R` does not
 mirror the DGP. It fits one continuous drug indicator, not three
 components:
 
-```
+```{.r}
 Sx ~ bm + t + Dbc + bm:Dbc
 random      = ~ 1 | ptID
 correlation = corCAR1(form = ~ t | ptID)
 ```
 
-where `Dbc` is the continuous drug state (equal to 1 on drug and to
-`exp(-lambda * tsd)` off drug, with `lambda = ln 2 / t_half`), and
-`bm:Dbc` is the biomarker-by-drug interaction. Variant forms in the
-same file add an expectancy indicator (`De`) or a carryover term
-(`tsd`), but they remain single-drug-indicator models. The model
+where `Dbc` is the continuous drug state $D_{bc,it}$ (equal to 1 on
+drug and to $e^{-\lambda t_{sd}}$ off drug, with
+$\lambda = \ln 2 / t_{1/2}$), and `bm:Dbc` is the biomarker-by-drug
+interaction, whose coefficient is $\beta_{bm:D}$. Variant forms in
+the same file add an expectancy indicator (`De`), a carryover term
+(`tsd`) or a `bm:t` term (inspected), but they remain
+single-drug-indicator models. The model
 estimates one lumped drug main effect and one lumped biomarker
-slope; it does not recover `BR`, `PB`, and `TV` separately.
+slope; it does not recover $BR$, $PB$, and $TV$ separately.
 
-### 2.3 The asymmetry that paper 06 studies
+### 6.3 The asymmetry that paper 06 studies
 
 The original therefore applies decomposition only as a
-data-generating device. It knows the response is `BR + PB + TV` and
+data-generating device. It knows the response is $BR + PB + TV$ and
 simulates accordingly, but its inferential model collapses the three
 into a single treatment coefficient. This lumped estimator is exactly
-the baseline that paper 06 formalises, and the central question of
+the baseline that paper 06 formalizes, and the central question of
 that paper is the consequence of the asymmetry: when does the lumped
 analysis of three-component data give a biased or uninformative
 answer, and when does adding analysis-side decomposition fix it.
@@ -764,28 +872,37 @@ different mixture of the three components:
 
 | Phase | Drug | Belief | Components present |
 |---|---|---|---|
-| Open-label on drug | Yes | Full (eta = 1) | BR + PB(eta=1) + TV |
-| Blinded discontinuation | Hidden | Hedged (eta = 0.5) | BR (on drug) + PB(eta=0.5) + TV |
-| Open-label crossover | Either | Knows (eta = 1) | BR (on drug) + PB(eta=1) + TV |
+| Open-label on drug | Yes | Full ($\eta = 1$) | $BR + PB(\eta = 1) + TV$ |
+| Blinded discontinuation | Hidden | Hedged ($\eta = 0.5$) | $BR$ (on drug) $+ PB(\eta = 0.5) + TV$ |
+| Open-label crossover | Either | Knows ($\eta = 1$) | $BR$ (on drug) $+ PB(\eta = 1) + TV$ |
 
 Table: Hybrid design phase structure with drug, belief and components present
 
-The `on drug` qualifier on `BR` is shorthand for the continuous-decay
-drug state `Dbc`, not a binary switch.
+The "on drug" qualifier on $BR$ is shorthand for the continuous-decay
+drug state $D_{bc}$, not a binary switch.
 
 ### 7.2 The three identifying contrasts
 
 Three phase-by-allocation contrasts identify the three components:
 
 - **Open-label versus blinded (within drug)** yields
-  `PB(eta=1) - PB(eta=0.5)` which is approximately `0.5 * PB`, and so
-  isolates the belief component, conditional on a known blinded-phase
-  expectancy.
-- **Blinded on-drug versus blinded placebo** yields `BR` once drug
-  carryover has elapsed, because `PB` and `TV` match across allocation
+  $PB(\eta = 1) - PB(\eta = 0.5) \approx 0.5\,PB$, and so isolates the
+  belief component, conditional on a known blinded-phase expectancy.
+  The approximation is coarse. In the coded Hybrid design the contrast
+  is between the on-drug visits at weeks 8 and 9, and its mean is
+  $E(PB_8) - E(PB_9) = G(8) - 0.5\,G(9) = 2.17$ points, against
+  $0.5\,G(9) = 2.62$, because the belief curve keeps rising between
+  the two visits (verified at the shipped parameters,
+  `analysis/scripts/compendium-mathematics/check-landmarks-hybrid-ceilings.R`,
+  block 3). The contrast identifies the expectancy drop only once the
+  curve's growth between the visits is modeled. (Added 2026-10-08. See
+  `analysis/report/compendium-mathematics.tex`, Section "The published
+  Hybrid construct".)
+- **Blinded on-drug versus blinded placebo** yields $BR$ once drug
+  carryover has elapsed, because $PB$ and $TV$ match across allocation
   arms within the blinded phase.
-- **Off-drug phases** yield `TV` plus any residual off-drug `PB`, with
-  no active `BR` contribution beyond carryover.
+- **Off-drug phases** yield $TV$ plus any residual off-drug $PB$, with
+  no active $BR$ contribution beyond carryover.
 
 The lumped LME combines these into one model, but the inference is
 driven by the design. The one-component analysis already exploits the
@@ -796,9 +913,9 @@ shows, it is not as impoverished as its single coefficient suggests.
 
 The hybrid design has one principled limitation that deserves
 emphasis. With only an open-label and a blinded phase, the data
-identify the product `eta * m_PB`, not the two factors separately. The
+identify the product $\eta\, m_{PB}$, not the two factors separately. The
 working value $\eta \approx 0.5$ in the blinded phase is a
-modelling assumption, not an estimate, and absent a belief measurement
+modeling assumption, not an estimate, and absent a belief measurement
 it is not falsifiable from outcome data alone. The identified set for
 $m_{PB}$ is the interval obtained by dividing the estimated product by
 $\eta$ over its plausible range, collapsing to a point only when $\eta$
@@ -822,14 +939,15 @@ shape and overlap in calendar time, so their parameters can be
 near-collinear even when the identifying contrasts are present. Joint
 recovery additionally requires a phase in which each component varies
 while the others are held fixed, and an off-drug window long enough,
-relative to the carryover half-life, for `TV` to separate from a still
-decaying `BR`. Where these conditions are weak the components are
+relative to the carryover half-life, for $TV$ to separate from a still
+decaying $BR$. Where these conditions are weak the components are
 identified only up to a near-collinear direction; the symptom is the
-rank deficiency the Study B pilot encountered when the full
-phase-augmented formula was fitted at `N = 35`. Recoverability is to be
+rank deficiency that paper 06's analysis-machinery pilot encountered
+when the full phase-augmented formula was fitted at $N = 35$, which
+forced the `Dbc:phase` term to be dropped. Recoverability is to be
 mapped by identifiability diagnostics (convergence rates,
 variance-inflation factors on the component-specific parameters, and
-sensitivity of the `BR` estimate to the assumed $\eta$), not asserted.
+sensitivity of the $BR$ estimate to the assumed $\eta$), not asserted.
 
 
 ---
@@ -895,9 +1013,10 @@ Bayesian hierarchical fit, or a structural-equation
 approximation. Each is more sensitive to starting values, more
 prone to local optima, and more likely to fail to converge on
 a single trial dataset than the linear-mixed analogue. At
-trial-relevant N, the convergence rate of the non-linear
-component-matched fit is typically below 90%, and the
-non-converging cells contaminate any aggregated analysis.
+trial-relevant $N$, the convergence rate of the non-linear
+component-matched fit is typically below 90% (an unverified estimate;
+no convergence rate for such a fit is reported in this document),
+and the non-converging cells contaminate any aggregated analysis.
 
 **4. The moderation estimand is robust to the BR-versus-PB
 split for the most common scientific question.** For
@@ -921,7 +1040,7 @@ The smallest useful step toward component-aware analysis,
 without paying the costs above, is to add a phase indicator
 and its interaction with the drug indicator. Schematically,
 
-```r
+```{.r}
 Sx ~ bm + t + Dbc + phase + Dbc:phase
        + bm:Dbc + bm:Dbc:phase
        + (1 | ptID),      correlation = corCAR1(...)
@@ -930,10 +1049,10 @@ Sx ~ bm + t + Dbc + phase + Dbc:phase
 `phase` is a categorical covariate (open-label, blinded, post-
 crossover) that absorbs the systematic differences in PB
 expectancy across phases. `Dbc:phase` tests whether the
-apparent drug effect shrinks under blinding -- a signature
+apparent drug effect shrinks under blinding, a signature
 that the open-label drug effect was partly PB-mediated.
 `bm:Dbc:phase` tests whether the moderation itself shrinks
-under blinding -- a signature that the biomarker-by-treatment
+under blinding, a signature that the biomarker-by-treatment
 interaction was partly biomarker-by-PB rather than
 biomarker-by-BR.
 
@@ -977,7 +1096,7 @@ deliberate consequence of the asymmetry between simulation
 structure, however elaborate) and inference (where the
 analyst must fit a model to a finite dataset and pay the
 identifiability cost of every additional parameter).
-Simulation studies use the rich DGP to characterise how a
+Simulation studies use the rich DGP to characterize how a
 simpler analysis behaves under realistic data generation;
 they do not require the analysis to match the DGP in order
 to produce useful inference.
@@ -1000,16 +1119,22 @@ where the symptom score $Y_{it}$ decreases as the components grow.
 Each component is a Gompertz function of its own time-on-state
 variable:
 
-- $BR_{it}$ depends on time-on-drug (cumulative exposure since
-  drug initiation).
-- $PB_{it}$ depends on time-on-belief, modulated by the
-  phase-specific expectancy factor $\eta(\text{phase})$.
+- $BR_{it}$ depends on the time on drug $t_{od}$ in the current
+  on-drug period (it restarts at zero on re-exposure in all current
+  DGPs), with off-drug carryover decay.
+- $PB_{it}$ depends on the time-by-belief accumulation $t_{pb}$,
+  modulated by the phase-specific expectancy factor
+  $\eta(\text{phase})$.
 - $TV_{it}$ depends on time-since-trial-entry (calendar time).
 
-Each component is a participant-specific random function: the
-Gompertz parameters $(m, r, d)$ for BR, PB, TV are drawn from
-population distributions, and the participant-level deviations are
-the random effects in the mixed model.
+Each component is participant-specific. In the implementation the
+Gompertz parameters $(m, r, d)$ of each component are fixed, and each
+participant's component values at every occasion are drawn jointly
+from a multivariate normal centered on the Gompertz mean
+trajectories, with component standard deviations set separately
+(inspected in `generateData`). The participant-level deviations
+therefore enter through that joint draw rather than through random
+Gompertz parameters.
 
 ### Joint covariance structure
 
@@ -1017,9 +1142,9 @@ The components are not independent of each other. A patient with
 strong pharmacological response is, on average, also somewhat more
 likely to develop a strong placebo expectation ('this drug is
 clearly working, my belief in it strengthens'), and a patient with
-favourable natural history may be more likely to attribute that
+favorable natural history may be more likely to attribute that
 improvement to whatever treatment they happen to be on. The
-Hendrickson framework parameterises this with two cross-component
+Hendrickson framework parameterizes this with two cross-component
 correlations:
 
 - $c_{cf1t}$: correlation between different factors at a single
@@ -1028,11 +1153,14 @@ correlations:
 - $c_{cfct}$: correlation between different factors at different
   timepoints. Captures the across-time spillover.
 
-Together these define a $4 \times K \times K$ block covariance
-matrix (one $K \times K$ block per pair of factors, where $K$ is
-the number of timepoints), and the simulation draws each
-participant's full trajectory from a single multivariate normal of
-that structure.
+Together with the within-component serial correlation these define
+a $(2 + 3n) \times (2 + 3n)$ correlation matrix, where $n$ is the
+number of occasions: an $n \times n$ block for each of the three
+within-component and three cross-component pairs, plus one row and
+column each for the biomarker and the baseline (inspected in
+`buildSigma`; section 17 uses the same count). The simulation draws
+each participant's full trajectory from a single multivariate normal
+of that structure.
 
 ### A common confusion: variance decomposition
 
@@ -1044,17 +1172,19 @@ $$
 $$
 
 as if this were an alternative to working with the full covariance
-matrix. By the law of total variance for sums, the correct
-identity for any joint distribution is
+matrix. By the bilinearity of covariance (the variance of a sum),
+the correct identity for any joint distribution is
 
 $$
 \mathrm{Var}(BR + PB + TV + \varepsilon) \;=\;
-\sum_{c} \mathrm{Var}(c) \;+\; 2 \sum_{c \neq c'}
-\mathrm{Cov}(c, c').
+\sum_{c} \mathrm{Var}(c) \;+\; 2 \sum_{c < c'}
+\mathrm{Cov}(c, c'),
 $$
 
-So the simple sum-of-variances form holds **if and only if** the
-components are uncorrelated. Under the Hendrickson parameterisation
+where the second sum runs over unordered pairs of distinct terms
+(derived). So the simple sum-of-variances form holds if and only if
+the pairwise covariances sum to zero, and in particular whenever the
+components are uncorrelated. Under the Hendrickson parameterization
 with $c_{cf1t}$ and $c_{cfct}$ both non-zero, the components are
 correlated, and the cross-covariance terms are non-negligible.
 Working with the full covariance matrix is therefore mandatory: the
@@ -1122,7 +1252,7 @@ participant B has nearly returned to baseline (one and a half
 points). This is the diagnostic contrast that the decomposition
 exploits.
 
-What does each modelling strategy infer?
+What does each modeling strategy infer?
 
 **One-component model.** A fixed-effects regression of total
 symptom change on phase-by-allocation indicators sees:
@@ -1147,7 +1277,8 @@ decompose this further.
 full BR-PB-TV decomposition, fitted to the same data, can recover
 the individual components by exploiting the differential expectancy
 between phases and the on-drug-versus-blinded-placebo contrast.
-After fitting, the model returns:
+In the idealized, noise-free limit of this illustration (these are
+not fitted results), the model returns:
 
 - $\hat{m}_{BR}^A = 4.0$ (true 4.0). $\hat{m}_{BR}^B = 8.0$ (true
   8.0). The drug effect is identified separately for each
@@ -1226,20 +1357,23 @@ The analytic core of paper 06 is an exact identity for what the
 lumped estimator estimates. By linearity of covariance, the lumped
 biomarker-by-treatment slope decomposes as
 
-```
-beta_bm^lumped = beta_bm^BR + w_PB * beta_bm^PB + w_TV * beta_bm^TV
-```
+$$
+\beta_{bm}^{\text{lumped}} \;=\; \beta_{bm}^{BR}
+  + w_{PB}\,\beta_{bm}^{PB} + w_{TV}\,\beta_{bm}^{TV},
+$$
 
 so the lumped slope is displaced from the pharmacological slope
-`beta_bm^BR` by a term proportional to the biomarker's covariance with
-`PB` and `TV`, weighted by design-dependent weights `w_PB` and `w_TV`.
-The displacement is in the probability limit, not the variance: a
-larger one-component trial converges on the same biased value. The
-bias is zero if and only if the biomarker is orthogonal to `PB` and
-`TV`, regardless of the magnitude of those components. The companion
-identity for the lumped treatment effect is displaced by the `PB` and
-`TV` contributions themselves, so a lumped pre-post treatment effect
-is biased whenever `PB` or `TV` is non-zero.
+$\beta_{bm}^{BR}$ by a term proportional to the biomarker's covariance
+with $PB$ and $TV$, weighted by design-dependent weights $w_{PB}$ and
+$w_{TV}$ (derived in paper 06). The displacement is in the probability
+limit, not the variance: a larger one-component trial converges on the
+same biased value. The bias is zero if and only if the weighted sum
+$w_{PB}\,\beta_{bm}^{PB} + w_{TV}\,\beta_{bm}^{TV}$ vanishes, which
+holds in particular when the biomarker is orthogonal to $PB$ and $TV$,
+regardless of the magnitude of those components. The companion
+identity for the lumped treatment effect is displaced by the $PB$ and
+$TV$ contributions themselves, so a lumped pre-post treatment effect
+is biased whenever $PB$ or $TV$ is non-zero.
 
 ### 11.2 Three analysis strategies compared
 
@@ -1258,54 +1392,68 @@ data:
 
 ### 11.3 What the simulations show
 
-**Study A (orthogonal-biomarker arm, hybrid design; 1,000 replicates
-per alternative cell, 5,000 per null).** With the biomarker coupled to
-`BR` only (`c_bm,PB = 0`), the one-component estimate of the
+*Naming note (2026-10-07).* Paper 06 now labels its studies Study A,
+a contamination pilot, and Study B (recovery under a belief-decoupling
+design). Earlier versions of this document called the last two Study B
+and Study C; the labels below follow paper 06. All $N$ are totals
+across randomization paths (NOTATION.md, rule 4).
+
+**Study A (orthogonal-biomarker arm; 1,000 replicates per alternative
+cell, 5,000 per null).** With the biomarker coupled to $BR$ only
+($c_{bm,PB} = 0$), the one-component estimate of the
 biomarker-by-treatment slope is essentially unbiased across the entire
-`(m_PB, m_TV)` grid: mean absolute bias 0.016 at `N = 35` and 0.006 at
-`N = 150` against a true value of -2.25, both within one Monte Carlo
-standard error of zero, with near-nominal type I error (0.031 to 0.056
-for the one-component analysis). The phase-augmented analysis reduces
-no bias (0.028 versus 0.016 at `N = 35`) and is markedly less powerful
-(mean power 0.59 versus 0.35 at `N = 35`; 0.90 versus 0.62 at
-`N = 70`; both reach approximately 1.0 by `N = 100`). Under an
-uncontaminated biomarker, decomposition is therefore strictly
-dominated.
+$(m_{PB}, m_{TV})$ grid: mean absolute bias 0.016 at $N = 35$ and
+0.006 at $N = 300$ against a true value $\beta_{bm:D} = -2.25$, both
+within one Monte Carlo standard error of zero, with near-nominal type I
+error (0.031 to 0.056 for the one-component analysis). The
+phase-augmented analysis reduces no bias (0.028 versus 0.016 at
+$N = 35$) and is markedly less powerful (mean power 0.35 for the
+phase-augmented versus 0.59 for the one-component analysis at
+$N = 35$, and 0.62 versus 0.90 at $N = 70$; both reach approximately
+1.0 by $N = 200$). Under an uncontaminated biomarker, decomposition is
+therefore strictly dominated. (Simulated; verified on 2026-10-07
+against `study-a-summary.rds` in the `study-a-alt1000-null5000`
+directory of `analysis/data/derived_data/component-decomposition/`. Earlier versions quoted the $N = 300$ and $N = 200$
+cells as $N = 150$ and $N = 100$, which were per-path counts before
+the 2026-08-08 migration to totals.)
 
-**Study B (coupling-arm pilot; 100 replicates per cell).** With the
-biomarker coupled to `PB`, the one-component bias scales with the
-coupling strength $c_{bm,PB}$, not with the magnitude of `PB`, exactly as
-the identity predicts (the one-component bias is approximately 0.51 at
-the contamination level studied). The phase-augmented analysis offers
-no protection: its bias is statistically indistinguishable from the
-one-component bias at every contamination level.
+**Contamination pilot (coupling arm; 100 replicates per cell).** With
+the biomarker coupled to $PB$, the one-component bias scales with the
+coupling strength $c_{bm,PB}$, not with the magnitude of $PB$, as the
+identity predicts (the one-component bias reaches approximately $+0.51$
+at $c_{bm,PB} = 0.45$, $N = 300$; simulated, as reported in paper 06).
+The phase-augmented analysis offers no protection: its bias is
+statistically indistinguishable from the one-component bias at every
+contamination level.
 
-**Study C (recovery under a belief-decoupling design; 1,000 replicates
-per cell, $N$ in {70, 150}, $c_{bm,PB}$ in {0, 0.1, 0.2, 0.3}).** This is
-the decisive design comparison. On the standard hybrid design the
-drug-state and belief contrasts are collinear (analysis-stage
+**Study B (recovery under a belief-decoupling design; 1,000 replicates
+per cell, $N \in \{70, 150\}$, $c_{bm,PB} \in \{0, 0.1, 0.2, 0.3\}$).**
+This is the decisive design comparison. On the standard hybrid design
+the drug-state and belief contrasts are collinear (analysis-stage
 correlation approximately +0.6), and the belief-covariate,
 blinded-stratum, and Gompertz-basis decompositions all fail to recover
-`beta_bm^BR`, no better than the one-component analysis. A
+$\beta_{bm}^{BR}$, no better than the one-component analysis. A
 balanced-placebo (open-hidden) design adds a covert on-drug phase
-(`eta = 0`) and an open-placebo phase (`eta = 1`), reducing the
-drug-state-by-belief correlation to approximately -0.66 and breaking
-the collinearity. On that design the belief-covariate decomposition
-returns the unbiased pharmacological slope across the feasible
-contamination range (bias -0.022, +0.008, +0.021, -0.026 at `N = 150`,
-MCSE approximately 0.02; coverage 0.94 to 0.96), whereas the
-one-component estimator degrades monotonically (bias +0.16, +0.34,
-+0.48; coverage down to 0.86). The grid is capped at `c_bm,PB = 0.30`
-because beyond approximately 0.45 the implied covariance is
+($\eta = 0$) and an open-placebo phase ($\eta = 1$), reducing the
+drug-state-by-belief correlation to approximately $-0.66$ and breaking
+the collinearity. On that single-path design the belief-covariate
+decomposition returns the unbiased pharmacological slope across the
+feasible contamination range (bias $-0.022$, $+0.008$, $+0.021$,
+$-0.026$ at $N = 150$, MCSE approximately 0.02; coverage 0.94 to
+0.96), whereas the one-component estimator degrades monotonically
+(bias $+0.16$, $+0.34$, $+0.48$; coverage down to 0.86). (Simulated;
+verified on 2026-10-07 against `study-b-balanced-summary.rds` in the
+same directory tree.) The grid is capped at $c_{bm,PB} = 0.30$ because
+beyond approximately 0.45 the implied covariance is
 non-positive-definite.
 
 The power comparison between the two estimators on the balanced-placebo
 design is more nuanced than a uniform decomposition penalty (rejection
-rate for the interaction at alpha = 0.05, computed from the
+rate for the interaction at $\alpha = 0.05$, computed from the
 1,000-replicate per-cell p-values; paired standard error of the gap at
-most 0.014):
+most 0.014; power values verified against the same summary file):
 
-| c_bm,PB | N | One-component | Decomposition | Gap |
+| $c_{bm,PB}$ | $N$ | One-component | Decomposition | Gap |
 |---|---|---|---|---|
 | 0.0 | 70 | 0.85 | 0.66 | +0.19 |
 | 0.1 | 70 | 0.78 | 0.67 | +0.11 |
@@ -1316,13 +1464,13 @@ most 0.014):
 | 0.2 | 150 | 0.97 | 0.93 | +0.04 |
 | 0.3 | 150 | 0.93 | 0.93 | -0.00 |
 
-Table: Study C power of one-component and decomposition analyses on the balanced-placebo design
+Table: Study B (recovery) power of one-component and decomposition analyses on the balanced-placebo design
 
 At zero contamination the one-component analysis is the more powerful of
-the two (by 0.19 at N = 70, 0.07 at N = 150), reflecting the degrees of
-freedom the decomposition spends. That advantage erodes monotonically as
-contamination grows and reverses by `c_bm,PB = 0.3` (0.64 versus 0.67 at
-N = 70), because contamination in this direction drags the biased
+the two (by 0.19 at $N = 70$, 0.07 at $N = 150$), reflecting the degrees
+of freedom the decomposition spends. That advantage erodes monotonically
+as contamination grows and reverses by $c_{bm,PB} = 0.3$ (0.64 versus
+0.67 at $N = 70$), because contamination in this direction drags the biased
 one-component estimate toward the null and so costs it power, while the
 decomposition holds the estimate at the pharmacological target. The
 one-component power advantage is therefore confined to the
@@ -1333,8 +1481,10 @@ it spuriously higher power, which is power to detect a contaminated
 quantity rather than a genuine advantage.)
 
 On the hybrid design the same comparison is uninformative because power
-saturates near 1.0 for both estimators (the BR effect of -2.25 is large
-relative to its standard error at N = 70 to 150), and both are biased
+saturates near 1.0 for both estimators (the $BR$ effect of $-2.25$ is
+large relative to its standard error at the two-path hybrid totals
+$N = 140$ and $N = 300$ of the recovery runs; inspected in
+`study-b-recovery-summary.rds`), and both are biased
 under contamination in any case; there the operative axis is bias and
 coverage, not power.
 
@@ -1348,7 +1498,7 @@ the two differ, section 21 governs.*
 The inferential value of decomposition is conditional, not universal,
 and the condition is a joint function of the biomarker's correlation
 structure and the trial design, not of either alone. Three points
-summarise the result.
+summarize the result.
 
 1. **The design contrast matters, not the parametric model.** The
    trial must supply the drug-on/off and belief contrasts that identify
@@ -1359,14 +1509,14 @@ summarise the result.
    power.
 
 2. **For the biomarker-by-treatment slope, the bias is governed by
-   covariance, not magnitude.** A biomarker orthogonal to `PB` and `TV`
-   gives an unbiased lumped slope no matter how large `PB` and `TV` are.
-   A biomarker coupled to `PB` or `TV` gives a contaminated slope that no
+   covariance, not magnitude.** A biomarker orthogonal to $PB$ and $TV$
+   gives an unbiased lumped slope no matter how large $PB$ and $TV$ are.
+   A biomarker coupled to $PB$ or $TV$ gives a contaminated slope that no
    amount of data fixes, because the failure is identification, not
    precision.
 
 3. **Recovery under contamination is a design property.** When the
-   biomarker is coupled to `PB`, the bias is recoverable only under a
+   biomarker is coupled to $PB$, the bias is recoverable only under a
    design that varies belief independently of drug exposure. On the
    standard hybrid design no analysis recovers it; on a balanced-placebo
    design the belief-covariate decomposition does.
@@ -1376,10 +1526,10 @@ summarise the result.
 For the biomarker-by-treatment interaction estimand on the hybrid
 design, component decomposition never wins:
 
-- if the biomarker is orthogonal to `PB` and `TV`, the lumped analysis
+- if the biomarker is orthogonal to $PB$ and $TV$, the lumped analysis
   is already unbiased and is the more powerful of the two, so
   decomposition only costs power;
-- if the biomarker is coupled to `PB`, the lumped analysis is biased
+- if the biomarker is coupled to $PB$, the lumped analysis is biased
   but decomposition cannot rescue it on the hybrid design, because the
   identifying contrasts are collinear.
 
@@ -1402,36 +1552,36 @@ interchangeable.
 The DGP decomposition was necessary, or at least not removable, for two
 reasons.
 
-- It defines the ground truth the whole programme tests against. The
+- It defines the ground truth the whole program tests against. The
   omitted-variable-bias identity of section 11.1, and every simulation
   that confirms it, can be exhibited only if the simulator generates
-  `BR`, `PB`, and `TV` as separately controllable channels. A DGP that
+  $BR$, $PB$, and $TV$ as separately controllable channels. A DGP that
   produced a single lumped treatment effect would offer no $c_{bm,PB}$
   knob to turn, no way to construct the contamination, and therefore no
   way to show that the lumped analysis is unbiased under orthogonality
   but biased under coupling. The DGP decomposition is what makes the
   bias question askable.
 - It encodes genuinely distinct mechanisms with different time-drivers:
-  `BR` by cumulative time on drug with off-drug carryover decay, `PB` by
-  time on belief scaled by the phase expectancy $\eta$, and `TV` by time
+  $BR$ by cumulative time on drug with off-drug carryover decay, $PB$ by
+  time on belief scaled by the phase expectancy $\eta$, and $TV$ by time
   since entry. These produce different trajectories across trial phases,
   and the design-contrast structure of section 7.2 (open-label versus
-  blinded yielding approximately `0.5 * PB`, blinded on-drug versus
-  blinded placebo yielding `BR`) cannot be reproduced from a single
+  blinded yielding approximately $0.5\,PB$, blinded on-drug versus
+  blinded placebo yielding $BR$) cannot be reproduced from a single
   lumped curve. The components are not cosmetic; they drive the phase
-  behaviour the whole identification argument relies on.
+  behavior the whole identification argument relies on.
 
 What paper 06 shows to be unnecessary is only the symmetric move of
 mirroring that structure in the analysis. Fitting the components back
 out is unnecessary, and under an orthogonal biomarker counterproductive,
 for the biomarker-by-treatment estimand, and unrecoverable on the hybrid
-design when the biomarker is coupled. Hendrickson's choice to analyse
+design when the biomarker is coupled. Hendrickson's choice to analyze
 with a single lumped `Dbc` was, in hindsight, the appropriate one for
 that estimand.
 
 The qualifier is the estimand. The analysis-side lumping is validated as
 sufficient only for the interaction-slope target under an orthogonal
-biomarker. Had the scientific target been attribution, or a `PB`-coupled
+biomarker. Had the scientific target been attribution, or a $PB$-coupled
 biomarker, the lumped analysis would be insufficient, and the DGP's
 decomposition would then require both a matching analysis and a
 belief-decoupling design. The accurate summary is therefore that the DGP
@@ -1447,7 +1597,7 @@ whose primary estimand is the pharmacological treatment effect or a
 biomarker-by-treatment interaction with a mechanistically
 pharmacological biomarker. It is not the right design when the
 biomarker may couple to placebo responsiveness and the pharmacological
-slope must be recovered. The following guidance operationalises that.
+slope must be recovered. The following guidance operationalizes that.
 
 **Use the hybrid design, with the lumped one-component analysis, when:**
 
@@ -1466,11 +1616,11 @@ expectancy measure, when:**
 
 - the estimand is attribution (how much of the response is
   pharmacological versus belief versus natural history). The base
-  two-phase hybrid identifies only the product `eta * m_PB`; the
+  two-phase hybrid identifies only the product $\eta\, m_{PB}$; the
   open-label placebo phase or a recorded expectancy separates them. Report
   attribution sensitivity to $\eta$ across its plausible range, and verify
   the off-drug window is long enough, relative to the carryover
-  half-life, for `TV` to separate from a decaying `BR`.
+  half-life, for $TV$ to separate from a decaying $BR$.
 
 **Do not rely on the hybrid design; field a balanced-placebo
 (open-hidden) design instead, when:**
@@ -1479,7 +1629,7 @@ expectancy measure, when:**
   candidate biomarker may correlate with placebo responsiveness or with
   natural-history drift. Psychological or symptom-severity biomarkers
   fall here: baseline PCL-5 severity, for example, couples to both
-  expectancy and regression-to-the-mean `TV`, and a COMT genotype is a
+  expectancy and regression-to-the-mean $TV$, and a COMT genotype is a
   documented predictor of placebo-response magnitude. On the hybrid
   design the contamination is unrecoverable; only the covert-drug and
   open-placebo phases of the balanced-placebo design decouple belief from
@@ -1491,12 +1641,12 @@ expectancy measure, when:**
   pharmacological biomarker slope. The estimand, not convenience,
   selects the design.
 - Classify the biomarker as orthogonal to or potentially coupled with
-  `PB` and `TV`, on mechanistic grounds, before enrolment. If coupling
+  $PB$ and $TV$, on mechanistic grounds, before enrollment. If coupling
   cannot be ruled out, the hybrid design is the wrong instrument.
 - Verify that every component the estimand requires has at least one
   phase or contrast in which it is uniquely present. A pure open-label
-  design cannot separate `BR` from `PB`; a pure blinded design cannot
-  reach full-strength `PB`.
+  design cannot separate $BR$ from $PB$; a pure blinded design cannot
+  reach full-strength $PB$.
 - If attribution is in scope, plan the open-label placebo phase or
   expectancy measurement at design time, and size the off-drug window
   against the carryover half-life.
@@ -1537,7 +1687,7 @@ participation itself supplies are all present in the placebo arm and
 none of them is a placebo effect.
 
 Separating the two requires a third arm in which participants receive
-no treatment at all. Hrobjartsson and Gotzsche assembled the trials
+no treatment at all. Hróbjartsson and Gøtzsche assembled the trials
 that had done this, and their conclusion was deflationary. Across
 their reviews, the last covering 202 trials in 60 conditions, they
 found little evidence of a placebo effect on objective outcomes, and
@@ -1585,8 +1735,11 @@ We note one consequence which is easy to overlook. The analysis model
 fitted throughout this program includes a linear term in time. That
 term is the analysis-side counterpart of the natural-history
 component. There is no corresponding term for placebo-belief, since
-the expectancy regressor exists in the software but is disabled in
-the simulation drivers. The decomposition is therefore matched to the
+the expectancy regressor `De` exists in the software but is disabled
+(`useDE = FALSE`) in the drivers of papers 06, 13 and 14 and of the
+Figure 4 reproduction (inspected; several other drivers, for example
+those of papers 03, 05 and 09, set `useDE = TRUE`). For the
+decomposition papers the decomposition is therefore matched to the
 analysis model in one component and not in the other.
 
 ## 16. What this program adds, and what it assumes
@@ -1607,8 +1760,8 @@ question cannot be posed.
 On the minus side, the identification rests on the expectancy weight,
 which the design does not identify. It also asserts a separation
 which, as section 14 records, the empirical placebo literature
-regards as attainable only under designs this program does not
-simulate. The assumption is not unreasonable, but it is an assumption
+regards as attainable only under designs with a no-treatment arm,
+which this program does not simulate. The assumption is not unreasonable, but it is an assumption
 and it should be labeled as one.
 
 The reader may reasonably ask how much of the framework depends on
@@ -1626,7 +1779,7 @@ explicitly rather than smoothed over.*
 ## 17. The question
 
 The three-component decomposition is expensive. At eight measurement
-occasions it makes the correlation matrix `(2 + 3n) = 26` square, with
+occasions it makes the correlation matrix $(2 + 3n) = 26$ square, with
 three within-component blocks and three cross-component blocks, and it
 imposes positive-definiteness constraints that bound the
 biomarker-moderation parameter.
@@ -1643,7 +1796,7 @@ components are available:
 
 Table: Components retained and dropped by the two-component reductions of papers 13 and 14
 
-Both take the matrix to `(2 + 2n) = 18` square with one cross-component
+Both take the matrix to $(2 + 2n) = 18$ square with one cross-component
 block. Both reproduce paper 01's architecture comparison: covariance
 moderation loses power as carryover grows, mean moderation does not,
 and the crossover design is insensitive to carryover under either.
@@ -1651,16 +1804,28 @@ and the crossover design is insensitive to carryover under either.
 between them is not a choice about results. It is a choice about which
 assumption to carry.
 
+*Note (2026-10-07).* The architecture comparison referred to here is
+the version of paper 01 that papers 13 and 14 reproduced. Paper 01 has
+since been revised. The published step coupling makes the coupling gap
+zero, so the interaction vanishes at any positive half-life; graded
+coupling, $g_t = 2^{-t_{sd}/t_{1/2}}$ off drug and 0 before exposure,
+removes that collapse (docs/37). Under graded coupling,
+covariance-based binding and mean moderation that fades with the drug
+effect lose power almost identically (paper 01, abstract). The
+two-and-three-component comparison in this part is unaffected, but the
+contrast "covariance loses power, mean does not" should not be quoted
+as the current paper 01 result.
+
 ## 18. The four axes
 
 The reductions differ on four axes, and they do not all point the same
 way.
 
-| axis | TV-drop (paper 14) | PB-drop (paper 13) | favours |
+| axis | TV-drop (paper 14) | PB-drop (paper 13) | favors |
 |---|---|---|---|
 | **Safety** | unconditional | conditional on `c.bm.pb = 0` | 14 |
 | **Design structure** | nothing becomes inert | expectancy weight inert | 14 |
-| **Analysis-model match** | `t` term fits nothing; PB unmodelled | DGP matches the fitted model | 13 |
+| **Analysis-model match** | `t` term fits nothing; PB unmodeled | DGP matches the fitted model | 13 |
 | **Convention** | deletes the conventional trend term | matches N-of-1 practice | 13 |
 
 Table: The TV-drop and PB-drop reductions compared on four axes
@@ -1673,12 +1838,16 @@ contaminated-biomarker study, but **there is no biomarker-TV
 counterpart anywhere** in the package, the drivers, or any
 implementation collection. The biomarker-TV entry of the correlation
 matrix is identically zero under every parameter setting the software
-can express.
+can express (inspected: no `c.bm.tv` or equivalent argument exists in
+`R/`, `implementations/` or `analysis/scripts/` as of 2026-10-07).
 
 By paper 06's omitted-variable identity, the one-component biomarker
 slope is
 
-    beta_bm^BR  +  w_PB * beta_bm^PB  +  w_TV * beta_bm^TV
+$$
+\beta_{bm}^{\text{lumped}} \;=\; \beta_{bm}^{BR}
+  + w_{PB}\,\beta_{bm}^{PB} + w_{TV}\,\beta_{bm}^{TV},
+$$
 
 so a component contributes bias only through the biomarker's
 covariance with it. Deleting a block whose coupling is *structurally*
@@ -1714,11 +1883,11 @@ calendar-time argument that drives the TV mean also drives the AR(1)
 week gaps of every within-component block, so unequal visit spacing
 survives, and $\eta$ continues to act through PB.
 
-This asymmetry is one-sided and it favours paper 14.
+This asymmetry is one-sided and it favors paper 14.
 
 **Mitigation, from Part II.** Section 7.3 above establishes that the
-hybrid design identifies only the product `eta * m_PB`, and that the
-working value $\eta \approx 0.5$ is a modelling assumption rather
+hybrid design identifies only the product $\eta\, m_{PB}$, and that the
+working value $\eta \approx 0.5$ is a modeling assumption rather
 than an estimate, not falsifiable from outcome data without an
 expectancy measurement. If $\eta$ is not identified in the first place,
 paper 13's cost in rendering it inert is smaller than it first
@@ -1731,13 +1900,17 @@ that merely carries a blinded phase.
 This axis was not visible until the analysis model was read alongside
 the DGP, and it reverses the balance of the first two.
 
-The fitted model is assembled as
+The fitted model is assembled in `R/lme_analysis.R` (inspected;
+schematic) as
 
-    modelbase <- "Sx ~ bm + t"          # always
-    ... + Dbc + bm:Dbc                  # when drug status varies
-    ... + De                            # only when useDE = TRUE
+```{.r}
+modelbase <- "Sx ~ bm + t"          # always
+... + Dbc + bm:Dbc                  # when drug status varies
+... + De                            # only when useDE = TRUE
+```
 
-Both papers' drivers set `useDE = FALSE`. So:
+Both papers' driver (`analysis/scripts/two-component-dgp/01-run-grid.R`)
+sets `useDE = FALSE` (inspected). So:
 
 - **TV has a fitted analysis-side counterpart**, the `t` term, present
   in every fit.
@@ -1764,20 +1937,20 @@ this to PB.
 The effect did not show up as a Type I error problem in either paper's
 results, which is reassuring but not decisive: both papers' null cells
 show the same design-dependent calibration pattern, so any additional
-distortion from unmodelled PB is not separable from it in the runs
+distortion from unmodeled PB is not separable from it in the runs
 performed.
 
 ### 18.4 Convention
 
 A time trend is a standard element of crossover and N-of-1 models.
 Period effects, drift, and serial correlation are routine, and the TV
-component is the formalization of that trend. A modelled
+component is the formalization of that trend. A modeled
 placebo-belief trajectory with its own Gompertz parameters is an
 innovation of this program rather than an inherited convention;
 the wider literature handles placebo response by blinding.
 
-The placebo literature reinforces the point. Hrobjartsson and
-Gotzsche's systematic reviews, the last covering 202 trials across 60
+The placebo literature reinforces the point. Hróbjartsson and
+Gøtzsche's systematic reviews, the last covering 202 trials across 60
 conditions, find that much of what is attributed to placebo response
 is not separable from regression to the mean and natural-history drift
 without a no-treatment arm. Their three-arm methodology exists because
@@ -1833,25 +2006,63 @@ Both papers expected the reduction to relax the positive-definiteness
 constraint on the moderation parameter. It does not, and the reason is
 analytic rather than empirical.
 
-The constraint is a Schur complement on the biomarker row. Writing `M`
-for the component block and `v` for the unit-scaled coupling pattern,
-the exact ceiling is
+The constraint is a Schur complement on the biomarker row. Writing $M$
+for the component block and $v$ for the unit-scaled coupling pattern,
+the correlation matrix is positive definite if and only if
+$1 - c_{bm}^2\, v^{\top} M^{-1} v > 0$, so the exact ceiling is
 
-    c_bm* = ( v' M^-1 v )^(-1/2)
+$$
+c_{bm}^{*} \;=\; \bigl(v^{\top} M^{-1} v\bigr)^{-1/2}
+$$
 
-Under compound symmetry `M` is a Kronecker sum and its eigenvalues
-collapse to those of two small reductions, giving a smallest
-eigenvalue of
+(derived; papers 13 and 14, Appendix C). Under compound symmetry,
+with common within-component correlation $\rho$, same-occasion
+cross-component correlation $c_1$ and different-occasion
+cross-component correlation $c_{\times}$, $M$ is a sum of Kronecker
+products (papers 13 and 14 call it a Kronecker sum) and its
+eigenvalues collapse to those of two small reductions, giving a
+smallest eigenvalue of
 
-    (1 - rho) - (c_1 - c_x)
+$$
+\lambda_{\min}(M) \;=\; (1 - \rho) - (c_1 - c_{\times})
+$$
 
-which contains **neither the number of occasions nor the number of
-components**. Deleting a third of the rows and columns does not touch
-the binding structural constraint.
+(derived; checked here by direct block-eigenvalue argument), which
+contains **neither the number of occasions nor the number of
+components**. This holds when there are at least two components
+($K \ge 2$), $c_{\times} \le \rho$ and $c_1 \ge c_{\times}$; with
+$K = 1$ the smallest eigenvalue is $1 - \rho$, with
+$c_{\times} > \rho$ the eigenvalue
+$[1 + (n-1)\rho] - [c_1 + (n-1)c_{\times}]$ is smaller, and with
+$c_1 < c_{\times}$ the eigenvalue $(1 - \rho) + (K-1)(c_1 - c_{\times})$
+is smaller (for example 0.45 rather than 0.85 at $\rho = 0.1$,
+$c_1 = 0.2$, $c_{\times} = 0.15$, $K = 3$, $n = 8$; and 0 rather than
+0.45 at $\rho = 0.7$, $c_1 = 0.05$, $c_{\times} = 0.2$). At the
+program's reference values ($\rho = 0.7$, $c_1 = 0.2$,
+$c_{\times} = 0.1$) the conditions hold. (Corrected 2026-10-08: the
+formula was previously stated without these conditions. Verified,
+`analysis/scripts/compendium-mathematics/check-landmarks-hybrid-ceilings.R`,
+block 7. See `analysis/report/compendium-mathematics.tex`, Section
+"The number of response components and the ceiling".) Deleting a third of the rows and columns does not touch
+the binding structural constraint. (The symbol $\lambda_{\min}$ denotes
+an eigenvalue here, not the carryover decay rate $\lambda$.)
 
-Numerically the reduction buys between 0.008 and 0.013 of feasible
-$c_{bm}$ range across designs and half-lives. By contrast, halving the
-number of measurement occasions moves the ceiling by roughly 0.2.
+Numerically the reduction buys between 0.007 and 0.013 of feasible
+$c_{bm}$ range across designs and half-lives (computed in paper 14;
+corrected 2026-10-08 from 0.008: the smallest gain is OL+BDC at
+$t_{1/2} = 1$, $0.540 - 0.533 = 0.007$, unrounded 0.0069, verified in
+`analysis/scripts/compendium-mathematics/check-landmarks-hybrid-ceilings.R`,
+block 8).
+By contrast, the number of occasions matters far more: holding the
+design shape fixed, the three-component ceiling falls from
+approximately 0.81 at $n = 4$ to 0.58 at $n = 12$ (paper 14,
+Appendix C). An earlier version of this sentence said that halving the
+number of occasions moves the ceiling by roughly 0.2; paper 14 does
+not report a halving comparison, so the figures it does report are
+given instead. These ceilings belong to the paper 13 and 14 parameter
+set and are not comparable with the compound-symmetry ceiling of
+0.256 or the separable AR(1) ceilings (0.440 at $\rho = 0.8$; 0.474,
+Hybrid 0.480, at $\rho = 0.7$) of paper 01.
 
 **The case for either reduction is transparency and cost, not
 numerical headroom.** Anyone adopting one for the latter reason has
@@ -1893,7 +2104,7 @@ Neither dominates; the axes are split two and two.
   N-of-1 methodological community, since it presents a familiar model,
   avoids asserting a contested decomposition, and is the better matched
   to the analysis model actually fitted.
-- **Prefer neither for clinical modelling** of a chronic psychiatric
+- **Prefer neither for clinical modeling** of a chronic psychiatric
   indication.
 
 What should not happen is that either reduction be adopted without
@@ -1921,14 +2132,16 @@ from the reductions of the present part.
 
 ### 22.1 Inherited from the hybrid-design analysis
 
-The Study C recovery result is established at 1,000 replicates over
-$c_{bm,PB}$ in {0, 0.1, 0.2, 0.3} and $N$ in {70, 150}; recovery beyond
-the positive-definite range ($c_{bm,PB}$ above approximately $0.45$),
-participant-level component recovery, and replication under an
-Architecture A (mean-moderation) coupling remain open. The Study B
-coupling-arm evidence is a 100-replicate pilot; its production run is
-pre-registered. The $\eta$ working value of 0.5 in the blinded phase
-remains a modelling assumption absent a belief measurement. The
+The Study B recovery result (paper 06's current label; called Study C
+in earlier versions of this document) is established at 1,000
+replicates over $c_{bm,PB} \in \{0, 0.1, 0.2, 0.3\}$ and
+$N \in \{70, 150\}$; recovery beyond the positive-definite range
+($c_{bm,PB}$ above approximately $0.45$), participant-level component
+recovery, and replication under a mean-moderation coupling remain
+open. The contamination-pilot evidence is a 100-replicate pilot; its
+production run is set out in the study's working protocol
+(`analysis/scripts/component-decomposition/00-ademp-protocol.md`). The $\eta$ working value of 0.5 in the blinded phase
+remains a modeling assumption absent a belief measurement. The
 framework's participant-level claims are conditional on falling inside
 the recoverable region of section 7.4.
 
@@ -1950,7 +2163,7 @@ the recoverable region of section 7.4.
    Neither diagnosed it. Whether the cluster-robust correction that
    removes a milder conservatism in paper 02 also flattens this
    pattern is untested.
-4. **Test whether unmodelled PB degrades inference** in paper 14's
+4. **Test whether unmodeled PB degrades inference** in paper 14's
    configuration, which Section 18.3 identifies as a theoretical
    concern that the existing runs cannot separate from the Type I
    pattern of item 3.
@@ -1969,15 +2182,18 @@ the recoverable region of section 7.4.
 A random intercept-and-slope mixed model is
 
 $$
-Y_{it} \;=\; \alpha_i + \beta_i t + \varepsilon_{it},
+Y_{it} \;=\; (\beta_0 + u_{0i}) + (\beta_t + u_{1i})\, t
+  + \varepsilon_{it},
 $$
 
-with participant-specific intercept $\alpha_i$ and slope $\beta_i$.
-This captures heterogeneity in baseline severity and in linear
-time trends, but it cannot decompose the time trend into BR-style
-saturating-drug, PB-style expectancy-modulated, and TV-style
-natural-history pieces. It also forces $\beta_i$ to be linear in
-$t$, which is biologically wrong for chronic-condition responses
+with participant-specific intercept deviation $u_{0i}$ and slope
+deviation $u_{1i}$ (the symbols $\alpha$ and $\beta_i$ used in earlier
+versions were renamed because $\alpha$ is reserved for the
+significance level). This captures heterogeneity in baseline severity
+and in linear time trends, but it cannot decompose the time trend into
+BR-style saturating-drug, PB-style expectancy-modulated, and TV-style
+natural-history pieces. It also forces each participant's trajectory
+to be linear in $t$, which is biologically wrong for chronic-condition responses
 on the timescale of weeks. The BR-PB-TV decomposition is more
 specific about *why* the trajectory has the shape it does, and
 that specificity translates directly into identifiability of the
@@ -2004,7 +2220,7 @@ without paying the cost of a parallel natural-history study.
 
 ### Q: Why is the biomarker only correlated with BR, not with PB?
 
-This is a modelling assumption, not a fact about reality. The
+This is a modeling assumption, not a fact about reality. The
 Hendrickson framework correlates the baseline biomarker (e.g., a
 blood pressure summary) with the BR factor only, and treats the
 biomarker as conditionally independent of PB and TV. The
@@ -2031,11 +2247,12 @@ matters.
 
 ### Q: What if TV is negative (the patient naturally worsens)?
 
-In the standard parameterisation with positive $m_{TV}$, the
+In the standard parameterization with positive $m_{TV}$, the
 Gompertz form is monotonically increasing and TV is non-negative
 by construction. To allow naturally-worsening trajectories, the
-maximum $m_{TV}$ can be drawn from a population distribution that
-includes negative values; the resulting Gompertz curve is then
+maximum $m_{TV}$ can be set negative (or, in an extended DGP, drawn
+from a population distribution that includes negative values; the
+current implementation uses a fixed value); the resulting Gompertz curve is then
 monotonically decreasing in symptom-reduction (equivalently,
 monotonically increasing in symptom severity). The model handles
 this case without modification, and detecting $\hat{m}_{TV} < 0$
@@ -2055,8 +2272,9 @@ particularly if the participant's natural-history trajectory is
 still evolving. We note separately that adding occasions tightens the
 positive-definiteness bound on the moderation parameter, and section
 20 gives the closed form. Identifiability and feasibility therefore
-pull in opposite directions as the schedule grows. The design contrasts table earlier in this
-document is the formal version of the answer: each component
+pull in opposite directions as the schedule grows. The design
+contrasts table of section 5 is the formal version of the answer:
+each component
 needs at least one phase in which it is uniquely present (or
 uniquely absent in a comparable arm), and the more such phases the
 better.
@@ -2067,7 +2285,7 @@ The Gompertz parameters absorb this asymmetry. A drug with a fast
 $BR$ onset has a high $r$; a drug with a long pharmacological
 washout has a long off-drug tail captured by the carryover
 half-life $t_{1/2}$ used in the analysis-side drug indicator
-$D_{it} = \exp(-\lambda \cdot t_{sd})$. The decomposition is
+$D_{bc,it} = \exp(-\lambda \cdot t_{sd})$ (off drug). The decomposition is
 agnostic to the specific pharmacokinetics so long as the trial
 includes enough timepoints in the relevant transition windows
 (on-to-off and off-to-on) to constrain the curves.
@@ -2085,17 +2303,18 @@ question, and it depends critically on the BR-PB-TV decomposition.
 
 ### The wrong way
 
-A direct regression of total response on baseline biomarker
+A direct regression of the total response $R_i$ on the baseline
+biomarker $B_i$,
 
-```
-total_response = beta_0 + beta_bm * biomarker + error
-```
+$$
+R_i \;=\; \beta_0 + \beta_{bm}^{\text{lumped}}\, B_i + \xi_i,
+$$
 
-estimates the biomarker's correlation with whatever the lumped
+estimates the biomarker's association with whatever the lumped
 total contains. If $PB$ varies systematically across the biomarker
 distribution (because, say, the biomarker is correlated with
 optimism, suggestibility, or treatment-seeking history), then
-$\hat{\beta}_{bm}$ contains a placebo-prediction component that is
+$\hat{\beta}_{bm}^{\text{lumped}}$ contains a placebo-prediction component that is
 inseparable from the pharmacological-prediction component. The
 resulting biomarker, applied prospectively, would mis-stratify
 patients: those flagged as 'high responders' by the biomarker
@@ -2107,11 +2326,16 @@ on a pharmacological basis.
 
 Regress *each component* on the biomarker:
 
-```
-BR    = beta_0_BR  + beta_bm_BR  * biomarker + error_BR
-PB    = beta_0_PB  + beta_bm_PB  * biomarker + error_PB
-TV    = beta_0_TV  + beta_bm_TV  * biomarker + error_TV
-```
+$$
+\begin{aligned}
+BR_i &= \beta_0^{BR} + \beta_{bm}^{BR}\, B_i + \xi_i^{BR},\\
+PB_i &= \beta_0^{PB} + \beta_{bm}^{PB}\, B_i + \xi_i^{PB},\\
+TV_i &= \beta_0^{TV} + \beta_{bm}^{TV}\, B_i + \xi_i^{TV}.
+\end{aligned}
+$$
+
+(The symbol $\beta_{bm}$ without a superscript is reserved for the
+mean-moderation multiplier, so the slopes here always carry one.)
 
 A biomarker is a useful pharmacological predictor if and only if
 $\hat{\beta}_{bm}^{BR}$ is meaningfully non-zero. Significant
@@ -2168,31 +2392,70 @@ BR component, is unanswerable.
 
 ## 26. References
 
-- Hendrickson, R. C., et al. (2020). Optimizing aggregated N-of-1
-  trial designs for the detection of biomarker-treatment
-  interactions. Source of the prazosin-PTSD Gompertz calibration used
-  throughout this document.
-- Hrobjartsson, A. and Gotzsche, P. C. (2001, 2004, 2010). Placebo
-  interventions for all clinical conditions. The 2010 review covers
-  202 trials across 60 conditions and is the principal source for
-  section 14.
-- Kirsch, I. (2008) and Locher, C., et al. (2015). Antidepressant
-  trial analyses bearing on the separation of placebo response from
-  natural-history drift.
-- Senn, S. Cross-over Trials in Clinical Research, and related work
-  on period effects and on variance components in N-of-1 designs.
-  Principal source for section 15.
-- Schmid, C. H. and Yang, J. (2022). Bayesian hierarchical methods
-  for aggregated N-of-1 trials, carrying an individual-level trend
-  parameter alongside treatment effect and autocorrelation.
-- Colloca, L., et al. (2004) and Rohsenow, D. J. (1981).
-  Balanced-placebo and open-hidden designs, cited in section 7 as the
-  established means of separating drug exposure from belief.
+Metadata of the published references below were verified on
+2026-10-07 against PubMed or Crossref.
+
+- Hendrickson, R. C., Thomas, R. G., Schork, N. J. and Raskind, M. A.
+  (2020). Optimizing aggregated N-of-1 trial designs for predictive
+  biomarker validation: statistical methods and theoretical findings.
+  *Frontiers in Digital Health* 2:13. doi:10.3389/fdgth.2020.00013.
+  Source of the prazosin-PTSD Gompertz calibration used throughout
+  this document. (Earlier versions gave the title as "Optimizing
+  aggregated N-of-1 trial designs for the detection of
+  biomarker-treatment interactions", which is not the published
+  title.)
+- Hróbjartsson, A. and Gøtzsche, P. C. (2001). Is the placebo
+  powerless? An analysis of clinical trials comparing placebo with no
+  treatment. *New England Journal of Medicine* 344:1594-1602.
+  doi:10.1056/NEJM200105243442106.
+- Hróbjartsson, A. and Gøtzsche, P. C. (2004). Is the placebo
+  powerless? Update of a systematic review with 52 new randomized
+  trials comparing placebo with no treatment. *Journal of Internal
+  Medicine* 256:91-100. doi:10.1111/j.1365-2796.2004.01355.x.
+- Hróbjartsson, A. and Gøtzsche, P. C. (2010). Placebo interventions
+  for all clinical conditions. *Cochrane Database of Systematic
+  Reviews* 2010(1):CD003974. doi:10.1002/14651858.CD003974.pub3.
+  Outcome data from 202 of 234 included trials in 60 clinical
+  conditions; the principal source for section 14.
+- Kirsch, I., Deacon, B. J., Huedo-Medina, T. B., Scoboria, A.,
+  Moore, T. J. and Johnson, B. T. (2008). Initial severity and
+  antidepressant benefits: a meta-analysis of data submitted to the
+  Food and Drug Administration. *PLoS Medicine* 5(2):e45.
+  doi:10.1371/journal.pmed.0050045.
+- Locher, C., Kossowsky, J., Gaab, J., Kirsch, I., Bain, P. and
+  Krummenacher, P. (2015). Moderation of antidepressant and placebo
+  outcomes by baseline severity in late-life depression: a systematic
+  review and meta-analysis. *Journal of Affective Disorders*
+  181:50-60. doi:10.1016/j.jad.2015.03.062. With Kirsch et al.
+  (2008), antidepressant trial analyses bearing on the separation of
+  placebo response from regression to the mean.
+- Senn, S. (2002). *Cross-over Trials in Clinical Research*, 2nd ed.
+  Chichester: Wiley. Principal source for section 15. (Book; metadata
+  not checked against Crossref.)
+- Senn, S. (2016). Mastering variation: variance components and
+  personalised medicine. *Statistics in Medicine* 35:966-977.
+  doi:10.1002/sim.6739.
+- Schmid, C. H. and Yang, J. (2022). Bayesian models for N-of-1
+  trials. *Harvard Data Science Review*, Special Issue 3.
+  doi:10.1162/99608f92.3f1772ce. Cited in section 15 for an
+  individual-level trend parameter alongside treatment effect and
+  autocorrelation (that content claim was not re-checked against the
+  article).
+- Colloca, L., Lopiano, L., Lanotte, M. and Benedetti, F. (2004).
+  Overt versus covert treatment for pain, anxiety, and Parkinson's
+  disease. *Lancet Neurology* 3:679-684.
+  doi:10.1016/S1474-4422(04)00908-1.
+- Rohsenow, D. J. and Marlatt, G. A. (1981). The balanced placebo
+  design: methodological considerations. *Addictive Behaviors*
+  6:107-122. doi:10.1016/0306-4603(81)90003-4. With Colloca et al.
+  (2004), the open-hidden and balanced-placebo designs cited in
+  section 7 as the established means of separating drug exposure
+  from belief. (Earlier versions listed Rohsenow as sole author.)
 - pmsimstats team. Paper 06, Three-component decomposition of
   treatment response in aggregated N-of-1 trials
-  (`analysis/report/06-component-decomposition/`). Sections 4
-  through 7 supply the identifiability conditions, the
-  omitted-variable-bias identity, and Studies A, B and C.
+  (`analysis/report/06-component-decomposition/`). Supplies the
+  identifiability conditions, the omitted-variable-bias identity,
+  Study A, the contamination pilot and Study B.
 - pmsimstats team. Paper 13, dropping the placebo-belief component
   (`analysis/report/13-two-component-drop-pb/`), and Paper 14,
   dropping natural history

@@ -12,6 +12,11 @@ Section 9 (script `07-time-adjustment.R`: 27,000 fits on alternative
 cells and 12,000 on null cells, all converged) and on the population-mean
 calculations of the same paper.
 
+(Updated 2026-10-09: results at $t_{1/2} > 0$ now use anchored
+carryover; see `docs/53`. Values changed by at most 0.008 in rejection
+rates and 0.53 points in the drug coefficient $\beta_D$ (the
+interaction estimates by at most 0.0003); conclusions unchanged.)
+
 ```{=latex}
 \clearpage
 \tableofcontents
@@ -23,28 +28,32 @@ calculations of the same paper.
 ## Notation index and glossary
 
 Notation follows `analysis/report/NOTATION.md` and `docs/40`. Symbols
-marked *local* are defined here.
+marked *local* are defined here. (Notation, 2026-10-09: the
+linear-time slope $\beta_t$ is now $\beta_T$, as in `docs/56` and the
+compendium.)
 
 | Symbol | Meaning | Status |
 |----------------|----------------------------------------|----------|
 | $Y_{it}$ | symptom score (code `Sx`) | canonical |
 | $TV$, $PB$, $BR$ | natural-course, expectancy and drug responses | canonical |
-| $w_t$ | calendar week of visit $t$ (code `t`) | local |
-| $e_t$ | design expectancy: 1 open label, 0.5 blinded (code `De`) | local |
+| $w_t$ | calendar week of visit $t$ (code `t`) | canonical |
+| $\eta_t$ | design expectancy: 1 open label, 0.5 blinded, 0 at baseline (code `e`, regressor `De`); written $e_t$ before 2026-10-07 | canonical |
 | $D_{it}$ | binary drug state (code `Db`) | canonical |
 | $\beta_D$, $\beta_{bm:D}$ | drug main effect; biomarker-by-drug interaction | canonical |
-| $f(t)$ | the time adjustment: $\beta_t w_t$, a spline, or visit effects $\tau_t$ | local |
-| $\kappa$ | mean model-based SE over empirical SD; below 1 means anticonservative | canonical |
-| $\alpha$, $\pi$ | test size (0.05) and power | canonical |
+| $f(t)$ | the time adjustment: $\beta_T w_t$, a spline, or visit effects $\mu_t$ | local |
+| $\beta_T$, $\mu_t$, $\beta_\eta$ | linear-time slope (written $\beta_t$ before 2026-10-09); visit effect; expectancy coefficient | canonical |
+| $t_{1/2}$ | carryover half-life (weeks) | canonical |
+| $N$ | total sample size across paths | canonical |
+| $\rho$ | within-component AR(1) correlation per week (configuration C) | canonical |
 
 Table: Notation index and glossary of symbols used in this document
 
-- **Linear time.** $f(t) = \beta_t w_t$, the published adjustment.
+- **Linear time.** $f(t) = \beta_T w_t$, the published adjustment.
 - **Spline.** A natural cubic spline in $w_t$, here with 3 degrees of
   freedom (`ns(t, df = 3)`).
-- **Visit as factor.** One free mean per visit, $\tau_t$
+- **Visit as factor.** One free mean per visit, $\mu_t$
   (`factor(t)`).
-- **Expectancy term.** $\beta_e e_t$ (`De`), present in the published
+- **Expectancy term.** $\beta_\eta \eta_t$ (`De`), present in the published
   code but switched off for the publication.
 - **Size.** The rejection rate when there is no interaction (Type I
   error); nominally 0.05.
@@ -59,7 +68,7 @@ Table: Notation index and glossary of symbols used in this document
    (Section 2).
 2. **For the interaction, flexibility buys nothing in bias.** In every
    cell the three adjustments give the same mean interaction estimate,
-   within 0.0007, because the biomarker is unrelated to the non-drug
+   within 0.0009, because the biomarker is unrelated to the non-drug
    components (Section 4).
 3. **For the drug main effect, flexibility removes a bias of about 2
    points.** Linear time credits the open-label expectancy to the drug.
@@ -68,8 +77,8 @@ Table: Notation index and glossary of symbols used in this document
    (Section 4).
 4. **In Hybrid, the flexible adjustments are anticonservative under the
    published random-intercept covariance.** Under one-week carryover the
-   Type I error is 0.073 (spline) and 0.080 (visit factor), against
-   0.058 for linear time. Their higher power, 0.02 to 0.07, is partly
+   Type I error is 0.075 (spline) and 0.080 (visit factor), against
+   0.056 for linear time. Their higher power, 0.02 to 0.07, is partly
    this inflation. In the crossover all three hold their size, and the
    flexible forms gain 0.01 to 0.04 (Section 4).
 5. **The flexible adjustment and the working covariance have to be
@@ -84,6 +93,25 @@ Table: Notation index and glossary of symbols used in this document
    with an unstructured covariance and a size check. For the drug main
    effect, use visit effects or add the expectancy term (Section 8).
 
+**Update (2026-10-07).** The size check of point 5 has been made
+(`docs/45`, Section 4.4). In the same cell (CS construct, Hybrid,
+$t_{1/2} = 1$, 500 null replicates, MCSE 0.0097), the excess recurs
+under model-based inference (`cs-Satt`: 0.054 linear, 0.070 spline,
+0.072 visit factor) and under the unstructured covariance with
+Kenward-Roger (0.056, 0.068, 0.072), is smaller with baseline as a
+covariate (0.056, 0.060, 0.064), and is absent under CR2 (`cs-CR2`
+0.058 and 0.058; `csh-CR2` 0.060 and 0.060, linear and visit factor).
+Seen in two separate simulation runs with the same direction and size,
+the excess is real for model-based and Kenward-Roger inference.
+`docs/45` calls this evidence "weak" because the eight-cell mean size
+is unchanged; that reading is corrected here, since an excess confined
+to the carryover cell is still an excess. The unstructured covariance
+therefore does not license visit effects, and recommendation 2 of
+Section 8 is withdrawn: a flexible time adjustment should be paired
+with CR2 inference. The project's current primary analysis, F1 of
+`docs/46` and `docs/49`, uses linear time with CR2 inference and adds
+the expectancy term `De` with its biomarker interaction.
+
 ## 2. What the time term has to absorb
 
 The published model is `Sx ~ bm + Db + t + bm*Db + (1|ptID)` (`docs/40`,
@@ -96,9 +124,12 @@ blinding pattern (`docs/40`, Section 3):
 |----------------|-----|-----|-----|-----|-----|-----|-----|-----|
 | $TV$ | 1.86 | 4.79 | 5.24 | 5.59 | 5.85 | 6.03 | 6.39 | 6.48 |
 | $PB$ | 1.86 | 4.79 | 2.62 | 2.79 | 2.92 | 3.02 | 3.19 | 3.24 |
-| $TV + PB$ | 3.72 | 9.58 | 7.86 | 8.38 | 8.77 | 9.05 | 9.58 | 9.72 |
+| $TV + PB$ | 3.73 | 9.58 | 7.86 | 8.38 | 8.77 | 9.05 | 9.58 | 9.72 |
 
 Table: Population means of $TV$, $PB$ and their sum by week, common to all paths
+
+(Corrected 2026-10-08: the week-4 sum was given as 3.72, the sum of the
+rounded components; the exact value is 3.73.)
 
 The sum rises steeply to week 8, falls by 1.7 points at week 9 when
 expectancy halves, and then flattens. No straight line follows that.
@@ -150,7 +181,7 @@ intercept. Interaction strength is 0.25 in the alternative cells, with
 Section 9).
 
 **The interaction estimate does not depend on the adjustment.** The
-three mean estimates of $\beta_{bm:D}$ agree to within 0.0007 in every
+three mean estimates of $\beta_{bm:D}$ agree to within 0.0009 in every
 cell. In Hybrid their empirical SDs agree too (graded coupling,
 $t_{1/2} = 0$: 0.0562, 0.0559, 0.0558). The biomarker is unrelated to
 $TV$ and $PB$, so misfit of the time term adds noise to the on-off
@@ -161,10 +192,10 @@ estimate.
 
 | Adjustment | Limit, $t_{1/2} = 0$ | Simulated mean (SD) | Limit, $t_{1/2} = 1$ | Simulated mean (SD) |
 |--------------------|----------|------------------|----------|------------------|
-| Linear `t` | $-8.21$ | $-8.16$ (0.86) | $-6.78$ | $-6.70$ (0.84) |
-| Linear `t` + `De` | $-7.28$ | not run | $-5.34$ | not run |
-| Spline | $-6.22$ | $-6.02$ (0.99) | $-3.97$ | $-3.78$ (0.94) |
-| Visit factor | $-6.25$ | $-5.99$ (1.27) | $-4.52$ | $-4.28$ (1.19) |
+| Linear `t` | $-8.21$ | $-8.16$ (0.86) | $-6.38$ | $-6.31$ (0.84) |
+| Linear `t` + `De` | $-7.28$ | not run | $-4.81$ | not run |
+| Spline | $-6.22$ | $-6.02$ (0.99) | $-3.67$ | $-3.50$ (0.94) |
+| Visit factor | $-6.25$ | $-5.99$ (1.27) | $-4.49$ | $-4.28$ (1.19) |
 
 Table: Drug effect limits and simulated means by time adjustment, Hybrid design, graded coupling
 
@@ -177,17 +208,21 @@ three adjustments agree within 0.5 points.
 | Design | Cell | Linear `t` | Spline | Visit factor |
 |--------|----------------------------|--------|--------|--------|
 | Hybrid | null, $t_{1/2} = 0$ | 0.049 | 0.055 | 0.059 |
-| Hybrid | null, $t_{1/2} = 1$ | 0.058 | 0.073 | 0.080 |
+| Hybrid | null, $t_{1/2} = 1$ | 0.056 | 0.075 | 0.080 |
 | Hybrid | graded, $t_{1/2} = 0$ | 0.636 | 0.678 | 0.690 |
-| Hybrid | graded, $t_{1/2} = 1$ | 0.444 | 0.484 | 0.508 |
-| Hybrid | mean moderation, $t_{1/2} = 2$ | 0.626 | 0.682 | 0.696 |
+| Hybrid | graded, $t_{1/2} = 1$ | 0.442 | 0.488 | 0.510 |
+| Hybrid | mean moderation, $t_{1/2} = 2$ | 0.626 | 0.674 | 0.690 |
 | CO | null, $t_{1/2} = 0$ | 0.052 | 0.040 | 0.044 |
-| CO | null, $t_{1/2} = 1$ | 0.042 | 0.039 | 0.039 |
+| CO | null, $t_{1/2} = 1$ | 0.042 | 0.040 | 0.039 |
 | CO | graded, $t_{1/2} = 0$ | 0.734 | 0.750 | 0.772 |
 
 Table: Power and size of the interaction test by design, cell and time adjustment
 
 Monte Carlo SEs are about 0.007 for the null rates and 0.021 for power.
+The power, size and drug-effect figures of this section were checked
+against `analysis/data/quick-sim/carryover-closed-form/time-adjustment/`
+(`summary-reps500.csv`, `summary-reps1000-null.csv`; verified
+2026-10-07).
 
 ![True population means by path (points) and the best fit of each time adjustment (lines), Hybrid, no carryover (reproduced from docs/40, Figure 7).](figures/40-fig7-time-adjustment-fit.png)
 
@@ -200,7 +235,8 @@ Monte Carlo SEs are about 0.007 for the null rates and 0.021 for power.
    because the open-label visits are both on drug and at full
    expectancy, and a line cannot follow the drop at week 9. Visit
    effects remove the confounding entirely. Adding `De` removes half to
-   two thirds of it (Section 4).
+   four fifths of it (Section 4; "two thirds" before the 2026-10-09
+   anchored-carryover update, as in `docs/40`).
 2. **It gives a randomized drug estimate.** With visit effects, the drug
    effect rests on comparisons between paths at the same visit (weeks
    10, 16, 20). Those comparisons are protected by the randomization of
@@ -212,7 +248,7 @@ Monte Carlo SEs are about 0.007 for the null rates and 0.021 for power.
    unstructured covariance is the standard analysis of a longitudinal
    trial with fixed visits, and period effects are a first-order
    concern in within-participant designs [3]. Reviewers recognize it, and it can be
-   pre-specified without choosing a functional form.
+   specified without choosing a functional form.
 4. **It improves the crossover analysis.** In CO the flexible
    adjustments hold their size and gain 0.01 to 0.04 in power, partly
    from a genuine reduction in the estimate's variability (SD 0.0487
@@ -223,10 +259,14 @@ Monte Carlo SEs are about 0.007 for the null rates and 0.021 for power.
 ## 6. Disadvantages of a flexible time adjustment
 
 1. **Under the published covariance it inflates the Type I error in
-   Hybrid.** Spline and visit effects reject 7.3% and 8.0% of null
-   trials under one-week carryover, about 3 and 3.5 Monte Carlo SEs
-   above nominal, against 5.8% for linear time. Without carryover the
-   excess is within about one SE. The cause is not established. On our
+   Hybrid.** Spline and visit effects reject 7.5% and 8.0% of null
+   trials under one-week carryover, about 3.6 and 4.3 Monte Carlo SEs
+   above nominal (MCSE 0.0069 at a true rate of 0.05; the earlier "3 and
+   3.5" used the SE at the observed rates), against 5.6% for linear
+   time (Section 4 table; updated 2026-10-09 to the anchored-carryover
+   rerun, previously 7.3%, 8.0% and 5.8%). Without carryover the excess is within about one SE. The
+   excess was later reproduced, and shown to vanish under CR2 (see the
+   update after Section 1). The cause is not established. On our
    working explanation (inferred, not tested), the random intercept
    misrepresents the outcome covariance: the baseline row has no noise
    of its own, and the variance falls at blinding (`docs/40`,
@@ -245,9 +285,9 @@ Monte Carlo SEs are about 0.007 for the null rates and 0.021 for power.
 4. **A spline cannot follow the expectancy step.** A smooth curve
    through the week-9 drop absorbs part of it into the drug effect.
    Under carryover the spline's drug effect falls below the visit-factor
-   value ($-3.97$ against $-4.52$ in the limit at $t_{1/2} = 1$).
+   value ($-3.67$ against $-4.49$ in the limit at $t_{1/2} = 1$).
    Splines also need a choice of degrees of freedom or knots, which
-   should be pre-specified.
+   should be fixed rather than tuned to the data.
 5. **It does not help the interaction estimate.** In this construct the
    interaction is already unbiased under linear time. A flexible
    adjustment protects the interaction only if the biomarker is related
@@ -269,7 +309,9 @@ interact:
   the outcome does not have, even under the compound-symmetry construct
   (`docs/40`, Section 6). An unstructured covariance (`us` in `mmrm`)
   represents any phase structure. The anticonservatism of Section 6 may
-  disappear under it; that is the main open question.
+  disappear under it; that is the main open question. *Answered
+  (2026-10-07):* it does not; with Kenward-Roger the excess persists
+  (`docs/45`, Section 4.4; see the update after Section 1).
 - **Baseline coding.** The baseline row is the worst-fitting row of the
   covariance and has the most leverage on a linear trend. With visit
   effects, baseline has its own mean and does not inform the drug
@@ -286,19 +328,29 @@ covariance, and baseline as a covariate or as a cLDA row. Each part
 removes one misspecification, and none is known to cause the size
 problem of Section 6. Whether the combination holds its size in the
 Hybrid design is what the paused covariance study
-(`08-covariance-study.R`) is designed to show.
+(`08-covariance-study.R`) is designed to show. *Update (2026-10-07):*
+that study is complete (`docs/45`). With visit effects, the unstructured
+covariance and Kenward-Roger reject 0.072 in the Hybrid carryover cell,
+and 0.064 with baseline as a covariate; the combination does not hold
+its size there.
 
 ## 8. Recommendation and open questions
 
 **For the interaction test:**
 
 1. Under the published random-intercept covariance, keep linear time.
-   It holds its size in this construct (0.049 and 0.058), and the
+   It holds its size in this construct (0.049 and 0.056), and the
    flexible forms' extra power is partly inflation.
 2. Move to visit effects only together with an unstructured covariance,
    and verify the size by simulation first. With 70 participants and 45
    covariance parameters, use small-sample degrees of freedom
-   (Kenward-Roger [2] or Satterthwaite) for the test.
+   (Kenward-Roger [2] or Satterthwaite) for the test. *Withdrawn
+   (2026-10-07):* the verification failed (0.072 with Kenward-Roger in
+   the Hybrid carryover cell, `docs/45`, Section 4.4). If a flexible time
+   adjustment is required, pair it with CR2 inference about a
+   parsimonious working covariance, which was nominal in that cell. The
+   unstructured model with Kenward-Roger also failed the stress test of
+   `docs/46` with linear time (pooled 0.057; 0.087 at $N = 35$).
 
 **For the drug main effect:**
 
@@ -311,8 +363,10 @@ Hybrid design is what the paused covariance study
 
 - Does an unstructured covariance remove the anticonservatism of visit
   effects in Hybrid, and does baseline as a covariate help further?
+  *Answered (2026-10-07; `docs/45`, Section 4.4):* no, and only
+  partly (0.064); CR2 removes it.
 - How do the adjustments compare under an AR(1) construct (configuration
-  C), where the published analysis is itself anticonservative without a
+  C, at $\rho = 0.8$ in `docs/36`), where the published analysis is itself anticonservative without a
   serial-correlation term (`docs/36`, Section 6.8)?
 - What is the power of each adjustment at matched size?
 - Does a random slope on time (`t_random_slope = TRUE`) behave like a
@@ -325,10 +379,16 @@ Hybrid design is what the paused covariance study
   results may differ.
 - **One covariance in the evidence.** All fits in Section 4 use a random
   intercept. The comparison with unstructured covariance is the subject
-  of the paused study and is not reported here.
+  of the paused study and is not reported here (since reported in
+  `docs/45`; see the update after Section 1).
 - **The mechanism of the anticonservatism is inferred.** It has not been
   tested by refitting with a heteroscedastic or unstructured covariance.
-- **No size-adjusted power.**
+  The later refits (`docs/45`) show that `cs` with model-based
+  inference and `us` with Kenward-Roger do not remove it and CR2 does,
+  which argues against a purely covariance-structure explanation; the
+  mechanism remains untested.
+- **No size-adjusted power** in this document. `docs/45` (Section 5)
+  reports size-adjusted power for linear time only.
 - **Phase indicators and random slopes are described, not simulated.**
   Paper 06's phase-augmented model, with phase-by-drug interactions, is
   a different question (attribution, `docs/31`, Section 11) and is not

@@ -12,7 +12,7 @@ third option, constrained longitudinal data analysis, which keeps
 baseline in the response but changes how it is modeled. Section 4 gives
 a formal account of what adjusting for baseline does to each quantity
 the analysis estimates, with each result checked numerically against
-the published construct. No new Monte Carlo simulation was run;
+the published process. No new Monte Carlo simulation was run;
 Section 9 lists what the paused covariance study
 (`08-covariance-study.R`) would settle.
 
@@ -26,7 +26,12 @@ Section 9 lists what the paused covariance study
 ## Notation index and glossary
 
 Notation follows `analysis/report/NOTATION.md` and `docs/40`. Symbols
-marked *local* are defined here.
+marked *local* are defined here. (Notation, 2026-10-09: the baseline
+slopes $\boldsymbol\phi$, $\phi_t$, $\bar\phi$, $\phi_{\mathrm{BL}}$ are now
+$\boldsymbol\beta_{BL}$, $\beta_{BL,t}$, $\bar\beta_{BL}$, $\beta_{BL}$, as in the
+compendium, because $\phi$ is the canonical decay family; the sandwich
+bread and meat are $\mathcal B$ and $\mathcal M$; the expectation is
+$\mathbb E$.)
 
 | Symbol | Meaning | Status |
 |----------------|----------------------------------------|----------|
@@ -36,18 +41,37 @@ marked *local* are defined here.
 | $S_{it}$ | sum of the three responses, $TV_{it} + PB_{it} + BR_{it}$ | local |
 | $B_i$ | biomarker | canonical |
 | $D_{it}$ | binary drug state (code `Db`); 0 at baseline | canonical |
-| $\beta_B$ | biomarker main effect | local |
+| $\beta_B$ | biomarker main effect | canonical |
 | $\beta_D$, $\beta_{bm:D}$ | drug main effect; biomarker-by-drug interaction | canonical |
-| $\mathbf{Y}_{ip}$ | vector of the 8 post-baseline outcomes | local |
-| $\sigma_{00}$, $\boldsymbol\sigma_{p0}$, $\Sigma_{pp}$ | baseline variance, baseline-by-visit covariances, post-baseline covariance | local |
-| $\boldsymbol\gamma$ | baseline regression slopes, $\boldsymbol\gamma = \boldsymbol\sigma_{p0} / \sigma_{00}$ | local |
+| $\varepsilon_{it}$, $u_i$ | residual; participant random intercept, with variances $\sigma_\varepsilon^2$, $\sigma_u^2$ | canonical |
+| $c_{bm}$, $\sigma_{BR}$, $\sigma_{bm}$ | biomarker-BR coupling; SDs of $BR$ and of the biomarker | canonical |
+| $g_t$ | coupling of the biomarker to $BR$ at visit $t$ (`docs/40`, Section 5) | canonical |
+| $t_{1/2}$ | carryover half-life | canonical |
+| $f(t)$ | time adjustment in the mean model | local |
+| $\mathbf{Y}_{ip}$, $X_{ip}$, $\boldsymbol\beta$ | vector of the 8 post-baseline outcomes; their design matrix; fixed effects | local |
+| $\mathbf{Y}_i$, $X_i$ | all nine outcomes, $(Y_{i0}, \mathbf{Y}_{ip}')'$; their design matrix | local |
+| $\mathbf{S}_{ip}$ | vector of the 8 post-baseline values of $S_{it}$ | local |
+| $\mu_0$ | baseline mean intercept | local |
+| $\Sigma$, $\sigma_{00}$, $\boldsymbol\sigma_{p0}$, $\Sigma_{pp}$ | covariance of all nine outcomes; baseline variance, baseline-by-visit covariances, post-baseline covariance | local |
+| $\sigma_{tt}$, $\sigma_{t0}$ | variance at visit $t$; its covariance with baseline | local |
+| $\Sigma_{pp\cdot 0}$ | post-baseline covariance conditional on baseline | local |
+| $J$, $\mathbf{1}$, $I$ | matrix of ones; vector of ones; identity | local |
+| $\boldsymbol\beta_{BL}$, $\beta_{BL,t}$, $\bar\beta_{BL}$ | baseline regression slopes, $\boldsymbol\beta_{BL} = \boldsymbol\sigma_{p0} / \sigma_{00}$; slope at visit $t$; common slope | canonical (written $\boldsymbol\phi$, $\phi_t$, $\bar\phi$ before 2026-10-09, and $\boldsymbol\gamma$ before that; $\phi$ is the decay family) |
+| $\beta_{BL}$ | common baseline slope in ANCOVA (written $\phi_{\mathrm{BL}}$ before 2026-10-09) | canonical |
+| $a_0$ | generic weight on baseline in Proposition 3 | local |
 | $\mathbf{a}$ | contrast weights on the post-baseline visits, $\sum_t a_t = 0$ | local |
-| $n_{\text{on}}$, $n_{\text{off}}$ | numbers of on-drug and off-drug post-baseline visits in a path | local |
+| $\Delta_i$, $\Delta_i^{\mathrm{E9}}$, $\Delta_i^{\mathrm{E9b}}$ | participant contrast $\mathbf{a}'\mathbf{Y}_{ip}$; its E9 and E9b forms | canonical ($\Delta_i$) |
+| $Q$ | variance reduction from conditioning a contrast on baseline | local |
+| $r^2_{\Delta,\mathrm{BL}}$ | squared correlation of $\Delta_i$ with baseline | local (renamed from $\rho^2$, which NOTATION reserves for serial correlation) |
+| $s_i$, $d_{it}$, $\sigma_s^2$ | shared response level; visit-specific deviation; variance of $s_i$ | local |
+| $\bar S_{i,\text{on}}$, $\bar S_{i,\text{off}}$, $\bar g_{\text{on}}$, $\bar g_{\text{off}}$ | on- and off-drug means of $S_{it}$ and of $g_t$ | local ($\bar S$); canonical ($\bar g$) |
+| $n_{\text{on}}$, $n_{\text{off}}$ | numbers of on-drug and off-drug post-baseline visits in a path | canonical |
+| $V$, $\mathcal B$, $\mathcal M$ | working covariance; bread and meat of the sandwich variance (written $A$, $M$ before 2026-10-09; those letters are the canonical temporal correlation and response block) | local |
 
 Table: Notation index and glossary of symbols used in this document
 
 - **Response coding.** Baseline enters as a row of the outcome, at
-  $t = 0$ with $D = 0$ (the published analysis).
+  $t = 0$ with $D_{i0} = 0$ (the published analysis).
 - **Covariate coding (ANCOVA).** Only post-baseline visits are
   outcomes; $\mathrm{BL}_i$ is a fixed covariate.
 - **cLDA.** Constrained longitudinal data analysis [5, 6]: baseline
@@ -73,7 +97,7 @@ Table: Notation index and glossary of symbols used in this document
 3. **A covariate gives a within-participant contrast nothing when the
    baseline slopes are equal.** The variance reduction from conditioning
    a contrast $\mathbf{a}'\mathbf{Y}_{ip}$ on baseline is
-   $\sigma_{00}(\mathbf{a}'\boldsymbol\gamma)^2$. That is zero whenever
+   $\sigma_{00}(\mathbf{a}'\boldsymbol\beta_{BL})^2$. That is zero whenever
    every visit has the same slope, because the weights sum to zero. The
    interaction is such a contrast. The construct's E9 variance is 44.13
    with or without conditioning (Proposition 2).
@@ -100,13 +124,15 @@ Table: Notation index and glossary of symbols used in this document
    The covariate's value for the interaction is robustness, not
    efficiency: it pays when baseline predicts on-drug and off-drug
    visits differently, which the construct rules out but a real trial
-   may not (Sections 4 and 8).
+   may not (Sections 4 and 8). *Superseded (2026-10-07):* see the dated
+   note in Section 8; the project's current primary analysis is F1 of
+   `docs/46` and `docs/49`.
 
 ## 2. The two codings
 
 **Response coding (published).** For each participant the outcome
 vector has nine entries, $(\mathrm{BL}_i, Y_{i1}, \ldots, Y_{i8})$.
-The baseline row has $t = 0$, $D = 0$ and expectancy 0 (`lme_analysis.R`
+The baseline row has $t = 0$, $D_{i0} = 0$ and expectancy 0 (`lme_analysis.R`
 at commit `58b32a9`, lines 62 to 87). The published model,
 `lmer(Sx ~ bm + Db + t + bm * Db + (1 | ptID), data = long)`, treats it
 as one more off-drug visit.
@@ -115,12 +141,12 @@ as one more off-drug visit.
 entries, and baseline is a covariate:
 
 $$
-Y_{it} = \beta_0 + \gamma_{\mathrm{BL}}\,\mathrm{BL}_i + \beta_B B_i
+Y_{it} = \beta_0 + \beta_{BL}\,\mathrm{BL}_i + \beta_B B_i
 + \beta_D D_{it} + f(t) + \beta_{bm:D}\,B_i D_{it} + \varepsilon_{it},
 \qquad t = 1, \ldots, 8,
 $$
 
-with $f(t)$ the time adjustment and $\varepsilon_i$ given a working
+with $f(t)$ the time adjustment and $\boldsymbol\varepsilon_i$ given a working
 covariance, for example `us(visit | ptID)` in `mmrm`.
 
 The simulated data are unchanged: the same replicates, with the
@@ -129,7 +155,7 @@ design matrix.
 
 ## 3. The data-generating process
 
-In the published construct $Y_{it} = \mathrm{BL}_i - S_{it}$ for
+In the published process $Y_{it} = \mathrm{BL}_i - S_{it}$ for
 $t \geq 1$, and $\mathrm{BL}_i$ is drawn independently of the
 biomarker and of all response components. Hence
 
@@ -163,8 +189,8 @@ correctly specified, and the data are complete. Write
 $\mathbf{Y}_i = (Y_{i0}, \mathbf{Y}_{ip}')'$ with
 
 $$
-E(Y_{i0}) = \mu_0 + \beta_B B_i, \qquad
-E(\mathbf{Y}_{ip}) = X_{ip}\boldsymbol\beta, \qquad
+\mathbb E(Y_{i0}) = \mu_0 + \beta_B B_i, \qquad
+\mathbb E(\mathbf{Y}_{ip}) = X_{ip}\boldsymbol\beta, \qquad
 \Sigma = \begin{pmatrix} \sigma_{00} & \boldsymbol\sigma_{p0}' \\ \boldsymbol\sigma_{p0} & \Sigma_{pp} \end{pmatrix}.
 $$
 
@@ -176,26 +202,26 @@ $\beta_{bm:D}$ enters its mean.
 Conditional on baseline,
 
 $$
-\mathbf{Y}_{ip} \mid Y_{i0} \;\sim\; N\!\Bigl( X_{ip}\boldsymbol\beta + \boldsymbol\gamma\,(Y_{i0} - \mu_0 - \beta_B B_i),\;\; \Sigma_{pp\cdot 0} \Bigr),
+\mathbf{Y}_{ip} \mid Y_{i0} \;\sim\; N\!\Bigl( X_{ip}\boldsymbol\beta + \boldsymbol\beta_{BL}\,(Y_{i0} - \mu_0 - \beta_B B_i),\;\; \Sigma_{pp\cdot 0} \Bigr),
 \qquad
-\boldsymbol\gamma = \frac{\boldsymbol\sigma_{p0}}{\sigma_{00}}, \quad
+\boldsymbol\beta_{BL} = \frac{\boldsymbol\sigma_{p0}}{\sigma_{00}}, \quad
 \Sigma_{pp\cdot 0} = \Sigma_{pp} - \frac{\boldsymbol\sigma_{p0}\boldsymbol\sigma_{p0}'}{\sigma_{00}}.
 $$
 
 *Proof.* The standard conditional distribution of a partitioned
 multivariate normal. $\square$
 
-ANCOVA with visit-specific baseline slopes $\gamma_t$ and residual
+ANCOVA with visit-specific baseline slopes $\beta_{BL,t}$ and residual
 covariance $\Sigma_{pp\cdot 0}$ is exactly this model. A common slope
-$\gamma_{\mathrm{BL}}$ is the special case $\gamma_t \equiv
-\gamma_{\mathrm{BL}}$. Conditioning changes the intercept and the
-biomarker main effect, which absorbs $-\gamma_t \beta_B$. It leaves
+$\beta_{BL}$ is the special case $\beta_{BL,t} \equiv
+\beta_{BL}$. Conditioning changes the intercept and the
+biomarker main effect, which absorbs $-\beta_{BL,t} \beta_B$. It leaves
 $\beta_D$ and $\beta_{bm:D}$ unchanged, because they do not appear in the
 baseline mean. The estimand of the interaction is the same under both
 codings.
 
 **In the construct,** $\sigma_{t0} = \sigma_{00}$ for every $t$, so
-$\boldsymbol\gamma = \mathbf{1}$ (verified: every slope is 1 to six
+$\boldsymbol\beta_{BL} = \mathbf{1}$ (verified: every slope is 1 to six
 decimals) and $\Sigma_{pp\cdot 0} = \operatorname{Cov}(\mathbf{S}_{ip})$:
 conditioning on baseline removes exactly its variance from every entry.
 The covariate analysis then coincides with a change-from-baseline
@@ -211,12 +237,12 @@ $-1/n_{\text{off}}$ are an example. Then
 $$
 \operatorname{Var}(\mathbf{a}'\mathbf{Y}_{ip} \mid Y_{i0})
 = \mathbf{a}'\Sigma_{pp}\mathbf{a} - \frac{(\mathbf{a}'\boldsymbol\sigma_{p0})^2}{\sigma_{00}}
-= \mathbf{a}'\Sigma_{pp}\mathbf{a} - \sigma_{00}\,(\mathbf{a}'\boldsymbol\gamma)^2 .
+= \mathbf{a}'\Sigma_{pp}\mathbf{a} - \sigma_{00}\,(\mathbf{a}'\boldsymbol\beta_{BL})^2 .
 $$
 
-The reduction $G = \sigma_{00}(\mathbf{a}'\boldsymbol\gamma)^2$ is zero
-whenever the slopes are equal, $\gamma_t \equiv \bar\gamma$, because
-then $\mathbf{a}'\boldsymbol\gamma = \bar\gamma \sum_t a_t = 0$.
+The reduction $Q = \sigma_{00}(\mathbf{a}'\boldsymbol\beta_{BL})^2$ is zero
+whenever the slopes are equal, $\beta_{BL,t} \equiv \bar\beta_{BL}$, because
+then $\mathbf{a}'\boldsymbol\beta_{BL} = \bar\beta_{BL} \sum_t a_t = 0$.
 
 *Proof.* Proposition 1 and $\operatorname{Var}(\mathbf{a}'\mathbf{Z}) =
 \mathbf{a}'\operatorname{Cov}(\mathbf{Z})\mathbf{a}$. $\square$
@@ -224,8 +250,8 @@ then $\mathbf{a}'\boldsymbol\gamma = \bar\gamma \sum_t a_t = 0$.
 **Consequence for the interaction.** The E9 slope regresses
 $\Delta_i = \mathbf{a}'\mathbf{Y}_{ip}$ on $B_i$. Adding baseline to that
 regression reduces the residual variance by the factor
-$1 - \rho^2_{\Delta,\mathrm{BL}}$, where
-$\rho^2_{\Delta,\mathrm{BL}} = (\mathbf{a}'\boldsymbol\sigma_{p0})^2 /
+$1 - r^2_{\Delta,\mathrm{BL}}$, where
+$r^2_{\Delta,\mathrm{BL}} = (\mathbf{a}'\boldsymbol\sigma_{p0})^2 /
 (\sigma_{00}\,\mathbf{a}'\Sigma_{pp}\mathbf{a})$. With equal slopes this
 is zero, and the extra parameter costs one degree of freedom for
 nothing.
@@ -236,22 +262,22 @@ conditioning: 44.13 for paths 1 and 2, 45.03 for paths 3 and 4
 (verified).
 
 **When the covariate does help a within-participant contrast.**
-$\mathbf{a}'\boldsymbol\gamma \neq 0$ requires baseline to predict
+$\mathbf{a}'\boldsymbol\beta_{BL} \neq 0$ requires baseline to predict
 on-drug visits differently from off-drug visits. Two mechanisms give
 that:
 
-- **Baseline severity modifies the drug response.** Then $\gamma_t$ is
+- **Baseline severity modifies the drug response.** Then $\beta_{BL,t}$ is
   larger at on-drug visits, and the appropriate model also includes
   $\mathrm{BL}_i \times D_{it}$.
 - **Baseline predicts a time-varying natural course.** An example is
   regression to the mean that is strongest early in the trial. Then
-  $\gamma_t$ changes with time, and in the Hybrid design drug state is
+  $\beta_{BL,t}$ changes with time, and in the Hybrid design drug state is
   confounded with time: on drug early, off drug late. So
-  $\mathbf{a}'\boldsymbol\gamma \neq 0$.
+  $\mathbf{a}'\boldsymbol\beta_{BL} \neq 0$.
 
 Measurement error in baseline alone does not qualify. It attenuates
 every slope by the same reliability factor, so the slopes stay equal
-and $G$ stays zero.
+and $Q$ stays zero.
 
 ### Proposition 3: between participants, the classic ANCOVA gain
 
@@ -267,12 +293,12 @@ $$
 $$
 
 and the conditional variance is never larger than the other two. It
-equals the change-score variance exactly when $\gamma_t = 1$.
+equals the change-score variance exactly when $\beta_{BL,t} = 1$.
 
-*Proof.* $\operatorname{Var}(Y_{it} - c\,Y_{i0})$ is a quadratic in $c$,
-minimized at $c = \gamma_t$, with minimum $\sigma_{tt} -
-\sigma_{t0}^2/\sigma_{00}$. $c = 0$ gives the first expression and
-$c = 1$ the second. $\square$
+*Proof.* $\operatorname{Var}(Y_{it} - a_0\,Y_{i0})$ is a quadratic in $a_0$,
+minimized at $a_0 = \beta_{BL,t}$, with minimum $\sigma_{tt} -
+\sigma_{t0}^2/\sigma_{00}$. $a_0 = 0$ gives the first expression and
+$a_0 = 1$ the second. $\square$
 
 **In the construct,** for a blinded visit: 599 unadjusted, 257 as change
 or conditional on baseline (verified). That is a 57% reduction, the
@@ -312,20 +338,35 @@ $$
   ($\bar g_{\text{on}} = \bar g_{\text{off}} = 1$), the E9 slope is zero.
   The E9b slope is $1/(n_{\text{off}} + 1)$ of the no-carryover value,
   produced entirely by the uncoupled baseline row. That is the residual
-  power floor of the published analysis (0.081 in the closed form; 0.08
-  to 0.10 for `lmer`; `docs/37`, Section 6). It measures a
-  pre-treatment comparison, not an interaction during the trial.
+  power floor of the published analysis (0.081 in the closed form; 0.080
+  to 0.108 for `lmer`, `docs/37`, Section 6; the range was earlier
+  given here as 0.08 to 0.10). It measures a pre-treatment comparison,
+  not an interaction during the trial.
 
 **(b) The precision.** Write $S_{it} = s_i + d_{it}$, where $s_i$ is the
-participant's shared response level, with variance $\sigma_s$ equal to
-the common covariance of the responses across visits. E9 removes $s_i$
-exactly, since its weights on the responses sum to zero. E9b leaves
-$-s_i/(n_{\text{off}} + 1)$ in the contrast, which adds
-$\sigma_s/(n_{\text{off}} + 1)^2$ to its variance, apart from smaller
-changes in the visit-specific terms. In the construct $\sigma_s \approx
-200$, and the contrast variance rises from 44.13 to 51.04 (paths 1 and
-2, $n_{\text{off}} = 3$) and from 45.03 to 51.77 (paths 3 and 4,
-$n_{\text{off}} = 4$): increases of 16% and 15% (verified). In the
+participant's shared response level, with variance $\sigma_s^2$ equal
+to the common covariance of the responses across visits. E9 removes
+$s_i$ exactly, since its weights on the responses sum to zero. E9b
+leaves $-s_i/(n_{\text{off}} + 1)$ in the contrast, which adds
+$\sigma_s^2/(n_{\text{off}} + 1)^2$ to its variance. The changes in the
+visit-specific terms, whose off-drug mean is shrunk by
+$n_{\text{off}}/(n_{\text{off}} + 1)$, partly offset this. In the construct $\sigma_s^2 \approx 200$, so the
+shared level adds about 12.5 ($n_{\text{off}} = 3$) and 8.0
+($n_{\text{off}} = 4$), and the net change is smaller (derived; the
+earlier text called the offset "smaller changes", but it removes about
+45% and 16% of the addition). (Corrected 2026-10-08: 12.5 and 8.0, and
+45% and 16%, rest on the approximation $\sigma_s^2 \approx 200$. The
+exact split is $\mathrm{Var}(\bar S_{\text{off}})/(n_{\text{off}} +
+1)^2$ for the addition, $209.13/16 = 13.07$ and $203.15/25 = 8.13$, and
+$2\,\mathrm{Cov}(\Delta^{\mathrm{E9}}, \bar S_{\text{off}})/(n_{\text{off}}
++ 1)$ for the offset, 6.17 (47%) and 1.38 (17%); the totals below are
+unchanged. See `analysis/report/compendium-mathematics.tex`, Section
+"Baseline, a prognostic biomarker, and the shared biomarker effect",
+subsection "The construct's outcome covariance and the exact cost of
+the baseline row".) The contrast variance rises from 44.13 to
+51.04 (paths 1 and 2, $n_{\text{off}} = 3$) and from 45.03 to 51.77
+(paths 3 and 4, $n_{\text{off}} = 4$): increases of 16% and 15%
+(verified, rerun of `02-baseline-propositions.R` on 2026-10-07). In the
 closed form this costs 0.06 to 0.07 in power (Section 6).
 
 ### Proposition 5: the working covariance and the validity of the standard errors
@@ -335,23 +376,23 @@ $\hat{\boldsymbol\beta}_V = \bigl(\sum_i X_i'V^{-1}X_i\bigr)^{-1}\sum_i
 X_i'V^{-1}\mathbf{Y}_i$ is unbiased under a correct mean model, with
 
 $$
-\operatorname{Var}(\hat{\boldsymbol\beta}_V) = A^{-1} M A^{-1},
-\qquad A = \sum_i X_i' V^{-1} X_i, \quad M = \sum_i X_i' V^{-1} \Sigma V^{-1} X_i .
+\operatorname{Var}(\hat{\boldsymbol\beta}_V) = \mathcal B^{-1} \mathcal M \mathcal B^{-1},
+\qquad \mathcal B = \sum_i X_i' V^{-1} X_i, \quad \mathcal M = \sum_i X_i' V^{-1} \Sigma V^{-1} X_i .
 $$
 
-The model-based variance reported by the software is $A^{-1}$. It is
+The model-based variance reported by the software is $\mathcal B^{-1}$. It is
 correct when $V \propto \Sigma$, and otherwise can be too large or too
-small. The sandwich estimator of $A^{-1}MA^{-1}$ is consistent for any
+small. The sandwich estimator of $\mathcal B^{-1}\mathcal M\mathcal B^{-1}$ is consistent for any
 $V$.
 
 *Proof.* Standard; $\hat{\boldsymbol\beta}_V$ is linear in
-$\mathbf{Y}_i$ with $E(\mathbf{Y}_i) = X_i\boldsymbol\beta$. $\square$
+$\mathbf{Y}_i$ with $\mathbb E(\mathbf{Y}_i) = X_i\boldsymbol\beta$. $\square$
 
 **In the construct,** the published random intercept implies $V =
-\sigma_u^2 J + \sigma_e^2 I$ over the nine rows. Every row of $V$ then
-carries the same residual variance $\sigma_e^2 > 0$, whereas the baseline
+\sigma_u^2 J + \sigma_\varepsilon^2 I$ over the nine rows. Every row of $V$ then
+carries the same residual variance $\sigma_\varepsilon^2 > 0$, whereas the baseline
 row of $\Sigma$ has none ($\sigma_{00} = \sigma_{t0}$). No choice of
-$(\sigma_u^2, \sigma_e^2)$ matches it, so the model-based standard errors
+$(\sigma_u^2, \sigma_\varepsilon^2)$ matches it, so the model-based standard errors
 are not guaranteed correct. The residual mismatch between open-label
 and blinded visits remains. Dropping the baseline row (covariate coding)
 or modeling all nine rows with an unstructured covariance (cLDA) removes
@@ -383,7 +424,7 @@ Table: Effect of baseline as a covariate on each estimated quantity
    residual interaction that does not describe the trial.
 3. **It protects the interaction when baseline is informative about the
    course of response** (Proposition 2). A covariate removes the part of
-   the contrast predictable from baseline when $\mathbf{a}'\boldsymbol\gamma
+   the contrast predictable from baseline when $\mathbf{a}'\boldsymbol\beta_{BL}
    \neq 0$: for example, when severity moderates the drug response or
    predicts a time-varying natural course. The construct excludes both;
    real trials may not.
@@ -452,7 +493,7 @@ with visit-specific slopes give the same estimates of the post-baseline
 parameters.** The joint likelihood factorizes as $f(Y_{i0}) \times
 f(\mathbf{Y}_{ip} \mid Y_{i0})$. Under an unstructured $\Sigma$, the
 parameters of the conditional factor ($\boldsymbol\beta$,
-$\boldsymbol\gamma$, $\Sigma_{pp\cdot 0}$) vary independently of those of
+$\boldsymbol\beta_{BL}$, $\Sigma_{pp\cdot 0}$) vary independently of those of
 the marginal factor ($\mu_0$, $\sigma_{00}$), apart from any parameter
 shared by the two means (Proposition 1). In the Hybrid design every path
 is off drug at baseline with the same time and expectancy, so
@@ -476,6 +517,13 @@ contrast (Proposition 4), and it anchors the time trend.
 
 Table: Effect of the baseline coding under each analysis model
 
+*Note (2026-10-07).* The last row holds only when the row model frees
+the biomarker main effect $\beta_B$ at baseline, as the paragraph above
+states. With the published row coding, which shares $\beta_B$ between
+baseline and the post-baseline off-drug visits, the row and covariate
+analyses differ, and under AR(1) data the shared coefficient is the
+source of the row coding's extra power (`docs/45`, Sections 6 and 10).
+
 ## 8. Recommendation
 
 **For a Hybrid trial analysis.** Analyze the eight post-baseline visits
@@ -492,6 +540,27 @@ linear time.
 **For simulations that reproduce Hendrickson et al.** Keep the response
 coding, since it defines the published estimand. Report the covariate
 coding alongside it wherever the comparison bears on conclusions.
+
+**Superseded (2026-10-07).** The trial-analysis recommendation above was
+first revised by `docs/45` (Section 9), which made the row coding with
+an unstructured covariance and Kenward-Roger inference primary and the
+covariate coding a sensitivity analysis. That primary was in turn
+rejected by the stress test (`docs/46`, script
+`11-strawman-stress-test.R`; 41 cells, 28,000 trials, 14 analyses),
+where it is analysis A: pooled null rejection 0.057 and 0.087 at
+$N = 35$, and 0.195 to 0.416 in the three original prognostic
+cells. The analysis closest to this section's recommendation, EA (the
+same model with $\beta_B$ freed at baseline, which `docs/45`,
+Section 9.2, treats as equivalent to the covariate coding), held its
+size (pooled 0.052, no cell above 0.070) and was nominal in every
+prognostic cell, but had the largest maximin shortfall of the
+survivors (0.318). The decision rule, rerun with all 14 analyses,
+selects F1, a random intercept with `corCAR1` residuals, CR2 inference,
+the baseline row, and the expectancy term with its biomarker
+interaction (`docs/49`; verified against
+`decision-screen-ds-nosym-all14.csv` and
+`decision-maximin-ds-nosym-all14.csv`). The stress test used linear
+time, not the visit effects proposed here.
 
 ## 9. Open questions
 
@@ -511,6 +580,19 @@ adjustment, about 40% more run time.
    Proposition 2's gain? That requires extending the construct; the
    software has no baseline-to-component link (`docs/31`, Section 18.1).
 
+*Status (2026-10-07).* The covariance study was completed and reported
+in `docs/45`. Question 1: no; in the one Hybrid cell with a flexible-time
+excess, the covariate coding with Kenward-Roger rejects 0.060 (spline)
+and 0.064 (visit factor), against 0.068 and 0.072 for the row coding,
+and only CR2 removes the excess (`docs/45`, Section 4.4). Question 2 was
+not isolated there, because the row coding's power also depends on the
+shared $\beta_B$ (`docs/45`, Section 6). Question 3:
+the two coincide only when $\beta_B$ is freed at baseline (`docs/45`,
+Section 6). Question 4 remains open: the stress test of `docs/46` added
+links of the biomarker to $TV$, to $PB$ and to baseline severity (its
+cells 40 and 41), but no link from baseline to the response components
+(inspected, `11-strawman-stress-test.R`).
+
 ## 10. Limitations and evidence status
 
 - **Derivations and numeric checks, no Monte Carlo.** Propositions 1 to
@@ -522,7 +604,7 @@ adjustment, about 40% more run time.
   E9b, validated by Monte Carlo in `docs/37` (verified). Statements
   about regression to the mean and measurement error come from the
   literature [2, 3].
-- **One construct.** The published compound-symmetry construct has no
+- **One construct.** The published process, with compound symmetry, has no
   baseline measurement error, no regression to the mean and no link
   between baseline and the response. Each would strengthen the case for
   the covariate (Proposition 2).

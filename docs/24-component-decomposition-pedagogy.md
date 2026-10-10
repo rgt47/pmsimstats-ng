@@ -4,6 +4,34 @@
 
 *2026-05-07 08:51 PDT*
 
+**Author.** pmsimstats team
+
+**Purpose.** An introductory guide to the three-component
+decomposition of the symptom score into a drug response ($BR$), a
+placebo-belief response ($PB$) and a natural-course response ($TV$),
+as used by the package's data-generating process (DGP). It explains
+what each component represents, how the Hybrid design identifies it,
+and why the analysis model deliberately does not mirror the DGP. The
+worked examples are illustrative constructions, not simulation
+output.
+
+**Revision 2026-10-07.** Reviewed against
+`analysis/report/NOTATION.md` and the current package source
+(`R/generateData.R`, `R/buildtrialdesign.R`, `R/utilities.R`). The
+Gompertz formula, its parameter interpretations and landmarks, the
+Hybrid design schedule and expectancies, the size of the joint
+covariance matrix, the description of participant heterogeneity, and
+the variance-of-a-sum identity were corrected; symbols were renamed to
+the canonical ones. Evidence labels used: *inspected* (read in the
+source), *derived*, *argued*, and *illustrative*.
+
+**Revision 2026-10-08.** Two statements were corrected against
+`analysis/report/compendium-mathematics.tex`: the reset of $t_{pb}$
+at visits with $\eta_t = 0$ (Component 2), and the count of
+identified parameters in the phase-indicator extension, which is
+five, not six, because the full formula is exactly aliased (section
+"A small extension that usually pays off").
+
 ---
 
 ```{=latex}
@@ -12,6 +40,50 @@
 \listoftables
 \clearpage
 ```
+
+## Notation index and glossary
+
+Notation follows `analysis/report/NOTATION.md`. Symbols marked *local*
+are defined in this guide only.
+
+| Symbol | Meaning | Status |
+|----------------|----------------------------------------|----------|
+| $i$, $t$ | participant; visit (week) | canonical |
+| $Y_{it}$ | symptom score (code column `Sx`) | canonical |
+| $\mathrm{BL}_i$ | baseline symptom level | canonical |
+| $BR_{it}$, $PB_{it}$, $TV_{it}$ | drug, placebo-belief and natural-course responses (reductions in symptoms) | canonical |
+| $\varepsilon_{it}$ | observation-level residual | canonical |
+| $u_i$, $v_i$ | participant random intercept; participant random slope | canonical; local |
+| $\beta_0$, $\beta_t$ | fixed intercept; fixed linear time slope | local |
+| $D_{bc,it}$ | exposure-decayed drug indicator, 1 on drug and $e^{-\lambda t_{sd}}$ off drug (code `Dbc`) | canonical |
+| $t_{od}$, $t_{sd}$, $t_{pb}$ | time on drug; time since discontinuation; expectancy-weighted time (code `tod`, `tsd`, `tpb`) | canonical |
+| $t_{1/2}$, $\lambda$ | carryover half-life; decay rate $\ln 2/t_{1/2}$ | canonical |
+| $\eta$ | expectancy weight of a visit (code `e`, the `expectancies` argument): 1 open label, 0.5 blinded | canonical (paper 06, $\eta(\text{phase})$) |
+| $m$, $r$, $d$ | Gompertz maximum, rate and displacement (code `maxr`, `rate`, `disp`); subscripts $BR$, $PB$, $TV$ name the component | local |
+| $\sigma_{PB}$ | open-label SD of the placebo-belief response | local |
+| $c_{cf1t}$, $c_{cfct}$ | cross-component correlations at the same visit and at different visits (code `c.cf1t`, `c.cfct`) | local |
+| $\rho$, $w_t$ | AR(1) serial correlation per week; calendar week of visit $t$ | canonical; local |
+| $K$ | number of visits | local |
+| $I_\ell$ | indicator of phase level $\ell$ (open label OL is the reference) | local |
+| $\beta_{bm:D}$ | biomarker-by-treatment interaction, the estimand (`bm:Dbc`) | canonical |
+| $\beta_{bm}^{\text{lumped}}$ | biomarker slope of a one-component (lumped) regression | canonical |
+| $\beta_{bm}^{BR}$, $\beta_{bm}^{PB}$, $\beta_{bm}^{TV}$ | component-specific biomarker slopes | canonical |
+| $N$ | total number of participants across randomization paths | canonical |
+
+Table: Notation index: symbols, meanings and status
+
+**Glossary.**
+
+- **Component.** One of the three latent responses whose sum, subtracted
+  from baseline, gives the symptom score.
+- **Expectancy.** The design-fixed weight of the participant's belief
+  that they are receiving active drug at a visit.
+- **Open label (OL), blinded discontinuation (BDC), crossover (CO).**
+  The three phases of the Hybrid design.
+- **Identifiability.** Whether the data, under a given design, contain
+  enough contrasts to estimate a component separately from the others.
+- **Predictive / prognostic biomarker.** Associated with the size of
+  the drug effect, or with the outcome irrespective of treatment.
 
 ## The Big Picture: Why Split Responses?
 
@@ -31,8 +103,8 @@ clinical trial:
    and its pharmacological action is independent of whether you
    know you are taking it.
 2. **Expectation effect.** You believe the treatment will work, and
-   your belief activates well-characterised neurobiological
-   pathways: dopaminergic reward signalling, descending pain
+   your belief activates well-characterized neurobiological
+   pathways: dopaminergic reward signaling, descending pain
    modulation, anticipatory cortisol regulation. The placebo
    literature is now thirty years deep on this; it is not 'all in
    your head' in any dismissive sense.
@@ -92,7 +164,7 @@ at the population mean and infers that the drug is three times more
 powerful than it actually is. The structure is missed, and the
 inference is biased toward the lumped quantity rather than the
 quantity of clinical interest. Worse, the lumped quantity does not
-generalise: a population with stronger placebo expectations would
+generalize: a population with stronger placebo expectations would
 appear to have a more powerful drug, and a population with milder
 natural-history drift would appear to have a less powerful one.
 Neither inference would be correct.
@@ -123,15 +195,15 @@ relevant, but they are not the substance of pharmacological efficacy.
 
 Prazosin is an alpha-1-adrenergic antagonist originally developed
 for hypertension. It crosses the blood-brain barrier, and at the
-relevant doses it antagonises noradrenergic activity in the locus
+relevant doses it antagonizes noradrenergic activity in the locus
 coeruleus and prefrontal cortex during REM sleep. The mechanism for
 nightmare reduction is reasonably specific: prazosin damps the
 adrenergic surge that accompanies trauma-related dream content,
 and the resulting suppression of REM-stage arousal reduces
 nightmare frequency and severity.
 
-The pharmacokinetic profile is short. Prazosin has a half-life of
-two to three hours; brain concentrations equilibrate quickly with
+The pharmacokinetic profile is short. Prazosin has a plasma
+half-life of about 2.3 hours (Hobbs et al. 1978); brain concentrations equilibrate quickly with
 plasma. This produces a characteristic on-drug / off-drug pattern:
 
 - **Week 1 on drug.** Brain prazosin reaches steady-state within
@@ -163,25 +235,30 @@ BR follows a saturating curve known as the modified Gompertz
 function, which has the form
 
 $$
-BR(t) \;=\; m \,\exp\bigl(-d \,\exp(-r t)\bigr) - m\exp(-d),
+BR(t_{od}) \;=\; m\,\frac{\exp\bigl(-d\,e^{-r t_{od}}\bigr) - e^{-d}}
+                        {1 - e^{-d}},
 $$
 
-rescaled so that $BR(0) = 0$ and $BR(t) \to m$ as $t \to \infty$.
+a Gompertz curve in time on drug $t_{od}$, shifted so that
+$BR(0) = 0$ and rescaled so that $BR(t_{od}) \to m$ as
+$t_{od} \to \infty$ (inspected: `modgompertz()` in `R/utilities.R`).
 The three parameters have direct interpretations:
 
 | Parameter | Symbol | Meaning |
 |---|---|---|
 | Maximum response | $m$ | The biological ceiling. The largest reduction the drug can produce, even with infinite time on treatment. |
-| Onset rate | $r$ | How fast the patient approaches the ceiling. High $r$ means a fast onset (effect plateaus in one to two weeks); low $r$ means a slow climb (six to eight weeks to plateau). |
-| Displacement | $d$ | The shape of the climb. High $d$ is an early-onset curve that rises sharply at first; low $d$ is a more gradual climb. |
+| Onset rate | $r$ | How fast the patient approaches the ceiling, given $d$. Higher $r$ compresses the whole curve in time. |
+| Displacement | $d$ | The length of the initial lag. Large $d$ gives a sigmoid curve with a slow start and an inflection at $t_{od} = \ln d / r$; small $d$ (below 1) gives a curve that rises fastest at the start, with no lag. |
 
 Table: Modified Gompertz parameters for the BR component and their meanings
 
-For PTSD prazosin, calibrated values from the Hendrickson et al.
-(2020) reference dataset are roughly $m \approx 11$ (eleven points
-of nightmare score reduction at saturation), $r \approx 0.42$ per
-week (half-maximum at about eighteen days), $d \approx 5$
-(moderately steep early climb).
+For PTSD prazosin, the values used by Hendrickson et al. (2020) and
+throughout this compendium are $m = 10.99$ (about eleven points of
+symptom reduction at saturation), $d = 5$ and $r = 0.42$ per week.
+Their landmarks (derived from the formula; `docs/40`, Section 4):
+the inflection is at 3.8 weeks, half of the maximum is reached at
+4.7 weeks (about 33 days), and 90% at 9.2 weeks. This is a slow,
+sigmoid onset.
 
 The Gompertz family was chosen because it captures the
 'asymptote-from-below' shape that physiological dose-response
@@ -190,16 +267,19 @@ this shape:
 
 - A linear function in $t$ ($BR = \beta_t \cdot t$) climbs without
   bound and is biologically implausible past a few weeks.
-- An exponential decay ($BR = m(1 - \exp(-rt))$) is acceptable for
-  fast-onset drugs but lacks the slow-start phase that characterises
-  most chronic-condition responses, where receptor adaptation,
-  feedback regulation, and downstream gene-expression changes
-  produce a measurable lag.
+- An exponential approach to the ceiling ($BR = m(1 - e^{-rt})$)
+  is acceptable for fast-onset drugs but lacks the slow-start phase
+  that characterizes most chronic-condition responses, where
+  receptor adaptation, feedback regulation, and downstream
+  gene-expression changes produce a measurable lag.
 
-The Gompertz interpolates between exponential decay (in the
-high-$d$ limit) and a linear increase (in the low-$d$ limit), and
-its three-parameter form is flexible enough to fit a wide range of
-real pharmacodynamic profiles without overfitting.
+The modified Gompertz contains the exponential approach as its
+small-$d$ limit (for small $d$, $\exp(-d e^{-rt}) \approx
+1 - d e^{-rt}$, so the rescaled curve tends to $m(1 - e^{-rt})$;
+derived), and becomes an increasingly delayed sigmoid as $d$ grows.
+Its three-parameter form is flexible enough to describe a range of
+pharmacodynamic profiles (argued; no fit to individual-level data
+is reported in this guide).
 
 ### Why this matters for design
 
@@ -233,7 +313,7 @@ drug.
 It is essential to be precise about what PB is and is not. PB is
 not 'fake' improvement, and it is not 'all in the patient's head'
 in any dismissive sense. The placebo response is mediated by well-
-characterised neurobiological pathways. Belief-driven release of
+characterized neurobiological pathways. Belief-driven release of
 endogenous opioids and dopamine produces measurable analgesia and
 mood elevation. Anticipatory regulation of the
 hypothalamic-pituitary-adrenal axis modulates cortisol and
@@ -247,44 +327,46 @@ For trial design, the relevant point is that PB is **separately
 identifiable** from BR if and only if the trial design includes a
 phase in which the patient's belief about treatment differs from
 the actual treatment they are receiving. The blinded discontinuation
-phase of the Hendrickson hybrid design is the canonical such phase.
+phase of the Hendrickson Hybrid design is the canonical such phase.
 
 ### Real example: the blinded discontinuation contrast
 
-Consider a sixteen-week N-of-1 trial structured in three phases:
+Consider the Hendrickson Hybrid design as implemented in this
+compendium (inspected: `analysis/scripts/carryover-sensitivity/
+simulation-core.R`), a twenty-week N-of-1 trial with visits at weeks
+4, 8, 9, 10, 11, 12, 16 and 20, structured in three phases:
 
 - **Weeks 1-8 (open-label on drug).** The patient knows they are
   receiving prazosin. Belief in treatment is at full strength
-  (expectancy multiplier 1.0, in the model parameterisation
+  (expectancy weight $\eta = 1$, in the model parameterization
   introduced below).
 - **Weeks 9-12 (blinded discontinuation).** The patient is told
   that, at some unannounced point during this window, they may be
   silently switched to placebo. They cannot reliably tell whether
   they are still receiving the active drug. Belief in treatment
-  drops to a partial level (multiplier roughly 0.5) because the
-  patient's expectation is now hedged.
-- **Weeks 13-16 (open-label crossover, possibly back on drug).**
-  The patient is told whether they are now on active drug or
-  placebo, and belief returns to a level commensurate with that
-  knowledge.
+  drops to a partial level ($\eta = 0.5$) because the patient's
+  expectation is now hedged. Everyone is on drug at week 9; the drug
+  stops after week 9 in two of the four randomization paths and
+  after week 10 in the other two.
+- **Weeks 13-20 (blinded crossover).** Four weeks on drug and four
+  on placebo, in randomized order. The crossover is also blinded,
+  so $\eta = 0.5$ throughout it (`docs/40`, Section 11).
 
-A patient who is silently switched to placebo at the start of week
-9 will have:
+At week 10, a patient whose drug stopped after week 9 will have:
 
-- $BR = 0$ from week 9 onward (no pharmacology).
-- $PB \approx 0.5 \cdot PB_{\text{open-label}}$ during weeks 9-12,
-  reflecting hedged belief.
+- $BR = 0$, or only its carryover residual (no pharmacology).
+- $PB = 0.5 \cdot PB_{\text{open-label}}$, reflecting hedged belief.
 - $TV$ continuing on its slow trajectory.
 
-A patient who remains on active drug during weeks 9-12 will have:
+At the same visit, a patient still on active drug will have:
 
-- $BR$ continuing at its plateau value.
-- The same hedged $PB \approx 0.5 \cdot PB_{\text{open-label}}$ as
-  the placebo-switched patient.
+- $BR$ continuing at its near-plateau value.
+- The same hedged $PB = 0.5 \cdot PB_{\text{open-label}}$ as the
+  placebo-switched patient.
 - The same $TV$ trajectory.
 
-The contrast between the two arms during weeks 9-12 is therefore a
-nearly-clean estimate of $BR$, with $PB$ matched (because both
+The contrast between the two groups of paths at that visit is
+therefore a nearly clean estimate of $BR$, with $PB$ matched (because both
 groups have the same belief) and $TV$ matched (because $TV$ is by
 construction independent of treatment). This is the inferential
 move that makes the BR-PB-TV decomposition identifiable from the
@@ -294,33 +376,46 @@ the components by differencing those phases.
 
 ### Mathematical pattern
 
-PB also follows a Gompertz curve, but scaled by an
-expectancy factor $\eta(\text{phase})$ that depends on the trial
-phase the patient is currently in:
+PB also follows a modified Gompertz curve, with its own parameters,
+in the expectancy-weighted time $t_{pb}$ (time accumulated over
+consecutive visits with positive expectancy; it resets to zero at any
+visit with $\eta_t = 0$), and its amplitude is scaled by the
+expectancy weight $\eta_t$ of the current visit:
 
 $$
-PB(t \mid \text{phase}) \;=\; \eta(\text{phase}) \,\cdot\,
-m_{PB} \,\exp\bigl(-d_{PB} \exp(-r_{PB} t)\bigr) \,+\,
-\text{constant adjustment to start at zero.}
+PB_t \;=\; \eta_t \, m_{PB}\,
+\frac{\exp\bigl(-d_{PB}\,e^{-r_{PB} t_{pb}}\bigr) - e^{-d_{PB}}}
+     {1 - e^{-d_{PB}}}
 $$
 
-Typical values of the expectancy factor:
+(inspected: `buildSigma()` in `R/generateData.R` multiplies the
+Gompertz mean by the design's `e`). (Corrected 2026-10-08: this
+sentence previously described $t_{pb}$ as time accumulated while the
+expectancy is positive. `buildtrialdesign()` in `R/buildtrialdesign.R`
+resets `tpb` to zero at every visit with `e = 0` and restarts the
+accumulation afterward (inspected), which matters only for designs
+with covert visits, such as a balanced-placebo design. See
+`analysis/report/compendium-mathematics.tex`, Section "Time arguments
+of the components, the shared clock, and the phase contrasts"
+(`sec:invb-clocks`).) Values of the
+expectancy weight:
 
 | Phase | $\eta$ | Reasoning |
 |---|---|---|
 | Open-label on drug | 1.0 | Patient knows they are on the active drug. |
-| Blinded discontinuation | 0.5 | Patient believes they may or may not still be on drug; expectation is hedged. |
-| Open-label placebo | 0.0-0.5 | Patient told they are on placebo retains some residual expectation, especially if the previous active phase was beneficial. |
+| Blinded discontinuation and blinded crossover | 0.5 | Patient believes they may or may not be on drug; expectation is hedged. |
+| Open-label placebo | 0.0-0.5 | Patient told they are on placebo retains some residual expectation. Not used by any design in this compendium. |
 
-Table: Expectancy factor $\eta$ by trial phase with reasoning
+Table: Expectancy weight $\eta$ by trial phase with reasoning
 
 The choice of $\eta = 0.5$ rather than $\eta = 0$ for the blinded
-phase is itself a modelling assumption. The empirical question is
-how much expectation a patient carries when uncertain about
-allocation, and the published placebo literature suggests it is
-substantial: residual expectations of 30-60% of the open-label
-level are reported across pain, depression, and PTSD trials. Setting
-$\eta = 0.5$ in the blinded phase is a reasonable default, but
+phases is itself a modeling assumption, inherited from Hendrickson
+et al. (2020). The empirical question is how much expectation a
+patient carries when uncertain about allocation. This guide does not
+cite a source for a specific range, and none was located in the
+project bibliography (flagged 2026-10-07; an earlier version quoted
+'30-60% of the open-label level' without a source). Setting
+$\eta = 0.5$ in the blinded phases is a convenient default, but
 sensitivity analyses should vary it to confirm that conclusions are
 not driven by this single number.
 
@@ -334,20 +429,21 @@ suggestibility patients may show large $PB$, low-suggestibility
 patients may show essentially none, and the population variance is
 correspondingly large. When $\eta$ is low (blinded), the placebo
 response is uniformly attenuated, and the patient-to-patient
-variance shrinks accordingly. The model parameterisation reflects
-this with a phase-dependent standard deviation:
+variance shrinks accordingly. The model parameterization reflects
+this with a visit-dependent standard deviation (inspected:
+`buildSigma()` scales the PB SD by `e`):
 
 $$
-\mathrm{SD}(PB \mid \text{phase}) \;=\;
-\eta(\text{phase}) \cdot \sigma_{PB}^{\text{baseline}}.
+\mathrm{SD}(PB_t) \;=\; \eta_t \, \sigma_{PB}.
 $$
 
-This heteroscedastic structure is not optional: ignoring it leads
-to inflated standard errors in the open-label phase (where $PB$
-contributes most variance) and deflated standard errors in the
-blinded phase, with consequences for both confidence intervals on
-the drug effect and the calibration of any subsequent biomarker
-test.
+This heteroscedastic structure matters for the analysis (argued): a
+working model with a common residual variance misstates the
+variability of the open-label visits (where $PB$ contributes most
+variance) relative to the blinded ones, with consequences for both
+confidence intervals on the drug effect and the calibration of any
+subsequent biomarker test. The stress test of `docs/46` includes
+analyses with phase-specific residual variances for this reason.
 
 ---
 
@@ -385,7 +481,7 @@ shape of TV is one of the things the decomposition is designed to
 recover.
 
 **Acute conditions tend to TV-positive.** A cold, a sprained ankle,
-a post-operative pain syndrome, an episode of acute back pain --
+a post-operative pain syndrome, an episode of acute back pain:
 these conditions resolve, on average, on a timescale of days to
 weeks even without intervention. A trial of ibuprofen for tension
 headache or of a topical analgesic for ankle sprain will see
@@ -433,17 +529,17 @@ estimates the residual trend.
 **Selection-induced TV is real and rarely zero.** Even a chronic
 stable condition can show TV-positive average trajectory in a
 trial population because of how participants are recruited.
-Patients enrol at a moment of clinical engagement, which often
+Patients enroll at a moment of clinical engagement, which often
 coincides with a recent worsening that triggered the
-help-seeking behaviour. Regression to the mean alone -- the
+help-seeking behavior. Regression to the mean alone (the
 statistical fact that an extreme observation tends to be followed
-by less extreme observations on average -- can produce several
+by less extreme observations on average) can produce several
 points of apparent TV-improvement in the early weeks of a trial,
 even in a population whose underlying condition is stable. This
-is the famous failure mode of single-arm trials in chronic-pain
-conditions: large 'treatment' effects evaporate when a control arm
-is added, because the apparent effect was almost entirely
-regression to the mean.
+is a recognized failure mode of single-arm trials in chronic-pain
+conditions: large 'treatment' effects can shrink when a control arm
+is added, because much of the apparent effect was regression to the
+mean (argued; see Barnett et al. 2005 for the mechanism).
 
 **Trial participation itself induces TV.** The Hawthorne effect
 (participants improve simply because they are being observed),
@@ -454,7 +550,7 @@ how they are perceived and reported) are all real, all
 participant-mediated, and all confounded with calendar time. They
 appear in the data as TV-improvement that is independent of any
 pharmacological or placebo response, and they apply equally to
-all arms of the trial. Modelling them as part of TV is the
+all arms of the trial. Modeling them as part of TV is the
 appropriate handling.
 
 ### Can we assume no TV effect?
@@ -464,7 +560,7 @@ support. The longer answer:
 
 - **TV may be assumed zero only if** the disease is in a stable
   chronic phase, the trial is short relative to the disease
-  timescale, the recruitment process does not favour participants
+  timescale, the recruitment process does not favor participants
   at peak severity, and the trial protocol does not introduce
   ancillary care that itself improves symptoms. For most chronic
   trials in psychiatric or pain conditions, at least one of these
@@ -497,14 +593,15 @@ accordingly.
 
 If TV is ignored, every TV-induced point of symptom change gets
 attributed to either BR or PB or to noise. This is the most
-common single source of bias in chronic-condition trial inference.
-A famous example: many early trials of chronic-fatigue therapies
-appeared to show large effects, until a careful natural-history
-arm revealed that the apparent effect was almost entirely a
-regression-to-the-mean phenomenon driven by the selection of
-patients at peak symptom severity. The patients would have improved
-similarly with no intervention. TV in the model is the formal way
-to handle this risk.
+common sources of bias in chronic-condition trial inference
+(argued). A typical pattern: an uncontrolled trial that enrolls
+patients at peak symptom severity shows a large improvement that a
+concurrent natural-history arm would reveal to be largely regression
+to the mean; the patients would have improved similarly with no
+intervention (illustrative; an earlier version of this guide
+attributed this to 'early trials of chronic-fatigue therapies'
+without a source, and that attribution has been removed). TV in the
+model is the formal way to handle this risk.
 
 The attribution problem is not symmetric. TV is positively
 correlated with the *opportunity* to detect a drug effect (chronic-
@@ -519,21 +616,27 @@ including trial phases in which BR and PB are absent.
 
 ### Mathematical pattern
 
-TV also follows a Gompertz curve but parameterised independently of
-BR and PB:
+TV also follows a modified Gompertz curve, in time since trial entry
+and parameterized independently of BR:
 
 $$
-TV(t) \;=\; m_{TV} \,\exp\bigl(-d_{TV} \exp(-r_{TV} t)\bigr) \,+\,
-\text{offset to start at zero.}
+TV_t \;=\; m_{TV}\,
+\frac{\exp\bigl(-d_{TV}\,e^{-r_{TV} t}\bigr) - e^{-d_{TV}}}
+     {1 - e^{-d_{TV}}} .
 $$
 
 The maximum $m_{TV}$ can be either positive (natural improvement)
-or negative (natural worsening), and is a participant-level random
-effect drawn from the population distribution of natural-history
-trajectories. A trial design that aggregates over many participants
-can identify both the population mean and the population variance
-of $m_{TV}$, but only if there are enough off-drug timepoints to
-constrain the curve.
+or negative (natural worsening). In the package's DGP the Gompertz
+parameters are population constants: the curve gives the mean of
+$TV_t$, and participants differ through a multivariate-normal
+deviation around that mean, with a common SD and AR(1) correlation
+across visits (inspected: `buildSigma()`). Hendrickson et al. gave
+$TV$ the same parameters as $PB$ ($m = 6.51$, $d = 5$, $r = 0.35$,
+SD 10; `docs/40`, Section 11), so the split between the two is an
+assumption rather than an estimate. A trial design that aggregates
+over many participants can identify the population mean trajectory
+and the participant-level variance, but only if there are enough
+visits to constrain the curve.
 
 ### Why not just include 'week' as a covariate?
 
@@ -572,7 +675,7 @@ approximation that loses information.
 The mathematical decomposition above is meaningless unless the
 data contain enough information to pin down each component
 separately. Trial design is what supplies that information. The
-Hendrickson hybrid design, used as the worked example throughout
+Hendrickson Hybrid design, used as the worked example throughout
 the rest of this guide, has three phases that each contribute a
 different combination of components.
 
@@ -580,24 +683,32 @@ different combination of components.
 |---|---|---|---|
 | Open-label on drug | Yes | Full | $BR + PB(\eta = 1) + TV$ |
 | Blinded discontinuation | Hidden | Hedged | $BR \cdot \mathbf{1}_{\text{on drug}} + PB(\eta = 0.5) + TV$ |
-| Open-label crossover | Either | Knows | $BR \cdot \mathbf{1}_{\text{on drug}} + PB(\eta = 1) + TV$ |
+| Blinded crossover | Either | Hedged | $BR \cdot \mathbf{1}_{\text{on drug}} + PB(\eta = 0.5) + TV$ |
 
-Table: Components present in each phase of the Hendrickson hybrid design
+Table: Components present in each phase of the Hendrickson Hybrid design
 
-Three phase-by-allocation contrasts then identify the three
-components:
+Three contrasts then bear on the three components:
 
-- **Phase 1 vs. phase 2 (within drug):** $PB(\eta = 1) - PB(\eta =
-  0.5) \approx 0.5 \cdot PB$. Isolates the belief component.
-- **Phase 2 on drug vs. phase 2 placebo:** $BR$ alone (because $PB$
-  and $TV$ match across allocation arms within phase 2).
-- **All phases off drug:** $TV$ alone (no $BR$, no $PB$ at the
-  off-drug expectation level).
+- **Phase 1 vs. phase 2 (within drug):** the change from
+  $PB(\eta = 1)$ to $PB(\eta = 0.5)$, about half of $PB$. This
+  isolates the belief component only to the extent that $BR$ and
+  $TV$ change little between week 8 and week 9.
+- **Phase 2 or 3 on drug vs. placebo at the same visit:** $BR$ alone
+  (because $PB$ and $TV$ match across paths at a visit).
+- **Off-drug visits:** $TV + PB(\eta = 0.5)$, plus any carryover
+  residual of $BR$. Every off-drug visit is blinded, so $TV$ is never
+  observed without $PB$; and since the expectancy is positive at
+  every visit, $t_{pb}$ equals calendar time and the two components
+  share one clock. $TV$ and $PB$ are separated only through the drop
+  in expectancy at week 9 and their assumed curve shapes (inspected;
+  `docs/40`, Section 3).
 
 Each contrast targets a different component, and the analyst
 combines them through the linear-mixed-effects model fitted to the
 full trajectory. The model is the formal mechanism, but the
-inference is driven by the design contrasts.
+inference is driven by the design contrasts. In the Hybrid design
+the drug-versus-placebo contrast is the clean one; the $TV$ versus
+$PB$ split is weakly identified.
 
 A trial that lacks any of these phases loses the corresponding
 identifiability. A pure open-label design (no blinded
@@ -614,8 +725,10 @@ it is uniquely present.
 
 ## Worked example: what's lost when you don't decompose
 
-Consider two participants, A and B, enrolled in a sixteen-week
-N-of-1 trial of prazosin for PTSD. Both are otherwise similar:
+Consider two participants, A and B, enrolled in a twenty-week
+N-of-1 trial of prazosin for PTSD. The example is illustrative: the
+numbers are chosen by hand to make the arithmetic transparent, and
+it simplifies the Hybrid schedule. Both are otherwise similar:
 same age, same baseline severity, same trial design. They differ
 in two latent traits that the trial does not measure directly.
 
@@ -628,7 +741,7 @@ in two latent traits that the trial does not measure directly.
   $m_{BR}^B = 8$, $m_{PB}^B = 1$, $m_{TV}^B = 1$.
 
 In the open-label phase (weeks 1-8), both BR and PB run at full
-strength, and TV accumulates linearly. By week 8, both participants
+strength, and TV accumulates slowly. By week 8, both participants
 have reached close to their saturation values:
 
 |  | $BR$ | $PB(\eta = 1)$ | $TV$ | Total improvement |
@@ -645,8 +758,9 @@ the open-label change would estimate a population drug effect of
 about ten points and would not distinguish the two participants.
 
 Now consider the blinded discontinuation phase (weeks 9-12). Both
-participants are silently switched to placebo at the start of week
-9. The expectancy multiplier drops from 1.0 to 0.5. By the end of
+participants are silently switched to placebo early in the phase
+(in the implemented design, after week 9 or week 10), and the
+expectancy weight drops from 1.0 to 0.5. By the end of
 week 12, the components are:
 
 |  | $BR$ | $PB(\eta = 0.5)$ | $TV$ | Total improvement |
@@ -662,7 +776,7 @@ participant B has nearly returned to baseline (one and a half
 points). This is the diagnostic contrast that the decomposition
 exploits.
 
-What does each modelling strategy infer?
+What does each modeling strategy infer?
 
 **One-component model.** A fixed-effects regression of total
 symptom change on phase-by-allocation indicators sees:
@@ -687,7 +801,10 @@ decompose this further.
 full BR-PB-TV decomposition, fitted to the same data, can recover
 the individual components by exploiting the differential expectancy
 between phases and the on-drug-versus-blinded-placebo contrast.
-After fitting, the model returns:
+In the idealized case of noise-free data and a correctly specified
+model, the fit returns (illustrative, not a simulation result; with
+real data each estimate carries sampling error, and the $TV$ versus
+$PB$ split is weakly identified, as noted above):
 
 - $\hat{m}_{BR}^A = 4.0$ (true 4.0). $\hat{m}_{BR}^B = 8.0$ (true
   8.0). The drug effect is identified separately for each
@@ -705,8 +822,8 @@ Compare the inferences:
 
 | Question | One-component answer | Three-component answer |
 |---|---|---|
-| 'Does the drug work for A?' | 'Some response, magnitude unclear, ~7.75 points overall.' | 'Yes: $BR_A = 4.0$ points, distinct from her larger placebo response.' |
-| 'Does the drug work for B?' | 'Some response, magnitude unclear, ~7.75 points overall.' | 'Yes: $BR_B = 8.0$ points, twice the magnitude of A.' |
+| 'Does the drug work for A?' | 'Some response, magnitude unclear, ~7.75 points overall.' | 'Yes: $m_{BR}^A = 4.0$ points, distinct from her larger placebo response.' |
+| 'Does the drug work for B?' | 'Some response, magnitude unclear, ~7.75 points overall.' | 'Yes: $m_{BR}^B = 8.0$ points, twice the magnitude of A.' |
 | 'Are A and B different responders?' | 'No discernible difference; both improved by ~10 points.' | 'Yes: B has 2x A's BR but 1/6 of A's PB.' |
 | 'If a biomarker predicts BR, is it useful here?' | Cannot answer (no $BR$ estimate). | Yes if the biomarker correlates with $\hat{m}_{BR}$. |
 | 'Should A be continued on this drug long-term?' | Cannot say (the response could be largely placebo). | Probably yes (BR = 4 is real and pharmacological), but the larger placebo component will not persist if expectations decay. |
@@ -816,9 +933,12 @@ Bayesian hierarchical fit, or a structural-equation
 approximation. Each is more sensitive to starting values, more
 prone to local optima, and more likely to fail to converge on
 a single trial dataset than the linear-mixed analogue. At
-trial-relevant N, the convergence rate of the non-linear
-component-matched fit is typically below 90%, and the
-non-converging cells contaminate any aggregated analysis.
+trial-relevant $N$, the non-linear component-matched fit can be
+expected to fail to converge far more often than the linear
+analogue, and the non-converging replicates contaminate any
+aggregated analysis (argued; the convergence rate has not been
+measured in this compendium, and an earlier version's figure of
+'below 90%' had no source).
 
 **4. The moderation estimand is robust to the BR-versus-PB
 split for the most common scientific question.** For
@@ -842,7 +962,7 @@ The smallest useful step toward component-aware analysis,
 without paying the costs above, is to add a phase indicator
 and its interaction with the drug indicator. Schematically,
 
-```r
+```{.r}
 Sx ~ bm + t + Dbc + phase + Dbc:phase
        + bm:Dbc + bm:Dbc:phase
        + (1 | ptID),      correlation = corCAR1(...)
@@ -851,15 +971,39 @@ Sx ~ bm + t + Dbc + phase + Dbc:phase
 `phase` is a categorical covariate (open-label, blinded, post-
 crossover) that absorbs the systematic differences in PB
 expectancy across phases. `Dbc:phase` tests whether the
-apparent drug effect shrinks under blinding -- a signature
+apparent drug effect shrinks under blinding, a signature
 that the open-label drug effect was partly PB-mediated.
 `bm:Dbc:phase` tests whether the moderation itself shrinks
-under blinding -- a signature that the biomarker-by-treatment
+under blinding, a signature that the biomarker-by-treatment
 interaction was partly biomarker-by-PB rather than
-biomarker-by-BR.
+biomarker-by-BR. (In the Hybrid design every open-label visit is
+on drug, so `Dbc:phase` and `bm:Dbc:phase` are identified only
+from the blinded phases and the open-label versus blinded on-drug
+difference; argued.)
 
-This extension adds three to four parameters at most, well
-within budget at any realistic N. It does not separately
+With three phase levels, this extension adds six fixed-effect
+columns (two each for `phase`, `Dbc:phase` and `bm:Dbc:phase`) but
+only five identified parameters, within budget at realistic $N$.
+(Corrected 2026-10-08: this sentence previously counted six
+fixed-effect parameters. When every open-label visit is on drug, as
+in the Hybrid design, $D_{bc} = 1$ throughout the reference phase, so
+$D_{bc} = 1 - \sum_{\ell \ne \mathrm{OL}} I_\ell +
+\sum_{\ell \ne \mathrm{OL}} D_{bc} I_\ell$ exactly: the `Dbc` column
+is an exact linear combination of the intercept, the `phase` columns
+and the `Dbc:phase` columns, at every $N$ and under any coding of the
+factor. The `bm:Dbc:phase` columns are not aliased. `nlme::lme` stops
+on the full formula with "Singularity in backsolve" (verified), and
+the Paper 06 driver, `phase_augmented_fit()` in
+`analysis/scripts/component-decomposition/00-common.R`, catches the
+error and refits without `Dbc:phase` (and skips the full formula for
+$N < 70$), so every reported phase-augmented fit is the reduced
+formula, recorded as `formula_dropped = 'Dbc:phase'` (inspected).
+Verified by the rank of the model matrix in
+`analysis/scripts/compendium-mathematics/check-gompertz-rmanova-cycles.R`
+(three-phase Hybrid: six columns added, rank gain five). See
+`analysis/report/compendium-mathematics.tex`, Section "Rank of the
+phase-augmented model, and the drug-expectancy correlation by design"
+(`sec:invb-collinearity`).) It does not separately
 estimate $BR$ and $PB$ as components, but it does identify
 the *change* in apparent drug effect that occurs when belief
 is hedged. For most analyses, this is the practically
@@ -898,7 +1042,7 @@ deliberate consequence of the asymmetry between simulation
 structure, however elaborate) and inference (where the
 analyst must fit a model to a finite dataset and pay the
 identifiability cost of every additional parameter).
-Simulation studies use the rich DGP to characterise how a
+Simulation studies use the rich DGP to characterize how a
 simpler analysis behaves under realistic data generation;
 they do not require the analysis to match the DGP in order
 to produce useful inference.
@@ -926,10 +1070,13 @@ variable:
   phase-specific expectancy factor $\eta(\text{phase})$.
 - $TV_{it}$ depends on time-since-trial-entry (calendar time).
 
-Each component is a participant-specific random function: the
-Gompertz parameters $(m, r, d)$ for BR, PB, TV are drawn from
-population distributions, and the participant-level deviations are
-the random effects in the mixed model.
+Each component is a participant-specific random trajectory. In the
+package's DGP the Gompertz parameters $(m, r, d)$ of each component
+are fixed population values that set the mean trajectory; each
+participant's trajectory is that mean plus a multivariate-normal
+deviation with AR(1) correlation over visits (inspected:
+`buildSigma()` in `R/generateData.R`). The parameters themselves
+are not drawn per participant.
 
 ### Joint covariance structure
 
@@ -937,22 +1084,26 @@ The components are not independent of each other. A patient with
 strong pharmacological response is, on average, also somewhat more
 likely to develop a strong placebo expectation ('this drug is
 clearly working, my belief in it strengthens'), and a patient with
-favourable natural history may be more likely to attribute that
+favorable natural history may be more likely to attribute that
 improvement to whatever treatment they happen to be on. The
-Hendrickson framework parameterises this with two cross-component
+Hendrickson framework parameterizes this with two cross-component
 correlations:
 
 - $c_{cf1t}$: correlation between different factors at a single
   timepoint. Captures the within-time covariance of $BR$, $PB$, and
   $TV$.
 - $c_{cfct}$: correlation between different factors at different
-  timepoints. Captures the across-time spillover.
+  timepoints. Captures the across-time spillover (in the package it
+  is further multiplied by $\rho^{\lvert w_t - w_s\rvert}$).
 
-Together these define a $4 \times K \times K$ block covariance
-matrix (one $K \times K$ block per pair of factors, where $K$ is
-the number of timepoints), and the simulation draws each
-participant's full trajectory from a single multivariate normal of
-that structure.
+Together with the within-component AR(1) correlations, these define
+one joint covariance matrix per randomization path, of dimension
+$(3K + 2) \times (3K + 2)$: the biomarker, the baseline level, and
+$K$ visits of each of $TV$, $PB$ and $BR$, where $K$ is the number
+of visits (26 variables in the eight-visit Hybrid design;
+inspected: the `labels` vector of `buildSigma()`). The simulation
+draws each participant's full trajectory from a single multivariate
+normal of that structure.
 
 ### A common confusion: variance decomposition
 
@@ -964,17 +1115,19 @@ $$
 $$
 
 as if this were an alternative to working with the full covariance
-matrix. By the law of total variance for sums, the correct
-identity for any joint distribution is
+matrix. By the bilinearity of covariance (the variance of a sum),
+the correct identity for any joint distribution is
 
 $$
 \mathrm{Var}(BR + PB + TV + \varepsilon) \;=\;
-\sum_{c} \mathrm{Var}(c) \;+\; 2 \sum_{c \neq c'}
-\mathrm{Cov}(c, c').
+\sum_{c} \mathrm{Var}(c) \;+\; 2 \sum_{c < c'}
+\mathrm{Cov}(c, c'),
 $$
 
-So the simple sum-of-variances form holds **if and only if** the
-components are uncorrelated. Under the Hendrickson parameterisation
+with the second sum over unordered pairs of distinct components
+(derived). So the simple sum-of-variances form holds when the
+components are pairwise uncorrelated, and more generally whenever
+the covariances sum to zero. Under the Hendrickson parameterization
 with $c_{cf1t}$ and $c_{cfct}$ both non-zero, the components are
 correlated, and the cross-covariance terms are non-negligible.
 Working with the full covariance matrix is therefore mandatory: the
@@ -998,15 +1151,15 @@ internal structure.
 A random intercept-and-slope mixed model is
 
 $$
-Y_{it} \;=\; \alpha_i + \beta_i t + \varepsilon_{it},
+Y_{it} \;=\; \beta_0 + u_i + (\beta_t + v_i)\,t + \varepsilon_{it},
 $$
 
-with participant-specific intercept $\alpha_i$ and slope $\beta_i$.
+with participant random intercept $u_i$ and random slope $v_i$.
 This captures heterogeneity in baseline severity and in linear
 time trends, but it cannot decompose the time trend into BR-style
 saturating-drug, PB-style expectancy-modulated, and TV-style
-natural-history pieces. It also forces $\beta_i$ to be linear in
-$t$, which is biologically wrong for chronic-condition responses
+natural-history pieces. It also forces each participant's trend
+to be linear in $t$, which is biologically wrong for chronic-condition responses
 on the timescale of weeks. The BR-PB-TV decomposition is more
 specific about *why* the trajectory has the shape it does, and
 that specificity translates directly into identifiability of the
@@ -1033,9 +1186,10 @@ without paying the cost of a parallel natural-history study.
 
 ### Q: Why is the biomarker only correlated with BR, not with PB?
 
-This is a modelling assumption, not a fact about reality. The
-Hendrickson framework correlates the baseline biomarker (e.g., a
-blood pressure summary) with the BR factor only, and treats the
+This is a modeling assumption, not a fact about reality. The
+Hendrickson framework correlates the baseline biomarker (pretreatment
+standing systolic blood pressure in the motivating prazosin data;
+Raskind et al. 2016) with the BR factor only, and treats the
 biomarker as conditionally independent of PB and TV. The
 justification is that the biomarker is intended to be a
 *pharmacological* predictor: it measures something about the
@@ -1045,13 +1199,16 @@ not their suggestibility or their natural-history trajectory.
 If a candidate biomarker turned out to be correlated with PB,
 that would be a substantive finding (the biomarker is partly
 psychological in its action), and the model could be re-specified
-to allow that correlation. The default specification reflects the
+to allow that correlation. The package already offers it as an
+option (`c.bm.pb` in `buildSigma()`; inspected), and the stress test
+of `docs/46` adds prognostic couplings to the natural course and the
+baseline level as well (`docs/49`). The default specification reflects the
 prior that a useful predictive biomarker should be a clean
 pharmacological predictor; deviations from that prior are testable.
 
 ### Q: What if TV is negative (the patient naturally worsens)?
 
-In the standard parameterisation with positive $m_{TV}$, the
+In the standard parameterization with positive $m_{TV}$, the
 Gompertz form is monotonically increasing and TV is non-negative
 by construction. To allow naturally-worsening trajectories, the
 maximum $m_{TV}$ can be drawn from a population distribution that
@@ -1083,8 +1240,10 @@ better.
 The Gompertz parameters absorb this asymmetry. A drug with a fast
 $BR$ onset has a high $r$; a drug with a long pharmacological
 washout has a long off-drug tail captured by the carryover
-half-life $t_{1/2}$ used in the analysis-side drug indicator
-$D_{it} = \exp(-\lambda \cdot t_{sd})$. The decomposition is
+half-life $t_{1/2}$ used in the analysis-side exposure-decayed drug
+indicator, $D_{bc,it} = 1$ on drug and $e^{-\lambda t_{sd}}$ off
+drug after exposure (0 before the first exposure; `docs/45`,
+Section 8). The decomposition is
 agnostic to the specific pharmacokinetics so long as the trial
 includes enough timepoints in the relevant transition windows
 (on-to-off and off-to-on) to constrain the curves.
@@ -1111,7 +1270,8 @@ estimates the biomarker's correlation with whatever the lumped
 total contains. If $PB$ varies systematically across the biomarker
 distribution (because, say, the biomarker is correlated with
 optimism, suggestibility, or treatment-seeking history), then
-$\hat{\beta}_{bm}$ contains a placebo-prediction component that is
+$\hat{\beta}_{bm}^{\text{lumped}}$ (the coefficient `beta_bm` above)
+contains a placebo-prediction component that is
 inseparable from the pharmacological-prediction component. The
 resulting biomarker, applied prospectively, would mis-stratify
 patients: those flagged as 'high responders' by the biomarker
@@ -1183,15 +1343,35 @@ BR component, is unanswerable.
 
 - Hendrickson, Thomas, Schork, and Raskind (2020). *Optimizing
   aggregated N-of-1 trial designs for predictive biomarker
-  validation.* Frontiers in Digital Health, 2:13. The original
-  paper that introduced this decomposition framework for N-of-1
-  trials targeting predictive biomarker validation.
+  validation: statistical methods and theoretical findings.*
+  Frontiers in Digital Health 2020;2:13.
+  doi:10.3389/fdgth.2020.00013. PMID 34713026. The original paper
+  that introduced this decomposition framework for N-of-1 trials
+  targeting predictive biomarker validation.
 - Senn (2018). *Statistical pitfalls of personalized medicine.*
-  Nature 563:619-621. On variance decomposition and
-  per-participant inference in personalised-medicine settings.
+  Nature 563(7733):619-621. doi:10.1038/d41586-018-07535-2.
+  PMID 30482931. On variance decomposition and per-participant
+  inference in personalized-medicine settings.
 - Benedetti (2014). *Placebo effects: from the neurobiological
-  paradigm to translational implications.* Neuron 84:623-637. On
-  the neurobiology of the PB component.
+  paradigm to translational implications.* Neuron 84(3):623-637.
+  doi:10.1016/j.neuron.2014.10.023. PMID 25442940. On the
+  neurobiology of the PB component.
+- Hobbs DC, Twomey TM, Palmer RF (1978). *Pharmacokinetics of
+  prazosin in man.* J Clin Pharmacol 18(8-9):402-406.
+  doi:10.1002/j.1552-4604.1978.tb02456.x. PMID 690251. Source of
+  the 2.3-hour plasma half-life.
+- Raskind MA, Millard SP, Petrie EC, et al. (2016). *Higher
+  pretreatment blood pressure is associated with greater
+  posttraumatic stress disorder symptom reduction in soldiers
+  treated with prazosin.* Biol Psychiatry 80(10):736-742.
+  doi:10.1016/j.biopsych.2016.03.2108. PMID 27320368. The motivating
+  biomarker.
+- Barnett AG, van der Pols JC, Dobson AJ (2005). *Regression to the
+  mean: what it is and how to deal with it.* Int J Epidemiol
+  34(1):215-220. doi:10.1093/ije/dyh299. PMID 15333621.
+
+Each entry above was checked against PubMed on 2026-10-07.
+
 - Project documentation:
   `docs/06-ar1-residual-correlation.tex` for the within-factor
   serial-correlation structure;
@@ -1199,8 +1379,11 @@ BR component, is unanswerable.
   correlation decay during off-drug periods;
   `docs/09a-carryover-bias-variance.md` for the bias-variance
   trade in carryover specification;
-  `docs/19-mean-moderation-implementation-notes.tex` for
-  Architecture A implementation;
+  `docs/19-mean-moderation-implementation-notes.tex` for the
+  mean-moderation architecture's implementation;
+  `docs/40-hendrickson-hybrid-design-primer.md` for the Hybrid
+  design, the published parameters, and the corrections applied to
+  this guide in 2026-10;
   `analysis/report/01-dgp-mean-moderation-vs-mvn/` for the manuscript
   treatment of the BR moderation question.
 

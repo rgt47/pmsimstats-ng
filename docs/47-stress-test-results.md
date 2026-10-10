@@ -1,0 +1,478 @@
+# Stress Test of Candidate Analyses for the Biomarker-by-Drug Interaction in the Hybrid Design: Exploratory Results {.unlisted .unnumbered}
+*2026-10-08 09:49 PDT*
+
+**Author.** pmsimstats team
+
+**Purpose.** This document reports the results of the stress test set
+out in the working protocol `docs/46`. Fourteen analyses of the
+biomarker-by-drug interaction $\beta_{bm:D}$ in the Hybrid design were
+fitted to the same 28,000 simulated trials in 41 cells, and judged for
+size, robustness to a prognostic biomarker, sensitivity and power. The
+study is exploratory: its criteria and its set of analyses were revised
+as results came in (`docs/46`, Amendments 1 and 2), so the selected
+analysis is a recommendation to be confirmed in an independent study.
+The reasoning behind several revisions is in `docs/48`; the
+recommendation for practice is in `docs/49`.
+
+```{=latex}
+\clearpage
+\tableofcontents
+\listoftables
+\clearpage
+```
+
+## Notation index and glossary
+
+Notation follows `analysis/report/NOTATION.md`. Symbols marked *local*
+are defined here or in `docs/46`.
+
+| Symbol | Meaning | Status |
+|----------------|----------------------------------------|----------|
+| $Y_{it}$ | symptom score of participant $i$ at visit $t$ (code `Sx`); $t = 0$ is baseline | canonical |
+| $B_i$, $b_i$ | biomarker; standardized biomarker | canonical |
+| $B^c_i$ | biomarker centered at the trial's baseline sample mean, $B_i - \bar B$, not scaled (code `bmc`, the form the analyses use; see the note below the table) | canonical |
+| $D_{bc,it}$ | exposure-decayed drug indicator, 0 before any exposure (code `Dbc`) | canonical |
+| $\eta_t$ | expectancy: 1 open label, 0.5 blinded, 0 at baseline (code `De`) | canonical |
+| $t_{1/2}$, $t_{1/2}^{a}$ | true carryover half-life; half-life assumed by the analysis | canonical; local |
+| $c_{bm}$ | biomarker-BR coupling, the predictive effect | canonical |
+| $c_{bm,TV}$, $c_{bm,PB}$, $c_{bm,BL}$ | biomarker correlations with the natural course, the placebo response and baseline severity (prognostic couplings) | canonical |
+| $\beta_{bm}^{TV}$ | mean moderation of the natural course by $b_i$ (growing prognostic pathway) | canonical |
+| $\beta_{bm:D}$ | biomarker-by-drug interaction, the estimand | canonical |
+| $\rho$ | AR(1) serial correlation per week | canonical |
+| $N$ | total sample size across paths | canonical |
+| $\alpha$ | nominal level, 0.05 | canonical |
+| $\pi$, $\hat\pi$ | power; an estimated rejection rate (size or power) | canonical |
+| $n_{\text{reps}}$ | Monte Carlo replicates per cell | canonical |
+
+Table: Notation index and glossary of symbols used in this document
+
+(Corrected 2026-10-08: `bmc` was described here as the standardized
+biomarker. In `11-strawman-stress-test.R` it is $B_i - \bar B$, centered
+at the trial's baseline sample mean and not divided by an SD. Test
+statistics and $p$-values are invariant to rescaling the biomarker, so
+no reported rate changes; the fitted $\beta_{bm:D}$ is per unit of the
+raw biomarker. The terms `bmc:De` are therefore written
+$B^c_i\eta_t = (B_i - \bar B)\eta_t$ below (renamed from $b_i\eta_t$ in
+the notation pass of 2026-10-09). See
+`analysis/report/compendium-mathematics.tex`, Section "The stress-test
+construct and its fourteen analyses".)
+
+The fourteen analyses (`docs/46`, Section 4 and Amendment 2):
+
+| ID | Analysis |
+|----|------------------------------------------------------------|
+| S | random intercept plus continuous-time AR(1) residuals (`corCAR1`), CR2 standard errors with Satterthwaite degrees of freedom, baseline as a response row, linear time, $D_{bc,it}$ at $t_{1/2}^{a} = 0.5$ week |
+| DS | S with $t_{1/2}^{a}$ chosen by AIC over {0, 0.25, 0.5, 1, 2} |
+| C1, C2 | S with residual variances by phase (baseline, open label, blinded); CR2 (C1) or model-based (C2) inference |
+| F1 | S plus the expectancy terms $\eta_t$ and $B^c_i \eta_t$ (`De + bmc:De`) |
+| F1A | F1 with $t_{1/2}^{a}$ chosen by AIC |
+| G1, G2 | F1 with residual variances by phase; CR2 (G1) or model-based (G2) inference |
+| F2 | S plus `bmc:t` |
+| ES, EA | S and A with the biomarker's baseline association freed (`+ bmc:bl0`) |
+| A | unstructured covariance with Kenward-Roger inference, otherwise as S |
+| DA | A with $t_{1/2}^{a}$ chosen by AIC |
+| R | the published reference arm: compound-symmetry covariance (the `cs` structure of `mmrm`, by visit within participant, equivalent to a random intercept with independent errors), model-based standard errors with Satterthwaite degrees of freedom, binary drug indicator (wording corrected 2026-10-08; `docs/46` described it as a random intercept with model-based inference) |
+
+Table: The fourteen analyses compared in the stress test
+
+**Glossary.**
+
+- **Null and alternative cells.** A null cell has $c_{bm} = 0$ (1,000
+  replicates); its alternative twin has $c_{bm} = 0.30$, or 0.25 under
+  compound symmetry (500 replicates).
+- **Prognostic cell.** A cell in which the biomarker is associated with
+  the outcome regardless of treatment: through the natural course
+  (constant, $c_{bm,TV} = 0.3$, or growing, $\beta_{bm}^{TV} = 0.3$),
+  the placebo response ($c_{bm,PB} = 0.3$) or baseline severity
+  ($c_{bm,BL} = 0.3$).
+- **Size-adjusted power.** Power when each analysis rejects at the 5%
+  quantile of its own p-values in the matching null cell.
+- **Shortfall.** In an alternative cell, the gap between an analysis's
+  size-adjusted power and that of the best nominal analysis; the
+  *maximin shortfall* of an analysis is its largest shortfall over the
+  cells considered. (Clarified 2026-10-08: the term is kept because the
+  decision outputs use it; selecting the analysis with the smallest
+  largest shortfall is a minimax-regret rule. The best analysis in each
+  cell is taken over all survivors of the size and sensitivity screens,
+  including the flagged C1 and C2, so shortfalls are measured against
+  the phase-variance models. See
+  `analysis/report/compendium-mathematics.tex`, Section "Size, power
+  screens and the selection criteria of the stress test".)
+- **MCSE.** Monte Carlo standard error, $\sqrt{\hat\pi(1-\hat\pi)/n_{\text{reps}}}$ for a
+  rejection rate $\hat\pi$ over $n_{\text{reps}}$ replicates.
+
+## 1. Summary
+
+All results are from stored simulation outputs (verified; Section 11).
+
+1. **Size.** Ten of the fourteen analyses hold their size over the 11
+   non-prognostic null cells (pooled 0.047 to 0.053, within the 2-MCSE
+   band 0.046 to 0.054, and no cell above 0.075). Four fail: the
+   unstructured model A (0.057 pooled, 0.087 at $N = 35$), its AIC
+   version DA (0.065), the published reference arm R (0.069), and F1A
+   (0.057, and 0.073 when $t_{1/2} = 1$ week).
+2. **A prognostic biomarker is the decisive stress.** Every analysis
+   that shares the biomarker's main effect between the baseline row and
+   the later visits rejects too often in at least one prognostic null
+   cell: S 0.100, C1 0.382, A 0.416. Five analyses stay within the cap
+   in all four prognostic null cells: ES, EA, F1, G1 and G2.
+3. **Sensitivity.** Every analysis has monotone size-adjusted power
+   curves in both constructs. The symmetry screen was dropped, because
+   power is symmetric in the sign of $c_{bm}$ by construction.
+4. **Power.** Robustness costs power. At $c_{bm} = 0.30$ under AR(1),
+   size-adjusted power is 0.514 for S and 0.364 for F1, 29% less;
+   under compound symmetry at $c_{bm} = 0.25$ the difference is small
+   (0.554 against 0.522). F1 has significantly lower power than DS in
+   15 of the 22 non-prognostic alternative cells (McNemar test at
+   0.05) and higher power in none.
+5. **Selection.** Among the five robust analyses the maximin shortfall
+   over the non-prognostic alternative cells is G2 0.232, F1 0.242, G1
+   0.252, ES 0.278 and EA 0.318. G2 and F1 lie within the tie margin of
+   0.02, neither reaches power 0.80 on the grid, and the rule's last
+   tie-break (fewer covariance parameters) selects **F1**. G1 and G2
+   are effectively equivalent alternatives.
+6. **A second reading.** Over all 26 alternative cells, prognostic cells
+   included, G1 (0.308) and G2 (0.312) lead F1 (0.358) by about 0.05.
+   The protocol does not say which set of cells governs the selection,
+   so both readings are reported (Section 7).
+
+## 2. Design in brief
+
+The design is set out in `docs/46`; this section records what was run.
+
+- **Design.** Hybrid, visits at weeks 4, 8, 9, 10, 11, 12, 16 and 20
+  plus baseline, four paths with the published allocation.
+- **Data-generating process.** Configuration C of `docs/36`: separable
+  AR(1) correlation at $\rho = 0.7$, graded coupling of the biomarker
+  to the drug response, the published recursive carryover on the
+  drug-response mean, the published Gompertz means and SDs, the fixed
+  published allocation, and a stop on any matrix that is not positive
+  definite; base cell $N = 70$, $t_{1/2} = 0.5$ week, no dropout,
+  exponential decay. (Corrected 2026-10-08: this bullet said "anchored
+  carryover". `11-strawman-stress-test.R` decays the previous visit's
+  mean with the cumulative time since discontinuation, the published
+  recursion (inspected). The construct is therefore the covariance
+  construct of the refined process of paper 01, not the refined
+  process in full.)
+- **Cells.** 41: two power curves (AR(1), $c_{bm}$ from $-0.30$ to
+  0.45; compound symmetry, $-0.20$ to 0.25) and stress cells varying
+  one factor each (measurement error, $N = 35$ and 150, $t_{1/2} = 0$
+  and 1 week, Weibull decay with shape 0.5 and 2, 20% MCAR and MAR
+  dropout, and the four prognostic pathways). There are 15 null and 26
+  alternative cells and 28,000 simulated trials.
+- **Analyses.** All fourteen are fitted to the same trials, so every
+  comparison is paired.
+- **How the protocol changed** (`docs/46`, Amendments 1 and 2):
+  1. the reference analysis became DS, and the symmetry screen was
+     dropped;
+  2. the two baseline-severity cells (40 and 41) were added and judged
+     with the other prognostic cells;
+  3. G1, G2 and F1A were added and judged by the same rule;
+  4. failed fits are excluded from rejection rates, rather than counted
+     as non-rejections as first written; the two conventions differ by
+     at most 0.0025 in any rate.
+
+## 3. Size
+
+| Analysis | Pooled | Largest cell | Nominal | TV, constant | TV, growing | Placebo | Baseline | Prognostic flag |
+|------|------|--------------------|------|------|------|------|------|------|
+| S | 0.048 | 0.059 (MCAR dropout) | yes | 0.099 | 0.049 | 0.100 | 0.050 | yes |
+| DS | 0.053 | 0.068 (MCAR dropout) | yes | 0.115 | 0.058 | 0.112 | 0.055 | yes |
+| C1 | 0.053 | 0.069 ($N = 35$) | yes | 0.382 | 0.173 | 0.205 | 0.054 | yes |
+| C2 | 0.052 | 0.066 ($N = 35$) | yes | 0.393 | 0.172 | 0.193 | 0.050 | yes |
+| F1 | 0.051 | 0.062 (AR(1) curve) | yes | 0.047 | 0.046 | 0.040 | 0.040 | no |
+| F1A | 0.057 | 0.073 ($t_{1/2} = 1$) | no | 0.059 | 0.052 | 0.047 | 0.045 | no |
+| G1 | 0.049 | 0.060 (AR(1) curve) | yes | 0.055 | 0.044 | 0.042 | 0.042 | no |
+| G2 | 0.047 | 0.066 (AR(1) curve) | yes | 0.062 | 0.043 | 0.045 | 0.046 | no |
+| F2 | 0.049 | 0.059 (MCAR dropout) | yes | 0.090 | 0.048 | 0.098 | 0.048 | yes |
+| ES | 0.048 | 0.059 (AR(1) curve) | yes | 0.049 | 0.063 | 0.049 | 0.050 | no |
+| EA | 0.052 | 0.070 ($N = 35$) | yes | 0.049 | 0.057 | 0.050 | 0.066 | no |
+| A | 0.057 | 0.087 ($N = 35$) | no | 0.416 | 0.195 | 0.222 | 0.051 | yes |
+| DA | 0.065 | 0.103 ($N = 35$) | no | 0.509 | 0.245 | 0.256 | 0.064 | yes |
+| R | 0.069 | 0.081 ($N = 35$) | no | 0.107 | 0.053 | 0.159 | 0.075 | yes |
+
+Table: Null rejection rates by analysis: pooled over the 11 non-prognostic null cells, largest single cell, and the four prognostic null cells
+
+The pooled rate is over 11,000 replicates, so its 2-MCSE band is 0.046
+to 0.054; a single cell has 1,000 replicates (MCSE 0.0069), and the
+criterion caps each cell at 0.075. An analysis is flagged when any
+prognostic null cell exceeds 0.075.
+
+**Reading.**
+
+- **Inference matters most at small $N$.** The unstructured model with
+  Kenward-Roger inference [5] rejects 0.087 at $N = 35$, and with an
+  AIC-chosen half-life 0.103. The random-intercept models with CR2
+  standard errors [3, 4] stay at or below 0.069 in every cell, except
+  F1A (0.073), whose half-life is chosen by AIC.
+- **Choosing the half-life by AIC inflates size slightly.** DS (0.053)
+  passes; F1A (0.057) and DA (0.065) do not. The selection step adds
+  variability that the standard errors do not reflect.
+- **The published reference arm is liberal** throughout (0.069 pooled),
+  as earlier documents found (`docs/45`).
+- **Baseline severity alone does little harm.** A prognostic association
+  with baseline severity enters every visit equally, so every analysis
+  stays within the cap in that cell (0.040 to 0.075; R reaches the cap
+  exactly, and EA reaches 0.066).
+
+## 4. Robustness to a prognostic biomarker
+
+Analyses that keep baseline as a response row and use one biomarker
+main effect for it and for the later visits attribute part of a
+prognostic association to the interaction (derived, `docs/48`, Section
+2). The size table shows this directly: S, DS, C1, C2, F2, A, DA and R
+are flagged, with null rejection rates up to 0.509 when the natural
+course is associated with the biomarker. F2's `bmc:t` term remedies the
+growing natural-course pathway (0.048) but not the constant one (0.090)
+or the placebo pathway (0.098).
+
+Two families stay within the cap in every prognostic cell:
+
+- **the expectancy-term models** F1, G1 and G2, which add $\eta_t$ and
+  $B^c_i \eta_t$ and so let the biomarker's association differ between
+  baseline, open-label and blinded visits;
+- **the free-baseline models** ES and EA, which give the baseline row
+  its own biomarker slope.
+
+Staying within the cap is an empirical result, not exact invariance. In
+the Hybrid design F1 leaves a small residual bias under a constant
+natural-course pathway, because the blinded on-drug and off-drug visits
+carry unequal weight, and ES leaks a little under the placebo pathway
+through the open-label visits (derived; `docs/49`, Section 3, and
+`docs/48`, Section 2).
+
+The protocol's rule recommends a flagged analysis only together with a
+remedy (ES, EA, F1 or F2) that is nominal in the failing cell. The
+remedies that pass every prognostic cell are themselves candidates, so
+the selection is made among the unflagged analyses.
+
+## 5. Sensitivity
+
+| Analysis | Monotone (AR(1) / CS) | Power at $c_{bm} = -0.30$ / $+0.30$ | Steepness | Detectable coupling |
+|---|---|---|---|---|
+| S | yes / yes | 0.450 / 0.514 | 2.32 | 0.446 |
+| DS | yes / yes | 0.422 / 0.486 | 2.21 | not reached |
+| C1 | yes / yes | 0.524 / 0.578 | 2.49 | 0.403 |
+| C2 | yes / yes | 0.554 / 0.606 | 2.65 | 0.403 |
+| F1 | yes / yes | 0.352 / 0.364 | 1.80 | not reached |
+| F1A | yes / yes | 0.326 / 0.338 | 1.67 | not reached |
+| G1 | yes / yes | 0.340 / 0.354 | 1.72 | not reached |
+| G2 | yes / yes | 0.360 / 0.380 | 1.75 | not reached |
+| F2 | yes / yes | 0.446 / 0.516 | 2.36 | not reached |
+| ES | yes / yes | 0.336 / 0.364 | 1.71 | not reached |
+| EA | yes / yes | 0.300 / 0.306 | 1.48 | not reached |
+| A | yes / yes | 0.510 / 0.534 | 2.48 | 0.430 |
+| DA | yes / yes | 0.472 / 0.498 | 2.25 | 0.434 |
+| R | yes / yes | 0.394 / 0.398 | 1.76 | not reached |
+
+Table: Size-adjusted power curves under AR(1): monotonicity in both constructs, power at plus and minus 0.30, steepness between 0.15 and 0.30, and the smallest coupling reaching power 0.80
+
+**Reading.**
+
+- **Every curve is monotone**, so the sensitivity screen removes no
+  analysis.
+- **The symmetry screen was defective.** The data-generating process
+  treats $+c_{bm}$ and $-c_{bm}$ alike, so power is symmetric in theory;
+  the observed differences between $-0.30$ and $+0.30$ (at most 0.070,
+  F2, against an MCSE of about 0.03 for a difference of two independent
+  cells of 500) are consistent with Monte Carlo error, and the screen
+  would have eliminated analyses for noise. It was dropped in
+  Amendment 1 (derived, `docs/48`, Section 4).
+- **The robust analyses are flatter.** Their steepness is 1.5 to 1.8,
+  against 2.2 to 2.7 for the flagged analyses other than R (1.76), and
+  none reaches power 0.80 by $c_{bm} = 0.45$ at $N = 70$. Steepness and
+  detectable coupling therefore cannot break ties among them.
+
+## 6. Power
+
+| Analysis | AR(1), $c_{bm} = 0.30$ | Compound symmetry, $c_{bm} = 0.25$ |
+|---|---|---|
+| S | 0.514 (0.508) | 0.554 (0.554) |
+| DS | 0.486 (0.516) | 0.480 (0.476) |
+| C1 | 0.578 (0.602) | 0.660 (0.658) |
+| C2 | 0.606 (0.606) | 0.656 (0.630) |
+| F1 | 0.364 (0.410) | 0.522 (0.544) |
+| F1A | 0.338 (0.436) | 0.446 (0.508) |
+| G1 | 0.354 (0.408) | 0.546 (0.552) |
+| G2 | 0.380 (0.426) | 0.528 (0.504) |
+| F2 | 0.516 (0.496) | 0.552 (0.552) |
+| ES | 0.364 (0.412) | 0.662 (0.634) |
+| EA | 0.306 (0.392) | 0.602 (0.596) |
+| A | 0.534 (0.566) | 0.618 (0.618) |
+| DA | 0.498 (0.592) | 0.572 (0.596) |
+| R | 0.398 (0.476) | 0.596 (0.594) |
+
+Table: Size-adjusted power (unadjusted in parentheses) in the two reference alternative cells, $N = 70$
+
+| Cell | S | C1 | F1 | G1 | G2 | ES | EA |
+|--------------------------|-----|-----|-----|-----|-----|-----|-----|
+| $N = 150$ | 0.828 | 0.918 | 0.748 | 0.752 | 0.754 | 0.704 | 0.698 |
+| $N = 35$ | 0.222 | 0.272 | 0.192 | 0.214 | 0.218 | 0.206 | 0.196 |
+| $t_{1/2} = 0$ | 0.594 | 0.666 | 0.496 | 0.510 | 0.532 | 0.504 | 0.490 |
+| $t_{1/2} = 1$ week | 0.388 | 0.502 | 0.272 | 0.282 | 0.306 | 0.288 | 0.294 |
+| Weibull decay, shape 0.5 | 0.404 | 0.514 | 0.308 | 0.296 | 0.378 | 0.270 | 0.230 |
+| Weibull decay, shape 2 | 0.588 | 0.682 | 0.504 | 0.526 | 0.526 | 0.458 | 0.464 |
+| Measurement error | 0.400 | 0.444 | 0.318 | 0.320 | 0.330 | 0.336 | 0.324 |
+| 20% MCAR dropout | 0.426 | 0.542 | 0.378 | 0.394 | 0.406 | 0.360 | 0.346 |
+| 20% MAR dropout | 0.418 | 0.518 | 0.382 | 0.404 | 0.378 | 0.356 | 0.322 |
+| Prognostic, TV constant | 0.606 | 0.774 | 0.482 | 0.520 | 0.524 | 0.370 | 0.378 |
+| Prognostic, TV growing | 0.516 | 0.672 | 0.378 | 0.484 | 0.490 | 0.192 | 0.208 |
+| Prognostic, placebo | 0.652 | 0.736 | 0.446 | 0.428 | 0.424 | 0.498 | 0.438 |
+| Prognostic, baseline | 0.444 | 0.552 | 0.396 | 0.394 | 0.406 | 0.336 | 0.290 |
+
+Table: Size-adjusted power at $c_{bm} = 0.30$ in the stress cells: the reference analysis S, the most powerful analysis C1, and the five robust analyses
+
+**Reading.**
+
+- **The phase-variance models are the most powerful** (C1 has the
+  highest power in every stress cell shown), but they fail the
+  prognostic cells badly, so their power is not available to a trial
+  whose biomarker may be prognostic.
+- **The cost of robustness depends on the correlation structure.** Under
+  AR(1) the robust analyses have 26% (G2) to 40% (EA) less
+  size-adjusted power than S at $c_{bm} = 0.30$; under compound
+  symmetry ES even exceeds S (0.662 against 0.554), and F1 is close
+  (0.522).
+- **The power reported for flagged analyses in prognostic cells is
+  size-adjusted**, so it is not the power a trial would see: unadjusted,
+  those analyses reject far too often under the null.
+- **The free-baseline models lose most when the natural course grows
+  with the biomarker** (0.192 and 0.208), which is why their all-cells
+  shortfall is large (Section 7).
+
+## 7. Selection
+
+The rule (`docs/46`, Section 7, as revised by Amendment 1) is applied to
+the analyses that pass the size screen and the sensitivity screen and
+are not flagged in a prognostic cell: ES, EA, F1, G1 and G2.
+
+| Analysis | Largest shortfall, non-prognostic cells | Worst cell | Largest shortfall, all cells | Worst cell |
+|---|---|---|---|---|
+| C1 (flagged) | 0.034 | Weibull 0.5 | 0.064 | TV growing |
+| C2 (flagged) | 0.040 | Weibull 2 | 0.040 | Weibull 2 |
+| S (flagged) | 0.144 | Weibull 0.5 | 0.220 | TV growing |
+| F2 (flagged) | 0.160 | Weibull 0.5 | 0.244 | TV growing |
+| DS (flagged) | 0.182 | CS curve, 0.25 | 0.214 | TV growing |
+| G2 | 0.232 | AR(1) curve, 0.375 | 0.312 | placebo |
+| F1 | 0.242 | AR(1) curve, 0.30 | 0.358 | TV growing |
+| G1 | 0.252 | Weibull 0.5 | 0.308 | placebo |
+| ES | 0.278 | Weibull 0.5 | 0.544 | TV growing |
+| EA | 0.318 | Weibull 0.5 | 0.528 | TV growing |
+
+Table: Maximin shortfall in size-adjusted power among the analyses that pass the size and sensitivity screens, over the non-prognostic alternative cells and over all alternative cells
+
+**Outcome.**
+
+1. **Smallest shortfall.** Over the non-prognostic alternative cells,
+   G2 (0.232) and F1 (0.242) are the two best robust analyses.
+2. **Tie.** They differ by 0.010, inside the rule's tie margin of 0.02.
+3. **First tie-break.** The smaller detectable coupling in the base
+   construct is undefined: neither reaches power 0.80 on the grid.
+4. **Last tie-break.** The analysis with fewer covariance parameters,
+   **F1**, is selected. F1 is also the only one of the two with CR2
+   inference; G2 relies on model-based standard errors.
+5. **Strawman rule.** The reference analysis DS is flagged in the
+   prognostic cells, so it cannot be retained; F1 replaces it. The
+   paired comparison makes the price explicit: F1 has significantly
+   lower size-adjusted power than DS in 15 of the 22 non-prognostic
+   alternative cells, and higher power in none.
+
+**The all-cells reading.** If the prognostic alternative cells are
+included in the maximin set, the order among the robust analyses is G1
+0.308, G2 0.312, F1 0.358, EA 0.528, ES 0.544, and the phase-variance
+versions lead F1 by about 0.05. The working protocol does not say
+whether those cells count. The non-prognostic reading is reported as
+the outcome because the prognostic cells are judged by their own
+screen. Under the all-cells reading G1 and G2 would tie (0.004 apart)
+ahead of F1, and the tie-breaks could not separate them, since they
+share one model and differ only in inference. The difference from F1
+arises mainly when the natural course is associated with the biomarker
+(G1 0.484 against F1 0.378 in that cell).
+
+## 8. Choosing the half-life by AIC
+
+DS, DA and F1A choose $t_{1/2}^{a}$ by AIC from {0, 0.25, 0.5, 1, 2}
+weeks (0 meaning a binary drug indicator), with maximum likelihood for
+the choice and a REML refit.
+
+| Analysis | 0 | 0.25 | 0.5 | 1 | 2 |
+|---|---|---|---|---|---|
+| DS | 0.170 | 0.144 | 0.299 | 0.208 | 0.179 |
+| DA | 0.188 | 0.144 | 0.294 | 0.181 | 0.193 |
+| F1A | 0.236 | 0.163 | 0.292 | 0.190 | 0.120 |
+
+Table: Share of fits choosing each analysis half-life, over all cells
+
+The choice is spread across the grid even though the true half-life is
+0.5 week in most cells, and the selection step costs size: F1A fails
+the size criterion where F1 passes, and DS loses about 0.03 of
+size-adjusted power against S at the AR(1) reference cell (0.486
+against 0.514). A fixed $t_{1/2}^{a} = 0.5$ week is therefore preferred
+with F1.
+
+## 9. Failed fits
+
+A fit that returned an error was recorded as missing. Failures number
+0 to 12 per analysis over 28,000 trials (G1 and G2 12; S, C1 and C2 6;
+F1, F1A and ES 3; DS and F2 2; A, DA, EA and R 0), and at most 0.6% in
+any cell (G1 and G2), below the 2% at which an analysis would be
+flagged.
+
+## 10. Limitations
+
+- **Exploratory.** The criteria, the reference analysis and the set of
+  analyses were revised after results were seen. The selection is
+  therefore a recommendation from an exploratory comparison, and
+  should be confirmed in an independent simulation study before it is
+  relied on.
+- **One design and one effect size.** Only the Hybrid design was
+  studied, with the alternative cells at $c_{bm} = 0.30$ (0.25 under
+  compound symmetry) and prognostic couplings of 0.3.
+- **The set of cells governs the maximin.** The outcome depends on
+  whether the prognostic alternative cells count (Section 7).
+- **Monte Carlo error.** Alternative cells have 500 replicates (MCSE of
+  power at most 0.022), so differences in shortfall below about 0.03
+  between two analyses are within noise for a single cell.
+- **The prognostic mechanisms exist only in the stress-test driver,**
+  not yet in the package (`docs/44`).
+
+## 11. Reproducibility
+
+All numbers in this document were read from stored outputs on
+2026-10-08:
+
+- `analysis/scripts/quick-sim/carryover-closed-form/11-strawman-stress-test.R`
+  produced the 28,000 trials and the fits (main run, `--extra` for G1
+  and G2, `--extra2` for F1A); replicate and summary files are in
+  `analysis/data/quick-sim/carryover-closed-form/strawman-stress/`
+  (`replicates-full*.rds`, `summary-full*.csv`).
+- `12-strawman-stress-decision.R --strawman DS --no-symmetry
+  --with-extras` applies the rule to all fourteen analyses and writes
+  `decision-screen-ds-nosym-all14.csv`,
+  `decision-sensitivity-ds-nosym-all14.csv`,
+  `decision-power-ds-nosym-all14.csv` and
+  `decision-maximin-ds-nosym-all14.csv`.
+- Seeds are set per chunk as $20261007 + 1000 \times \text{cell} +
+  \text{chunk}$, so results do not depend on the number of cores.
+
+## 12. References
+
+1. Morris TP, White IR, Crowther MJ. Using simulation studies to
+   evaluate statistical methods. *Statistics in Medicine*
+   2019;38(11):2074-2102. doi:10.1002/sim.8086.
+2. Hendrickson RC, Thomas RG, Schork NJ, Raskind MA. Optimizing
+   aggregated N-of-1 trial designs for predictive biomarker validation:
+   statistical methods and theoretical findings. *Frontiers in Digital
+   Health* 2020;2:13. doi:10.3389/fdgth.2020.00013.
+3. Bell RM, McCaffrey DF. Bias reduction in standard errors for linear
+   regression with multi-stage samples. *Survey Methodology*
+   2002;28(2):169-181.
+4. Pustejovsky JE, Tipton E. Small-sample methods for cluster-robust
+   variance estimation and hypothesis testing in fixed effects models.
+   *Journal of Business and Economic Statistics* 2018;36(4):672-683.
+   doi:10.1080/07350015.2016.1247004.
+5. Kenward MG, Roger JH. Small sample inference for fixed effects from
+   restricted maximum likelihood. *Biometrics* 1997;53(3):983-997.
+   doi:10.2307/2533558.
+6. pmsimstats team. `docs/44`, `docs/45`, `docs/46`, `docs/48`,
+   `docs/49`.

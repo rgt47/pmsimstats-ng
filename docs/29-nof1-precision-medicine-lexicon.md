@@ -1,7 +1,9 @@
 # N-of-1 Trials and Precision Medicine: A Detailed Lexicon {.unlisted .unnumbered}
 *2026-06-17 17:42 PDT*
 
-A working glossary of the terminology used across the N-of-1 / single-case
+**Author.** pmsimstats team
+
+**Purpose.** A working glossary of the terminology used across the N-of-1 / single-case
 trial and precision-medicine literature. Each entry pairs a technical term
 with a plain-language definition pitched at an undergraduate statistics
 major, and lists the alternative names the same concept carries in
@@ -18,7 +20,7 @@ compiled from standard methodology references. See the closing
 **How to read the synonym column.** Where biostatistics, psychometrics,
 and precision medicine use different names for the *same* underlying
 concept, all variants are listed together so the same idea can be
-recognised whatever vocabulary a given paper adopts. A condensed
+recognized whatever vocabulary a given paper adopts. A condensed
 same-concept / different-name map appears in Section 12.
 
 ---
@@ -30,30 +32,55 @@ same-concept / different-name map appears in Section 12.
 \clearpage
 ```
 
+## Notation index and glossary
+
+The lexicon is written in plain language and uses few symbols. Where
+an entry names one, it maps onto `analysis/report/NOTATION.md` as
+follows; symbols marked *local* have a meaning specific to a single
+entry and are not the canonical project symbol.
+
+| Symbol (as written in an entry) | Meaning | Status |
+|---|---|---|
+| $\rho$ (`rho`) | AR(1) serial correlation; also used for the ICC in some sources (the two coincide only under compound symmetry; see the ICC entry in Section 6) | canonical (AR(1)); local (ICC) |
+| $\alpha$ | significance level, the Type I error rate | canonical |
+| $\beta$ (beta), $1 - \beta$ | Type II error rate; power, written $\pi$ in project papers | local; canonical as $\pi$ |
+| $\lambda$ (`lambda`) | carryover decay rate in the exponential-decay entry | canonical |
+| $\lambda$ (smoothing parameter) | spline roughness penalty | local |
+| $\tau^2$ (tau-squared) | between-patient (between-study) variance in meta-analysis | local |
+| $\Sigma$, $\Omega$ | covariance matrices | local |
+| $X$, $Z$ | fixed-effects and random-effects design matrices | local |
+| $t$ | time | canonical |
+
+Table: Notation index and glossary of symbols used in this document
+
+Sections 1 to 13 are themselves the glossary. Where a British spelling
+appears in a synonym column (for example 'personalised'), it is listed
+deliberately as a variant that readers will meet in the literature.
+
 ## 1. Trial designs and architectures
 
 | Term | Plain-language definition | Synonyms / aliases (by field) |
 |---|---|---|
 | N-of-1 trial | A controlled experiment run inside a single patient, who is switched between treatments multiple times so the best treatment *for that one person* can be estimated. | single-patient trial; single-subject trial; single-case experimental design (SCED, psychology); individualized / idiographic clinical trial; one-person trial; n=1 RCT |
 | Aggregated N-of-1 trial | A set of separate single-patient trials pooled together to estimate both a population-average effect and sharpened individual effects. | series / combined / pooled N-of-1 trials; aggregated personalized studies; multiple N-of-1 study |
-| Single-case experimental design (SCED) | The behavioural-science family of designs that study one subject repeatedly across baseline and treatment phases; N-of-1 trials are the randomized-crossover member of this family. | single-subject design; single-case design; single-subject research |
+| Single-case experimental design (SCED) | The behavioral-science family of designs that study one subject repeatedly across baseline and treatment phases; N-of-1 trials are the randomized-crossover member of this family. | single-subject design; single-case design; single-subject research |
 | Crossover trial | A trial in which each participant receives the treatments in sequence over separate periods, serving as their own control. | cross-over / change-over trial; within-subject / within-patient design; repeated-measures comparison |
 | AB/BA (2x2) crossover | The simplest crossover: half the subjects get A then B, half get B then A, in two periods. | two-period two-treatment design; classical crossover |
 | Multiple-crossover design | A crossover in which the patient switches back and forth between treatments several times rather than once. | multi-crossover; repeated-period crossover; double crossover |
 | Parallel-group trial | A trial in which each participant receives only one treatment and group averages are compared between people. | parallel-group RCT (PG-RCT); between-participant / between-patient design |
 | Randomized controlled trial (RCT) | A study that assigns participants to treatments by chance to give an unbiased comparison. | controlled trial; randomized trial |
 | AB / ABAB design | Single-case notation for alternating a baseline/treatment (A) and an alternate treatment (B); ABAB introduces, withdraws, and reintroduces treatment. | reversal design; withdrawal design; challenge-withdrawal design |
-| Multiple-baseline design | A single-case design that staggers when treatment starts across people, settings, or behaviours to rule out coincidental change. | staggered-baseline design |
+| Multiple-baseline design | A single-case design that staggers when treatment starts across people, settings, or behaviors to rule out coincidental change. | staggered-baseline design |
 | Changing-criterion design | A single-case design in which the success threshold is shifted in steps and the outcome is shown to track each new target. | -- |
 | Alternating-treatments design | A single-case design that rapidly switches among two or more treatments within one subject to compare them. | multi-element design |
 | Open-label (OL) design | A study or phase in which both patient and staff know which (active) treatment is given. | unblinded design |
 | Blinded discontinuation (BDC) | A phase in which active treatment is secretly replaced by placebo to see whether benefit fades. | open-label + blinded discontinuation (OL+BDC) |
-| Micro-randomized trial (MRT) | A within-person trial (often via phone or wearable) that randomizes a brief intervention many times to build just-in-time adaptive interventions. | micro-randomised trial |
+| Micro-randomized trial (MRT) | A within-person trial (often via phone or wearable) that randomizes a brief intervention many times to build just-in-time adaptive interventions. | micro-randomised trial (British spelling) |
 | Interrupted time-series design | Repeated measurements on one unit compared in level/slope before and after a defined intervention point. | ITS; single-case time series |
 | Adaptive design | A trial allowing prospectively planned changes (e.g., dropping arms, reallocation) based on accumulating data. | response-adaptive / sequential design; group-sequential design |
 | Play-the-winner / response-adaptive randomization | An adaptive scheme that shifts the randomization odds toward the treatment performing better. | response-adaptive randomization |
 | Biomarker-stratified trial | A trial that splits randomization by a baseline biomarker and tests the treatment within each biomarker group and overall. | biomarker-driven / stratified design |
-| Enrichment / adaptive-enrichment design | A trial that preferentially enrols (or, after an interim look, narrows to) the patients most likely to respond. | population enrichment; adaptive enrichment |
+| Enrichment / adaptive-enrichment design | A trial that preferentially enrolls (or, after an interim look, narrows to) the patients most likely to respond. | population enrichment; adaptive enrichment |
 | Basket trial | One treatment tested across multiple diseases that share a common molecular target. | -- |
 | Umbrella trial | Multiple treatments matched to different biomarkers within a single disease. | -- |
 | Platform trial | A standing trial framework evaluating multiple treatments against a shared control, adding or dropping arms over time. | -- |
@@ -75,7 +102,7 @@ Table: Trial design and architecture terms with definitions and synonyms
 | Carryover effect | When a treatment's effect persists into and contaminates the following period. | carry-over; residual / lingering effect |
 | Simple carryover | A carryover whose size is the same regardless of which treatment follows; assumed to last only one period. | first-order carry-over |
 | Complex carryover | A carryover whose size or direction depends on the specific order or pairing of treatments. | treatment-sequence-dependent carryover |
-| Behavioural / psychometric carryover | A non-pharmacological carryover where earlier treatment changes habits, adherence, or how a patient remembers rating themselves, mimicking a drug carryover. | behavioural carry-over; recall carryover |
+| Behavioral / psychometric carryover | A non-pharmacological carryover where earlier treatment changes habits, adherence, or how a patient remembers rating themselves, mimicking a drug carryover. | behavioral carry-over; recall carryover |
 | Period effect | A systematic change in outcome tied to which time period it is, independent of treatment. | time / secular / nominal trend; cycle effect |
 | Order / sequence effect | A bias arising because the order in which treatments are given affects the response. | treatment-ordering effect |
 | Treatment-by-period interaction | When the treatment difference is not the same across periods, often a sign of carryover or instability. | period-by-treatment interaction |
@@ -119,11 +146,11 @@ Table: Randomization, blinding, and conduct terms with definitions and synonyms
 | Ordinary least squares (OLS) | Fitting a regression by minimizing the sum of squared residuals. | least-squares regression |
 | Generalized least squares (GLS) | Regression that accounts for correlated or unequal-variance errors, giving the best linear unbiased estimate. | weighted least squares (related); BLUE estimation |
 | Analysis of covariance (ANCOVA) | A regression that adjusts the outcome for a baseline covariate to improve precision. | baseline adjustment |
-| ANHECOVA | Covariate adjustment that includes all treatment-by-covariate interactions, guaranteeing an efficiency gain. | analysis of heterogeneous covariance |
+| ANHECOVA | Covariate adjustment that includes all treatment-by-covariate interactions; asymptotically it is never less efficient than the unadjusted or ANCOVA estimator. | analysis of heterogeneous covariance |
 | Change score | The outcome minus its baseline value, a simple (often inefficient) way to adjust for baseline. | difference score; baseline subtraction |
 | Proportional hazards (Cox) model | A survival regression in which covariates multiply a baseline rate of an event over time. | Cox regression; coxph |
 | Proportional odds model | An ordinal-outcome regression assuming covariate effects are constant across category thresholds. | cumulative logit model |
-| Dynamic regression model | A regression that explains the present outcome using lagged (past) values of itself and of predictors, absorbing autocorrelation. | autoregressive distributed-lag model; dynamic modelling |
+| Dynamic regression model | A regression that explains the present outcome using lagged (past) values of itself and of predictors, absorbing autocorrelation. | autoregressive distributed-lag model; dynamic modeling |
 | Paired t-test | A test comparing two related measurements (e.g., one patient on A vs B) by analyzing their differences. | matched-pairs / Student's t-test |
 | Serial t-test | A t-test for one person's repeated data that corrects the variance and degrees of freedom for serial correlation. | -- |
 | Randomization (permutation) test | A significance test that compares the observed effect with effects from many random reassignments of the treatment schedule. | permutation test; randomization-test reference set |
@@ -162,13 +189,13 @@ Table: Serial correlation and time-series terms with definitions and synonyms
 | Components of variation | The separate sources of variability in an outcome (between-treatment, between-patient, patient-by-treatment, within-patient). | variance components; sources of variation |
 | Between-patient variance | Variability in average outcomes from one patient to another. | between-subject variance; tau-squared (meta-analysis) |
 | Within-patient variance | Variability across repeated occasions in the same patient on the same treatment. | within-subject / residual / error variance |
-| Intraclass correlation coefficient (ICC) | The fraction of total variability due to differences between subjects; equivalently, how alike a subject's repeated measures are. | ICC; rho; intra-subject correlation |
+| Intraclass correlation coefficient (ICC) | The fraction of total variability due to differences between subjects. Under compound symmetry (a random intercept with independent residuals) it is also the correlation between any two of a subject's repeated measures; under AR(1) or other serial correlation that correlation varies with the time gap, and the ICC is not the same quantity as the AR(1) $\rho$. (Corrected 2026-10-08: this entry previously said "equivalently" without the compound-symmetry condition. See `analysis/report/compendium-mathematics.tex`, Section "What a random intercept absorbs under AR(1)".) | ICC; rho (under compound symmetry only); intra-subject correlation |
 | Covariance / variance-covariance matrix | A table of the variances and pairwise correlations of repeated measures or parameter estimates. | Sigma / Omega matrix; dispersion matrix |
 | Compound symmetry (CS) | A covariance pattern assuming every pair of repeated measures is equally correlated. | exchangeable correlation |
 | Unstructured covariance | A covariance pattern estimating every variance and correlation freely with no imposed shape. | general covariance |
 | Toeplitz covariance | A covariance pattern where the correlation depends only on how many timepoints apart two measures are. | banded covariance |
 | Kronecker correlation | Building a large correlation matrix as the structured product of smaller ones (e.g., within-period x between-period). | Kronecker-product structure |
-| Positive definite | A required property of a valid covariance matrix (no impossible negative variances). | PD |
+| Positive definite | A required property of a valid covariance matrix: every weighted combination of the variables has positive variance. | PD |
 | Heteroscedasticity | Unequal variance of the outcome across conditions or over time. | heteroskedasticity; unequal variances |
 | Variogram | A plot of how the variance of differences between measurements grows with the time gap, used to detect autocorrelation. | semivariogram |
 | Maximum likelihood estimation (MLE) | Choosing parameter values that make the observed data most probable. | ML; likelihood-based estimation |
@@ -212,7 +239,7 @@ Table: Variance, power, and estimation terms with definitions and synonyms
 | Weakly informative prior | A prior that gently constrains estimates to plausible ranges without strongly steering results. | -- |
 | Conjugate prior | A prior whose form yields a posterior in the same family, simplifying computation. | (e.g., inverse-gamma prior for a variance) |
 | Credible interval | A Bayesian interval containing the parameter with a stated probability given the data. | posterior interval; Bayesian confidence interval |
-| Posterior probability of benefit | The Bayesian probability that a treatment's true effect is favourable, read off the posterior. | -- |
+| Posterior probability of benefit | The Bayesian probability that a treatment's true effect is favorable, read off the posterior. | -- |
 | Hierarchical / partial pooling | Estimating group-specific values as a compromise between each group's own data and the overall average. | partial pooling; Bayesian shrinkage |
 | Exchangeability | Treating individuals' effects as interchangeable draws from a common distribution. | -- |
 | Markov chain Monte Carlo (MCMC) | A simulation algorithm that draws samples from a complex posterior to enable Bayesian computation. | MCMC; Gibbs / Metropolis sampling; JAGS / WinBUGS / Stan estimation |
@@ -233,7 +260,7 @@ Table: Bayesian methods terms with definitions and synonyms
 | Differential dropout | Unequal (or systematically different) dropout between treatment arms. | differential / relative attrition |
 | Biased / informative dropout | When those who leave differ systematically (e.g., responders quitting when switched to placebo), distorting results. | informative dropout |
 | Missing completely at random (MCAR) | Missingness unrelated to any observed or unobserved data. | MCAR |
-| Missing at random (MAR) | Missingness explainable by observed data, so it can be validly modelled / imputed. | ignorable missingness |
+| Missing at random (MAR) | Missingness explainable by observed data, so it can be validly modeled / imputed. | ignorable missingness |
 | Missing not at random (MNAR) | Missingness that depends on the unseen value itself and cannot be fully corrected from observed data. | nonignorable / informative missingness (IM) |
 | Last observation carried forward (LOCF) | Filling a missing value with the patient's last recorded value; simple but often biased. | -- |
 | Multiple imputation (MI) | Filling missing values several times from their predicted distribution and combining results to reflect uncertainty. | imputation |
@@ -257,7 +284,7 @@ Table: Missing data and dropout terms with definitions and synonyms
 | Percentage of all nonoverlapping data (PAND) | The proportion of data that would need removing to eliminate overlap between phases. | -- |
 | Standardized mean difference (SMD) | The mean difference between phases or treatments divided by a standard deviation, allowing comparison across scales. | between-case SMD; standardized effect size |
 | Multilevel meta-analysis of single cases | Combining many single-case datasets in a hierarchical model to estimate average effects and their variation across cases. | MultiSCED-type analysis |
-| Simulation Modelling Analysis (SMA) | A bootstrap-like resampling method generating null replicates to get empirical p-values for single-case data. | -- |
+| Simulation Modeling Analysis (SMA) | A bootstrap-like resampling method generating null replicates to get empirical p-values for single-case data. | -- |
 | Piecewise / segmented regression | Fitting separate linear segments to different phases (baseline vs treatment) of a series. | spline / discontinuity growth model |
 | Idiographic | Focused on patterns within a single individual. | within-person approach |
 | Nomothetic | Focused on general laws or averages across many individuals. | population approach |
@@ -273,7 +300,7 @@ Table: Single-case and psychometric effect measures with definitions and synonym
 
 | Term | Plain-language definition | Synonyms / aliases (by field) |
 |---|---|---|
-| Precision medicine | Tailoring treatment to an individual's biological, genetic, physiological, and behavioural profile. | personalized / personalised / individualized / stratified / tailored medicine |
+| Precision medicine | Tailoring treatment to an individual's biological, genetic, physiological, and behavioral profile. | personalized / personalised (British spelling) / individualized / stratified / tailored medicine |
 | Patient-by-treatment interaction | Genuine variation among patients in how strongly they respond to a treatment; the core target of personalized medicine. | treatment-effect heterogeneity (HTE); subject-by-treatment interaction; differential / individual response; effect modification |
 | Heterogeneity of treatment effects (HTE) | The fact that the same treatment helps different patients by different amounts. | treatment-effect heterogeneity; differential treatment effect |
 | Effect modifier | A patient characteristic that changes the size or direction of a treatment's effect. | moderator (psychology); interaction variable; predictive marker |
@@ -307,7 +334,7 @@ Table: Biomarker, precision-medicine, and heterogeneity terms with definitions a
 | Pharmacokinetic / pharmacodynamic (PK/PD) model | Models of how a drug's concentration changes over time (PK) and how concentration produces an effect (PD). | PK/PD model; Emax / dose-response model |
 | Half-life | The time for a drug's concentration (or effect) to fall by half; governs carryover length. | t-half; elimination rate; clearance |
 | Cumulative dose effect | A drug effect that depends on the whole dosing history, weighted toward recent doses. | dose-history dependence |
-| Modified Gompertz function | A three-parameter S-shaped curve (maximum response, rate, displacement) modelling a response rising to a plateau. | three-parameter Gompertz |
+| Modified Gompertz function | A three-parameter S-shaped curve (maximum response, rate, displacement) modeling a response rising to a plateau. | three-parameter Gompertz |
 | Exponential decay | A model where an effect shrinks by half over a fixed time, used for carryover persistence (`exp(-lambda * t)`). | half-life / lambda decay |
 | Regression to the mean | The tendency of extreme initial values to drift toward average on re-measurement, mimicking improvement. | -- |
 | Bioequivalence | Showing two drug formulations deliver the active ingredient similarly enough to be interchangeable. | average / population / individual bioequivalence |
@@ -325,7 +352,7 @@ Table: Biomarker, precision-medicine, and heterogeneity terms with definitions a
 | Comparative effectiveness research (CER) | Research comparing real-world treatments head-to-head to see which works better for whom. | head-to-head comparison; patient-centered outcomes research (PCOR) |
 | Evidence-based medicine (EBM) | Practicing medicine by applying the best current research evidence to patient care. | -- |
 | Therapeutic window | The dose range that is effective without causing harmful side effects. | therapeutic range |
-| Rare / ultra-rare disease | A condition affecting so few people that conventional group trials are infeasible, favouring N-of-1 designs. | low-volume treatment context |
+| Rare / ultra-rare disease | A condition affecting so few people that conventional group trials are infeasible, favoring N-of-1 designs. | low-volume treatment context |
 | Actigraphy | Using a wrist-worn motion sensor to objectively estimate sleep and activity. | actigraph; accelerometry |
 | Prazosin | An alpha-1 adrenoceptor antagonist studied for PTSD trauma nightmares and sleep disturbance (the project's running clinical example). | alpha-1 blocker |
 | PTSD / CAPS | Post-traumatic stress disorder; the Clinician-Administered PTSD Scale (CAPS) is a structured interview rating its symptom frequency and intensity. | post-traumatic stress disorder; CAPS-IV |
@@ -345,7 +372,7 @@ precision-medicine perspective.
 | A variable that changes a treatment's effect | treatment-by-covariate interaction; effect modification | moderator | predictive biomarker / effect modifier |
 | Subject-specific deviations in a model | random effects; variance components | between-case variance | (individual effects) |
 | Pulling individual estimates toward the mean | shrinkage; empirical Bayes / BLUP | -- | borrowing strength / partial pooling |
-| Correlation of nearby-in-time measures | serial correlation; AR(1); ICC | autocorrelation | -- |
+| Correlation of nearby-in-time measures | serial correlation; AR(1) (the ICC, previously listed here, is a synonym only under compound symmetry, where correlation does not depend on the time gap; corrected 2026-10-08) | autocorrelation | -- |
 | Combining many small studies/patients | mixed-model / IPD meta-analysis | multilevel meta-analysis of single cases | aggregated N-of-1 analysis |
 | The unobserved alternative outcome | counterfactual; potential outcome | -- | individual treatment effect (ITE) |
 | Multiple measurements per unit over time | repeated measures; longitudinal data | single-case time series | -- |
@@ -367,7 +394,7 @@ Table: Cross-field synonym map across biostatistics, psychometric, and precision
 | EQUATOR Network | An organization promoting accurate, transparent reporting of health research via guidelines. | Enhancing Quality and Transparency Of health Research |
 | Operating characteristics | A design's statistical performance profile (type I error, power, bias) across scenarios. | frequentist properties |
 | Pre-specification (a priori analysis) | Defining hypotheses and analyses before seeing data, to avoid data-driven false findings. | pre-registration |
-| Selective reporting / data dredging | Cherry-picking favourable analyses or subgroups, inflating false positives. | multiplicity; subgroup-fishing |
+| Selective reporting / data dredging | Cherry-picking favorable analyses or subgroups, inflating false positives. | multiplicity; subgroup-fishing |
 | Family-wise error rate (FWER) | The probability of at least one false positive across multiple tests. | multiplicity control |
 | Alpha allocation / spending | Dividing the overall significance level across hypotheses or interim looks to control multiplicity. | alpha splitting / spending; gatekeeping; fixed-sequence testing |
 | Internal vs external validity | Whether conclusions are valid within the studied sample (internal) versus generalize beyond it (external). | generalizability; applicability; representativeness |
@@ -388,8 +415,8 @@ Table: Reporting guideline and ethics terms with definitions and synonyms
   processing batch, but their concepts are redundantly covered by other
   articles). Three of the read files held mismatched or banner-only text
   (an unrelated BMJ news page, an arbovirus review, and a publisher
-  download banner) and contributed no terms; one file was mislabelled in
-  the catalogue (a Bayesian effective-sample-size paper) and was mined on
+  download banner) and contributed no terms; one file was mislabeled in
+  the catalog (a Bayesian effective-sample-size paper) and was mined on
   its actual content.
 - **Definitions** were extracted by reading the source texts; plain-language
   wording is the lexicon authors' paraphrase, *verified* against the
@@ -405,6 +432,3 @@ Table: Reporting guideline and ethics terms with definitions and synonyms
   interaction and an additive-scale effect coincide only on a particular
   scale).
 
----
-*Rendered on 2026-06-17 at 17:42 PDT.*<br>
-*Source: ~/prj/res/36-pmsimstats-ng/pmsimstats-ng/docs/29-nof1-precision-medicine-lexicon.md*

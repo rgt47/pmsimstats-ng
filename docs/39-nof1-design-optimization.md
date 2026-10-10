@@ -3,6 +3,23 @@
 
 **Author.** pmsimstats team
 
+**Purpose.** This paper uses the closed-form power of the
+paired-difference interaction statistic (`docs/37`) to identify which
+characteristics of an N-of-1 or crossover design determine its power to
+detect a biomarker-by-treatment interaction, to search the space of
+blinded two-sequence designs for the best and most robust designs under
+compound-symmetry and AR(1) correlation, and to turn the results into a
+procedure for choosing a design.
+
+(Updated 2026-10-09: results at $t_{1/2} > 0$ now use anchored
+carryover; see `docs/53`. The four scripts of Section 12 were rerun.
+Values changed by at most 0: no value quoted here changed, because the
+design search, the spacing study and the block comparison never use
+the response means, and the values quoted from `design-power.csv` are at
+$t_{1/2} = 0$; conclusions unchanged. Only that file's E9 power with a
+common intercept at $t_{1/2} > 0$, which this paper does not quote,
+changed, by at most 0.017 in CO.)
+
 ```{=latex}
 \clearpage
 \tableofcontents
@@ -10,6 +27,74 @@
 \listoffigures
 \clearpage
 ```
+
+## Notation index and glossary
+
+*Added 2026-10-07.* Notation follows `analysis/report/NOTATION.md` and
+`docs/37`. Symbols marked *local* are defined here. On 2026-10-07 the
+squared contrast-biomarker correlation was renamed from $\rho^2$ to
+$\rho_{\Delta B}^2$ (as in `docs/37`), the design-dependent slope from
+$\gamma$ to $\beta_{bm:D}$, the mean-moderation strength from $c_{bm}$
+to $\beta_{bm}$, the biomarker SD from $\sigma_B$ to $\sigma_{bm}$, the
+standardized biomarker from $z$ to $b$, the measurement-error share
+from $\nu$ to $\omega$, and the number of open-label visits from $k$ to
+$n_{\text{OL}}$; $\gamma$, $\nu$ and $k$ have other canonical meanings.
+On 2026-10-09 $\rho_{\Delta B}^2$ was renamed $r_{\Delta B}^2$, as in
+`docs/37` and `analysis/report/compendium-mathematics.tex`, because
+$\rho$ is the canonical serial correlation, and the squared
+correlation of the Section 2 note was written $\tilde r^2$ to keep it
+apart from that label. (Notation, 2026-10-09: following the merged
+`analysis/report/NOTATION.md`, the compound-symmetry correlation is
+written $\rho_{cs}$ and $\rho$ is the AR(1) correlation per week only;
+both are 0.8 here.)
+
+| Symbol | Meaning | Status |
+|------------------|----------------------------------------------|----------|
+| $N$ | total patients, 70, in two sequences of 35 | canonical |
+| $t$, $w_t$ | visit index; visit time in weeks | canonical; $w_t$ local |
+| $t_{sd}$, $t_{1/2}$ | time since discontinuation; carryover half-life in weeks, read as the response half-life of `docs/38` | canonical |
+| $\sigma_{BR}$, $\sigma_{bm}$ | SDs of the drug response and of the biomarker | canonical |
+| $b$ | standardized biomarker | canonical |
+| $\beta_{bm}$ | mean-moderation strength, 0.25 here | canonical |
+| $c_{bm}$ | covariance-moderation correlation (mentioned only for its ceiling) | canonical |
+| $\beta_{bm:D}$ | slope of the contrast on the biomarker, the interaction estimand | canonical |
+| $\rho$ | AR(1) within-factor correlation per week, 0.8 | canonical |
+| $\rho_{cs}$ | within-factor correlation between any two visits under CS, 0.8 | canonical |
+| $h_t$, $\bar h_{\text{off}}$ | share of the moderation present at visit $t$; its mean over off-drug visits | local |
+| $a_t$, $a$ | contrast weights, $1/n_{\text{on}}$ on drug and $-1/n_{\text{off}}$ off drug | canonical |
+| $n_{\text{on}}$, $n_{\text{off}}$ | on-drug and off-drug visits per patient | canonical |
+| $\Delta$ | a patient's on-minus-off contrast ($\Delta_i$) | canonical |
+| $r_{\Delta B}^2$ | the information: labeled the squared contrast-biomarker correlation, computed as the signal-to-noise ratio (Section 2 note) | local |
+| $\tilde r^2$ | the squared contrast-biomarker correlation itself (Section 2 note) | local |
+| $h$, $\bar h_C$, $\mathbf 1$ | moderation pattern vector; its $C^{-1}$-weighted mean; vector of ones (Section 10) | local |
+| $C$ | response covariance over visits | local |
+| $K$, $A$, $A'$ | factor correlation; AR(1) time kernel; kernel with measurement error | canonical ($A'$ local) |
+| $\omega$ | share of each factor's variance that is white measurement error | local |
+| $v$ | vector of factor SDs (constant expectancy) | local |
+| $\eta_t$ | design expectancy: 1 open label, 0.5 blinded (code `e`); written $e_t$ before 2026-10-07 | canonical |
+| $d$ | spacing between consecutive visits, weeks | local |
+| $f(d)$ | large-sample information of the alternating design | local |
+| $n_{\text{OL}}$ | number of open-label lead-in visits | local |
+
+Table: Notation index for the design optimization paper
+
+**Glossary.**
+
+- **E9.** The paired-difference statistic of `docs/37`: each patient's
+  on-drug mean minus off-drug mean, regressed on the biomarker; here
+  stratified by sequence.
+- **CS.** Compound symmetry: correlation $\rho_{cs} = 0.8$ between any
+  two visits of a factor.
+- **AR(1) with measurement error.** Separable AR(1) correlation plus a
+  white-noise share $\omega$ of each factor's variance.
+- **Switch.** A change between on drug and off drug from one visit to
+  the next within a sequence.
+- **Pattern.** The on/off string of the first sequence (1 on, 0 off);
+  the second sequence is its complement.
+- **BD and CO blocks.** A blinded-discontinuation block (everyone on
+  drug, paths differ in when the drug stops) and a crossover block.
+- **Relative power.** Power of a design divided by the best power
+  attainable in the same condition.
 
 ## 1. Summary
 
@@ -35,7 +120,9 @@ evaluation except where Monte Carlo is stated.
    lead-in costs power.** Under CS, Hybrid is not the most powerful
    design: blinded balanced designs, including the crossover, match or
    beat it, and running the Hybrid schedule blinded raises its power
-   from 0.72 to 0.80. Under AR(1), Hybrid beats the crossover because
+   from 0.72 to 0.80 (graded coupling; 0.663 to 0.739 under the decayed
+   mean moderation of Section 2, corrected 2026-10-08, see Section 3).
+   Under AR(1), Hybrid beats the crossover because
    its blinded-discontinuation visits sit next to on-drug visits and it
    switches three or four times; designs that alternate more often do
    better still (Section 3).
@@ -58,7 +145,9 @@ evaluation except where Monte Carlo is stated.
    counterbalanced two-sequence designs with eight blinded visits, seven
    spacings, three correlation structures and three response
    half-lives, the best design is the crossover at the widest spacing
-   under CS and the alternating design at two to four weeks under AR(1).
+   under CS and, in five of the six AR(1) conditions, the alternating
+   design at two to four weeks (the exception, 50% measurement error at
+   a two-week half-life, favors a four-switch design).
    A near-alternating design at four-week spacing never falls below 78%
    of the best attainable power in any of the nine conditions
    (Section 6).
@@ -70,7 +159,7 @@ evaluation except where Monte Carlo is stated.
 7. **The closed form is confirmed by simulation.** Direct Monte Carlo of
    41 designs, including the best design in every condition, agrees with
    the closed form within two standard errors in every case, and the
-   further 48 design-conditions of the block comparison agree to within
+   further 96 design-conditions of the block comparison agree to within
    three (Sections 8 and 9).
 
 ## 2. Framework
@@ -81,28 +170,43 @@ governed by the per-patient squared correlation between the contrast and
 the biomarker,
 
 $$
-\rho^2 = \frac{(\gamma\sigma_B)^2}{\mathrm{Var}(\Delta)}, \qquad
-\gamma = -c_{bm}\frac{\sigma_{BR}}{\sigma_B}\big(1 - \bar h_{\text{off}}\big),
+r_{\Delta B}^2 = \frac{(\beta_{bm:D}\,\sigma_{bm})^2}{\mathrm{Var}(\Delta)}, \qquad
+\beta_{bm:D} = -\beta_{bm}\frac{\sigma_{BR}}{\sigma_{bm}}\big(1 - \bar h_{\text{off}}\big),
 \qquad \mathrm{Var}(\Delta) = a^\top C a ,
 $$
 
 where $\bar h_{\text{off}}$ is the average share of the biomarker's
 moderation still present at the off-drug visits and $C$ the response
-covariance. The interaction itself, $c_{bm}\sigma_{BR}/\sigma_B$, does not
-depend on the design. A design therefore matters through two quantities
-only: the noise $a^\top C a$ of the contrast, and the surviving
-moderation $\bar h_{\text{off}}$. The *information* reported below is the
-patient-weighted $\rho^2$.
+covariance. The interaction without carryover,
+$-\beta_{bm}\sigma_{BR}/\sigma_{bm}$, does not depend on the design. A
+design therefore matters through two quantities only: the noise
+$a^\top C a$ of the contrast, and the surviving moderation
+$\bar h_{\text{off}}$. The *information* reported below is the
+patient-weighted $r_{\Delta B}^2$.
+
+(Corrected 2026-10-08: under mean moderation the biomarker shift adds
+$(\beta_{bm:D}\sigma_{bm})^2$ to the variance of $\Delta$, and
+$a^\top C a$ is the residual variance of the contrast, net of that
+shift. The ratio displayed above is therefore the signal-to-noise
+ratio $\tilde r^2/(1 - \tilde r^2)$, with
+$\tilde r^2 = (\beta_{bm:D}\sigma_{bm})^2 / \{a^\top C a + (\beta_{bm:D}\sigma_{bm})^2\}$ the squared
+contrast-biomarker correlation, not the squared correlation itself.
+The two are monotone in each other, so no design ranking or power in
+this paper changes; the label $r_{\Delta B}^2$ is kept for
+continuity. See `analysis/report/compendium-mathematics.tex`, Section
+"Design efficiency and time adjustment", the criterion.)
 
 **Data-generating rule.** Decayed mean moderation (`docs/37`,
 Section 5.6): the biomarker shifts the drug response by
-$c_{bm}\sigma_{BR}z\,h_t$, with $h_t = 1$ on drug and $2^{-t_{sd}/t_{1/2}}$
-off drug, $t_{sd}$ the time since discontinuation and $t_{1/2}$ the
-response half-life (`docs/38`). It has the same slope as graded coupling
-but no ceiling on $c_{bm}$, so the comparison of designs is not distorted
+$\beta_{bm}\sigma_{BR}b\,h_t$, with $h_t = 1$ on drug and
+$2^{-t_{sd}/t_{1/2}}$ off drug, $t_{sd}$ the time since discontinuation
+and $t_{1/2}$ the response half-life (`docs/38`). Its $\beta_{bm}$ is on
+the same numeric scale as the covariance-moderation $c_{bm}$ (NOTATION.md,
+rule 2), so the rule has the same slope as graded coupling at a matched
+value, but no ceiling, and the comparison of designs is not distorted
 by which effect sizes each design can represent. Under the covariance
-constructs, high-information designs have lower ceilings (`docs/37`,
-Section 5.8), an artifact this choice avoids.
+constructs, high-information designs have lower ceilings on $c_{bm}$
+(`docs/37`, Section 5.8), an artifact this choice avoids.
 
 **Correlation structures.** Three, from `docs/37` Section 5.8 and an
 extension of it:
@@ -111,10 +215,10 @@ extension of it:
   visits of a factor.
 - **AR(1) with measurement error**: the separable form $K \otimes A'$
   with time kernel
-  $A'_{ts} = (1 - \nu)\rho^{|w_t - w_s|} + \nu\,\mathbf 1[t = s]$,
-  $\rho = 0.8$ per week of separation, and a share $\nu$ of each
-  factor's variance that is white measurement error, $\nu = 0.2$ or
-  $0.5$.
+  $A'_{ts} = (1 - \omega)\rho^{|w_t - w_s|} + \omega\,\mathbf 1[t = s]$,
+  $\rho = 0.8$ per week of separation, and a share $\omega$ of each
+  factor's variance that is white measurement error, $\omega = 0.2$ or
+  $0.5$ (Figure 1 also shows $\omega = 0$).
 
 The measurement-error share matters. Pure AR(1) has none, so visits
 placed very close together become nearly perfectly correlated, the
@@ -127,7 +231,7 @@ occasion-level term.
 **Designs and analysis.** Eight post-baseline visits, $N = 70$, two
 counterbalanced sequences of 35 patients (an on/off pattern and its
 complement), blinded (expectancy 0.5) except where Section 7 adds an
-open-label lead-in, $c_{bm} = 0.25$. The analysis is E9 with
+open-label lead-in, $\beta_{bm} = 0.25$. The analysis is E9 with
 sequence-specific intercepts, so that sequence and period differences,
 which E9's common intercept counts as noise (`docs/37`, Section 5.7), do
 not enter. Response half-lives of 0.5, 1 and 2 weeks.
@@ -156,7 +260,7 @@ Table: Components of the contrast variance $\mathrm{Var}(\Delta)$ under CS by de
   and three costs 7%, six and two 33%.
 - **Expectancy confounding.** Open-label visits are always on drug, so
   they make the on/off contrast partly an open-label against blinded
-  contrast ($\sum_t a_t e_t \neq 0$). The person-level part of the
+  contrast ($\sum_t a_t \eta_t \neq 0$). The person-level part of the
   expectancy factor then no longer cancels and enters the contrast,
   together with that factor's doubled standard deviation at open-label
   visits.
@@ -168,11 +272,26 @@ So under CS the Hybrid design's open-label lead-in costs power: blinded,
 the same schedule has power 0.80 instead of 0.72 (E9), and giving the
 crossover an open-label first period lowers its power from 0.82 to 0.56.
 
+(Corrected 2026-10-08: these four powers, and the 0.72 to 0.80 of
+Section 1, item 2, were computed under graded covariance coupling at
+$c_{bm} = 0.25$, $t_{1/2} = 0$ (`02-design-characteristics.R`,
+`design-power.csv`), not under the decayed mean moderation that Section
+2 fixes for this paper. Under the stated rule, with the stratified
+statistic of Section 6, the Hybrid design has power 0.663 published
+against 0.739 blinded, and the crossover 0.765 against 0.524 with an
+open-label first period. The direction of both effects, and their
+approximate size, are unchanged. See
+`analysis/report/compendium-mathematics.tex`, Section "Design
+efficiency and time adjustment", subsection "Contrast variance by
+design under CS and AR(1)".)
+
 **Under AR(1),** with constant expectancy the separable variance is a
-product, $\mathrm{Var}(\Delta) = (s^\top K s)(a^\top A a)$, and the time
-part $a^\top A a$ is where designs differ. It is small when every
-on-drug visit has an off-drug visit close to it (per path, no
-measurement error, verified):
+product, $\mathrm{Var}(\Delta) = (v^\top K v)(a^\top A a)$, and the time
+part $a^\top A a$ is where designs differ. (For the designs with
+open-label visits the product form does not hold exactly, which is why
+their $\mathrm{Var}(\Delta)$ is not proportional to $a^\top A a$.) The
+time part is small when every on-drug visit has an off-drug visit close
+to it (per path, no measurement error, verified):
 
 | Design | Switches | $a^\top A a$ | $\mathrm{Var}(\Delta)$ |
 |---|---|---|---|
@@ -188,8 +307,8 @@ Table: Time part $a^\top A a$ and $\mathrm{Var}(\Delta)$ under AR(1) by design
 This is the Hybrid design's real advantage over the crossover and
 OL+BDC designs: its weekly blinded-discontinuation visits sit next to
 on-drug visits, and it switches three or four times rather than once or
-twice. The same idea taken further, an alternating design, has a
-quarter of the crossover's contrast noise.
+twice. The same idea taken further, an alternating design, has about a
+fifth of the crossover's contrast noise (42.3 against 212.8).
 
 ## 4. More on-off switches
 
@@ -228,13 +347,7 @@ cancels (correlation $\rho^d$); off-drug visits far from discontinuation
 retain less moderation ($2^{-d/t_{1/2}}$). Figure 1 shows power against
 spacing for three arrangements (verified, closed form).
 
-![Power against visit spacing](figures/39-fig1-optimal-spacing.png)
-
-*Figure 1. Power against the time between visits for three blinded
-counterbalanced arrangements, by response half-life (light to dark,
-0.25 to 4 weeks), under CS and AR(1) with 0%, 20% and 50% measurement
-error. Eight visits, so the trial lasts eight times the spacing.
-Points mark the spacing of highest power on the 0.25-6 week grid.*
+![Power against the time between visits for three blinded counterbalanced arrangements, by response half-life (light to dark, 0.25 to 4 weeks), under CS and AR(1) with 0%, 20% and 50% measurement error. Eight visits, so the trial lasts eight times the spacing. Points mark the spacing of highest power on the 0.25-6 week grid.](figures/39-fig1-optimal-spacing.png)
 
 **Under CS there is no interior optimum.** Correlation does not depend
 on spacing, so wider is always better, up to a plateau. The practical
@@ -312,16 +425,11 @@ half-lives and moves to the edge as the half-life grows.
 near the best, and the lower bands are the designs with unequal
 numbers of on and off visits, as Section 3 predicts: at a half-life of
 0.5 weeks, power is 0.763-0.765 with four on-drug visits, 0.737-0.739
-with three or five, and 0.643-0.645 with two or six (verified). Under AR(1) power rises steadily with the
-number of switches.
+with three or five, and 0.643-0.645 with two or six (verified). Under
+AR(1) power generally rises with the number of switches (Section 4
+gives the exceptions).
 
-![All designs at their best spacing](figures/39-fig2-design-landscape.png)
-
-*Figure 2. Every one of the 119 designs at its best spacing, against
-the number of switches in its first sequence, for each structure (rows)
-and half-life (columns). Dark open symbols: the crossover, ABAB and
-alternating reference designs. Orange: the best design in each
-condition.*
+![Every one of the 119 designs at its best spacing, against the number of switches in its first sequence, for each structure (rows) and half-life (columns). Dark open symbols: the crossover, ABAB and alternating reference designs. Orange: the best design in each condition.](figures/39-fig2-design-landscape.png)
 
 **Robustness.** The correlation structure and the response half-life of
 a real drug and outcome are uncertain, so a design that performs well
@@ -344,20 +452,21 @@ switching is penalized, in exchange for most of the AR(1) gain.
 
 ## 7. Open-label components
 
-Hendrickson et al.'s Hybrid and OL+BDC designs begin with open-label
+Hendrickson et al.'s [1] Hybrid and OL+BDC designs begin with open-label
 visits, often needed for dose titration. In the data-generating model,
-expectancy $e_t$ (1 at open-label visits, 0.5 at blinded ones) scales the
+expectancy $\eta_t$ (1 at open-label visits, 0.5 at blinded ones) scales the
 placebo (expectancy) factor's mean and standard deviation. Because that
 factor is unrelated to the biomarker in the model, the higher placebo
 response during open-label visits does not bias the interaction slope;
-it changes only the noise. The search was repeated with $k = 0$ to 4
-open-label on-drug visits for every patient, followed by counterbalanced
-blinded sequences over the remaining $8 - k$ visits, and two analyses:
+it changes only the noise. The search was repeated with
+$n_{\text{OL}} = 0$ to 4 open-label on-drug visits for every patient,
+followed by counterbalanced blinded sequences over the remaining
+$8 - n_{\text{OL}}$ visits, and two analyses:
 the open-label visits included in the on/off contrast, as E9 and the
 published analysis do, or left out of it. Best power over patterns and
 spacings (verified):
 
-| Structure | $t_{1/2}$ | $k = 0$ | 1, in / out | 2, in / out | 3, in / out | 4, in / out |
+| Structure | $t_{1/2}$ | $n_{\text{OL}} = 0$ | 1, in / out | 2, in / out | 3, in / out | 4, in / out |
 |---|---|---|---|---|---|---|
 | CS | 0.5 | 0.765 | 0.722 / 0.701 | 0.679 / 0.644 | 0.605 / 0.551 | 0.547 / 0.479 |
 | CS | 1 | 0.759 | 0.707 / 0.686 | 0.661 / 0.627 | 0.583 / 0.530 | 0.521 / 0.456 |
@@ -367,9 +476,13 @@ spacings (verified):
 | AR(1), 20% error | 2 | 0.314 | 0.257 / 0.258 | 0.217 / 0.228 | 0.181 / 0.192 | 0.160 / 0.163 |
 | AR(1), 50% error | 0.5 | 0.400 | 0.358 / 0.352 | 0.311 / 0.311 | 0.262 / 0.261 | 0.231 / 0.220 |
 | AR(1), 50% error | 1 | 0.352 | 0.314 / 0.305 | 0.278 / 0.271 | 0.238 / 0.227 | 0.210 / 0.194 |
-| AR(1), 50% error | 2 | 0.265 | 0.228 / 0.217 | 0.208 / 0.196 | 0.179 / 0.165 | 0.161 / 0.144 |
+| AR(1), 50% error | 2 | 0.265 | 0.228 / 0.217 | 0.208 / 0.197 | 0.179 / 0.165 | 0.161 / 0.144 |
 
 Table: Best power by number of open-label visits, included in or excluded from the contrast
+
+(Corrected 2026-10-08: the entry for AR(1), 50% error, $t_{1/2} = 2$,
+two open-label visits excluded, was given as 0.196; it recomputes as
+0.197, a quadrature difference in the last digit.)
 
 - **Each open-label visit that replaces a blinded visit costs power**,
   under every structure and half-life: with the better of the two
@@ -441,10 +554,11 @@ Table: Power of four blinded block types after the open-label lead-in
 - **Under AR(1) the CO block is better** (0.277 against 0.231 without
   carryover). In its off-off-on-on sequence the off-drug observations
   lie between on-drug observations, the open-label visits before and the
-  restart after, so serially correlated noise is cancelled on both sides;
+  restart after, so serially correlated noise is canceled on both sides;
   in the BD block every off-drug observation comes at the end.
 
-The differences are 0.02 to 0.05, small beside the effects of balance,
+The differences between the Hybrid's BD block and the CO block are at
+most 0.05 (0.004 to 0.046), small beside the effects of balance,
 spacing and the number of observations.
 
 **The Hybrid design with a four-observation CO block.** Four designs,
@@ -482,8 +596,16 @@ Table: Power of the published Hybrid design and three CO-block variants
 - **Adding two observations to the CO block**, the change suggested by
   extending it to four observations like the BD block, raises power in
   every condition, by 0.03 to 0.12, mostly through the extra
-  observations and the balance they bring (the CS contrast variance
-  falls from 46.9 to 36.3-36.7). Weekly observations give the shorter
+  observations and the balance they bring (the CS residual contrast
+  variance $a^\top C a$ falls from 44.58 to 34.27 at every half-life).
+  (Corrected 2026-10-08: this was given as "from 46.9 to 36.3-36.7",
+  which are path means of $\mathrm{Var}(\Delta)$ including the
+  mean-moderation shift at $t_{1/2} = 1$; the residual variance that
+  determines precision is 44.58 for the published and equal-visit
+  designs and 34.27 for the ten-visit designs. See
+  `analysis/report/compendium-mathematics.tex`, Section "Design
+  efficiency and time adjustment", subsection "Blinded-discontinuation
+  and crossover blocks".) Weekly observations give the shorter
   trial and are better under AR(1) without carryover; two-weekly
   observations keep the 20-week length and are better under CS with
   carryover.
@@ -555,8 +677,16 @@ inferred from the closed form and confirmed for the designs simulated.
    and period differences otherwise enter the residual and cost power.
 6. **Weight the contrast by the covariance.** E9 weights all on-drug and
    all off-drug visits equally, which is not optimal under AR(1); the
-   best linear contrast is proportional to $C^{-1}$ times the moderation
-   pattern, which a correctly specified mixed model approximates.
+   best linear contrast among those whose weights sum to zero (so that
+   it cancels the baseline level and any biomarker main effect) is
+   proportional to $C^{-1}(h - \bar h_C \mathbf 1)$, with $h$ the
+   moderation pattern and $\bar h_C = \mathbf 1^\top C^{-1} h /
+   \mathbf 1^\top C^{-1} \mathbf 1$, which a correctly specified mixed
+   model attains. (Corrected 2026-10-08: this was stated as $C^{-1}$
+   times the moderation pattern, $C^{-1} h$, which omits the sum-zero
+   projection. See `analysis/report/compendium-mathematics.tex`,
+   Section "Design efficiency and time adjustment", subsection "The
+   most efficient contrast".)
 7. **Search the design space with the closed form.** The evaluation of
    one design is instantaneous, so the full space of sequences and
    spacings can be searched for the conditions of a given trial, and
@@ -580,8 +710,8 @@ inferred from the closed form and confirmed for the designs simulated.
   lower $c_{bm}$ ceilings and could not represent the same effect sizes;
   under proportional moderation (`docs/38`), on-drug moderation would
   also build up during titration.
-- **The correlation structures.** CS and separable AR(1) with $\rho = 0.8$
-  per week and 0%, 20% or 50% measurement error. Which describes real
+- **The correlation structures.** CS with $\rho_{cs} = 0.8$ and separable
+  AR(1) with $\rho = 0.8$ per week and 0%, 20% or 50% measurement error. Which describes real
   symptom data is an empirical question that decides the ranking of
   designs.
 - **The analysis.** Stratified E9 with equal weights. A mixed model with
@@ -604,7 +734,7 @@ Rscript analysis/scripts/quick-sim/carryover-closed-form/05-block-comparison.R \
   --mc-reps 5000 --cores 6
 ```
 
-Run from the repository root. All three scripts evaluate the
+Run from the repository root. All four scripts evaluate the
 definitions of `01-e9-closed-form.R` (`docs/37`). Outputs are written to
 `analysis/data/quick-sim/carryover-closed-form/` (design structure and
 spacing tables) and its `design-search/` subdirectory (the full search,
@@ -617,7 +747,8 @@ and `docs/figures/39-fig2-design-landscape.png`.
 1. Hendrickson RC, Thomas RG, Schork NJ, Raskind MA. Optimizing
    aggregated N-of-1 trial designs for predictive biomarker validation:
    statistical methods and theoretical findings. *Frontiers in Digital
-   Health* 2020; 2:13. Code: `github.com/rchendrickson/pmsimstats`,
+   Health* 2020; 2:13. doi:10.3389/fdgth.2020.00013. Code:
+   `github.com/rchendrickson/pmsimstats`,
    commit `58b32a9`.
 2. pmsimstats team. `docs/37-carryover-power-closed-form.md` (closed-form
    moments, the factor-by-time decomposition and the validation of the

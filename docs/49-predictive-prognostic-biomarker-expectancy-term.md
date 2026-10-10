@@ -19,6 +19,12 @@ evidence from the stress test (`docs/46`, `docs/48`), and ends with a
 decision framework and a recommendation. Results still running are
 marked as pending.
 
+**Update (2026-10-07).** The three runs that were pending when this
+paper was written (baseline-severity cells, F1 with an AIC-selected
+half-life, F1 with phase-specific variances) are complete. Their
+results are entered in Sections 3 to 7, with dated notes; the
+recommendation is unchanged (`docs/46`, Amendment 2).
+
 ```{=latex}
 \clearpage
 \tableofcontents
@@ -35,15 +41,23 @@ Notation follows `analysis/report/NOTATION.md`, `docs/45` and
 |----------------|----------------------------------------|----------|
 | $Y_{it}$ | symptom score (code `Sx`); $t = 0$ is baseline | canonical |
 | $\mathrm{BL}_i$, $BR_{it}$, $PB_{it}$, $TV_{it}$ | baseline level; drug, expectancy and natural-course responses | canonical |
-| $B_i$, $b_i$ | biomarker (code `bm`, centered `bmc`); standardized biomarker | canonical |
-| $D_{bc,it}$ | exposure-decayed drug indicator (code `Dbc`) | canonical |
-| $e_t$ | expectancy: 0 at baseline, 1 in the open-label phase, 0.5 when blinded (code `De`) | canonical (`docs/40`) |
-| $\beta_B$, $\beta_{bm:D}$ | biomarker main effect; biomarker-by-drug interaction | local (`docs/41`); canonical |
-| $\beta_{bm:e}$ | coefficient of `bmc:De`, the biomarker-by-expectancy term | local |
+| $B_i$, $b_i$, $B^c_i$ | biomarker (code `bm`); standardized biomarker; biomarker centered at the baseline sample mean (code `bmc`) | canonical |
+| $D_{it}$, $D_{bc,it}$ | binary drug state; exposure-decayed drug indicator (code `Dbc`) | canonical |
+| $\eta_t$ | expectancy: 0 at baseline, 1 in the open-label phase, 0.5 when blinded (code `De`) | canonical (NOTATION.md) |
+| $\beta_B$, $\beta_{bm:D}$ | biomarker main effect; biomarker-by-drug interaction | canonical |
+| $\beta_{bm:\eta}$ | coefficient of `bmc:De`, the biomarker-by-expectancy term | canonical |
+| $\beta_{B,0}$ | coefficient of `bmc:bl0`, the extra biomarker slope at baseline in ES | canonical |
 | $s_0$, $s_t$ | true slope of $Y$ on $B$ at baseline, and at post-baseline visit $t$ | local (`docs/48`) |
+| $s_{\text{off}}$, $s_{\text{prog}}$, $f$ | true slope at post-baseline off-drug visits; prognostic slope; share of it absorbed by a shared $\beta_B$ | local $s_{\text{off}}$ (`docs/48`); canonical |
 | $c_{bm}$ | predictive coupling: biomarker-BR correlation on drug | canonical |
-| $c_{bm,TV}$, $c_{bm,PB}$, $c_{bm,BL}$ | prognostic couplings: biomarker correlation with TV, PB, BL | local |
+| $g_t$ | graded coupling weight: 1 on drug, $2^{-t_{sd}/t_{1/2}}$ off drug after exposure, 0 before | canonical |
+| $c_{bm,TV}$, $c_{bm,PB}$, $c_{bm,BL}$ | prognostic couplings: biomarker correlation with TV, PB, BL | canonical |
 | $\beta_{bm}^{TV}$ | biomarker moderation of the natural-course mean | canonical (component slope) |
+| $G_{TV}(t)$ | Gompertz mean curve of the natural course, $G(t; m, d, r)$ with the natural-course parameters | canonical |
+| $\sigma_{BR}$ | SD of the drug response (8 in the stress-test construct) | canonical |
+| $\sigma_{TV}$, $\sigma_{BL}$ | SDs of the natural course (10) and of the baseline level | canonical |
+| $n_{\text{on}}$, $n_{\text{off}}$, $n_v$ | numbers of blinded on-drug and off-drug rows; number of rows of visit kind $v$ (baseline, open label, blinded on, blinded off), which are the total weights in the four-slope least-squares fit under working independence (formerly $w_{\text{on}}$, $w_{\text{off}}$, $w_v$) | canonical |
+| $\rho$ | AR(1) serial correlation per week | canonical |
 | $\pi$ | power | canonical |
 
 Table: Notation index and glossary of symbols used in this document
@@ -99,6 +113,7 @@ $D_{bc,it}$ at an assumed half-life of 0.5 week):
    | natural course, constant | 0.099 | 0.047 | 0.049 |
    | natural course, growing | 0.049 | 0.046 | 0.063 |
    | placebo response | 0.100 | 0.040 | 0.049 |
+   | baseline severity (added 2026-10-07) | 0.050 | 0.040 | 0.050 |
    | nothing (11 standard cells, pooled) | 0.048 | 0.051 | 0.048 |
 
    Table: Null rejection rates of S, F1 and ES by biomarker linkage, stress test
@@ -113,7 +128,7 @@ $D_{bc,it}$ at an assumed half-life of 0.5 week):
    That arm had 35 participants, so the evidence cannot rule out a
    prognostic association of the size that biases S.
 7. **Recommendation.** Include the expectancy term in the primary
-   analysis (F1), with S and ES as pre-specified sensitivity analyses.
+   analysis (F1), with S and ES as sensitivity analyses.
    A material disagreement between F1 and S is itself evidence that the
    biomarker is prognostic. Reverse the roles only if independent data
    show that the biomarker is not prognostic.
@@ -130,13 +145,14 @@ post-baseline visits.
 | Drug response, $c_{bm}$ | predictive | 0 | $-c_{bm}\sigma_{BR}\,g_t$ | full on drug, decaying off drug |
 | Natural course, $c_{bm,TV}$ | prognostic | 0 | $-c_{bm,TV}\sigma_{TV}$ | constant after baseline |
 | Natural course, $\beta_{bm}^{TV}$ | prognostic | 0 | $-\beta_{bm}^{TV}\sigma_{TV}\,G_{TV}(t)/\max G_{TV}$ | grows with the natural course |
-| Placebo response, $c_{bm,PB}$ | prognostic | 0 | $-c_{bm,PB}\cdot 10\,e_t$ | scales with expectancy |
+| Placebo response, $c_{bm,PB}$ | prognostic | 0 | $-c_{bm,PB}\cdot 10\,\eta_t$ | scales with expectancy |
 | Baseline severity, $c_{bm,BL}$ | prognostic | $c_{bm,BL}\sigma_{BL}$ | $c_{bm,BL}\sigma_{BL}$ | constant at every visit, baseline included |
 
 Table: Biomarker pathways by kind with implied baseline and post-baseline slopes
 
-*Slopes per SD of biomarker, derived from the construct: $\sigma_{TV} = 10$,
-the PB SD is $10e_t$, and $g_t$ is the graded coupling.*
+*Slopes per SD of biomarker, derived from the stress-test construct
+(configuration C at $\rho = 0.7$; `docs/46`, Section 5): $\sigma_{TV} = 10$,
+the PB SD is $10\eta_t$, and $g_t$ is the graded coupling.*
 
 Only the first row is the estimand. In every other row the
 biomarker's association does not depend on drug, so a correct
@@ -148,26 +164,26 @@ make some of these pathways dangerous.
   zero at baseline and nonzero afterwards. A baseline-severity
   association is the same at every visit.
 - **Expectancy and drug are confounded in the open-label phase.** Every
-  open-label visit is on drug and has $e_t = 1$, while every off-drug
-  visit is blinded with $e_t = 0.5$. A slope that scales with
+  open-label visit is on drug and has $\eta_t = 1$, while every off-drug
+  visit is blinded with $\eta_t = 0.5$. A slope that scales with
   expectancy is therefore larger on drug than off drug on average, even
   with no drug interaction.
 
 ## 3. What each analysis assumes
 
 Write the biomarker slope the analysis fits at each kind of visit. With
-$D_{bc} = 1$ on drug and close to 0 off drug:
+$D_{bc,it} = 1$ on drug and close to 0 off drug:
 
 | Visit | S | ES | F1 |
 |---|---|---|---|
-| baseline | $\beta_B$ | $\beta_B + \beta_0$ | $\beta_B$ |
-| open label, on drug | $\beta_B + \beta_{bm:D}$ | $\beta_B + \beta_{bm:D}$ | $\beta_B + \beta_{bm:e} + \beta_{bm:D}$ |
-| blinded, on drug | $\beta_B + \beta_{bm:D}$ | $\beta_B + \beta_{bm:D}$ | $\beta_B + 0.5\beta_{bm:e} + \beta_{bm:D}$ |
-| blinded, off drug | $\beta_B$ | $\beta_B$ | $\beta_B + 0.5\beta_{bm:e}$ |
+| baseline | $\beta_B$ | $\beta_B + \beta_{B,0}$ | $\beta_B$ |
+| open label, on drug | $\beta_B + \beta_{bm:D}$ | $\beta_B + \beta_{bm:D}$ | $\beta_B + \beta_{bm:\eta} + \beta_{bm:D}$ |
+| blinded, on drug | $\beta_B + \beta_{bm:D}$ | $\beta_B + \beta_{bm:D}$ | $\beta_B + 0.5\beta_{bm:\eta} + \beta_{bm:D}$ |
+| blinded, off drug | $\beta_B$ | $\beta_B$ | $\beta_B + 0.5\beta_{bm:\eta}$ |
 
 Table: Biomarker slope fitted by S, ES and F1 at each kind of visit
 
-Here $\beta_0$ is the coefficient of `bmc:bl0`.
+Here $\beta_{B,0}$ is the coefficient of `bmc:bl0`.
 
 **S** ties baseline to the off-drug visits. Under any pathway with
 $s_0 \ne s_{\text{off}}$, the fitted $\beta_B$ falls between the two
@@ -180,26 +196,51 @@ weight of the baseline row.
 **ES** frees baseline but assumes one post-baseline off-drug slope. It
 is exact when the prognostic slope is constant after baseline.
 
-**F1** frees baseline through $e_0 = 0$, and lets the slope change with
-expectancy. Under an expectancy-scaled pathway ($s_t \propto e_t$), the
+**F1** frees baseline through $\eta_0 = 0$, and lets the slope change with
+expectancy. Under an expectancy-scaled pathway ($s_t \propto \eta_t$), the
 `bmc:De` term absorbs it exactly. Under a constant post-baseline
 pathway, F1 misfits the open-label and blinded slopes. But the misfit
 is the same at blinded on-drug and blinded off-drug visits, so it
 cancels in the blinded contrast that then identifies $\beta_{bm:D}$
-(derived from the table). In both cases the interaction rests on the
+(derived from the table). The cancellation is exact for a weighted
+least-squares fit of the four slopes, with visits treated as
+independent and $D_{bc,it} = 0$ off drug, when the blinded on-drug and
+off-drug visits carry equal total weight: the normal equations then
+give $\hat\beta_{bm:D} = 0$ whatever the weights of the baseline and
+open-label visits. With unequal weights, or under serial correlation,
+a residual bias can remain (derived); the simulated rejection rates of
+0.046 and 0.047 suggest it is small in this design.
+
+(Note 2026-10-08.) The equal-weight condition does not hold in the
+Hybrid design: the blinded on-drug and off-drug visits carry total
+weights 176 and 244 (the row counts $n_{\text{on}}$ and $n_{\text{off}}$),
+so F1 is only approximately unbiased under a
+constant post-baseline pathway. The limit is
+$\hat\beta_{bm:D} \to s_{\text{prog}}(1/n_{\text{off}} -
+1/n_{\text{on}})/\sum_v 1/n_v$ (derived). (Notation, 2026-10-09: the row
+counts were written $w_{\text{on}}$, $w_{\text{off}}$, $w_v$; $w_t$ is
+reserved for the calendar week.) Per unit of $s_{\text{prog}}$
+the residual bias is $-0.051$ with binary $D_{it}$ and independent visits,
+$-0.020$ with $D_{bc,it}$, $0.089$ under a random-intercept CAR(1) working
+covariance and $0.171$ under the true AR(1) covariance (verified,
+computed in the published construct of `04-power-simulation.R`, not
+the stress-test construct; `analysis/report/compendium-mathematics.tex`,
+Section on the prognostic biomarker). The simulated 0.047 is consistent
+with a bias of this size. In both cases the interaction rests on the
 comparison the Hybrid design was built to make clean: blinded on drug
 against blinded off drug, at the same expectancy.
 
 **Baseline severity** gives $s_0 = s_t$ at every visit, so the constancy
 assumption holds and S should be unbiased. This is a prediction; the
-simulation is running (Section 5).
+simulation is running (Section 5). (Confirmed 2026-10-07: S rejects
+0.050 in the baseline-severity null cell; Section 5.)
 
 ## 4. What F1 gives up
 
 F1 estimates two biomarker slopes that S constrains. Its interaction
 then draws on less of the data:
 
-- the open-label visits mostly inform $\beta_{bm:e}$ rather than
+- the open-label visits mostly inform $\beta_{bm:\eta}$ rather than
   $\beta_{bm:D}$;
 - the baseline row no longer informs the off-drug slope.
 
@@ -218,6 +259,7 @@ Size-adjusted power (verified, stress test, 500 replicates per cell):
 | Natural course prognostic, constant, $c_{bm} = 0.30$ | (biased) | 0.482 | 0.370 |
 | Natural course prognostic, growing, $c_{bm} = 0.30$ | (nominal) 0.516 | 0.378 | 0.192 |
 | Placebo prognostic, $c_{bm} = 0.30$ | (biased) | 0.446 | 0.498 |
+| Baseline-severity prognostic, $c_{bm} = 0.30$ (added 2026-10-07) | (nominal) 0.444 | 0.396 | 0.336 |
 
 Table: Size-adjusted power of S, F1 and ES by stress-test cell
 
@@ -230,7 +272,7 @@ Two observations:
   test is biased there; "size-adjusted" corrects the level, not the
   bias.
 
-## 5. Pending results
+## 5. Pending results (completed 2026-10-07)
 
 Three post hoc runs on the same simulated trials are in progress
 (`11-strawman-stress-test.R`):
@@ -248,6 +290,36 @@ Three post hoc runs on the same simulated trials are in progress
 These results will be added here when they are in. They are post hoc:
 they can motivate a change in recommendation but not settle it.
 
+**Results (2026-10-07; verified, `decision-*-ds-nosym-all14.csv`,
+`docs/46`, Amendment 2).**
+
+| Analysis | Pooled null, 11 standard cells | Worst standard cell | Prognostic null cells (4) | AR(1), $c_{bm} = 0.30$ | CS, $c_{bm} = 0.25$ |
+|---|---|---|---|---|---|
+| F1 | 0.051 | 0.062 | 0.040 to 0.047 | 0.364 | 0.522 |
+| F1A (F1, AIC half-life) | 0.057 | 0.073 ($t_{1/2} = 1$) | 0.045 to 0.059 | 0.338 | 0.446 |
+| G1 (F1, phase variances, CR2) | 0.049 | 0.060 | 0.042 to 0.055 | 0.354 | 0.546 |
+| G2 (F1, phase variances, model-based) | 0.047 | 0.066 | 0.043 to 0.062 | 0.380 | 0.528 |
+
+Table: Size and size-adjusted power of F1 and the three post hoc analyses
+
+1. **Baseline severity.** The prediction holds. In the null cell every
+   analysis is within the cell limit of 0.075, from 0.040 (F1) to 0.075
+   (the published analysis); S rejects 0.050. In the alternative cell
+   S has the higher power (0.444 against 0.396 for F1), as expected
+   when the constancy assumption holds.
+2. **F1A fails the size criterion.** Its pooled rate of 0.057 is
+   outside the 2-MCSE band (0.046 to 0.054), and it rejects 0.073 when
+   $t_{1/2} = 1$. With the expectancy terms in the model, selecting the
+   half-life by AIC is anticonservative, and it also costs power
+   (0.026 at $c_{bm} = 0.30$ in the AR(1) construct). It is not
+   recommended.
+3. **G1 and G2 keep F1's robustness but add little power.** Both are
+   nominal in every standard and prognostic null cell. Averaged over
+   the 16 non-prognostic alternative cells of the AR(1) construct they
+   gain 0.002 (G1) and 0.017 (G2) over F1. G2 and F1 tie within 0.02
+   on maximin shortfall (0.232 against 0.242), and the tie goes to F1,
+   which has fewer covariance parameters (`docs/48`, Section 5).
+
 ## 6. Decision framework
 
 **Question 1: is there independent evidence that the biomarker is not
@@ -261,9 +333,11 @@ stronger evidence, treat the biomarker as possibly prognostic.
 
 - **Natural course or placebo response.** A noradrenergic marker could
   plausibly track spontaneous improvement or placebo response.
-  F1 is robust to all three forms simulated.
-- **Baseline severity only.** S is expected to be valid, but this does
-  not remove the risk from the other pathways.
+  F1 held its size under all three forms simulated (0.040 to 0.047);
+  under the constant form this is approximate, not exact (Section 3).
+- **Baseline severity only.** S is valid (0.050 in the simulated
+  null cell, Section 5), but this does not remove the risk from the
+  other pathways.
 
 **Question 3: what is the cost of protection?** It depends on the
 serial correlation the trial is likely to show. If pilot data suggest
@@ -271,7 +345,7 @@ little serial correlation beyond a participant effect, F1 costs little.
 Under strong serial correlation it costs about 30% of the power. The
 sample size should then be planned for F1, not for S.
 
-**Question 4: how should disagreement be read?** Pre-specify S as a
+**Question 4: how should disagreement be read?** Report S as a
 sensitivity analysis. If F1 and S agree, the conclusion does not
 depend on the constancy assumption. If they disagree materially, the
 disagreement is itself evidence of a prognostic association. Report
@@ -282,19 +356,23 @@ it.
 
 1. **Primary analysis: F1.** Random intercept with `corCAR1` residuals,
    CR2 standard errors, linear time, baseline as a response row,
-   $D_{bc}$ at a pre-specified half-life of 0.5 week, and
+   $D_{bc,it}$ at a fixed half-life of 0.5 week, and
    `De + bmc:De`.
-2. **Pre-specified sensitivity analyses:**
+2. **Sensitivity analyses:**
    - S (constancy assumed);
    - ES (baseline freed, expectancy not modeled);
-   - binary $D$ in place of $D_{bc}$.
+   - binary $D_{it}$ in place of $D_{bc,it}$.
 3. **Plan the sample size for F1,** with the serial-correlation
    assumption stated.
 4. **Revisit when the pending runs are in.** F1 with an AIC-selected
    half-life may replace the fixed half-life on grounds of face
    validity, at a power cost to be measured. The phase-variance version
    of F1 may replace F1 if it holds size everywhere with materially more
-   power. Either change would need a confirmatory run.
+   power. Either change would need an independent run.
+   (Revisited 2026-10-07, Section 5: F1 with AIC selection fails the
+   size criterion, and the phase-variance versions hold size but add no
+   material power. F1 with the fixed half-life of 0.5 week remains the
+   primary analysis.)
 
 ## 8. Limitations
 
@@ -303,7 +381,8 @@ it.
 - **Single pathways only.** Combinations, for example natural course
   and placebo together, were not simulated.
 - **Linear, Gaussian couplings.** A biomarker that acts on the rate
-  rather than the size of response is outside the construct.
+  rather than the size of response is outside the stress-test
+  construct.
 - **One design.** The expectancy argument is specific to the Hybrid
   design's confounding of open-label and on-drug visits. In a fully
   blinded crossover the expectancy term would be constant and
@@ -319,6 +398,13 @@ Rscript analysis/scripts/quick-sim/carryover-closed-form/11-strawman-stress-test
   --cores 8 --chunk 25
 Rscript analysis/scripts/quick-sim/carryover-closed-form/12-strawman-stress-decision.R \
   --strawman DS --no-symmetry
+# post hoc analyses (G1, G2; F1A) and the 14-analysis decision
+Rscript analysis/scripts/quick-sim/carryover-closed-form/11-strawman-stress-test.R \
+  --cores 8 --chunk 25 --extra
+Rscript analysis/scripts/quick-sim/carryover-closed-form/11-strawman-stress-test.R \
+  --cores 8 --chunk 25 --extra2
+Rscript analysis/scripts/quick-sim/carryover-closed-form/12-strawman-stress-decision.R \
+  --strawman DS --no-symmetry --with-extras
 ```
 
 Outputs are in `analysis/data/quick-sim/carryover-closed-form/strawman-stress/`.
@@ -327,7 +413,7 @@ Outputs are in `analysis/data/quick-sim/carryover-closed-form/strawman-stress/`.
 
 1. Kent DM, Paulus JK, van Klaveren D, et al. The Predictive Approaches
    to Treatment effect Heterogeneity (PATH) statement. *Annals of
-   Internal Medicine* 2020; 172(1):35-45.
+   Internal Medicine* 2020; 172(1):35-45. doi:10.7326/M18-3667.
 2. Raskind MA, Millard SP, Petrie EC, et al. Higher pretreatment blood
    pressure is associated with greater posttraumatic stress disorder
    symptom reduction in soldiers treated with prazosin. *Biological
@@ -335,5 +421,6 @@ Outputs are in `analysis/data/quick-sim/carryover-closed-form/strawman-stress/`.
 3. Liu GF, Lu K, Mogg R, Mallick M, Mehrotra DV. Should baseline be a
    covariate or dependent variable in analyses of change from baseline
    in clinical trials? *Statistics in Medicine* 2009; 28(20):2509-2530.
+   doi:10.1002/sim.3639.
 4. pmsimstats team. `docs/40`, `docs/41`, `docs/45`, `docs/46`,
    `docs/48`.

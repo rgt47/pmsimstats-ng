@@ -3,7 +3,7 @@
 
 **Author.** pmsimstats team
 
-**Purpose.** The stress test pre-registered in `docs/46` was run on
+**Purpose.** The stress test set out in `docs/46` was run on
 2026-10-06 and 07: 39 cells, 26,500 simulated trials and 11 analyses,
 with 27 failed fits in 291,500. Its results turn on five issues. This
 paper explains each from first principles and gives the evidence for
@@ -13,12 +13,19 @@ it:
    baseline;
 2. why a prognostic biomarker breaks every analysis that does so;
 3. what *freeing* the baseline biomarker effect does;
-4. the pre-registered symmetry screen, and why it failed;
+4. the symmetry screen of the working protocol, and why it failed;
 5. the untested combination of the recommended analysis with
    phase-specific variances.
 
-The full results report, against the pre-registration, is reserved for
+The full results report, against the working protocol, is reserved for
 `docs/47`.
+
+**Update (2026-10-07).** After this paper was drafted, two
+baseline-severity cells (40 and 41) and three post hoc analyses (G1,
+G2, F1A) were run on the same trials, bringing the study to 41 cells,
+28,000 trials and 14 analyses (`docs/46`, Amendment 2). The figures
+below for the original 11 analyses and 39 cells are unchanged; the new
+results are added in Sections 2, 3 and 5.
 
 ```{=latex}
 \clearpage
@@ -37,12 +44,16 @@ Notation follows `analysis/report/NOTATION.md`, `docs/45` and
 | $Y_{it}$ | symptom score (code `Sx`); $t = 0$ is baseline | canonical |
 | $B_i$ | biomarker (blood pressure); centered in every analysis (code `bmc`) | canonical |
 | $D_{bc,it}$ | exposure-decayed drug indicator (code `Dbc`), 0 at baseline | canonical |
-| $\beta_B$ | biomarker main effect in the analysis model | local (`docs/41`) |
+| $\beta_B$ | biomarker main effect in the analysis model | canonical |
 | $\beta_{bm:D}$ | biomarker-by-drug interaction, the estimand | canonical |
 | $s_0$, $s_{\text{off}}$, $s_{\text{on}}$ | true slope of $Y$ on $B$ at baseline, at post-baseline off-drug visits, at on-drug visits | local |
-| $s_{\text{prog}}$ | prognostic slope: the slope of $Y$ on $B$ that does not depend on drug | local |
-| $f$ | the share of $s_{\text{prog}}$ that a shared $\beta_B$ absorbs | local |
+| $s_{\text{prog}}$ | prognostic slope: the slope of $Y$ on $B$ that does not depend on drug | canonical |
+| $f$ | the share of $s_{\text{prog}}$ that a shared $\beta_B$ absorbs | canonical |
 | $c_{bm}$ | biomarker-BR coupling (the predictive effect) | canonical |
+| $c_{bm,BL}$ | biomarker-baseline correlation (baseline-severity prognostic coupling) | canonical |
+| $\mu_{bm}$, $B^*$ | population mean of the biomarker (alongside $\sigma_{bm}$); the biomarker reflected about it, $2\mu_{bm} - B$ | canonical; local $B^*$ |
+| $\rho$ | AR(1) serial correlation per week | canonical |
+| $\rho_{cs}$ | common correlation of a compound-symmetry construct, the same at every lag | canonical; row added 2026-10-09 |
 | $\pi$ | power | canonical |
 
 Table: Notation index and glossary of symbols, meanings and status
@@ -64,6 +75,9 @@ $D_{bc,it}$ at an assumed half-life of 0.5 week.
   `bmc:bl0`.
 - **DS** and **DA**: S and A with the half-life chosen by AIC.
 - **R**: the published analysis.
+- **G1**, **G2** (post hoc): F1 with residual variance by phase, with
+  CR2 and with model-based inference. **F1A** (post hoc): F1 with the
+  half-life chosen by AIC.
 
 **Glossary.**
 
@@ -75,6 +89,17 @@ $D_{bc,it}$ at an assumed half-life of 0.5 week.
   nominal.
 - **Size-adjusted power.** Power when each analysis rejects at its own
   5% null quantile, so analyses are compared at equal size.
+- **AR(1) construct, CS construct.** The stress test's two correlation
+  structures (`docs/46`, Section 5). The AR(1) construct is
+  configuration C of `docs/36` at $\rho = 0.7$: separable AR(1) with
+  graded coupling, the covariance construct of the refined process of
+  paper 01. It is not the refined process in full, because the driver
+  keeps the published recursive carryover and allocation (inspected in
+  `11-strawman-stress-test.R`). The CS construct is compound symmetry
+  with common correlation $\rho_{cs} = 0.8$ at every lag, with graded
+  coupling ($\rho$ is reserved for the AR(1) serial correlation).
+  (Notation, 2026-10-09: the compound-symmetry correlation is written
+  $\rho_{cs}$, the symbol of `analysis/report/NOTATION.md`.)
 
 ## 1. The shared biomarker effect
 
@@ -160,14 +185,19 @@ and the larger the leak.
 | A (unstructured, KR) | heavy | 0.416 | 0.195 | 0.222 |
 | R (published) | moderate | 0.107 | 0.053 | 0.159 |
 
-Table: Baseline weight and null rejection under prognostic biomarker cells
+Table: Baseline weight and null rejection under prognostic biomarker cells (1,000 simulated trials per cell)
 
-*1,000 simulated trials per cell (verified). TV: blood pressure
-correlated 0.3 with the natural-course component, at every visit or
-growing along its curve. PB: correlated 0.3 with the placebo
-component.*
+TV: blood pressure correlated 0.3 with the natural-course component, at
+every visit (constant) or growing along its curve. PB: correlated 0.3
+with the placebo component. The rates are verified; the weighting
+account is inferred.
 
-The rates are verified; the weighting account is inferred.
+**Baseline severity does not break it** (verified, cell 40, added
+2026-10-07). When blood pressure is correlated 0.3 with the baseline
+level, its association with $Y$ is the same at every visit, so
+$s_0 = s_{\text{off}}$ and the constraint is correct. Every analysis is
+then within the cell limit: S 0.050, DS 0.055, C1 0.054, A 0.051 and
+R 0.075 (the limit itself).
 
 - **The unstructured model fails worst.** It weights the baseline row
   most heavily, because baseline is the off-drug observation least
@@ -196,8 +226,16 @@ The direct remedy gives baseline its own slope:
 
 Table: Slope of the biomarker in the model for each group of rows
 
-The interaction is now identified from post-baseline visits alone, and
-nothing that happens at baseline can leak into it. This is ES. It is
+The interaction is now identified from post-baseline visits alone, so a
+difference between the baseline slope and the post-baseline slope no
+longer leaks into it. This is ES. (Note 2026-10-08: ES is not immune to
+every prognostic pathway. A slope that scales with expectancy, as in
+the placebo-prognostic case, is larger at the open-label visits, which
+are all on drug, and leaks into $\beta_{bm:D}$ by a factor of 0.14 to
+0.24 of $s_{\text{prog}}$ depending on the working covariance (verified,
+published construct; `analysis/report/compendium-mathematics.tex`).
+The stress-test rejection rate of 0.049 in the PB cell is consistent
+with a small leak.) It is
 equivalent to analyzing baseline as a covariate (`docs/41`, Section 7,
 confirmed in `docs/45`, Section 6).
 
@@ -215,9 +253,10 @@ case directly.
 | F1 | 0.051 | 0.047 | 0.046 | 0.040 |
 | F2 (`bmc:t` only) | 0.049 | 0.090 | 0.048 | 0.098 |
 
-Table: Null rejection of analyses that free the baseline biomarker effect
+Table: Null rejection of analyses that free the baseline biomarker effect (verified)
 
-*Verified.*
+In the baseline-severity null cell (added 2026-10-07) these rates are
+ES 0.050, EA 0.066, F1 0.040 and F2 0.048 (verified).
 
 F2 shows that modeling the time course alone is not enough. It repairs
 only the growing natural-course case, because it does not free the
@@ -227,7 +266,10 @@ baseline slope.
 throws away the information the baseline row contributed. Under AR(1)
 data this costs about a third of the power (0.364 against 0.514 above).
 Under compound symmetry the participant effect already supplies that
-information, and the cost largely disappears (verified):
+information, and the two analyses part ways (verified): ES gains power
+over S (0.662 against 0.554, a difference of 0.108), while F1 still
+loses a little (0.522, a difference of 0.032). The mechanism behind
+ES's gain is not derived in any document.
 
 | Size-adjusted power | S | ES | F1 |
 |---|---|---|---|
@@ -246,20 +288,29 @@ differ in power by condition (verified):
 | PB prognosis, $c_{bm} = 0.30$ | 0.498 | 0.446 |
 | maximin shortfall, all cells | 0.186 | 0.140 |
 
-Table: Size-adjusted power and maximin shortfall of ES and F1 by cell
+Table: Size-adjusted power of ES and F1 by cell, with maximin shortfall of each relative to the better of the two
 
-- When the biomarker is purely predictive, ES is slightly better.
+The shortfalls here compare ES and F1 with each other only. Measured
+against the best nominal survivor in each cell, as in the decision rule,
+they are larger: on the non-prognostic cells F1 0.242 and ES 0.278, so
+F1 ranks ahead of ES (`docs/46`, Amendments 1 and 2; verified,
+`decision-maximin-ds-nosym-all14.csv`).
+
+- When the biomarker is purely predictive, ES is slightly better head
+  to head (mean size-adjusted power 0.352 against 0.341 over the 22
+  non-prognostic cells), although its worst shortfall from the best
+  survivor is larger.
 - When it is prognostic, F1 keeps its power across all three forms;
   ES loses most of it when the association grows over time.
 
 The ranking therefore depends on whether the prognostic alternative
-cells count. The pre-registration does not settle this; `docs/47` will
+cells count. The working protocol does not settle this; `docs/47` will
 report both versions. `docs/46` recommends F1 because it is robust in
 size and in power.
 
 ## 4. The symmetry screen
 
-**What was pre-registered.** One component of sensitivity (`docs/46`,
+**What the protocol specified.** One component of sensitivity (`docs/46`,
 Section 3) required that power at $-c_{bm}$ be within 2 Monte Carlo SE
 of power at $+c_{bm}$. It was tested at $\pm 0.30$ in the AR(1)
 construct and $\pm 0.20$ in the compound-symmetry construct. An analysis
@@ -267,7 +318,7 @@ failing either test could not be selected.
 
 **Why power is exactly symmetric** (derived). In these cells the
 biomarker is correlated only with the drug-response component. Let
-$B^* = 2\mu_B - B$, the biomarker reflected about its mean. $B^*$ has
+$B^* = 2\mu_{bm} - B$, the biomarker reflected about its mean. $B^*$ has
 the same mean and variance as $B$, and its covariance with every other
 variable has the opposite sign. So the joint distribution of
 $(B^*, \text{everything else})$ under $+c_{bm}$ is exactly that of
@@ -329,17 +380,22 @@ sampling impossible.
 
 | Rule | Survivors | Selected |
 |---|---|---|
-| As pre-registered | C2, F1 | C2 by maximin, but flagged by the prognostic screen; only F1 passes every screen |
-| Symmetry screen dropped (a deviation) | S, C1, C2, DS, ES, EA, F1, F2 | C1 by maximin (0.034), but flagged; among the unflagged, ES on non-prognostic cells, F1 on all cells |
+| Original protocol | C2, F1 | C2 by maximin, but flagged by the prognostic screen; only F1 passes every screen |
+| Symmetry screen dropped (a protocol revision) | S, C1, C2, DS, ES, EA, F1, F2 | C1 by maximin (0.034), but flagged; among the unflagged, ES on non-prognostic cells, F1 on all cells |
 
 Table: Survivors and selected analysis with and without the symmetry screen
 
 Either way, the analyses that are both nominal and robust to a
 prognostic biomarker are ES, EA and F1, and the recommendation of F1
 does not depend on the faulty screen. `docs/47` will present the
-as-registered outcome first and the deviation second.
+outcome under the original protocol first and the revision second.
 
-## 5. Combining F1 with phase-specific variances (not yet tested)
+With the three post hoc analyses added (2026-10-07), the survivors
+without the symmetry screen also include G1 and G2, the robust set is
+ES, EA, F1, G1 and G2, and F1 is selected on the tie rule (`docs/46`,
+Amendment 2).
+
+## 5. Combining F1 with phase-specific variances (tested post hoc)
 
 **The idea.** C1 and C2 were the most powerful analyses in nearly every
 non-prognostic cell. For example, at $c_{bm} = 0.30$ in the AR(1)
@@ -382,9 +438,10 @@ nlme::lme(Sx ~ bmc + t + Dbc + bmc:Dbc + De + bmc:De,
   $N = 35$, where C1 was already the highest of the CR2 analyses
   (0.069, within the cell limit).
 
-**Status.** Untested. It was not among the pre-registered analyses, so
-any result is post hoc. It can motivate a recommendation, but it cannot
-replace the pre-registered one without a confirmatory run.
+**Status (as drafted).** Untested. It was not among the analyses of the
+original protocol, so any result is post hoc. It can motivate a
+recommendation, but it cannot replace the protocol's selection without
+an independent run.
 
 **The test.** One arm on the same 39 cells and the same trials, run as a
 post hoc extension of `11-strawman-stress-test.R`, takes about 3 to 4
@@ -394,6 +451,35 @@ hours. It succeeds if two conditions hold:
   prognostic cells;
 - its size-adjusted power exceeds F1's by a margin worth its
   complexity, say 0.05 in the AR(1) cells.
+
+**Result (2026-10-07; verified, `docs/46`, Amendment 2).** The
+combination was fitted with CR2 inference (G1) and with model-based
+inference (G2), on all 41 cells.
+
+| Analysis | Pooled null, 11 standard cells | Prognostic null cells (4) | AR(1), $c_{bm} = 0.30$ | CS, $c_{bm} = 0.25$ | Maximin shortfall, non-prognostic |
+|---|---|---|---|---|---|
+| F1 | 0.051 | 0.040 to 0.047 | 0.364 | 0.522 | 0.242 |
+| G1 | 0.049 | 0.042 to 0.055 | 0.354 | 0.546 | 0.252 |
+| G2 | 0.047 | 0.043 to 0.062 | 0.380 | 0.528 | 0.232 |
+
+Table: Size and size-adjusted power of F1 and its phase-variance versions G1 and G2
+
+- **The first condition holds.** Both versions are nominal in every
+  standard and prognostic null cell, the baseline-severity cell
+  included. The extra weight on the baseline row is harmless once the
+  baseline slope is freed, as hoped.
+- **The second does not.** Averaged over the 16 non-prognostic
+  alternative cells of the AR(1) construct, the gain over F1 is 0.002
+  for G1 and 0.017 for G2; the largest single-cell gain is 0.070 (G2,
+  Weibull $k = 0.5$). At $c_{bm} = 0.30$ it is $-0.010$ and $+0.016$
+  (verified). The power C1 had over S does not survive freeing the
+  baseline slope, which supports the second reason for doubt above.
+- **Selection.** G2 and F1 tie within 0.02 on maximin shortfall;
+  neither reaches power 0.80 on the grid, so the tie goes to F1, which
+  has fewer covariance parameters. Over all alternative cells,
+  prognostic ones included, G1 (0.308) and G2 (0.312) lead F1 (0.358),
+  mainly through the natural-course prognostic alternatives. Neither
+  reading justifies replacing F1 with a post hoc analysis.
 
 ## 6. Summary
 
@@ -410,8 +496,10 @@ hours. It succeeds if two conditions hold:
 - The symmetry screen was a design error: it tested an exact identity
   with noisy comparisons. Dropping it does not change which analyses
   are both nominal and robust.
-- Phase-specific variances combined with F1's terms is the most
-  promising untested option.
+- Phase-specific variances combined with F1's terms (G1, G2) hold
+  their size everywhere but add no material power in the AR(1) cells;
+  F1 remains the recommended analysis (updated 2026-10-07; `docs/46`,
+  Amendment 2).
 
 ## 7. Reproducibility
 
@@ -421,6 +509,13 @@ Rscript analysis/scripts/quick-sim/carryover-closed-form/11-strawman-stress-test
 Rscript analysis/scripts/quick-sim/carryover-closed-form/12-strawman-stress-decision.R
 Rscript analysis/scripts/quick-sim/carryover-closed-form/13-symmetry-check.R \
   --reps 1000 --cores 8
+# post hoc analyses (G1, G2; F1A) and the 14-analysis decision
+Rscript analysis/scripts/quick-sim/carryover-closed-form/11-strawman-stress-test.R \
+  --cores 8 --chunk 25 --extra
+Rscript analysis/scripts/quick-sim/carryover-closed-form/11-strawman-stress-test.R \
+  --cores 8 --chunk 25 --extra2
+Rscript analysis/scripts/quick-sim/carryover-closed-form/12-strawman-stress-decision.R \
+  --strawman DS --no-symmetry --with-extras
 ```
 
 Outputs are in
@@ -435,7 +530,7 @@ Outputs are in
 1. pmsimstats team. `docs/40-hendrickson-hybrid-design-primer.md`,
    `docs/41-baseline-as-covariate.md`,
    `docs/45-correctly-sized-hybrid-analysis.md`,
-   `docs/46-strawman-stress-test-preregistration.md`.
+   `docs/46-strawman-stress-test-protocol.md`.
 2. Liu GF, Lu K, Mogg R, Mallick M, Mehrotra DV. Should baseline be a
    covariate or dependent variable in analyses of change from baseline
    in clinical trials? *Statistics in Medicine* 2009; 28(20):2509-2530.

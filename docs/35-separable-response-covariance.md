@@ -6,7 +6,7 @@ fontsize: 10pt
 # A Separable Response Covariance for the Covariance-Moderation DGP {.unlisted .unnumbered}
 *2026-09-30 11:12 PDT; expanded 2026-10-01 11:46 PDT*
 
-**Author:** pmsimstats team
+**Author.** pmsimstats team
 
 **Revision 2026-10-07.**
 
@@ -17,21 +17,26 @@ fontsize: 10pt
   - the power cost of the higher ceiling (Section 6);
   - the simulation evidence now available (Section 10).
 - **Corrected:**
-  - Hendrickson's published $\rho$ is 0.8; the figures quoted for
+  - Hendrickson's published $\rho_{cs}$ is 0.8; the figures quoted for
     `orig` were at the package value 0.7. Both are now given.
   - The coupling pattern is written $g_t$, not $\phi_t$, which was also
-    used for the AR(1) step correlation.
+    used for the AR(1) step correlation (itself renamed $\rho_t$ on
+    2026-10-09, since $\phi$ denotes the carryover decay family).
   - "The summed response is AR(1)" holds when the component SDs are
     constant over visits.
   - The analysis model that the separable structure matches includes a
     random intercept.
   - The `orig` ceiling depends only on visit count and on-share for
     binary coupling.
+- **Later the same day (consistency review):** a notation index was
+  added and colliding symbols renamed (see there); the stress-test
+  description of Section 10 was corrected; all references were
+  verified and given DOIs.
 
 **Purpose.** The project is converging on a single covariance-based
 data-generating process (DGP) to replace the two now in use, the
-package's Architecture B (`covar`) and the published Hendrickson et al.
-implementation [1] at commit `58b32a9` (`orig`). An AR(1) within-factor
+package's covariance-moderation construct (`covar`) and the published
+Hendrickson et al. implementation [1] at commit `58b32a9` (`orig`). An AR(1) within-factor
 kernel has been chosen. This note sets out one further structural
 choice, that the correlation among the three response factors across
 visits be *separable*, and examines it in detail: what it asserts, why
@@ -45,6 +50,87 @@ biomarker correlation, and what it would change across the compendium.
 \listoftables
 \clearpage
 ```
+
+## Notation index and glossary
+
+*Added 2026-10-07.* Notation follows `analysis/report/NOTATION.md`.
+Symbols marked *local* are defined in this note only. On 2026-10-07
+the eigenvalue symbols were renamed from $\kappa$, $\lambda$ to $\mu$,
+$\omega$ (both collided with canonical symbols), the coupling pattern
+from $u$ to $g$, the `orig` person- and occasion-level effects from
+$P_c$, $E_{c,t}$ to $T_c$, $O_{c,t}$, and the AR(1) innovation from
+$\varepsilon_t$ to $\xi_t$. On 2026-10-09 the AR(1) step correlation
+was renamed from $\phi_t$ to $\rho_t$, as in
+`analysis/report/compendium-mathematics.tex`, because $\phi$ denotes
+the carryover decay family, and the normal law is written
+$\mathcal{N}$ to keep $N$ for the total sample size.
+
+(Notation, 2026-10-09: following the merged
+`analysis/report/NOTATION.md`, $\rho$ is the AR(1) correlation per
+week only; the constant within-factor correlation of the
+compound-symmetry construct `orig` is now written $\rho_{cs}$ (0.8 as
+published, 0.7 at the package value), and the biomarker-baseline
+correlation $c_{bl}$ is now $c_{bm,BL}$.)
+
+**Notation index.**
+
+| Symbol | Meaning | Status |
+|------------------|----------------------------------------------|----------|
+| $Y_{it}$ | outcome (code `Sx`) | canonical |
+| $\mathrm{BL}_i$, $\sigma_{BL}$ | baseline level and its SD | canonical; $\sigma_{BL}$ local |
+| $TV$, $PB$, $BR$ | natural-course, placebo-belief and drug response components | canonical |
+| $B$ | biomarker | canonical |
+| $c_{bm}$ | covariance-moderation correlation of $B$ with $BR$ | canonical |
+| $\rho$ | AR(1) correlation per week | canonical |
+| $\rho_{cs}$ | common within-factor correlation of the compound-symmetry construct `orig` | canonical |
+| $\kappa$ | SE ratio, model-based over empirical (Section 10 only) | canonical |
+| $t_{sd}$, $t_{1/2}$ | time since discontinuation; carryover half-life | canonical |
+| $n$, $w_t$, $d_t$ | visits per path, visit week, gap $w_t - w_{t-1}$ | canonical ($n$ local) |
+| $R$, $\tilde r$ | full correlation matrix; biomarker correlation vector | local |
+| $M$ | $3n \times 3n$ response block of $R$ | canonical |
+| $K$, $A$ | $3 \times 3$ factor correlation; $n \times n$ time kernel | canonical |
+| $c_1$, $c_\times$ | cross-factor correlation at the same and at different visits | canonical |
+| $I$, $J$, $e_3$ | identity, all-ones matrix, unit vector selecting $BR$ | local |
+| $g$, $g_t$ | coupling pattern: 1 on drug, residual fraction off drug, 0 before exposure | canonical |
+| $c_{bm}^{\ast}$ | ceiling: largest $c_{bm}$ with $R \succ 0$ | canonical |
+| $R^2$ | squared multiple correlation of $BR$ on $TV$, $PB$ at one visit | local |
+| $\rho_t$ | AR(1) step correlation $\rho^{d_t}$ between visits $t-1$ and $t$ | canonical |
+| $X$, $X_{c,t}$, $X_t$ | stacked variable vector; factor $c$ at visit $t$; a sampled AR(1) path | local |
+| $\Delta$ | time difference in the exponential kernel $\rho^{\lvert\Delta\rvert}$ | local |
+| $T$, $O_t$ | vectors of the person-level and occasion-level effects $T_c$, $O_{c,t}$ | local |
+| $\xi_t$ | standardized AR(1) innovation | local |
+| $L$, $L_A$, $L_K$, $\mathbf Z$, $\mathbf X$ | Cholesky factors; standard normal and response matrices | local |
+| $\mu$, $q_K$; $\omega$, $q_A$ | eigenvalue and eigenvector of $K$; of $A$ | local |
+| $\omega_{\min}(A)$, $\mu_{\min}(K_o)$ | smallest eigenvalue of $A$; of $K_o$ | local |
+| $Q$, $\Omega$ | eigenvectors and diagonal eigenvalue matrix of $A$ | local |
+| $n_{\text{eff}}$ | effective number of independent visits | local |
+| $K_a$, $K_b$ | factor matrices of the `covar` decomposition | local |
+| $K_p$, $K_o$, $T_c$, $O_{c,t}$ | person-level and occasion-level factor matrices and effects of `orig` | local |
+| $K_s$, $K_j$, $A_j$ | factor matrices and kernels of a sum of separable terms | local |
+| $A_{\text{CS}}$, $A_{\text{AR}}$ | compound-symmetry and AR(1) time kernels | local |
+| $s_t$, $S_t$ | factor SDs at visit $t$; summed response component | local |
+| $v_{TV}$, $v_{PB}$, $v_{BR}$, $c_{bm,BL}$ | biomarker correlations with each factor over visits, and with $\mathrm{BL}$ | local |
+| $c_{bm,TV}$ | prognostic coupling of $B$ to $TV$ (Section 4.8) | canonical |
+
+Table: Notation index for the separable response covariance note
+
+**Glossary.**
+
+- **`orig`.** Hendrickson et al.'s published construct at commit
+  `58b32a9`: compound symmetry within factor, constant cross-factor
+  correlation.
+- **`covar`.** The package's current construct (covariance
+  moderation, formerly Architecture B): AR(1) within factor,
+  cross-factor correlation $c_1$ at the same visit and
+  $c_\times\rho^{\text{gap}}$ otherwise.
+- **Separable.** A covariance that factors as $K \otimes A$, a factor
+  part times a time part.
+- **Ceiling.** The largest testable $c_{bm}$, set by positive
+  definiteness of $R$.
+- **Coupling pattern.** The visit-by-visit multiplier of $c_{bm}$ in
+  the biomarker row; *step* (published) or *graded*.
+- **Linear model of coregionalization.** A sum of separable terms
+  $\sum_j K_j \otimes A_j$.
 
 ## In brief: what separable AR(1) means
 
@@ -106,9 +192,9 @@ never be invalid, whatever the visit schedule (Section 4.2).
 - **Hendrickson et al.'s construct (`orig`, compound symmetry).** Each
   person carries a permanent offset for each response, plus independent
   noise at each visit. Any two visits of a response are correlated at
-  RH's $\rho = 0.8$, whether one week or twenty weeks apart. The
+  the published $\rho_{cs} = 0.8$, whether one week or twenty weeks apart. The
   construct is valid, but its memory never fades. Sections 3 and 4.5
-  quote its implied quantities at the package value $\rho = 0.7$.
+  quote its implied quantities at the package value $\rho_{cs} = 0.7$.
 - **The package's current AR(1) form (`covar`, not separable).** It has
   fading memory, but it also asserts an extra same-visit link between
   responses that no underlying process generates. On closely spaced
@@ -157,15 +243,17 @@ never be invalid, whatever the visit schedule (Section 4.2).
    is a single valid term (Section 4).
 3. **`covar` has an exact failure condition.** With a common $\rho$, it
    is positive definite if and only if
-   $\lambda_{\min}(A)(1 - c_\times) > c_1 - c_\times$. At $\rho = 0.7$
+   $\omega_{\min}(A)(1 - c_\times) > c_1 - c_\times$, where
+   $\omega_{\min}(A)$ is the smallest eigenvalue of the AR(1) kernel. At
+   $\rho = 0.7$
    this fails for half-week spacing at the production values
    $(c_1, c_\times) = (0.2, 0.1)$ and paper 04's $(0.3, 0.2)$, and for
    quarter-week spacing at $(0.1, 0.05)$ (verified, Section 4.4).
 4. **The ceiling on $c_{bm}$ becomes exact and interpretable.** Under
    separability it factorizes into a factor term and a schedule term,
    and the schedule term is a sum of per-step costs: on-to-on
-   $(1-\phi)/(1+\phi)$, on-to-off $\phi^2/(1-\phi^2)$, off-to-on
-   $1/(1-\phi^2)$, with $\phi = \rho^{\text{gap}}$ (verified,
+   $(1-\rho_t)/(1+\rho_t)$, on-to-off $\rho_t^2/(1-\rho_t^2)$, off-to-on
+   $1/(1-\rho_t^2)$, with $\rho_t = \rho^{\text{gap}}$ (verified,
    Section 4.3).
 5. **The change reaches most of the compendium.** The same
    non-separable construct is implemented four times: in the package's
@@ -201,11 +289,11 @@ It had five gaps, addressed below.
   baselines (Section 7).
 - **It did not note a consequence of the AR(1)-only kernel.** Within a
   factor, correlation at a 16-week gap is $0.7^{16} = 0.003$ under
-  AR(1), against a constant $\rho$ under `orig` (0.8 as published; 0.7
+  AR(1), against a constant $\rho_{cs}$ under `orig` (0.8 as published; 0.7
   at the package value). Person-level persistence
   in the outcome is then carried only by the baseline term
   $\mathrm{BL}_i$ (Section 3).
-- **Its main reference was vague.** Section 10 now gives the sources,
+- **Its main reference was vague.** Section 11 now gives the sources,
   with their verification status.
 
 ## 3. Intuition
@@ -219,11 +307,11 @@ deviations in the components at other visits.
 each participant carried a fixed offset for each component that lasts
 the whole trial (a trait), plus an independent weekly disturbance (a
 shock). Because traits never fade, any two visits of a factor are
-correlated at $\rho$, whether one week or twenty weeks apart: 0.8 in the
+correlated at $\rho_{cs}$, whether one week or twenty weeks apart: 0.8 in the
 published construct, 0.7 at the package value. The traits are weakly
 correlated across components and the visit-level shocks more strongly:
 0.125 and 0.500 at the published values, 0.143 and 0.333 at
-$\rho = 0.7$ (verified). This is the classic
+$\rho_{cs} = 0.7$ (verified). This is the classic
 random-intercept-plus-noise picture, and it is internally consistent.
 
 **`covar`: memory that fades, with a leftover.** `covar` replaced the
@@ -267,20 +355,20 @@ normal distribution with correlation matrix
 $$
 R = \begin{pmatrix} 1 & 0 & \tilde r^{\top} \\ 0 & 1 & 0^{\top} \\
 \tilde r & 0 & M \end{pmatrix},
-\qquad \tilde r = c_{bm}\,(e_3 \otimes u),
+\qquad \tilde r = c_{bm}\,(e_3 \otimes g),
 $$
 
 where $M$ is the $3n \times 3n$ response block, $e_3 = (0, 0, 1)^\top$
-selects $BR$, and $u \in \mathbb{R}^n$ is the coupling pattern ($u_t = 1$
-on drug and $u_t = g_t$ off drug, with $g_t$ the residual fraction of
-the on-drug effect; $g_t = 0$ before any exposure). Variances scale $R$ to the covariance and do not
-affect positive definiteness. By the Schur complement on the biomarker
+selects $BR$, and $g \in \mathbb{R}^n$ is the coupling pattern: $g_t = 1$
+on drug, $g_t$ equal to the residual fraction of the on-drug effect off
+drug, and $g_t = 0$ before any exposure. Variances scale $R$ to the
+covariance and do not affect positive definiteness. By the Schur complement on the biomarker
 row, $R$ is positive definite if and only if
 
 $$
 M \succ 0 \quad\text{and}\quad 1 - \tilde r^{\top} M^{-1} \tilde r > 0,
 \qquad\text{so}\qquad
-c_{bm}^{\ast} = \bigl((e_3 \otimes u)^{\top} M^{-1} (e_3 \otimes u)\bigr)^{-1/2}.
+c_{bm}^{\ast} = \bigl((e_3 \otimes g)^{\top} M^{-1} (e_3 \otimes g)\bigr)^{-1/2}.
 $$
 
 The quantity $\tilde r^{\top} M^{-1}\tilde r$ is the $R^2$ of the
@@ -292,19 +380,21 @@ only that the biomarker cannot be more than perfectly predictable.
 Let $A_{ts} = \rho^{|w_t - w_s|}$ and
 $K = (1 - c_1) I_3 + c_1 J_3$, and set $M = K \otimes A$, so that
 $\mathrm{Cor}(X_{c,t}, X_{c',s}) = K_{cc'} A_{ts}$ with factor-major
-ordering. Three standard Kronecker identities [15] carry the argument:
+ordering. Three standard Kronecker identities [15] carry the argument,
+the first for eigenpairs $K q_K = \mu q_K$ and $A q_A = \omega q_A$:
 
 $$
-(K \otimes A)(k \otimes a) = (\kappa k) \otimes (\lambda a), \qquad
+(K \otimes A)(q_K \otimes q_A) = (\mu q_K) \otimes (\omega q_A), \qquad
 (K \otimes A)^{-1} = K^{-1} \otimes A^{-1}, \qquad
 \det(K \otimes A) = (\det K)^n (\det A)^3 .
 $$
 
-**Validity.** The eigenvalues of $M$ are the products $\kappa_i\lambda_j$
+**Validity.** The eigenvalues of $M$ are the products $\mu_i\omega_j$
 of those of $K$ and $A$. $K$ has eigenvalues $1 + 2c_1$ (once) and
 $1 - c_1$ (twice), so $K \succ 0$ for $-\tfrac12 < c_1 < 1$. $A$ is the
 correlation matrix of a stationary Ornstein-Uhlenbeck process sampled at
-the visit times; the exponential kernel $e^{-\theta|\Delta|}$ is positive
+the visit times; the exponential kernel
+$\rho^{|\Delta|} = e^{-|\Delta|\ln(1/\rho)}$ is positive
 definite for any distinct times [3, 17]. Hence $M \succ 0$ for every
 schedule.
 
@@ -321,10 +411,10 @@ factors are their fixed mixtures through $L_K$.
 Substituting $M^{-1} = K^{-1} \otimes A^{-1}$ into Section 4.1:
 
 $$
-(e_3 \otimes u)^{\top}(K^{-1} \otimes A^{-1})(e_3 \otimes u)
-= [K^{-1}]_{33}\; u^{\top} A^{-1} u,
+(e_3 \otimes g)^{\top}(K^{-1} \otimes A^{-1})(e_3 \otimes g)
+= [K^{-1}]_{33}\; g^{\top} A^{-1} g,
 \qquad
-c_{bm}^{\ast} = \bigl([K^{-1}]_{33}\bigr)^{-1/2}\bigl(u^{\top}A^{-1}u\bigr)^{-1/2}.
+c_{bm}^{\ast} = \bigl([K^{-1}]_{33}\bigr)^{-1/2}\bigl(g^{\top}A^{-1}g\bigr)^{-1/2}.
 $$
 
 **Factor term.** For the equicorrelated $K$,
@@ -340,32 +430,33 @@ at one visit: 0.0182, 0.0667 and 0.1385 at $c_1 = 0.1, 0.2, 0.3$
 (verified).
 
 **Schedule term.** A sampled Ornstein-Uhlenbeck process is Markov:
-$X_t = \phi_t X_{t-1} + \sqrt{1-\phi_t^2}\,\varepsilon_t$ with
-$\phi_t = \rho^{d_t}$ and $d_t = w_t - w_{t-1}$ [3]. Factorizing the
+$X_t = \rho_t X_{t-1} + \sqrt{1-\rho_t^2}\,\xi_t$, with $\xi_t$
+independent standard normal innovations,
+$\rho_t = \rho^{d_t}$ and $d_t = w_t - w_{t-1}$ [3]. Factorizing the
 joint density gives $A^{-1} = L^{\top}L$ with $L$ lower bidiagonal,
-$L_{11} = 1$, $L_{tt} = (1-\phi_t^2)^{-1/2}$ and
-$L_{t,t-1} = -\phi_t(1-\phi_t^2)^{-1/2}$, so
+$L_{11} = 1$, $L_{tt} = (1-\rho_t^2)^{-1/2}$ and
+$L_{t,t-1} = -\rho_t(1-\rho_t^2)^{-1/2}$, so
 
 $$
-u^{\top} A^{-1} u = u_1^2 + \sum_{t=2}^{n}
-\frac{(u_t - \phi_t u_{t-1})^2}{1 - \phi_t^2}.
+g^{\top} A^{-1} g = g_1^2 + \sum_{t=2}^{n}
+\frac{(g_t - \rho_t g_{t-1})^2}{1 - \rho_t^2}.
 $$
 
 Each term is the squared, standardized one-step prediction error of the
 coupling pattern under the AR(1) predictor. For a binary pattern the
 steps cost:
 
-| Step | Cost | Short gap ($\phi \to 1$) |
+| Step | Cost | Short gap ($\rho_t \to 1$) |
 |---|---|---|
-| on to on | $(1-\phi)/(1+\phi)$ | small |
-| on to off | $\phi^2/(1-\phi^2)$ | large |
-| off to on | $1/(1-\phi^2)$ | large |
+| on to on | $(1-\rho_t)/(1+\rho_t)$ | small |
+| on to off | $\rho_t^2/(1-\rho_t^2)$ | large |
+| off to on | $1/(1-\rho_t^2)$ | large |
 | off to off | $0$ | none |
 
 Table: Cost of each coupling-pattern step under the AR(1) predictor
 
 The ceiling is therefore
-$c_{bm}^{\ast\,-2} = [K^{-1}]_{33}\{u_1 + \sum \text{step costs}\}$: a
+$c_{bm}^{\ast\,-2} = [K^{-1}]_{33}\{g_1^2 + \sum \text{step costs}\}$: a
 coupling pattern that changes abruptly between closely spaced visits is
 expensive, and one that is constant across closely spaced visits is
 cheap. The formula agrees with the full matrix to $9 \times 10^{-16}$
@@ -373,11 +464,11 @@ on the paper 01 binding paths and a 16-visit multi-cycle schedule
 (verified). It also corrects the approximation in
 `docs/34-cbm-feasible-range.md` Section 5.5, which assigned every switch
 the off-to-on cost; an on-to-off switch costs exactly one unit less. A
-pattern that starts on drug pays $u_1^2 = 1$ up front, so the two
+pattern that starts on drug pays $g_1^2 = 1$ up front, so the two
 orderings of a single switch cost the same in total.
 
-For a constant pattern ($u = 1$), $u^{\top}A^{-1}u = 1 + \sum_t
-(1-\phi_t)/(1+\phi_t) = n_{\text{eff}}$, the effective number of
+For a constant pattern ($g = 1$), $g^{\top}A^{-1}g = 1 + \sum_t
+(1-\rho_t)/(1+\rho_t) = n_{\text{eff}}$, the effective number of
 independent visits, and the ceiling is
 $\sqrt{(1 - R^2)/n_{\text{eff}}}$.
 
@@ -397,62 +488,69 @@ $$
 $K_b$ has zero diagonal and positive off-diagonal entries, so it is
 indefinite, with eigenvalues $2(c_1 - c_\times)$ and $-(c_1 - c_\times)$
 (twice). It is the same-visit excess correlation, attached to no
-variance. Diagonalizing $A = Q\Lambda Q^{\top}$,
+variance. Diagonalizing $A = Q\Omega Q^{\top}$ with
+$\Omega = \mathrm{diag}(\omega_1, \ldots, \omega_n)$,
+$(I_3 \otimes Q)^{\top} M_{\text{covar}} (I_3 \otimes Q)
+= K_a \otimes \Omega + K_b \otimes I_n$, which a permutation of rows and
+columns (factor-major to visit-major) turns into the block-diagonal
 
 $$
-(I_3 \otimes Q)^{\top} M_{\text{covar}} (I_3 \otimes Q)
-= \bigoplus_{j=1}^{n} \bigl(\lambda_j K_a + K_b\bigr),
+\bigoplus_{j=1}^{n} \bigl(\omega_j K_a + K_b\bigr),
 $$
 
 and since $K_a$ and $K_b$ share eigenvectors, the eigenvalues of
-$M_{\text{covar}}$ are $\lambda_j(1 + 2c_\times) + 2(c_1 - c_\times)$
-and $\lambda_j(1 - c_\times) - (c_1 - c_\times)$. Therefore
+$M_{\text{covar}}$ are $\omega_j(1 + 2c_\times) + 2(c_1 - c_\times)$
+and $\omega_j(1 - c_\times) - (c_1 - c_\times)$. Therefore
 
 $$
 M_{\text{covar}} \succ 0 \iff
-\lambda_{\min}(A) > \frac{c_1 - c_\times}{1 - c_\times}.
+\omega_{\min}(A) > \frac{c_1 - c_\times}{1 - c_\times}.
 $$
 
 The predicted smallest eigenvalue matches the computed one to
 $10^{-15}$ on six schedules and three parameter sets (verified). For
-equally spaced visits with $\phi = \rho^d$, the eigenvalues of the AR(1)
+equally spaced visits with $\rho_t = \rho^d$, the eigenvalues of the AR(1)
 Toeplitz matrix lie above the minimum of its spectral density,
-$(1 - \phi)/(1 + \phi)$, and approach it as $n$ grows [16]. A sufficient
+$(1 - \rho_t)/(1 + \rho_t)$, and approach it as $n$ grows [16]. A sufficient
 condition for validity at any $n$ is then
-$(1-\phi)/(1+\phi) \geq (c_1 - c_\times)/(1 - c_\times)$, which at
-$\rho = 0.7$ requires gaps of at least 0.63 weeks for $(0.2, 0.1)$, 0.71
-weeks for $(0.3, 0.2)$, and 0.30 weeks for $(0.1, 0.05)$. Every
+$(1-\rho_t)/(1+\rho_t) \geq (c_1 - c_\times)/(1 - c_\times)$, which at
+$\rho = 0.7$ requires gaps of at least 0.63 weeks for $(0.2, 0.1)$, 0.70
+weeks for $(0.3, 0.2)$, and 0.30 weeks for $(0.1, 0.05)$
+(corrected 2026-10-08 from 0.71: the condition gives
+$\ln(7/9)/\ln 0.7 = 0.7046$; see
+`analysis/report/compendium-mathematics.tex`, Section "The `covar`
+spectrum, a spacing condition"). Every
 production design examined satisfies this; dense or long schedules may
 not.
 
 ### 4.5 Hendrickson's construct as two valid terms
 
-`orig` sets within-factor entries to $\rho$ at every lag and
+`orig` sets within-factor entries to $\rho_{cs}$ at every lag and
 cross-factor entries to $c_1$ (same visit) and $c_\times$ (otherwise).
 Hence (verified, exact reconstruction):
 
 $$
 M_{\text{orig}} = K_o \otimes I_n + K_p \otimes J_n, \qquad
-K_p = \rho I_3 + c_\times(J_3 - I_3), \qquad
-K_o = (1 - \rho) I_3 + (c_1 - c_\times)(J_3 - I_3).
+K_p = \rho_{cs} I_3 + c_\times(J_3 - I_3), \qquad
+K_o = (1 - \rho_{cs}) I_3 + (c_1 - c_\times)(J_3 - I_3).
 $$
 
-This is the covariance of $X_{c,t} = P_c + E_{c,t}$, with person-level
-effects $P \sim N(0, K_p)$ and occasion-level effects $E_t \sim N(0, K_o)$
-independent across visits [2]. The implied cross-factor correlations are
-$c_\times/\rho$ at the person level and
-$(c_1 - c_\times)/(1 - \rho)$ at the occasion level: 0.143 and 0.333 at
-the package value $\rho = 0.7$, and 0.125 and 0.500 at the published
-$\rho = 0.8$ (verified). Because $J_n$ has eigenvalues $n$ and $0$,
+This is the covariance of $X_{c,t} = T_c + O_{c,t}$, with person-level
+effects $T \sim \mathcal{N}(0, K_p)$ and occasion-level effects
+$O_t \sim \mathcal{N}(0, K_o)$ independent across visits [2]. The implied cross-factor correlations are
+$c_\times/\rho_{cs}$ at the person level and
+$(c_1 - c_\times)/(1 - \rho_{cs})$ at the occasion level: 0.143 and 0.333 at
+the package value $\rho_{cs} = 0.7$, and 0.125 and 0.500 at the published
+$\rho_{cs} = 0.8$ (verified). Because $J_n$ has eigenvalues $n$ and $0$,
 $M_{\text{orig}} \succ 0$ if and only if $K_o \succ 0$ and
 $K_o + nK_p \succ 0$; with $K_p \succeq 0$ this reduces to
-$\lambda_{\min}(K_o) = (1 - \rho) - (c_1 - c_\times) > 0$, independent of
-$n$ and the schedule. It is 0.20 at $\rho = 0.7$ (verified for $n = 4$
-to 32) and 0.10 at the published $\rho = 0.8$ (verified). This recovers the expression given in paper 01
-Appendix B.7.
+$\mu_{\min}(K_o) = (1 - \rho_{cs}) - (c_1 - c_\times) > 0$, independent of
+$n$ and the schedule. It is 0.20 at $\rho_{cs} = 0.7$ (verified for $n = 4$
+to 32) and 0.10 at the published $\rho_{cs} = 0.8$ (verified). This
+recovers the expression given in paper 01 Appendix B.7.
 
 `orig` is a single separable term only when $K_o \propto K_p$, that is
-when $c_\times = c_1\rho$, in which case
+when $c_\times = c_1\rho_{cs}$, in which case
 $M_{\text{orig}} = K \otimes A_{\text{CS}}$ (verified: the difference is
 0.040 at $c_\times = 0.1$ and 0 at $c_\times = 0.14$).
 
@@ -470,7 +568,8 @@ $$
 
 which is exactly proportional to the AR(1) kernel whenever the factor
 standard deviations are constant over visits. In this construct the PB
-SD is $10e_t$, so it differs between open-label and blinded visits. The
+SD is 10 times the visit's expectancy weight (1 open label, 0.5
+blinded), so it differs between open-label and blinded visits. The
 correlation factor
 $s_t^\top K s_s / \sqrt{(s_t^\top K s_t)(s_s^\top K s_s)}$ between an
 open-label and a blinded visit is 0.976 (verified), so the departure
@@ -480,7 +579,7 @@ The outcome is $Y_{it} = \mathrm{BL}_i - S_{it}$, and $\mathrm{BL}_i$ is
 a person-level constant independent of the responses. Hence
 $\mathrm{Cov}(Y_{it}, Y_{is}) = \sigma_{BL}^2 + \mathrm{Cov}(S_t, S_s)$:
 a random intercept plus an AR(1) process. That is exactly the residual
-structure of the random-intercept-plus-`corCAR1` analysis model, not of
+structure of the random-intercept-plus-`corCAR1` analysis model [5], not of
 `corCAR1` alone. Under `covar`, by the
 decomposition of Section 4.4,
 
@@ -511,7 +610,7 @@ is guaranteed valid when every $K_j$ is positive semidefinite.
 | Terms | $K_p \otimes J + K_o \otimes I$ | $K_a \otimes A_{\text{AR}} + K_b \otimes I$ | $K \otimes A_{\text{AR}}$ |
 | Factor matrices | both PSD | $K_b$ indefinite | PSD |
 | Interpretation | person traits + occasion shocks | fading memory + unbacked same-visit excess | fading memory shared by all factors |
-| Within-factor correlation at 16 weeks | $\rho$ (0.8 published, 0.7 package) | 0.003 | 0.003 |
+| Within-factor correlation at 16 weeks | $\rho_{cs}$ (0.8 published, 0.7 package) | 0.003 | 0.003 |
 | Valid for every schedule | yes | no (Section 4.4) | yes |
 | Ceiling depends on | visit count and on-share only (binary coupling) | full schedule | full schedule, in closed form |
 | Cross-factor parameters | $c_1$, $c_\times$ | $c_1$, $c_\times$ | $c_1$ |
@@ -524,19 +623,22 @@ The stress test of `docs/46` couples the biomarker to the natural
 course, the placebo response or the baseline level as well as to the
 drug response. Write the biomarker's correlations with the three
 response factors as vectors $v_{TV}$, $v_{PB}$, $v_{BR}$ over the
-visits, and its correlation with $\mathrm{BL}$ as $c_{bl}$. Since
+visits, and its correlation with $\mathrm{BL}$ as $c_{bm,BL}$. Since
 $\mathrm{BL}$ is uncorrelated with the responses, the Schur complement
 of Section 4.1 gives
 
 $$
 R \succ 0 \iff M \succ 0 \quad\text{and}\quad
-c_{bl}^2 + \sum_{c, c'} [K^{-1}]_{cc'}\; v_c^\top A^{-1} v_{c'} < 1 ,
+c_{bm,BL}^2 + \sum_{c, c'} [K^{-1}]_{cc'}\; v_c^\top A^{-1} v_{c'} < 1 ,
 $$
 
 using $M^{-1} = K^{-1} \otimes A^{-1}$. The quadratic form agrees with
 the full matrix to 10 digits on the Hybrid design (verified,
-`analysis/scripts/quick-sim/cbm-ceiling/06-separable-review-checks.R`). With $c_{bm} = c_{bm,TV} = c_{bl} = 0.3$ on Hybrid path A,
-the left side is 0.75, and the stress-test cells are feasible.
+`analysis/scripts/quick-sim/cbm-ceiling/06-separable-review-checks.R`).
+Here $v_{BR} = c_{bm}\,g$, and a constant prognostic coupling to the
+natural course is $v_{TV} = c_{bm,TV}\mathbf 1$. With
+$c_{bm} = c_{bm,TV} = c_{bm,BL} = 0.3$ on Hybrid path A, the left side is
+0.75 (verified, 0.7525), and the stress-test cells are feasible.
 
 The off-diagonal elements of $K^{-1}$ are negative,
 $-c_1/((1 - c_1)(1 + 2c_1))$. Couplings of the same sign to correlated
@@ -611,6 +713,11 @@ $10^{-16}$ (verified):
 
 Table: Ceilings without carryover under the current and separable AR(1) structures by path
 
+At $\rho = 0.8$, the value of Hendrickson et al.'s published $\rho_{cs}$, the separable AR(1)
+ceiling for the Hybrid design without carryover is lower, 0.440
+(`docs/36`, Section 6.5; configuration C). For comparison, the compound-symmetry
+ceiling of `orig` without carryover is 0.256 (`docs/36`, Section 4.2).
+
 The design conclusions of `docs/34` carry over unchanged in direction,
 because they are driven by the schedule term, which separability makes
 exact rather than approximate. Their numbers would need recomputing.
@@ -627,11 +734,11 @@ be compared on the scale of the implied interaction slope, not of
 $c_{bm}$.
 
 **Graded coupling and the step costs.** Under graded coupling the
-off-drug pattern is not binary: $u_t = g_t = 2^{-t_{sd,t}/t_{1/2}}$.
-The general term $(u_t - \phi_t u_{t-1})^2/(1 - \phi_t^2)$ of Section 4.3
-then replaces the binary on-to-off cost $\phi_t^2/(1 - \phi_t^2)$ with
-$(g_t - \phi_t)^2/(1 - \phi_t^2)$, which is smaller when $g_t$ is close
-to $\phi_t$. This is why the ceiling under graded coupling rises with
+off-drug pattern is not binary: $g_t = 2^{-t_{sd,t}/t_{1/2}}$.
+The general term $(g_t - \rho_t g_{t-1})^2/(1 - \rho_t^2)$ of Section 4.3
+then replaces the binary on-to-off cost $\rho_t^2/(1 - \rho_t^2)$ with
+$(g_t - \rho_t)^2/(1 - \rho_t^2)$, which is smaller when $g_t$ is close
+to $\rho_t$. This is why the ceiling under graded coupling rises with
 the half-life.
 
 ## 7. Impact across the compendium
@@ -660,7 +767,7 @@ re-checked against the validity condition of Section 4.4):
 | 03 Latent class | package | (0.1, 0.05) | Re-run of mixture and comparator DGPs |
 | 04 Main effect | private, `orig`-like | (0.3, 0.2) | Unaffected unless migrated; decide whether paper 04 should adopt the unified DGP |
 | 05 Design sensitivity | nof1power | (0.1, 0.05) | Re-run; design sweeps over period length should be checked against Section 4.4, since short periods are where `covar` fails |
-| 06 Component decomposition | package | (0.1, 0.05) | Re-run; its contaminated-biomarker variant couples $B$ to $PB$ as well, which generalizes the ceiling to $\sum_{cc'}[K^{-1}]_{cc'}\,u_c^{\top}A^{-1}u_{c'}$ |
+| 06 Component decomposition | package | (0.1, 0.05) | Re-run; its contaminated-biomarker variant couples $B$ to $PB$ as well, which generalizes the ceiling to $\sum_{cc'}[K^{-1}]_{cc'}\,v_c^{\top}A^{-1}v_{c'}$ (Section 4.8) |
 | 07 Gompertz evaluation | package | (0.2, 0.1) | Re-run |
 | 08 Test procedure and design | package | (0.1, 0.05) | Re-run; cycle and period sweeps to be checked against Section 4.4 |
 | 09 Informative dropout | package | (0.1, 0.05) | Re-run; its reproduction of Hendrickson's Figure 4A moves further from `orig` |
@@ -692,7 +799,7 @@ since the vendored copy now in the repository is the 2024 state.
   The AR(1)-only kernel was chosen instead; this remains the natural
   route if component-level persistence is later wanted.
 - **Separable compound symmetry,** $K \otimes A_{\text{CS}}$:
-  Hendrickson's construct with $c_\times = c_1\rho$. Valid and simple,
+  Hendrickson's construct with $c_\times = c_1\rho_{cs}$. Valid and simple,
   but without decay with lag.
 
 ## 9. Recommendation and implementation
@@ -723,7 +830,7 @@ steps:
   05-separable-derivations.R`, run 2026-10-01): the decompositions of
   `covar` and `orig` (exact reconstruction), the validity condition for
   `covar` (eigenvalues to $10^{-15}$), the closed form of
-  $[K^{-1}]_{33}$, the switch-cost form of $u^{\top}A^{-1}u$, the
+  $[K^{-1}]_{33}$, the switch-cost form of $g^{\top}A^{-1}g$, the
   separability condition for `orig`, and the ceilings of Section 6.
 - **Derived, not separately computed:** the equal-spacing gap
   thresholds of Section 4.4, which rest on the Toeplitz eigenvalue
@@ -740,79 +847,99 @@ steps:
   studies, with no positive-definiteness failure at $c_{bm}$ up to
   0.45:
   - a power arm of `docs/36`;
-  - the base construct of the covariance study (`docs/45`, 378,000
-    fits);
-  - the base construct of the pre-registered stress test (`docs/46`,
-    26,500 trials, plus prognostic and baseline couplings).
+  - the configuration C arm (C07) of the covariance study (`docs/45`,
+    378,000 fits);
+  - the configuration C cells of the stress test (`docs/46`,
+    script 11: 41 cells, the 39 of the original protocol plus two
+    prognostic-baseline cells, 15 null and 26 alternative, 28,000
+    trials in all, including prognostic and baseline couplings).
 
-  Under these data:
-  - the random-intercept-plus-`corCAR1` analysis with CR2 standard
-    errors was nominal everywhere (pooled null rejection 0.048 to
-    0.053);
-  - its model-based version with phase-specific variances was nominal
-    too (0.047 to 0.052);
+  Configuration C is the covariance construct of the refined process
+  (paper 01), but neither study ran the refined process in full: both
+  kept the published recursive carryover and the fixed published
+  allocation (inspected in `08-covariance-study.R` and
+  `11-strawman-stress-test.R`).
+
+  Under these data (corrected 2026-10-07; the earlier wording said
+  "nominal everywhere", which holds only without prognostic coupling):
+  - the random-intercept-plus-`corCAR1` analyses with CR2 standard
+    errors (S and its variants C1, DS, ES, F1, F2, G1) had pooled null
+    rejection 0.048 to 0.053 over the 11 non-prognostic null cells, and
+    the model-based variants with phase-specific variances (C2, G2)
+    0.047 to 0.052 (verified, `decision-screen-ds-nosym-all14.csv`);
+  - under prognostic coupling several of them were anticonservative
+    (S 0.100 with a placebo-prognostic biomarker; C1 and C2 0.38 to 0.39
+    with a constant natural-course association), whereas ES, EA, F1, G1
+    and G2 stayed near nominal. This is a mean-model failure, not a
+    covariance one; the decision rule rerun with all 14 analyses selects
+    F1 (`docs/46`, Amendment 1; `docs/49`);
   - a compound-symmetry working model was anticonservative in the
     crossover design, with $\kappa = 0.74$ derived in `docs/45`,
     Section 4.3.
 
-  This is consistent with Section 4.6, but it does not test the
-  white-noise hypothesis about `covar`.
+  The non-prognostic results are consistent with Section 4.6, but they
+  do not test the white-noise hypothesis about `covar`.
 - **Adopted** as the reference structure in paper 01 (Methods, "Why
   separability"; Appendix A.5).
 - **Not implemented in the package.** Steps 1 to 3 of Section 9 are
   pending. The package's sampler still repairs a matrix silently when
-  its Cholesky factorization fails (`R/generateData.R`, lines 390 to
-  392). The structure exists in the simulation drivers only
+  its Cholesky factorization fails (`R/generateData.R`, lines 391 and
+  392; inspected 2026-10-07). The structure exists in the simulation drivers only
   (`04-power-simulation.R` arm C; `08-covariance-study.R`;
   `11-strawman-stress-test.R`).
-- **References 4 to 17 are still to be verified** before use in a
-  manuscript. Paper 01 now relies on the results that cite them.
+- **References.** All 17 were checked on 2026-10-07 (Section 11).
 
 ## 11. References
 
-Status: [1] from the project bibliography; [2] and [3] verified in
-PubMed (PMIDs 3233259 and 2049497); the remainder cited from
-bibliographic knowledge and to be verified before use in a manuscript.
+Status (2026-10-07): [2] and [3] verified in PubMed (PMIDs 3233259 and
+2049497); [1], [2], [3], [6] to [13] verified against Crossref
+(authors, year, journal, volume, issue, pages; DOIs below); the books
+[4], [5], [14], [15] and [17] matched to their publisher records in
+Crossref; [16] cited from the standard bibliographic record (no DOI).
 
 1. Hendrickson RC, Thomas RG, Schork NJ, Raskind MA. Optimizing
    aggregated N-of-1 trial designs for predictive biomarker validation:
    statistical methods and theoretical findings. *Frontiers in Digital
-   Health* 2020;2.
+   Health* 2020;2:13. doi:10.3389/fdgth.2020.00013.
 2. Diggle PJ. An approach to the analysis of repeated measurements.
-   *Biometrics* 1988;44(4):959-971.
+   *Biometrics* 1988;44(4):959-971. doi:10.2307/2531727.
 3. Jones RH, Boadi-Boateng F. Unequally spaced longitudinal data with
    AR(1) serial correlation. *Biometrics* 1991;47(1):161-175.
+   doi:10.2307/2532504.
 4. Diggle PJ, Heagerty P, Liang K-Y, Zeger SL. *Analysis of
    Longitudinal Data*, 2nd ed. Oxford University Press; 2002.
+   doi:10.1093/oso/9780198524847.001.0001.
 5. Pinheiro JC, Bates DM. *Mixed-Effects Models in S and S-PLUS*.
-   Springer; 2000.
+   Springer; 2000. doi:10.1007/b98882.
 6. Galecki AT. General class of covariance structures for two or more
    repeated factors in longitudinal data analysis. *Communications in
    Statistics: Theory and Methods* 1994;23(11):3105-3119.
+   doi:10.1080/03610929408831436.
 7. Naik DN, Rao SS. Analysis of multivariate repeated measures data with
    a Kronecker product structured covariance matrix. *Journal of Applied
-   Statistics* 2001;28(1):91-105.
+   Statistics* 2001;28(1):91-105. doi:10.1080/02664760120011626.
 8. Dutilleul P. The MLE algorithm for the matrix normal distribution.
    *Journal of Statistical Computation and Simulation*
-   1999;64(2):105-123.
+   1999;64(2):105-123. doi:10.1080/00949659908811970.
 9. Lu N, Zimmerman DL. The likelihood ratio test for a separable
    covariance matrix. *Statistics and Probability Letters*
-   2005;73(4):449-457.
+   2005;73(4):449-457. doi:10.1016/j.spl.2005.04.020.
 10. Mitchell MW, Genton MG, Gumpertz ML. A likelihood ratio test for
     separability of covariances. *Journal of Multivariate Analysis*
-    2006;97(5):1025-1043.
+    2006;97(5):1025-1043. doi:10.1016/j.jmva.2005.07.005.
 11. Genton MG. Separable approximations of space-time covariance
-    matrices. *Environmetrics* 2007;18(7):681-695.
+    matrices. *Environmetrics* 2007;18(7):681-695. doi:10.1002/env.854.
 12. Gneiting T. Nonseparable, stationary covariance functions for
     space-time data. *Journal of the American Statistical Association*
-    2002;97(458):590-600.
+    2002;97(458):590-600. doi:10.1198/016214502760047113.
 13. Goulard M, Voltz M. Linear coregionalization model: tools for
     estimation and choice of cross-variogram matrix. *Mathematical
-    Geology* 1992;24(3):269-286.
+    Geology* 1992;24(3):269-286. doi:10.1007/BF00893750.
 14. Wackernagel H. *Multivariate Geostatistics*, 3rd ed. Springer; 2003.
+    doi:10.1007/978-3-662-05294-5.
 15. Horn RA, Johnson CR. *Topics in Matrix Analysis*. Cambridge
-    University Press; 1991.
-16. Grenander U, Szego G. *Toeplitz Forms and Their Applications*.
+    University Press; 1991. doi:10.1017/CBO9780511840371.
+16. Grenander U, Szegő G. *Toeplitz Forms and Their Applications*.
     University of California Press; 1958.
 17. Rasmussen CE, Williams CKI. *Gaussian Processes for Machine
-    Learning*. MIT Press; 2006.
+    Learning*. MIT Press; 2006. doi:10.7551/mitpress/3206.001.0001.

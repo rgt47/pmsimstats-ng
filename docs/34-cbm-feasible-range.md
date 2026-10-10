@@ -1,9 +1,9 @@
 # Feasible Range of the Biomarker Moderation Parameter Under AR(1) and Compound-Symmetry Correlation Structures {.unlisted .unnumbered}
 *2026-09-30 09:40 PDT*
 
-**Author:** pmsimstats team
+**Author.** pmsimstats team
 
-**Scope.** This whitepaper determines how the choice of temporal
+**Purpose.** This whitepaper determines how the choice of temporal
 correlation structure in the covariance-moderation data-generating
 process (DGP) affects the largest biomarker moderation parameter
 $c_{bm}$ for which the joint correlation matrix remains positive
@@ -23,6 +23,26 @@ The figures in Section 5 are intended as design aids for that
 decision. Throughout, "largest testable $c_{bm}$" and "ceiling" mean
 the same thing.
 
+**Review note (2026-10-07).** Every computation here uses the paper 01
+production value $\rho = 0.7$. The published code at `58b32a9` uses
+$\rho_{cs} = 0.8$ for all three components (inspected, `58b32a9`
+`vignettes/Produce_Publication_Results_1_generate_data.Rmd`, lines 317
+to 341). At $\rho_{cs} = 0.8$ the published construct's ceiling without
+carryover is 0.256 in Hybrid and CO and 0.262 in OL+BDC, and 0.893 at
+any positive half-life in Hybrid and OL+BDC (`docs/36`, Section 4.2;
+recomputed in this review). The "published specification" rows below
+are therefore that specification at the paper 01 production
+parameters, not at the published ones. Two further results postdate
+this paper: the separable AR(1) form of `docs/35`, under which the
+ceiling is 0.440 at $\rho = 0.8$, and 0.474 (Hybrid 0.480) at
+$\rho = 0.7$; and the finding of `docs/37` that the published step
+coupling makes the on/off coupling gap zero, so that the interaction
+vanishes at any positive half-life, which graded coupling removes.
+Paper 01 has also been restructured since this paper was written; its
+Appendix B.7 and the `[TO RE-VERIFY]` note cited below no longer
+exist, and its current ceiling table (Section "Room for larger effect
+sizes") reports these values.
+
 ```{=latex}
 \clearpage
 \tableofcontents
@@ -31,11 +51,75 @@ the same thing.
 \clearpage
 ```
 
+## Notation index and glossary
+
+Notation follows `analysis/report/NOTATION.md`. Symbols marked *local*
+are defined here and are not part of the canonical set. On 2026-10-09
+the coupling pattern was renamed from $v$ to $g$ (as in `docs/35` and
+`analysis/report/compendium-mathematics.tex`), the generic vector of
+Section 5.5 from $u$ to $x$ ($u_i$ is the canonical random intercept),
+and the $\rho_c$ of Sections 7 and 8 to the canonical $\rho$. The
+former label Architecture B is written `covar` for the package
+construct and "the covariance-moderation architecture" for the
+architecture in general.
+
+(Notation, 2026-10-09: following `analysis/report/NOTATION.md`, $\rho$
+is the AR(1) correlation per week and the common correlation of a
+compound-symmetry block is $\rho_{cs}$; values that belong to the CS
+structure alone, including the published code's 0.8, are now written
+$\rho_{cs}$. Where the two structures are compared at one quoted value,
+as in the sweep of Section 4.4, that value is both $\rho$ and
+$\rho_{cs}$.)
+
+| Symbol | Meaning | Status |
+|----------|----------------------------------------|------|
+| $B$, $\mathrm{BL}$ | biomarker and baseline level | canonical |
+| $TV$, $PB$, $BR$ | the three response components | canonical |
+| $c_{bm}$ | covariance-moderation correlation: on-drug correlation of $B$ with $BR$ | canonical |
+| $c_{bm}^{\ast}$ | ceiling: largest $c_{bm}$ with a positive definite matrix | canonical |
+| $R$ | joint correlation matrix of $(B, \mathrm{BL}, TV, PB, BR)$ | local |
+| $M$ | correlation block of the three response factors | canonical |
+| $A$, $C$ | within-factor and cross-factor blocks of $M$ | local |
+| $\tilde r$ | biomarker coupling vector, nonzero on the $BR$ positions | local |
+| $g$ | coupling pattern, $\tilde r = c_{bm} g$ | canonical |
+| $\phi_t$ | residual fraction at off-drug occasion $t$, $(1/2)^{t_{sd,t}/t_{1/2}}$ | canonical |
+| $\phi(t)$ | decay function of the carryover decay family (Weibull form, Section 5.6) | canonical |
+| $r$ | a correlation in the repaired matrix (Section 4.7) | local |
+| $n$ | number of measurement occasions on a path | local |
+| $n_{\text{on}}$ | number of occasions with the coupling on (CS closed form) | canonical |
+| $t$, $s$ | occasion indices ($s$ local) | canonical |
+| $w_t$ | cumulative calendar week of occasion $t$ | canonical |
+| $d_t$, $d$ | gap between occasions $t-1$ and $t$; a gap at a switch | canonical ($d$ local) |
+| $\rho$ | AR(1) within-factor correlation per week | canonical |
+| $\rho_{cs}$ | common within-factor correlation under compound symmetry | canonical |
+| $c_1$ | same-occasion cross-factor correlation (code `c.cf1t`) | canonical |
+| $c_\times$ | cross-factor correlation at distinct occasions (code `c.cfct`) | canonical |
+| $K_1$, $K_2$ | $3 \times 3$ coefficient matrices of $I_n$ and $J_n$ in the CS form of $M$ | local |
+| $I_n$, $J_n$ | identity and all-ones matrices of order $n$ | local |
+| $a$, $a_n$ | constants of the CS closed form, Section 5.1 | local |
+| $x$ | a generic vector in the AR(1) precision identity, Section 5.5 | local |
+| $t_{sd}$, $t_{sd,t}$ | time since discontinuation (at occasion $t$) | canonical |
+| $t_{1/2}$ | carryover half-life, weeks | canonical |
+| $\lambda_w$, $k$ | Weibull rate and shape of the decay family | canonical |
+
+Table: Notation index
+
+**Glossary.** *`covar`*: the package's covariance-moderation process
+(`dgp_architecture = 'mvn'`, formerly Architecture B). *`orig`*: the
+published Hendrickson et al. [1] implementation at commit `58b32a9`.
+*Compound symmetry (CS)*: one constant within-factor correlation for
+every pair of occasions. *Graded coupling*: $g_t = 1$ on drug, $\phi_t$
+off drug after exposure, 0 before first exposure. *Step coupling*:
+$g_t = 1$ wherever any residual drug effect remains. *Binding path*:
+the path with the smallest ceiling in a design. *Positive-definiteness
+repair*: `corpcor::make.positive.definite()` applied when the
+covariance matrix fails the check.
+
 ## 1. Summary
 
 The ceiling on $c_{bm}$ is available in closed form,
-$c_{bm}^{\ast} = (v^{\top} M^{-1} v)^{-1/2}$, where $M$ is the
-correlation block of the three response factors and $v$ is the
+$c_{bm}^{\ast} = (g^{\top} M^{-1} g)^{-1/2}$, where $M$ is the
+correlation block of the three response factors and $g$ is the
 on-drug and off-drug coupling pattern with $c_{bm}$ factored out. We
 computed it for every path of the CO, Hybrid, and OL+BDC designs
 under a crossed set of correlation structures, and on synthetic
@@ -43,7 +127,7 @@ schedules that vary one design feature at a time, and under
 alternative shapes of carryover decay. Nine findings follow.
 
 1. **The reference value sits at the ceiling.** Under the
-   covariance-moderation DGP as implemented (Architecture B,
+   covariance-moderation DGP as implemented (`covar`,
    `dgp_architecture = 'mvn'`), the ceiling at $t_{1/2} = 0$ is 0.456
    in Hybrid and 0.452 in OL+BDC. Paper 01's reference value
    $c_{bm} = 0.45$ therefore lies within 0.002 to 0.006 of the
@@ -56,22 +140,26 @@ alternative shapes of carryover decay. Nine findings follow.
 3. **The widening is not general.** At $\rho = 0.3$, compound symmetry
    admits a higher ceiling than AR(1) in all three designs, and at
    $\rho = 0.5$ it still does in OL+BDC.
-4. **The ceiling depends on carryover.** Under Architecture B the
+4. **The ceiling depends on carryover.** Under `covar` the
    ceiling rises with the carryover half-life, to 0.544 (Hybrid) and
    0.533 (OL+BDC) at $t_{1/2} = 1$.
 5. **The published configuration cannot run the reference value
    without carryover.** For the specification described as
    Hendrickson et al.'s published code (CS, constant cross-factor
    block, step coupling), the ceiling at $t_{1/2} = 0$ is 0.346 to
-   0.352. It jumps to 0.841 at any positive half-life in Hybrid and
-   OL+BDC, but not in CO.
+   0.352 at $\rho_{cs} = 0.7$. It jumps to 0.841 at any positive half-life
+   in Hybrid and OL+BDC, but not in CO. At the published $\rho_{cs} = 0.8$
+   the corresponding values are 0.256 to 0.262 and 0.893, so even the
+   published $c_{bm} = 0.3$ is infeasible without carryover
+   (`docs/36`, Section 4.2; added 2026-10-07).
 6. **Values just above the ceiling are altered without warning.** The
    positive-definiteness repair applied by `buildSigma()` perturbs the
    specified correlations by at most 0.004 just above the ceiling, and
    reports nothing unless `verbose = TRUE`.
 7. **Under compound symmetry, schedule design is irrelevant to the
    ceiling.** It depends only on the number of visits $n$, the number
-   of visits with the coupling on $k$, and the correlation parameters,
+   of visits with the coupling on $n_{\text{on}}$, and the correlation
+   parameters,
    through an exact closed form. Spacing, the gap at a switch, the
    number of switches, and the order of on-drug visits have no effect.
 8. **Under AR(1), schedule design governs the ceiling.** Each
@@ -98,7 +186,7 @@ code or documents), **inferred** (follows from verified results but
 not checked directly), and **unverified**.
 
 - The matrix builder used here reproduces the package's
-  `buildSigma()` correlation matrix for Architecture B to
+  `buildSigma()` correlation matrix for `covar` to
   $1.1 \times 10^{-16}$ on all eight design paths at all three
   half-lives. (Verified.)
 - The closed-form ceiling agrees with a bisection on the smallest
@@ -112,10 +200,19 @@ not checked directly), and **unverified**.
   is the 2024 revision. Ceilings for those levels are therefore
   ceilings for the specification as described, not for the published
   code. (Unverified against the source.)
+  *Update 2026-10-07:* a copy of `58b32a9` is now held at
+  `analysis/data/quick-sim/hendrickson-58b32a9/`. Its
+  `R/generateData.R` matches the specification used here: CS within
+  factors, a constant cross-factor block, and step coupling on a
+  nonzero carryover-adjusted response mean at every occasion,
+  including the first (inspected, lines 83 to 138). `docs/36` ran that
+  code and reproduced the ceilings (verified there). The published
+  parameters differ, however: $\rho_{cs} = 0.8$, not 0.7 (review note
+  above).
 - The ceiling does not depend on how carryover is applied to the
   response mean, and in particular not on the recursive-versus-anchored
   error in that calculation corrected in commit `955c604`. Under
-  Architecture B the coupling is set from $t_{sd}$ and $\lambda$
+  `covar` the coupling is set from $t_{sd}$ and $\lambda$
   directly (`R/generateData.R:341-356`), and the response means do not
   enter the correlation matrix (inspected). Under the step coupling
   only whether the response mean is nonzero matters, and the recursive
@@ -156,16 +253,16 @@ every determinant and is dropped below.
 
 ### 3.2 The exact ceiling
 
-Write $\tilde r = c_{bm} v$. By the Schur complement on the biomarker
+Write $\tilde r = c_{bm} g$. By the Schur complement on the biomarker
 row, $R$ is positive definite if and only if $M$ is positive definite
-and $1 - c_{bm}^2\, v^{\top} M^{-1} v > 0$. The quantity
-$c_{bm}^2\, v^{\top} M^{-1} v$ is the coefficient of determination
+and $1 - c_{bm}^2\, g^{\top} M^{-1} g > 0$. The quantity
+$c_{bm}^2\, g^{\top} M^{-1} g$ is the coefficient of determination
 from regressing the biomarker on all response variables, so the
 condition states only that the biomarker cannot be more than
 perfectly predictable. The ceiling is
 
 $$
-c_{bm}^{\ast} = \bigl(v^{\top} M^{-1} v\bigr)^{-1/2},
+c_{bm}^{\ast} = \bigl(g^{\top} M^{-1} g\bigr)^{-1/2},
 $$
 
 and it is attained: at $c_{bm} = c_{bm}^{\ast}$ the smallest eigenvalue
@@ -176,20 +273,20 @@ at the common $c_{bm}$.
 ### 3.3 Crossed factors
 
 The two blocks that "AR(1)" touches in the implementation, and the
-coupling rule that sets $v$, were crossed so that the effect of each
+coupling rule that sets $g$, were crossed so that the effect of each
 could be read with the others held fixed.
 
 | Factor | Levels |
 |---|---|
-| Within-factor block $A$ | CS: $A_{ts} = \rho$ for $t \neq s$. AR(1): $A_{ts} = \rho^{\lvert w_t - w_s \rvert}$ |
+| Within-factor block $A$ | CS: $A_{ts} = \rho_{cs}$ for $t \neq s$. AR(1): $A_{ts} = \rho^{\lvert w_t - w_s \rvert}$ |
 | Cross-factor off-diagonal $C_{ts}$, $t \neq s$ | Constant: $c_\times$. Decaying: $c_\times \rho^{\lvert w_t - w_s \rvert}$ |
-| Coupling $v$ at off-drug occasions | Graded: $\phi_t$. Step: $\mathbf{1}[\phi_t > 0]$ |
+| Coupling $g$ at off-drug occasions | Graded: $\phi_t$. Step: $\mathbf{1}[\phi_t > 0]$ |
 | Carryover half-life $t_{1/2}$ | 0, 0.5, 1.0 weeks |
 | Design and path | CO (2 paths), Hybrid (4), OL+BDC (2) |
 
 Table: Crossed factors and their levels in the ceiling computation
 
-In every configuration, $C_{tt} = c_1$ on the diagonal and $v_t = 1$ at
+In every configuration, $C_{tt} = c_1$ on the diagonal and $g_t = 1$ at
 on-drug occasions. The residual fraction is
 $\phi_t = (1/2)^{t_{sd,t}/t_{1/2}}$ at an off-drug occasion that follows
 drug exposure when $t_{1/2} > 0$, and $\phi_t = 0$ otherwise, including
@@ -197,7 +294,7 @@ at off-drug occasions before first exposure.
 
 Two corners of the first three rows correspond to named processes.
 
-- **Architecture B (`covar`)**: AR(1), decaying cross-factor, graded.
+- **`covar`**: AR(1), decaying cross-factor, graded.
   This is what `buildSigma()` constructs for
   `dgp_architecture = 'mvn'`.
 - **Published specification (`orig`)**: CS, constant cross-factor,
@@ -227,7 +324,7 @@ loop-order dependence of the cross-factor decay rate noted in paper 01
 Appendix B.5.2 does not arise.
 
 A sensitivity sweep over $\rho \in \{0.3, 0.5, 0.7, 0.9\}$ was run for
-Architecture B and for CS with a constant cross-factor block under
+`covar` and for CS with a constant cross-factor block under
 both couplings.
 
 ## 4. Results
@@ -250,20 +347,14 @@ $t_{1/2} = 0 \,/\, 0.5 \,/\, 1$ (verified):
 
 Table: Design-level $c_{bm}$ ceilings by correlation structure, coupling and half-life
 
-The binding path for Architecture B is path A in Hybrid and OL+BDC at
+The binding path for `covar` is path A in Hybrid and OL+BDC at
 $t_{1/2} = 0$, switching to path B in Hybrid at $t_{1/2} = 1$. In CO
 it is path A at $t_{1/2} = 0$ and path B at positive half-lives.
 
 Figure 1 shows the two named processes. Values above a curve cannot
 be simulated under that structure.
 
-![Largest testable c_bm for the paper 01 designs](figures/34-fig1-paper01-designs.png)
-
-*Figure 1. Largest testable $c_{bm}$ for each paper 01 design, by
-carryover half-life, under Architecture B and the published
-specification. The published limit of 0.84 at positive half-lives is
-not usable: in that regime its coupling carries no on-drug versus
-off-drug contrast (Section 4.6).*
+![Largest testable $c_{bm}$ for each paper 01 design, by carryover half-life, under `covar` and the published specification, at $\rho = 0.7$. The published limit of 0.84 at positive half-lives is not usable: in that regime its coupling carries no on-drug versus off-drug contrast (Section 4.6).](figures/34-fig1-paper01-designs.png)
 
 ### 4.2 The response block on its own
 
@@ -281,7 +372,7 @@ parameters is (verified):
 Table: Smallest eigenvalue of the response block $M$ by structure and design
 
 For CS with a constant cross-factor block, the analytical expression
-$(1 - \rho) - (c_1 - c_\times)$ given in paper 01 Appendix B.7 predicts
+$(1 - \rho_{cs}) - (c_1 - c_\times)$ given in paper 01 Appendix B.7 predicts
 $0.3 - 0.1 = 0.2$, which matches exactly. The design-dependent values
 for AR(1) reflect the unequal spacing of the Hybrid and OL+BDC
 schedules, whose one-week gaps produce strongly correlated adjacent
@@ -320,25 +411,28 @@ OL+BDC (verified; "not PD" means $M$ itself is not positive definite):
 | 0.3 | .520 / .504 / .504 | .502 / .475 / .428 |
 | 0.5 | .458 / .458 / .458 | .549 / .489 / .448 |
 | 0.7 | .346 / .346 / .352 | .619 / .456 / .452 |
+| 0.8 (published) | .256 / .256 / .262 | .627 / .291 / .303 |
 | 0.9 | not PD | .449 / not PD / not PD |
 
 Table: Design-level ceilings at $t_{1/2} = 0$ across values of $\rho$
 
+The $\rho = 0.8$ row was added on 2026-10-07 (verified by an
+independent closed-form computation in that review; it agrees with
+`docs/36` and with paper 01's ceiling table). It is not in `rho.csv`
+or Figure 2, which cover the four values of the original sweep.
+
 The two structures respond to $\rho$ differently. Under CS the
-ceiling falls steadily as $\rho$ rises, and $M$ reaches singularity at
-$\rho = 0.9$, where $(1 - \rho) - (c_1 - c_\times) = 0$. Under AR(1)
+ceiling falls steadily as $\rho_{cs}$ rises, and $M$ reaches singularity at
+$\rho_{cs} = 0.9$, where $(1 - \rho_{cs}) - (c_1 - c_\times) = 0$. Under AR(1)
 the ceiling rises with $\rho$ through 0.7 in CO and OL+BDC, and in
 Hybrid peaks at $\rho = 0.5$ before falling. At $\rho = 0.9$ it
 collapses: the one-week gaps in Hybrid and OL+BDC make adjacent
 occasions so strongly correlated that $M$ is no longer positive
-definite, and the CO ceiling falls to 0.449.
+definite, and the CO ceiling falls to 0.449. The added $\rho = 0.8$ row
+shows the fall in Hybrid and OL+BDC beginning before that point, to
+0.291 and 0.303, while CO is still rising (0.627).
 
-![Largest testable c_bm by within-factor correlation](figures/34-fig2-rho.png)
-
-*Figure 2. Largest testable $c_{bm}$ by the assumed within-factor
-correlation $\rho$, for the paper 01 designs without carryover.
-Missing points mark values of $\rho$ at which the response block is
-not positive definite.*
+![Largest testable $c_{bm}$ by the assumed within-factor correlation $\rho$, for the paper 01 designs without carryover. Missing points mark values of $\rho$ at which the response block is not positive definite.](figures/34-fig2-rho.png)
 
 The consequence is that "AR(1) expands the feasible range of
 $c_{bm}$" is true at $\rho = 0.7$ and false at $\rho = 0.3$. At
@@ -346,10 +440,10 @@ $\rho = 0.5$ it holds in CO and Hybrid but not in OL+BDC.
 
 ### 4.5 Dependence on carryover
 
-Under Architecture B the ceiling rises with carryover in Hybrid
+Under `covar` the ceiling rises with carryover in Hybrid
 (0.456 to 0.544) and OL+BDC (0.452 to 0.533), and is flat in CO
 (0.619). The following interpretation is inferred and consistent with
-Appendix B.7 of paper 01: graded off-drug entries make $v$ smoother
+Appendix B.7 of paper 01: graded off-drug entries make $g$ smoother
 across occasions, moving it toward the constant direction in which
 $M$ is best conditioned. CO is flat because its binding path at
 positive half-lives is the placebo-first path B, whose coupling
@@ -365,10 +459,10 @@ The no-carryover cell is the binding constraint.
 Paper 01 Appendix B.7 states that the published coupling has the
 lower ceiling at $t_{1/2} = 0$ and the higher ceiling at any positive
 half-life. For Hybrid and OL+BDC this is confirmed: 0.346 against
-0.456 at $t_{1/2} = 0$, and 0.841 against 0.51 to 0.54 at positive
-half-lives (verified). The mechanism is the one given there. Once any
+0.456 at $t_{1/2} = 0$, and 0.841 against 0.50 to 0.54 at positive
+half-lives (verified, $\rho = 0.7$). The mechanism is the one given there. Once any
 carryover is present, the step coupling assigns the full $c_{bm}$ at
-every post-exposure occasion, so $v$ is constant on paths that begin on
+every post-exposure occasion, so $g$ is constant on paths that begin on
 drug, and a constant vector aligns with the leading eigenvector of a
 compound-symmetric block.
 
@@ -376,7 +470,7 @@ Two qualifications are needed.
 
 - **The reversal does not occur in CO.** There the published ceiling
   is 0.346 at every half-life. CO's placebo-first path has
-  pre-exposure zeros in $v$ at every half-life, so $v$ never becomes
+  pre-exposure zeros in $g$ at every half-life, so $g$ never becomes
   constant. Appendix B.7 states the reversal without this
   qualification.
 - **The jump depends on compound symmetry.** With step coupling but an
@@ -396,9 +490,13 @@ The simulation driver calls `generateData()` with
 `is.positive.definite()`, `buildSigma()` replaces it with
 `make.positive.definite(sigma, tol = 1e-3)`
 (`R/generateData.R:377-388`) and issues a warning only when
-`verbose = TRUE` (inspected).
+`verbose = TRUE` (inspected). A second repair follows it: if the
+Cholesky factorization fails, the sampler factors
+`make.positive.definite(sigma, tol = 1e-3)` instead, with no warning
+at all (`R/generateData.R:391-393`, inspected 2026-10-07; see also
+`docs/36`, Section 6.7).
 
-On each design's binding path for Architecture B at $t_{1/2} = 0$, the
+On each design's binding path for `covar` at $t_{1/2} = 0$, the
 specified correlations were compared with those in the repaired
 matrix at $0.99\,c_{bm}^{\ast}$ and $1.01\,c_{bm}^{\ast}$ (verified):
 
@@ -427,7 +525,7 @@ Section 4 evaluated three fixed designs. This section varies the
 schedule itself, one feature at a time, to identify which design
 decisions move the largest testable $c_{bm}$ and by how much. Each
 correlation structure is paired with its own cross-factor form: AR(1)
-with decaying cross-factor entries (Architecture B, `covar`) and CS
+with decaying cross-factor entries (`covar`) and CS
 with constant ones (the published specification, `orig`). All
 schedules use the production parameters and no carryover, where the
 graded and step couplings coincide, so that only the correlation
@@ -439,22 +537,23 @@ Under CS every block of $M$ is a linear combination of $I_n$ and the
 all-ones matrix $J_n$, so $M = K_1 \otimes I_n + K_2 \otimes J_n$ with
 
 $$
-K_1 = (1-\rho) I_3 + (c_1 - c_\times)(J_3 - I_3), \qquad
-K_2 = \rho I_3 + c_\times (J_3 - I_3).
+K_1 = (1-\rho_{cs}) I_3 + (c_1 - c_\times)(J_3 - I_3), \qquad
+K_2 = \rho_{cs} I_3 + c_\times (J_3 - I_3).
 $$
 
 $M^{-1}$ then separates into a part acting on the constant direction
 and a part acting on its complement, and for a 0/1 coupling pattern
-with $k$ of $n$ visits on,
+with $n_{\text{on}}$ of $n$ visits on,
 
 $$
-\frac{1}{c_{bm}^{\ast\,2}} = a\,\frac{k(n-k)}{n} + b_n\,\frac{k^2}{n},
-\qquad a = [K_1^{-1}]_{33}, \quad b_n = [(K_1 + nK_2)^{-1}]_{33}.
+\frac{1}{c_{bm}^{\ast\,2}} = a\,\frac{n_{\text{on}}(n-n_{\text{on}})}{n}
++ a_n\,\frac{n_{\text{on}}^2}{n},
+\qquad a = [K_1^{-1}]_{33}, \quad a_n = [(K_1 + nK_2)^{-1}]_{33}.
 $$
 
 This expression agrees with the numerical ceiling to
 $2.8 \times 10^{-16}$ in every schedule examined (verified). It
-contains only $n$, $k$, $\rho$, $c_1$ and $c_\times$. The times of the
+contains only $n$, $n_{\text{on}}$, $\rho_{cs}$, $c_1$ and $c_\times$. The times of the
 visits, the gaps between them, the number of switches, and the order
 of on-drug and off-drug visits do not appear. The reason is structural:
 under CS every pair of visits is equally correlated, so the matrix
@@ -466,11 +565,7 @@ analysis with 8 visits of which 4 are on drug. The CS limit is 0.346 in
 all twenty, while the AR(1) limit ranges from 0.33 to 0.74 across the
 same schedules.
 
-![Invariance of the compound-symmetry limit to schedule design](figures/34-fig3-cs-invariance.png)
-
-*Figure 3. Largest testable $c_{bm}$ for every 8-visit, 4-on-drug
-schedule in the analysis, grouped by the design feature varied. The
-compound-symmetry limit is identical in every schedule.*
+![Largest testable $c_{bm}$ for every 8-visit, 4-on-drug schedule in the analysis, grouped by the design feature varied. The compound-symmetry limit is identical in every schedule.](figures/34-fig3-cs-invariance.png)
 
 What does matter under CS is the number of visits and the share with
 the coupling on, and Figure 4 is therefore a complete lookup for any
@@ -480,12 +575,7 @@ coupling. At these parameters no CS design with 16 or more visits can
 test $c_{bm} = 0.45$; with 8 visits only the most unbalanced shares
 (1 or 7 of 8) can.
 
-![Compound-symmetry lookup by number of visits and on-drug share](figures/34-fig4-cs-lookup.png)
-
-*Figure 4. Largest testable $c_{bm}$ under compound symmetry, from the
-closed form. Exact for any spacing, switch count or order. Under the
-step coupling with carryover, every post-exposure visit counts as on,
-so $k$ is the number of visits from first exposure onward.*
+![Largest testable $c_{bm}$ under compound symmetry, from the closed form. Exact for any spacing, switch count or order. Under the step coupling with carryover, every post-exposure visit counts as on, so $n_{\text{on}}$ is the number of visits from first exposure onward; $\rho_{cs} = 0.7$, $c_1 = 0.2$, $c_\times = 0.1$.](figures/34-fig4-cs-lookup.png)
 
 The cross-factor parameters enter almost entirely through their
 difference $c_1 - c_\times$ (verified, Hybrid path C):
@@ -522,29 +612,13 @@ Under AR(1) every schedule feature examined moves the limit (verified).
 
 Table: Effect of schedule design decisions on the AR(1) ceiling
 
-![Largest testable c_bm by number of visits](figures/34-fig5-visits.png)
+![Largest testable $c_{bm}$ by number of visits, at two uniform spacings, with the first half of visits on drug and one switch.](figures/34-fig5-visits.png)
 
-*Figure 5. Largest testable $c_{bm}$ by number of visits, at two
-uniform spacings, with the first half of visits on drug and one
-switch.*
+![Largest testable $c_{bm}$ by number of on/off switches, for 16 visits of which 8 are on drug. Under AR(1) each switch lowers the limit, and the cost per switch is larger at 1-week than at 2.5-week spacing. The compound-symmetry limit is unaffected.](figures/34-fig6-switches.png)
 
-![Largest testable c_bm by number of switches](figures/34-fig6-switches.png)
+![Largest testable $c_{bm}$ by uniform spacing (left), where study length grows with spacing, and by the gap across the single switch at a fixed study length of 17.5 weeks (right).](figures/34-fig7-spacing.png)
 
-*Figure 6. Largest testable $c_{bm}$ by number of on/off switches, for
-16 visits of which 8 are on drug. Under AR(1) each switch lowers the
-limit, and the cost per switch is larger at 1-week than at 2.5-week
-spacing. The compound-symmetry limit is unaffected.*
-
-![Largest testable c_bm by visit spacing](figures/34-fig7-spacing.png)
-
-*Figure 7. Largest testable $c_{bm}$ by uniform spacing (left), where
-study length grows with spacing, and by the gap across the single
-switch at a fixed study length of 17.5 weeks (right).*
-
-![Largest testable c_bm by on-drug share](figures/34-fig8-on-fraction.png)
-
-*Figure 8. Largest testable $c_{bm}$ by the number of on-drug visits,
-for 8 visits at 2.5-week spacing with one switch.*
+![Largest testable $c_{bm}$ by the number of on-drug visits, for 8 visits at 2.5-week spacing with one switch.](figures/34-fig8-on-fraction.png)
 
 Two features of these results bear directly on design choices. First,
 the number of switches is the most consequential decision under
@@ -571,20 +645,20 @@ because every switch then pays the cost of a short gap. Only 4 of the
 24 designs in the grid can test $c_{bm} = 0.45$, all with a single
 switch and spacing of 2.5 weeks or less.
 
-![Design lookup for spacing and switches under AR(1)](figures/34-fig9-lookup.png)
-
-*Figure 9. Largest testable $c_{bm}$ under AR(1) for 16 visits, 8 on
-drug, equal spacing and no carryover. Outlined cells can test the
-paper 01 reference value 0.45. Compound symmetry gives 0.25 in every
-cell.*
+![Largest testable $c_{bm}$ under AR(1) for 16 visits, 8 on drug, equal spacing and no carryover. Outlined cells can test the paper 01 reference value 0.45. Compound symmetry gives 0.25 in every cell.](figures/34-fig9-lookup.png)
 
 ### 5.4 The paper 01 schedules
 
 The Hybrid and OL+BDC schedules place one-week gaps at their switches.
-Replacing each binding path's visit times with evenly spaced times
-over the same study length, keeping the order of on-drug and off-drug
-visits, raises the AR(1) limit from 0.465 to 0.507 for Hybrid path C
-and from 0.452 to 0.545 for OL+BDC path A. The CO schedule is already
+Replacing a path's visit times with evenly spaced times over the same
+study length, keeping the order of on-drug and off-drug visits, raises
+the AR(1) limit from 0.465 to 0.507 for Hybrid path C and from 0.452
+to 0.545 for OL+BDC path A. (OL+BDC path A is that design's binding
+path. Hybrid path C is not: Hybrid's binding path at $t_{1/2} = 0$ is
+path A, at 0.456, and the equalized version of path A was not
+computed. Path C has four of eight visits on drug, as in the synthetic
+schedules of Section 5.1. Correction of an earlier wording that called
+both the binding path, 2026-10-07, verified against `path.csv`.) The CO schedule is already
 evenly spaced. Uneven spacing therefore accounts for part of the gap
 between the CO limit (0.619) and the other two: just over half of it
 for OL+BDC (0.093 of 0.167), and about a quarter for Hybrid (0.042 of
@@ -592,11 +666,7 @@ for OL+BDC (0.093 of 0.167), and about a quarter for Hybrid (0.042 of
 switches against CO's one (Section 5.2), although this attribution
 was not isolated directly.
 
-![Paper 01 schedules against evenly spaced counterparts](figures/34-fig10-real-vs-equal.png)
-
-*Figure 10. Largest testable $c_{bm}$ under AR(1) for the binding path
-of each paper 01 design, as scheduled and with evenly spaced visits
-over the same study length.*
+![Largest testable $c_{bm}$ under AR(1) for CO path A, Hybrid path C and OL+BDC path A, as scheduled and with evenly spaced visits over the same study length. The figure's subtitle calls these the binding paths; that holds for CO and OL+BDC but not for Hybrid, whose binding path A has 0.456 (Section 5.4).](figures/34-fig10-real-vs-equal.png)
 
 ### 5.5 Why AR(1) is sensitive to schedule design
 
@@ -614,15 +684,15 @@ $c_{bm}$ at an on-drug visit to about zero at the adjacent off-drug
 visit. Under AR(1), visits one week apart correlate at $\rho = 0.7$,
 so a switch across a short gap uses much of the available room, and
 each further switch uses more. Under CS every pair of visits
-correlates at $\rho$ regardless of separation, so where a switch falls
+correlates at $\rho_{cs}$ regardless of separation, so where a switch falls
 cannot matter.
 
 The standard precision form of an AR(1) process with unequal gaps
 $d_t$ makes the accounting explicit for the response block alone:
 
 $$
-u^{\top} A^{-1} u = u_1^2 + \sum_{t \geq 2}
-\frac{(u_t - \rho^{d_t} u_{t-1})^2}{1 - \rho^{2d_t}}.
+x^{\top} A^{-1} x = x_1^2 + \sum_{t \geq 2}
+\frac{(x_t - \rho^{d_t} x_{t-1})^2}{1 - \rho^{2d_t}}.
 $$
 
 A switch across a gap $d$ contributes about $1/(1 - \rho^{2d})$,
@@ -659,7 +729,7 @@ because the means do not enter the correlation matrix.
 The computation added a fourth design to the paper 01 three: a
 multi-cycle schedule of 16 weekly visits in the repeating pattern
 on, on, off, off (seven switches), representing the many-switch
-designs of Section 5.2. Under Architecture B (verified):
+designs of Section 5.2. Under `covar` (verified):
 
 | Design | $t_{1/2}$ | $k = 0.25$ | 0.5 | 1 (exp.) | 2 | 4 | No carryover |
 |---|---|---|---|---|---|---|---|
@@ -674,14 +744,9 @@ designs of Section 5.2. Under Architecture B (verified):
 | Multi-cycle | 2 | 0.440 | 0.448 | 0.451 | 0.430 | 0.395 | |
 | CO | any | 0.619 | 0.619 | 0.619 | 0.619 | 0.619 | 0.619 |
 
-Table: Architecture B ceilings by Weibull decay shape, design and half-life
+Table: `covar` ceilings by Weibull decay shape, design and half-life
 
-![Largest testable c_bm by Weibull decay shape](figures/34-fig11-decay-shape.png)
-
-*Figure 11. Largest testable $c_{bm}$ under Architecture B if the
-biomarker-response correlation decayed as a Weibull curve of shape
-$k$, for three carryover half-lives. The dotted line is each design's
-limit without carryover. In CO the three half-life curves coincide.*
+![Largest testable $c_{bm}$ under `covar` if the biomarker-response correlation decayed as a Weibull curve of shape $k$, for three carryover half-lives. The dotted line is each design's limit without carryover. In CO the three half-life curves coincide.](figures/34-fig11-decay-shape.png)
 
 Three patterns stand out.
 
@@ -735,7 +800,7 @@ reason to regard a step on "any residual effect" as fragile.
   `analysis/scripts/quick-sim/cbm-ceiling/01-cbm-ceiling.R` or the
   closed form of Section 3.2.
 - **When the decay shape is uncertain, plan against the no-carryover
-  limit.** Fast washout returns the Architecture B ceiling to its
+  limit.** Fast washout returns the `covar` ceiling to its
   no-carryover value (Section 5.6), which is the lowest the ceiling
   takes across the shapes and half-lives examined. A target $c_{bm}$
   below that value is feasible whatever the shape.
@@ -752,9 +817,18 @@ reason to regard a step on "any residual effect" as fragile.
 
 ### 6.1 For paper 01
 
+*Note added 2026-10-07.* Paper 01 has been restructured since these
+recommendations were written. The Appendix B.7 placeholder and
+Section 2.2.4 no longer exist; the current manuscript reports the
+ceilings in its section "Room for larger effect sizes" at both
+$\rho_{cs} = 0.8$ (0.256 under compound symmetry) and $\rho_{cs} = 0.7$ (0.346),
+with the separable AR(1) form at 0.440 and 0.474 respectively, and its
+Appendix B.2 replaces the silent repair by a stop. The bullets below
+are kept as written for the record.
+
 - **Replace the Appendix B.7 placeholder.** The `[TO RE-VERIFY]` note
   asks for design-specific ceilings under the published specification
-  and under Architecture B. Section 4.1 supplies them, subject to the
+  and under `covar`. Section 4.1 supplies them, subject to the
   caveat in Section 2 about the published code. Draft replacement text
   is given in Section 7.
 - **Qualify the reversal statement.** Appendix B.7 should state that
@@ -767,12 +841,17 @@ reason to regard a step on "any residual effect" as fragile.
   $\rho = 0.3$. The explanation offered in Section 2.2.4, that "a
   constant correlation applied uniformly across many timepoints
   depletes the matrix faster than a correlation that decays with
-  lag", does not match what the computation shows. Under CS the
-  ceiling is governed by the conditioning of $M$, whose smallest
-  eigenvalue $(1 - \rho) - (c_1 - c_\times)$ falls with $\rho$ and
-  contains no dependence on the number of occasions. Consistent with
-  this, the CS ceilings are nearly identical across the three designs
-  (0.346 to 0.352 at $t_{1/2} = 0$).
+  lag", is incomplete rather than wrong. The smallest eigenvalue of
+  $M$ under CS, $(1 - \rho_{cs}) - (c_1 - c_\times)$, falls with $\rho_{cs}$ and
+  does not depend on the number of occasions, so the response block
+  itself is not depleted by added occasions. The ceiling, however,
+  depends on $g^\top M^{-1} g$, and under CS it does fall with the
+  number of occasions at a fixed on-drug share, roughly as $n^{-1/2}$
+  (Section 5.1, Figure 4). The CS ceilings are nearly identical across
+  the three designs (0.346 to 0.352 at $t_{1/2} = 0$) because all three
+  have eight occasions with four to six coupled. *(Corrected
+  2026-10-07: an earlier version attributed the CS ceiling to the
+  conditioning of $M$ alone, which contradicts Section 5.1.)*
 - **State the margin at the reference value.** $c_{bm} = 0.45$ lies
   within 0.006 of the ceiling in the Hybrid and OL+BDC no-carryover
   cells. The manuscript should report this, since any sensitivity
@@ -784,7 +863,9 @@ reason to regard a step on "any residual effect" as fragile.
   no-carryover cells without the repair altering the published
   correlation structure. The comparison should either run at a common
   $c_{bm}$ below 0.346 or report that the published specification is
-  infeasible at the paper's reference value.
+  infeasible at the paper's reference value. At the published
+  $\rho_{cs} = 0.8$ the bound is tighter still, 0.256 to 0.262, below the
+  published $c_{bm} = 0.3$ (added 2026-10-07; `docs/36`).
 
 ### 6.2 For the project
 
@@ -793,10 +874,17 @@ reason to regard a step on "any residual effect" as fragile.
   0.49+ under AR(1)". Neither figure describes the published or the
   implemented configuration at production parameters. The ceiling is
   0.346 to 0.352 for the published specification and 0.452 to 0.456
-  for Architecture B at $t_{1/2} = 0$. The value 0.25 matches CS with a
+  for `covar` at $t_{1/2} = 0$. The value 0.25 matches CS with a
   decaying cross-factor block and graded coupling in Hybrid (0.247), a
   counterfactual combination (inferred). The value 0.49 is reached
-  under Architecture B only once carryover is present.
+  under `covar` only once carryover is present.
+  *Correction (2026-10-07):* the inference about 0.25 was mistaken.
+  The figure matches the published configuration at its own
+  $\rho_{cs} = 0.8$, where the ceiling is 0.256 (Hybrid and CO) to 0.262
+  (OL+BDC) without carryover (`docs/36`, Section 4.2; verified). The
+  statements above about 0.346 to 0.352 hold at $\rho_{cs} = 0.7$ only.
+  Under `covar` at $\rho = 0.8$ the no-carryover ceiling is
+  0.291 (Hybrid) to 0.303 (OL+BDC) (verified).
 - **Make the repair visible.** `buildSigma()` should either warn
   unconditionally when it repairs a matrix, or the drivers should call
   `validateParameterGrid()` before simulation and stop on failure. In
@@ -808,7 +896,8 @@ reason to regard a step on "any residual effect" as fragile.
   A pipeline that gives the mean a Weibull shape therefore decays the
   mean and the correlation with different shapes. Whether that is
   intended should be settled before decay-shape results are
-  interpreted as properties of Architecture B.
+  interpreted as properties of the covariance-moderation
+  architecture.
 - **Two defects in `nof1power::carryover_decay()`**, found while
   preparing Section 5.6 (both verified by running the function). The
   power form returns `NaN` for every time beyond three half-lives,
@@ -825,9 +914,17 @@ The following text is proposed in place of the `[TO RE-VERIFY]`
 paragraph at the end of the feasible-range discussion in Appendix
 B.7. It has not been inserted into the manuscript.
 
+*Note added 2026-10-07.* Superseded. Paper 01 no longer has this
+appendix; its current ceiling table reports the published structure at
+$\rho_{cs} = 0.8$ (0.256) and $\rho_{cs} = 0.7$ (0.346), and the separable AR(1)
+form (0.440 and 0.474). The draft below states the published
+specification at $\rho_{cs} = 0.7$ only and should not be quoted as the
+published code's ceiling.
+
 > Evaluated on the three designs of Section 2.3 at the production
-> parameters ($\rho_c = 0.7$ for all factors, $c_1 = 0.2$,
-> $c_\times = 0.1$), the ceiling under Architecture B is 0.619 in CO,
+> parameters ($\rho = 0.7$ for all factors, $c_1 = 0.2$,
+> $c_\times = 0.1$), the ceiling under the covariance-moderation
+> architecture is 0.619 in CO,
 > 0.456 in Hybrid and 0.452 in OL+BDC at $t_{1/2} = 0$, rising to 0.544
 > and 0.533 in Hybrid and OL+BDC at $t_{1/2} = 1.0$ and remaining at
 > 0.619 in CO. The reference value $c_{bm} = 0.45$ is therefore feasible
@@ -838,35 +935,43 @@ B.7. It has not been inserted into the manuscript.
 > in Hybrid and OL+BDC, where every path begins on drug; in CO it
 > remains 0.346. The published specification cannot carry
 > $c_{bm} = 0.45$ without carryover. The comparison of within-factor
-> structures depends on $\rho_c$: at $\rho_c = 0.7$ the AR(1) form
-> admits the higher ceiling in every design, whereas at $\rho_c = 0.3$
+> structures depends on $\rho$: at $\rho = 0.7$ the AR(1) form
+> admits the higher ceiling in every design, whereas at $\rho = 0.3$
 > compound symmetry does.
 
 ## 8. Limitations and what was not done
 
 - **Published code.** The CS and step-coupling configurations were
   built from the manuscript's description of commit `58b32a9`, not from
-  that code (Section 2).
+  that code (Section 2). *Update 2026-10-07:* the specification has
+  since been confirmed against the code (Section 2), but the published
+  parameters use $\rho_{cs} = 0.8$; see the review note at the top.
 - **Parameter scope.** Ceilings were computed at $c_1 = 0.2$ and
   $c_\times = 0.1$ only, and for a common $\rho$ across the three
-  response factors. Unequal $\rho_c$ values would reintroduce the
-  loop-order dependence of the cross-factor decay rate in the current
+  response factors. Unequal values of $\rho$ across the factors would
+  reintroduce the loop-order dependence of the cross-factor decay rate in the current
   implementation.
 - **Number of occasions.** Appendix B.7's statement that both ceilings
   fall in similar proportion as occasions are added was not tested.
-- **Mean moderation.** Architecture A writes no biomarker-response
-  correlation into $R$, so its covariance matrix has no ceiling of this
+  *Update 2026-10-07:* the schedule experiment of Section 5.2
+  (`determinants.csv`, experiment `E1 occasions`) bears on it. From 4 to 32
+  visits with half on drug, the CS ceiling falls from 0.480 to 0.176
+  (by 63%), the AR(1) ceiling from 0.605 to 0.434 at 1-week spacing
+  (28%) and from 0.758 to 0.358 at 2.5-week spacing (53%) (verified).
+  The two do not fall in similar proportion; CS falls faster.
+- **Mean moderation.** The mean-moderation architecture writes no
+  biomarker-response correlation into $R$, so its covariance matrix has no ceiling of this
   kind, and it was not analyzed.
 - **Power.** The ceiling bounds which values of $c_{bm}$ can be
   simulated; it says nothing about power near the boundary. Whether
   near-singular matrices at $c_{bm} = 0.45$ affect the Monte Carlo
   behavior of the no-carryover cells was not examined.
-- **Sensitivity sweep.** The $\rho$ sweep covered Architecture B and
+- **Sensitivity sweep.** The $\rho$ sweep covered `covar` and
   CS with a constant cross-factor block only, not the two
   counterfactual combinations.
 - **Design experiments without carryover.** The schedule experiments of
   Section 5 were run at $t_{1/2} = 0$ only. Carryover raises the
-  Architecture B ceiling on the paper 01 designs (Section 4.5), but its
+  `covar` ceiling on the paper 01 designs (Section 4.5), but its
   interaction with switch count and spacing was not examined.
 - **Synthetic schedules.** Section 5 varies one feature at a time on
   synthetic schedules. The attribution in Section 5.4 of the remaining
@@ -926,3 +1031,12 @@ contrast on the light chart surface, with shape as a second encoding
 of structure. Figure 11 encodes the ordered half-life with a
 single-hue sequential ramp from the same palette, validated as an
 ordinal ramp, again with shape as a second encoding.
+
+## References
+
+1. Hendrickson RC, Thomas RG, Schork NJ, Raskind MA. Optimizing
+   aggregated N-of-1 trial designs for predictive biomarker validation:
+   statistical methods and theoretical findings. *Frontiers in Digital
+   Health* 2020;2:13. doi:10.3389/fdgth.2020.00013. (Verified via
+   Crossref, 2026-10-07.) Code: `github.com/rchendrickson/pmsimstats`,
+   commit `58b32a9`.

@@ -1,12 +1,31 @@
 # Referee Review of Paper 01: Mean and Covariance Moderation Under Carryover {.unlisted .unnumbered}
 *2026-09-30 08:06 PDT*
 
-**Author:** pmsimstats team
+**Author.** pmsimstats team
 
-**Scope.** This whitepaper reviews the three R Markdown sources in
-`analysis/report/01-dgp-mean-moderation-vs-mvn/`: the manuscript
+**Purpose.** This whitepaper is a referee review of paper 01, the
+comparison of the mean-moderation and covariance-moderation
+architectures under carryover. It reviews the three R Markdown sources
+in `analysis/report/01-dgp-mean-moderation-vs-mvn/`: the manuscript
 `report.Rmd` (2,292 lines), the standalone `appendices.Rmd`, and the
-supplementary key-points summary `bullets.Rmd`.
+supplementary key-points summary `bullets.Rmd`. It checks the reported
+numbers against the stored simulation output, the stated mechanisms
+against the code, and the manuscript against itself, and it ends with
+a recommended order of work.
+
+**Status note (2026-10-07).** The review describes the manuscript as it
+stood on 2026-09-30. On 2026-10-07 the manuscript was restated (its
+goal is now the specification of the compendium's reference
+data-generating process): `report.Rmd` was rewritten (1,378 lines),
+Appendix B moved to `appendix-b.Rmd`, `appendices.Rmd` was removed, and
+the reviewed text was archived as
+`archive/report-2026-10-07-pre-restatement.Rmd`, to which the line
+numbers below refer approximately. A later referee report is in
+`revisions/referee-report-2026-10-07.md`. Section 2.1 still holds: the
+result files remain those of 2026-08-08, and the factorial has not been
+re-run under the current package (inspected, file dates and git log,
+2026-10-07). The findings below have not been re-checked against the
+restated manuscript.
 
 ```{=latex}
 \clearpage
@@ -14,6 +33,47 @@ supplementary key-points summary `bullets.Rmd`.
 \listoftables
 \clearpage
 ```
+
+## Notation index and glossary
+
+Notation follows `analysis/report/NOTATION.md`. Symbols marked *local*
+are defined here. Symbols marked *quoted* are the manuscript's own,
+reproduced only to identify the passage under review; Section 5
+recommends their replacement.
+
+| Symbol | Meaning | Status |
+|----------------|----------------------------------------|----------|
+| $B_i$, $b_i$ | biomarker; standardized biomarker | canonical |
+| $c_{bm}$ | covariance-moderation correlation of $B_i$ with $BR_{it}$ | canonical |
+| $\beta_{bm}$ | mean-moderation multiplier | canonical |
+| $BR_{it}$, $\sigma_{BR}$ | drug-response component; its SD | canonical |
+| $\sigma_{bm}$ | SD of the biomarker | canonical |
+| $D_{it}$, $D_{bc,it}$ | binary drug state; exposure-decayed drug indicator (code `Dbc`) | canonical |
+| $\bar D_{bc}$ | mean of $D_{bc,it}$ over occasions | local |
+| $t_{1/2}$, $\lambda$, $t_{sd}$ | carryover half-life; decay rate; time since discontinuation | canonical |
+| $\beta_{bm:D}$, $\hat\beta_{bm:D}$ | interaction estimand (`bm:Dbc`); its estimate | canonical |
+| $\theta_{\text{true}}$ | calibrated true value, $-c_{bm}\sigma_{BR}$ | canonical |
+| $\kappa$ | mean model-based SE (`betaSE`) over empirical SD of $\hat\beta_{bm:D}$ | canonical |
+| $\widehat{SE}$ | model-based standard error of $\hat\beta_{bm:D}$ | local |
+| $z$ | Wald or two-proportion $z$ statistic | local |
+| $\rho$ | AR(1) serial correlation | canonical |
+| $g_t$ | coupling at occasion $t$: the fraction of $c_{bm}$ applied (`docs/44`) | local |
+| $\mu_{BR,1}$ | $BR$ mean at the first off-drug occasion of a run (manuscript Appendix B.6 example) | quoted |
+| $\beta_1\beta_{bm}$ | the manuscript's mean-moderation interaction product (Section 2.2.3) | quoted |
+| $\rho_c$, $c_1$, $c_\times$ | within-factor correlation; cross-factor correlation at the same and at different occasions (manuscript Appendix B.7) | quoted |
+| $b^{\text{orig}}$ | the manuscript's biomarker coupling vector (Appendix B) | quoted; collides with $b_i$ |
+| $z_i$, $\mu_B$, $\sigma_B$, $\mu_{bm}$, $\hat\beta_{bm:D_{bc}}$, $p$ | non-canonical manuscript symbols discussed in Section 5 | quoted |
+
+Table: Notation index and glossary of symbols used in this document
+
+- **Mean moderation; covariance moderation.** The two data-generating
+  architectures (NOTATION Part 3), formerly Architectures A and B.
+- **Size-adjusted power.** Power with the critical value set at the
+  95th percentile of $\lvert z \rvert$ in the matching null cell.
+- **Difference-of-differences $z$.** The $z$ statistic for the
+  difference between the two architectures' power losses.
+- **CO, Hybrid, OL+BDC.** Crossover; the Hendrickson hybrid design;
+  open-label titration followed by blinded discontinuation.
 
 ## 1. Evidence basis
 
@@ -119,7 +179,8 @@ implementation does.
   correlation is zero because `lambda_cor` is set to 0 and the
   decay branch is skipped (`R/generateData.R:225-228, 350`).
 - For $t_{1/2} > 0$, off-drug `Dbc` equals
-  $(1/2)^{t_{sd}/t_{1/2}} > 0$.
+  $(1/2)^{t_{sd}/t_{1/2}} > 0$ after exposure (it is 0 at off-drug
+  occasions before any exposure, `R/lme_analysis.R:114`).
 
 Carryover therefore *raises* off-drug $D_{bc,it}$ from zero, and
 under the stated identity the off-drug conditional variance *falls*
@@ -150,20 +211,25 @@ signal-to-noise ratios quoted are arithmetically correct, being
 `mean_beta / sd_beta` from the summary file, but the interpretation
 does not hold.
 
-| Design | Architecture | Empirical SD, $t_{1/2}=0 \to 1$ | Change | Mean $\hat\beta$, $t_{1/2}=0 \to 1$ |
+| Design | Architecture | Empirical SD, $t_{1/2}=0 \to 1$ | Change | Mean $\hat\beta_{bm:D}$, $t_{1/2}=0 \to 1$ |
 |---|---|---|---|---|
-| Hybrid | Mean moderation | 0.0782 to 0.0938 | +20.0% | -0.235 to -0.266 |
+| Hybrid | Mean moderation | 0.0782 to 0.0938 | +19.9% | -0.235 to -0.266 |
 | Hybrid | Covariance moderation | 0.0708 to 0.0840 | +18.7% | -0.231 to -0.239 |
 | OL+BDC | Mean moderation | 0.0807 to 0.0956 | +18.5% | -0.231 to -0.281 |
 | OL+BDC | Covariance moderation | 0.0789 to 0.0904 | +14.6% | -0.232 to -0.234 |
 
-Table: Empirical SD and mean $\hat\beta$ by design and architecture as carryover increases
+Table: Empirical SD and mean $\hat\beta_{bm:D}$ by design and architecture as carryover increases
+
+The changes are computed from unrounded SDs (verified by rerunning
+Appendix 1 on 2026-10-07; the mean-moderation Hybrid change, earlier
+given as 20.0%, is 19.9%).
 
 Empirical SD grows as much or more under mean moderation. What
 distinguishes the architectures is the numerator: under mean
-moderation $|\hat\beta|$ grows with carryover by 13% (Hybrid) and
-22% (OL+BDC), with MCSE near 0.003, so the change is far outside
-Monte Carlo error. Under covariance moderation $\hat\beta$ is stable.
+moderation $\lvert\hat\beta_{bm:D}\rvert$ grows with carryover by 13%
+(Hybrid) and 22% (OL+BDC), with MCSE near 0.003, so the change is far
+outside Monte Carlo error. Under covariance moderation
+$\hat\beta_{bm:D}$ is stable.
 
 Three consequences follow.
 
@@ -189,8 +255,8 @@ Three consequences follow.
 **Evidence: verified (replicate reanalysis); size-adjusted figures
 are approximate.**
 
-The ratio of mean model-based SE (`betaSE`) to empirical SD of
-$\hat\beta$ is far from uniform across cells.
+The ratio $\kappa$ of mean model-based SE (`betaSE`) to empirical SD
+of $\hat\beta_{bm:D}$ is far from uniform across cells.
 
 | Design | Mean moderation, $t_{1/2}=0 \to 1$ | Covariance moderation, $t_{1/2}=0 \to 1$ |
 |---|---|---|
@@ -198,7 +264,7 @@ $\hat\beta$ is far from uniform across cells.
 | Hybrid | 1.02 to 1.04 | 1.12 to 1.16 |
 | OL+BDC | 1.10 to 1.20 | 1.12 to 1.26 |
 
-Table: Ratio of model-based SE to empirical SD by design and architecture
+Table: Ratio $\kappa$ of model-based SE to empirical SD by design and architecture
 
 Values are for the $c_{bm} = 0.45$ cells. The null cells show the
 same pattern (CO 0.92 to 0.98; OL+BDC 1.12 to 1.23).
@@ -212,7 +278,7 @@ The Type I error results are consistent with this.
   carryover increases.
 
 Power was recomputed using, for each cell, the 95th percentile of
-$|\hat\beta / \widehat{SE}|$ in the matching null cell as the
+$\lvert\hat\beta_{bm:D} / \widehat{SE}\rvert$ in the matching null cell as the
 critical value. With 1,000 null replicates this quantile is itself
 noisy, so the figures below indicate magnitude only.
 
@@ -350,9 +416,10 @@ be withdrawn in light of Section 2.3.
 
 - Section 2.3 defines the reference true value as
   $\theta_{\text{true}} = -c_{bm}\sigma_{BR}$ (line 691). Section 2.2.3
-  gives the population slope as $c_{bm}\sigma_{BR}/\sigma_B$. The two
-  differ by a factor of $\sigma_B$ and cannot both be the target of
-  the unstandardized `bm:Dbc` coefficient.
+  gives the population slope as $c_{bm}\sigma_{BR}/\sigma_{bm}$ (written
+  there with $\sigma_B$). The two differ by a factor of $\sigma_{bm}$
+  and cannot both be the target of the unstandardized `bm:Dbc`
+  coefficient.
 - Bias relative to $\theta_{\text{true}}$ is listed as a performance
   measure but never reported.
 - The sign convention required by NOTATION rule 5 (components are
@@ -392,6 +459,16 @@ comparison defensible.
   symmetry restricts $c_{bm}$ more tightly than AR(1). Appendix B.7
   shows that for any $t_{1/2} > 0$ the ordering reverses, with the
   published implementation admitting the higher ceiling.
+  *Note (2026-10-07).* The reversal is a property of the published step
+  coupling, which makes the coupling constant, and the interaction
+  zero, at any positive half-life (`docs/37`). Under graded coupling
+  ($g_t = 2^{-t_{sd}/t_{1/2}}$ off drug after exposure, 0 before it) the
+  ordering does not reverse: at $\rho = 0.8$ the CS ceiling is 0.256
+  without carryover and at most 0.469 at $t_{1/2} = 2$, while the
+  separable AR(1) ceiling is 0.440 (Hybrid, no carryover) and higher at
+  every half-life and design (verified,
+  `analysis/data/quick-sim/carryover-closed-form/ceilings-graded-by-rho.csv`;
+  `docs/44`, Step 6).
 
 ### 3.5 Unfinished material and reproducibility gaps
 
@@ -497,12 +574,17 @@ calibration.
 Assessed against `analysis/report/NOTATION.md`. The linter passes,
 so the items below concern rules it does not mechanize.
 
+The symbols discussed in this section are quoted from the manuscript
+(see the notation index).
+
 - **$b$ is overloaded.** It denotes a realized biomarker value
   (Sections 2.2.2 and 2.2.3), the standardized biomarker $b_i$
   (Section 4.1, consistent with NOTATION), and the biomarker coupling
   vector (Appendix B). Sections 2.2.1 and B.6 use $z_i$ for the
   standardized biomarker where NOTATION specifies $b_i$. The coupling
-  vector should be renamed (for example $\gamma$ or $r_{BM}$).
+  vector should be renamed, for example to $g_t$ as in `docs/44`, or
+  to $r_{BM}$. (This review earlier suggested $\gamma$; that symbol is
+  reserved by NOTATION for the $BR \times PB$ interaction.)
 - **Biomarker moments.** $\mu_B$ and $\sigma_B$ (main text) and
   $\mu_{bm}$ and $\sigma_{bm}$ (Appendix B.6 notes, B.8) are used for
   the same quantities, as are $B_i$ and $\mathrm{BM}$.

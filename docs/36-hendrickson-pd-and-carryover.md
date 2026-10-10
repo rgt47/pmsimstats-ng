@@ -6,7 +6,11 @@ fontsize: 10pt
 # Positive Definiteness and Carryover Sensitivity in the Hendrickson et al. (2020) Simulation Framework {.unlisted .unnumbered}
 *2026-10-01 18:00 PDT. Working draft.*
 
-**Author:** pmsimstats team
+**Author.** pmsimstats team
+
+(Updated 2026-10-09: the power-simulation results now use anchored
+carryover; values changed by at most 0.01; conclusions unchanged; see
+`docs/53`.)
 
 **Purpose.** The simulation framework of Hendrickson et al. [1] has two
 known problems. First, many of the correlation matrices its
@@ -27,6 +31,98 @@ biomarker-treatment interaction in the mean of the DGP.
 \listoffigures
 \clearpage
 ```
+
+## Notation index and glossary
+
+Symbols follow `analysis/report/NOTATION.md` where it defines one
+(status canonical); the matrix-algebra symbols of Sections 4 to 6 and
+Appendix A are local to this paper. On 2026-10-09 symbols were renamed
+to agree with `docs/35`, `docs/37` and
+`analysis/report/compendium-mathematics.tex`: the coupling pattern
+from $u$ to $g$ ($u_i$ is the canonical random intercept), with
+$\tilde g$ its zero-padded form; the residual fraction from $g_t$ to
+$\phi_t$; the AR(1) step correlation from $\phi_t$ to $\rho_t$; the
+latent AR(1) processes of the factored generator from $P_{j,t}$ to
+$H_{j,t}$ ($P$ is the canonical number of randomization paths); and
+the normal law to $\mathcal{N}$ ($N$ is the total sample size).
+
+(Notation, 2026-10-09: following the merged
+`analysis/report/NOTATION.md`, $\rho$ is the AR(1) correlation per
+week and the constant within-factor correlation of a
+compound-symmetry block is $\rho_{cs}$. Statements and formulas that
+belong to the compound-symmetry configurations (A and D) alone now
+write $\rho_{cs}$; the published parameter value 0.8 is $\rho_{cs}$ in
+configurations A and D and $\rho$ in the AR(1) configurations B, C,
+E and F, and where one value is quoted for configurations of both
+kinds, as in "the published parameters ($\rho = 0.8$, ...)", it is
+both.)
+
+| Symbol | Meaning | Status |
+|---|---|---|
+| $Y_{it}$ | observed symptom score (code `Sx`) | canonical |
+| $\mathrm{BL}$, $TV$, $PB$, $BR$ | baseline, time-variant, placebo-belief and biological-response components | canonical |
+| $B$, $b$ | biomarker and standardized biomarker $(B - \mu_{bm})/\sigma_{bm}$ | canonical |
+| $\mu_{bm}$, $\sigma_{bm}$, $\sigma_{BR}$, $\sigma_{TV}$, $\sigma_{PB}$ | biomarker mean; standard deviations of the biomarker and components | canonical |
+| $c_{bm}$ | covariance-moderation parameter: on-drug biomarker-$BR$ correlation | canonical |
+| $c_{bm}^{\ast}$ | ceiling: largest feasible $c_{bm}$ for a given response block and coupling pattern | canonical |
+| $\beta_{bm}$ | mean-moderation multiplier (set equal to the nominal $c_{bm}$) | canonical |
+| $\beta_{bm:D}$, $\hat\beta_{bm:D}$ | biomarker-by-treatment interaction coefficient and its estimate (`bm:Db` in the published code) | canonical |
+| $\alpha$ | nominal significance level, 0.05 | canonical |
+| $N$ | total sample size across randomization paths | canonical |
+| $t_{1/2}$ | carryover half-life (weeks) | canonical |
+| $t_{sd}$, $t_{sd,t}$ | time since discontinuation (at visit $t$) | canonical |
+| $\rho$ | AR(1) within-factor correlation per week | canonical |
+| $\rho_{cs}$ | constant within-factor correlation under compound symmetry (configurations A, D) | canonical |
+| $c_1$, $c_\times$ | same-visit and different-visit cross-factor correlations (code `c.cf1t`, `c.cfct`) | canonical |
+| $n$, $w_t$, $d_t$ | number of visits; week of visit $t$; gap $w_t - w_{t-1}$ | canonical ($n$ local) |
+| $\eta_t$ | design expectancy (1 open label, 0.5 blinded), the weight scaling $\sigma_{PB}$ | canonical |
+| $\phi_t$ | residual fraction of the on-drug effect at visit $t$, $2^{-t_{sd,t}/t_{1/2}}$ off drug after first exposure, 0 otherwise (graded coupling weight) | canonical |
+| $g$, $g_t$, $r$ | coupling pattern (1 on drug, $\phi_t$ or $\mathbf{1}[\phi_t > 0]$ off drug) and biomarker-$BR$ correlation vector, $r = c_{bm} g$ | canonical ($r$ local) |
+| $\tilde g$ | coupling pattern padded with zeros at the $TV$ and $PB$ entries | canonical |
+| $\mu_{BR,t}$ | mean drug response at visit $t$ | canonical |
+| $R$, $M$, $S$ | full correlation matrix; $3n \times 3n$ response block; diagonal matrix of standard deviations | local |
+| $A$, $A_c$ | $n \times n$ within-factor (time) correlation matrix | local |
+| $C_{cc'}$ | cross-factor block between factors $c$ and $c'$ | local |
+| $K$, $K_a$, $K_b$, $K_o$, $K_p$ | $3 \times 3$ factor matrices in the Kronecker decompositions | local |
+| $I_n$, $J_n$ | identity and all-ones $n \times n$ matrices | local |
+| $\rho_t$ | one-step AR(1) correlation $\rho^{d_t}$ between consecutive visits | canonical |
+| $L$, $L_A$, $L_K$ | bidiagonal factor of $A^{-1}$; Cholesky factors of $A$ and $K$ | local |
+| $H_{j,t}$, $z_{j,t}$ | latent AR(1) process $j$ at visit $t$ and its standard normal innovation | local |
+| $X$, $X_c$, $\mathbf{X}$, $\mathbf{Z}$ | stacked variable vector; factor $c$'s visit vector; $n \times 3$ response and standard normal matrices | local |
+| $W$, $q$ | conditional-mean weights and quadratic form $[K^{-1}]_{33}\,g^{\top}A^{-1}g$ of the biomarker draw | local |
+| $\omega_{\min}(\cdot)$, $\omega_i(\cdot)$ | smallest and $i$-th eigenvalue of a matrix | local |
+
+Table: Notation index for this paper
+
+**Glossary.**
+
+- *Step coupling*: the published rule, which assigns the full $c_{bm}$
+  to every visit at which the carryover-adjusted $BR$ mean is nonzero.
+- *Graded coupling*: the off-drug coupling $c_{bm} \phi_t$, proportional
+  to the residual drug effect.
+- *Ceiling*: the largest $c_{bm}$ for which the correlation matrix is
+  positive definite.
+- *Repair*: the published code's silent replacement of an indefinite
+  matrix by a nearby positive definite one
+  (`corpcor::make.positive.definite`).
+- *CS*, *AR(1)*: compound symmetry (constant correlation at every lag)
+  and first-order autoregressive correlation in calendar time.
+- *Separable*: a response correlation of the form $K \otimes A$.
+- *Configurations A to F*: the six data-generating configurations of
+  Appendix A.6: A published (CS, constant cross block, step coupling);
+  B AR(1) with the decaying cross block $c_\times\rho^{|w_t - w_s|}$
+  and step coupling; C separable AR(1) with graded coupling; D CS with
+  the constant cross block and mean moderation; E separable AR(1) with
+  mean moderation and no covariance coupling; F AR(1) with the decaying
+  cross block and graded coupling. (Clarified 2026-10-09: E was
+  labeled "Adj. 1 + 2 + 3" and "all three" in this paper. Graded
+  coupling, adjustment 2, has no effect in E, whose coupling vector is
+  zero; E is adjustment 1 with the separable cross block $c_1
+  \rho^{|w_t - w_s|}$ plus adjustment 3, as arm E of
+  `04-power-simulation.R` builds it. The labels in Appendix A.6 and
+  Section 6 now say so.)
+- *Size-adjusted power*: power computed against each cell's own null
+  distribution rather than at nominal $\alpha = 0.05$.
 
 ## 1. Summary
 
@@ -84,7 +180,8 @@ biomarker-treatment interaction in the mean of the DGP.
    closely as a standard draw does (Section 6.7).
 7. **Simulation confirms both diagnoses and the remedy.** Re-simulating
    the published construct without any repair reproduces the collapse
-   (Hybrid power 0.59 to 0.08 at $t_{1/2} = 0.1$ for $c_{bm} = 0.25$),
+   (Hybrid power 0.59 to 0.08 at $t_{1/2} = 0.1$ for $c_{bm} = 0.25$,
+   `corCAR1` analysis),
    so the repair is not its cause. AR(1) alone leaves the collapse in
    place. AR(1) with graded coupling removes it: Hybrid power at
    $c_{bm} = 0.3$ is 0.69, 0.70 and 0.72 at half-lives of 0, 0.1 and 0.2
@@ -99,7 +196,7 @@ biomarker-treatment interaction in the mean of the DGP.
 9. **Separability buys feasibility, not power.** With graded coupling,
    the separable cross-factor block (C) and the current `covar` block
    (F) give the same power once each test is judged against its own
-   null (within $\pm 0.04$ in Hybrid). Separability raises the ceiling
+   null (within 0.042 in Hybrid). Separability raises the ceiling
    (Hybrid 0.291 to 0.440), so $c_{bm} = 0.3$ becomes feasible in every
    cell, and it makes the response block valid for every schedule
    (Sections 6.4, 6.5 and 6.8).
@@ -128,10 +225,11 @@ Evidence labels: **verified** (computed in this work), **inspected**
   (verified) and confirmed by re-simulating the published construct
   without repair (verified, Section 5.5).
 - **Adjustments** were evaluated by exact positive-definiteness ceilings
-  at the published parameters, and by a power simulation of five
+  at the published parameters, and by a power simulation of six
   configurations, each analyzed with the published model and with
-  serial-correlation residuals: 261,000 model fits, all converged
-  (verified, Section 6.8).
+  serial-correlation residuals: 309,000 model fits, all converged
+  (verified, Section 6.8; 261,000 of them from configurations A-E and
+  48,000 from configuration F, run later).
 
 ## 3. The published framework
 
@@ -148,10 +246,10 @@ saved `parameterselections`):
 | $N$ | 35, 70 |
 | $c_{bm}$ | 0, 0.3, 0.6 |
 | Carryover half-life $t_{1/2}$ | 0, 0.1, 0.2 weeks |
-| Within-factor correlation $\rho$ | 0.8 for all three components, constant at every lag (CS) |
+| Within-factor correlation $\rho_{cs}$ | 0.8 for all three components, constant at every lag (CS) |
 | Cross-factor correlation | $c_1 = 0.2$ same visit, $c_\times = 0.1$ otherwise |
 | Biomarker-BR correlation | $c_{bm}$ wherever the carryover-adjusted BR mean is nonzero, 0 elsewhere |
-| Carryover on BR mean | recursive, $\mu_{p-1}(1/2)^{t_{sd}/t_{1/2}}$ with cumulative $t_{sd}$ |
+| Carryover on BR mean | recursive, $\mu_{BR,t-1}(1/2)^{t_{sd}/t_{1/2}}$ with cumulative $t_{sd}$ |
 | Positive definiteness | `makePositiveDefinite = TRUE` in every call: `corpcor::make.positive.definite(sigma, tol = 1e-3)` when the check fails |
 | Analysis | `lmer`, random intercept, binary on-drug indicator, test of `bm:Db` |
 
@@ -185,17 +283,19 @@ matrix.
 
 The response block (all $TV$, $PB$ and $BR$ entries) is positive
 definite in every case: under CS with constant cross-factor terms its
-smallest eigenvalue is $(1 - \rho) - (c_1 - c_\times) = 0.1$,
+smallest eigenvalue is $(1 - \rho_{cs}) - (c_1 - c_\times) = 0.1$,
 independent of the design (verified). Failure therefore always comes
-from the biomarker row. With $\tilde r = c_{bm} v$ the biomarker's
+from the biomarker row. With $r = c_{bm} g$ the biomarker's
 correlations with the $BR$ visits, the Schur complement gives the exact
 largest feasible value
 
 $$
-c_{bm}^{\ast} = \bigl(v^{\top} M^{-1} v\bigr)^{-1/2},
+c_{bm}^{\ast} = \bigl(\tilde g^{\top} M^{-1} \tilde g\bigr)^{-1/2},
 $$
 
-where $M$ is the response block and $v$ the coupling pattern (`docs/34`,
+where $M$ is the response block and $\tilde g$ the coupling pattern
+$g$ over the $BR$ visits, padded with zeros at the $TV$ and $PB$
+entries (`docs/34`,
 Section 3.2). For the published construct at the published parameters
 (verified):
 
@@ -347,10 +447,22 @@ change the step rule, so with any carryover the coupling is still
 constant and the contrast is still lost. It addresses problem 1 in part
 and problem 2 not at all.
 
+(Clarified 2026-10-08: adjustment 1 as implemented here, configuration
+B, applies AR(1) to the cross-component block as well, $c_\times
+\rho^{|w_t - w_s|}$ (Appendix A.6), so "AR(1) alone" in this paper and
+in `docs/44` means AR(1) with the decaying cross block.
+`docs/54` uses "AR(1) only" for AR(1) with the
+published constant block $c_\times$, a different construct. With the
+constant block the no-carryover ceilings at $\rho = 0.8$ are 0.363 in
+Hybrid and 0.535 in OL, against 0.291 and 0.576 for configuration B.
+See `analysis/report/compendium-mathematics.tex`, Section "Ceilings by
+serial correlation and by cross-component form".)
+
 ### 6.2 Adjustment 2: a correlation that decays off drug
 
 Under the graded rule the off-drug coupling is $c_{bm}\phi_t$, with
-$\phi_t$ the residual fraction of the on-drug effect, so the coupling is
+$\phi_t = 2^{-t_{sd,t}/t_{1/2}}$ the residual fraction of the on-drug
+effect (0 before first exposure; Appendix A.4), so the coupling is
 a continuous function of the half-life. At $t_{1/2} = 0.1$ the residual
 at the first off-drug visit is 0.001, and the graded coupling is
 indistinguishable from the no-carryover pattern: the discontinuity of
@@ -386,8 +498,9 @@ moderation asserts that the biomarker fixes each participant's drug
 effect; covariance moderation asserts that it predicts the effect only
 probabilistically, which is the rationale Hendrickson et al. gave for
 their construct [1] and the subject of paper 01 of this compendium. In
-paper 01's terms, adjustment 3 replaces Architecture B with Architecture
-A. It also introduces a known mismatch with an analysis model that uses
+paper 01's terms, adjustment 3 replaces the covariance-moderation
+architecture (formerly Architecture B) with the mean-moderation
+architecture (formerly Architecture A). It also introduces a known mismatch with an analysis model that uses
 a continuous exposure variable, because the mean shift is applied on
 drug only (paper 01, Section 2.2.1).
 
@@ -410,7 +523,7 @@ $$
 so that cross-factor correlation decays at the same rate as
 within-factor correlation and equals $c_1$ times it at every lag.
 Separability is meaningful only alongside AR(1): under compound symmetry
-it reduces to the published construct with $c_\times = c_1\rho$. The full
+it reduces to the published construct with $c_\times = c_1\rho_{cs}$. The full
 argument is in `docs/35-separable-response-covariance.md`; Appendix A.7
 works it through numerically.
 
@@ -431,7 +544,7 @@ it. Diagonalizing $A$ shows that
 
 $$
 M_{\text{covar}} \succ 0 \iff
-\lambda_{\min}(A) > \frac{c_1 - c_\times}{1 - c_\times},
+\omega_{\min}(A) > \frac{c_1 - c_\times}{1 - c_\times},
 $$
 
 which is 0.111 at the published values (verified, `docs/35` Section
@@ -451,7 +564,7 @@ visits are one week apart, sit at that boundary.
   from 0.291 to 0.440 in Hybrid, from 0.303 to 0.468 in OL+BDC, and from
   0.627 to 0.637 in CO (verified, Section 6.5).
 - **An exact, factored ceiling and generator.** The ceiling factorizes
-  as $c_{bm}^{\ast} = ([K^{-1}]_{33}\,u^{\top}A^{-1}u)^{-1/2}$, and data
+  as $c_{bm}^{\ast} = ([K^{-1}]_{33}\,g^{\top}A^{-1}g)^{-1/2}$, and data
   can be generated without forming the full matrix (Section 6.7).
 - **Coherence with the analysis model.** The summed response is an
   AR(1) process under separability, which is the structure `corCAR1`
@@ -476,7 +589,7 @@ using the current `covar` cross-factor block (Section 6.8).
 $TV$, $PB$ and $BR$ visits) is itself not positive definite, which no
 choice of $c_{bm}$ can repair, or $M$ is valid and the biomarker
 coupling exceeds what it can support, the ceiling
-$c_{bm}^{\ast} = \min_{\text{paths}}(u^{\top}M^{-1}u)^{-1/2}$ of
+$c_{bm}^{\ast} = \min_{\text{paths}}(\tilde g^{\top}M^{-1}\tilde g)^{-1/2}$ of
 Section 4.2. On every grid examined here the first never happens. The
 smallest eigenvalue of $M$, over paths and $t_{1/2} \in \{0, 0.1, 0.2,
 0.5, 1\}$, is (verified):
@@ -529,7 +642,8 @@ The ceilings predict the repair counts below exactly: a path's matrix
 fails the published test if and only if $c_{bm}$ exceeds that path's
 ceiling, for all 504 matrices counted (verified).
 
-**Why a ceiling must exist.** The quantity $c_{bm}^2\,u^{\top}M^{-1}u$ is
+**Why a ceiling must exist.** The quantity
+$c_{bm}^2\,\tilde g^{\top}M^{-1}\tilde g$ is
 the squared multiple correlation of the biomarker on the whole response
 trajectory, so it cannot reach 1. A single biomarker cannot be
 correlated 0.6 with each of several on-drug visits that are only partly
@@ -569,7 +683,7 @@ replicates) logged the same 20 repairs during the run.
 | F AR(1) + graded, `covar` | 26/54 (48%) | 5/90 (6%) |
 | C AR(1) + graded, separable | 21/54 (39%) | 0/90 (0%) |
 | D mean moderation | 0/54 (0%) | 0/90 (0%) |
-| E all three | 0/54 (0%) | 0/90 (0%) |
+| E separable AR(1) + mean moderation | 0/54 (0%) | 0/90 (0%) |
 
 Table: Share of matrices repaired by configuration on the published and common grids
 
@@ -591,8 +705,9 @@ Read against the published effect sizes:
 - **$c_{bm} = 0.6$** exceeds every covariance-moderation ceiling in
   Hybrid and OL+BDC at $\rho = 0.8$. No covariance construct examined
   can represent the published large effect in those designs; only mean
-  moderation can. At the project's $\rho = 0.7$ the separable Hybrid
-  ceiling is 0.48-0.49 (`docs/35`), still below 0.6.
+  moderation can. At the project's $\rho = 0.7$ (no carryover) the
+  separable ceiling is 0.480 in Hybrid (path A; 0.491 on path C) and
+  0.474 in OL+BDC (`docs/35`, Section 6), still below 0.6.
 
 ### 6.6 Which adjustment addresses which problem
 
@@ -631,10 +746,12 @@ in which an infeasible effect size cannot be simulated.
 recursion on the gaps $d_t = w_t - w_{t-1}$:
 
 $$
-P_{j,1} \sim N(0, 1), \qquad
-P_{j,t} = \phi_t P_{j,t-1} + \sqrt{1 - \phi_t^2}\,\varepsilon_{j,t},
-\qquad \phi_t = \rho^{d_t}, \qquad j = 1, 2, 3.
+H_{j,1} \sim \mathcal{N}(0, 1), \qquad
+H_{j,t} = \rho_t H_{j,t-1} + \sqrt{1 - \rho_t^2}\,z_{j,t},
+\qquad \rho_t = \rho^{d_t}, \qquad j = 1, 2, 3,
 $$
+
+with $z_{j,t}$ independent standard normal innovations.
 
 Each path has correlation $\rho^{|w_t - w_s|}$ between visits, for any
 spacing [3, 4].
@@ -643,7 +760,7 @@ spacing [3, 4].
 $3 \times 3$ factor correlation $K = (1 - c_1)I_3 + c_1 J_3$:
 
 $$
-(TV_t, PB_t, BR_t)^{\top} = L_K\,(P_{1,t}, P_{2,t}, P_{3,t})^{\top},
+(TV_t, PB_t, BR_t)^{\top} = L_K\,(H_{1,t}, H_{2,t}, H_{3,t})^{\top},
 \qquad L_K L_K^{\top} = K .
 $$
 
@@ -654,14 +771,14 @@ $\mathrm{chol}(K \otimes A) = \mathrm{chol}(K) \otimes \mathrm{chol}(A)$
 **3. Biomarker.** Draw the biomarker given the response:
 
 $$
-B \mid X \sim N\Bigl(c_{bm} \sum_{c} [K^{-1}]_{c3}\, X_c^{\top} A^{-1}u,\;\;
-1 - c_{bm}^2\, q\Bigr), \qquad q = [K^{-1}]_{33}\, u^{\top} A^{-1} u,
+B \mid X \sim \mathcal{N}\Bigl(c_{bm} \sum_{c} [K^{-1}]_{c3}\, X_c^{\top} A^{-1}g,\;\;
+1 - c_{bm}^2\, q\Bigr), \qquad q = [K^{-1}]_{33}\, g^{\top} A^{-1} g,
 $$
 
-where $X_c$ is factor $c$'s vector of visits and $u$ the coupling
-pattern of Appendix A.4. $A^{-1}u$ is computed from the bidiagonal AR(1)
-precision, $A^{-1} = L^{\top}L$ with $L_{tt} = (1 - \phi_t^2)^{-1/2}$
-and $L_{t,t-1} = -\phi_t (1 - \phi_t^2)^{-1/2}$, in a few
+where $X_c$ is factor $c$'s vector of visits and $g$ the coupling
+pattern of Appendix A.4. $A^{-1}g$ is computed from the bidiagonal AR(1)
+precision, $A^{-1} = L^{\top}L$ with $L_{11} = 1$,
+$L_{tt} = (1 - \rho_t^2)^{-1/2}$ and $L_{t,t-1} = -\rho_t (1 - \rho_t^2)^{-1/2}$, in a few
 multiplications; the only matrix inverted is the $3 \times 3$ $K$. The
 baseline is drawn independently. Means, standard deviations, carryover
 on the mean and, under mean moderation, the on-drug shift are applied
@@ -680,13 +797,26 @@ $c_{bm} = 0.3$):
 
 | Check | Result |
 |---|---|
-| Ceiling, closed form against full matrix | 0.494329 against 0.494329 |
-| $A^{-1}u$, closed form against `solve()` | agree to $7 \times 10^{-16}$ |
+| Ceiling, closed form against full matrix | 0.490934 against 0.490934 |
+| $A^{-1}g$, closed form against `solve()` | agree to $8 \times 10^{-16}$ |
 | Sampled correlations against the target, 5 seeds of 400,000 draws | largest deviation 0.0034-0.0056 |
-| Same check for a standard full-matrix draw | largest deviation 0.0035-0.0060 |
-| $c_{bm} = 0.6$ requested | refused: "exceeds the ceiling 0.494" |
+| Same check for a standard full-matrix draw | largest deviation 0.0037-0.0052 |
+| $c_{bm} = 0.6$ requested | refused: "exceeds the ceiling 0.491" |
 
 Table: Checks of the factored generator against the full-matrix computation
+
+(Corrected 2026-10-08: the check script entered the coupling at visit 8
+(week 20, $t_{sd} = 4$) as $0.0625$; graded coupling at
+$t_{1/2} = 0.5$ gives $2^{-8} = 0.0039$ there. With the source's vector
+the ceiling was 0.494329; with the correct vector it is 0.490934, which
+agrees with the configuration C entry for Hybrid at $t_{1/2} = 0.5$
+(0.491) in the Section 6.5 table. The script
+was corrected and rerun; the factored-draw deviations were unchanged,
+the full-matrix deviations changed from 0.0035-0.0060, the $A^{-1}g$
+agreement from $7 \times 10^{-16}$, and the refusal message from
+0.494, and the conclusion is unchanged. See
+`analysis/report/compendium-mathematics.tex`, Section "Silent repair,
+and why the generator must stop".)
 
 The factored draws reproduce the target correlation matrix as closely
 as a standard full-matrix draw does.
@@ -727,9 +857,13 @@ against its target distribution, but not yet integrated into
 **Design.** The six configurations of Appendix A.6 were simulated with
 everything else held at the published values: $\rho = 0.8$,
 $c_1 = 0.2$, $c_\times = 0.1$, the published Gompertz means and
-standard deviations, the published recursive carryover on the $BR$
-mean, and the three designs with $N = 70$ allocated across paths as in
-the published code. The grid crossed $c_{bm} \in \{0, 0.25, 0.3, 0.6\}$
+standard deviations, and the three designs with $N = 70$ allocated across paths as in
+the published code. The carryover on the $BR$ mean is the anchored form,
+which decays the mean from its value at the last on-drug visit; the
+published code instead compounds the decay across consecutive off-drug
+visits (`docs/53`). An earlier run with the published recursion and the
+same seeds gave every quoted value within 0.01 of those reported here
+(verified, paired by cell). The grid crossed $c_{bm} \in \{0, 0.25, 0.3, 0.6\}$
 with $t_{1/2} \in \{0, 0.1, 0.2, 0.5, 1\}$ weeks, 500 replicates per
 cell, giving a Monte Carlo standard error of about 0.022 on power near
 0.5 and 0.010 on a Type I error of 0.05. The value $c_{bm} = 0.25$ lies
@@ -747,7 +881,7 @@ seeds of A-E were not changed.
 within-participant correlation is constant, which is exactly right for
 compound-symmetry data and wrong for AR(1) data. With AR(1) data it
 rejects a true null too often: Type I error reaches 0.14-0.23 in CO and
-0.04-0.10 in Hybrid and OL+BDC for configurations B, C, E and F,
+0.05-0.11 in Hybrid and OL+BDC for configurations B, C, E and F,
 against 0.03-0.06 in CO for the compound-symmetry configurations A and D
 (Figure 1, verified). With `corCAR1` residuals, Type I error in the AR(1)
 configurations falls to 0.02-0.09, close to nominal; F is the most
@@ -755,14 +889,13 @@ conservative of them in Hybrid and OL+BDC (0.016-0.052). Adopting AR(1) data
 (adjustment 1) therefore requires an analysis that models serial
 correlation; the results below use the `corCAR1` analysis. One pattern
 is not explained by this: in OL+BDC, the compound-symmetry
-configurations A and D run at 0.06-0.11 under both analyses.
+configurations A and D run at 0.06-0.11 under the published analysis
+and 0.06-0.10 under `corCAR1`.
 
-![Type I error by configuration and carryover](figures/36-fig1-type1.png)
-
-*Figure 1. Type I error ($c_{bm} = 0$) by configuration, design and
-carryover half-life, under the published analysis (top) and the
-`corCAR1` analysis (bottom). Shaded band: $\pm 2$ Monte Carlo standard
-errors around 0.05.*
+![Type I error ($c_{bm} = 0$) by configuration, design and carryover
+half-life, under the published analysis (top) and the `corCAR1`
+analysis (bottom). Shaded band: $\pm 2$ Monte Carlo standard errors
+around 0.05.](figures/36-fig1-type1.png)
 
 **Power.** Nominal power in the Hybrid design, `corCAR1` analysis
 (verified):
@@ -771,21 +904,19 @@ errors around 0.05.*
 |---|---|---|---|---|---|---|
 | A Published | 0.25 | 0.59 | 0.08 | 0.08 | 0.09 | 0.10 |
 | B AR(1) | 0.25 | 0.44 | 0.06 | 0.06 | 0.06 | 0.06 |
-| F AR(1) + graded, `covar` | 0.25 | 0.43 | 0.41 | 0.44 | 0.36 | 0.24 |
+| F AR(1) + graded, `covar` | 0.25 | 0.43 | 0.41 | 0.44 | 0.36 | 0.23 |
 | F AR(1) + graded, `covar` | 0.30 | infeasible | infeasible | 0.59 | 0.46 | 0.34 |
 | C AR(1) + graded, separable | 0.25 | 0.51 | 0.48 | 0.52 | 0.41 | 0.28 |
 | C AR(1) + graded, separable | 0.30 | 0.69 | 0.70 | 0.72 | 0.55 | 0.36 |
 | D Mean moderation | 0.30 | 0.78 | 0.75 | 0.74 | 0.77 | 0.73 |
-| E All three | 0.30 | 0.67 | 0.65 | 0.67 | 0.66 | 0.64 |
+| E Separable AR(1) + mean moderation | 0.30 | 0.67 | 0.65 | 0.67 | 0.66 | 0.65 |
 
 Table: Nominal Hybrid power by configuration, $c_{bm}$ and half-life, corCAR1 analysis
 
-![Power by configuration and carryover](figures/36-fig2-power.png)
-
-*Figure 2. Power at $c_{bm} = 0.25$ by configuration, design and
-carryover half-life, under the published (top) and `corCAR1` (bottom)
-analyses. Steps on the horizontal axis are evenly spaced; the
-half-lives are not.*
+![Power at $c_{bm} = 0.25$ by configuration, design and carryover
+half-life, under the published (top) and `corCAR1` (bottom) analyses.
+Steps on the horizontal axis are evenly spaced; the half-lives are
+not.](figures/36-fig2-power.png)
 
 Five findings follow.
 
@@ -823,7 +954,7 @@ Five findings follow.
    difference (0.031). Most of that gap is a calibration effect: F's
    `corCAR1` test is the more conservative (Type I 0.024-0.052 against
    0.048-0.058 for C in Hybrid). Against each cell's own null the two
-   are within $\pm 0.04$ in every Hybrid cell (C 0.52, 0.50, 0.53, 0.37,
+   are within 0.042 in every Hybrid cell (C 0.52, 0.50, 0.53, 0.37,
    0.29; F 0.56, 0.47, 0.51, 0.35, 0.27), and OL+BDC and CO show no
    consistent ordering either. What separability does change is the
    feasible range: at $c_{bm} = 0.3$, F cannot be run in Hybrid for
@@ -831,23 +962,22 @@ Five findings follow.
    response block is valid for every schedule. Its case therefore rests
    on structure (Section 6.4), not on power.
 
-![Mean interaction estimate by configuration and carryover](figures/36-fig3-estimate.png)
-
-*Figure 3. Mean interaction estimate at $c_{bm} = 0.25$, with the
-expected slope $-c_{bm}\sigma_{BR}/\sigma_{bm} = -0.130$ (dashed). Under
-the step rule (A, B) the estimate collapses toward zero with any
+![Mean interaction estimate $\hat\beta_{bm:D}$ at $c_{bm} = 0.25$, with
+the expected slope $-c_{bm}\sigma_{BR}/\sigma_{bm} = -0.130$ (dashed).
+Under the step rule (A, B) the estimate collapses toward zero with any
 carryover; under graded coupling (C) it holds until the carryover is
-large; under mean moderation (D, E) it does not move.*
+large; under mean moderation (D, E) it does not
+move.](figures/36-fig3-estimate.png)
 
 **Size adjustment.** Power computed against each cell's own null
 distribution, rather than at the nominal 0.05, differs from nominal
 power where Type I error departs from 0.05, by up to 0.15 (configuration
 A, Hybrid, no carryover: 0.59 nominal against 0.74 adjusted, with Type I
-error 0.032). The four findings above hold under size adjustment: in
-Hybrid at $c_{bm} = 0.3$, configuration C runs 0.70, 0.71, 0.72, 0.52 and
-0.37 across the half-lives, D runs 0.74-0.81 throughout, and E 0.65-0.75;
+error 0.032). The five findings above hold under size adjustment: in
+Hybrid at $c_{bm} = 0.3$, configuration C runs 0.70, 0.71, 0.72, 0.53 and
+0.38 across the half-lives, D runs 0.74-0.81 throughout, and E 0.65-0.75;
 at $c_{bm} = 0.25$, configuration A falls from 0.74 to 0.09 (verified;
-`power-summary-reps500-car1.csv`).
+`power-summary-reps500-car1-anchored.csv`).
 
 ## 7. Implications
 
@@ -895,6 +1025,12 @@ at $c_{bm} = 0.25$, configuration A falls from 0.74 to 0.09 (verified;
   variable.
 - `docs/32` and `docs/34`-`docs/35` are consistent with this paper and
   supply the ceiling formula and the separable structure.
+- *Note added 2026-10-07.* The later `docs/37` (closed-form carryover
+  power) derives the same result analytically: carryover acts on
+  interaction power only through the biomarker coupling gap between
+  on-drug and off-drug visits, the step rule makes that gap zero at any
+  positive half-life, and graded coupling ($\phi_t$ off drug, 0 before
+  first exposure) removes the collapse.
 
 ## 9. Open work
 
@@ -909,15 +1045,16 @@ collapse occurs without repair (Section 5.5). Remaining:
    interaction as absent; a continuous exposure variable (`Dbc`) should
    recover it, and under mean moderation should introduce paper 01's
    mismatch instead. Both are predictions, not yet tested.
-2. **The project's other changes.** The project DGP also corrects the
-   recursive carryover on the mean and uses $\rho = 0.7$. Each should be
-   added one at a time to configuration C.
+2. **The project's other changes.** The project DGP also uses
+   $\rho = 0.7$, which should be added to configuration C. Its other
+   change, anchored carryover on the mean, is already in every
+   configuration of Section 6.8.
 3. **Smaller samples and other designs.** Only $N = 70$ and the three
    published designs were simulated; the published $N = 35$ and
    multi-cycle designs, where the ceiling is lowest, remain.
 4. **Unexplained Type I error in OL+BDC.** The compound-symmetry
-   configurations run at 0.06-0.11 in OL+BDC under both analyses
-   (Section 6.8), which neither analysis model accounts for.
+   configurations run at 0.06-0.11 in OL+BDC under the published
+   analysis and 0.06-0.10 under `corCAR1` (Section 6.8), which neither analysis model accounts for.
 5. **The factored generator in the package.** Integrate Section 6.7
    into `buildSigma()`, and confirm by simulation that it reproduces
    configuration C's power.
@@ -953,8 +1090,8 @@ Rscript analysis/scripts/quick-sim/hendrickson-problems/04-power-simulation.R --
 Rscript analysis/scripts/quick-sim/hendrickson-problems/04-power-simulation.R --reps 500 --analysis car1
 Rscript analysis/scripts/quick-sim/hendrickson-problems/04-power-simulation.R --reps 500 --analysis published --arms F
 Rscript analysis/scripts/quick-sim/hendrickson-problems/04-power-simulation.R --reps 500 --analysis car1 --arms F
-Rscript analysis/scripts/quick-sim/hendrickson-problems/05-summarize-power.R --reps 500 --analysis published
-Rscript analysis/scripts/quick-sim/hendrickson-problems/05-summarize-power.R --reps 500 --analysis car1
+Rscript analysis/scripts/quick-sim/hendrickson-problems/05-summarize-power.R --reps 500 --analysis published --carryover anchored
+Rscript analysis/scripts/quick-sim/hendrickson-problems/05-summarize-power.R --reps 500 --analysis car1 --carryover anchored
 Rscript analysis/scripts/quick-sim/hendrickson-problems/07-power-figures.R
 ```
 
@@ -962,32 +1099,53 @@ Run from the repository root. The first script fetches the `58b32a9`
 sources and saved results with the GitHub CLI into
 `analysis/data/quick-sim/hendrickson-58b32a9/`; the others write their
 tables to `analysis/data/quick-sim/hendrickson-problems/`. The power
-simulation takes about 25 minutes with the published analysis and about
-60 minutes with `corCAR1` on 8 cores; it saves each cell as it finishes
-and resumes from those files if interrupted. Fixed per-cell seeds give
-both analyses identical data. Configuration F was run afterwards with
-`--arms F`; its cells keep their place in the full grid, so its seeds
-do not disturb those of A-E, and the summary script merges the two
-sets of output.
+simulation uses anchored carryover on the $BR$ mean by default
+(`--carryover anchored`) and tags its output `-anchored`; the results
+cited in Sections 1, 2, 5.5 and 6.8 are in
+`analysis/data/quick-sim/hendrickson-problems/power-sim/`:
+`summary-reps500-anchored.csv`, `summary-reps500-anchored-F.csv`,
+`power-summary-reps500-anchored.csv` and `type1-reps500-anchored.csv`
+for the published analysis, and the `-car1-anchored` equivalents
+(`summary-reps500-car1-anchored.csv`,
+`summary-reps500-car1-anchored-F.csv`,
+`power-summary-reps500-car1-anchored.csv`,
+`type1-reps500-car1-anchored.csv`) for `corCAR1`. Adding
+`--carryover recursive` to the 04 and 05 commands reproduces the
+earlier, untagged files, which use the published compounding
+recursion (`docs/53`). With anchored carryover, configurations A-E took
+68 minutes with `corCAR1` on 6 cores, and configuration F took 6 and
+9 minutes with the published and `corCAR1` analyses; the earlier
+recursive runs took about 25 and 60 minutes for A-E on 8 cores. The
+script saves each cell as it finishes and resumes from those files if
+interrupted. Fixed per-cell seeds give both analyses, and both
+carryover forms, identical noise. Configuration F was run afterwards
+with `--arms F`; its cells keep their place in the full grid, so its
+seeds do not disturb those of A-E, and the summary script merges the
+two sets of output. `07-power-figures.R` still reads the untagged
+recursive summaries, so Figures 1 to 3 show the recursive runs; every
+plotted power and Type I error differs from its anchored value by at
+most 0.01, and every mean estimate by at most 0.001 (verified, paired
+by cell).
 
 ## 12. References
 
 1. Hendrickson RC, Thomas RG, Schork NJ, Raskind MA. Optimizing
    aggregated N-of-1 trial designs for predictive biomarker validation:
    statistical methods and theoretical findings. *Frontiers in Digital
-   Health* 2020;2. Code: `github.com/rchendrickson/pmsimstats`, commit
-   `58b32a9`.
+   Health* 2020;2:13. doi:10.3389/fdgth.2020.00013. (Verified in
+   PubMed, PMID 34713026.) Code: `github.com/rchendrickson/pmsimstats`,
+   commit `58b32a9`.
 2. Higham NJ. Computing a nearest symmetric positive semidefinite
    matrix. *Linear Algebra and its Applications* 1988;103:103-118.
-   (Cited from bibliographic knowledge; to be verified.)
+   doi:10.1016/0024-3795(88)90223-6. (Verified in Crossref.)
 3. Diggle PJ. An approach to the analysis of repeated measurements.
    *Biometrics* 1988;44(4):959-971. (Verified in PubMed, PMID 3233259.)
 4. Jones RH, Boadi-Boateng F. Unequally spaced longitudinal data with
    AR(1) serial correlation. *Biometrics* 1991;47(1):161-175. (Verified
    in PubMed, PMID 2049497.)
 5. Horn RA, Johnson CR. *Topics in Matrix Analysis*. Cambridge
-   University Press; 1991. (Cited from bibliographic knowledge; to be
-   verified.)
+   University Press; 1991. doi:10.1017/CBO9780511840371. (Verified in
+   Crossref.)
 
 ## Appendix A. Matrix representations of the data-generating processes
 
@@ -1034,11 +1192,11 @@ column are those of the identity. The biomarker $B$ couples only to
 $BR$, through $r$; its correlations with $TV$ and $PB$ are zero. The
 configurations differ in $A_c$, in $C_{cc'}$, and in $r$. The lower
 right $3n \times 3n$ submatrix is the response block $M$ of Section
-4.2. The covariance matrix is $D R D$ with $D$ the diagonal of standard
-deviations ($\sigma_{TV} = 10$, $\sigma_{PB} = 10e_t$ with $e_t$ the
-expectancy weight, $\sigma_{BR} = 8$ in the published parameters);
-because $D$ is positive diagonal, $D R D$ is positive definite exactly
-when $R$ is.
+4.2. The covariance matrix is $S R S$ with $S$ the diagonal matrix of
+standard deviations ($\sigma_{TV} = 10$, $\sigma_{PB} = 10\eta_t$ with
+$\eta_t$ the expectancy weight, $\sigma_{BR} = 8$ in the published
+parameters); because $S$ is positive diagonal, $S R S$ is positive
+definite exactly when $R$ is.
 
 ### A.2 Within-factor block $A_c$
 
@@ -1046,12 +1204,12 @@ when $R$ is.
 constant for every pair of visits, irrespective of their separation:
 
 $$
-[A_c]_{ts} = \begin{cases} 1, & t = s \\ \rho, & t \neq s \end{cases}
-\qquad\Longleftrightarrow\qquad A_c = (1 - \rho) I_n + \rho J_n,
+[A_c]_{ts} = \begin{cases} 1, & t = s \\ \rho_{cs}, & t \neq s \end{cases}
+\qquad\Longleftrightarrow\qquad A_c = (1 - \rho_{cs}) I_n + \rho_{cs} J_n,
 $$
 
 with $J_n$ the $n \times n$ matrix of ones. Its eigenvalues are
-$1 + (n-1)\rho$ (once) and $1 - \rho$ ($n - 1$ times).
+$1 + (n-1)\rho_{cs}$ (once) and $1 - \rho_{cs}$ ($n - 1$ times).
 
 **AR(1) in calendar time (configurations B, C and E).** Correlation
 decays with the elapsed weeks between visits, not with the difference
@@ -1234,7 +1392,7 @@ eigenvalue of the response block is 0.100 (published), 0.029 (decaying)
 and 0.115 (separable).
 
 **Coupling vector $r$.** The residual fractions at the two off-drug
-visits are $\phi = (2^{-1/t_{1/2}}, 2^{-2/t_{1/2}})$:
+visits are $(\phi_2, \phi_3) = (2^{-1/t_{1/2}}, 2^{-2/t_{1/2}})$:
 
 | $t_{1/2}$ | Step (A, B) | Graded (C) | Mean moderation (D, E) |
 |---|---|---|---|
@@ -1254,27 +1412,29 @@ graded entries halve and quarter, tracking the residual effect.
 
 ### A.6 The six configurations
 
-| Component | A Published | B Adj. 1 | F Adj. 1 + 2, `covar` | C Adj. 1 + 2, separable | D Adj. 3 | E Adj. 1 + 2 + 3 |
+| Component | A Published | B Adj. 1 | F Adj. 1 + 2, `covar` | C Adj. 1 + 2, separable | D Adj. 3 | E Adj. 1 + 3, separable |
 |---|---|---|---|---|---|---|
 | $A_c$ | CS | AR(1) | AR(1) | AR(1) | CS | AR(1) |
 | $C_{cc'}$, $t \neq s$ | $c_\times$ | $c_\times\rho^{\text{gap}}$ | $c_\times\rho^{\text{gap}}$ | $c_1\rho^{\text{gap}}$ | $c_\times$ | $c_1\rho^{\text{gap}}$ |
 | $r_t$ on drug | $c_{bm}$ | $c_{bm}$ | $c_{bm}$ | $c_{bm}$ | 0 | 0 |
 | $r_t$ off drug | $c_{bm}\mathbf{1}[\phi_t > 0]$ | $c_{bm}\mathbf{1}[\phi_t > 0]$ | $c_{bm}\phi_t$ | $c_{bm}\phi_t$ | 0 | 0 |
-| $BR$ mean shift on drug | none | none | none | none | $c_{bm}\sigma_{BR} b$ | $c_{bm}\sigma_{BR} b$ |
+| $BR$ mean shift on drug | none | none | none | none | $\beta_{bm}\sigma_{BR} b$ | $\beta_{bm}\sigma_{BR} b$ |
 | Response block valid for every schedule | yes | no | no | yes | yes | yes |
 | Ceiling on $c_{bm}$ | yes | yes | yes | yes | none | none |
 
 Table: Components of the correlation matrix in each of the six configurations
 
 Configurations F and C differ only in the cross-factor block, so their
-comparison isolates separability (Section 6.4). In the power simulation every configuration keeps the published
-values of everything else: the same-visit cross-factor correlation
+comparison isolates separability (Section 6.4). In the power
+simulation every configuration keeps the published values of
+everything else: the same-visit cross-factor correlation
 $c_1$, a common $\rho$ for the three factors (so the loop-order
 dependence noted in paper 01 Appendix B.5.2 does not arise), the
-Gompertz mean trajectories, the standard deviations, and the published
-recursive carryover on the $BR$ mean. Paper 01's own `covar` differs from
-configuration F in using $\rho = 0.7$ and the corrected, anchored
-carryover on the mean; neither affects the structure shown here.
+Gompertz mean trajectories and the standard deviations; the carryover on
+the $BR$ mean is the anchored form rather than the published
+compounding recursion (`docs/53`). Paper 01's own `covar` differs from
+configuration F in using $\rho = 0.7$, which does not affect the
+structure shown here.
 
 ### A.7 The separable structure, factorized
 
@@ -1324,8 +1484,8 @@ $K = L_K L_K^{\top}$.
 
 The kernel $A$ is the AR(1) matrix of A.5. Its gaps are
 $d = (1, 1, 4)$ weeks, so the one-step correlations are
-$\phi_t = \rho^{d_t} = (0.8, 0.8, 0.4096)$ and the innovation scales are
-$\sqrt{1 - \phi_t^2} = (0.6, 0.6, 0.9123)$. Its eigenvalues are 2.693,
+$\rho_t = \rho^{d_t} = (0.8, 0.8, 0.4096)$ and the innovation scales are
+$\sqrt{1 - \rho_t^2} = (0.6, 0.6, 0.9123)$. Its eigenvalues are 2.693,
 0.825, 0.339 and 0.143.
 
 Its inverse is tridiagonal: visits more than one step apart are
@@ -1342,9 +1502,9 @@ A^{-1} =
 $$
 
 It factors as $A^{-1} = L^{\top}L$ with a lower bidiagonal $L$ whose
-entries come straight from $\phi_t$:
-$L_{11} = 1$, $L_{tt} = (1 - \phi_t^2)^{-1/2}$,
-$L_{t,t-1} = -\phi_t(1 - \phi_t^2)^{-1/2}$:
+entries come straight from $\rho_t$:
+$L_{11} = 1$, $L_{tt} = (1 - \rho_t^2)^{-1/2}$,
+$L_{t,t-1} = -\rho_t(1 - \rho_t^2)^{-1/2}$:
 
 $$
 L =
@@ -1366,7 +1526,7 @@ $$
 
 $L_A$ is the Cholesky factor of $A$ itself ($A = L_A L_A^{\top}$, and
 $L_A = L^{-1}$). Row $t$ of $L$ is the AR(1) recursion read backwards:
-$(LX)_t = (X_t - \phi_t X_{t-1})/\sqrt{1 - \phi_t^2}$ is the standardized
+$(LX)_t = (X_t - \rho_t X_{t-1})/\sqrt{1 - \rho_t^2}$ is the standardized
 innovation at visit $t$. The agreement $L^{\top}L = A^{-1}$ holds to
 $9 \times 10^{-16}$.
 
@@ -1392,7 +1552,7 @@ A.5. Every quantity of $M$ is then built from the two small pieces
 | Inverse | $M^{-1}$ | $K^{-1} \otimes A^{-1}$ | $9 \times 10^{-16}$ |
 | Cholesky factor | $\mathrm{chol}(M)$ | $\mathrm{chol}(K) \otimes \mathrm{chol}(A)$ | $2 \times 10^{-16}$ |
 | Determinant | $\det M = 8.0867 \times 10^{-4}$ | $(\det K)^4 (\det A)^3$ | exact |
-| Eigenvalues | 12 values | products $\kappa_i \lambda_j$ | by construction |
+| Eigenvalues | 12 values | products $\omega_i(K)\,\omega_j(A)$ | by construction |
 
 Table: Full and factored computations of the separable response block compared
 
@@ -1402,20 +1562,20 @@ whatever the visit times.
 
 #### A.7.4 The ceiling, factored
 
-With the biomarker coupled to $BR$ through the pattern $u$,
+With the biomarker coupled to $BR$ through the pattern $g$,
 
 $$
-c_{bm}^{\ast} = \bigl([K^{-1}]_{33}\; u^{\top}A^{-1}u\bigr)^{-1/2},
+c_{bm}^{\ast} = \bigl([K^{-1}]_{33}\; g^{\top}A^{-1}g\bigr)^{-1/2},
 \qquad
-u^{\top}A^{-1}u = u_1^2 + \sum_{t \ge 2}
-\frac{(u_t - \phi_t u_{t-1})^2}{1 - \phi_t^2}.
+g^{\top}A^{-1}g = g_1^2 + \sum_{t \ge 2}
+\frac{(g_t - \rho_t g_{t-1})^2}{1 - \rho_t^2}.
 $$
 
 The sum runs over the three steps between consecutive visits, so the
 ceiling can be read as a cost per step. For three coupling patterns on
 this example:
 
-| Coupling $u$ | $u_1^2$ | Step 1 | Step 2 | Step 3 | $u^{\top}A^{-1}u$ | Ceiling (closed form) | Ceiling (full matrix) |
+| Coupling $g$ | $g_1^2$ | Step 1 | Step 2 | Step 3 | $g^{\top}A^{-1}g$ | Ceiling (closed form) | Ceiling (full matrix) |
 |---|---|---|---|---|---|---|---|
 | No carryover $(1, 0, 0, 1)$ | 1.000 | 1.778 | 0.000 | 1.202 | 3.979 | 0.4843 | 0.4843 |
 | Graded, $t_{1/2} = 1$: $(1, 0.5, 0.25, 1)$ | 1.000 | 0.250 | 0.063 | 0.968 | 2.281 | 0.6397 | 0.6397 |
@@ -1426,8 +1586,8 @@ Table: Per-step decomposition of the ceiling for three coupling patterns
 These are ceilings for this four-visit fragment, not for the full
 eight-visit design. The table shows where the cost lies. Without
 carryover the on-to-off step across a one-week gap costs
-$\phi^2/(1 - \phi^2) = 1.778$, and the off-to-on step across the
-four-week gap costs $1/(1 - \phi^2) = 1.202$; those two switches set
+$\rho_t^2/(1 - \rho_t^2) = 1.778$, and the off-to-on step across the
+four-week gap costs $1/(1 - \rho_t^2) = 1.202$; those two switches set
 the ceiling. Graded coupling softens both switches. The step rule's
 constant vector pays almost nothing, because it has no switches, which
 is why its ceiling is the highest of the three and also why it carries
@@ -1442,16 +1602,16 @@ $\mathbf{Z}$ standard normal. Neither factor needs to be computed as a
 matrix:
 
 1. **Time.** Each column of $L_A\mathbf{Z}$ is an AR(1) path, generated
-   by $P_1 = z_1$ and $P_t = \phi_t P_{t-1} + \sqrt{1 - \phi_t^2}\,z_t$,
-   here $P_2 = 0.8P_1 + 0.6z_2$, $P_3 = 0.8P_2 + 0.6z_3$ and
-   $P_4 = 0.4096P_3 + 0.9123z_4$.
+   by $H_1 = z_1$ and $H_t = \rho_t H_{t-1} + \sqrt{1 - \rho_t^2}\,z_t$,
+   here $H_2 = 0.8H_1 + 0.6z_2$, $H_3 = 0.8H_2 + 0.6z_3$ and
+   $H_4 = 0.4096H_3 + 0.9123z_4$.
 2. **Factors.** Multiplying by $L_K^{\top}$ blends the three paths:
-   $TV = P^{(1)}$, $PB = 0.2P^{(1)} + 0.9798P^{(2)}$,
-   $BR = 0.2P^{(1)} + 0.1633P^{(2)} + 0.9661P^{(3)}$.
+   $TV = H^{(1)}$, $PB = 0.2H^{(1)} + 0.9798H^{(2)}$,
+   $BR = 0.2H^{(1)} + 0.1633H^{(2)} + 0.9661H^{(3)}$.
 3. **Biomarker.** Given the response, $B$ is normal with mean
    $\sum_{c,t} W_{ct} X_{c,t}$ and variance $1 - c_{bm}^2 q$, where
-   $W = c_{bm}\,[K^{-1}]_{\cdot 3}\,(A^{-1}u)^{\top}$ and
-   $q = [K^{-1}]_{33}\,u^{\top}A^{-1}u$. For the graded pattern at
+   $W = c_{bm}\,[K^{-1}]_{\cdot 3}\,(A^{-1}g)^{\top}$ and
+   $q = [K^{-1}]_{33}\,g^{\top}A^{-1}g$. For the graded pattern at
    $t_{1/2} = 1$:
 
 $$
@@ -1488,12 +1648,12 @@ $$
 $K_b$ has eigenvalues 0.2, $-0.1$ and $-0.1$. Because the two terms
 carry different time kernels ($A$ and $I_4$), $M_{\text{covar}}$ is not a
 single Kronecker product and its inverse does not split. Its validity
-depends on the schedule: here $\lambda_{\min}(A) = 0.1433$ against the
+depends on the schedule: here $\omega_{\min}(A) = 0.1433$ against the
 threshold $(c_1 - c_\times)/(1 - c_\times) = 0.1111$, so this fragment
 is valid, and the predicted smallest eigenvalue of $M_{\text{covar}}$,
-$\lambda_{\min}(A)(1 - c_\times) - (c_1 - c_\times) = 0.0290$, matches
+$\omega_{\min}(A)(1 - c_\times) - (c_1 - c_\times) = 0.0290$, matches
 the computed one. A schedule with closer visits would push
-$\lambda_{\min}(A)$ below the threshold.
+$\omega_{\min}(A)$ below the threshold.
 
 **The published block** decomposes into two valid terms (verified):
 
@@ -1506,7 +1666,9 @@ K_p = \begin{pmatrix} 0.8 & 0.1 & 0.1 \\ 0.1 & 0.8 & 0.1 \\ 0.1 & 0.1 & 0.8
 $$
 
 an occasion-level term and a person-level term with eigenvalues
-(0.4, 0.1, 0.1) and (1.0, 0.7, 0.7). Both are positive definite, so the
+(0.4, 0.1, 0.1) and (1.0, 0.7, 0.7). Both $K_o$ and $K_p$ are positive
+definite, so $K_o \otimes I_4$ is positive definite and
+$K_p \otimes J_4$ positive semidefinite ($J_4$ has rank one), and the
 published response block is valid for every schedule (smallest
 eigenvalue 0.100 here), but it too is a sum of two Kronecker products
 rather than one, and it has no decay with lag.

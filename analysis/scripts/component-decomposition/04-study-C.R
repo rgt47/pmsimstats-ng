@@ -3,7 +3,7 @@
 #' Paper 06 Study C: subadditivity sensitivity (mechanistic vs
 #' emergent).
 #'
-#' Two DGP families per 00-ademp-pre-registration.md:
+#' Two DGP families per 00-ademp-protocol.md:
 #'   1. Mechanistic subadditivity: gamma in {-0.05, 0, 0.02, 0.05,
 #'      0.10}; the DGP adds gamma * BR * PB to the additive sum.
 #'   2. Latent-class with class-correlated PB: reuses paper 03's

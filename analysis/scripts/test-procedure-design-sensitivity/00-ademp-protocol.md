@@ -1,10 +1,13 @@
-# ADEMP pre-registration: 08-test-procedure-design-sensitivity
+# ADEMP protocol: 08-test-procedure-design-sensitivity
 
 *2026-05-07 16:55 PDT*
 
-This document pre-registers the simulation programme that
-underlies `analysis/report/08-test-procedure-design-sensitivity/`.
-ADEMP structure follows Morris, White and Crowther (2019).
+This document is the working protocol for the exploratory
+simulation study that underlies
+`analysis/report/08-test-procedure-design-sensitivity/`. The
+study is exploratory, and its findings should be confirmed in an
+independent study. ADEMP structure follows Morris, White and
+Crowther (2019).
 
 ## Common infrastructure
 
@@ -74,7 +77,7 @@ every estimate. Coverage is computed for the linear-mixed and
 GEE analyses (where intervals are produced); for RM-ANOVA only
 the rejection-rate quantities are reported.
 
-**Pre-registered prediction.** Linear-mixed dominates GEE on
+**Working prediction.** Linear-mixed dominates GEE on
 power at trial-relevant N due to the small-sample bias of the
 sandwich estimator, even with correction; both dominate strict
 RM-ANOVA when within-participant residuals depart from
@@ -106,7 +109,7 @@ power and bias as a function of the design grid.
 fit time. The fit-time measure characterises the computational
 cost of long-cycle designs.
 
-**Pre-registered prediction.** Per-participant power is
+**Working prediction.** Per-participant power is
 monotone in cycle count $k$ with diminishing returns above
 $k = 4$. On-drug period length matters more for power than
 off-drug period length when carryover is non-trivial.
@@ -148,12 +151,12 @@ cell.
 - Figures: test-procedure comparison plots faceted by N and
   $c_{bm}$; design-grid heatmaps; joint design-by-test heatmap.
 
-## Deviations log
+## Protocol change log
 
-`02-deviations-log.md` records departures from the cells,
-estimands, methods, or performance measures pre-registered
-above.
+`02-deviations-log.md` records changes to the cells,
+estimands, methods, or performance measures specified in this
+working protocol.
 
 ---
 
-*Source:* `~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/test-procedure-design-sensitivity/00-ademp-pre-registration.md`
+*Source:* `~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/test-procedure-design-sensitivity/00-ademp-protocol.md`

@@ -1,9 +1,9 @@
 ## Marginal-mixture DGP for Study 1 (mixture-vs-MVN factorial).
 ##
 ## Phase A infrastructure for paper 03 path (b). Implements the
-## two-class Bernoulli mixture described in the ADEMP pre-reg
-## (00-ademp-pre-registration.md, §"Study 1") with the PB-class-
-## correlation axis that the pre-reg requires:
+## two-class Bernoulli mixture described in the ADEMP protocol
+## (00-ademp-protocol.md, §"Study 1") with the PB-class-
+## correlation axis that the protocol requires:
 ##
 ##   - PB-class-independent: PB drawn from the population
 ##     distribution independently of class label; this is the

@@ -3,7 +3,7 @@
 ##
 ## This driver is the Phase B kill-switch: it establishes whether
 ## lcmm::hlme is usable at trial-relevant N at all. Per the ADEMP
-## pre-registration (00-ademp-pre-registration.md, §"Study 5"),
+## protocol (00-ademp-protocol.md, §"Study 5"),
 ## three DGP families are exercised:
 ##
 ##   Cell 1: Single-component Gaussian (c.bm = 0).

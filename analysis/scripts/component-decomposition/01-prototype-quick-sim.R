@@ -5,7 +5,7 @@
 ## Target: 500 reps per cell, n_fits = 500 * 18 = 9000.
 ## Parallelism: HARD REQUIREMENT mclapply with mc.cores = 8.
 ## Time budget: 540 s with graceful abort, progress every 100 reps.
-## See analysis/scripts/component-decomposition/00-ademp-pre-registration.md
+## See analysis/scripts/component-decomposition/00-ademp-protocol.md
 ## and 02-deviations-log.md.
 
 suppressPackageStartupMessages({
@@ -78,7 +78,7 @@ make_params <- function(N = 70, c.bm = 0.45, pb_max = 6.50647) {
 TRUE_BETA <- -0.45 * 5 / 1
 
 ## ---- Phase-augmented analysis --------------------------------------------
-## At N >= 70 attempt the FULL pre-registered formula including Dbc:phase.
+## At N >= 70 attempt the FULL protocol formula including Dbc:phase.
 ## If lme fails because of rank deficiency, fall back to the reduced
 ## formula. At N = 35 go directly to the reduced formula. Record the
 ## dropped term (or 'none').

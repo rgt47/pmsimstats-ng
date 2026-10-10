@@ -3,12 +3,22 @@
 ## of analyses, and print the size and power tables of docs/45.
 ##
 ## Run from the repository root:
-##   Rscript analysis/scripts/quick-sim/carryover-closed-form/09-covariance-study-tables.R
+##   Rscript analysis/scripts/quick-sim/carryover-closed-form/09-covariance-study-tables.R \
+##     [--tag T] [--reps ALT,NULL] [--dir PATH]
+## --tag T (e.g. -anchored) reads the 08 runs whose tag ends in T and
+## appends T to the two output files; without it the stored untagged
+## runs are read as before. --reps (default 250,500) and --dir allow a
+## smoke test on a small run.
 suppressMessages(library(data.table))
-d <- 'analysis/data/quick-sim/carryover-closed-form/covariance-study'
+args <- commandArgs(trailingOnly = TRUE)
+sarg <- function(k, d) if (k %in% args) args[which(args == k) + 1] else d
+tag <- sarg('--tag', '')
+rr <- as.integer(strsplit(sarg('--reps', '250,500'), ',')[[1]])
+rt <- sprintf('alt%d-null%d', rr[1], rr[2])
+d <- sarg('--dir', 'analysis/data/quick-sim/carryover-closed-form/covariance-study')
 runs <- c(main = '', followup = '-followup', dbc = '-dbc')
 all <- rbindlist(lapply(names(runs), function(r)
-  fread(file.path(d, sprintf('summary-alt250-null500%s.csv', runs[[r]])))[, run := r]),
+  fread(file.path(d, sprintf('summary-%s%s%s.csv', rt, runs[[r]], tag)))[, run := r]),
   fill = TRUE)
 all[is.na(extra), extra := 'none']
 all[is.na(expo), `:=`(expo = 'Db', engine = 'mmrm')]
@@ -19,7 +29,7 @@ all[, analysis := paste0(
   fifelse(extra == 'sepbm', '-sepbm', ''),
   fifelse(expo == 'Dbc', paste0('-Dbc', th_a), ''))]
 stopifnot(!anyDuplicated(all[, .(cell, analysis, mean)]))
-fwrite(all, file.path(d, 'summary-alt250-null500-combined.csv'))
+fwrite(all, file.path(d, sprintf('summary-%s-combined%s.csv', rt, tag)))
 
 ## Size: maximum and range of the null rejection rate over the eight null
 ## cells (2 constructs x 2 designs x 2 half-lives); 500 replicates per cell,
@@ -51,7 +61,7 @@ cat('\nfailed fits:', sum(all$fails), 'of', sum(all$fits), '\n')
 ## construct, design and t1/2). Compares power at a common realized size;
 ## the null quantile rests on 500 replicates, so it is itself noisy.
 reps <- rbindlist(lapply(names(runs), function(r)
-  readRDS(file.path(d, sprintf('replicates-alt250-null500%s.rds', runs[[r]])))), fill = TRUE)
+  readRDS(file.path(d, sprintf('replicates-%s%s%s.rds', rt, runs[[r]], tag)))), fill = TRUE)
 reps[is.na(extra), extra := 'none']
 reps[is.na(expo), `:=`(expo = 'Db', engine = 'mmrm')]
 reps <- merge(reps, unique(all[, .(cell, construct, design, hyp, t_half, coding, mean, cov,
@@ -63,7 +73,7 @@ crit <- reps[hyp == 'null', .(p_crit = quantile(p, 0.05, na.rm = TRUE)),
 adj <- merge(reps[hyp == 'alt'], crit, by = c('construct', 'design', 't_half', 'analysis', 'mean'))
 adj <- adj[, .(power = mean(p < 0.05, na.rm = TRUE), power_adj = mean(p < p_crit, na.rm = TRUE)),
            by = .(construct, design, t_half, analysis, mean)]
-fwrite(adj, file.path(d, 'size-adjusted-power-alt250-null500.csv'))
+fwrite(adj, file.path(d, sprintf('size-adjusted-power-%s%s.csv', rt, tag)))
 cat('\nSize-adjusted power by cell\n')
 print(dcast(adj, analysis + mean ~ construct + design + t_half, value.var = 'power_adj'),
       digits = 3, nrows = 200)

@@ -3,8 +3,8 @@
 ##
 ## Phase A infrastructure for paper 03 path (b). Implements the
 ## Arminger-Stein-Wittenberg-style simultaneous mean and
-## covariance moderation per the ADEMP pre-registration
-## (00-ademp-pre-registration.md, §"Study 2"):
+## covariance moderation per the ADEMP protocol
+## (00-ademp-protocol.md, §"Study 2"):
 ##
 ##   - Pure mean moderation (Architecture A) when alpha = 0.
 ##   - Pure covariance moderation (Architecture B) when alpha = 1.

@@ -6,7 +6,7 @@
 #'
 #' Defines:
 #'   - Four trial designs (OL, OL+BDC, CO, hybrid) at 20 weeks each.
-#'   - Five dropout-pattern parameter sets (β0, β1) per pre-reg.
+#'   - Five dropout-pattern parameter sets (β0, β1) per protocol.
 #'   - apply_hazard_dropout(): quadratic-hazard dropout module
 #'     lifted from analysis/scripts/quick-sim/09-dropout-prototype.R.
 #'   - Path-tracking helper for Study 3.
@@ -19,7 +19,7 @@
 #' Reconciliation note. The pmsimstats package contains R/censordata.R
 #' which exposes a (β0, β1, eb1) censoring function with
 #' multiplicative shape eb1; the shape exponent and intercept-vs-
-#' slope semantics differ from this paper's pre-registered hazard
+#' slope semantics differ from this paper's protocol hazard
 #' Pr(drop at t) = β0 + β1 · Δ_Sx(t)^2. We use the prototype's
 #' apply_hazard_dropout() directly so the simulation matches the
 #' published mechanism exactly.
@@ -46,7 +46,7 @@ if (!dir.exists(P9_FIG_DIR))  dir.create(P9_FIG_DIR,  recursive = TRUE)
 # Trial designs (all 20 weeks total, weekly observations)
 #=====================================================================
 #
-# Per pre-reg: OL (20w on); OL+BDC (16w OL + 4w BDC); CO (10w P1 +
+# Per protocol: OL (20w on); OL+BDC (16w OL + 4w BDC); CO (10w P1 +
 # 10w P2 with within-participant randomisation); hybrid (8w OL + 4w
 # BDC + 4w XO1 + 4w XO2 = Hendrickson 2020 primary).
 
@@ -114,7 +114,7 @@ ALL_DESIGNS <- function() {
 }
 
 #=====================================================================
-# Dropout patterns (per pre-registration)
+# Dropout patterns (per the working ADEMP protocol)
 #=====================================================================
 
 DROPOUT_PATTERNS <- list(
@@ -197,7 +197,7 @@ make_bl_params_09 <- function() {
              sd  = c(1, 10))
 }
 
-#' @param t1half Carryover half-life in weeks. Pre-registration
+#' @param t1half Carryover half-life in weeks. Protocol
 #'   baseline: 3 days = 3/7 weeks.
 make_model_params_09 <- function(N = 35, c_bm = 0.45,
                                   t1half = 3 / 7) {

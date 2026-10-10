@@ -105,7 +105,9 @@ path_of <- function(td) {
 env$mvrnorm <- function(n, mu, Sigma, empirical = FALSE) {
   if (cur$config == 'S') return(MASS::mvrnorm(n, mu, Sigma, empirical = empirical))
   pi <- path_of(cur$td)
-  b <- dgp$build(pi, cur$config, cur$mp$c.bm, cur$mp$carryover_t1half)
+  ## Recursive carryover, because the means are checked against 58b32a9's
+  ## generateData(), which uses the recursion.
+  b <- dgp$build(pi, cur$config, cur$mp$c.bm, cur$mp$carryover_t1half, 'recursive')
   ## 04 hardcodes the published parameters to 5 decimals (means agree to
   ## ~5e-6), so check the mapping at 1e-5 and draw with their exact means
   ## and SDs; only the correlation matrix comes from 04.

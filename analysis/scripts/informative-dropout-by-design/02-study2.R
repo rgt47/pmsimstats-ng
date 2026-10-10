@@ -2,7 +2,7 @@
 #'
 #' Paper 09 Study 2: bias quantification (two-mode).
 #'
-#' Per 00-ademp-pre-registration.md: subset of Study 1 at
+#' Per 00-ademp-protocol.md: subset of Study 1 at
 #' c_bm in {0.3, 0.6}. 4 designs x 5 dropouts x 3 N x 2 c_bm = 120
 #' cells. 1000 reps per cell.
 #'

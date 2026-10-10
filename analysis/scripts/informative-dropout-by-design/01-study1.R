@@ -2,7 +2,7 @@
 #'
 #' Paper 09 Study 1: power x design x dropout pattern x N x c_bm.
 #'
-#' Cell grid (per 00-ademp-pre-registration.md):
+#' Cell grid (per 00-ademp-protocol.md):
 #'   designs:  OL, OLBDC, CO, Hybrid          (4)
 #'   dropouts: none, balanced, more_of_flat,
 #'             more_of_biased, high_dropout   (5)

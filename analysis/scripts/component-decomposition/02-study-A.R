@@ -3,7 +3,7 @@
 #' Paper 06 Study A: bias of the one-component analysis under the
 #' three-component DGP.
 #'
-#' Cell grid (per 00-ademp-pre-registration.md):
+#' Cell grid (per 00-ademp-protocol.md):
 #'   m_PB     in {0, 1, 3, 6, 10}     (5 levels)
 #'   m_TV     in {-1, 0, 1, 2}        (4 levels)
 #'   N        in {35, 70, 100, 150}   (4 levels)
@@ -46,7 +46,7 @@ cells <- rbindlist(list(alt_cells, null_cells), use.names = TRUE,
                    fill = TRUE)
 cells[, cell_id := .I]
 cells[, analyses := list(list(c('one_component', 'phase_augmented')))]
-## Add full_nonlinear at N >= 100 (per pre-reg).
+## Add full_nonlinear at N >= 100 (per protocol).
 for (i in seq_len(nrow(cells))) {
   if (cells$N[i] >= 100) {
     cells$analyses[[i]] <- c(cells$analyses[[i]],

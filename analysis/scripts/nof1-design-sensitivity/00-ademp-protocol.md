@@ -1,10 +1,13 @@
-# ADEMP pre-registration: 05-nof1-design-sensitivity
+# ADEMP protocol: 05-nof1-design-sensitivity
 
 *2026-05-07 16:45 PDT*
 
-This document pre-registers the simulation programme that
-underlies `analysis/report/05-nof1-design-sensitivity/`. ADEMP
-structure follows Morris, White and Crowther (2019).
+This document is the working protocol for the exploratory
+simulation study that underlies
+`analysis/report/05-nof1-design-sensitivity/`. The study is
+exploratory, and its findings should be confirmed in an
+independent study. ADEMP structure follows Morris, White and
+Crowther (2019).
 
 ## Common infrastructure
 
@@ -86,12 +89,12 @@ visualisation (power-by-axis plot with MCSE error bars).
 - Figures plotting power and bias as a function of each axis
   with MCSE error bars.
 
-## Deviations log
+## Protocol change log
 
-`02-deviations-log.md` records any departure from the cells,
-estimands, methods, or performance measures pre-registered
-above.
+`02-deviations-log.md` records any change to the cells,
+estimands, methods, or performance measures specified in this
+working protocol.
 
 ---
 
-*Source:* `~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/nof1-design-sensitivity/00-ademp-pre-registration.md`
+*Source:* `~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/nof1-design-sensitivity/00-ademp-protocol.md`

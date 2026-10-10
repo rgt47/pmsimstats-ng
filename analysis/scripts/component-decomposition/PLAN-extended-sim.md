@@ -1,10 +1,11 @@
-# Plan: Study A extended simulation (pre-registered spec)
+# Plan: Study A extended simulation (protocol spec)
 
 *2026-06-13 17:43 PDT*
 
 ## Objective
 
-Run Study A at the pre-registered rep counts:
+Run Study A at the replicate counts in the working ADEMP
+protocol (`00-ademp-protocol.md`):
 
 - **80 alternative cells** (c_bm = 0.45): 1,000 reps each
 - **4 null cells** (c_bm = 0): 5,000 reps each
@@ -12,7 +13,7 @@ Run Study A at the pre-registered rep counts:
 The 250-rep pilot (completed 2026-06-13) confirmed infrastructure
 and established power estimates, but has insufficient precision to
 demonstrate the load-bearing bias claim (signal/noise ~1.6 at
-m_PB=10, N=70) or meet the pre-registered Type I error target
+m_PB=10, N=70) or meet the protocol's Type I error target
 (MCSE 0.003 requires 5,000 null reps).
 
 ## Estimated wall time

@@ -28,8 +28,15 @@
 ## Run from the repository root:
 ##   Rscript analysis/scripts/quick-sim/carryover-closed-form/08-covariance-study.R \
 ##     [--reps-alt R] [--reps-null R] [--cores K] [--chunk C] [--arms main|followup]
+##     [--carryover anchored|recursive] [--out-dir PATH]
 ## Replicates are run in chunks of C (default 50), each saved on
-## completion; a relaunch with the same arguments resumes.
+## completion; a relaunch with the same arguments resumes. --cores
+## defaults to SIM_CORES (set by simrun) or 8.
+## --carryover (default anchored) selects the BR-mean carryover of
+## 04's build(): anchored decays from the last on-drug mean; recursive is
+## the published recursion, which compounds the decay at the second and
+## later off-drug visits and reproduces the stored results (untagged
+## file names). Anchored runs carry the tag '-anchored'.
 suppressMessages({
   library(data.table); library(MASS); library(mmrm); library(splines); library(parallel)
 })
@@ -37,12 +44,16 @@ args <- commandArgs(trailingOnly = TRUE)
 arg <- function(k, d) if (k %in% args) as.integer(args[which(args == k) + 1]) else d
 reps_alt <- arg('--reps-alt', 500L)
 reps_null <- arg('--reps-null', 1000L)
-cores <- arg('--cores', 8L)
+cores <- arg('--cores', as.integer(Sys.getenv('SIM_CORES', '8')))
 here04 <- 'analysis/scripts/quick-sim/hendrickson-problems/04-power-simulation.R'
-out_dir <- 'analysis/data/quick-sim/carryover-closed-form/covariance-study'
+out_dir <- if ('--out-dir' %in% args) args[which(args == '--out-dir') + 1] else
+  'analysis/data/quick-sim/carryover-closed-form/covariance-study'
 arm_arg <- if ('--arms' %in% args) args[which(args == '--arms') + 1] else 'main'
 arm_tag <- if (arm_arg == 'main') '' else paste0('-', arm_arg)
-run_tag <- sprintf('alt%d-null%d%s', reps_alt, reps_null, arm_tag)
+CARRYOVER <- if ('--carryover' %in% args) args[which(args == '--carryover') + 1] else 'anchored'
+stopifnot(CARRYOVER %in% c('anchored', 'recursive'))
+run_tag <- sprintf('alt%d-null%d%s%s', reps_alt, reps_null, arm_tag,
+                   if (CARRYOVER == 'anchored') '-anchored' else '')
 cell_dir <- file.path(out_dir, paste0('cells-', run_tag))
 dir.create(cell_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -59,8 +70,8 @@ N_TOTAL <- dgp$N_TOTAL
 ## Graded coupling under CS is not an 04 arm: the arm A matrix with the
 ## graded biomarker row (as in 06 and 07). Configuration C is arm C.
 build_cell <- function(pi, construct, cbm, th) {
-  if (construct == 'C07') return(dgp$build(pi, 'C', cbm, th))
-  b <- dgp$build(pi, 'A', 0, th)
+  if (construct == 'C07') return(dgp$build(pi, 'C', cbm, th, CARRYOVER))
+  b <- dgp$build(pi, 'A', 0, th, CARRYOVER)
   n <- b$n
   phi <- if (th > 0) 0.5^(pi$tsd / th) else rep(0, n)
   phi[pi$on | pi$tsd <= 0] <- 0

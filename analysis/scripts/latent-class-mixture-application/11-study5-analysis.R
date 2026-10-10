@@ -7,8 +7,8 @@
 ##   - Table 5.2: Class-count selection, single-component DGPs
 ##   - Table 5.3: Class-count selection, true two-class DGP
 ##   - Table 5.4: Convergence and timing summary
-##   - Phase B kill-switch evaluation against pre-registered
-##     thresholds.
+##   - Phase B kill-switch evaluation against the thresholds
+##     set in the working ADEMP protocol.
 ##
 ## Output: analysis/data/study5/study5-tables.rds (list of tables)
 ##         analysis/tables/study5-table-{N}.csv (one CSV per table)
@@ -38,7 +38,7 @@ binom_mcse <- function(rate, n) {
 
 ## ---- Table 5.1: Type I error under Gaussian null ----
 ##
-## Pre-registered prediction: nominal Type I at alpha = 0.05 for
+## Working prediction: nominal Type I at alpha = 0.05 for
 ## the BIC-conditional gating Wald and the lme bm:Dbc Wald. The
 ## unconditional gating Wald is on the boundary of the parameter
 ## space and is documented as miscalibrated; we report it for
@@ -76,7 +76,7 @@ setorder(table_5_1, N)
 ## ---- Table 5.2: Class-count selection, single-component DGPs ----
 ##
 ## Three DGPs: Gaussian, t5, skew-normal. Truth in all three is
-## K = 1. Pre-registered prediction: BIC selects K = 1 in
+## K = 1. Working prediction: BIC selects K = 1 in
 ## >= 80% of replicates at N >= 70.
 table_5_2 <- results[
   dgp_family %in% c('gaussian_null', 't5_null', 'skewnorm4_null'),
@@ -102,7 +102,7 @@ setorder(table_5_2, dgp_family, N)
 ##
 ## Class separation Delta in {0, 0.5, 1.0, 1.5, 2.0}. Truth is
 ## K = 2 (well, K = 1 at Delta = 0 since there is no class
-## structure left). Pre-registered prediction: P(BIC selects K=2)
+## structure left). Working prediction: P(BIC selects K=2)
 ## increases with Delta.
 table_5_3 <- results[
   dgp_family == 'two_class',
@@ -166,7 +166,7 @@ print(table_5_4)
 ##                replicates at N >= 70.
 ##
 ## The Type I criterion is evaluated on the BIC-conditional
-## procedure (procedure of record per the pre-registration); the
+## procedure (procedure of record per the working protocol); the
 ## unconditional gating Wald is reported for completeness but is
 ## known to be miscalibrated under boundary nulls.
 killswitch_eval <- function(table_5_1, table_5_2) {

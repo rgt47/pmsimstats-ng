@@ -2,7 +2,7 @@
 #'
 #' Paper 09 Study 4: sensitivity to dropout-pattern misspecification.
 #'
-#' Per 00-ademp-pre-registration.md: 4 designs x 5 patterns x 3
+#' Per 00-ademp-protocol.md: 4 designs x 5 patterns x 3
 #' analyses x N = 35 = 60 cells. 1000 reps per cell.
 #'
 #' Three analysis variants:
@@ -11,7 +11,7 @@
 #'   3. mi_mnar:       multiple imputation under correct MNAR
 #'                     mechanism.
 #'
-#' NOTE on MI-MNAR. The pre-registered third analysis requires a
+#' NOTE on MI-MNAR. The protocol's third analysis requires a
 #' multiple-imputation procedure that knows the true dropout
 #' mechanism. A defensible implementation uses pattern-mixture
 #' modelling with the dropout indicator as a covariate (see

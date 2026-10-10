@@ -1,10 +1,13 @@
-# ADEMP pre-registration: 07-gompertz-evaluation
+# ADEMP protocol: 07-gompertz-evaluation
 
 *2026-05-07 16:55 PDT*
 
-This document pre-registers the simulation programme that
-underlies `analysis/report/07-gompertz-evaluation/`. ADEMP
-structure follows Morris, White and Crowther (2019).
+This document is the working protocol for the exploratory
+simulation study that underlies
+`analysis/report/07-gompertz-evaluation/`. The study is
+exploratory, and its findings should be confirmed in an
+independent study. ADEMP structure follows Morris, White and
+Crowther (2019).
 
 ## Common infrastructure
 
@@ -92,7 +95,7 @@ $\beta_{bm:D} = 0$, bias of $\hat{\beta}_{bm:D}$, empirical SE
 across replicates, model SE, nominal-95% CI coverage,
 convergence rate. MCSE attached to every estimate.
 
-**Pre-registered prediction.** Power varies less than $\pm 5\%$
+**Working prediction.** Power varies less than $\pm 5\%$
 across the four families at fixed sample size and effect size,
 provided each is calibrated to the matched marginal effect
 size. Type I error remains within $\pm 1\%$ of nominal across
@@ -133,12 +136,12 @@ eigenvalue.
 - Figures: power/bias/type-I plots faceted by DGP family;
   sloppiness eigenvalue spectrum.
 
-## Deviations log
+## Protocol change log
 
-`02-deviations-log.md` records departures from the cells,
-estimands, methods, or performance measures pre-registered
-above.
+`02-deviations-log.md` records changes to the cells,
+estimands, methods, or performance measures specified in this
+working protocol.
 
 ---
 
-*Source:* `~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/gompertz-evaluation/00-ademp-pre-registration.md`
+*Source:* `~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/gompertz-evaluation/00-ademp-protocol.md`

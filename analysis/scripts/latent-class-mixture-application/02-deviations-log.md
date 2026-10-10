@@ -1,26 +1,24 @@
-# Deviations log: latent-class-mixture-application
+# Protocol change log: latent-class-mixture-application
 
 *2026-05-09 19:40 PDT*
 
-This document records every deviation from the ADEMP
-pre-registration in `00-ademp-pre-registration.md`, with date,
-reason, and (where applicable) reviewer signoff. Per the
-pre-registration §"Deviations from this pre-registration",
-deviations are recorded before the affected production runs
-are committed.
+This document records every change to the working ADEMP
+protocol in `00-ademp-protocol.md` for this exploratory study,
+with date, reason, and (where applicable) reviewer signoff, per
+the protocol's §"Changes to the working protocol".
 
 ## D1. Phase B reduced replicate counts (kill-switch budget)
 
 **Date.** 2026-05-09.
 
-**Pre-registered specification.** "$n_{\text{reps}} = 5000$ per
+**Protocol specification.** "$n_{\text{reps}} = 5000$ per
 cell for type I error and class-count recovery estimands"
 (common infrastructure §"Replicates").
 
-**Deviation.** Phase B production driver
+**Change.** Phase B production driver
 `10-study5-production.R` uses 2000 replicates per Type I error
 cell (Cell 1) and 500 replicates per class-count recovery cell
-(Cells 2 and 3), rather than the pre-registered 5000 per cell.
+(Cells 2 and 3), rather than the protocol's 5000 per cell.
 
 **Reason.** Phase B is the kill-switch decision per
 `~/prj/res/00-portfolio/simgo-paper03-phasing.md`: a feasibility
@@ -40,16 +38,16 @@ the kill-switch criteria:
 **Plan.** If Phase B passes the kill-switch criteria, the full
 5000-rep Type I and class-count cells will be re-run during
 Phase C alongside the Study 1 production runs, recovering the
-pre-registered replicate counts.
+protocol's replicate counts.
 
 ## D2. Phase B class-count grid restricted to $K \in \{1, 2\}$
 
 **Date.** 2026-05-09.
 
-**Pre-registered specification.** "$K \in \{1, 2, 3\}$ classes
+**Protocol specification.** "$K \in \{1, 2, 3\}$ classes
 for cells 2 and 3" (Study 5 §M).
 
-**Deviation.** The Phase B production driver fits `lcmm::hlme`
+**Change.** The Phase B production driver fits `lcmm::hlme`
 at $K = 1$ and $K = 2$ only, not $K = 3$, via the
 `lcmm_analysis()` wrapper (which is committed at $K \in \{1,
 2\}$).
@@ -73,12 +71,12 @@ Study 1 production runs commit.
 
 **Date.** 2026-05-09.
 
-**Pre-registered specification.** "Heavy-tailed and mildly
+**Protocol specification.** "Heavy-tailed and mildly
 skewed residual distributions on $BR$: $t_5$ distributed
 standardised residuals, and (separately) skew-normal with
 shape parameter 4" (Study 5 §D, cell 2).
 
-**Deviation.** The Phase B production driver implements the
+**Change.** The Phase B production driver implements the
 non-Gaussian residual cells via a post-hoc transform of the
 MVN draw rather than via a fully non-Gaussian DGP. Specifically,
 the BR component at each timepoint is standardised, mapped to
@@ -91,7 +89,7 @@ marginal SD.
 multivariate $t$ or multivariate skew-normal draw with the
 existing AR(1) structure preserved, neither of which is in the
 package source. The post-hoc transform preserves the marginal
-distribution targets that the pre-registration specifies and is
+distribution targets that the protocol specifies and is
 sufficient for the Phase B diagnostic question (does mild
 non-Gaussianity break `hlme` identifiability or class-count
 selection?). The transform alters the full multivariate

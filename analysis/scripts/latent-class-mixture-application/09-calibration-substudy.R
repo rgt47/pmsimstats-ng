@@ -1,7 +1,7 @@
 ## Cross-study effect-size calibration sub-study.
 ##
 ## Phase A final infrastructure deliverable for paper 03 path
-## (b). Per the ADEMP pre-registration §"Effect-size
+## (b). Per the ADEMP protocol §"Effect-size
 ## calibration":
 ##
 ##   "A cross-study calibration sub-study expresses each DGP's

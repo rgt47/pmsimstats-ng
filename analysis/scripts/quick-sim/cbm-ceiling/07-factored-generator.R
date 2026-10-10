@@ -72,7 +72,10 @@ target_R <- function(w, rho, c1, cbm, u) {
 
 set.seed(20261002)
 w <- c(4, 8, 9, 10, 11, 12, 16, 20)            # Hybrid
-u <- c(1, 1, 1, 1, 0.25, 0.0625, 1, 0.0625)    # path A, graded, t1/2 = 0.5
+## Path A, graded, t1/2 = 0.5: off-drug coupling 2^(-t_sd / 0.5) at
+## t_sd = 1, 2 (weeks 11, 12) and t_sd = 4 (week 20). Corrected
+## 2026-10-08: week 20 was entered as 0.0625 (t_sd = 2) instead of 2^-8.
+u <- c(1, 1, 1, 1, 2^-2, 2^-4, 1, 2^-8)
 rho <- 0.8; c1 <- 0.2; cbm <- 0.3
 X <- factored_draw(400000, w, rho, c1, cbm, u)
 R_hat <- cor(X)

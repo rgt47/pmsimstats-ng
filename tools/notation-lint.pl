@@ -9,7 +9,7 @@ my %count;
 
 for my $file (@ARGV) {
   open my $fh, '<', $file or die "$file: $!";
-  my ($in_chunk, $ln) = (0, 0);
+  my ($in_chunk, $ln, $span_depth) = (0, 0, 0);
   my @hits;
   while (my $line = <$fh>) {
     $ln++;
@@ -22,8 +22,32 @@ for my $file (@ARGV) {
     # Strip protected spans: \texttt{...}, `...`, and \item labels of
     # code listings. What remains is reader-facing prose and math.
     my $p = $line;
+    # A code span opened on an earlier line: drop text up to the brace
+    # that closes it (depth counted), or the whole line if none does.
+    if ($span_depth > 0) {
+      my $k = 0;
+      while ($k < length $p && $span_depth > 0) {
+        my $ch = substr $p, $k, 1;
+        $span_depth++ if $ch eq '{';
+        $span_depth-- if $ch eq '}';
+        $k++;
+      }
+      $p = substr $p, $k;
+    }
     # one level of brace nesting, so \texttt{a \textasciitilde{} b} works
     $p =~ s{\\texttt\{(?:[^{}]|\{[^{}]*\})*\}}{}g;
+    # \code{} is the compendium's \texttt wrapper for R identifiers
+    $p =~ s{\\code\{(?:[^{}]|\{[^{}]*\})*\}}{}g if $file =~ /\.tex$/;
+    # A span still open at end of line continues onto the next line.
+    my $open = $file =~ /\.tex$/ ? qr/\\(?:texttt|code)\{/ : qr/\\texttt\{/;
+    if ($p =~ /$open/g) {
+      my $start = pos($p) - length($&);
+      my $rest = substr $p, pos($p);
+      my $d = 1;
+      $d += () = $rest =~ /\{/g;
+      $d -= () = $rest =~ /\}/g;
+      if ($d > 0) { $span_depth = $d; $p = substr $p, 0, $start }
+    }
     $p =~ s{\\verb\{(?:[^{}]|\{[^{}]*\})*\}}{}g;
     $p =~ s/`[^`]*`//g;
     $p =~ s/\\verb\|[^|]*\|//g;
@@ -53,7 +77,8 @@ for my $file (@ARGV) {
   my $has_units = do {
     open my $g, '<', $file or die $!;
     local $/; my $all = <$g>; close $g;
-    $all =~ /\*\*Units\.\*\*/ ? 1 : 0;
+    # Markdown **Units.** or LaTeX \textbf{Units.} paragraph
+    $all =~ /\*\*Units\.\*\*|\\textbf\{Units\.\}/ ? 1 : 0;
   };
   @hits = grep { !/halflife-days/ } @hits if $has_units;
 

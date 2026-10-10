@@ -38,7 +38,7 @@ if (!dir.exists(P6_FIG_DIR))  dir.create(P6_FIG_DIR,  recursive = TRUE)
 # Trial design: Hendrickson hybrid OL+BDC
 #=====================================================================
 #
-# Pre-registration calls for an 8-week OL + 4-week BDC + 4-week
+# The protocol calls for an 8-week OL + 4-week BDC + 4-week
 # crossover (16 weeks). The 01-prototype uses a simplified 8-visit
 # OL+BDC at weekly density (no crossover phase). For Study A's bias
 # estimand the simplified design is sufficient; Study B's
@@ -85,11 +85,11 @@ design_hybrid_full <- function() {
 #' Response-parameter table parameterised over (m_PB, m_TV).
 #'
 #' @param m_PB Population mean of the placebo-belief modGompertz
-#'   amplitude; pre-registration grid {0, 1, 3, 6, 10}. Reproduced
+#'   amplitude; protocol grid {0, 1, 3, 6, 10}. Reproduced
 #'   here on the same scale as the prototype's pb_max axis (the
 #'   prototype used 0, 6.5, 13).
 #' @param m_TV Population mean of the natural-history modGompertz
-#'   amplitude; pre-registration grid {-1, 0, 1, 2}. Negative values
+#'   amplitude; protocol grid {-1, 0, 1, 2}. Negative values
 #'   represent placebo-arm worsening of natural history.
 make_resp_params <- function(m_PB = 6.5, m_TV = 0,
                               m_BR = 10.98604) {
@@ -218,10 +218,10 @@ phase_augmented_fit <- function(td, dat, N) {
 
 #' Full nonlinear three-component fit (STUB).
 #'
-#' Per the pre-registration this fits an nlme::nlme model of
+#' Per the protocol this fits an nlme::nlme model of
 #' BL - (modGompertz_BR + modGompertz_PB + modGompertz_TV) with
 #' participant-specific random effects on each modGompertz amplitude.
-#' Convergence is fragile at small N; the pre-registration restricts
+#' Convergence is fragile at small N; the protocol restricts
 #' this analysis to N >= 100. The closed-form gradient and starting-
 #' value strategy are non-trivial and not yet fully implemented. This
 #' stub returns NA values and marks formula_dropped = 'nlme_stub' so
@@ -231,7 +231,7 @@ phase_augmented_fit <- function(td, dat, N) {
 #' (pmsimstats::utilities exposes modGompertz; gradient via deriv()),
 #' Pinheiro-Bates pdSymm/pdDiag random-effect specification, and
 #' starting values from the participant-specific OL-phase end-of-run
-#' Sx changes. Track convergence-rate target >= 80% per pre-reg.
+#' Sx changes. Track convergence-rate target >= 80% per protocol.
 full_nonlinear_fit <- function(td, dat, N) {
   if (N < 100) {
     return(data.table(beta = NA_real_, betaSE = NA_real_,

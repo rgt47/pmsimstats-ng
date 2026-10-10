@@ -4,13 +4,16 @@
 ## S, F1 and C1 from the main run.
 ##
 ## Run from the repository root:
-##   Rscript analysis/scripts/quick-sim/carryover-closed-form/14-posthoc-arm-summary.R [extra|extra2]
+##   Rscript analysis/scripts/quick-sim/carryover-closed-form/14-posthoc-arm-summary.R [extra|extra2] [DGP-TAG]
+## DGP-TAG (e.g. -anchored) selects the refined-process rerun and is
+## appended to the output names; without it the stored runs are used.
 suppressMessages(library(data.table))
 args <- commandArgs(trailingOnly = TRUE)
 tag <- if (length(args)) args[1] else 'extra'
+dtag <- if (length(args) > 1) args[2] else ''
 d <- 'analysis/data/quick-sim/carryover-closed-form/strawman-stress'
-main <- readRDS(file.path(d, 'replicates-full.rds'))
-ex <- readRDS(file.path(d, sprintf('replicates-full-%s.rds', tag)))
+main <- readRDS(file.path(d, sprintf('replicates-full%s.rds', dtag)))
+ex <- readRDS(file.path(d, sprintf('replicates-full-%s%s.rds', tag, dtag)))
 ## Pairing check: S must agree replicate for replicate.
 chk <- merge(main[analysis == 'S', .(cell, rep, est_main = est)],
              ex[analysis == 'S', .(cell, rep, est_ex = est)], by = c('cell', 'rep'))
@@ -37,5 +40,5 @@ pw <- alt[, .(power_adj = mean(p1 < crit)), by = .(label, cbm, analysis)]
 cat('\nSize-adjusted power, alternative cells\n')
 print(dcast(pw, label + cbm ~ analysis, value.var = 'power_adj'), digits = 3, nrows = 100)
 fwrite(merge(std, dcast(nul[label %in% prog], analysis ~ label, value.var = 'reject'),
-             by = 'analysis', all = TRUE), file.path(d, sprintf('posthoc-%s-size.csv', tag)))
-fwrite(pw, file.path(d, sprintf('posthoc-%s-power.csv', tag)))
+             by = 'analysis', all = TRUE), file.path(d, sprintf('posthoc-%s%s-size.csv', tag, dtag)))
+fwrite(pw, file.path(d, sprintf('posthoc-%s%s-power.csv', tag, dtag)))

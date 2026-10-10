@@ -1,24 +1,24 @@
-# ADEMP pre-registration: paper 02 (carryover-sensitivity)
+# ADEMP protocol: paper 02 (carryover-sensitivity)
 *2026-05-08 07:35 PDT*
 
 **Author.** pmsimstats team
 
 **Manuscript.** `analysis/report/02-carryover-sensitivity/report.Rmd`
 
-**Pre-registration date.** 2026-04-15 (original grid-plan;
-reformatted into ADEMP structure 2026-05-08).
+**Protocol history.** Original grid plan dated 2026-04-15;
+reformatted into ADEMP structure 2026-05-08.
 
-This document pre-registers the simulation programme described in
-the carryover-sensitivity manuscript (paper 02) following the
-ADEMP reporting framework of @morris2019simulation. It restates
-the parameter grid, performance measures, and replicate budget
-specified in `simulation-grid-plan.md` (the original design
-document) in the formal Aims / Data-generating-mechanism /
-Estimands / Methods / Performance-measures structure SIM editors
-expect. Items in this document are committed prior to the
-production runs reported in the manuscript Results section; any
-post-hoc deviations are documented at the foot of this
-pre-registration.
+This document is the working protocol for the exploratory
+simulation study described in the carryover-sensitivity
+manuscript (paper 02), written following the ADEMP reporting
+framework of @morris2019simulation. The study is
+exploratory, and its findings should be confirmed in an
+independent study. The protocol restates the parameter grid,
+performance measures, and replicate budget specified in
+`simulation-grid-plan.md` (the original design document) in the
+formal Aims / Data-generating-mechanism / Estimands / Methods /
+Performance-measures structure SIM editors expect. Changes to the
+working protocol are recorded at the foot of this document.
 
 ## A. Aims
 
@@ -228,7 +228,7 @@ $\ge 99.5\%$ across the 540 Tier-1 cells.
   the master seed by `+ rep_idx`. Tier 2 sensitivity blocks use
   the same convention.
 
-## Pre-specified outputs
+## Planned outputs
 
 | Output | Path |
 |---|---|
@@ -244,7 +244,7 @@ $\ge 99.5\%$ across the 540 Tier-1 cells.
 ## Scope exclusions
 
 The following axes are deliberately excluded from this
-pre-registration and are noted in the Discussion section
+protocol and are noted in the Discussion section
 of the manuscript:
 
 - **Washout period length and timepoint density.** Design-level
@@ -259,20 +259,19 @@ of the manuscript:
   grid; a brief note in the manuscript Discussion points to the
   Hendrickson 2020 sensitivity analysis that addressed this.
 - **Multiple-testing correction.** Each simulation tests a
-  single pre-specified biomarker.
+  single fixed biomarker.
 - **Alpha level.** Type I error is evaluated at the standard
   $\alpha = 0.05$; a supplementary check at $\alpha = 0.10$ is
   available post hoc.
 
-## Post-hoc deviations from this pre-registration
+## Changes to the working protocol
 
-(None to report at the pre-registration date. Any subsequent
-deviations should be appended below with date, scope, and
-justification.)
+(None recorded as of 2026-05-08. Any subsequent changes should
+be appended below with date, scope, and justification.)
 
 ---
 
 *Reformatted from `simulation-grid-plan.md` on 2026-05-08
 07:35 PDT.*
 *Source:
-~/Dropbox/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/carryover-sensitivity/00-ademp-pre-registration.md.*
+~/Dropbox/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/carryover-sensitivity/00-ademp-protocol.md.*

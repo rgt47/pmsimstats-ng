@@ -3,7 +3,7 @@
 # Canonical production simulation for paper 04: N-of-1 vs RCT power
 # comparison.  Replaces simulation.R (DerSimonian-Laird / t-test).
 #
-# Design decisions (see 00-ademp-pre-registration.md):
+# Design decisions (see 00-ademp-protocol.md):
 #   - N-of-1 arm: nlme::lme with corCAR1, formula Sx ~ Dbc + t + (1|ptID)
 #   - RCT arm:    ANCOVA, endpoint ~ treatment + baseline
 #   - Paired design per Morris (2019) §5.4: same patient pool within each
@@ -35,7 +35,7 @@ QUICK_TEST <- FALSE
 RNGkind("L'Ecuyer-CMRG")
 set.seed(2024L)
 
-# ---- Global parameters (fixed by pre-registration) ----
+# ---- Global parameters (set by the working ADEMP protocol) ----
 N_SIM <- if (QUICK_TEST) 50L else 2000L
 N_PATIENTS  <- 35L
 N_PERIODS   <- 8L

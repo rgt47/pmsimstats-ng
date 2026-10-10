@@ -3,7 +3,7 @@
 #' Paper 06 Study B: identifiability of the full nonlinear three-
 #' component decomposition.
 #'
-#' Cell grid (per 00-ademp-pre-registration.md):
+#' Cell grid (per 00-ademp-protocol.md):
 #'   m_PB in {1, 6}, m_TV in {0, 1}, N in {35, 70, 100, 150}
 #'   = 16 cells.
 #'   c_bm = 0.45 throughout.

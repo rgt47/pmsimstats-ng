@@ -1,13 +1,15 @@
-# ADEMP pre-registration: 04-treatment-main-effect
+# ADEMP protocol: 04-treatment-main-effect
 
 *2026-05-07 16:45 PDT*
 
-This document pre-registers the simulation programme that
-underlies `analysis/report/04-treatment-main-effect/` (full and
-short variants). ADEMP structure follows Morris, White and
-Crowther (2019). Each study fixes Aims (A), Data-generating
-mechanisms (D), Estimands (E), Methods (M), and Performance
-measures (P) before any production runs are executed.
+This document is the working protocol for the exploratory
+simulation study that underlies
+`analysis/report/04-treatment-main-effect/` (full and short
+variants). The study is exploratory, and its findings should be
+confirmed in an independent study. ADEMP structure follows
+Morris, White and Crowther (2019). Each study states its Aims
+(A), Data-generating mechanisms (D), Estimands (E), Methods (M),
+and Performance measures (P).
 
 ## Common infrastructure
 
@@ -35,7 +37,7 @@ at the baseline cell, varied across $t_{1/2} \in \{0.5, 1, 3, 5,
 
 **Replicates.** $n_{\text{reps}} = 2000$ per cell, applied
 uniformly to power, bias, Type I error, and all sensitivity
-sweep cells. The pre-specified target is MCSE $\leq 1.1\%$ on
+sweep cells. The target is MCSE $\leq 1.1\%$ on
 a power estimate near $0.75$ and MCSE $\leq 0.5\%$ on a Type I
 estimate near $0.05$; $n_{\text{reps}} = 2000$ satisfies both.
 
@@ -118,13 +120,12 @@ bars.
 - Figures: power-by-axis plot per sweep, plus the joint
   power-by-(N, effect-size) heatmap from M1.
 
-## Deviations from this pre-registration
+## Changes to the working protocol
 
-Any deviation from the cells, estimands, methods, or
-performance measures pre-registered above is recorded in
-`02-deviations-log.md` with date, reason, and reviewer signoff
-before the affected production runs are committed.
+Any change to the cells, estimands, methods, or performance
+measures specified in this working protocol is recorded in
+`02-deviations-log.md` with date, reason, and reviewer signoff.
 
 ---
 
-*Source:* `~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/treatment-main-effect/00-ademp-pre-registration.md`
+*Source:* `~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/treatment-main-effect/00-ademp-protocol.md`

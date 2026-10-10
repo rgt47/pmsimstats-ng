@@ -1,7 +1,7 @@
 ## Study A (contaminated biomarker) runner -- paper 06.
 ##
 ## Decisive cell for the biomarker-validation failure. Study A as
-## pre-registered coupled the biomarker to BR only, so varying the PB and
+## first specified coupled the biomarker to BR only, so varying the PB and
 ## TV *magnitudes* left the lumped biomarker-by-treatment estimate
 ## unbiased (the section 6.1 identity: bias = w_PB*beta_bm^PB +
 ## w_TV*beta_bm^TV = 0 when beta_bm^PB = beta_bm^TV = 0). This run varies
@@ -17,7 +17,7 @@
 ## The clean BR estimate from the phase-augmented model is therefore the
 ## within-blinded contrast beta_bdc = (bm:Dbc) + (bm:Dbc:phaseBDC).
 ##
-## PREDICTIONS (pre-registered here):
+## PREDICTIONS (working predictions for this exploratory run):
 ##   1. alt cells (true beta_bm:BR = -2.25): one-component bias grows
 ##      (more negative) with c_bm_pb; phase-augmented beta_bdc stays near
 ##      -2.25.

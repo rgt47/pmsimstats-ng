@@ -6,13 +6,22 @@
 ##   B  adj 1       : AR(1) within, decaying cross, step coupling
 ##   C  adj 1 + 2   : separable AR(1), graded coupling
 ##   D  adj 3       : CS within, constant cross, mean moderation
-##   E  adj 1+2+3   : separable AR(1), mean moderation
+##   E  adj 1 + 3   : separable AR(1), mean moderation (no covariance
+##                   coupling, so adjustment 2 has no effect)
 ##   F  adj 1 + 2, current covar form: AR(1) within, decaying cross,
 ##                   graded coupling; with C it isolates separability
 ## Everything else is held at the published values: rho = 0.8,
-## c1 = 0.2, cx = 0.1, Gompertz means, SDs, recursive carryover on the
-## BR mean, 8-visit designs. No positive-definiteness repair: a cell
-## whose matrix is not PD is skipped and recorded.
+## c1 = 0.2, cx = 0.1, Gompertz means, SDs, 8-visit designs. No
+## positive-definiteness repair: a cell whose matrix is not PD is
+## skipped and recorded.
+##
+## Carryover on the BR mean (--carryover anchored|recursive, default
+## anchored): anchored decays the BR mean from its last on-drug value,
+## mu_last * 2^(-tsd / t1/2), as R/generateData.R does. recursive is the
+## published recursion br[p] + br[p - 1] * 2^(-tsd / t1/2), which
+## compounds the decay at the second and later off-drug visits because
+## tsd is cumulative; it reproduces the stored results, whose file names
+## carry no carryover tag. Anchored runs write files tagged '-anchored'.
 ##
 ## Analysis (--analysis):
 ##   published  the published lme_analysis() model, lmerTest::lmer
@@ -27,6 +36,7 @@
 ## Run from the repository root:
 ##   Rscript analysis/scripts/quick-sim/hendrickson-problems/04-power-simulation.R \
 ##     [--reps R] [--analysis published|car1] [--arms ABCDEF]
+##     [--carryover anchored|recursive] [--out-dir PATH]
 ## --arms restricts the run to the listed arms; cell ids (and so seeds)
 ## do not depend on it, and a restricted run writes its tables with the
 ## arm letters appended, for 05-summarize-power.R to merge.
@@ -39,14 +49,18 @@ args <- commandArgs(trailingOnly = TRUE)
 reps <- if ('--reps' %in% args) as.integer(args[which(args == '--reps') + 1]) else 500L
 analysis <- if ('--analysis' %in% args) args[which(args == '--analysis') + 1] else 'published'
 stopifnot(analysis %in% c('published', 'car1'))
-tag <- if (analysis == 'published') '' else paste0('-', analysis)
+CARRYOVER <- if ('--carryover' %in% args) args[which(args == '--carryover') + 1] else 'anchored'
+stopifnot(CARRYOVER %in% c('anchored', 'recursive'))
+tag <- paste0(if (analysis == 'published') '' else paste0('-', analysis),
+              if (CARRYOVER == 'anchored') '-anchored' else '')
 FIT_LIMIT <- if ('--fit-limit' %in% args) as.integer(args[which(args == '--fit-limit') + 1]) else 30L
 ALL_ARMS <- c('A', 'B', 'C', 'D', 'E', 'F')
 arms <- if ('--arms' %in% args) strsplit(args[which(args == '--arms') + 1], '')[[1]] else ALL_ARMS[1:5]
 stopifnot(all(arms %in% ALL_ARMS))
 ## The original run covered A-E; any other selection gets its own files.
 arm_tag <- if (identical(sort(arms), ALL_ARMS[1:5])) '' else paste0('-', paste(sort(arms), collapse = ''))
-out_dir <- 'analysis/data/quick-sim/hendrickson-problems/power-sim'
+out_dir <- if ('--out-dir' %in% args) args[which(args == '--out-dir') + 1] else
+  'analysis/data/quick-sim/hendrickson-problems/power-sim'
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 ## ---------------- published parameters ----------------
@@ -84,11 +98,24 @@ path_info <- function(t_wk, e, od) {
 }
 
 ## ---------------- DGP ----------------
-build <- function(pi, arm, cbm, t_half) {
+## Scripts that parse this file take build() alone, so the carryover
+## logic stays inside it and its default is the anchored form.
+build <- function(pi, arm, cbm, t_half, carryover = 'anchored') {
   n <- length(pi$w)
   br <- gomp(pi$tod, 10.98604, 5, 0.42)
-  for (p in 2:n) if (!pi$on[p] && pi$tsd[p] > 0)
-    br[p] <- br[p] + br[p - 1] * 0.5^(pi$tsd[p] / t_half)
+  if (carryover == 'recursive') {
+    for (p in 2:n) if (!pi$on[p] && pi$tsd[p] > 0)
+      br[p] <- br[p] + br[p - 1] * 0.5^(pi$tsd[p] / t_half)
+  } else {
+    ## tsd is cumulative, so the decay is applied once to the mean at
+    ## discontinuation (R/generateData.R); recursing on br[p - 1] would
+    ## count the elapsed time twice.
+    last_on <- 0
+    for (p in seq_len(n)) {
+      if (pi$on[p]) last_on <- br[p]
+      else if (pi$tsd[p] > 0) br[p] <- br[p] + last_on * 0.5^(pi$tsd[p] / t_half)
+    }
+  }
   mu <- c(bm_m, bl_m, gomp(pi$w, 6.50647, 5, 0.35),
           gomp(pi$tpb, 6.50647, 5, 0.35) * pi$e, br)
   sds <- c(bm_sd, bl_sd, rep(10, n), 10 * pi$e, rep(8, n))
@@ -164,7 +191,7 @@ run_cell <- function(cell) {
   set.seed(cell$seed)
   d <- designs[[cell$design]]
   pis <- lapply(d$paths, function(od) path_info(d$t_wk, d$e, od))
-  bs <- lapply(pis, function(pi) build(pi, cell$arm, cell$c.bm, cell$t_half))
+  bs <- lapply(pis, function(pi) build(pi, cell$arm, cell$c.bm, cell$t_half, CARRYOVER))
   min_eig <- min(sapply(bs, function(b) min(eigen(b$R, TRUE, TRUE)$values)))
   if (min_eig <= 0)
     return(list(summary = cbind(cell, feasible = FALSE, min_eig = min_eig,
@@ -253,8 +280,10 @@ done <- length(list.files(cell_dir, pattern = '^cell-.*\\.rds$'))
 cat(sprintf('analysis: %s, cells: %d (%d already done), reps per cell: %d, cores: %d, fit limit %ds\n',
             analysis, nrow(cells), done, reps, detectCores(), FIT_LIMIT))
 t0 <- Sys.time()
+## simrun sets SIM_CORES to the job's core share.
 out <- mclapply(split(cells, seq_len(nrow(cells))), run_cell_checkpointed,
-                mc.cores = 8, mc.preschedule = FALSE)
+                mc.cores = as.integer(Sys.getenv('SIM_CORES', '8')),
+                mc.preschedule = FALSE)
 bad <- which(sapply(out, inherits, 'try-error'))
 if (length(bad)) stop('cells failed: ', paste(bad, collapse = ', '))
 summ <- rbindlist(lapply(out, `[[`, 'summary'), fill = TRUE)

@@ -2,7 +2,7 @@
 #'
 #' Paper 09 Study 3: randomization-path 'happy accident' decomposition.
 #'
-#' Per 00-ademp-pre-registration.md: 2 designs (OLBDC, Hybrid) x
+#' Per 00-ademp-protocol.md: 2 designs (OLBDC, Hybrid) x
 #' 2 patterns (balanced, more_of_biased) x 3 N (35, 70, 100) =
 #' 12 cells. c_bm = 0.3 throughout. 1000 reps per cell.
 #'

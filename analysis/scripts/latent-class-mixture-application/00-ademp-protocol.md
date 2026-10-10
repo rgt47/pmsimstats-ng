@@ -1,13 +1,15 @@
-# ADEMP pre-registration: latent-class-mixture-application
+# ADEMP protocol: latent-class-mixture-application
 
 *2026-05-06 18:20 PDT*
 
-This document pre-registers the five-study simulation programme
-described in `analysis/report/03-latent-class-mixture-application/
-simulation-plan.md`. ADEMP structure follows Morris, White and
-Crowther (2019). Each study fixes Aims (A), Data-generating
-mechanisms (D), Estimands (E), Methods (M), and Performance
-measures (P) before any production runs are executed.
+This document is the working protocol for the exploratory
+five-study simulation program described in
+`analysis/report/03-latent-class-mixture-application/
+simulation-plan.md`. The study is exploratory, and its findings
+should be confirmed in an independent study. ADEMP structure
+follows Morris, White and Crowther (2019). Each study states its
+Aims (A), Data-generating mechanisms (D), Estimands (E), Methods
+(M), and Performance measures (P).
 
 Cells that share a value across studies are factored out to a
 common-infrastructure section to avoid redundant restatement.
@@ -130,7 +132,7 @@ nominal-95% coverage, convergence rate, fit time. Class-aware
 analyses additionally: posterior class entropy, modal class-
 assignment accuracy, BIC class-count selection.
 
-**Pre-specified prediction.** $\Delta_{\text{recovery}} \geq 0$
+**Working prediction.** $\Delta_{\text{recovery}} \geq 0$
 asymptotically. $\Delta_{\text{approx}}$ sign indeterminate: if
 the mixture DGP under the linear-mixed analysis loses more or
 less power than the MVN DGP under the same analysis is the
@@ -156,7 +158,7 @@ interpolation.
    constant across $\alpha$.
 
 **E.** Power for $\beta_{bm:D}$ as a function of $\alpha$ at each
-$t_{1/2}$. Pre-registered prediction: $\partial \pi / \partial
+$t_{1/2}$. Working prediction: $\partial \pi / \partial
 \alpha < 0$ at $t_{1/2} > 0$ (combined and pure-covariance forms
 lose more power than pure-mean as carryover increases) and
 $\partial \pi / \partial \alpha \approx 0$ at $t_{1/2} = 0$
@@ -278,7 +280,7 @@ rate, posterior entropy, fit time.
 
 ## Phase 1 deliverables and sequencing
 
-The pre-registration above commits to specific cell counts:
+The protocol above specifies cell counts:
 roughly 2300 cells across the five studies, each with 1000-5000
 replicates. A pilot at one cell per study during Phase 1
 characterises per-cell compute time and bounds the production-
@@ -300,15 +302,14 @@ order:
 Phase 2 (Study 5 pre-flight) follows; Phase 3 (Studies 1, 2, 3)
 runs in parallel; Phase 4 (Study 4) closes the programme.
 
-## Deviations from this pre-registration
+## Changes to the working protocol
 
-Any deviation from the cells, estimands, methods, or performance
-measures pre-registered above is recorded in
+Any change to the cells, estimands, methods, or performance
+measures specified in this working protocol is recorded in
 `02-deviations-log.md` with date, reason, and reviewer signoff
-(if external review is sought) before the affected production
-runs are committed.
+(if external review is sought).
 
 ---
 
 *Rendered on 2026-05-06 at 18:20 PDT.*<br>
-*Source: ~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/latent-class-mixture-application/00-ademp-pre-registration.md*
+*Source: ~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/latent-class-mixture-application/00-ademp-protocol.md*

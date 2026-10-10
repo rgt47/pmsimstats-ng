@@ -369,7 +369,7 @@ grid:
   note in the Discussion will point to the Hendrickson (2020)
   sensitivity analysis that addressed this.
 - **Multiple-testing correction.** Out of scope; each simulation
-  tests a single prespecified biomarker.
+  tests a single fixed biomarker.
 - **Alpha level.** Type-I error is evaluated at the standard
   $\alpha = 0.05$; a supplementary check at $\alpha = 0.10$ is
   straightforward post hoc if a reviewer requests it.

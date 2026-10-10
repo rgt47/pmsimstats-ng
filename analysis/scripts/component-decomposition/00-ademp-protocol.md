@@ -1,10 +1,13 @@
-# ADEMP pre-registration: 06-component-decomposition
+# ADEMP protocol: 06-component-decomposition
 
 *2026-05-07 16:50 PDT*
 
-This document pre-registers the simulation programme that
-underlies `analysis/report/06-component-decomposition/`. ADEMP
-structure follows Morris, White and Crowther (2019).
+This document is the working protocol for the exploratory
+simulation study that underlies
+`analysis/report/06-component-decomposition/`. The study is
+exploratory, and its findings should be confirmed in an
+independent study. ADEMP structure follows Morris, White and
+Crowther (2019).
 
 ## Common infrastructure
 
@@ -145,12 +148,12 @@ $\hat{\gamma}$ alone is not evidence of mechanistic subadditivity.
 - Figures: bias-by-(PB strength, TV strength) heatmap; sample-
   size-by-identifiability curve; subadditivity sensitivity plot.
 
-## Deviations log
+## Protocol change log
 
-`02-deviations-log.md` records departures from the cells,
-estimands, methods, or performance measures pre-registered
-above.
+`02-deviations-log.md` records changes to the cells,
+estimands, methods, or performance measures specified in this
+working protocol.
 
 ---
 
-*Source:* `~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/component-decomposition/00-ademp-pre-registration.md`
+*Source:* `~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/component-decomposition/00-ademp-protocol.md`

@@ -12,11 +12,18 @@
 ##
 ## Run from the repository root:
 ##   Rscript analysis/scripts/quick-sim/hendrickson-problems/05-summarize-power.R [--reps R]
+##     [--analysis published|car1] [--carryover anchored|recursive]
+## --carryover selects the run of 04 to summarize, with 04's default
+## (anchored, files tagged '-anchored'); recursive reads the untagged
+## files of the stored published-recursion run.
 suppressMessages(library(data.table))
 args <- commandArgs(trailingOnly = TRUE)
 reps <- if ('--reps' %in% args) as.integer(args[which(args == '--reps') + 1]) else 500L
 analysis <- if ('--analysis' %in% args) args[which(args == '--analysis') + 1] else 'published'
-tag <- if (analysis == 'published') '' else paste0('-', analysis)
+carryover <- if ('--carryover' %in% args) args[which(args == '--carryover') + 1] else 'anchored'
+stopifnot(carryover %in% c('anchored', 'recursive'))
+tag <- paste0(if (analysis == 'published') '' else paste0('-', analysis),
+              if (carryover == 'anchored') '-anchored' else '')
 dir <- 'analysis/data/quick-sim/hendrickson-problems/power-sim'
 r <- readRDS(file.path(dir, sprintf('replicates-reps%d%s.rds', reps, tag)))
 summ <- fread(file.path(dir, sprintf('summary-reps%d%s.csv', reps, tag)))

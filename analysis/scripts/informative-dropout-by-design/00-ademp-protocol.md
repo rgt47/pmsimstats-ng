@@ -1,10 +1,13 @@
-# ADEMP pre-registration: 09-informative-dropout-by-design
+# ADEMP protocol: 09-informative-dropout-by-design
 
 *2026-05-07 17:00 PDT*
 
-This document pre-registers the simulation programme that
-underlies `analysis/report/09-informative-dropout-by-design/`.
-ADEMP structure follows Morris, White and Crowther (2019).
+This document is the working protocol for the exploratory
+simulation study that underlies
+`analysis/report/09-informative-dropout-by-design/`. The study
+is exploratory, and its findings should be confirmed in an
+independent study. ADEMP structure follows Morris, White and
+Crowther (2019).
 
 ## Common infrastructure
 
@@ -88,7 +91,7 @@ $\sqrt{\hat{\pi}(1-\hat{\pi})/n_{\text{reps}}}$ for proportions
 and the standard Monte Carlo SE of the within-replicate mean
 for continuous measures.
 
-**Pre-registered prediction.** Power loss from dropout exceeds
+**Working prediction.** Power loss from dropout exceeds
 50% in the most-vulnerable design-by-dropout cells (high
 dropout in OL+BDC and N-of-1 designs) and remains negligible in
 the OL design across all dropout patterns. Design rankings on
@@ -190,12 +193,12 @@ the missing-data mechanism.
   (Study 2); path-conditional power decomposition (Study 3);
   analysis-method sensitivity (Study 4).
 
-## Deviations log
+## Protocol change log
 
-`02-deviations-log.md` records departures from the cells,
-estimands, methods, or performance measures pre-registered
-above.
+`02-deviations-log.md` records changes to the cells,
+estimands, methods, or performance measures specified in this
+working protocol.
 
 ---
 
-*Source:* `~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/informative-dropout-by-design/00-ademp-pre-registration.md`
+*Source:* `~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/informative-dropout-by-design/00-ademp-protocol.md`

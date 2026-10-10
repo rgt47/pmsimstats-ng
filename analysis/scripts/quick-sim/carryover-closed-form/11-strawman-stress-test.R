@@ -1,11 +1,11 @@
 ## Stress test of the provisional (strawman) analysis for the biomarker-
-## by-drug interaction in the Hybrid design, as pre-registered in
-## docs/46-strawman-stress-test-preregistration.md. Cells, analyses and
-## settings follow that document; any departure is a deviation to be
+## by-drug interaction in the Hybrid design, as specified in the working
+## protocol docs/46-strawman-stress-test-protocol.md. Cells, analyses and
+## settings follow that document; any change to the protocol is to be
 ## reported in docs/47.
 ##
 ## Data: the 04-power-simulation.R construct (published Gompertz means
-## and SDs, Hybrid design, published allocation scaled to N), graded
+## and SDs, Hybrid design, allocation per --allocation below), graded
 ## coupling of the biomarker to BR, extended with prognostic couplings
 ## to TV and PB, mean moderation of TV, phase-specific measurement
 ## error, Weibull carryover decay and monotone dropout (docs/46,
@@ -15,28 +15,62 @@
 ## Run from the repository root:
 ##   Rscript analysis/scripts/quick-sim/carryover-closed-form/11-strawman-stress-test.R \
 ##     [--pilot R] [--cores K] [--chunk C] [--check]
+##     [--carryover anchored|recursive] [--allocation random|fixed]
+##     [--out-dir PATH]
 ## --check runs the pre-run checks only. --pilot R runs R replicates per
 ## cell into a separate directory. Chunks are checkpointed; a relaunch
-## with the same arguments resumes.
+## with the same arguments resumes. --cores defaults to SIM_CORES (set
+## by simrun) or 8.
+##
+## Refined process (2026-10-08; paper 01, tab:spec). --carryover
+## anchored (default) decays the BR mean from its last on-drug value,
+## mu_last * w(tsd), as R/generateData.R does; recursive is the earlier
+## br[p] + br[p - 1] * w(tsd), which compounds the decay at the second
+## and later off-drug visits because tsd is cumulative. --allocation
+## random (default) assigns each participant to a path uniformly at
+## random in every trial; fixed is the earlier near-equal split
+## (18/18/17/17 at N = 70). '--carryover recursive --allocation fixed'
+## reproduces the stored results and their untagged file names; the
+## defaults write files tagged '-anchored', other combinations
+## '-anchored-fixed' or '-recursive-random'.
+##
+## --extra3 (2026-10-09; RERUN-ext3.md): data-chosen analysis half-lives
+## for the interaction (docs/57, Section 7.3) on fresh trials: a new seed
+## base (57261009 in place of 20261007), the 41 cells plus 17 new ones
+## (--ext3-cells docs57 keeps only the 12 of docs/57, Section 7.3), and
+## the definitions of analysis/scripts/data-chosen-half-life/57-common.R.
+## Writes files tagged '-extra3'. Without --extra3 nothing changes.
 suppressMessages({
   library(data.table); library(MASS); library(mmrm); library(nlme); library(parallel)
 })
 args <- commandArgs(trailingOnly = TRUE)
 arg <- function(k, d) if (k %in% args) as.integer(args[which(args == k) + 1]) else d
-cores <- arg('--cores', 8L)
+sarg <- function(k, d) if (k %in% args) args[which(args == k) + 1] else d
+cores <- arg('--cores', as.integer(Sys.getenv('SIM_CORES', '8')))
+CARRYOVER <- sarg('--carryover', 'anchored')
+ALLOCATION <- sarg('--allocation', 'random')
+stopifnot(CARRYOVER %in% c('anchored', 'recursive'), ALLOCATION %in% c('random', 'fixed'))
+dgp_tag <- if (CARRYOVER == 'recursive' && ALLOCATION == 'fixed') '' else
+  paste0('-', CARRYOVER, if (ALLOCATION == 'fixed') '-fixed' else
+    if (CARRYOVER == 'recursive') '-random' else '')
 CHUNK <- arg('--chunk', 25L)
 pilot <- arg('--pilot', 0L)
 check_only <- '--check' %in% args
-## --extra: post hoc analyses only (not pre-registered in docs/46), on the
+## --extra: post hoc analyses only (not specified in docs/46), on the
 ## same cells and seeds, so the trials are identical to the main run. S is
 ## refitted as a pairing check against the main run.
 extra <- '--extra' %in% args
 ## --extra2: post hoc F1 with AIC-selected half-life (F1A), and S again.
 extra2 <- '--extra2' %in% args
+extra3 <- '--extra3' %in% args
+EXT3_CELLS <- sarg('--ext3-cells', 'all')
+stopifnot(sum(extra, extra2, extra3) <= 1, EXT3_CELLS %in% c('all', 'docs57'))
+SEED_BASE <- if (extra3) 57261009L else 20261007L
 here04 <- 'analysis/scripts/quick-sim/hendrickson-problems/04-power-simulation.R'
-out_dir <- 'analysis/data/quick-sim/carryover-closed-form/strawman-stress'
+out_dir <- sarg('--out-dir', 'analysis/data/quick-sim/carryover-closed-form/strawman-stress')
 run_tag <- paste0(if (pilot > 0) sprintf('pilot%d', pilot) else 'full',
-                  if (extra) '-extra' else if (extra2) '-extra2' else '')
+                  if (extra) '-extra' else if (extra2) '-extra2' else if (extra3) '-extra3' else '',
+                  if (extra3 && EXT3_CELLS == 'docs57') '-docs57' else '', dgp_tag)
 cell_dir <- file.path(out_dir, paste0('cells-', run_tag))
 dir.create(cell_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -80,6 +114,24 @@ cells <- rbindlist(c(
   ## seeds of cells 1-39 are unchanged: the biomarker correlated with
   ## baseline severity.
   lapply(c(0, 0.30), function(v) cell('prog-BL', v, c_bl = 0.3))))
+## --extra3 only, appended after cell 41 so that ids 1-41 are unchanged.
+## Cells 42-53 (docs/57, Section 7.3): each prognostic pathway of cells
+## 34-39 crossed with a true half-life the fixed analysis value (0.5 week)
+## gets wrong, null and c_bm = 0.30. Cells 54-58 (omitted with
+## --ext3-cells docs57): alternatives at a wrong fixed half-life beyond
+## cells 25 and 27, and the null twin of the new t1/2 = 2 label.
+if (extra3) {
+  ext3 <- list()
+  for (th in c(0, 1)) for (v in c(0, 0.30)) ext3 <- c(ext3, list(
+    cell(sprintf('prog-TV-const-thalf%g', th), v, c_tv = 0.3, t_half = th),
+    cell(sprintf('prog-TV-grow-thalf%g', th), v, b_tv = 0.3, t_half = th),
+    cell(sprintf('prog-PB-thalf%g', th), v, c_pb = 0.3, t_half = th)))
+  if (EXT3_CELLS == 'all') ext3 <- c(ext3, list(
+    cell('thalf2', 0, t_half = 2), cell('thalf2', 0.30, t_half = 2),
+    cell('thalf0', 0.45, t_half = 0), cell('thalf1', 0.45, t_half = 1),
+    cell('thalf2', 0.45, t_half = 2)))
+  cells <- rbindlist(c(list(cells), ext3))
+}
 cells[, `:=`(id = .I, hyp = fifelse(cbm == 0, 'null', 'alt'))]
 cells[, reps := if (pilot > 0) pilot else fifelse(hyp == 'null', 1000L, 500L)]
 if (pilot == 0) stopifnot(all(cells$reps %% CHUNK == 0))
@@ -97,7 +149,18 @@ build <- function(pi, cl) {
   n <- length(pi$w)
   br <- dgp$gomp(pi$tod, 10.98604, 5, 0.42)
   w <- decay(pi$tsd, cl$t_half, cl$decay_k)
-  for (p in 2:n) if (!pi$on[p] && pi$tsd[p] > 0) br[p] <- br[p] + br[p - 1] * w[p]
+  if (CARRYOVER == 'recursive') {
+    for (p in 2:n) if (!pi$on[p] && pi$tsd[p] > 0) br[p] <- br[p] + br[p - 1] * w[p]
+  } else {
+    ## tsd is cumulative, so w is applied once to the mean at
+    ## discontinuation (R/generateData.R); recursing on br[p - 1] would
+    ## count the elapsed time twice.
+    last_on <- 0
+    for (p in seq_len(n)) {
+      if (pi$on[p]) last_on <- br[p]
+      else if (pi$tsd[p] > 0) br[p] <- br[p] + last_on * w[p]
+    }
+  }
   mu <- c(dgp$bm_m, dgp$bl_m, dgp$gomp(pi$w, 6.50647, 5, 0.35),
           dgp$gomp(pi$tpb, 6.50647, 5, 0.35) * pi$e, br)
   sds <- c(dgp$bm_sd, dgp$bl_sd, rep(10, n), 10 * pi$e, rep(8, n))
@@ -271,6 +334,138 @@ fit_extra2 <- function(d) {
 }
 if (extra) fit_all <- fit_extra
 if (extra2) fit_all <- fit_extra2
+## Data-chosen analysis half-lives (docs/57; RERUN-ext3.md). The
+## grid fits, F1, F1A, F1A0, AIC-weight averaging (MA), the Bonferroni
+## maximum and the null-model bootstrap draw are the definitions of
+## 57-common.R, evaluated here; F1G and MA0 (post hoc, docs/57, Section
+## 4.2 and 6.2) follow 57-posthoc-rules.R. Added: F1 at the
+## pharmacological 0.2 week (F1h02), and the maximum |t| over the grid
+## calibrated by a multivariate normal (MaxTMVN) or t with the smallest
+## Satterthwaite df rounded down (MaxTMVT), with the correlation of the T(h) from the
+## participants' model-based influence contributions (docs/58, Section
+## 9.2). One null-model resample per trial (warp-speed method, Giacomini,
+## Politis and White 2013) gives tstar; the B arms are formed after the
+## run from the pooled tstar of each cell.
+if (extra3) {
+  keep57 <- c('G5', 'FM1', 'FM0', 'TARGET', 'na5', 'cr2t', 'll_or_na', 'grid_fits',
+              'pick', 'wmax', 'grid_methods', 'null_fit', 'sim_null')
+  for (e in parse('analysis/scripts/data-chosen-half-life/57-common.R')) {
+    if (is.call(e) && identical(e[[1]], as.name('<-')) && is.name(e[[2]]) &&
+        as.character(e[[2]]) %in% keep57) eval(e, globalenv())
+  }
+  stopifnot(all(keep57 %in% ls(globalenv())), identical(G5, GRID))
+  suppressMessages(library(mvtnorm))
+  TH_P <- 0.2
+  BOOT_OF <- c(F1 = 'F1B', F1h02 = 'F1h02B', F1A = 'F1AB', F1A0 = 'F1A0B', F1G = 'F1GB',
+               MA = 'MAB', MA0 = 'MA0B', MaxTBonf = 'MaxTB')
+  POSTHOC <- c('F1G', 'MA0', 'F1GB', 'MA0B')
+
+  ## Participant-level influence of the interaction estimate in an lme
+  ## fit with random intercept and CAR(1) (infl_X of 58-common.R, for
+  ## the target bmc:X).
+  infl_int <- function(fit, d) {
+    su2 <- as.numeric(nlme::VarCorr(fit)['(Intercept)', 'Variance'])
+    phi <- as.numeric(coef(fit$modelStruct$corStruct, unconstrained = FALSE))
+    s2 <- fit$sigma^2
+    Xm <- model.matrix(formula(fit)[-2], d)
+    r <- d$Sx - drop(Xm %*% nlme::fixef(fit))
+    parts <- lapply(split(seq_len(nrow(d)), d$ptID), function(ii) {
+      tt <- d$t[ii]; Vi <- solve(su2 + s2 * phi^abs(outer(tt, tt, '-')))
+      list(B = crossprod(Xm[ii, , drop = FALSE], Vi %*% Xm[ii, , drop = FALSE]),
+           u = drop(crossprod(Xm[ii, , drop = FALSE], Vi %*% r[ii])))
+    })
+    Bi <- solve(Reduce('+', lapply(parts, `[[`, 'B')))
+    k <- which(colnames(Xm) == TARGET)
+    vapply(parts, function(p) drop(Bi %*% p$u)[k], numeric(1))
+  }
+  ## grid_fits of 57-common.R, also returning the influence vectors.
+  grid_fits3 <- function(d, grid = G5, infl = TRUE) {
+    U <- list()
+    g <- rbindlist(lapply(grid, function(h) {
+      dd <- with_x(d, h)
+      fr <- fit_lme(FM1, dd)
+      if (infl && !is.null(fr)) U[[as.character(h)]] <<-
+        tryCatch(infl_int(fr, dd), error = function(e) NULL)
+      c(list(h = h, ll1 = ll_or_na(fit_lme(FM1, dd, 'ML')),
+             ll0 = ll_or_na(fit_lme(FM0, dd, 'ML'))), as.list(cr2t(fr)))
+    }))
+    list(g = g, U = U)
+  }
+  ## F1G and MA0 exactly as in 57-posthoc-rules.R.
+  posthoc_rules <- function(g) {
+    dev05 <- 2 * (max(g$ll0, na.rm = TRUE) - g$ll0[g$h == 0.5])
+    sw <- isTRUE(dev05 > qchisq(0.95, 1))
+    f1g <- pick(g, if (sw) which.max(g$ll0) else which(g$h == 0.5), 'F1G')[, switched := sw]
+    ok <- is.finite(g$ll0) & is.finite(g$est)
+    if (!any(ok)) return(rbind(f1g, pick(g, NA, 'MA0'), fill = TRUE))
+    w <- exp(g$ll0[ok] - max(g$ll0[ok])); w <- w / sum(w)
+    eb <- sum(w * g$est[ok]); sb <- sum(w * sqrt(g$se[ok]^2 + (g$est[ok] - eb)^2))
+    dfb <- sum(w * g$df[ok])
+    rbind(f1g, data.table(method = 'MA0', h = sum(w * g$h[ok]), est = eb, se = sb,
+                          t = eb / sb, df = dfb, p = 2 * pt(-abs(eb / sb), dfb)), fill = TRUE)
+  }
+  ## Maximum |T(h)| calibrated by the multivariate normal and t.
+  maxt_cal <- function(g, U) {
+    ok <- is.finite(g$t) & as.character(g$h) %in% names(U)
+    if (sum(ok) < 2) return(rbind(pick(g, NA, 'MaxTMVN'), pick(g, NA, 'MaxTMVT')))
+    gk <- g[ok]
+    km <- which.max(abs(gk$t)); tm <- abs(gk$t[km]); k <- nrow(gk)
+    R <- cov2cor(crossprod(do.call(cbind, U[as.character(gk$h)])))
+    pn <- tryCatch(1 - as.numeric(pmvnorm(lower = rep(-tm, k), upper = rep(tm, k), corr = R,
+                   algorithm = GenzBretz(abseps = 1e-4))), error = function(e) NA_real_)
+    ## pmvt needs an integer df: the smallest Satterthwaite df, rounded down.
+    dft <- max(1L, as.integer(floor(min(gk$df))))
+    pv <- tryCatch(1 - as.numeric(pmvt(lower = rep(-tm, k), upper = rep(tm, k), corr = R,
+                   df = dft, algorithm = GenzBretz(abseps = 1e-4))),
+                   error = function(e) NA_real_)
+    a <- pick(gk, km, 'MaxTMVN')[, `:=`(t = tm, p = pn)]
+    b <- pick(gk, km, 'MaxTMVT')[, `:=`(t = tm, df = dft, p = pv)]
+    rbind(a, b)
+  }
+  ## Every nominal procedure from one trial's grid.
+  methods3 <- function(d, G, cal = TRUE) {
+    g <- G$g
+    m <- rbind(grid_methods(g), posthoc_rules(g), fill = TRUE)
+    m[method == 'MaxT', method := 'MaxTBonf']
+    t02 <- cr2t(fit_lme(FM1, with_x(d, TH_P)))
+    rbind(m, if (cal) maxt_cal(g, G$U),
+          data.table(method = 'F1h02', h = TH_P, est = t02[['est']], se = t02[['se']],
+                     t = t02[['t']], df = t02[['df']], p = t02[['p']]), fill = TRUE)
+  }
+  fit_extra3 <- function(d, aux_seed = 1L) {
+    t0 <- proc.time()[['elapsed']]
+    old <- .Random.seed
+    on.exit(assign('.Random.seed', old, globalenv()))
+    set.seed(aux_seed)
+    m <- methods3(d, grid_fits3(d))
+    m[, tstar := NA_real_]
+    h0 <- m[method == 'F1A0', h]
+    nf <- if (is.finite(h0)) null_fit(d, h0) else NULL
+    if (!is.null(nf)) {
+      ds <- tryCatch(sim_null(nf, d, h0), error = function(e) NULL)
+      if (!is.null(ds)) {
+        mb <- methods3(ds, grid_fits3(ds, infl = FALSE), cal = FALSE)
+        m[method %in% names(BOOT_OF), tstar := abs(mb$t[match(method, mb$method)])]
+      }
+    }
+    setnames(m, 'method', 'analysis')
+    m[, `:=`(posthoc = analysis %in% POSTHOC, secs = proc.time()[['elapsed']] - t0)]
+    m[]
+  }
+  ## Warp-speed arms: p* = (1 + #{tstar >= |t|}) / (n + 1) over the n
+  ## resampled statistics of the cell; crit_ws is their 95% quantile.
+  warp_speed <- function(x) {
+    w <- x[analysis %in% names(BOOT_OF)]
+    w[, c('p', 'crit_ws') := {
+      s <- sort(tstar[is.finite(tstar)]); n <- length(s); a <- abs(t)
+      list(fifelse(is.finite(a) & n > 0, (1 + n - findInterval(a, s, left.open = TRUE)) / (n + 1),
+                   NA_real_), if (n > 0) unname(quantile(s, 0.95)) else NA_real_)
+    }, by = .(cell, analysis)]
+    w[, `:=`(analysis = BOOT_OF[analysis], tstar = NA_real_)]
+    rbind(x, w, fill = TRUE)
+  }
+  fit_all <- fit_extra3
+}
 
 ## ---------------- one trial ----------------
 make_trial <- function(cl, bs, Ns, r) {
@@ -304,6 +499,19 @@ cell_setup <- function(cl) {
   list(bs = bs, Ns = Ns, min_eig = min_eig)
 }
 
+## Per-trial path counts. Random allocation is redrawn when a path gets
+## fewer than 2 participants, because the MAR dropout model standardizes
+## Y within a path; the redraw probability is about 0.002 at N = 35 and
+## negligible at N = 70 or 150.
+alloc <- function(cl, st) {
+  if (ALLOCATION == 'fixed') return(st$Ns)
+  nP <- length(PIS)
+  repeat {
+    Ns <- tabulate(sample.int(nP, cl$N, replace = TRUE), nP)
+    if (all(Ns >= 2L)) return(Ns)
+  }
+}
+
 ## ---------------- pre-run checks (docs/46, Section 9) ----------------
 setups <- lapply(seq_len(nrow(cells)), function(i) cell_setup(cells[i]))
 cells[, min_eig := sapply(setups, `[[`, 'min_eig')]
@@ -328,7 +536,7 @@ if (check_only) {
   }
   cat('AIC rule against the fixed half-life on one trial:\n')
   cl <- cells[label == 'curve-C07' & cbm == 0.30][1]
-  d <- make_trial(cl, setups[[cl$id]]$bs, setups[[cl$id]]$Ns, 1)
+  d <- make_trial(cl, setups[[cl$id]]$bs, alloc(cl, setups[[cl$id]]), 1)
   print(fit_all(d))
   quit(save = 'no')
 }
@@ -337,7 +545,7 @@ if (check_only) {
 chunk_n <- if (pilot > 0) pilot else CHUNK
 jobs <- cells[, .(chunk = seq_len(ceiling(reps / chunk_n))), by = id][cells, on = 'id']
 jobs[, `:=`(n_reps = pmin(chunk_n, reps - (chunk - 1L) * chunk_n),
-            seed = 20261007L + 1000L * id + chunk)]
+            seed = SEED_BASE + 1000L * id + chunk)]
 run_chunk <- function(job) {
   f <- file.path(cell_dir, sprintf('cell-%03d-chunk-%02d.rds', job$id, job$chunk))
   if (file.exists(f)) return(readRDS(f))
@@ -345,8 +553,12 @@ run_chunk <- function(job) {
   set.seed(job$seed)
   st <- setups[[job$id]]
   out <- rbindlist(lapply(seq_len(job$n_reps), function(r) {
-    d <- make_trial(job, st$bs, st$Ns, r)
-    fit_all(d)[, rep := (job$chunk - 1L) * chunk_n + r]
+    d <- make_trial(job, st$bs, alloc(job, st), r)
+    rr <- (job$chunk - 1L) * chunk_n + r
+    ## --extra3: the bootstrap draw and the multivariate-normal integrals
+    ## use their own stream (seed 571000000 + 10000 * cell + replicate),
+    ## and the trial stream is restored afterwards.
+    (if (extra3) fit_extra3(d, 571000000L + 10000L * job$id + rr) else fit_all(d))[, rep := rr]
   }))
   out[, cell := job$id]
   saveRDS(out, f)
@@ -365,6 +577,7 @@ out <- mclapply(split(jobs, seq_len(nrow(jobs))), function(j) tryCatch(run_chunk
 bad <- which(!vapply(out, is.data.frame, logical(1)))
 if (length(bad)) stop('chunks failed: ', paste(unlist(out[bad]), collapse = ' | '))
 reps_all <- merge(rbindlist(out), cells, by.x = 'cell', by.y = 'id')
+if (extra3) reps_all <- warp_speed(reps_all)
 saveRDS(reps_all, file.path(out_dir, sprintf('replicates-%s.rds', run_tag)))
 summ <- reps_all[, .(reject = mean(p < 0.05, na.rm = TRUE), fails = sum(is.na(p)), fits = .N,
                      mean_est = mean(est, na.rm = TRUE), emp_sd = sd(est, na.rm = TRUE),

@@ -6,6 +6,10 @@
 ##
 ## Run from the repository root:
 ##   Rscript analysis/scripts/quick-sim/carryover-closed-form/13-symmetry-check.R [--reps R] [--cores K]
+##     [--carryover anchored|recursive] [--allocation random|fixed]
+## The DGP switches are those of 11 (defaults anchored, random); the
+## stored symmetry/summary-reps1000.csv is reproduced by
+## '--carryover recursive --allocation fixed'.
 suppressMessages({
   library(data.table); library(MASS); library(mmrm); library(nlme); library(parallel)
 })
@@ -32,11 +36,11 @@ out <- rbindlist(mclapply(split(jobs, seq_len(nrow(jobs))), function(j) {
   set.seed(j$seed)
   st <- cell_setup(j)
   rbindlist(lapply(seq_len(CH), function(r)
-    fit_two(make_trial(j, st$bs, st$Ns, r))))[, `:=`(label = j$label, cbm = j$cbm)]
+    fit_two(make_trial(j, st$bs, alloc(j, st), r))))[, `:=`(label = j$label, cbm = j$cbm)]
 }, mc.cores = cores, mc.preschedule = FALSE))
 summ <- out[, .(power = mean(!is.na(p) & p < 0.05), mean_est = mean(est, na.rm = TRUE),
                 emp_sd = sd(est, na.rm = TRUE), n = .N), by = .(label, cbm, analysis)]
 summ[, mcse := sqrt(power * (1 - power) / n)]
 dir.create(file.path(out_dir, 'symmetry'), showWarnings = FALSE)
-fwrite(summ, file.path(out_dir, 'symmetry', sprintf('summary-reps%d.csv', reps)))
+fwrite(summ, file.path(out_dir, 'symmetry', sprintf('summary-reps%d%s.csv', reps, dgp_tag)))
 print(summ[order(analysis, label, cbm)], digits = 3)

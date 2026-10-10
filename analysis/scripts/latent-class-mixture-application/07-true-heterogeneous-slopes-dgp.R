@@ -2,8 +2,8 @@
 ## Lesaffre / Proust-Lima parameterisation).
 ##
 ## Phase A infrastructure for paper 03 path (b). Implements the
-## parameter-level mixture per the ADEMP pre-registration
-## (00-ademp-pre-registration.md, §"Study 3"):
+## parameter-level mixture per the ADEMP protocol
+## (00-ademp-protocol.md, §"Study 3"):
 ##
 ##   beta_R   ~ N(mu_R,  sigma_R^2)    (responder class)
 ##   beta_NR  ~ N(0,     sigma_NR^2)   (non-responder class)
@@ -22,7 +22,7 @@
 ## implements the deterministic class-specific scaling (the
 ## marginal-mixture form) under the file name "heterogeneous-
 ## slopes". This 07- file is the parameter-level mixture proper,
-## per the pre-reg's distinction between Study 1 (outcome-level
+## per the protocol's distinction between Study 1 (outcome-level
 ## mixture) and Study 3 (parameter-level mixture).
 
 library(data.table)

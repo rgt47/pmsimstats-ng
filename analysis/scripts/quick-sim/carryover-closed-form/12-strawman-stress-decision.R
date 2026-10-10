@@ -1,32 +1,57 @@
 ## Applies the decision rule of docs/46 (Section 7) to the output of
 ## 11-strawman-stress-test.R. Interpretations of points the
-## pre-registration leaves open are marked 'interpretation' and are
+## protocol leaves open are marked 'interpretation' and are
 ## reported in docs/47.
 ##
 ## Run from the repository root:
 ##   Rscript analysis/scripts/quick-sim/carryover-closed-form/12-strawman-stress-decision.R \
 ##     [--strawman S|DS] [--no-symmetry] [--with-extras]
-## The defaults reproduce the rule as pre-registered. Amendment 1 to
+## The defaults reproduce the rule as first specified. Amendment 1 to
 ## docs/46 (2026-10-07) uses --strawman DS --no-symmetry: the strawman
 ## selects its analysis half-life by AIC, and the symmetry screen, which
 ## tested a property that holds by construction, is dropped (docs/48,
 ## Section 4). Outputs carry a suffix naming the amendment.
 ## --with-extras adds the three analyses fitted to the same trials after
-## the pre-registration (G1, G2 and F1A from the --extra and --extra2
+## the protocol was written (G1, G2 and F1A from the --extra and --extra2
 ## runs of 11-strawman-stress-test.R) to every screen and to the
 ## selection.
+## --tag T reads the 11 outputs whose run tag ends in T (e.g. -anchored,
+## from the refined-process rerun) and appends T to every output file;
+## without it the stored untagged files are read and written as before.
+## --run R (default full) selects the run, e.g. pilot2 for a smoke test;
+## a run other than full is also appended to the output names. --dir
+## overrides the data directory.
+## --ext3 reads instead the data-chosen half-life extension
+## (replicates-{run}-extra3{tag}.rds from 11 --extra3; RERUN-ext3.md),
+## which re-simulates all cells on fresh seeds and is judged on its own:
+## its trials are not those of the main run, so it is not combined with
+## it. The strawman defaults to F1 (fixed 0.5 week), every label
+## beginning 'prog-' is a prognostic cell, the screen is also reported
+## over the original 41 cells, and outputs carry '-ext3'. F1G, MA0 and
+## their bootstrap versions are post hoc (docs/57).
 suppressMessages(library(data.table))
 args <- commandArgs(trailingOnly = TRUE)
-straw <- if ('--strawman' %in% args) args[which(args == '--strawman') + 1] else 'S'
+sarg <- function(k, d) if (k %in% args) args[which(args == k) + 1] else d
+ext3 <- '--ext3' %in% args
+straw <- sarg('--strawman', if (ext3) 'F1' else 'S')
 use_sym <- !('--no-symmetry' %in% args)
 extras <- '--with-extras' %in% args
+if (ext3 && extras) stop('--ext3 and --with-extras cannot be combined (different trials)')
+tag <- sarg('--tag', '')
+run <- sarg('--run', 'full')
 suffix <- paste0(if (straw == 'S' && use_sym) '' else
-  paste0('-', tolower(straw), if (use_sym) '' else '-nosym'), if (extras) '-all14' else '')
-d <- 'analysis/data/quick-sim/carryover-closed-form/strawman-stress'
-x <- readRDS(file.path(d, 'replicates-full.rds'))
+  paste0('-', tolower(straw), if (use_sym) '' else '-nosym'), if (extras) '-all14' else '',
+  if (ext3) '-ext3' else '', if (run == 'full') '' else paste0('-', run), tag)
+d <- sarg('--dir', 'analysis/data/quick-sim/carryover-closed-form/strawman-stress')
+x <- readRDS(file.path(d, sprintf('replicates-%s%s%s.rds', run, if (ext3) '-extra3' else '', tag)))
 an <- c('S', 'A', 'C1', 'C2', 'DS', 'DA', 'ES', 'EA', 'F1', 'F2', 'R')
+## the warp-speed critical value must not collide with the null quantile
+## 'crit' computed below
+if ('crit' %in% names(x)) setnames(x, 'crit', 'crit_ws')
+if (ext3) an <- c('F1', 'F1h02', 'F1A', 'F1A0', 'F1G', 'MA', 'MA0', 'MaxTBonf', 'MaxTMVN',
+                  'MaxTMVT', 'F1B', 'F1h02B', 'F1AB', 'F1A0B', 'F1GB', 'MAB', 'MA0B', 'MaxTB')
 if (extras) {
-  ex <- rbindlist(lapply(c('replicates-full-extra.rds', 'replicates-full-extra2.rds'),
+  ex <- rbindlist(lapply(sprintf('replicates-%s-%s%s.rds', run, c('extra', 'extra2'), tag),
                          function(f) readRDS(file.path(d, f))[analysis != 'S']), fill = TRUE)
   x <- rbindlist(list(x, ex), fill = TRUE)
   an <- c(an, 'G1', 'G2', 'F1A')
@@ -35,8 +60,9 @@ if (extras) {
 x[, rej := !is.na(p) & p < 0.05]
 x[, p1 := fifelse(is.na(p), 1, p)]
 ## The prognostic-baseline cells (40, 41) were added after the
-## pre-registration; they are judged with the other prognostic cells.
+## protocol was written; they are judged with the other prognostic cells.
 prog <- c('prog-TV-const', 'prog-TV-grow', 'prog-PB', 'prog-BL')
+if (ext3) prog <- sort(unique(grep('^prog-', x$label, value = TRUE)))
 
 ## ---- 1. nominal screen: non-prognostic null cells ----
 nul <- x[hyp == 'null', .(reject = mean(rej), n = .N, fails = sum(is.na(p))),
@@ -54,6 +80,22 @@ screen <- merge(pooled, pg, by = 'analysis')
 screen <- screen[match(an, analysis)]
 cat('\nScreens (pooled over', main[, uniqueN(label)], 'non-prognostic null cells)\n')
 print(screen, digits = 3)
+## --ext3: the nominal screen over the 11 non-prognostic null cells of
+## the original 41, comparable with docs/47 (the new thalf2 null cell
+## and the new prognostic cells excluded).
+if (ext3) {
+  m41 <- x[hyp == 'null' & cell <= 41 & !label %in% prog,
+           .(reject = mean(rej), n = .N), by = .(label, analysis)]
+  screen41 <- m41[, .(pooled = sum(reject * n) / sum(n), N = sum(n), max_cell = max(reject),
+                      worst = label[which.max(reject)]), by = analysis]
+  screen41[, band := 2 * sqrt(0.05 * 0.95 / N)]
+  screen41[, nominal := abs(pooled - 0.05) <= band & max_cell <= 0.075]
+  screen41 <- screen41[match(an, analysis)]
+  cat('\nNominal screen over the', m41[, uniqueN(label)],
+      'non-prognostic null cells of the original 41\n')
+  print(screen41, digits = 3)
+  fwrite(screen41, file.path(d, sprintf('decision-screen41%s.csv', suffix)))
+}
 
 ## ---- size-adjusted power ----
 ## The matching null cell: same label for stress cells; the zero cell of
@@ -139,8 +181,9 @@ print(dcast(pw[label %in% alt_main], label + cbm ~ analysis, value.var = 'power_
       digits = 3, nrows = 100)
 cat('\nSize-adjusted power, prognostic alternative cells\n')
 print(dcast(pw[label %in% prog], label + cbm ~ analysis, value.var = 'power_adj'), digits = 3)
-cat('\nAIC selections (DS, DA), share by half-life, all cells\n')
-print(dcast(x[analysis %in% c('DS', 'DA'), .N, by = .(analysis, h)][, share := N / sum(N),
+sel <- if (ext3) c('F1A', 'F1A0', 'F1G') else c('DS', 'DA')
+cat(sprintf('\nAIC selections (%s), share by half-life, all cells\n', paste(sel, collapse = ', ')))
+print(dcast(x[analysis %in% sel, .N, by = .(analysis, h)][, share := N / sum(N),
             by = analysis], analysis ~ h, value.var = 'share'), digits = 2)
 fwrite(screen, file.path(d, sprintf('decision-screen%s.csv', suffix)))
 fwrite(sens, file.path(d, sprintf('decision-sensitivity%s.csv', suffix)))

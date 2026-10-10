@@ -1,34 +1,34 @@
-# Deviations log: 07-gompertz-evaluation
+# Protocol change log: 07-gompertz-evaluation
 *2026-06-17 09:26 PDT*
 
-Departures from the pre-registered ADEMP plan
-(`00-ademp-pre-registration.md`), recorded per the plan's
-deviations-log requirement.
+Changes to the working ADEMP protocol (`00-ademp-protocol.md`)
+for this exploratory study, recorded per the protocol's
+change-log requirement.
 
 ## Scope of the executed study
 
-- **Cell grid.** Pre-registration Study 1 specified 144 cells
+- **Cell grid.** The protocol's Study 1 specified 144 cells
   (4 families x 3 sample sizes x 3 effect sizes x 4 carryover
   levels). The submission runs a focused 16-cell factorial
   (4 families x 2 DGP architectures x 2 effect sizes) at N = 35,
   t_half = 0. The N, effect-size, and carryover axes are deferred
   to the 144-cell follow-up.
 
-- **Architecture factor added.** The pre-registered Study 1 grid
+- **Architecture factor added.** The protocol's Study 1 grid
   did not cross DGP architecture; it varied the trajectory family
   with the other components fixed. The executed study adds
   architecture (mvn vs mean_moderation) as an explicit factor,
   because the family's inferential consequence turns out to depend
   on it. This is an addition to, not a subset of, the
-  pre-registered grid.
+  protocol grid.
 
-- **Replicate count for null cells.** Pre-registration specified
+- **Replicate count for null cells.** The protocol specified
   n_reps = 5000 for type I error cells. The executed study uses
   n_reps = 1000 for all cells, including the null cells (cell MCSE
   on type I error approximately 0.005). A 5000-replicate null pass
   remains future work.
 
-- **Study 0 calibration.** Pre-registration specified an
+- **Study 0 calibration.** The protocol specified an
   optim-based calibration matching the marginal on-drug
   Cor(B, BR) at week 8. The executed study calibrates each family
   to the Gompertz BR level at a week-5 anchor via uniroot or

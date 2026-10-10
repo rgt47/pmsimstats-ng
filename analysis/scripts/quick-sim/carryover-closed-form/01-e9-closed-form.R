@@ -232,12 +232,15 @@ print(dcast(pp[, .(rule, variant, path, t_half, g = round(gamma, 4))],
             rule + variant + path ~ t_half, value.var = 'g'))
 
 ## ---------------- continuous curves ----------------
-## At very short half-lives the recursive off-drug mean underflows to
-## exactly 0 at the latest off-drug visits (Hybrid: 2^-1300 at t1/2 =
-## 0.01, below about 0.012 weeks; CO, whose off-drug visits are 2.5-10
-## weeks after stopping: 2^(-25 / t1/2), below about 0.023 weeks), so the
-## step rule, in this code as in 58b32a9, drops their coupling; the
-## curves start at 0.03 to keep that floating-point effect out.
+## At very short half-lives the anchored off-drug mean, mu_last *
+## 2^(-tsd / t1/2), underflows to exactly 0 at the latest off-drug visits
+## (Hybrid, largest tsd 7 weeks: below about 0.0065 weeks; CO, whose
+## off-drug visits are 2.5-10 weeks after stopping: below about 0.0093
+## weeks), so the step rule drops their coupling. The published
+## recursion of 58b32a9 compounds the decay and underflows earlier
+## (Hybrid below about 0.012, CO below about 0.023 weeks; docs/53). The
+## curves start at 0.03 to keep that floating-point effect out under
+## either form.
 th_grid <- c(0, exp(seq(log(0.03), log(4), length.out = 120)))
 curves_all <- grid_closed(CJ(design = DESIGNS, construct = names(ARM), rule = RULES,
                              variant = c('E9', 'E9b'), t_half = th_grid, c.bm = CBM,
@@ -498,9 +501,12 @@ print(dcast(val[variant == 'E9' & c.bm == CBM,
 ## ---------------- against the lmer simulation (04, published analysis) ----
 ## Configurations A (step) and D (mean moderation) only: the published
 ## analysis is not calibrated on the AR(1) configurations (docs/36,
-## Section 6.8).
+## Section 6.8). The lmer run is the anchored-carryover one (04 and 05
+## at their defaults), so both sides use the same data-generating
+## process; the untagged power-summary-reps500.csv is the stored run
+## under the published recursion.
 cs25 <- val[construct == 'CS' & c.bm == CBM]
-lm <- fread('analysis/data/quick-sim/hendrickson-problems/power-sim/power-summary-reps500.csv')
+lm <- fread('analysis/data/quick-sim/hendrickson-problems/power-sim/power-summary-reps500-anchored.csv')
 lm <- lm[design %in% DESIGNS & c.bm == CBM & arm %in% c('A', 'D'),
          .(design, rule = ifelse(arm == 'A', 'step', 'mean'), t_half,
            lmer_power = power, lmer_mean = mean_beta, lmer_sd = emp_sd)]

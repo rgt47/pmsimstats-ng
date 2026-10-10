@@ -1,0 +1,236 @@
+diff -ruN a/R/generateData.R b/R/generateData.R
+--- a/R/generateData.R
++++ b/R/generateData.R
+@@ -15,6 +15,12 @@
+ #'  \item{\code{c.br}}{  Autocorrelation for the br factor across timepoints}
+ #'  \item{\code{c.cf1t}}{  Correlation between different factors at a single timepoint}
+ #'  \item{\code{c.cfct}}{  Correlation between different factors at different timepoints}
++#'  \item{\code{rho}}{  Optional. AR(1) correlation per week, shared by the three factors, used
++#'    when \code{corstructure="separable"} (default 0.7); \code{c.tv}, \code{c.pb}, \code{c.br}
++#'    are then ignored}
++#'  \item{\code{c1}}{  Optional. Cross-factor multiplier used when \code{corstructure="separable"}:
++#'    the correlation between different factors is \code{c1*rho^|t-s|} (default 0.2);
++#'    \code{c.cf1t} and \code{c.cfct} are then ignored}
+ #' }
+ #' @param respparam Data table with 5 columns and 3 rows. The first row lists the 3 factors
+ #'   defining the response trajectories (tv, pb, and br). The rest of the columns are the
+@@ -40,6 +46,21 @@
+ #'   (Usually yes, although you may want to turn this off at times to test the impact of
+ #'   this step on your covariance sturcture)
+ #' @param seed Randomization seed (defaults to NA)
++#' @param coupling Biomarker coupling to the br factor. \code{"graded"} (default):
++#'   \code{c.bm} on drug, \code{c.bm*(1/2)^(tsd/carryover_t1half)} off drug after first
++#'   exposure, 0 before first exposure. \code{"step"}: the published rule, \code{c.bm}
++#'   wherever the br mean is nonzero.
++#' @param corstructure Correlation of the three factors over time. \code{"separable"}
++#'   (default): AR(1) in weeks within each factor, \code{rho^|t-s|}, and
++#'   \code{c1*rho^|t-s|} between factors (see \code{modelparam}). \code{"published"}:
++#'   \code{c.tv}, \code{c.pb}, \code{c.br} within factors and \code{c.cf1t}, \code{c.cfct}
++#'   between factors, constant over time.
++#' @param carryover Carryover of the br mean off drug. \code{"anchored"} (default): the last
++#'   on-drug mean times \code{(1/2)^(tsd/carryover_t1half)}. \code{"recursive"}: the published
++#'   recursion, which decays the previous visit's (already decayed) mean.
++#' @param nonPD What to do when the correlation matrix is not positive definite.
++#'   \code{"stop"} (default): stop with an error. \code{"repair"}: the published behavior,
++#'   governed by \code{makePositiveDefinite}.
+ #' @returns A \code{dat} file that contains both the total symptom scores at each timepoint
+ #'   and also all the individual factors that were used to generate those total scores
+ #' @examples
+@@ -47,7 +68,12 @@
+ #' @export
+ 
+ 
+-generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePositiveDefinite,seed=NA){
++generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePositiveDefinite,seed=NA,
++                       coupling="graded",corstructure="separable",carryover="anchored",nonPD="stop"){
++  coupling<-match.arg(coupling,c("graded","step"))
++  corstructure<-match.arg(corstructure,c("separable","published"))
++  carryover<-match.arg(carryover,c("anchored","recursive"))
++  nonPD<-match.arg(nonPD,c("stop","repair"))
+ 
+   # I. Turn the trial design information into something easier to use
+   d<-data.table(trialdesign)
+@@ -81,7 +107,19 @@
+     }
+     if(c=="br"){
+       brmeans<-modgompertz(d$tod,rp$max,rp$disp,rp$rate)
+-      if(nP>1){
++      if(nP>1 && carryover=="anchored"){
++        # Decay from the last on-drug mean: the published recursion below decays a
++        # mean that was already decayed, so at the second and later off-drug visits
++        # the decay compounds
++        last_on<-0
++        for(p in 1:nP){
++          if(d[p]$onDrug){
++            last_on<-brmeans[p]
++          }else if(d[p]$tsd>0 && modelparam$carryover_t1half>0){
++            brmeans[p]<-last_on*(1/2)^(d$tsd[p]/modelparam$carryover_t1half)
++          }
++        }
++      }else if(nP>1){
+         for(p in 2:nP){
+           if(!d[p]$onDrug){
+             if(d[p]$tsd>0){
+@@ -98,14 +136,24 @@
+   correlations<-diag(length(labels))
+   rownames(correlations)<-labels
+   colnames(correlations)<-labels
++  if(corstructure=="separable"){
++    # One AR(1) kernel A in calendar weeks for all three factors, times cf between
++    # factors: the factor block is the Kronecker product K x A, which is positive
++    # definite for any visit schedule. It is applied to the correlation rather than
++    # the covariance because the pb SD scales with expectancy.
++    rho<-if(is.null(modelparam[["rho"]])) 0.7 else modelparam[["rho"]]
++    cf<-if(is.null(modelparam[["c1"]])) 0.2 else modelparam[["c1"]]
++    A<-rho^abs(outer(d$t_wk_cumulative,d$t_wk_cumulative,"-"))
++  }
+   for(c in cl){
+     # build in the autocorrlations across time
+     if(nP>1){
+-      ac<-modelparam[(paste("c",c,sep="."))][,]
++      if(corstructure=="published") ac<-modelparam[(paste("c",c,sep="."))][,]
+       for(p in 1:(nP-1)){
+         for(p2 in (1+p):nP){
+           n1<-paste(trialdesign$timeptname[p],c,sep=".")
+           n2<-paste(trialdesign$timeptname[p2],c,sep=".")
++          if(corstructure=="separable") ac<-A[p,p2]
+           correlations[n1,n2]<-ac
+           correlations[n2,n1]<-ac
+         }
+@@ -116,15 +164,15 @@
+       for(p in 1:nP){
+         n1<-paste(trialdesign$timeptname[p],c,sep=".")
+         n2<-paste(trialdesign$timeptname[p],c2,sep=".")
+-        correlations[n1,n2]<-modelparam$c.cf1t
+-        correlations[n1,n2]<-modelparam$c.cf1t
++        correlations[n1,n2]<-if(corstructure=="separable") cf else modelparam$c.cf1t
++        correlations[n1,n2]<-if(corstructure=="separable") cf else modelparam$c.cf1t
+       }
+       for(p in 1:(nP-1)){
+         for(p2 in (1+p):nP){
+           n1<-paste(trialdesign$timeptname[p],c,sep=".")
+           n2<-paste(trialdesign$timeptname[p2],c2,sep=".")
+-          correlations[n1,n2]<-modelparam$c.cfct
+-          correlations[n2,n1]<-modelparam$c.cfct
++          correlations[n1,n2]<-if(corstructure=="separable") cf*A[p,p2] else modelparam$c.cfct
++          correlations[n2,n1]<-if(corstructure=="separable") cf*A[p,p2] else modelparam$c.cfct
+         }
+       }
+     }
+@@ -132,8 +180,15 @@
+     for(p in 1:nP){
+       n1<-paste(trialdesign$timeptname[p],"br",sep=".")
+       if(means[which(n1==labels)]!=0){
+-        correlations[n1,'bm']<-modelparam$c.bm
+-        correlations['bm',n1]<-modelparam$c.bm
++        # Graded coupling. The br mean is nonzero exactly on drug and off drug after
++        # first exposure with a positive half-life, the visits where the graded weight
++        # is positive; elsewhere the weight is 0 and the entry keeps its 0.
++        g<-1
++        if(coupling=="graded" && !d[p]$onDrug){
++          g<-(1/2)^(d[p]$tsd/modelparam$carryover_t1half)
++        }
++        correlations[n1,'bm']<-modelparam$c.bm*g
++        correlations['bm',n1]<-modelparam$c.bm*g
+       }
+     }
+   }
+@@ -142,8 +197,16 @@
+   #  should be faster: outer(S,S)*R where S is SDs and R is correlation matrix
+   #  previous: sigma<-correlations*sds%o%sds
+ 
+-  # If turned on, force to be positive definite:
+-  if(makePositiveDefinite){
++  # Stop rather than repair: a repaired matrix has different correlations, and so a
++  # different effect, from the one requested. The correlation matrix is tested
++  # because the covariance is singular whenever an expectancy (and so a pb SD) is 0.
++  if(nonPD=="stop"){
++    if(!is.positive.definite(correlations)){
++      stop(sprintf("c.bm = %.3f gives a correlation matrix that is not positive definite for this design path (smallest eigenvalue %.3g); it exceeds the feasible range",
++                   modelparam$c.bm,min(eigen(correlations,symmetric=TRUE,only.values=TRUE)$values)))
++    }
++  }else if(makePositiveDefinite){
++    # published: if turned on, force to be positive definite
+     if(!is.positive.definite(sigma)){
+       sigma<-make.positive.definite(sigma, tol=1e-3)
+     }
+diff -ruN a/R/generateSimulatedResults.R b/R/generateSimulatedResults.R
+--- a/R/generateSimulatedResults.R
++++ b/R/generateSimulatedResults.R
+@@ -43,6 +43,16 @@
+ #'   }
+ #' @param rawdataout=FALSE Binary - output the raw data for all
+ #'   simulations?  This is memory intensive for large runs.
++#' @param dgpoptions A named list of extra arguments passed to \link{generateData}
++#'   (\code{coupling}, \code{corstructure}, \code{carryover}, \code{nonPD}). The default,
++#'   \code{list()}, uses the refined defaults of \link{generateData}; the published process is
++#'   \code{list(coupling="step",corstructure="published",carryover="recursive",nonPD="repair")}.
++#' @param allocation How participants are allocated to the paths of a trial design.
++#'   \code{"randomized"} (default): each participant is assigned to a path with equal
++#'   probability, independently, within each replicate, so the numbers per path vary
++#'   between replicates (an allocation that leaves a path empty is redrawn).
++#'   \code{"fixed"}: the published split, \code{N\%/\%nP} per path with the remainder
++#'   given to the first paths, identical in every replicate.
+ #' @return Returns a list with three named parts:
+ #'   \itemize{
+ #'     \item{\code{results}}{  A large data table that tells you the parameters used
+@@ -65,7 +75,8 @@
+ 
+ generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
+                                    censorparams,modelparams,simparam,analysisparams,
+-                                   rawdataout=FALSE){
++                                   rawdataout=FALSE,dgpoptions=list(),allocation="randomized"){
++  allocation<-match.arg(allocation,c("randomized","fixed"))
+ 
+   # defaults
+   if(missing(analysisparams)) analysisparams<-list(useDE=TRUE,
+@@ -131,23 +142,41 @@
+       # have to create the dat for each path and merge
+       #
+       nP<-length(td)
+-      Ns<-p$modelparam$N%/%nP # How many in each path run?
+-      Ns<-Ns+c(rep(1,p$modelparam$N%%nP),rep(0,nP-p$modelparam$N%%nP)) # distribute the remainder
+-      NNs<-Ns*simparam$Nreps # here adjust so doing all with this paramset at once
++      Ntot<-p$modelparam$N
++      if(allocation=="randomized"){
++        # Simple randomization within each replicate: Nsr[iP,iS] participants of
++        # replicate iS are on path iP. An allocation with an empty path is redrawn,
++        # because lme_analysis needs every path in every replicate.
++        if(Ntot<nP) stop("randomized allocation needs N at least the number of paths")
++        Nsr<-matrix(0L,nrow=nP,ncol=simparam$Nreps)
++        for(iS in 1:simparam$Nreps){
++          repeat{
++            Nsr[,iS]<-tabulate(sample.int(nP,Ntot,replace=TRUE),nbins=nP)
++            if(all(Nsr[,iS]>0)) break
++          }
++        }
++        replabels<-function(iP) rep(1:simparam$Nreps,Nsr[iP,])
++        NNs<-rowSums(Nsr)
++      }else{
++        Ns<-p$modelparam$N%/%nP # How many in each path run?
++        Ns<-Ns+c(rep(1,p$modelparam$N%%nP),rep(0,nP-p$modelparam$N%%nP)) # distribute the remainder
++        replabels<-function(iP) rep(1:simparam$Nreps,Ns[iP])
++        NNs<-Ns*simparam$Nreps # here adjust so doing all with this paramset at once
++      }
+       p$modelparam$N<-NNs[[1]]
+-      dat<-generateData(p$modelparam,p$respparam,p$blparam,td[[1]],FALSE,TRUE)
++      dat<-do.call("generateData",c(list(p$modelparam,p$respparam,p$blparam,td[[1]],FALSE,TRUE),dgpoptions))
+       dat[,path:=1]
+-      dat[,replicate:=rep(1:simparam$Nreps,Ns[1])]
++      dat[,replicate:=replabels(1)]
+       if(nP>1){
+         for(iP in 2:nP){
+           p$modelparam$N<-NNs[[iP]]
+-          dat2<-generateData(p$modelparam,p$respparam,p$blparam,td[[iP]],FALSE,TRUE)
++          dat2<-do.call("generateData",c(list(p$modelparam,p$respparam,p$blparam,td[[iP]],FALSE,TRUE),dgpoptions))
+           dat2[,path:=iP]
+-          dat2[,replicate:=rep(1:simparam$Nreps,Ns[iP])]
++          dat2[,replicate:=replabels(iP)]
+           dat<-rbind(dat,dat2)
+         }
+       }
+-      p$modelparam$N<-sum(Ns)
++      p$modelparam$N<-Ntot
+ 
+       # Analysis chunk repeat x nAnalysisParametersets:
+       for(iAP in 1:dim(analysisparams)[1]){

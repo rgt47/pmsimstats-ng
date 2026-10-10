@@ -1,0 +1,324 @@
+diff -ruN a/DESCRIPTION b/DESCRIPTION
+--- a/DESCRIPTION
++++ b/DESCRIPTION
+@@ -20,9 +20,13 @@
+     tictoc,
+     ggpubr,
+     gridExtra
+-Suggests: 
++Imports:
++    nlme
++Suggests:
+     knitr,
+-    rmarkdown
++    rmarkdown,
++    clubSandwich,
++    mmrm
+ VignetteBuilder: knitr
+ RoxygenNote: 7.0.2
+ 
+diff -ruN a/R/generateSimulatedResults.R b/R/generateSimulatedResults.R
+--- a/R/generateSimulatedResults.R
++++ b/R/generateSimulatedResults.R
+@@ -38,6 +38,17 @@
+ #'   \itemize{
+ #'     \item{\code{useDE=TRUE}}{  Binary: should the LME model use expectnacy
+ #'       information if available?}
++#'     \item{\code{analysis="F1"}}{  Which analysis \link{lme_analysis} fits; \code{"orig"}
++#'       is the published analysis. Recorded in the \code{analysis} column of the results,
++#'       with the degrees of freedom of the test in \code{df} (\code{NA} for \code{"orig"})}
++#'     \item{\code{population_fit}}{  The fit to all simulated participants of all
++#'       replicates, before censoring, that gives \code{ETbeta} and \code{ETbetaSE}.
++#'       \code{"full"}: the analysis as it is applied to each replicate (the default, and
++#'       orig's behavior, for \code{"orig"}). \code{"model"}: the same mean and covariance
++#'       model, hence the same point estimate, with model-based inference only (the
++#'       default for the nlme-based analyses). \code{FALSE}: no pooled fit; \code{ETbeta}
++#'       and \code{ETbetaSE} are \code{NA} (the default for the mmrm-based analyses
++#'       \code{A}, \code{DA}, \code{EA}, \code{R}). Recorded in \code{ETbetaSE_type}.}
+ #'     \item{\code{t_random_slope=FALSE}}{  Binary: should the LME model use
+ #'       random slopes, as well as random intercepts, for participants?}
+ #'   }
+@@ -153,7 +164,31 @@
+       for(iAP in 1:dim(analysisparams)[1]){
+         # Analyze entire population to get "empircal true beta" (ETbeta)
+         #tic("analysis-whole population")
+-        ETanalysisout<-lme_analysis(td,dat,analysisparams[iAP,])
++        aname<-analysisparams[iAP,][["analysis"]]
++        aname<-if(is.null(aname)) "F1" else as.character(aname)
++        # The pooled fit gives the gold-standard beta of Hendrickson et al. (2020),
++        # Figure 7B, against which the effect of censoring is judged. Only its point
++        # estimate is used there, so for the stress-test analyses the default skips
++        # the small-sample inference (CR2, Kenward-Roger), which is slow on pooled data.
++        # The mmrm analyses default to no pooled fit: mmrm's time and memory grow too
++        # fast with the number of participants (minutes and gigabytes at 2,880).
++        popfit<-analysisparams[iAP,][["population_fit"]]
++        popfit<-if(is.null(popfit)||is.na(popfit)){
++          if(aname=="orig") "full" else if(aname%in%c("A","DA","EA","R")) "FALSE" else "model"
++        }else as.character(popfit)
++        popfit<-match.arg(popfit,c("full","model","FALSE"))
++        if(popfit=="FALSE"){
++          ETanalysisout<-data.table(beta=NA_real_,betaSE=NA_real_)
++          ettype<-NA_character_
++        }else if(popfit=="full"||aname=="orig"){
++          ETanalysisout<-lme_analysis(td,dat,analysisparams[iAP,])
++          ettype<-popfit
++        }else{
++          opET<-as.list(analysisparams[iAP,])
++          opET$inference<-"model"
++          ETanalysisout<-lme_analysis(td,dat,opET)
++          ettype<-"model"
++        }
+         #toc()
+         # Now, for each replicate: analyize and save output
+         #tic("analysis-replicates")
+@@ -180,7 +215,9 @@
+                    data.table(censorparamset=0,use_DE=analysisparams[iAP,]$useDE,t_random_slope=analysisparams[iAP,]$t_random_slope,
+                               irep=((iR-1)*simparam$Nreps+iS),frac_NA=0,ETbeta=ETanalysisout$beta,
+                               ETbetaSE=ETanalysisout$betaSE,beta=analysisout$beta,betaSE=analysisout$betaSE,
+-                              p=analysisout$p,issingular=analysisout$issingular,warning=analysisout$warning))
++                              p=analysisout$p,issingular=analysisout$issingular,warning=analysisout$warning,
++                              analysis=aname,df=if(is.null(analysisout$df)) NA_real_ else analysisout$df,
++                              ETbetaSE_type=ettype))
+           out<-rbind(out,o)
+         }
+         # Repeat for each set of censor parameters
+@@ -201,7 +238,9 @@
+                        data.table(censorparamset=iC,use_DE=analysisparams[iAP,]$useDE,t_random_slope=analysisparams[iAP,]$t_random_slope,
+                                   irep=((iR-1)*simparam$Nreps+iS),frac_NA=frac_NA,ETbeta=ETanalysisout$beta,
+                                   ETbetaSE=ETanalysisout$betaSE,beta=analysisout$beta,betaSE=analysisout$betaSE,
+-                                  p=analysisout$p,issingular=analysisout$issingular,warning=analysisout$warning))
++                                  p=analysisout$p,issingular=analysisout$issingular,warning=analysisout$warning,
++                              analysis=aname,df=if(is.null(analysisout$df)) NA_real_ else analysisout$df,
++                              ETbetaSE_type=ettype))
+               out<-rbind(out,o)
+             }
+           }
+diff -ruN a/R/lme_analysis.R b/R/lme_analysis.R
+--- a/R/lme_analysis.R
++++ b/R/lme_analysis.R
+@@ -18,6 +18,17 @@
+ #'       parameters as a row of numeric values for simulation processing (most common);
+ #'       if true, will output an array that allows you to examine the results of a single
+ #'       analysis in more detail}
++#'     \item{\code{op$analysis="F1"}}{  Which analysis to fit. \code{"orig"} is the published
++#'       analysis below (lmer, uncentered \code{bm}, binary \code{Db}; \code{useDE} and
++#'       \code{t_random_slope} apply only to it). The others are the stress-test analyses
++#'       \code{"S"}, \code{"DS"}, \code{"C1"}, \code{"C2"}, \code{"F1"} (default),
++#'       \code{"F1A"}, \code{"F2"}, \code{"ES"}, \code{"G1"}, \code{"G2"}, \code{"A"},
++#'       \code{"DA"}, \code{"EA"}, \code{"R"}; see \link{lme_analysis_refined}.}
++#'     \item{\code{op$t_half_a=0.5}}{  Assumed half-life (weeks) of the exposure-decayed
++#'       drug indicator \code{Dbc} in the stress-test analyses}
++#'     \item{\code{op$t_half_grid=c(0,0.25,0.5,1,2)}}{  Half-lives searched by AIC in
++#'       \code{"DS"}, \code{"DA"} and \code{"F1A"} (a list element, since a data.frame row
++#'       cannot hold a vector)}
+ #'   }
+ #' @return Generally returns a one row data table with components:
+ #'   \itemize{
+@@ -49,6 +60,8 @@
+     op$t_random_slope<-FALSE
+     op$full_model_out<-FALSE
+   }
++  analysis<-if(is.null(op[["analysis"]])) "F1" else as.character(op[["analysis"]])
++  if(analysis!="orig") return(lme_analysis_refined(trialdesign_set,dat,op,analysis))
+ 
+   n_groups<-length(trialdesign_set)
+   datout<-list(rep(NA),n_groups)
+@@ -167,5 +180,198 @@
+     out<-list(form=form,fit=fit,datamerged=datamerged,stdout=out)
+   }
+ 
++  return(out)
++}
++
++#' Exposure-decayed drug indicator
++#'
++#' \code{exposuredecay} codes exposure to the drug at each visit for the stress-test
++#' analyses: 1 on drug, \code{(1/2)^(tsd/t_half)} off drug after first exposure, and 0
++#' at baseline and before first exposure. With \code{t_half = 0} it is the binary
++#' indicator \code{Db}.
++#'
++#' @param Db Logical, on drug at the visit
++#' @param tsd Time since discontinuation, as in \link{buildtrialdesign} (0 before first exposure)
++#' @param t_half Assumed half-life, in the units of the trial design (weeks)
++#' @keywords internal
++exposuredecay<-function(Db,tsd,t_half){
++  if(t_half<=0) return(as.numeric(Db))
++  # tsd is 0 both on drug and before first exposure, and (1/2)^0 is 1, so without the
++  # tsd>0 guard a placebo-first participant would be coded fully exposed
++  ifelse(Db,1,ifelse(tsd>0,0.5^(tsd/t_half),0))
++}
++
++#' Stress-test analyses of the biomarker-by-drug interaction
++#'
++#' \code{lme_analysis_refined} fits one of the fourteen analyses of the pmsimstats-ng stress
++#' test (\code{analysis/scripts/quick-sim/carryover-closed-form/11-strawman-stress-test.R})
++#' to the data of a single simulated trial. It is called by \link{lme_analysis} when
++#' \code{op$analysis} is not \code{"orig"}.
++#'
++#' Every analysis uses the long data with the baseline as a \code{t = 0} row (t in weeks),
++#' the biomarker centered at its trial mean, \code{bmc = bm - mean(bm)}, and the
++#' exposure-decayed drug indicator \code{Dbc} of \link{exposuredecay} at the assumed
++#' half-life \code{t_half_a}. The tested coefficient is \code{bmc:Dbc}, two-sided.
++#' Core mean model: \code{Sx ~ bmc + t + Dbc + bmc:Dbc}. RC: \code{nlme::lme} with a random
++#' intercept and \code{corCAR1(form = ~t|ptID)}, REML. RCH: RC with
++#' \code{varIdent(form = ~1|phase)} (baseline, open label, blinded). US and CS: the
++#' \code{mmrm} structures \code{us(visit|ptID)} and \code{cs(visit|ptID)}. CR2:
++#' \code{clubSandwich::coef_test(vcov = "CR2", test = "Satterthwaite")}, clustered on
++#' participant. Model-based: the \code{nlme} Wald t on its containment df. KR:
++#' \code{mmrm} Kenward-Roger (linear variant). AIC: the half-life minimizing the ML AIC over
++#' \code{t_half_grid}, refitted by REML (KR for DA) for inference.
++#' \itemize{
++#'   \item{\code{S}}{  core, RC, CR2 (the provisional reference)}
++#'   \item{\code{DS}}{  core, RC, CR2, half-life by AIC}
++#'   \item{\code{C1}, \code{C2}}{  core, RCH, CR2 and model-based}
++#'   \item{\code{F1}}{  core plus \code{De + bmc:De} (expectancy), RC, CR2 (selected)}
++#'   \item{\code{F1A}}{  F1 with the half-life by AIC}
++#'   \item{\code{G1}, \code{G2}}{  F1 with RCH, CR2 and model-based}
++#'   \item{\code{F2}}{  core plus \code{bmc:t}, RC, CR2}
++#'   \item{\code{ES}}{  core plus \code{bmc:bl0} (baseline indicator), RC, CR2}
++#'   \item{\code{A}, \code{DA}}{  core, US, KR; DA with the half-life by AIC}
++#'   \item{\code{EA}}{  core plus \code{bmc:bl0}, US, KR}
++#'   \item{\code{R}}{  core with \code{Dbc = Db} (binary), CS, Satterthwaite}
++#' }
++#' CR2 needs the clubSandwich package and US, CS and KR need mmrm; both are suggested,
++#' not required, and the analyses that need them stop with an error if they are absent.
++#'
++#' @param trialdesign_set The set of all pathways for the clinical trial
++#' @param dat A dat file as generated by \link{generateData}
++#' @param op Options, as in \link{lme_analysis}: \code{t_half_a}, \code{t_half_grid},
++#'   \code{full_model_out}, and \code{inference}: \code{"model"} keeps the mean and
++#'   covariance model (and the AIC choice of half-life) but reports model-based standard
++#'   errors (nlme containment df; mmrm residual df), skipping CR2 and Kenward-Roger
++#' @param analysis One of the codes above
++#' @return As \link{lme_analysis}, with \code{issingular} \code{NA}, \code{warning} holding
++#'   the error message of a failed fit (whose estimates are then \code{NA}), and two more
++#'   columns: \code{df}, the degrees of freedom of the test, and \code{t_half_a}, the
++#'   half-life used.
++#' @keywords internal
++lme_analysis_refined<-function(trialdesign_set,dat,op,analysis="F1"){
++  analysis<-match.arg(analysis,c("S","DS","C1","C2","F1","F1A","F2","ES","G1","G2",
++                                 "A","DA","EA","R"))
++  # inference = "model" (used for the pooled fit of generateSimulatedResults) keeps the
++  # mean and covariance model, so the point estimate, and replaces CR2 and Kenward-Roger
++  # by model-based standard errors
++  modelonly<-identical(op[["inference"]],"model")
++  if(!modelonly && analysis%in%c("S","DS","C1","F1","F1A","F2","ES","G1") &&
++     !requireNamespace("clubSandwich",quietly=TRUE)){
++    stop(sprintf("analysis %s needs the clubSandwich package (CR2 standard errors)",analysis))
++  }
++  if(analysis%in%c("A","DA","EA","R") && !requireNamespace("mmrm",quietly=TRUE)){
++    stop(sprintf("analysis %s needs the mmrm package",analysis))
++  }
++  t_half_a<-if(is.null(op[["t_half_a"]])) 0.5 else op[["t_half_a"]]
++  t_half_grid<-if(is.null(op[["t_half_grid"]])) c(0,0.25,0.5,1,2) else unlist(op[["t_half_grid"]])
++  if(analysis=="R") t_half_a<-0
++
++  # Long data in the row order of the stress test: by path, then visit (baseline
++  # first), then participant
++  n_groups<-length(trialdesign_set)
++  datout<-vector(mode="list",length=n_groups)
++  lastptID<-0
++  for(g in 1:n_groups){
++    trialdesign<-rbind(list(timeptnames="BL",t_wk=0,e=0,tod=0,tsd=0,tpb=0),trialdesign_set[[g]])
++    trialdesign$t<-cumulative(trialdesign$t_wk)
++    data<-dat[path==g,c("ptID","bm",trialdesign$timeptnames),with=FALSE]
++    data$ptID<-data$ptID+lastptID
++    lastptID<-max(data$ptID)
++    data.m<-melt(data,id.vars=c("ptID","bm"),measure.vars=trialdesign$timeptnames,
++                 variable.name="timeptnames",value.name="Sx",na.rm=FALSE)
++    i<-match(as.character(data.m$timeptnames),trialdesign$timeptnames)
++    data.m[,`:=`(t=trialdesign$t[i],Db=trialdesign$tod[i]>0,tsd=trialdesign$tsd[i],
++                 De=trialdesign$e[i])]
++    datout[[g]]<-data.m
++  }
++  datamerged<-rbindlist(datout)[!is.na(Sx)]
++  datamerged[,`:=`(ptID=factor(ptID),
++                   visit=factor(as.character(t),levels=as.character(trialdesign$t)),
++                   bmc=bm-mean(bm[t==0]),bl0=as.numeric(t==0),
++                   phase=factor(fifelse(t==0,"baseline",fifelse(De==1,"OL","blinded"))))]
++  withDbc<-function(h){
++    dd<-copy(datamerged)
++    dd[,Dbc:=exposuredecay(Db,tsd,h)]
++    dd
++  }
++
++  core<-"Sx~bmc+t+Dbc+bmc:Dbc"
++  form<-as.formula(switch(analysis,
++    F1=,F1A=,G1=,G2=paste(core,"+De+bmc:De"),
++    F2=paste(core,"+bmc:t"),
++    ES=paste(core,"+bmc:bl0"),
++    A=,DA=paste(core,"+us(visit|ptID)"),
++    EA=paste(core,"+bmc:bl0+us(visit|ptID)"),
++    R=paste(core,"+cs(visit|ptID)"),
++    core))
++  hetero<-analysis%in%c("C1","C2","G1","G2")
++  lctrl<-nlme::lmeControl(opt="optim",maxIter=200,msMaxIter=200)
++  fitlme<-function(dd,method="REML",control=lctrl){
++    nlme::lme(form,random=~1|ptID,correlation=nlme::corCAR1(form=~t|ptID),
++              weights=if(hetero) nlme::varIdent(form=~1|phase) else NULL,
++              data=dd,method=method,control=control)
++  }
++  if(modelonly){
++    # On pooled data (thousands of participants) the stress test's optim control can
++    # fail numerically; the pooled fit then falls back to nlme's default optimizer,
++    # which reaches the same REML optimum to optimizer tolerance
++    fitlme0<-fitlme
++    fitlme<-function(dd,method="REML") tryCatch(fitlme0(dd,method),error=function(e){
++      msg<<-"pooled fit: optim failed, refitted with nlminb"
++      fitlme0(dd,method,nlme::lmeControl(maxIter=200,msMaxIter=200))
++    })
++  }
++  fitmmrm<-function(dd,kind){
++    suppressWarnings(switch(kind,
++      KR=mmrm::mmrm(form,data=dd,method="Kenward-Roger",vcov="Kenward-Roger-Linear"),
++      ML=mmrm::mmrm(form,data=dd,reml=FALSE),
++      Satt=mmrm::mmrm(form,data=dd),
++      Resid=mmrm::mmrm(form,data=dd,method="Residual")))
++  }
++  target<-"bmc:Dbc"
++  cr2<-function(fit){
++    ct<-clubSandwich::coef_test(fit,vcov="CR2",test="Satterthwaite")
++    k<-which(ct$Coef==target)
++    c(est=ct$beta[k],se=ct$SE[k],p=ct$p_Satt[k],df=ct$df_Satt[k])
++  }
++  modelbased<-function(fit){
++    tt<-summary(fit)$tTable
++    c(est=tt[target,"Value"],se=tt[target,"Std.Error"],p=tt[target,"p-value"],df=tt[target,"DF"])
++  }
++  mmrmtest<-function(fit){
++    cf<-summary(fit)$coefficients
++    c(est=cf[target,"Estimate"],se=cf[target,"Std. Error"],p=cf[target,"Pr(>|t|)"],df=cf[target,"df"])
++  }
++  # AIC selection of the half-life: ML fits for the comparison; a fit that fails is
++  # left out of the comparison
++  pickhalflife<-function(mlfit){
++    aic<-sapply(t_half_grid,function(h) tryCatch(AIC(mlfit(withDbc(h))),error=function(e) NA_real_))
++    if(all(is.na(aic))) stop("no half-life in t_half_grid could be fitted")
++    t_half_grid[which.min(aic)]
++  }
++
++  msg<-as.character(NA)
++  fit<-NULL
++  res<-tryCatch({
++    if(analysis%in%c("DS","F1A")) t_half_a<-pickhalflife(function(dd) fitlme(dd,"ML"))
++    if(analysis=="DA") t_half_a<-pickhalflife(function(dd) fitmmrm(dd,"ML"))
++    dd<-withDbc(t_half_a)
++    if(analysis%in%c("A","DA","EA","R")){
++      fit<-fitmmrm(dd,if(modelonly) "Resid" else if(analysis=="R") "Satt" else "KR")
++      mmrmtest(fit)
++    }else{
++      fit<-fitlme(dd)
++      if(modelonly || analysis%in%c("C2","G2")) modelbased(fit) else cr2(fit)
++    }
++  },error=function(e){
++    msg<<-conditionMessage(e)
++    c(est=NA_real_,se=NA_real_,p=NA_real_,df=NA_real_)
++  })
++
++  out<-data.table(beta=unname(res["est"]),betaSE=unname(res["se"]),p=unname(res["p"]),
++                  issingular=NA,warning=msg,df=unname(res["df"]),t_half_a=t_half_a)
++  if(isTRUE(op[["full_model_out"]])){
++    out<-list(form=form,fit=fit,datamerged=withDbc(t_half_a),stdout=out)
++  }
+   return(out)
+ }

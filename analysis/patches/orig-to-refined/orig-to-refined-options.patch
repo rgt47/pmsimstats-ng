@@ -1,0 +1,203 @@
+diff -ruN a/R/censordata.R b/R/censordata.R
+--- a/R/censordata.R
++++ b/R/censordata.R
+@@ -22,6 +22,14 @@
+ #'   (2) beta1 - the proportion of the total dropout that should be biased (0-1)
+ #'   (3) eb1 - the exponent used to define the shape of the curve defining biased dropout.
+ #'   See example, below.
++#'   An optional column \code{type} selects the stress-test mechanisms instead:
++#'   \code{"MCAR"} or \code{"MAR"}, with \code{beta0} the expected fraction of participants
++#'   who drop out (\code{beta1}, \code{eb1} unused). Dropout is monotone and starts at the
++#'   third timepoint. MCAR: a participant drops out with probability \code{beta0}, at a
++#'   timepoint drawn uniformly from the third to the last. MAR: the hazard of dropping out at
++#'   timepoint j is \code{plogis(a + z)}, where z is the score at timepoint j-1 standardized
++#'   within each path of each replicate and \code{a} is solved there so that the expected
++#'   fraction is \code{beta0}. A missing or \code{NA} \code{type} is the published mechanism.
+ #' @return A new data file, with the censored data points replaced by \code{NA},
+ #'   will be returned
+ #' @examples
+@@ -43,6 +51,10 @@
+ #  d[,onDrug:=(tod>0)]
+   nP<-dim(trialdesign)[1]
+   labels<-d$timeptname
++  type<-censorparam[["type"]]
++  if(!is.null(type) && !is.na(type) && type%in%c("MCAR","MAR")){
++    return(censordropout(dat,labels,censorparam$beta0,as.character(type)))
++  }
+ 
+   #Stuff to set up here
+   deltas<-paste("D",labels,sep="_")
+@@ -85,5 +97,48 @@
+     }
+   }
+ 
++  return(dat)
++}
++
++#' Monotone MCAR or MAR dropout
++#'
++#' \code{censordropout} implements the \code{type = "MCAR"} and \code{type = "MAR"}
++#' mechanisms of \link{censordata}, as in the pmsimstats-ng stress test.
++#'
++#' @param dat dat file as produced by \code{generateData}, with \code{path} and
++#'   \code{replicate} columns as added by \link{generateSimulatedResults}
++#' @param labels The timepoint names
++#' @param rate Expected fraction of participants who drop out
++#' @param type \code{"MCAR"} or \code{"MAR"}
++#' @return \code{dat} with the timepoints from dropout onward set to \code{NA}
++#' @keywords internal
++censordropout<-function(dat,labels,rate,type){
++  dat<-copy(dat)
++  nv<-length(labels)
++  dropat<-rep(Inf,nrow(dat))
++  if(type=="MCAR"){
++    hit<-runif(nrow(dat))<rate
++    dropat[hit]<-sample(3:nv,sum(hit),replace=TRUE)
++  }else{
++    # The stress test standardizes the previous score and solves the intercept within
++    # each simulated trial and path, so the same is done for each path of each replicate
++    Y<-as.matrix(dat[,labels,with=FALSE])
++    grp<-if(all(c("path","replicate")%in%names(dat))) paste(dat$path,dat$replicate) else rep(1,nrow(dat))
++    for(gg in unique(grp)){
++      ii<-which(grp==gg)
++      zp<-scale(Y[ii,2:(nv-1),drop=FALSE])
++      pdrop<-function(a) mean(1-apply(1-plogis(a+zp),1,prod))
++      a<-uniroot(function(a) pdrop(a)-rate,c(-15,5))$root
++      h<-plogis(a+zp)
++      u<-matrix(runif(length(h)),nrow(h))
++      for(k in seq_along(ii)){
++        j<-which(u[k,]<h[k,])
++        if(length(j)) dropat[ii[k]]<-j[1]+2
++      }
++    }
++  }
++  for(itp in 3:nv){
++    set(dat,i=which(dropat<=itp),j=labels[itp],value=NA_real_)
++  }
+   return(dat)
+ }
+diff -ruN a/R/generateData.R b/R/generateData.R
+--- a/R/generateData.R
++++ b/R/generateData.R
+@@ -21,6 +21,18 @@
+ #'  \item{\code{c1}}{  Optional. Cross-factor multiplier used when \code{corstructure="separable"}:
+ #'    the correlation between different factors is \code{c1*rho^|t-s|} (default 0.2);
+ #'    \code{c.cf1t} and \code{c.cfct} are then ignored}
++#'  \item{\code{decay.k}}{  Optional. Shape of the carryover decay, used in the br mean and in
++#'    graded coupling: 1 (default) exponential, \code{(1/2)^(tsd/carryover_t1half)}; otherwise
++#'    Weibull with the same half-life, \code{exp(-(log(2)^(1/k)*tsd/carryover_t1half)^k)}}
++#'  \item{\code{c.bm.tv}, \code{c.bm.pb}, \code{c.bm.bl}}{  Optional prognostic couplings
++#'    (default 0): correlation of the biomarker with the tv factor and with the pb factor at
++#'    every timepoint, and with the baseline BL}
++#'  \item{\code{b.bm.tv}}{  Optional (default 0). Mean moderation of the tv factor: tv is
++#'    shifted by \code{b.bm.tv*sd_tv*z*G(t)/max(G)}, where \code{z} is the standardized
++#'    biomarker and \code{G} the tv mean curve}
++#'  \item{\code{me.ol}, \code{me.bl}}{  Optional (default 0). SDs of independent measurement
++#'    error added to the observed total at open-label (expectancy 1) and blinded
++#'    (expectancy below 1) timepoints}
+ #' }
+ #' @param respparam Data table with 5 columns and 3 rows. The first row lists the 3 factors
+ #'   defining the response trajectories (tv, pb, and br). The rest of the columns are the
+@@ -74,6 +86,8 @@
+   corstructure<-match.arg(corstructure,c("separable","published"))
+   carryover<-match.arg(carryover,c("anchored","recursive"))
+   nonPD<-match.arg(nonPD,c("stop","repair"))
++  opt<-function(nm) if(is.null(modelparam[[nm]])) 0 else modelparam[[nm]]
++  decayk<-if(is.null(modelparam[["decay.k"]])) 1 else modelparam[["decay.k"]]
+ 
+   # I. Turn the trial design information into something easier to use
+   d<-data.table(trialdesign)
+@@ -116,14 +130,14 @@
+           if(d[p]$onDrug){
+             last_on<-brmeans[p]
+           }else if(d[p]$tsd>0 && modelparam$carryover_t1half>0){
+-            brmeans[p]<-last_on*(1/2)^(d$tsd[p]/modelparam$carryover_t1half)
++            brmeans[p]<-last_on*carryoverdecay(d$tsd[p],modelparam$carryover_t1half,decayk)
+           }
+         }
+       }else if(nP>1){
+         for(p in 2:nP){
+           if(!d[p]$onDrug){
+             if(d[p]$tsd>0){
+-              brmeans[p]<-brmeans[p]+brmeans[p-1]*(1/2)^(d$tsd[p]/modelparam$carryover_t1half)
++              brmeans[p]<-brmeans[p]+brmeans[p-1]*carryoverdecay(d$tsd[p],modelparam$carryover_t1half,decayk)
+             }
+           }
+         }
+@@ -185,13 +199,20 @@
+         # is positive; elsewhere the weight is 0 and the entry keeps its 0.
+         g<-1
+         if(coupling=="graded" && !d[p]$onDrug){
+-          g<-(1/2)^(d[p]$tsd/modelparam$carryover_t1half)
++          g<-carryoverdecay(d[p]$tsd,modelparam$carryover_t1half,decayk)
+         }
+         correlations[n1,'bm']<-modelparam$c.bm*g
+         correlations['bm',n1]<-modelparam$c.bm*g
+       }
+     }
+   }
++  # Prognostic couplings (options): the biomarker predicts the natural course, the
++  # expectancy response or the baseline severity, but not the drug effect
++  i_tv<-paste(trialdesign$timeptname,"tv",sep=".")
++  i_pb<-paste(trialdesign$timeptname,"pb",sep=".")
++  correlations[i_tv,'bm']<-correlations['bm',i_tv]<-opt("c.bm.tv")
++  correlations[i_pb,'bm']<-correlations['bm',i_pb]<-opt("c.bm.pb")
++  correlations['BL','bm']<-correlations['bm','BL']<-opt("c.bm.bl")
+   # Turn correlation matrix into covariance matrix
+   sigma<-outer(sds,sds)*correlations
+   #  should be faster: outer(S,S)*R where S is SDs and R is correlation matrix
+@@ -220,6 +241,15 @@
+   dat<-mvrnorm(n=modelparam$N,mu=means,Sigma=sigma,empirical=empirical)
+   dat<-data.table(dat)
+   setnames(dat,names(dat),labels)
++  # Mean moderation of the natural course (option): a prognostic biomarker effect
++  # that grows with the tv mean curve, scaled to its maximum
++  if(opt("b.bm.tv")!=0){
++    z<-(dat$bm-blparam[cat=="bm"]$m)/blparam[cat=="bm"]$sd
++    tvmeans<-means[match(i_tv,labels)]
++    for(p in 1:nP){
++      set(dat,j=i_tv[p],value=dat[[i_tv[p]]]+opt("b.bm.tv")*respparam[cat=="tv"]$sd*z*tvmeans[p]/max(tvmeans))
++    }
++  }
+ 
+   # TESTING
+   #tdat1<-dat[, lapply(.SD, mean)]
+@@ -245,6 +275,15 @@
+       sep="")
+     eval(parse(text=evalstring))
+   }
++  # Measurement error (option): independent, on the observed score only, with an SD
++  # that depends on the phase (open label when the expectancy is 1, blinded otherwise)
++  for(p in 1:nP){
++    s<-if(trialdesign$e[p]==1) opt("me.ol") else opt("me.bl")
++    if(s>0){
++      n<-trialdesign$timeptname[p]
++      set(dat,j=n,value=dat[[n]]+rnorm(modelparam$N,0,s))
++    }
++  }
+ 
+   # TESTING
+   #tdat3<-dat[, lapply(.SD, mean)]
+@@ -252,4 +291,22 @@
+   #plot(c(d$t_wk_cumulative),tdat3[,.(D_OL,D_BD,D_UD,D_COd,D_COp)])
+ 
+   return(dat)
++}
++
++#' Carryover decay
++#'
++#' \code{carryoverdecay} is the fraction of the drug effect remaining a time \code{tsd}
++#' after discontinuation: exponential, \code{(1/2)^(tsd/t_half)}, when \code{k = 1}, and
++#' Weibull with the same half-life, \code{exp(-(log(2)^(1/k)*tsd/t_half)^k)}, otherwise.
++#' It is 0 when \code{t_half} is 0.
++#'
++#' @param tsd Time since discontinuation
++#' @param t_half Half-life of the carryover effect
++#' @param k Weibull shape (1: exponential)
++#' @keywords internal
++carryoverdecay<-function(tsd,t_half,k=1){
++  if(t_half<=0) return(rep(0,length(tsd)))
++  # k = 1 keeps the published expression, so the default reproduces it bit for bit
++  if(k==1) return((1/2)^(tsd/t_half))
++  exp(-(log(2)^(1/k)*tsd/t_half)^k)
+ }

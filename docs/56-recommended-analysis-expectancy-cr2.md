@@ -202,6 +202,21 @@ in `docs/57`. Until they are, report F1 at the fixed half-life, with a
 sensitivity analysis over a grid of half-lives and the data's own
 estimate of the half-life reported alongside (Section 8).
 
+(Status note, 2026-10-10. Both proposals have now been evaluated in the
+stress-test extension, `docs/57`, Section 8: 58 cells, 40,000 fresh
+trials under the refined process, with the bootstrap arms estimated by
+the warp-speed method. F1 at the fixed 0.5 week rejected 0.053 pooled
+over 12 non-prognostic null cells, F1A0 0.053, and the bootstrap
+versions F1A0B and F1AB 0.050 each; F1A failed again (0.060). The
+revised data-driven recommendation (`docs/57`, Sections 1 and 7.2) is
+F1A0B, the half-life chosen by AIC without the interaction term and the
+test calibrated by a parametric null-model bootstrap that repeats the
+selection, with F1AB as the alternative and F1 at a fixed half-life as
+the validated simple fallback. F1A0B's mean size-adjusted power was
+0.395 against F1's 0.388, and 0.500 against 0.352 at a true half-life
+of 2 weeks with $c_{bm} = 0.45$. A real analysis needs about 999
+bootstrap resamples per trial. Section 6.3 is updated accordingly.)
+
 ## 2. Scope
 
 This note covers one analysis family for one estimand in one design
@@ -855,6 +870,22 @@ The project's position, set out in `docs/57`:
 - **Report the half-life estimate in either case,** with a
   profile-likelihood interval, and state that a Hybrid trial carries
   little information about it (Section 6.1).
+
+(Status note, 2026-10-10. The intended procedures have been evaluated:
+see `docs/57`, Section 8, for the stress-test extension results and
+Section 7.2 for the revised plan, which supersede the "pending
+evaluation" wording above. In summary (verified there): F1A0 holds size
+at scale (0.053 pooled, F1's rate on the same trials) but gains no
+power as a nominal test; its bootstrap calibration F1A0B holds size
+(0.050) and gains power where the fixed value is far from the truth,
+and is the primary data-driven candidate, with F1AB (0.050) as the
+alternative. F1 with $t_{1/2}^a$ fixed in advance remains the validated
+simple fallback; fixing it at the pharmacological 0.2 week instead of
+0.5 week gave no power gain. AIC-weight averaging is slightly
+conservative (0.0455) unless bootstrapped. The bootstrap figures are
+warp-speed estimates, and their excess in the prognostic-baseline null
+cell (0.067 to 0.077) is Monte Carlo error, not a failure of the null
+model (`docs/57`, Section 8.5).)
 
 ## 7. Alternatives and when to prefer them
 

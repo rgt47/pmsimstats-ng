@@ -13,13 +13,26 @@ derived analytically and checked against direct Monte Carlo simulation
 and against the published mixed-model analysis.
 
 (Updated 2026-10-09: results at $t_{1/2} > 0$ now use anchored
-carryover; see `docs/53`. Values changed by at most 0.021 in power
-(closed form at most 0.017, in CO; at most 0.002 in Hybrid and
-OL+BDC; the larger Monte Carlo changes of the Hybrid validation table
-are mostly reseeding, see the note there) and by 2.7 in the CO
-path-mean term; conclusions unchanged. Every slope, contrast variance
+carryover; see `docs/53`. Closed-form power changed by at most 0.017
+at the tabulated half-lives (0 to 2 weeks; CO, compound symmetry, mean
+moderation, $t_{1/2} = 2$) and by at most 0.041 on the plotted curves,
+which run to 4 weeks (same cell, $t_{1/2} = 4$); in Hybrid and OL+BDC
+by at most 0.002. Monte Carlo power on the same seeds changed by at
+most 0.018 (CO) and 0.003 (Hybrid, OL+BDC); the stored Monte Carlo
+values of the Hybrid validation table moved by up to 0.023, mostly
+through reseeding (see the note there). The CO path-mean term changed
+by 2.7. Conclusions unchanged. Every slope, contrast variance
 and ceiling, and every closed-form value at $t_{1/2} = 0$, is
 unchanged.)
+
+(Corrected 2026-10-11: the note above previously gave "at most 0.021
+in power" and "closed form at most 0.017", which disagreed with the
+"up to 0.041" of Appendix A. Both closed-form figures are correct for
+their grids (0.017 to 2 weeks, 0.041 to 4 weeks); the 0.021 was a
+rounded stored Monte Carlo change of a reseeded Hybrid cell (0.0216 at
+$t_{1/2} = 0.2$, graded), not a carryover effect. Verified by comparing
+the pre-anchored and anchored outputs of `01-e9-closed-form.R` and the
+recursive reproduction run on the same seeds.)
 
 ```{=latex}
 \clearpage
@@ -1660,7 +1673,9 @@ mean estimates agree to within 0.003 (-0.028 against -0.028 at 0.1;
   (`01-e9-closed-form.R`, `06-single-path-lme.R` and the `lmer` run of
   `04-power-simulation.R`). Closed-form power changes by at most 0.002
   in Hybrid and OL+BDC and by up to 0.041 in CO, where the means enter
-  through the period effect of Section 5.7; Monte Carlo power on the
+  through the period effect of Section 5.7 (0.041 at $t_{1/2} = 4$
+  weeks on the plotted curves; at most 0.017 at the tabulated
+  half-lives of 0 to 2 weeks; checked 2026-10-11); Monte Carlo power on the
   same seeds by at most 0.003 (Hybrid, OL+BDC) and 0.018 (CO); and the
   `lmer` power of Section 6 by at most 0.008, with every mean estimate
   unchanged to 0.0001. The project's results now use anchored carryover

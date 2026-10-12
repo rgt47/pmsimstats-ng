@@ -13,12 +13,20 @@ procedure for choosing a design.
 
 (Updated 2026-10-09: results at $t_{1/2} > 0$ now use anchored
 carryover; see `docs/53`. The four scripts of Section 12 were rerun.
-Values changed by at most 0: no value quoted here changed, because the
+No value quoted here changed, because the
 design search, the spacing study and the block comparison never use
 the response means, and the values quoted from `design-power.csv` are at
 $t_{1/2} = 0$; conclusions unchanged. Only that file's E9 power with a
 common intercept at $t_{1/2} > 0$, which this paper does not quote,
 changed, by at most 0.017 in CO.)
+
+(Checked 2026-10-11: the 0.017 is the largest change in
+`design-power.csv`, whose half-life grid is 0, 0.5, 1 and 2 weeks (CO,
+0.0171); the other designs of that file change by at most 0.008. It
+agrees with the closed-form change in `docs/37` over the same range of
+half-lives; `docs/37`'s larger figure, 0.041, is the change at
+$t_{1/2} = 4$ weeks on its plotted curves, which this paper does not
+use. Verified by comparing the pre-anchored and anchored outputs.)
 
 ```{=latex}
 \clearpage

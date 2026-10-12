@@ -1061,6 +1061,15 @@ disagreements resolved in the rows for 09a, 19 and 32)
 Each conflict is listed once. "Best answer" names the source of the
 current answer; "Action" names where the series states it.
 
+(Updated 2026-10-11, Phase 1: CR-31, CR-43, CR-44 and CR-51 are
+resolved in Section 5.2 by inspection and by comparing stored outputs,
+and GP-29 in Section 8. The evidence, with commands and outputs, is in
+the Phase 1 log `docs/series/notes/phase1/phase1-cr-log.md`, with its
+check scripts; it is to be carried into Appendix I. Other `SP/` paths
+below name scratch outputs that were not kept in the repository. Corrections for archived
+documents (13, 17, 20, 23 and 03 in `docs/legacy/`) are recorded there,
+not made in the archived files.)
+
 ### 5.1 Resolved by later work: needs propagation only
 
 | ID | Conflict | Documents and sections | Best answer (source) | Action |
@@ -1113,17 +1122,17 @@ Table: Conflicts resolved by later work (propagation only)
 
 | ID | Conflict | Documents and sections | Current best answer | Action |
 |-------|----------------|---------------------------|------------------------------|--------------|
-| CR-31 | Anchored-change figures inside 37 | header note (closed form at most 0.017 in CO; Monte Carlo 0.021; lines 16 to 17, spot-checked) against Appendix A final bullet (closed form up to 0.041 in CO; Monte Carlo 0.018; line 1662, spot-checked); 39 header repeats 0.017 | unknown; one passage is stale | rerun `01-e9-closed-form.R` both ways and quote the result in `ch15` (GP-34) |
+| CR-31 | Anchored-change figures inside 37 | header note (closed form at most 0.017 in CO; Monte Carlo 0.021; lines 16 to 17, spot-checked) against Appendix A final bullet (closed form up to 0.041 in CO; Monte Carlo 0.018; line 1662, spot-checked); 39 header repeats 0.017 | Resolved 2026-10-11: both closed-form figures are correct for different grids. Closed-form change in CO is at most 0.017 at the tabulated half-lives of 0 to 2 weeks (compound symmetry, mean moderation, E9, $t_{1/2} = 2$: 0.548 to 0.531) and 0.041 on the plotted curves to 4 weeks (same cell, $t_{1/2} = 4$: 0.505 to 0.464); Hybrid at most 0.0016, OL+BDC 0.0020. Monte Carlo change on the same seeds (carryover only): CO 0.018, Hybrid 0.003, OL+BDC 0.003. The header's 0.021 was a stored Monte Carlo change of a reseeded Hybrid cell (0.0216), not a carryover effect. 39's 0.017 is the CO change in `design-power.csv` (grid 0, 0.5, 1, 2), correct. Source: pre-anchored backups against the anchored outputs, and the recursive sandbox rerun on the same seeds (verified; `docs/series/notes/phase1/phase1-cr-log.md`). 37 header and Appendix A and 39 header corrected with dated notes | quote in `ch15` with the grid stated (GP-34 done) |
 | CR-42 | Design power ranking | 13 Section 10.1, 14 Section 6.3, 18 (Hybrid > CO > OL+BDC > OL) against 04 Section 5.3, 19.tex (Hybrid > OL+BDC > CO > OL at $c_{bm} = 0.45$) against the published abstract via 23 Section 17.1 and 17 Section 7.1 (CO above Hybrid) | depends on construct, $c_{bm}$ and $N$ allocation (inferred) | compute the ranking under the refined process at matched total $N$ (GP-25); `ch02`, `ch16` |
-| CR-43 | Whether `characterize_carryover()` is the liberal F1A procedure, and its grid | 03 Section 6.2, 14 Section 3, 23 Section 9.1 ("validated") against 57 (F1A liberal); 01 (0.1 to 8 weeks) against 03 Section 6.2 (0.25 to 8 weeks) | unverified | inspect `R/carryover_analysis.R` (GP-35); `ch23`, `ch25` |
-| CR-44 | The published dropout form | 13 Section 4 against 17 Section 7.1 item 4 ($\beta_0 + \beta_1(\text{change})^2$) | unverified | inspect `censordata` at `58b32a9` (GP-36); Appendix I Section 2, `ch13` |
+| CR-43 | Whether `characterize_carryover()` is the liberal F1A procedure, and its grid | 03 Section 6.2, 14 Section 3, 23 Section 9.1 ("validated") against 57 (F1A liberal); 01 (0.1 to 8 weeks) against 03 Section 6.2 (0.25 to 8 weeks) | Resolved 2026-10-11: yes, it is an F1A-type procedure, and a weaker one. `characterize_carryover()` (`R/carryover_analysis.R` lines 27 to 132) fits `lme_analysis()` at each candidate half-life with the interaction in the model, picks the lowest AIC (lines 116 to 118) and returns the model-based $t$-test p-values of the drug effect and the interaction at that half-life as if it were fixed (lines 76, 90; printed at lines 318 to 325). Unlike F1A of 57 it compares REML likelihoods (`nlme::lme` default, `R/lme_analysis.R` lines 167 to 177), which are not comparable across half-lives because $D_{bc,it}$ changes the fixed-effect design; it uses model-based, not CR2, standard errors; and a failed `corCAR1` fit silently falls back to no residual correlation (lines 174 to 177), so the AIC can compare different covariance models. Default grid: 0.1, 0.25, 0.5, 1, 2, 4, 8 weeks (lines 28 to 29), so 01 is right and 03 Section 6.2 (0.25 to 8) is wrong; 0 is not in the grid. Its p-values are liberal (57, 58); "validated" in 23 Section 9.1 is not supported (inspected; code change proposed in `docs/series/notes/phase1/phase1-cr-log.md`, not implemented) | `ch23`, `ch25`; Appendix D (code change) |
+| CR-44 | The published dropout form | 13 Section 4 against 17 Section 7.1 item 4 ($\beta_0 + \beta_1(\text{change})^2$) | Resolved 2026-10-11: neither is exact. At `58b32a9` (`R/censordata.R` lines 53 to 86, identical on GitHub and in the local copy) each participant-visit is flagged by two independent uniform draws: a flat flag with probability $\min\{1,\ f_1\,\Delta t_k/\overline{\Delta t}\}$ and a biased flag with probability $\min\{1,\ f_2\,p_{ik}/\bar p\}$, where $p_{ik} = \Delta t_k\,(D_{ik} + 100)^{e_{b1}}$, $\Delta t_k$ is the visit interval (`t_wk`), $D_{ik}$ the summed component improvement $TV + PB + BR$ at visit $k$ (`D_` columns, `generateData.R` line 174), $f_1 = \beta_0(1-\beta_1)$, $f_2 = \beta_0\beta_1$, and the bars are means over all participant-visits of the trial; a visit is dropped if either flag is set, and dropout is carried forward (monotone). 13's $(\text{change} + 100)^{e_{b1}}$ term is right but its direction is wrong: because $D_{ik}$ is improvement, participants who improve more drop out more, contrary to the roxygen text and to 13; 17's "responders more likely to drop out" has the direction right but the form wrong (no additive $\beta_0$, no square of the change alone). $\beta_0$ is the per-visit flag rate, not the total dropout (inspected; direction and per-visit rate verified on synthetic data, `docs/series/notes/phase1/cr44-censor-check.R`) | inspect `censordata` at `58b32a9` (GP-36); Appendix I Section 2, `ch13` |
 | CR-45 | $\sigma_v^2$ against $\tau^2$ | 38 and 51 ($v_i$ with $\sigma_v^2$) against NOTATION, P04, 58 ($\mathrm{Var}(v_i) = \tau^2$) | one concept (DQ-6, decided): $\tau^2$ everywhere | NOTATION revision; `ch11`, `ch14` |
 | CR-46 | Unexplained OL+BDC Type I error under compound symmetry | 36 Section 9 item 4; 37 Section 6 | open | analysis (GP-32) |
 | CR-47 | Silent repair still in the package sampler | 23 Section 18 ("zero silent PD corrections") against 34 Section 4.7, 52 Section 4 (`R/generateData.R:391-393`), 51 Section 20 | the Cholesky fallback still repairs silently (inspected by 34 and 52; not re-checked) | code fix; Appendix D |
 | CR-48 | Parity report mode | 22 (parity) Section 9 against the committed quick-mode `parity_report.rds` (52 Section 4) | mismatch stands (52; not re-checked) | regenerate in default mode; Appendix D |
 | CR-49 | Manuscript 02 pre-exposure coding of $D_{bc,it}$ and its CO rerun | 45 Sections 8, 12 question 3; 44; 52 | defect confirmed (45 Section 8: CO power 0.484 to 0.744 after correction, compound symmetry); rerun of paper 02 unconfirmed | rerun (GP-31); Appendix C |
 | CR-50 | Driver cross-component values in the April comparison; the 19 against 21 Hybrid row | 21 (0.1, 0.05) against 23 Section 6.1 (0.2); 19 (0.74/0.68/0.72) against 21 (0.74/0.72/0.68) | not resolvable (driver archived, output missing) | drop the tables; mention in Appendix I Section 5 only |
-| CR-51 | Failed-fit count and DS shares | 48 Purpose (27 failed fits in 291,500) against 47 Section 9 (sum 28); 50 Section 2 (DS: 82%, 86%) against 56 Section 6.1 and 57 Section 3.5 (F1A: 87%, 77%) | probably different denominators and analyses (inferred) | check against `replicates-full.rds` (cheap); `ch21`, `ch23` |
+| CR-51 | Failed-fit count and DS shares | 48 Purpose (27 failed fits in 291,500) against 47 Section 9 (sum 28); 50 Section 2 (DS: 82%, 86%) against 56 Section 6.1 and 57 Section 3.5 (F1A: 87%, 77%) | Resolved 2026-10-11: no statement is wrong; they use different denominators and analyses. Failed fits: 27 of 291,500 is the 39-cell run of 48 (26,500 trials by 11 analyses); the final 41-cell main run has 28 of 308,000 (the two `prog-BL` cells add one F1 failure); 47 Section 9's per-analysis counts are exact over 14 analyses and 28,000 trials each (55 of 392,000; at most 0.6% per cell, G1 and G2 in cell 1). Selection shares on the 1,000 null trials of each cell: DS (S with AIC) chose 0 in 81.6% at true $t_{1/2} = 0$ and 1 or 2 weeks in 85.7% at true 1 week (50's 82%, 86%); F1A chose 87.0% and 76.7% (56's and 57's 87%, 77%). Source: `replicates-full.rds`, `-extra.rds`, `-extra2.rds` (verified) | state analysis and denominator in `ch21`, `ch23` |
 
 Table: Conflicts that need analysis, inspection or a decision
 
@@ -1265,6 +1274,9 @@ Table: Notation regressions in docs/34 to docs/58
 
 ## 8. Gaps
 
+(Updated 2026-10-11: GP-29, GP-34, GP-35 and GP-36 are done; see the
+rows and Section 5.2.)
+
 Merged from the four surveys' gap lists and deduplicated. "Writing" means
 the content exists in outputs or derivations and needs only to be
 written; "computation" means new runs or code; "blocked" means it waits
@@ -1301,14 +1313,14 @@ assistance; server time is stated separately.
 | GP-26 | Figures: Gompertz family, Hybrid schedule, coupling profiles, ceiling against $\rho$; optional Figure 5 regeneration | writing and plotting from existing scripts | 1 day |
 | GP-27 | Implementation status appendix (separable `buildSigma`, factored generator, Cholesky fallback, `cbmCeiling()`, anchored carryover, prognostic couplings in the package) | writing; the code work is separate | 0.5 day |
 | GP-28 | CM updates: main-effect track (version 1 to P04 and 58); 57 procedures; 55 cited; anchored stress-test DGP; 58 Propositions 1 to 7 | writing (LaTeX) | 2 days |
-| GP-29 | Verification of four suspect references (Chen, Li and Yang 2020; Eng and Konings 2018; Pequignat et al. 2023; De Bock et al. 2021) | inspection | 2 hours |
+| GP-29 | Verification of four suspect references (Chen, Li and Yang 2020; Eng and Konings 2018; Pequignat et al. 2023; De Bock et al. 2021) | done 2026-10-11 (PubMed and Crossref): all four misattributed, none exists as cited. "Chen, Li and Yang": the title is Blackston, Chapple, McGree, McDonald and Nikles (2019), *Healthcare* 7(4):137, doi:10.3390/healthcare7040137; the cited DOI 10.1371/journal.pone.0216949 is Ao et al. (2019), an Ebola-glycoprotein HIV vaccine paper, *PLoS One* 14(5). "Eng and Konings": the title and DOI are Haller and Ulm (2018), *Trials* 19:128 (not 19:72), doi:10.1186/s13063-018-2491-0. "Pequignat et al.": the title and DOI are Tueller, Ramirez, Cance et al. (2022), *Behav Res Methods* 55(8):4175 to 4199, doi:10.3758/s13428-022-02012-1 (no Pequignat author in PubMed for this topic). "De Bock et al.": the title and DOI are Natesan Batley and Hedges (2021), *Behav Res Methods* 53(4):1782 to 1798, doi:10.3758/s13428-020-01522-0. The annotations of 20 for these entries describe the fabricated attributions and are not to be carried | Appendix G corrections |
 | GP-30 | The unreported common-grid contrast (`36-fig4-contrast-reps100.png`) | writing, if `13-summarize-contrast.R` outputs suffice (inferred) | 2 hours |
 | GP-31 | Paper 02 CO rerun with the corrected pre-exposure coding | computation | 0.5 day plus server |
 | GP-32 | The OL+BDC Type I error under compound symmetry | analysis | 1 day |
 | GP-33 | Paper 11 boundary cells, analytic super-additivity, MCSE columns (`CLAUDE.md`) | computation | 1 day plus server |
-| GP-34 | Reconcile 37's anchored-change figures | computation | 15 minutes |
-| GP-35 | `characterize_carryover()` against F1A; its grid | inspection | 30 minutes |
-| GP-36 | The published dropout form | inspection of `censordata` at `58b32a9` | 30 minutes |
+| GP-34 | Reconcile 37's anchored-change figures | done 2026-10-11 (CR-31) | |
+| GP-35 | `characterize_carryover()` against F1A; its grid | done 2026-10-11 (CR-43); code change proposed, not implemented | |
+| GP-36 | The published dropout form | done 2026-10-11 (CR-44) | |
 | GP-37 | Linter checks for $E($, $N($ and reserved letters | code | 2 hours |
 | GP-38 | A single open-items register | writing | 0.5 day |
 | GP-39 | F1 at 0.2 week in the 41-cell stress test with the full screens of 46 (only the job 14 extension evaluated F1h02) | computation, optional: the job 14 evidence covers size in 58 cells including the prognostic ones (quoted, 57 Section 8.2); maximin under the 46 rule at 0.2 week is not reported | 0.5 day plus server |

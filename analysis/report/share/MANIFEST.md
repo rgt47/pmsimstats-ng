@@ -823,3 +823,6 @@
 | `36-hendrickson-pd-and-carryover-2026-10-09-1745-3238916-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/docs/36-hendrickson-pd-and-carryover.md` | `3238916-wip` | 2026-10-09 17:45 PDT |
 | `53-carryover-recursion-in-published-code-2026-10-09-1745-3238916-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/docs/53-carryover-recursion-in-published-code.md` | `3238916-wip` | 2026-10-09 17:45 PDT |
 | `55-step-coupling-in-published-code-2026-10-09-1745-3238916-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/docs/55-step-coupling-in-published-code.md` | `3238916-wip` | 2026-10-09 17:45 PDT |
+| `56-recommended-analysis-expectancy-cr2-2026-10-10-1430-66f8622-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/docs/56-recommended-analysis-expectancy-cr2.md` | `66f8622-wip` | 2026-10-10 14:30 PDT |
+| `57-data-chosen-carryover-half-life-2026-10-10-1444-66f8622-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/docs/57-data-chosen-carryover-half-life.md` | `66f8622-wip` | 2026-10-10 14:44 PDT |
+| `59-whitepaper-refactoring-plan-2026-10-11-1650-bba7077-wip.pdf` | `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/docs/59-whitepaper-refactoring-plan.md` | `bba7077-wip` | 2026-10-11 16:50 PDT |

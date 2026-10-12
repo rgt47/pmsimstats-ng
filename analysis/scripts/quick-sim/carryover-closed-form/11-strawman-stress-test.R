@@ -40,6 +40,14 @@
 ## (--ext3-cells docs57 keeps only the 12 of docs/57, Section 7.3), and
 ## the definitions of analysis/scripts/data-chosen-half-life/57-common.R.
 ## Writes files tagged '-extra3'. Without --extra3 nothing changes.
+##
+## --extra4 (2026-10-12; post hoc, docs/47): more trials for the choice
+## among F1, G1 and G2, whose worst-case shortfalls in the refined-process
+## rerun lie within about one Monte Carlo SE. Fresh seed base (47261012),
+## the 41 cells at 1,500 trials each (null and alternative), and the eight
+## analyses that survive the screens (S, C1, C2, ES, F1, F2, G1, G2), so
+## the decision can be recomputed on these trials alone or pooled with
+## the main run. Writes files tagged '-extra4'.
 suppressMessages({
   library(data.table); library(MASS); library(mmrm); library(nlme); library(parallel)
 })
@@ -63,13 +71,15 @@ extra <- '--extra' %in% args
 ## --extra2: post hoc F1 with AIC-selected half-life (F1A), and S again.
 extra2 <- '--extra2' %in% args
 extra3 <- '--extra3' %in% args
+extra4 <- '--extra4' %in% args
 EXT3_CELLS <- sarg('--ext3-cells', 'all')
-stopifnot(sum(extra, extra2, extra3) <= 1, EXT3_CELLS %in% c('all', 'docs57'))
-SEED_BASE <- if (extra3) 57261009L else 20261007L
+stopifnot(sum(extra, extra2, extra3, extra4) <= 1, EXT3_CELLS %in% c('all', 'docs57'))
+SEED_BASE <- if (extra3) 57261009L else if (extra4) 47261012L else 20261007L
 here04 <- 'analysis/scripts/quick-sim/hendrickson-problems/04-power-simulation.R'
 out_dir <- sarg('--out-dir', 'analysis/data/quick-sim/carryover-closed-form/strawman-stress')
 run_tag <- paste0(if (pilot > 0) sprintf('pilot%d', pilot) else 'full',
-                  if (extra) '-extra' else if (extra2) '-extra2' else if (extra3) '-extra3' else '',
+                  if (extra) '-extra' else if (extra2) '-extra2' else if (extra3) '-extra3' else
+                    if (extra4) '-extra4' else '',
                   if (extra3 && EXT3_CELLS == 'docs57') '-docs57' else '', dgp_tag)
 cell_dir <- file.path(out_dir, paste0('cells-', run_tag))
 dir.create(cell_dir, recursive = TRUE, showWarnings = FALSE)
@@ -133,7 +143,8 @@ if (extra3) {
   cells <- rbindlist(c(list(cells), ext3))
 }
 cells[, `:=`(id = .I, hyp = fifelse(cbm == 0, 'null', 'alt'))]
-cells[, reps := if (pilot > 0) pilot else fifelse(hyp == 'null', 1000L, 500L)]
+cells[, reps := if (pilot > 0) pilot else if (extra4) 1500L else
+                  fifelse(hyp == 'null', 1000L, 500L)]
 if (pilot == 0) stopifnot(all(cells$reps %% CHUNK == 0))
 
 ## ---------------- data-generating process ----------------
@@ -332,8 +343,23 @@ fit_extra2 <- function(d) {
   res <- list(S = c(cr2(fit_lme(F_S, d05)), h = TH_A), F1A = f1a)
   rbindlist(lapply(names(res), function(nm) as.data.table(as.list(res[[nm]]))[, analysis := nm]))
 }
+## --extra4: the eight surviving analyses, defined as in fit_all and
+## fit_extra.
+fit_extra4 <- function(d) {
+  d05 <- with_x(d, TH_A)
+  c_fit <- fit_lme(F_S, d05, hetero = TRUE)
+  g_fit <- fit_lme(F_F1, d05, hetero = TRUE)
+  res <- list(S = c(cr2(fit_lme(F_S, d05)), h = TH_A),
+              C1 = c(cr2(c_fit), h = TH_A), C2 = c(mb(c_fit), h = TH_A),
+              ES = c(cr2(fit_lme(F_E, d05)), h = TH_A),
+              F1 = c(cr2(fit_lme(F_F1, d05)), h = TH_A),
+              F2 = c(cr2(fit_lme(F_F2, d05)), h = TH_A),
+              G1 = c(cr2(g_fit), h = TH_A), G2 = c(mb(g_fit), h = TH_A))
+  rbindlist(lapply(names(res), function(nm) as.data.table(as.list(res[[nm]]))[, analysis := nm]))
+}
 if (extra) fit_all <- fit_extra
 if (extra2) fit_all <- fit_extra2
+if (extra4) fit_all <- fit_extra4
 ## Data-chosen analysis half-lives (docs/57; RERUN-ext3.md). The
 ## grid fits, F1, F1A, F1A0, AIC-weight averaging (MA), the Bonferroni
 ## maximum and the null-model bootstrap draw are the definitions of

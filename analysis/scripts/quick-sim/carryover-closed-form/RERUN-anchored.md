@@ -265,6 +265,27 @@ expected to resume from them (inferred from `simjob`, which unpacks a
 fresh tree per job; not tested); `simrun resubmit ID` queues the same
 commit and command again.
 
+### 4.3 Additional trials for the F1, G1, G2 choice (2026-10-12)
+
+In the 14-analysis decision on the refined process (jobs 15, 21 and
+22), the worst-case shortfall over the non-prognostic cells is G2
+0.214, G1 0.236 and F1 0.240. The G2 lead over F1 (0.026) is larger
+than the 0.02 tie margin but about one Monte Carlo SE of a single
+cell's power at 500 trials. `--extra4` adds 1,500 fresh trials in each
+of the 41 cells (seed base 47261012) for the eight surviving analyses,
+so the decision can be recomputed on the new trials and on the pooled
+trials. Post hoc; to be reported in docs/47. Run on the simulation host
+(`--host mercury`, 2 physical cores, 4 threads):
+
+```bash
+simrun --host mercury submit --cores 4 --mem 12 --label stress-anchored-extra4 -- \
+  Rscript $S/11-strawman-stress-test.R --extra4
+```
+
+Estimated 11 to 13 hours: six lme fits per trial on 61,500 trials,
+scaled from job 21 (two fits per trial on 28,000 trials in 1 h 44 m;
+inferred, not timed).
+
 ## 5. Outputs
 
 Stress test, in `analysis/data/quick-sim/carryover-closed-form/strawman-stress/`:

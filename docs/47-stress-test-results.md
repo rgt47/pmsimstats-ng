@@ -14,6 +14,20 @@ analysis is a recommendation to be confirmed in an independent study.
 The reasoning behind several revisions is in `docs/48`; the
 recommendation for practice is in `docs/49`.
 
+**Rerun note (2026-10-11).** Sections 1 to 11 are the stored run
+(recursive carryover, fixed allocation; 2026-10-07), and are left as
+written. The main run (eleven interaction analyses) has been repeated
+under the refined process, with anchored carryover and randomized path
+allocation; see the section "Rerun under the refined process
+(2026-10-11)" before the references. In brief: size and the prognostic
+flags are unchanged within Monte Carlo error; DS and EA now narrowly
+fail the size screen; among the eleven analyses F1 remains the
+unflagged survivor with the smallest maximin shortfall (0.240, stored
+0.242); and at the AR(1) reference cell F1 has 11% less size-adjusted
+power than S (0.448 against 0.504), not the 29% of the stored run. The
+fourteen-analysis decision, including G1, G2 and F1A, awaits their
+rerun.
+
 ```{=latex}
 \clearpage
 \tableofcontents
@@ -454,6 +468,261 @@ All numbers in this document were read from stored outputs on
   `decision-maximin-ds-nosym-all14.csv`.
 - Seeds are set per chunk as $20261007 + 1000 \times \text{cell} +
   \text{chunk}$, so results do not depend on the number of cores.
+
+## Rerun under the refined process (2026-10-11)
+
+Sections 1 to 11 above report the stored run (recursive carryover,
+fixed allocation; 2026-10-07). This section reports the main run of the
+stress test repeated under the refined process. It covers the eleven
+interaction analyses of the main run (S, DS, C1, C2, F1, F2, ES, EA, A,
+DA and R). The three analyses of the `--extra` and `--extra2` runs (G1,
+G2 and F1A) are being rerun on the simulation server and are not yet
+available, so the fourteen-analysis decision of Section 7 is not
+repeated here.
+
+### What changed in the data-generating process
+
+Two features of the stored run departed from the refined process
+(`analysis/report/NOTATION.md`, "Named data-generating processes";
+Section 2 of this document). Both were changed in
+`11-strawman-stress-test.R` (`RERUN-anchored.md`, Section 1):
+
+1. **Anchored carryover.** Off drug, the mean drug response is
+   $\mu_{\text{last}} \, 2^{-t_{sd}/t_{1/2}}$, with $\mu_{\text{last}}$
+   the mean at the last on-drug visit, weighted in the Weibull cells by
+   the cell's decay weight. The published recursion decayed the previous
+   visit's already-decayed mean by the cumulative time since
+   discontinuation, so it counted elapsed time twice from the second
+   off-drug visit of a run onward (at $t_{1/2} = 0.5$ week the
+   recursive mean at the second off-drug visit is a quarter of the
+   anchored one). The means of the $t_{1/2} = 0$ cell are unchanged.
+2. **Randomized path allocation.** In every trial each participant is
+   assigned to one of the four Hybrid paths uniformly at random,
+   redrawn when a path receives fewer than 2 participants, instead of
+   the fixed published allocation.
+
+The 41 cells, the 28,000 trials (1,000 per null cell, 500 per
+alternative cell), the eleven analyses and the per-chunk seeds are
+those of the stored run. The trials are nevertheless not the same:
+the means differ, and the allocation draws consume random numbers. The
+stored and rerun rates are therefore independent estimates, and a
+difference is judged by $z = (\hat\pi_{\text{new}} -
+\hat\pi_{\text{old}}) / \sqrt{\text{MCSE}_{\text{old}}^2 +
+\text{MCSE}_{\text{new}}^2}$. Within the rerun, all eleven analyses
+are fitted to the same trials, so comparisons between analyses remain
+paired.
+
+The run is simulation-server job 15 at commit `e077526`
+(`replicates-full-anchored.rds`, `summary-full-anchored.csv`). The
+decision rule was applied with
+`12-strawman-stress-decision.R --strawman DS --no-symmetry --tag
+-anchored` (Amendment 1 reading) and with `--tag -anchored` alone (the
+reading as first specified), writing the screen, sensitivity, power
+and maximin files `decision-*-ds-nosym-anchored.csv` and
+`decision-*-anchored.csv`. The stored-run figures below were recomputed
+from `replicates-full.rds` with the same script, for the same eleven
+analyses and all 41 cells (verified: the recomputation with
+`--with-extras` reproduces the four stored `-all14` files exactly). As
+in the stored decision files, a failed fit counts as a non-rejection.
+There were 26 failed fits in 308,000 (stored run 28; 0 to 5 per
+analysis).
+
+### Size
+
+| Analysis | Pooled, stored | Pooled, rerun | Largest cell, stored | Largest cell, rerun | Nominal, stored / rerun |
+|----------|--------|--------|--------------------|--------------------|------------|
+| S | 0.0483 | 0.0516 | 0.059 (MCAR dropout) | 0.061 ($N = 35$) | yes / yes |
+| DS | 0.0528 | 0.0569 | 0.068 (MCAR dropout) | 0.067 (Weibull 0.5) | yes / **no** |
+| C1 | 0.0531 | 0.0529 | 0.069 ($N = 35$) | 0.065 (meas. error) | yes / yes |
+| C2 | 0.0519 | 0.0492 | 0.066 ($N = 35$) | 0.055 (meas. error) | yes / yes |
+| F1 | 0.0511 | 0.0514 | 0.062 (AR(1) curve) | 0.064 ($t_{1/2} = 0$) | yes / yes |
+| F2 | 0.0486 | 0.0519 | 0.059 (MCAR dropout) | 0.060 ($N = 35$) | yes / yes |
+| ES | 0.0478 | 0.0490 | 0.059 (AR(1) curve) | 0.060 (Weibull 0.5) | yes / yes |
+| EA | 0.0517 | 0.0575 | 0.070 ($N = 35$) | 0.076 ($N = 35$) | yes / **no** |
+| A | 0.0573 | 0.0571 | 0.087 ($N = 35$) | 0.084 ($N = 35$) | no / no |
+| DA | 0.0653 | 0.0656 | 0.103 ($N = 35$) | 0.093 ($N = 35$) | no / no |
+| R | 0.0687 | 0.0686 | 0.081 ($N = 35$) | 0.084 ($N = 35$) | no / no |
+
+Table: Rerun under the refined process: null rejection rates of the eleven main-run analyses over the 11 non-prognostic null cells (pooled, 2-MCSE band 0.0458 to 0.0542; largest single cell, cap 0.075), stored run and rerun
+
+| Analysis | TV, constant | TV, growing | Placebo | Baseline | Prognostic flag |
+|----------|-------------|-------------|-------------|-------------|----------|
+| S | 0.099 (0.099) | 0.055 (0.049) | 0.114 (0.100) | 0.056 (0.050) | yes |
+| DS | 0.127 (0.115) | 0.068 (0.058) | 0.130 (0.112) | 0.057 (0.055) | yes |
+| C1 | 0.367 (0.382) | 0.196 (0.173) | 0.191 (0.205) | 0.056 (0.054) | yes |
+| C2 | 0.382 (0.393) | 0.190 (0.172) | 0.178 (0.193) | 0.051 (0.050) | yes |
+| F1 | 0.050 (0.047) | 0.050 (0.046) | 0.048 (0.040) | 0.052 (0.040) | no |
+| F2 | 0.094 (0.090) | 0.052 (0.048) | 0.112 (0.098) | 0.054 (0.048) | yes |
+| ES | 0.045 (0.049) | 0.073 (0.063) | 0.063 (0.049) | 0.057 (0.050) | no |
+| EA | 0.049 (0.049) | 0.057 (0.057) | 0.063 (0.050) | 0.061 (0.066) | no |
+| A | 0.411 (0.416) | 0.210 (0.195) | 0.193 (0.222) | 0.063 (0.051) | yes |
+| DA | 0.515 (0.509) | 0.276 (0.245) | 0.229 (0.256) | 0.065 (0.064) | yes |
+| R | 0.119 (0.107) | 0.077 (0.053) | 0.167 (0.159) | 0.069 (0.075) | yes |
+
+Table: Rerun under the refined process: null rejection rates in the four prognostic null cells (rerun, stored run in parentheses; cap 0.075) and the prognostic flag, which is the same in both runs
+
+**Reading.**
+
+- **Size is unchanged within Monte Carlo error.** Over the 165 null
+  rates (15 null cells by 11 analyses), 7 differ from the stored run by
+  more than 2 in $|z|$, about the 8 expected by chance; the largest is
+  EA at $t_{1/2} = 0$ (0.040 stored, 0.069 rerun, $z = 2.9$).
+- **Two analyses cross a boundary.** DS (pooled 0.0569, outside the
+  band) and EA (pooled 0.0575, and 0.076 at $N = 35$ against the cap of
+  0.075) now fail the size screen. Neither change is large against
+  Monte Carlo error ($z = 1.4$ and 2.0 for the pooled rates); both were
+  close to the boundary in the stored run. A, DA and R fail as before.
+- **The prognostic flags are unchanged** for every analysis. F1 stays
+  at or below 0.052 in all four prognostic null cells. ES stays within
+  the cap with a narrow margin in the growing natural-course cell
+  (0.073, MCSE 0.008).
+
+### Survivors
+
+Every size-adjusted power curve is again monotone in both constructs,
+so the sensitivity screen (Amendment 1, no symmetry) removes no
+analysis.
+
+| Reading | Stored run (11 analyses) | Rerun |
+|---|---|---|
+| Size and sensitivity screens (Amendment 1) | S, DS, C1, C2, F1, F2, ES, EA | S, C1, C2, F1, F2, ES |
+| Of these, not flagged in a prognostic cell | F1, ES, EA | F1, ES |
+| As first specified (strawman S, symmetry screen on) | C2, F1 | C1, F1, ES |
+
+Table: Rerun under the refined process: analyses passing the screens, stored run and rerun
+
+Under Amendment 1 the strawman DS fails the size screen, so the
+strawman rule (Section 7, item 5) is not reached; DS was in any case
+flagged in the prognostic cells. Under the reading as first specified,
+S fails the symmetry screen on the compound-symmetry curve in the rerun
+(it passed in the stored run), and the survivors change from C2 and F1
+to C1, F1 and ES. The symmetry screen thus changes its verdict between
+two runs of the same design, as expected of a screen that tests
+Monte Carlo noise (Section 5; `docs/48`, Section 4).
+
+### Maximin shortfall
+
+| Analysis | Non-prognostic cells, rerun (stored) | Worst cell, rerun | All cells, rerun (stored) | Worst cell, rerun |
+|----------|------------------|----------------|------------------|----------------|
+| C2 (flagged) | 0.022 (0.040) | AR(1) curve, 0.45 | 0.058 (0.040) | TV constant |
+| C1 (flagged) | 0.032 (0.034) | measurement error | 0.032 (0.064) | measurement error |
+| F2 (flagged) | 0.164 (0.160) | Weibull 2 | 0.208 (0.244) | TV growing |
+| S (flagged) | 0.172 (0.144) | Weibull 2 | 0.172 (0.220) | Weibull 2 |
+| DS (flagged) | fails size (0.182) | | fails size (0.214) | |
+| F1 | 0.240 (0.242) | Weibull 0.5 | 0.348 (0.358) | placebo |
+| ES | 0.266 (0.278) | Weibull 0.5 | 0.498 (0.544) | TV growing |
+| EA | fails size (0.318) | | fails size (0.528) | |
+
+Table: Rerun under the refined process: maximin shortfall in size-adjusted power among the survivors of the size and sensitivity screens (eleven analyses; the best analysis in each cell is taken over all survivors, flagged ones included)
+
+Among the eleven analyses, F1 has the smallest maximin shortfall of
+the unflagged survivors in both readings: 0.240 against 0.266 for ES
+over the non-prognostic cells, a lead of 0.026, just outside the tie
+margin of 0.02, and 0.348 against 0.498 over all cells. F1's own
+shortfall is almost the same as in the stored run (0.240 against
+0.242). Whether G1 or G2 again come within the tie margin of F1, as G2
+did in the stored run (0.232 against 0.242), cannot be judged until
+their rerun is available.
+
+### Power
+
+| Analysis | AR(1), $c_{bm} = 0.30$, rerun | stored | Compound symmetry, $c_{bm} = 0.25$, rerun | stored |
+|---|---|---|---|---|
+| S | 0.504 (0.506) | 0.514 (0.508) | 0.490 (0.498) | 0.554 (0.554) |
+| DS | 0.502 (0.522) | 0.486 (0.516) | 0.372 (0.404) | 0.480 (0.476) |
+| C1 | 0.612 (0.594) | 0.578 (0.602) | 0.624 (0.632) | 0.660 (0.658) |
+| C2 | 0.606 (0.602) | 0.606 (0.606) | 0.616 (0.604) | 0.656 (0.630) |
+| F1 | 0.448 (0.424) | 0.364 (0.410) | 0.510 (0.534) | 0.522 (0.544) |
+| F2 | 0.482 (0.490) | 0.516 (0.496) | 0.488 (0.494) | 0.552 (0.552) |
+| ES | 0.376 (0.392) | 0.364 (0.412) | 0.602 (0.572) | 0.662 (0.634) |
+| EA | 0.390 (0.392) | 0.306 (0.392) | 0.564 (0.548) | 0.602 (0.596) |
+| A | 0.556 (0.562) | 0.534 (0.566) | 0.566 (0.556) | 0.618 (0.618) |
+| DA | 0.540 (0.568) | 0.498 (0.592) | 0.524 (0.542) | 0.572 (0.596) |
+| R | 0.448 (0.482) | 0.398 (0.476) | 0.488 (0.546) | 0.596 (0.594) |
+
+Table: Rerun under the refined process: size-adjusted power (unadjusted in parentheses) in the two reference alternative cells, $N = 70$, rerun and stored run
+
+| Cell | S | C1 | F1 | ES |
+|----------------|-------------|-------------|-------------|-------------|
+| $N = 150$ | 0.840 (0.828) | 0.906 (0.918) | 0.758 (0.748) | 0.746 (0.704) |
+| $N = 35$ | 0.258 (0.222) | 0.360 (0.272) | 0.208 (0.192) | 0.188 (0.206) |
+| $t_{1/2} = 0$ | 0.498 (0.594) | 0.556 (0.666) | 0.398 (0.496) | 0.428 (0.504) |
+| $t_{1/2} = 1$ week | 0.374 (0.388) | 0.454 (0.502) | 0.274 (0.272) | 0.276 (0.288) |
+| Weibull decay, shape 0.5 | 0.392 (0.404) | 0.522 (0.514) | 0.288 (0.308) | 0.262 (0.270) |
+| Weibull decay, shape 2 | 0.494 (0.588) | 0.666 (0.682) | 0.498 (0.504) | 0.466 (0.458) |
+| Measurement error | 0.396 (0.400) | 0.462 (0.444) | 0.282 (0.318) | 0.286 (0.336) |
+| 20% MCAR dropout | 0.446 (0.426) | 0.556 (0.542) | 0.356 (0.378) | 0.352 (0.360) |
+| 20% MAR dropout | 0.458 (0.418) | 0.508 (0.518) | 0.344 (0.382) | 0.356 (0.356) |
+| Prognostic, TV constant | 0.598 (0.606) | 0.752 (0.774) | 0.456 (0.482) | 0.402 (0.370) |
+| Prognostic, TV growing | 0.544 (0.516) | 0.684 (0.672) | 0.430 (0.378) | 0.206 (0.192) |
+| Prognostic, placebo | 0.586 (0.652) | 0.746 (0.736) | 0.398 (0.446) | 0.448 (0.498) |
+| Prognostic, baseline | 0.490 (0.444) | 0.582 (0.552) | 0.416 (0.396) | 0.406 (0.336) |
+
+Table: Rerun under the refined process: size-adjusted power at $c_{bm} = 0.30$ in the stress cells for S, C1 and the two unflagged survivors F1 and ES (stored run in parentheses)
+
+**F1 against S.** At the AR(1) reference cell F1's size-adjusted power
+is 0.448 against 0.504 for S, 11% less, where the stored run gave
+0.364 against 0.514, 29% less (Section 1, item 4). F1 rose by 0.084
+($z = 2.7$) while S changed by $-0.010$. Over the 20 non-prognostic
+alternative cells with $c_{bm} > 0$, the ratio of F1's to S's
+size-adjusted power averages 0.88 in the rerun and 0.83 in the stored
+run. The stored 29% was therefore larger than F1's typical deficit
+(17% on average in the stored run, 12% in the rerun), and part of it is
+plausibly Monte Carlo error in a single cell of 500 trials (inferred:
+the two runs are independent, and the rerun cannot separate the effect
+of the DGP change from chance). Under compound symmetry F1 is now
+slightly ahead of S (0.510 against 0.490; stored 0.522 against 0.554).
+
+**Paired comparisons within the rerun** (McNemar test at 0.05 on paired
+size-adjusted rejections, 22 non-prognostic alternative cells):
+
+- F1 against DS: F1 lower in 12 cells and higher in 3 (stored run: 15
+  and 0);
+- F1 against S: F1 lower in 12 and higher in none (stored: 13 and 0);
+- ES against S: ES lower in 14 and higher in 5 (stored: 15 and 3);
+- C1 against S: C1 higher in 20 and lower in none (stored: 20 and 0).
+
+**Reading.**
+
+- **The cost of robustness is smaller than the stored run suggested at
+  the AR(1) reference cell,** but it remains: F1 has significantly
+  lower power than S in more than half of the non-prognostic cells, and
+  the largest deficits are in the measurement-error, dropout,
+  $t_{1/2} = 1$ and Weibull 0.5 cells (F1/S ratios 0.71 to 0.80).
+- **Cell-level shifts between the runs are of the size expected from
+  Monte Carlo error.** The mean change in unadjusted power over the 11
+  analyses ranges from $-0.048$ (compound-symmetry curve at 0.25) to
+  $+0.054$ (prognostic baseline cell) over the 26 alternative cells,
+  against an MCSE of about 0.03 for the difference of two independent
+  cells of 500 trials. The changes come in blocks (for example every
+  analysis lower at $t_{1/2} = 0$, a cell whose means anchoring does
+  not change), because all analyses in a cell share the same trials. The
+  $t_{1/2} = 0$ shift can only come from the allocation change or from
+  chance; which of the two was not separated (a run with
+  `--allocation fixed` would separate them).
+- **Choosing the half-life by AIC spreads further.** The share of DS
+  fits choosing $t_{1/2}^{a} = 0.5$ falls from 0.299 to 0.250, and the
+  shares at 0 and 2 weeks rise (0.170 to 0.216, and 0.179 to 0.213).
+
+### What is pending
+
+1. **The arms G1, G2 and F1A** (simulation-server jobs 21 and 22),
+   rerun on the trials of job 15 so that they are paired with the main
+   run. Local copies of earlier unpaired runs exist and are not used.
+2. **The fourteen-analysis decision** (`12-strawman-stress-decision.R
+   --strawman DS --no-symmetry --with-extras --tag -anchored`), with the
+   paired McNemar comparisons of F1 against G1, G2 and F1A, and the
+   tie-break of Section 7 between F1 and G2, which in the stored run lay
+   0.010 apart.
+3. **The post hoc arm summaries** (`14-posthoc-arm-summary.R extra
+   -anchored` and `extra2 -anchored`).
+4. **The documents that quote stress-test numbers** (paper 01,
+   `analysis/report/compendium-mathematics.tex`, `docs/48` to `docs/50`;
+   `RERUN-anchored.md`, Section 6) wait for item 2.
+
+Until then, the selection of F1 in Section 7 stands on the stored run;
+the rerun supports it among the eleven main-run analyses, and does not
+yet test it against G1 and G2.
 
 ## 12. References
 

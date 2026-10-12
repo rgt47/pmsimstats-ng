@@ -36,6 +36,18 @@ covariance-study results elsewhere in this paper still come from the
 run with the published recursive carryover; its anchored rerun is
 pending and they have not been changed.)
 
+**Rerun note (2026-10-11).** The main pass has been rerun with anchored
+carryover (allocation still fixed, so the construct is not yet the
+refined process in full); see the section "Rerun of the main pass with
+anchored carryover (2026-10-11)" before the reproducibility section.
+No main-pass analysis changes size class, size moves by at most 0.004
+in any cell and power by Monte Carlo amounts (at most 0.028
+size-adjusted). Sections 4 to 7 are left as written and are the stored
+run (recursive carryover, fixed allocation). Sections 6 and 7 (the
+follow-up and $D_{bc,it}$ passes), and the rows of Sections 4 and 5
+that come from those passes, rest on the recursive passes only (user
+decision DQ-8).
+
 ```{=latex}
 \clearpage
 \tableofcontents
@@ -278,6 +290,10 @@ suggests.
 
 ## 4. Size
 
+*Stored run (recursive carryover, fixed allocation; 2026-10-04 to
+2026-10-06). The anchored main pass is reported in the section "Rerun
+of the main pass with anchored carryover (2026-10-11)".*
+
 ### 4.1 The size table
 
 Mean, minimum and maximum size over the eight null cells (linear time),
@@ -409,6 +425,9 @@ corresponding row of Section 10 should be read with this note.
 
 ## 5. Power among the correctly sized analyses
 
+*Stored run (recursive carryover, fixed allocation; 2026-10-04 to
+2026-10-06).*
+
 Size-adjusted power, linear time, in Hybrid (verified):
 
 | Analysis | CS, $t_{1/2}=0$ | CS, $t_{1/2}=1$ | C07, $t_{1/2}=0$ | C07, $t_{1/2}=1$ |
@@ -462,6 +481,9 @@ be read as real.
   data.** Section 6 explains why.
 
 ## 6. The baseline row and the shared biomarker effect
+
+*Stored run (recursive carryover, fixed allocation; follow-up pass,
+2026-10-05). Not rerun with anchored carryover (DQ-8).*
 
 In the row coding, the baseline row and the post-baseline off-drug
 visits share one biomarker main effect $\beta_B$. In the covariate
@@ -519,6 +541,9 @@ and its null distribution would no longer be centered at zero
 (inferred, not simulated).
 
 ## 7. Carryover in the analysis: $D_{bc,it}$
+
+*Stored run (recursive carryover, fixed allocation; exposure pass,
+2026-10-06). Not rerun with anchored carryover (DQ-8).*
 
 `docs/43` asked whether the analysis should model carryover. The
 exposure pass answers this for `us-KR`, `us-CR2` and `RI+CAR1-CR2`.
@@ -798,6 +823,105 @@ Table: Corrections to statements in earlier documents
 3. **Manuscript 02 with the corrected coding.** Rerun its CO cells.
 4. **An analytic account of the shared-$\beta_B$ gain under AR(1),**
    along the lines of `docs/41`, Proposition 4.
+
+## Rerun of the main pass with anchored carryover (2026-10-11)
+
+Sections 4 to 7 report the stored passes (recursive carryover, fixed
+allocation; main pass 2026-10-04, follow-up and exposure passes
+2026-10-05 and 2026-10-06). This section reports the main pass
+repeated with anchored carryover.
+
+**What changed.** Off drug, the mean drug response is now
+$\mu_{\text{last}} \, 2^{-t_{sd}/t_{1/2}}$, anchored at the mean of the
+last on-drug visit, instead of the published recursion, which decayed
+the previous visit's already-decayed mean by the cumulative time since
+discontinuation and so counted elapsed time twice from the second
+off-drug visit onward (`RERUN-anchored.md`, Section 1). The allocation
+stays fixed (18/18/17/17 in Hybrid, 35/35 in CO), so the construct is
+still not the refined process in full: it has the refined process's
+anchored carryover, but not its randomized path allocation. Cells,
+analyses, replicates (250 alternative, 500 null) and per-chunk seeds
+are those of the stored main pass.
+
+**What was rerun.** Only the main pass: the seven analyses `cs-Satt`,
+`csh-Satt`, `us-Satt`, `sp_exp-Satt`, `us-KR`, `BL+cs-Satt` and
+`BL+us-Satt`, each with linear, spline and visit-factor time (120,000
+fits, none failed; `replicates-` and
+`summary-alt250-null500-anchored`). The follow-up and $D_{bc,it}$ passes
+under anchored carryover were cancelled (user decision DQ-8).
+**Sections 6 and 7, and every row of Sections 4 and 5 that comes from
+those passes (the KR and CR2 versions of `cs`, `csh` and `sp_exp`,
+`RI+CAR1-CR2`, `us-CR2`, the `BL+` KR and CR2 analyses, `us-KR-sepbm`
+and the $D_{bc,it}$ analyses), rest on the recursive passes.**
+`09-covariance-study-tables.R --tag -anchored` now skips a pass that
+has no anchored output, so `summary-alt250-null500-combined-anchored.csv`
+and `size-adjusted-power-alt250-null500-anchored.csv` cover the main
+pass only; the anchored and recursive passes are not combined.
+
+**Pairing.** With fixed allocation and the same seeds, the rerun uses
+the same simulated trials as the stored main pass except for the
+off-drug means at $t_{1/2} = 1$ week. The comparison is therefore
+paired (verified: in the eight $t_{1/2} = 0$ cells every rejection rate
+and every mean estimate is identical to the stored pass).
+
+| Analysis | Mean | Min | Max, CS | Max, C07 Hybrid | Max, C07 CO | Min $\kappa$ | Class |
+|-------------|------|------|------|-------------|-------------|------|----------|
+| `cs-Satt` | 0.079 | 0.042 | 0.058 | 0.066 | 0.158 | 0.73 | liberal |
+| `csh-Satt` | 0.077 | 0.040 | 0.060 | 0.052 (0.054) | 0.162 (0.164) | 0.74 | liberal |
+| `sp_exp-Satt` | 0.042 | 0.028 | 0.062 | 0.048 | 0.034 | 0.95 | conservative |
+| `us-Satt` | 0.090 | 0.072 | 0.092 | 0.102 | 0.104 | 0.84 | liberal |
+| `us-KR` | 0.058 | 0.052 | 0.062 | 0.068 (0.066) | 0.056 | 0.94 | slightly liberal |
+| `BL+cs-Satt` | 0.077 | 0.038 | 0.052 | 0.072 (0.070) | 0.160 | 0.73 | liberal |
+| `BL+us-Satt` | 0.087 | 0.074 (0.072) | 0.094 | 0.092 | 0.094 | 0.86 | liberal |
+
+Table: Anchored main pass: null size and minimum $\kappa$ over the eight null cells, linear time (anchored; the recursive value in parentheses where it differs; every class is unchanged)
+
+| Analysis, design | CS, $t_{1/2}=0$ | CS, $t_{1/2}=1$ | C07, $t_{1/2}=0$ | C07, $t_{1/2}=1$ |
+|---|---|---|---|---|
+| `us-KR`, Hybrid | 0.688 / 0.688 | 0.424 / 0.408 | 0.940 / 0.940 | 0.756 / 0.764 |
+| `cs-Satt` (published), Hybrid | 0.664 / 0.664 | 0.456 / 0.452 | 0.844 / 0.844 | 0.676 / 0.676 |
+| `us-KR`, CO | 0.720 / 0.720 | 0.748 / 0.752 | 0.804 / 0.804 | 0.768 / 0.764 |
+
+Table: Anchored main pass: size-adjusted power of the main-pass rows of Section 5, linear time (recursive / anchored)
+
+**Results** (verified, `09-covariance-study-tables.R --tag -anchored`
+and a cell-by-cell comparison with the stored main pass):
+
+- **No analysis changes size class**, in any of the three time forms.
+  The mean size over the eight null cells moves by at most 0.001
+  (`us-KR` with a visit factor, 0.058 to 0.057), and no null rejection
+  rate in a $t_{1/2} = 1$ cell moves by more than 0.004 (two replicates
+  of 500). Minimum $\kappa$ is unchanged to two decimals.
+- **Power moves by Monte Carlo amounts.** Raw power in the
+  $t_{1/2} = 1$ alternative cells changes by at most 0.012, and
+  size-adjusted power by at most 0.028; the largest change among the
+  rows quoted in Section 5 is `us-KR` in CS Hybrid at $t_{1/2} = 1$
+  (0.424 to 0.408). The size-adjusted figures move more than the raw
+  ones because the null quantile is re-estimated from 500 replicates.
+- **The estimate barely moves.** The mean estimate of
+  $\beta_{bm:D}$ changes by at most 0.0005 in any alternative cell
+  (`us-KR` in C07 Hybrid at $t_{1/2} = 1$: $-0.1962$ to $-0.1960$; CS
+  Hybrid: $-0.1000$ to $-0.0999$, so the attenuation quoted in Section
+  7 is unchanged).
+- **Rows of Sections 4.4, 6 and 7 that come from the main pass.** The
+  CS Hybrid $t_{1/2} = 1$ null rates of `cs-Satt` (0.054, 0.070, 0.072
+  for linear, spline and visit time) are unchanged; `us-KR` with a
+  visit factor goes from 0.072 to 0.070. The `us-KR` row of the Section
+  6 table (visit factor, raw) changes only in C07 Hybrid at
+  $t_{1/2} = 1$ (0.796 to 0.804), and the $D_{it}$ row of the Section 7
+  table only in CS Hybrid at $t_{1/2} = 1$ (0.436 to 0.440).
+
+**Reading.** The correction to the carryover mean leaves the
+conclusions of Sections 4 and 5 unchanged. The likely reason (inferred,
+not derived) is that the change shifts the off-drug drug-response mean
+by the same amount for every participant on a path, independently of
+the biomarker, so it is absorbed by the drug and time terms and enters
+the biomarker-by-drug interaction only through small changes in
+residual misfit. In CO the first off-drug visit is 2.5 weeks after
+discontinuation, where both forms of the mean are already small.
+Because the main-pass analyses change so little, the follow-up and
+$D_{bc,it}$ passes are expected to change little as well (inferred, not
+tested; DQ-8).
 
 ## 13. Reproducibility
 

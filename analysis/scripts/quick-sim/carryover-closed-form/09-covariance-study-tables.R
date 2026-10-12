@@ -17,6 +17,14 @@ rr <- as.integer(strsplit(sarg('--reps', '250,500'), ',')[[1]])
 rt <- sprintf('alt%d-null%d', rr[1], rr[2])
 d <- sarg('--dir', 'analysis/data/quick-sim/carryover-closed-form/covariance-study')
 runs <- c(main = '', followup = '-followup', dbc = '-dbc')
+## A pass that was not run under this tag (e.g. the anchored follow-up
+## and Dbc passes, cancelled; DQ-8) is skipped, so the tables then
+## cover the remaining passes only.
+have <- file.exists(file.path(d, sprintf('summary-%s%s%s.csv', rt, runs, tag)))
+if (!have[1]) stop('main pass missing: ', sprintf('summary-%s%s.csv', rt, tag))
+if (!all(have)) cat('Passes not found for tag', sQuote(tag), 'and skipped:',
+                    paste(names(runs)[!have], collapse = ', '), '\n')
+runs <- runs[have]
 all <- rbindlist(lapply(names(runs), function(r)
   fread(file.path(d, sprintf('summary-%s%s%s.csv', rt, runs[[r]], tag)))[, run := r]),
   fill = TRUE)

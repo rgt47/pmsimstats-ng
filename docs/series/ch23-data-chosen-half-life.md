@@ -716,7 +716,7 @@ p_cct <- 0.5 - atan(0.5 * tan((0.5 - tA['p']) * pi) + 0.5 * tan((0.5 - tB['p']) 
   half A, so the test on B is a fixed-$h$ test. Its size is the
   fixed-$h$ size of F1 at $N/2$; no further condition is needed.
 - *Cross-fit average: approximate* (derived to first order). Under the
-  null, $E[\hat\beta_A \mid \text{half B}] \approx 0$ because given
+  null, $\mathbb{E}[\hat\beta_A \mid \text{half B}] \approx 0$ because given
   half B the regressor for half A is fixed, so the two half estimates
   are approximately uncorrelated and the variance of their average is
   approximately $(\mathrm{SE}_A^2 + \mathrm{SE}_B^2)/4$. They are not

@@ -32,7 +32,7 @@ the phase-augmented model; reductions.
 
 | Symbol | Meaning |
 |---|---|
-| $\Delta_{PB}$ | $E[PB \mid \text{on}] - E[PB \mid \text{off}]$ (Paper 06 notation) |
+| $\Delta_{PB}$ | $\mathbb{E}[PB \mid \text{on}] - \mathbb{E}[PB \mid \text{off}]$ (Paper 06 notation) |
 | $\Delta_{TV}$ | natural-history contribution that fails to cancel |
 | $w_{PB}$, $w_{TV}$ | design-determined loadings on placebo/natural-history slope |
 | $\beta_{bm}^C$ | $\mathrm{Cov}(m_C, B) / \mathrm{Var}(B)$ for component $C$ |
@@ -161,7 +161,7 @@ $$
 where $\Delta_{PB} = E[PB \mid \text{on}] - E[PB \mid \text{off}]$ and
 $\Delta_{TV}$ is the natural-history contribution that fails to cancel
 under the contrast used (zero for a clean on/off within-participant
-contrast; $E[TV]$ itself for a baseline-anchored pre-post analysis).
+contrast; $\mathbb{E}[TV]$ itself for a baseline-anchored pre-post analysis).
 Both are generally non-negative for an improving outcome, so the
 one-component estimate systematically overstates $m_{BR}$. This is a
 property of the estimator's probability limit, not a finite-sample

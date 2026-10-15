@@ -157,7 +157,7 @@ Power is strictly increasing in $|\beta_{bm:D}|$, hence in the gap
 lines 1617-1692 -->
 
 **The spread argument.** On drug, joint normality gives
-$E(BR_{it} \mid b_i = \pm 1) = \mu_{BR,t} \pm c_{bm}\sigma_{BR}$,
+$\mathbb{E}(BR_{it} \mid b_i = \pm 1) = \mu_{BR,t} \pm c_{bm}\sigma_{BR}$,
 a spread $\Delta_\text{on} = 2c_{bm}\sigma_{BR}$ between participants
 one standard deviation above and below the biomarker mean. If
 carryover is pharmacokinetic, each participant's drug effect decays

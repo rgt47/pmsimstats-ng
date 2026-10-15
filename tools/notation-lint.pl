@@ -70,6 +70,17 @@ for my $file (@ARGV) {
       if $p =~ /\$?N\$?\s*(?:=|\\in)\s*\$?[\d,.{}\\\s]{1,12}\$?\s*
                 (?:participants?\s+|subjects?\s+)?
                 per\s+(?:randomization\s+)?path\b/x;
+    # GP-37: plain $E( for expected value (should be $\mathbb{E}($)
+    # Fires on $E( or $E[ but not $\mathbb{E}( or subscripted $E_t(
+    # Known false positive: ch11 declares $E(t)$ as a local PK/PD
+    # symbol (the turnover target / exposure), explicitly distinct from
+    # $\mathbb{E}$. The linter cannot distinguish local-symbol uses.
+    push @hits, "$ln bare-E-expect"
+      if $p =~ /\$E\s*[\(\[]/;
+    # GP-37: plain $N( for the normal law (should be $\mathcal{N}($)
+    # Fires on $N( but not $\mathcal{N}( or $N =$ or $N_i$
+    push @hits, "$ln bare-N-normal"
+      if $p =~ /\$N\s*\(/;
   }
   close $fh;
   # A day-denominated half-life is compliant if the file carries an

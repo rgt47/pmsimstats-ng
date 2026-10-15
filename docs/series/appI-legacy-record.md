@@ -673,7 +673,7 @@ the two periods; $\omega_0$ the carryover from control and
 $\omega_1$ the carryover from active treatment. The basic crossover
 estimator $\hat\tau$ has expectation:
 
-$$E(\hat\tau) = \tfrac{1}{2}(\tau_1 + \tilde\tau_2 - \omega_1 + \omega_0)$$
+$$\mathbb{E}(\hat\tau) = \tfrac{1}{2}(\tau_1 + \tilde\tau_2 - \omega_1 + \omega_0)$$
 
 The estimator is biased by $-(\omega_1 - \omega_0)/2$. With no
 carryover from control ($\omega_0 = 0$), the bias is $-\omega_1/2$,
@@ -758,7 +758,7 @@ off drug, participants with low biomarkers had negative BR values
 (the drug was worsening their symptoms). The conditional
 expectation of BR given BM is:
 
-$$E[BR_t \mid BM] = \mu_{BR,t} + c_{bm} \cdot
+$$\mathbb{E}[BR_t \mid BM] = \mu_{BR,t} + c_{bm} \cdot
 \frac{\sigma_{BR}}{\sigma_{BM}} \cdot (BM - \mu_{BM})$$
 
 When $\mu_{BR,t} \approx 0$ (off drug, full carryover decay) and

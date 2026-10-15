@@ -297,12 +297,12 @@ documents before docs/34 (source: `docs/59` Section 7.1)
 |---|---|---|
 | 34 Sections 3.1-3.2 | $\tilde r$; unpadded $g$ in the ceiling formula; $C$ as cross block | $\tilde g$; $(\tilde g^\top M^{-1}\tilde g)^{-1/2}$; name block explicitly |
 | 35 | $q_K$, $q_A$ (eigenvectors); $\Delta$ as a time lag; $\mu$ as an eigenvalue; $v_{TV}$, $v_{PB}$, $v_{BR}$; $s_t$ as factor SDs | Letters chosen against NOTATION's reserved list; fix each to a non-reserved letter |
-| 37 Sections 4, 4.4 | plain $E(\cdot)$; $\mu$, $\mu_p$, $\bar\mu$ local; $v_t$ factor SDs; $e_i$ residual; "patient(s)" | $\mathbb E$; another letter; participant |
+| 37 Sections 4, 4.4 | plain `$E(\cdot)$`; $\mu$, $\mu_p$, $\bar\mu$ local; $v_t$ factor SDs; $e_i$ residual; "patient(s)" | $\mathbb{E}(\cdot)$; another letter; participant |
 | 38 | $f(t)$, $\bar f$, $F$; $G$, $H$ in Section 6 proof; $\sigma_v^2$ | $h(t)$, $\Delta_h$ (as in docs/44); other letters; $\tau^2$ (DQ-6) |
-| 41 line 205 | $N(\cdot)$; $f(t)$; $d_{it}$ | $\mathcal N$; another letter; another letter |
+| 41 line 205 | `$N(\cdot)$`; $f(t)$; $d_{it}$ | $\mathcal{N}(\cdot)$; another letter; another letter |
 | 42, 45 | $f(t)$ for the time adjustment | another letter (e.g., $s(w_t)$) |
 | 45 index | $B_i$ "centered" | $B^c_i$ |
-| 51 | $\sigma_v^2$; $E(t)$, $E_{it}$ beside E1-E9; $L$, $U$ beside $L_{it}$ | $\tau^2$ (DQ-6); other letters; rename |
+| 51 | $\sigma_v^2$; `$E(t)$`, `$E_{it}$` beside E1-E9; $L$, $U$ beside $L_{it}$ | $\tau^2$ (DQ-6); other letters; rename |
 | 56 Section 1 | AR(1) exponent on the visit index | $\lvert w_t - w_s\rvert$ |
 | 57 | $M$, $m$ (bootstrap); $g(Y)$; $\gamma$; $h$ (candidate half-life); $\omega$; $\hat\xi$; $e_i$; grid $\{0, 0.25, 0.5, 1, 2\}$ | letters not on reserved list; one half-life grid across docs/57 and docs/58 (DQ-10) |
 | 58 | $B$ (GLS bread), $G$ (randomization distribution) beside Gompertz $G$; analysis labels shared with interaction track | other letters; `M-` labels (Appendix A, Section 2.7) |
@@ -329,7 +329,7 @@ Section 7.2)
    project's studies are exploratory and its protocols are working
    protocols, never described with the vocabulary of registered trials.
 9. The linter `tools/notation-lint.pl` runs over every chapter; two
-   additional checks for the series: plain $E($ and $N($ for the
+   additional checks for the series: plain `$E($` and `$N($` for the
    normal law; and reserved letters reused in a chapter's local table
    (GP-37).
 

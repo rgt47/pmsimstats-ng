@@ -95,7 +95,7 @@ anticonservative; a value at 1 is correctly sized. The Wald test
 statistic is $\hat\beta / \widehat{\mathrm{SE}}$, so the actual size is
 approximately $2\Phi(-z_{1-\alpha/2}/\kappa)$ for a two-sided test
 at nominal $\alpha$. At $\kappa = 0.78$, $\alpha = 0.05$, the actual
-size is about 0.10 (`docs/45`, Section 4; inspected).
+size is about 0.10 [inspected, docs/45 Section 4].
 
 ### Kappa: ratio of model SE to empirical SD
 
@@ -129,7 +129,8 @@ the empirical null rejection rates remaining within or close to the
 [verified, summary-full-anchored.csv, job 15].
 
 Under S at the same null cells, kappa ranges from 0.930 to 1.025
-with a mean of 0.980. The pattern is qualitatively similar to F1:
+with a mean of 0.980 [inspected, summary-full-anchored.csv]. The
+pattern is qualitatively similar to F1:
 both analyses are close to correctly calibrated under the refined
 process (Hybrid, AR(1)) in the non-prognostic cells, with the more
 extreme deviations concentrated in the smaller-N (N35, kappa = 0.930)
@@ -162,8 +163,8 @@ $$
 which forces $\sigma_u^2 = 0$ and maps the AR(1) covariance to white
 noise. For the Hybrid at $\rho = 0.7$, $T = 9$ timepoints, the best
 compound-symmetry fit to the AR(1) Gram matrix yields REML estimates
-$\hat\sigma_u^2 \approx 0$ and inflated $\hat\sigma_e^2$ (inspected;
-`docs/45` Section 4.3). The Kenward-Roger correction is designed for
+$\hat\sigma_u^2 \approx 0$ and inflated $\hat\sigma_e^2$
+[inspected, docs/45 Section 4.3]. The Kenward-Roger correction is designed for
 balanced data with a correctly specified covariance; applied here it
 does not fix the mismatch between compound symmetry and AR(1).
 
@@ -183,13 +184,13 @@ constructs; $N = 70$):
 | `ri-CAR1-Satt` | 0.053 | 0.061 |
 | `us-CR2` | 0.052 | 0.052 |
 
-(Rounded; verified from `docs/45` Table 4, CO column omitted here.)
+[inspected, docs/45 Table 4]
 
 KR with either the unstructured or the random-intercept-plus-CAR(1)
 covariance holds size at 0.054 to 0.062 under CS data but inflates to
 0.062 in Hybrid under AR(1). CR2 holds 0.051 to 0.054 in both
 constructs. Under the crossover, `ri-CAR1-KR` fails badly: 0.14 to
-0.23 (inspected; construct-specific ranges in `docs/36` Section 6.8).
+0.23 [inspected, docs/36 Section 6.8].
 KR and CR2 are not interchangeable once the data are AR(1).
 
 ### CR2 intuition, plain sandwich, and degrees of freedom
@@ -214,9 +215,8 @@ cluster sizes.
 **CR2 in the crossover.** Under the crossover at 1 to 5 MCSE, `us-KR`
 runs 0.14 to 0.23 under the published compound-symmetry construct with
 AR(1) data (`docs/36`, Section 6.8). `ri-CAR1-CR2` under the same
-runs 0.14 to 0.16 (verified from `docs/56`, Section 3.5). The gap
-narrows but does not close; using AR(1) working covariance is the
-correct fix.
+runs 0.14 to 0.16 [inspected, docs/56 Section 3.5]. The gap narrows
+but does not close; using AR(1) working covariance is the correct fix.
 
 <!-- TODO: table distinguishing 0.14 to 0.16 (ri-CAR1-CR2, CO,
 AR(1) data) from 0.14 to 0.23 (us-KR, CO, AR(1) data), with
@@ -232,7 +232,7 @@ The parallel analysis using `lmer` (R package `lme4`) with
 KR-adjacent inference. The relevant finding for this chapter is that
 `lme4`'s REML-KR approximation agrees closely with `nlme::lme`
 KR at sample sizes $N \ge 50$. At $N = 30$ the two can diverge by
-up to 0.005 in rejection rate (inspected; Appendix I Section 4).
+up to 0.005 in rejection rate [inspected, Appendix I Section 4].
 
 ### Why the published analysis fails in the crossover under AR(1)
 
@@ -249,7 +249,7 @@ contrasts. The result is the 0.14 to 0.23 inflation.
 
 The Hybrid design mixes between- and within-participant information,
 so the inflation is smaller (0.062 for `ri-CAR1-KR` against 0.054
-for `ri-CAR1-CR2`; verified from `docs/45` Table 4).
+for `ri-CAR1-CR2`) [inspected, docs/45 Table 4].
 
 ### RM-ANOVA as special case
 

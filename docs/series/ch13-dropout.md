@@ -249,7 +249,8 @@ only documented in the compendium? -->
 The stress-test dropout cells (MCAR and MAR at 20% marginal rate, job
 15) document the power cost of dropout at $c_{bm} = 0.3$, $N = 70$
 Hybrid design, analysis F1. Results below are from
-`analysis/data/summary-full-anchored.csv`, job 15 [verified]:
+`analysis/data/summary-full-anchored.csv`, job 15
+[inspected, summary-full-anchored.csv]:
 
 | Dropout mechanism | F1 power | S power | MCSE (approx.) |
 |---|---|---|---|

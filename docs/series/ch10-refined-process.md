@@ -162,8 +162,7 @@ Nominal Hybrid power at $c_{bm} = 0.25$, `corCAR1` analysis:
 | C AR(1) + graded, sep. ($c_{bm} = 0.30$) | 0.69 | 0.70 | 0.72 | 0.55 | 0.36 |
 | D Mean moderation ($c_{bm} = 0.30$) | 0.78 | 0.75 | 0.74 | 0.77 | 0.73 |
 
-(Verified, `power-summary-reps500-car1-anchored.csv`; `docs/36`
-Table 9.)
+[verified, power-summary-reps500-car1-anchored.csv]
 
 Five findings (`docs/36` Section 6.8):
 
@@ -184,9 +183,10 @@ Five findings (`docs/36` Section 6.8):
 ### The ceiling and feasibility
 
 At the refined process's $\rho = 0.7$, the Hybrid coupling ceiling
-for configuration C is 0.480 (path A; 0.491 on path C; `docs/35`,
-Section 6). The compendium's standard effect size $c_{bm} = 0.45$ is
-feasible with a margin of at least 0.02 in every design and half-life.
+for configuration C is 0.480 (path A; 0.491 on path C)
+[inspected, docs/35 Section 6]. The compendium's standard effect size
+$c_{bm} = 0.45$ is feasible with a margin of at least 0.02 in every
+design and half-life [inspected, docs/35 Section 6].
 
 ### Analysis implications
 
@@ -208,9 +208,11 @@ expectancy term `De` with its biomarker interaction (`docs/49`;
 
 ### Published vs refined process: specification differences
 
+*Values inspected from `docs/44` and `docs/32` [inspected, docs/44].*
+
 | Feature | Published process | Refined process | Classification |
 |---|---|---|---|
-| Covariance form | CS, $\rho_{cs} = 0.8$ at every lag; constant cross-factor $c_\times = 0.1$ | Separable AR(1), $\rho = 0.7$ per week, $c_1 = 0.2$ | choice: raises coupling ceiling from 0.256 to 0.480 (Hybrid); clinically plausible temporal decay (`docs/32` secs. 4-5) |
+| Covariance form | CS, $\rho_{cs} = 0.8$ at every lag; constant cross-factor $c_\times = 0.1$ | Separable AR(1), $\rho = 0.7$ per week, $c_1 = 0.2$ | choice: raises coupling ceiling from 0.256 to 0.480 (Hybrid) [inspected, docs/35]; clinically plausible temporal decay (`docs/32` secs. 4-5) |
 | Coupling profile off drug | Step: full $c_{bm}$ wherever $\mu_{BR} \ne 0$ | Graded: $c_{bm} e^{-\lambda t_{sd}}$ off drug, 0 before first exposure | repair: step coupling flattens the on/off contrast at any $t_{1/2} > 0$, removing the interaction signal (`docs/37`) |
 | Carryover on $\mu_{BR}$ | Compounding recursion: applies decay factor to already-decayed mean | Anchored: $\mu_{\text{last}} \cdot 2^{-t_{sd}/t_{1/2}}$ | repair: recursion counts elapsed time twice, over-decaying faster than the stated $t_{1/2}$ (`docs/53`) |
 | Pre-exposure $D_{bc}$ coding | Coded as exposed before any dose | Zero before first dose | repair: pre-exposure guard removes spurious interaction on placebo-first paths (Paper 01 B.4) |

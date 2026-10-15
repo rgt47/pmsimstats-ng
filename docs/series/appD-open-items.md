@@ -187,6 +187,7 @@ items. Status: open, in progress, deferred, or blocked.
 | Factored generator in `generateSimulatedResults()` | appD | PKG-02 | open |
 | `cbmCeiling()` exported function | appD | PKG-04 | open |
 | Parity baselines after refined-process adoption | appD | PKG-06 | open (depends on PKG-01 to PKG-05) |
+| OD-CV: Covariance-study analysis IDs (`us-KR`, `us-CR2`, `us-Satt`, `BL+us`, 66 occurrences in ch20) are the original docs/45 labels. They should map to `CV-` prefix IDs once the mapping from docs/43 Secs 3.7-3.8 is established in the analyses.csv registry. Do not rename until the CV-ID assignment is done. | ch20, appA | OD-CV | Open: appA TODO row exists |
 
 ---
 

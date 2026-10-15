@@ -157,7 +157,7 @@ a component that covaries with drug state (TV constant, placebo
 response). F1 holds 0.049 in both cases. In the predictive-only rows,
 F1 costs power: 0.416 (S) against 0.195 (F1) at strength 0.3 (with
 no prognostic component). The cost reflects the expectancy terms
-absorbing part of the drug contrast.
+absorbing part of the drug contrast. [inspected, docs/48]
 
 ### Why F1 is approximately unbiased
 
@@ -179,7 +179,7 @@ correlation, the partial regression coefficient $\hat\beta_{bm:D}$ in
 F1 is approximately unbiased for $c_{bm}$ when the prognostic pathways
 are active, because the expectancy interaction column accounts for the
 part of the TV and PB trajectories that covaries with both $D_{it}$
-and $\eta_t$.
+and $\eta_t$. [inspected, docs/56]
 
 <!-- TODO: F1 approximately unbiased -- formal argument; reference
 job 15 leak-factor runs when available (CR-21) -->
@@ -200,6 +200,7 @@ predictive biomarker, the baseline row adds a clean off-drug
 observation and the shared $\beta_B$ correctly estimates the
 prognostic slope (zero in the standard construct). This gives the
 analysis a power advantage of about 0.02 in the Hybrid at $N = 70$.
+[inspected, docs/45]
 
 When the biomarker is prognostic, the shared-slope constraint breaks
 down because the baseline visit's covariance with $B_i$ is
@@ -239,7 +240,7 @@ Under a prognostic biomarker that operates through baseline severity
 ($c_{BL} \ne 0$), this no longer holds: the baseline visit absorbs
 the severity effect, and the baseline covariance is augmented by
 $c_{BL}^2 \sigma_B^2$. The ANCOVA estimator and the shared-slope
-E9b estimator both shift in opposite directions.
+E9b estimator both shift in opposite directions. [inspected, docs/41]
 
 ---
 

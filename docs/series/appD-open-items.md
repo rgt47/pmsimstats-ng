@@ -188,6 +188,10 @@ items. Status: open, in progress, deferred, or blocked.
 | `cbmCeiling()` exported function | appD | PKG-04 | open |
 | Parity baselines after refined-process adoption | appD | PKG-06 | open (depends on PKG-01 to PKG-05) |
 | OD-CV: Covariance-study analysis IDs (`us-KR`, `us-CR2`, `us-Satt`, `BL+us`, 66 occurrences in ch20) are the original docs/45 labels. They should map to `CV-` prefix IDs once the mapping from docs/43 Secs 3.7-3.8 is established in the analyses.csv registry. Do not rename until the CV-ID assignment is done. | ch20, appA | OD-CV | Open: appA TODO row exists |
+| docs/02 cited in ch01 and registry/chapters.csv; the numbered whitepaper does not exist -- the review PDF is at `docs/reviews/02-dgp-mean-moderation-vs-mvn_rchcomments_rh.pdf`. References are self-annotated with HTML comments. | ch01, registry | LK-02 | Informational; no fix needed |
+| docs/22 cited in appB; the numbered whitepaper was superseded by `analysis/scripts/parity/README.md`. The appB reference is annotated. | appB, registry | LK-22 | Informational; no fix needed |
+| docs/27 cited in ch01, ch02, and registry; the numbered whitepaper was planned but never written. All references are self-annotated. | ch01, ch02, registry | LK-27 | Informational; no fix needed |
+| docs/33 cited in ch02, ch18, and registry; the numbered whitepaper was planned but never written. ch18 prose is self-aware ("does not exist in this project"). | ch02, ch18, registry | LK-33 | Informational; no fix needed |
 
 ---
 

@@ -204,19 +204,63 @@ expectancy term `De` with its biomarker interaction (`docs/49`;
 
 ### New-to-write items
 
-<!-- TODO: the difference table per Paper 01 tab:spec: every
-parameter, orig vs refined, rationale column -->
+### Published vs refined process: specification differences
 
-<!-- TODO: the refined-process operating characteristics from job 14
-and job 15 (the stress-test reruns under the refined process with
-anchored carryover); summarize size, maximin power and key survivor
-analyses; see docs/47 "Rerun under the refined process" section -->
+| Feature | Published process | Refined process | Classification |
+|---|---|---|---|
+| Covariance form | CS, $\rho_{cs} = 0.8$ at every lag; constant cross-factor $c_\times = 0.1$ | Separable AR(1), $\rho = 0.7$ per week, $c_1 = 0.2$ | choice: raises coupling ceiling from 0.256 to 0.480 (Hybrid); clinically plausible temporal decay (`docs/32` secs. 4-5) |
+| Coupling profile off drug | Step: full $c_{bm}$ wherever $\mu_{BR} \ne 0$ | Graded: $c_{bm} e^{-\lambda t_{sd}}$ off drug, 0 before first exposure | repair: step coupling flattens the on/off contrast at any $t_{1/2} > 0$, removing the interaction signal (`docs/37`) |
+| Carryover on $\mu_{BR}$ | Compounding recursion: applies decay factor to already-decayed mean | Anchored: $\mu_{\text{last}} \cdot 2^{-t_{sd}/t_{1/2}}$ | repair: recursion counts elapsed time twice, over-decaying faster than the stated $t_{1/2}$ (`docs/53`) |
+| Pre-exposure $D_{bc}$ coding | Coded as exposed before any dose | Zero before first dose | repair: pre-exposure guard removes spurious interaction on placebo-first paths (Paper 01 B.4) |
+| Path allocation | Deterministic (fixed order) | Randomized | choice: reduces path-order confounding |
+| Non-PD matrix handling | Silent Cholesky repair (`make.positive.definite`) | Stop | choice: fail-fast; package Cholesky fallback still present as open item |
 
-<!-- TODO: the unreported common-grid contrast behind
-36-fig4-contrast-reps100.png: both orig and the fixes run on a common
-grid ($c_{bm} \in \{0.25, 0.30\}$, $t_{1/2} \in \{0, 0.1, 0.2, 0.5,
-1\}$, $N = 70$) for a side-by-side power comparison not in docs/36's
-main figures; report it here -->
+The four repairs remove defects in the published code: the coupling
+step rule and pre-exposure coding make the interaction
+non-identifiable or inflated under carryover; the compounding
+recursion misquantifies the off-drug mean. The two choices -- AR(1)
+temporal correlation and randomized paths -- improve clinical
+plausibility and design comparability without correcting a logical
+error. The net power change relative to the published process at
+matched feasible strengths is reported in the Numerical evidence
+section below.
+
+### Common-grid contrast: published vs refined process
+
+The figure `36-fig4-contrast-reps100.png` in `docs/figures/` shows the
+power contrast between the published and refined covariance constructs.
+The underlying data are in
+`analysis/data/quick-sim/hendrickson-problems/power-sim/`
+`power-summary-reps500-car1-anchored.csv` (arm A = published process,
+arm C = configuration C; corCAR1 analysis; n_reps = 500; Hybrid design,
+$N = 70$). The `summary-full.csv` and `summary-full-anchored.csv` files
+in the strawman-stress directory do not include an `orig` arm; the
+comparison uses the hendrickson-problems runs.
+
+Side-by-side power at $N = 70$, Hybrid design, corCAR1 analysis
+[verified, `power-summary-reps500-car1-anchored.csv`]:
+
+| $c_{bm}$ | $t_{1/2}$ (wk) | Power, published (A) | Power, refined (C) |
+|---|---|---|---|
+| 0.25 | 0 | 0.59 | 0.51 |
+| 0.25 | 0.1 | 0.08 | 0.48 |
+| 0.25 | 0.2 | 0.08 | 0.52 |
+| 0.25 | 0.5 | 0.09 | 0.41 |
+| 0.25 | 1 | 0.10 | 0.28 |
+| 0.30 | 0 | infeasible ($c_{bm}^* = 0.256$) | 0.69 |
+| 0.30 | 0.1 | 0.09 | 0.70 |
+| 0.30 | 0.2 | 0.09 | 0.72 |
+| 0.30 | 0.5 | 0.09 | 0.55 |
+| 0.30 | 1 | 0.08 | 0.36 |
+
+Published-process power collapses to near the nominal level at any
+positive half-life, regardless of effect size: the step coupling rule
+removes the identifiable contrast as soon as carryover is nonzero.
+The refined process retains power close to its no-carryover value at
+short half-lives (0.1 and 0.2 weeks) and declines smoothly at longer
+ones. At $c_{bm} = 0.30$ the published construct is infeasible without
+carryover ($c_{bm}^* = 0.256$) and is rescued only by the step rule's
+ceiling-raising artifact, not by any genuine signal.
 
 ---
 
@@ -234,7 +278,49 @@ main figures; report it here -->
 See power table above (docs/36 Section 6.8) and ceiling table in
 ch09.
 
-<!-- TODO: refined-process stress-test results (jobs 14 and 15) -->
+### Refined-process operating characteristics (jobs 14 and 15)
+
+Jobs 14 (non-anchored) and 15 (anchored) ran the stress-test driver
+(`11-strawman-stress-test.R`) under configuration C at $\rho = 0.7$,
+with the published recursive carryover (job 14) and anchored carryover
+(job 15) respectively. Results below are from job 15 (anchored;
+`summary-full-anchored.csv`), which implements the refined process.
+All cells ran $n_{\text{reps}} = 1000$ null and 500 alternative trials.
+
+**Type I error (size).** Under F1, the null-hypothesis rejection rate
+across the fifteen stress-test cells is 0.041 to 0.064, with individual
+MCSE of approximately 0.007 [verified, `summary-full-anchored.csv`,
+`hyp == "null"`, `analysis == "F1"`]. Every cell is within two MCSE of
+the nominal 0.05. The S analysis (no expectancy term) is similarly
+controlled across non-prognostic cells (0.041-0.061) but is inflated
+for prog-TV-const (0.099) and prog-PB (0.114), where the omitted
+expectancy term is correlated with the biomarker interaction -- the
+expected behavior that motivates including the expectancy term in F1.
+
+**Power under the stress test.** At $c_{bm} = 0.3$ and $N = 70$,
+F1 power across the ten core stress-test cells spans 0.208 to 0.736
+[verified, `summary-full-anchored.csv`, `hyp == "alt"`,
+`analysis == "F1"`, `cbm == 0.3`]:
+
+| Cell | F1 power | MCSE |
+|---|---|---|
+| curve-C07 (reference) | 0.424 | 0.022 |
+| curve-CS (CS covariance) | -- | -- |
+| meas-error | 0.316 | 0.021 |
+| N35 | 0.208 | 0.018 |
+| N150 | 0.736 | 0.020 |
+| thalf0 (no carryover) | 0.448 | 0.022 |
+| thalf1 (1-wk half-life) | 0.274 | 0.020 |
+| weibull0.5 (Weibull onset) | 0.334 | 0.021 |
+| weibull2 (slow Weibull) | 0.464 | 0.022 |
+| dropout-MCAR | 0.352 | 0.021 |
+| dropout-MAR | 0.319 | 0.021 |
+
+The maximin cell is N35 (power 0.208, MCSE 0.018): underpowering
+is the expected consequence of halving the sample size from the 70
+that the stress test's reference cell uses. Among the $N = 70$ cells
+the lowest power is thalf1 at 0.274, reflecting the power cost of
+a one-week carryover half-life under the refined process.
 
 ---
 

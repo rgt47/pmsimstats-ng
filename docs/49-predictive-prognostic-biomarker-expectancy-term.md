@@ -25,6 +25,17 @@ half-life, F1 with phase-specific variances) are complete. Their
 results are entered in Sections 3 to 7, with dated notes; the
 recommendation is unchanged (`docs/46`, Amendment 2).
 
+**Rerun note (2026-10-15).** The figures in this paper are from the
+stored stress-test run (recursive carryover, fixed allocation). The
+test has been repeated under the refined process for all fourteen
+analyses, with 1,500 further trials per cell for the eight survivors
+(post hoc); see `docs/47`, section "Rerun under the refined process
+(2026-10-11)". The recommendation is unchanged: F1 fails no screen and
+is retained on the tie rule; F1A again fails size; G1 and G2 are post
+hoc alternatives that tie with F1 (pooled maximin shortfall F1 0.216,
+G1 0.221, G2 0.221). The cost of F1 against S at the AR(1) reference
+cell is 11% in the rerun, not about 30% (Section 6, Question 3).
+
 ```{=latex}
 \clearpage
 \tableofcontents
@@ -319,6 +330,10 @@ Table: Size and size-adjusted power of F1 and the three post hoc analyses
    gain 0.002 (G1) and 0.017 (G2) over F1. G2 and F1 tie within 0.02
    on maximin shortfall (0.232 against 0.242), and the tie goes to F1,
    which has fewer covariance parameters (`docs/48`, Section 5).
+   (Rerun, 2026-10-15: on the 28,000 rerun trials G2 led F1 by 0.026,
+   beyond the margin; with 1,500 further trials per cell, pooled, F1,
+   G1 and G2 tie within it (0.216, 0.221, 0.221) and the tie again goes
+   to F1. F1A again fails size, pooled 0.059. `docs/47`.)
 
 ## 6. Decision framework
 
@@ -342,8 +357,11 @@ stronger evidence, treat the biomarker as possibly prognostic.
 **Question 3: what is the cost of protection?** It depends on the
 serial correlation the trial is likely to show. If pilot data suggest
 little serial correlation beyond a participant effect, F1 costs little.
-Under strong serial correlation it costs about 30% of the power. The
-sample size should then be planned for F1, not for S.
+Under strong serial correlation it cost about 30% of the power at the
+AR(1) reference cell in the stored run, and 11% in the rerun under the
+refined process (0.448 against 0.504; about 12% on average over the
+non-prognostic cells; `docs/47`, note of 2026-10-15). The sample size
+should then be planned for F1, not for S.
 
 **Question 4: how should disagreement be read?** Report S as a
 sensitivity analysis. If F1 and S agree, the conclusion does not
@@ -372,7 +390,9 @@ it.
    (Revisited 2026-10-07, Section 5: F1 with AIC selection fails the
    size criterion, and the phase-variance versions hold size but add no
    material power. F1 with the fixed half-life of 0.5 week remains the
-   primary analysis.)
+   primary analysis. Revisited again 2026-10-15 on the rerun under the
+   refined process, `docs/47`: unchanged; G1 and G2 tie with F1 and are
+   post hoc alternatives.)
 
 ## 8. Limitations
 

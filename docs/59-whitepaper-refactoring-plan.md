@@ -483,6 +483,8 @@ as settled:
    document is Appendix I, the legacy record (Section 3.8).
 3. **The `--extra` and `--extra2` arms** of the stress test are being
    rerun on the server mercury (jobs 21 and 22) to pair with job 15.
+   (Done 2026-10-15: jobs 21 and 22 are paired with job 15 and reported
+   in `docs/47`, with the post hoc job 37; F1 retained.)
 
 ## 3. Target structure
 
@@ -1141,9 +1143,9 @@ Table: Conflicts that need analysis, inspection or a decision
 | ID | Conflict or open number | Documents and sections | State on 2026-10-11 | Action |
 |-------|----------------|---------------------------|------------------------------|--------------|
 | CR-52 | Cost of F1 relative to S | 47 Section 1, 48 Section 3, 49 Section 1.5, 56 Section 1 (29%, stored run) against 57 Section 8.3 (F1 0.438 under the refined process) | job 15 holds S and F1 under the refined process (observed, 451 rows); not yet tabulated | report in `ch21`, `ch22` (writing only) |
-| CR-53 | G1, G2 and F1A under the refined process | 46 Amendment 2, 47 Section 7, 49 Section 5 | local anchored arms unpaired with job 15; jobs 21 and 22 running (decided) | report when jobs 21 and 22 finish; `ch21` |
+| CR-53 | G1, G2 and F1A under the refined process | 46 Amendment 2, 47 Section 7, 49 Section 5 | local anchored arms unpaired with job 15; jobs 21 and 22 running (decided) | report when jobs 21 and 22 finish; `ch21`. Done 2026-10-15: reported in `docs/47` (rerun section); F1A fails size, G1 and G2 tie with F1 |
 | CR-54 | The covariance study under anchored carryover | 45 (recursive, fixed allocation); 35 Section 10 | anchored main pass finished (320 rows, observed); follow-up and $D_{bc,it}$ passes cancelled | report the main pass in `ch20`; state that the follow-up and $D_{bc,it}$ passes stay cancelled and that 45 Sections 6, 7 rest on the recursive passes (DQ-8, decided) |
-| CR-55 | The 41-cell selection under the refined process | 46 Amendments 1, 2; 47 Section 7 (F1 by the tie rule) | needs job 15 plus jobs 21, 22 through `12-strawman-stress-decision.R --tag -anchored` | rerun the decision script when 21 and 22 finish; `ch21` |
+| CR-55 | The 41-cell selection under the refined process | 46 Amendments 1, 2; 47 Section 7 (F1 by the tie rule) | needs job 15 plus jobs 21, 22 through `12-strawman-stress-decision.R --tag -anchored` | rerun the decision script when 21 and 22 finish; `ch21`. Done 2026-10-15: on jobs 15, 21, 22 G2 led F1 by 0.026; with job 37 pooled (`15-extra4-run.sh`) F1, G1, G2 tie within 0.02 and the tie-break selects F1 (`docs/47`) |
 
 Table: Conflicts that wait on reruns or on reporting finished runs
 
@@ -1296,7 +1298,7 @@ assistance; server time is stated separately.
 | GP-09 | Answers to the co-author's ten questions | writing | 2 hours |
 | GP-10 | Trait against state variance off drug, as an open choice | writing | 2 hours |
 | GP-11 | Operating characteristics of the refined process as a whole | writing from jobs 14 and 15 | 1 day |
-| GP-12 | Stress test under the refined process, all 14 analyses | blocked on jobs 21, 22 for G1, G2, F1A; job 15 part is writing | 1 day after the jobs |
+| GP-12 | Stress test under the refined process, all 14 analyses | done 2026-10-15 (`docs/47`, rerun section; jobs 15, 21, 22 and the post hoc job 37): F1 retained, G1 and G2 tie as post hoc alternatives | |
 | GP-13 | Covariance study under anchored carryover | writing (main pass); the follow-up and $D_{bc,it}$ passes stay cancelled (DQ-8, decided) | 0.5 day |
 | GP-14 | F1 cost relative to S under the refined process | writing (job 15) | 2 hours |
 | GP-15 | Full bootstrap ($M = 999$) check of F1A0B in a few cells | computation: about 17 worker-minutes per trial (57 Section 8.4), so 3 cells of 200 trials is about 170 worker-hours | server |
@@ -1334,7 +1336,7 @@ Table: Gaps the series must fill
 | Phase | Tasks | Depends on | Verification | Effort |
 |----------|------------------------------------|------------|------------------------|--------|
 | 0. Freeze and archive | create `docs/legacy/` and `docs/series/`; tag the repository (`whitepapers-pre-series`); move the archived files with `git mv`, unchanged except for a banner; move the files removed from the series; move the slide deck to `docs/archive/` with an unreviewed label; delete the two dated duplicate PDFs; write `docs/legacy/INDEX.md` (old number to new home) | DQ-1, DQ-2, DQ-4, DQ-9 (decided) | every file in Section 4 accounted for (a script lists `docs/` before and after); `git log --follow` works for a sample | 0.5 day |
-| 1. Resolve conflicts and report finished runs | settle CR-31, CR-43, CR-44, CR-51 by inspection; tabulate job 15 and the covariance anchored pass; report jobs 21 and 22 when they finish; rerun the decision script on the refined process; GP-29 references | Phase 0; jobs 21, 22 | each CR row has a stated answer and source; decision files `*-anchored.csv` produced | 3 days plus job time |
+| 1. Resolve conflicts and report finished runs | settle CR-31, CR-43, CR-44, CR-51 by inspection; tabulate job 15 and the covariance anchored pass; report jobs 21 and 22 when they finish; rerun the decision script on the refined process (done 2026-10-15: `docs/47`, rerun section; F1 retained after the additional trials of job 37); GP-29 references | Phase 0; jobs 21, 22 | each CR row has a stated answer and source; decision files `*-anchored.csv` produced | 3 days plus job time |
 | 2. Skeleton and content moves | write the chapter template and registries (`chapters.csv`, `analyses.csv`); create every chapter with its outline; move content from the spines; write Appendix I; align driver defaults with the 0.2 week policy (inspect `t_half_a` defaults first) | Phase 1 for Parts IV and V; Phases 0 and 1 for Appendix I | every source section of Section 3 mapped to a chapter section (a checklist generated from the tables of Section 3) | 8 days |
 | 3. New writing | GP-01 to GP-14, GP-23, GP-24, GP-26 to GP-28, GP-30, GP-38 | Phase 2 | each chapter passes the template checklist | 10 days |
 | 4. Notation and convention pass | Section 7; linter with the new checks (GP-37); evidence labels; construct boxes; analysis IDs; prose per Appendix F | Phase 3 | `perl tools/notation-lint.pl docs/series/*.md` clean; a grep for retired labels returns nothing outside quotations | 3 days |

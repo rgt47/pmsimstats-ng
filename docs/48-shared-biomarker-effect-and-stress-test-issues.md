@@ -27,6 +27,20 @@ G2, F1A) were run on the same trials, bringing the study to 41 cells,
 below for the original 11 analyses and 39 cells are unchanged; the new
 results are added in Sections 2, 3 and 5.
 
+**Rerun note (2026-10-15).** All figures in this paper are from the
+stored run (recursive carryover, fixed allocation). The stress test has
+since been repeated under the refined process, with all fourteen
+analyses (jobs 15, 21 and 22) and 1,500 further trials per cell for the
+eight survivors (job 37, post hoc); see `docs/47`, section "Rerun under
+the refined process (2026-10-11)". The issues and conclusions here are
+unchanged: a prognostic biomarker still flags every shared-slope
+analysis, G1 and G2 are still nominal and robust, and F1 is retained on
+the tie rule, with G1 and G2 as post hoc alternatives that tie with it
+(pooled maximin shortfall F1 0.216, G1 0.221, G2 0.221). One figure
+changes: at the AR(1) reference cell F1 has 11% less size-adjusted
+power than S in the rerun (0.448 against 0.504), not the third of the
+stored run (Section 6).
+
 ```{=latex}
 \clearpage
 \tableofcontents
@@ -491,8 +505,10 @@ Table: Size and size-adjusted power of F1 and its phase-variance versions G1 and
   interactions. These reach 0.10 for the strawman and 0.42 for the
   unstructured model.
 - Freeing the baseline slope (ES, or F1 through the expectancy term)
-  removes the problem. Under AR(1) data it costs about a third of the
-  power; under compound symmetry it costs little.
+  removes the problem. Under AR(1) data it cost about a third of the
+  power in the stored run, and 11% at the AR(1) reference cell in the
+  rerun under the refined process (`docs/47`; note of 2026-10-15);
+  under compound symmetry it costs little.
 - The symmetry screen was a design error: it tested an exact identity
   with noisy comparisons. Dropping it does not change which analyses
   are both nominal and robust.

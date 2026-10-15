@@ -24,9 +24,20 @@ flags are unchanged within Monte Carlo error; DS and EA now narrowly
 fail the size screen; among the eleven analyses F1 remains the
 unflagged survivor with the smallest maximin shortfall (0.240, stored
 0.242); and at the AR(1) reference cell F1 has 11% less size-adjusted
-power than S (0.448 against 0.504), not the 29% of the stored run. The
-fourteen-analysis decision, including G1, G2 and F1A, awaits their
-rerun.
+power than S (0.448 against 0.504), not the 29% of the stored run.
+
+**Decision note (2026-10-15).** G1, G2 and F1A have since been rerun on
+the trials of the main rerun (jobs 21 and 22), and 1,500 fresh trials
+per cell were added for the eight surviving analyses (job 37, post
+hoc). F1 fails nothing; F1A fails the size screen. On the 28,000 rerun
+trials G2 led F1 by 0.026 in maximin shortfall, beyond the tie margin
+of 0.02; on the fresh trials alone and on all trials pooled, F1, G1 and
+G2 lie within the margin (pooled 0.216, 0.221 and 0.221), and the
+tie-break selects **F1**. F1 is retained as the recommended analysis
+under the refined process; G1 and G2 are post hoc alternatives that tie
+with it, and the earlier G2 lead is attributed to Monte Carlo error.
+See the subsections "Fourteen-analysis decision" and "Fresh trials for
+the F1, G1, G2 choice" of the rerun section.
 
 ```{=latex}
 \clearpage
@@ -476,9 +487,13 @@ fixed allocation; 2026-10-07). This section reports the main run of the
 stress test repeated under the refined process. It covers the eleven
 interaction analyses of the main run (S, DS, C1, C2, F1, F2, ES, EA, A,
 DA and R). The three analyses of the `--extra` and `--extra2` runs (G1,
-G2 and F1A) are being rerun on the simulation server and are not yet
-available, so the fourteen-analysis decision of Section 7 is not
-repeated here.
+G2 and F1A) were rerun on the same trials afterwards (jobs 21 and 22),
+and the fourteen-analysis decision of Section 7 is repeated in the
+subsection "Fourteen-analysis decision" below. The subsection "Fresh
+trials for the F1, G1, G2 choice" reports a further, post hoc run that
+was made because that decision was within Monte Carlo error of a tie.
+(Updated 2026-10-15; the first paragraphs of this section were written
+on 2026-10-11, before jobs 21, 22 and 37.)
 
 ### What changed in the data-generating process
 
@@ -621,8 +636,9 @@ over the non-prognostic cells, a lead of 0.026, just outside the tie
 margin of 0.02, and 0.348 against 0.498 over all cells. F1's own
 shortfall is almost the same as in the stored run (0.240 against
 0.242). Whether G1 or G2 again come within the tie margin of F1, as G2
-did in the stored run (0.232 against 0.242), cannot be judged until
-their rerun is available.
+did in the stored run (0.232 against 0.242), is taken up in the
+subsections "Fourteen-analysis decision" and "Fresh trials for the F1,
+G1, G2 choice" below.
 
 ### Power
 
@@ -704,25 +720,140 @@ size-adjusted rejections, 22 non-prognostic alternative cells):
   fits choosing $t_{1/2}^{a} = 0.5$ falls from 0.299 to 0.250, and the
   shares at 0 and 2 weeks rise (0.170 to 0.216, and 0.179 to 0.213).
 
-### What is pending
+### Fourteen-analysis decision (jobs 21 and 22; added 2026-10-15)
 
-1. **The arms G1, G2 and F1A** (simulation-server jobs 21 and 22),
-   rerun on the trials of job 15 so that they are paired with the main
-   run. Local copies of earlier unpaired runs exist and are not used.
-2. **The fourteen-analysis decision** (`12-strawman-stress-decision.R
-   --strawman DS --no-symmetry --with-extras --tag -anchored`), with the
-   paired McNemar comparisons of F1 against G1, G2 and F1A, and the
-   tie-break of Section 7 between F1 and G2, which in the stored run lay
-   0.010 apart.
-3. **The post hoc arm summaries** (`14-posthoc-arm-summary.R extra
-   -anchored` and `extra2 -anchored`).
-4. **The documents that quote stress-test numbers** (paper 01,
-   `analysis/report/compendium-mathematics.tex`, `docs/48` to `docs/50`;
-   `RERUN-anchored.md`, Section 6) wait for item 2.
+G1 and G2 (simulation-server job 21, `--extra`) and F1A (job 22,
+`--extra2`) were rerun on the trials of job 15, so the fourteen
+analyses are paired (`replicates-full-extra-anchored.rds`,
+`replicates-full-extra2-anchored.rds`). The pairing was checked on the
+S arm, which every run refits: 27,997 of the 28,000 S estimates are
+identical between job 15 and job 21, and the other 3 are failed fits in
+both (verified). The decision was applied with
+`12-strawman-stress-decision.R --strawman DS --no-symmetry --with-extras
+--tag -anchored`, which writes
+`decision-*-ds-nosym-all14-anchored.csv` (committed `a4216f52`); the
+post hoc arm summaries are `posthoc-extra-anchored-*.csv` and
+`posthoc-extra2-anchored-*.csv` (`14-posthoc-arm-summary.R`).
 
-Until then, the selection of F1 in Section 7 stands on the stored run;
-the rerun supports it among the eleven main-run analyses, and does not
-yet test it against G1 and G2.
+| Analysis | Pooled size, rerun (stored) | Largest cell, rerun | Prognostic flag | Maximin, non-prognostic, rerun (stored) | Maximin, all cells, rerun (stored) |
+|---|---|---|---|---|---|
+| G1 | 0.0503 (0.049) | 0.062 (meas. error) | no | 0.236 (0.252) | 0.350 (0.308) |
+| G2 | 0.0499 (0.047) | 0.062 (Weibull 0.5) | no | 0.214 (0.232) | 0.342 (0.312) |
+| F1A | 0.0592 (0.057) | 0.078 (Weibull 0.5) | no | fails size | fails size |
+| F1 | 0.0514 (0.051) | 0.064 ($t_{1/2} = 0$) | no | 0.240 (0.242) | 0.348 (0.358) |
+| ES | 0.0490 (0.048) | 0.060 (Weibull 0.5) | no | 0.266 (0.278) | 0.498 (0.544) |
+
+Table: Rerun under the refined process, fourteen analyses: size, prognostic flag and maximin shortfall of the robust analyses (stored run in parentheses; the shortfall is measured against the best survivor in each cell, flagged survivors included)
+
+**Reading.**
+
+- **Survivors.** The size and sensitivity screens (Amendment 1) leave
+  S, C1, C2, ES, F1, F2, G1 and G2. F1A fails size (pooled 0.059,
+  outside the band 0.0458 to 0.0542, and 0.078 in the Weibull 0.5 cell
+  against the cap of 0.075), as in the stored run; DS and EA fail as in
+  the eleven-analysis rerun. Of the survivors, ES, F1, G1 and G2 are
+  not flagged in any prognostic null cell (G1 and G2 at most 0.063).
+- **Maximin shortfall.** Over the non-prognostic alternative cells the
+  order is G2 0.214, G1 0.236, F1 0.240, ES 0.266. Under the rule as
+  written, G2 leads F1 by 0.026, beyond the tie margin of 0.02, and
+  would be selected; G1 ties with F1. Over all cells G2 (0.342), F1
+  (0.348) and G1 (0.350) lie within 0.008 of one another. In the stored
+  run G2 led F1 by 0.010, within the margin.
+- **Power at the AR(1) reference cell** ($c_{bm} = 0.30$, size
+  adjusted): S 0.504, F1 0.448, G2 0.436, G1 0.426, F1A 0.404.
+
+A lead of 0.026 is of the order of the Monte Carlo error of a maximin
+shortfall at 500 trials per alternative cell (inferred at this point:
+the MCSE of one size-adjusted power near 0.4 is about 0.022, and the
+maximin takes the worst of 22 such cells). Rather than select G2 on a
+margin of that size, fresh trials were run.
+
+### Fresh trials for the F1, G1, G2 choice (job 37; added 2026-10-15)
+
+Job 37 (`11-strawman-stress-test.R --extra4`, driver committed
+`e24d71a6`, data `a3ea8f5f`) fitted the eight survivors S, C1, C2, ES,
+F1, F2, G1 and G2 to 1,500 fresh trials in each of the 41 cells (seed
+base 47261012, distinct from jobs 15, 21 and 22), under the refined
+process (`replicates-full-extra4-anchored.rds`,
+`summary-full-extra4-anchored.csv`). There were 104 failed fits in
+492,000. The run is post hoc: it was made after the decision above had
+been seen, to settle a choice that lay within Monte Carlo error.
+
+The unchanged decision script was applied to job 37 alone and to the
+trials of job 37 pooled with those of jobs 15 and 21 (job 37 replicate
+ids offset by 10,000; 2,500 trials per null cell and 2,000 per
+alternative cell). The shortfalls were bootstrapped by resampling trials
+within cell, paired across analyses (300 resamples). The scripts are
+`15-extra4-pooled-inputs.R`, `15-extra4-bootstrap.R` and
+`15-extra4-run.sh` in `analysis/scripts/quick-sim/carryover-closed-form/`;
+the decision files and logs are in
+`analysis/data/quick-sim/carryover-closed-form/strawman-stress/extra4-decision/`
+(`decision-new.txt`, `decision-pooled.txt`, `boot.txt`, and the
+decision CSVs under `new/` and `pooled/`). A rerun of `15-extra4-run.sh`
+reproduced every output file of the first, scratch computation byte
+for byte (verified 2026-10-15).
+
+| Analysis | Pooled size, job 37 | Pooled size, all trials (largest cell) | Prognostic flag, all trials | Maximin, non-prognostic, job 37 | Maximin, non-prognostic, all trials (bootstrap SE) | Maximin, all cells, all trials |
+|---|---|---|---|---|---|---|
+| F1 | 0.0487 | 0.0497 (0.057) | no | 0.257 | 0.2155 (0.014) | 0.373 |
+| G1 | 0.0482 | 0.0491 (0.056) | no | 0.239 | 0.2205 (0.015) | 0.3585 |
+| G2 | 0.0474 | 0.0484 (0.059) | no | 0.245 | 0.2205 (0.017) | 0.359 |
+| ES | 0.0495 | 0.0493 (0.057) | no | 0.243 | 0.235 | 0.4385 |
+| S | 0.0496 | 0.0504 (0.059) | yes | 0.151 | 0.122 | 0.133 |
+| F2 | 0.0504 | 0.0510 (0.059) | yes | 0.157 | 0.1415 | 0.1455 |
+| C1 | 0.0487 | 0.0504 (0.060) | yes | 0.000 | 0.0025 | 0.0025 |
+| C2 | 0.0458 | 0.0471 (0.051) | yes | fails size | fails size | fails size |
+
+Table: Job 37 and job 37 pooled with jobs 15 and 21: size over the 11 non-prognostic null cells, prognostic flag and maximin shortfall in size-adjusted power (the shortfall is measured against the best survivor in each cell; the bootstrap SE is reported for the three analyses in contention)
+
+**Reading.**
+
+- **Size.** F1, G1 and G2 hold their size: over the 27,500 pooled null
+  trials of the 11 non-prognostic null cells their rates are 0.0497,
+  0.0491 and 0.0484 (band 0.0474 to 0.0526), with no cell above 0.059,
+  and they stay at or below 0.062 in every prognostic null cell (ES at
+  most 0.063). C2 now fails the size screen as conservative (pooled
+  0.0471, below the band; 0.0458 in job 37 alone), so the pooled
+  survivors are S, C1, ES, F1, F2, G1 and G2.
+- **Maximin shortfall.** On the fresh trials alone the order is G1
+  0.239, ES 0.243, G2 0.245, F1 0.257: G1, G2 and F1 lie within 0.018.
+  On all trials pooled it is F1 0.2155, G1 0.2205, G2 0.2205, ES 0.235,
+  with F1 now first by 0.005. The three worst cells are all the
+  measurement-error cell. Over all cells G1 (0.3585) and G2 (0.359) lead
+  F1 (0.373) by 0.014, also within the margin.
+- **Monte Carlo error.** The paired bootstrap SE of the F1 to G1, F1 to
+  G2 and G1 to G2 differences in maximin shortfall is 0.012 to 0.016
+  on the pooled trials (0.011 to 0.017 on job 37 alone). The tie margin
+  of 0.02 is therefore not much larger than one SE of the difference at
+  2,000 trials per cell, and smaller than its SE at 500 trials per cell
+  (about twice as large). This is why the first rerun appeared to favor
+  G2: its lead of 0.026 does not recur on fresh trials (inferred from
+  the two independent sets of trials and the bootstrap SE). (The
+  bootstrap takes the best analysis in each cell over all eight,
+  C2 included, so its ES shortfall, 0.2455 pooled, differs from the
+  decision script's 0.235; the F1, G1 and G2 values agree.)
+- **Power at the AR(1) reference cell** ($c_{bm} = 0.30$, all trials
+  pooled, 2,000 per cell): S 0.496, G2 0.444, F1 0.431, G1 0.426; F1
+  has 13% less size-adjusted power than S (11% on the 500 trials of job
+  15 alone).
+
+### Decision (2026-10-15)
+
+Under the rule of Section 7 on the pooled trials, F1, G1 and G2 lie
+within the tie margin of 0.02 and the tie-break (fewer covariance
+parameters) selects **F1**. F1 is retained as the recommended analysis
+for the biomarker-treatment interaction under the refined process. G1
+and G2 are post hoc alternatives that tie with it; the lead of G2 on
+the 28,000 rerun trials is attributed to Monte Carlo error. Because job
+37 was run after the first decision had been seen, and the margin is
+small against Monte Carlo error, the order of F1, G1 and G2 is not
+established by this study; an independent study with more trials per
+cell would be needed to separate them.
+
+Not done: paired McNemar comparisons of F1 against G1 and G2 in each
+cell (the decision script runs them only against a surviving
+strawman); and the 1,500 fresh trials did not include F1A, DS, EA, A,
+DA or R, which had already failed a screen.
 
 ## 12. References
 

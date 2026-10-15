@@ -33,8 +33,21 @@ $t_{1/2}$ carryover half-life (weeks); $t_{sd}$ time since
 discontinuation; $\rho$ AR(1) correlation per week; $c_1$
 cross-component correlation; $N$ total sample size.
 
-<!-- TODO: [headline result table: architecture, design, N, carryover
-loss; post-Phase 1 when numbers are finalized] -->
+Key results (Hybrid design, F1 analysis; see `ch15`, `ch16`,
+`ch22`):
+
+| Architecture | N | $t_{1/2}$ (wk) | Power, F1 | Relative loss vs no carryover |
+|---|---|---|---|---|
+| Covariance moderation | 70 | 0 | 0.529 | -- |
+| Covariance moderation | 70 | 1 | 0.358 | 32.3% at $t_{1/2}=1$ |
+| Mean moderation | 70 | 1 | 0.454 | -- |
+| Covariance moderation | 70 | 0.1 to 0.2 (pharmacological) | -- | 15.4% (NOTATION.md Part 2) |
+| Mean moderation | 70 | 0.1 to 0.2 (pharmacological) | -- | 6.9% (NOTATION.md Part 2) |
+
+*Source: paper 01; job 15 simulation data; NOTATION.md Part 2.
+Power values are size-adjusted. Relative loss at 1 week is
+illustrative; the reference result from paper 01 uses the
+pharmacological range ($t_{1/2}$ 0.1 to 0.2 weeks).*
 
 ---
 
@@ -122,12 +135,21 @@ between on-drug and off-drug visits. Results are derived analytically
 and checked against direct Monte Carlo simulation and against the
 published mixed-model analysis. (Full treatment: `ch15`.)
 
-<!-- TODO: [architecture comparison table: mean vs covariance at
-matched N=70, Hybrid, OL+BDC, CO; carryover loss (%) per
-architecture; post-Phase 1 when production driver is finalized] -->
+The two architectures differ in how much carryover costs. At matched
+total N = 70 in the Hybrid design, the relative power loss under
+pharmacological carryover ($t_{1/2}$ 0.1 to 0.2 weeks) is 15.4%
+for covariance moderation and 6.9% for mean moderation (paper 01;
+NOTATION.md Part 2). The difference arises because the
+interaction signal under covariance moderation is a graded coupling
+between the biomarker and the drug response that fades with the
+drug effect; mean moderation encodes the same interaction through
+a mean shift, which is less affected by the same off-drug fading
+profile.
 
-<!-- TODO: [NOTATION Part 2 reference result: 15.4% carryover loss
-covariance vs 6.9% mean moderation, Hybrid N=70; cite paper 01] -->
+Conditional on the biomarker, covariance binding is mean moderation
+with a smaller residual variance. The divergence in power loss
+therefore reflects the exposure profile of the interaction rather
+than a difference in kind.
 
 ---
 
@@ -230,8 +252,16 @@ I error. It explains why F1A is liberal, derives the mechanism, and
 presents eight procedures and a permutation approach. (Full treatment:
 `ch23`.)
 
-<!-- TODO: [main-effect summary: paper 04 scope, M-F1 status,
-docs/58 key findings; post-Phase 1] -->
+**docs/58 scope.** Paper 04 asks whether the drug main effect can
+be reliably tested when the analysis half-life is unknown. The
+analysis strategy (the ADEMP working protocol,
+`analysis/scripts/treatment-main-effect/00-ademp-protocol.md`)
+mirrors the interaction track: a fixed half-life arm (M-F1) and a
+data-chosen arm (M-F1A0B). The main-effect analysis IDs carry an
+`M-` prefix. As of Phase 2, the paper 04 pipeline has not been
+stress-tested under the refined process; the existing results use
+the vendored `nof1power` engine
+(`implementations/nof1power`). (Full treatment: `ch24`.)
 
 ---
 
@@ -251,16 +281,60 @@ are not yet calibrated to prazosin data: blood pressure's placebo-arm
 association was null in only 35 participants (Raskind et al. 2016).
 Any post hoc choice (G1, G2) needs an independent run.
 
-<!-- TODO: [updated open items list after Phase 1 simulation reruns]
--->
+Outstanding items as of Phase 3 (2026-10-15):
+
+- **Refined-process rerun.** The covariance study and the stress
+  test ran configuration C of `docs/36` at $\rho = 0.7$ with the
+  published recursive carryover and fixed path allocation. The
+  refined process, which uses anchored carryover and randomized
+  allocation, has not itself been fully simulated at production
+  resolution. This is the highest priority open simulation item.
+- **Data-chosen half-life power.** Power under F1A0B (the
+  AIC-selected half-life with a parametric bootstrap to preserve
+  size) is not yet characterized at sufficient resolution. Sample-
+  size planning tables under the refined process are outstanding
+  (GP-16).
+- **Main-effect track.** The paper 04 pipeline has not been stress-
+  tested under the rebuilt refined-process engine (GP-21).
+- **Package sampler.** The sampler in `R/generateData.R` still
+  silently repairs a non-positive-definite matrix; the refined
+  process requires a stop instead (paper 01 B.2; CLAUDE.md known
+  open item).
+- **Effect-size calibration.** Effect sizes are not calibrated to
+  prazosin data. Blood pressure's placebo-arm association was null
+  in only 35 participants (Raskind et al. 2016).
+- **Post hoc arms (G1, G2).** Any post hoc choice requires an
+  independent run to confirm.
+
+The studies are exploratory; no results are pre-specified or
+confirmatory.
 
 ---
 
 ## Relation to the manuscripts
 
-<!-- TODO: [table: which manuscript sections depend on each finding
-here; cross-check numbers against paper 01 and the analysis
-manuscripts] -->
+The series findings map to the companion manuscripts as follows.
+
+| Finding | Primary series location | Manuscript(s) |
+|---|---|---|
+| Refined process specification | `ch10` | Paper 01 (Table tab:spec, Appendix B) |
+| Four defects in the published code | `ch04` | Paper 01 (Section on DGP defects) |
+| Coupling ceiling | `ch09` | Paper 01 (Section on ceiling) |
+| Architecture comparison (power loss) | `ch07`, `ch15` | Paper 01 (main comparison) |
+| Closed-form power, coupling gap | `ch15` | Paper 01 (analytical results) |
+| Design efficiency | `ch16` | Paper 05 |
+| Recommended analysis F1 | `ch22` | Papers 06, 07, 08 (analysis manuscripts) |
+| Data-chosen half-life (F1A0B) | `ch23` | Paper 08 |
+| Main-effect testing | `ch24` | Paper 04 |
+| Dual-channel architecture | `ch07` | Paper 11 |
+
+Numbers cited in this document (power 0.358, 0.529; losses 15.4%,
+6.9%) are from paper 01 and job 15 simulation data. Cross-check
+against paper 01's Table tab:power and NOTATION.md Part 2 before
+citing in other manuscripts.
+
+Refer to `fm0` for a navigation guide to the series. Refer to `fm2`
+for all notation.
 
 ---
 
@@ -269,3 +343,4 @@ manuscripts] -->
 | Date | Section | Change | Reason |
 |------|---------|--------|--------|
 | 2026-10-15 | all | Phase 2 content move: docs/50 verbatim; section leads from docs/36, 37, 56, 57 | Phase 2 skeleton fill |
+| 2026-10-15 | Summary, DGP, Analysis, Open items, Relation to manuscripts | Phase 3 GP-01: headline table, architecture comparison, main-effect summary, open items list, manuscripts table | GP-01 fill |

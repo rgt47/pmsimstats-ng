@@ -9,6 +9,30 @@ for every docs/NN.
 
 ---
 
+## About this series
+
+The pmsimstats-ng whitepaper series documents the design and
+evaluation of a Monte Carlo simulation tool for detecting
+biomarker-treatment interactions in aggregated N-of-1 clinical
+trials. The series covers: the data-generating process (DGP),
+including its published predecessor and the defects corrected in
+the refined process; the coupling ceiling and its dependence on
+covariance structure; carryover and its effect on power; analysis
+model selection; and sample-size planning.
+
+The series does not report clinical trial results and does not
+provide pre-specified or confirmatory analysis plans. The simulation
+studies are exploratory. The series is not a user manual for the
+pmsimstats-ng R package; package documentation lives in `man/` and
+`vignettes/`.
+
+For all project-wide notation, see `fm2` (Notation, vocabulary and
+conventions). The canonical source is
+`analysis/report/NOTATION.md`; where `fm2` and `NOTATION.md`
+differ, `NOTATION.md` governs.
+
+---
+
 ## Contents
 
 1. [Reading paths](#reading-paths)
@@ -35,7 +59,20 @@ technical details.
 
 `fm2` → `ch01` → `ch02` → `ch03` → `ch10` → `ch22`
 
-<!-- TODO: [one-sentence annotation per chapter for Path A] -->
+- **fm2** -- notation and vocabulary; read before any chapter.
+- **ch01** -- the question: what is a biomarker-treatment
+  interaction, why N-of-1 trials can detect it, and where carryover
+  complicates that goal.
+- **ch02** -- trial designs, randomization paths and exposure
+  clocks: the mechanics of how carryover arises and how the exposure
+  indicator is constructed.
+- **ch03** -- the published process (Hendrickson 2020) at commit
+  58b32a9, documented before any modification.
+- **ch10** -- the refined process: the four corrections made, their
+  rationale, and the resulting specification.
+- **ch22** -- the recommended analysis F1 term by term: what each
+  part of the model does, what goes wrong without it, and what it
+  costs.
 
 ### Path B. Collaborator reviewing the published process defects
 
@@ -44,7 +81,13 @@ process and why the refined process addresses it.
 
 `ch03` → `ch04` → `ch10`
 
-<!-- TODO: [one-sentence annotation per chapter for Path B] -->
+- **ch03** -- the published code at commit 58b32a9 in detail: data
+  structure, parameter choices, and the covariance construction.
+- **ch04** -- the three defects: compound-symmetry covariance,
+  step coupling profile, and compounding carryover decay; evidence
+  and consequence for each.
+- **ch10** -- the refined process: how each defect is addressed,
+  the configuration selected, and its validation.
 
 ### Path C. Statistical reviewer checking the analysis recommendation
 
@@ -52,7 +95,49 @@ Readers who want to evaluate the analysis F1 and its evidence base.
 
 `ch17` → `ch18` → `ch19` → `ch20` → `ch21` → `ch22`
 
-<!-- TODO: [one-sentence annotation per chapter for Path C] -->
+- **ch17** -- the analysis model: exposure codings, time
+  adjustment, and the role of baseline as an outcome row.
+- **ch18** -- inference and calibration: CR2 cluster-robust
+  standard errors, Satterthwaite degrees of freedom, and the size
+  criterion.
+- **ch19** -- the prognostic biomarker and the shared biomarker
+  effect: why expectancy terms are necessary when the biomarker is
+  not purely predictive.
+- **ch20** -- the covariance study: 14 candidate analyses compared
+  on 378,000 simulated trials.
+- **ch21** -- the stress test: 41 cells, 28,000 trials, 11
+  protocol analyses plus post hoc arms; protocol and results.
+- **ch22** -- the recommended analysis F1, the maximin rule, and
+  the basis for the recommendation.
+
+---
+
+### Additional reading paths
+
+#### Methodologist
+
+New to the project, or reviewing the main ideas before reading the
+companion papers.
+
+`fm2` → `ch01` → `ch07` → `ch10` → `ch21` → `ch22` → `ch23`
+
+#### Statistician evaluating the analysis
+
+`ch17` → `ch18` → `ch19` → `ch21` → `ch22` → `ch23`
+
+#### Implementation reader
+
+Readers who need to work with the code, patch the published
+process, or understand the parity workflow.
+
+`ch03` → `ch04` → `ch10` → `ch28` → `appD` → `appJ`
+
+#### Manuscripts only
+
+Readers consulting the companion papers who want only the key DGP
+and analysis context.
+
+`ch22` → `ch10` → `ch15` → `ch16`
 
 ---
 
@@ -61,7 +146,8 @@ Readers who want to evaluate the analysis F1 and its evidence base.
 <!-- From docs/series/registry/chapters.csv -->
 
 Generated from `docs/series/registry/chapters.csv`. All chapters are
-stubs as of Phase 2 (2026-10-15).
+stubs as of Phase 2 (2026-10-15). Front-matter files `fm0` and `fm1`
+were filled in Phase 3 (2026-10-15).
 
 | ID | Title | Part | Needs | Est. pp. | Status |
 |----|-------|------|-------|----------|--------|
@@ -106,6 +192,17 @@ stubs as of Phase 2 (2026-10-15).
 | `appH` | Classical test equivalents: repeated-measures ANOVA | Appendix | | 14 | stub |
 | `appI` | The legacy record (`docs/00` to `docs/20`) | Appendix | | 40 | stub |
 | `appJ` | Software and parity workflow | Appendix | | 1 | stub |
+
+---
+
+## Notation cross-reference
+
+All project-wide notation is defined in `fm2` (Notation, vocabulary
+and conventions). The canonical source is
+`analysis/report/NOTATION.md`; where any chapter or appendix
+departs from that source, `NOTATION.md` governs. Run
+`perl tools/notation-lint.pl` on edited documents to catch
+inconsistencies.
 
 ---
 
@@ -201,3 +298,4 @@ replacing chapter. "Remove from series" means the file moves out of
 | Date | Section | Change | Reason |
 |------|---------|--------|--------|
 | 2026-10-15 | all | Phase 2 content move: reading paths, chapter status table, old-to-new map | Phase 2 skeleton fill |
+| 2026-10-15 | About this series, Reading paths, Notation cross-reference | Phase 3 GP-01: purpose section, path annotations, additional paths, notation cross-reference | GP-01 fill |

@@ -41,8 +41,20 @@
 
 ## Construct box
 
-<!-- table: process, carryover, coupling, allocation, design, N, analysis ID,
-t_half_a, n_reps -->
+| Process | Carryover | Coupling | Allocation | Design | N | Analysis ID | $t_{1/2}^a$ (wk) | $n_{\text{reps}}$ |
+|---|---|---|---|---|---|---|---|---|
+| config C at $\rho = 0.7$ | compounding (recursive) | graded | fixed | Hybrid | 70$^*$ | S, DS, C1, C2, F1, F1A, G1, G2, F2, ES, EA, A, DA, R | 0.5 | 1000 (null) / 500 (alt); 41 cells |
+| refined | anchored | graded | randomized | Hybrid | 70$^*$ | S, DS, C1, C2, F1, F1A, G1, G2, F2, ES, EA, A, DA, R | 0.5 | 1000 (null) / 500 (alt); 41 cells |
+| refined | anchored | graded | randomized | Hybrid | 70$^*$ | S, C1, C2, ES, F1, F2, G1, G2 | 0.5 | 1500; 41 cells |
+
+Table: Construct box: distinct DGP configurations producing numeric results in
+this chapter. Row 1 is the stored run (Sections 1-11, 2026-10-07). Row 2 is the
+refined-process rerun: job 15 (11 analyses) plus jobs 21 and 22 (G1, G2 and F1A
+fitted to the same job 15 trials). Row 3 is job 37 (1,500 fresh trials per
+cell, post hoc). $^*$Stress cells also vary $N \in \{35, 150\}$.
+
+*Note: stored runs used $t_{1/2}^a = 0.5$ week; the 0.2 week policy applies to
+new runs.*
 
 ---
 

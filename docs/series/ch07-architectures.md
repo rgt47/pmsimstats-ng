@@ -75,8 +75,28 @@ mean moderation under carryover (Paper 01 Results; NOTATION.md Part
 2). This reflects the graded off-drug coupling of the covariance
 channel, which attenuates the interaction signal under carryover.
 
-<!-- TODO: an estimand-and-units table: architecture, estimand
-formula, units, on-drug effect, off-drug effect -->
+### Estimands and units by architecture
+
+The interaction estimand is the regression coefficient on the
+centered-biomarker-by-$D_{bc}$ term. The formula is the same for the
+two single-channel architectures at matched $c_{bm}$.
+
+| Architecture | Interaction parameter | Estimand | Units |
+|---|---|---|---|
+| Mean moderation | $\beta_{bm}$ | $\beta_{bm:D} = -\beta_{bm}\,\sigma_{BR}/\sigma_{bm}$ | Change in BR per SD of biomarker, per unit $D_{bc}$ |
+| Covariance moderation | $c_{bm}$ | $\beta_{bm:D} = -c_{bm}\,\sigma_{BR}/\sigma_{bm}$ | Change in BR per SD of biomarker, per unit $D_{bc}$ |
+| Dual-channel | $c_{bm,A}$, $c_{bm,B}$ | Combined; linear in both channels | Change in BR per SD of biomarker, per unit $D_{bc}$ |
+
+When $c_{bm}$ (covariance moderation) is set equal to $\beta_{bm}$
+(mean moderation) and the same $\sigma_{BR}$, $\sigma_{bm}$ are used,
+the two single-channel architectures produce the same estimand. Their
+difference in power arises from the covariance structure of the
+data-generating process -- specifically from the off-drug coupling
+profile $g_t$ -- not from a difference in the estimand being targeted.
+For the dual-channel architecture, the two channel contributions add
+on the covariance scale, giving an effective coupling of $c_{bm,A} +
+c_{bm,B}$ on drug and a combined estimand that is linear in both
+parameters (Paper 11; derived).
 
 ---
 
@@ -281,10 +301,53 @@ paper that used unmatched N and the published step-rule coupling
 table: architecture, t_1/2, power (no carryover), power (carryover),
 relative loss; sourced from Paper 01 production results -->
 
-<!-- TODO: the mean-moderation estimand shift (docs/33 Section 2.3):
-when the exposure profile h_t stops at D_{it}=0, the on-drug-only
-estimand differs from the on-minus-off estimand by the off-drug
-contribution of the interaction; state quantitatively -->
+### The estimand shift under mean moderation
+
+Under mean moderation the package applies the shift
+
+$$
+BR_{it} \;\leftarrow\; BR_{it} + \beta_{bm}\, b_i\, \sigma_{BR}\, h_t
+$$
+
+after the multivariate-normal draw, where $b_i =
+(B_i - \mu_{bm})/\sigma_{bm}$ is the standardized biomarker and $h_t$
+is the exposure profile. Under the plain profile ($h_t = 1$ on drug,
+$h_t = 0$ off drug), the shift is zero at every off-drug visit. The
+regression coefficient on the centered biomarker-by-$D_{bc}$
+interaction then recovers $-\beta_{bm}\,\sigma_{BR}/\sigma_{bm}$
+(Paper 01, Estimand; derived). This on-drug-only shift means the
+moderation signal is present only while the drug is taken and
+disappears entirely in the washout period.
+
+Because the shift is zero wherever $h_t = 0$, the off-drug visits
+contribute no interaction signal under the plain profile. An on-minus-
+off estimand -- which uses information from both on-drug and off-drug
+assessments -- therefore loses nothing from off-drug visits: there is
+nothing to lose. Power is flat across carryover half-lives, because
+the half-life controls only off-drug mean carryover, not the
+moderation itself (verified under configuration D, Hybrid, $N = 70$,
+$c_{bm} = 0.30$: power 0.78, 0.75, 0.74, 0.77, 0.73 at half-lives
+0, 0.1, 0.2, 0.5, 1 week; `docs/36` Table 9). Paper 01 notes this
+flatness is a coding choice -- the drug effect carries over, but the
+moderation is not coded to carry over with it.
+
+Under the decayed profile ($h_t = 2^{-t_{sd,t}/t_{1/2}}$ off drug),
+the shift persists during washout: a high-biomarker participant has a
+higher residual response than a low-biomarker participant in the
+off-drug period. This makes the moderation profile match the drug
+effect profile and gives behavior closer to covariance moderation.
+The off-drug contribution to the interaction signal then depends on
+$t_{1/2}$, and power falls as $t_{1/2}$ increases and the off-drug
+moderation signal approaches zero (`docs/38`, Section 4).
+
+The shift under graded coupling in the covariance architecture is
+mechanistically identical: conditioning on $B_i$, the conditional
+mean of $BR_{it}$ shifts by $c_{bm}\, g_t\, \sigma_{BR}\, b_i$ with
+the graded coupling profile $g_t$. The power difference between the
+two architectures at matched $c_{bm}$ is therefore entirely a
+consequence of which coupling profile -- plain-stop versus graded
+exponential decay -- is applied to the off-drug visits, not of any
+difference in what is being estimated.
 
 ---
 

@@ -107,17 +107,53 @@ carryover is negligible and the carryover that matters is
 pharmacodynamic. The half-life parameter of the simulation should
 therefore be read as the response half-life $t_{1/2}^R$.
 
-<!-- TODO: reconciliation of the 2.3-hour prazosin plasma half-life
-with the 0.5 to 1 week carryover half-life assumed in the
-simulation: the plasma compartment equilibrates quickly; the
-behavioral consolidation of reduced nightmares and improved sleep
-architecture may persist for days; a response half-life of 0.5 week
-= 84 hours is 36-fold longer than the plasma half-life; this is
-consistent with indirect-response models (e.g. Dayneka et al. 1993)
-where the response half-life is governed by the turnover rate of the
-target process (here REM-sleep architecture) rather than by drug
-exposure; the appropriate value for prazosin in PTSD is empirically
-unknown and should be treated as uncertain -->
+### Plasma and pharmacodynamic half-lives
+
+The prazosin plasma half-life is approximately 2.3 hours, measured in
+24 normotensive volunteers (Hobbs et al. 1978). Five plasma half-lives
+is about 12 hours, after which 97% of the drug has been eliminated.
+The pharmacokinetic carryover half-lives used by Hendrickson et al.
+(0.1 and 0.2 weeks, or 17 and 34 hours) are on this scale or modestly
+above it, and are consistent with the drug being present for roughly
+one to two days after a daily dose. For outcomes assessed weekly or
+less often, pharmacokinetic carryover is negligible: the drug is gone
+long before the next assessment.
+
+The carryover that matters at weekly assessments is pharmacodynamic:
+improvement that persists after the drug has been eliminated. For
+prazosin in posttraumatic stress disorder (PTSD), the relevant
+outcomes are nightmare frequency, sleep architecture, and stress
+reactivity. These processes respond slowly: behavioral consolidation
+of reduced nightmares, remodeling of REM sleep architecture, and
+recovery of physiological arousal set points are governed by the
+turnover of the target process, not by drug concentration. The
+response may remain improved for days to weeks after the drug is
+gone, as in indirect-response models where the response relaxes at a
+first-order rate set by the system's turnover rate (Dayneka et al.
+1993; Sheiner et al. 1979).
+
+The convention in this project is therefore to interpret $t_{1/2}$ as
+the pharmacodynamic offset half-life $t_{1/2}^R$, not the plasma
+half-life. A response half-life of 0.5 week (84 hours) is
+approximately 36-fold longer than the plasma half-life of 2.3 hours.
+This is consistent with the pharmacology: the plasma compartment
+equilibrates within a day, while the behavioral and physiological
+response decays at the slower rate set by the target process.
+Pharmacokinetic convention uses $t_{1/2}$ for the plasma half-life;
+this project assigns it to the response offset rate and reserves
+$t_{1/2}^R$ when the distinction needs to be explicit.
+
+The simulation parameter ranges 0.1 to 2 weeks therefore refer
+entirely to the pharmacodynamic domain. Values of 0.1 to 0.2 weeks
+correspond to responses that return to baseline within a day or two
+after stopping -- consistent with rapid physiological adaptation or
+with a drug that has little persistent effect. Values of 1 to 2 weeks
+correspond to responses that take one to two washout weeks to return
+to baseline, consistent with slower behavioral reconsolidation. The
+appropriate value for prazosin in PTSD is not known empirically;
+until it is estimated from longitudinal discontinuation data, the
+simulation should report results across the full plausible range
+rather than at a single assumed value (`docs/38`, Section 2).
 
 ### Decay families
 

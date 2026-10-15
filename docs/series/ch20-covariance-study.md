@@ -224,37 +224,44 @@ working covariance and inference, for example `BL+us-KR`.
    substitutes for the other.**
    - Kenward-Roger corrects for the cost of estimating a covariance that
      is correctly specified. With `us` it brings the mean size from 0.090
-     to 0.058. With a misspecified `cs` or `csh` it does nothing: 0.15 to
-     0.16 in CO under AR(1) data.
+     to 0.058 [verified, summary-alt250-null500.csv]. With a misspecified
+     `cs` or `csh` it does nothing: 0.15 to 0.16 in CO under AR(1) data
+     [verified, summary-alt250-null500.csv].
    - CR2 corrects for misspecification of a parsimonious working
      covariance. With `cs`, `csh`, `sp_exp` or `RI+CAR1` it gives a mean
-     size of 0.044 to 0.054 in every construct. With `us` it fails: 0.086,
-     no better than no correction.
+     size of 0.044 to 0.054 in every construct [verified,
+     summary-alt250-null500.csv]. With `us` it fails: 0.086, no better
+     than no correction [verified, summary-alt250-null500.csv].
 3. **Correctly sized in every one of the eight null cells (Section 4):**
    - nominal: `cs-CR2`, `csh-CR2`, `sp_exp-CR2`, `RI+CAR1-CR2` and
-     `BL+cs-CR2`, mean 0.044 to 0.054;
+     `BL+cs-CR2`, mean 0.044 to 0.054 [verified, summary-alt250-null500.csv];
    - slightly liberal: `us-KR` and `BL+us-KR`, mean 0.058 to 0.059, no
-     cell above 0.072.
+     cell above 0.072 [verified, summary-alt250-null500.csv].
 
    The published analysis (`cs-Satt`) is correctly sized under CS data
    and in Hybrid. Under AR(1) data in CO it rejects 0.15 to 0.16 of the
    time.
 4. **At a common size, power differs little under CS data.** In Hybrid
    without carryover, every correctly sized analysis except `sp_exp` and
-   `RI+CAR1` has size-adjusted power of 0.66 to 0.72. Under AR(1) data
-   the row-coded `us`, `RI+CAR1` and `sp_exp` analyses reach 0.94. The
-   correctly sized baseline-covariate analyses reach 0.76 to 0.78
-   (Section 5).
+   `RI+CAR1` has size-adjusted power of 0.66 to 0.72 [verified,
+   size-adjusted-power-alt250-null500.csv]. Under AR(1) data the
+   row-coded `us`, `RI+CAR1` and `sp_exp` analyses reach 0.94 [verified,
+   size-adjusted-power-alt250-null500.csv]. The correctly sized
+   baseline-covariate analyses reach 0.76 to 0.78 [verified,
+   size-adjusted-power-alt250-null500.csv] (Section 5).
 5. **The row coding's advantage under AR(1) comes from the shared
    biomarker effect, not from the covariance.** Freeing $\beta_B$ at
    baseline (`us-KR-sepbm`) gives the same power as baseline as a
-   covariate: 0.780 against 0.792 in Hybrid. The advantage is valid only
+   covariate: 0.780 against 0.792 in Hybrid [verified,
+   summary-alt250-null500-followup.csv]. The advantage is valid only
    under the constancy assumption, which the null cells cannot test
    because the construct satisfies it by design (Section 6).
 6. **$D_{bc,it}$ at a short assumed half-life is a near-free insurance
    against carryover.** With `us-KR` in Hybrid at $t_{1/2}^{a} = 0.5$:
-   - without carryover it costs at most 0.016 in power;
-   - at $t_{1/2} = 1$ week it gains 0.04 to 0.06;
+   - without carryover it costs at most 0.016 in power [verified,
+     size-adjusted-power-alt250-null500.csv];
+   - at $t_{1/2} = 1$ week it gains 0.04 to 0.06 [verified,
+     size-adjusted-power-alt250-null500.csv];
    - its size is unchanged.
 
    A longer assumed half-life gains more under long carryover but costs
@@ -408,11 +415,13 @@ adjustments assume the working covariance is correct.
 
 - **`us` is correct by construction.** Its only failure is the cost of
   estimating 45 parameters from 70 participants. That is what
-  Kenward-Roger repairs: $\kappa$ rises from 0.84-0.90 to 0.94-1.01, and
-  the mean size falls from 0.090 to 0.058.
+  Kenward-Roger repairs: $\kappa$ rises from 0.84-0.90 to 0.94-1.01
+  [verified, summary-alt250-null500.csv], and the mean size falls from
+  0.090 to 0.058 [verified, summary-alt250-null500.csv].
 - **`cs` and `csh` under AR(1) data are misspecified.** Their failure is
   bias in the model-based variance, which Kenward-Roger does not
-  address: $\kappa$ stays at 0.73-0.75 in CO.
+  address: $\kappa$ stays at 0.73-0.75 in CO [verified,
+  summary-alt250-null500.csv].
 
 CR2 [3] replaces the model-based variance with a sandwich whose
 residuals are adjusted by the working model's hat matrix. It is
@@ -420,12 +429,13 @@ consistent whatever the working covariance.
 
 - **With a parsimonious working model** (2 to 3 parameters), the
   weights are nearly fixed and the bias reduction works. $\kappa$ is
-  0.92-1.04, and every such analysis is nominal.
+  0.92-1.04, and every such analysis is nominal [verified,
+  summary-alt250-null500.csv].
 - **With `us`, the weights are themselves estimated from 45
   parameters.** They adapt to the noise in each replicate, and the
   sandwich does not account for this. $\kappa$ is 0.83-0.89, the same as
-  the uncorrected model-based variance (an inferred mechanism; the
-  $\kappa$ values are verified).
+  the uncorrected model-based variance [inferred, mechanism not derived;
+  the $\kappa$ values are verified, summary-alt250-null500.csv].
 
 The practical rule is to pair `us` with Kenward-Roger and a
 parsimonious working covariance with CR2.
@@ -496,7 +506,8 @@ corresponding row of Section 10 should be read with this note.
 *Stored run (recursive carryover, fixed allocation; 2026-10-04 to
 2026-10-06).*
 
-Size-adjusted power, linear time, in Hybrid (verified):
+Size-adjusted power, linear time, in Hybrid [verified,
+size-adjusted-power-alt250-null500.csv]:
 
 | Analysis | CS, $t_{1/2}=0$ | CS, $t_{1/2}=1$ | C07, $t_{1/2}=0$ | C07, $t_{1/2}=1$ |
 |---|---|---|---|---|
@@ -512,7 +523,7 @@ Size-adjusted power, linear time, in Hybrid (verified):
 
 Table: Size-adjusted power of correctly sized analyses in the Hybrid design
 
-And in CO:
+And in CO [verified, size-adjusted-power-alt250-null500.csv]:
 
 | Analysis | CS, $t_{1/2}=0$ | CS, $t_{1/2}=1$ | C07, $t_{1/2}=0$ | C07, $t_{1/2}=1$ |
 |---|---|---|---|---|
@@ -540,13 +551,15 @@ be read as real.
   or tied for it, in every cell.** `RI+CAR1` and `sp_exp` match it without carryover in
   Hybrid but fall behind with carryover and in CO.
 - **Kenward-Roger costs no power.** At a common size, `us-KR` and
-  `us-Satt` agree to within 0.008 in every cell (verified).
+  `us-Satt` agree to within 0.008 in every cell [verified,
+  size-adjusted-power-alt250-null500.csv].
   Kenward-Roger changes the standard error and degrees of freedom, not
   the estimate, so the ordering of the replicates barely changes. The
   higher raw power of `us-Satt` (for example 0.956 against 0.944) is its
-  excess size.
+  excess size [verified, summary-alt250-null500.csv].
 - **The baseline-covariate analyses lose 0.15 to 0.31 under AR(1)
-  data.** Section 6 explains why.
+  data** [verified, size-adjusted-power-alt250-null500.csv].
+  Section 6 explains why.
 
 ## 6. The baseline row and the shared biomarker effect
 
@@ -569,12 +582,13 @@ the biomarker effect at baseline.
 
 Table: Raw power of `us-KR` with shared versus freed baseline biomarker effect (visit-factor time adjustment, 250 replicates per cell; columns give construct, design and $t_{1/2}$)
 
-The figures are verified. `us-KR` shares $\beta_B$ with the baseline
-row; `us-KR-sepbm` frees it.
+The figures are verified [summary-alt250-null500-followup.csv].
+`us-KR` shares $\beta_B$ with the baseline row; `us-KR-sepbm` frees it.
 
 Freeing $\beta_B$ at baseline removes the whole advantage. The freed
 row model and the covariate model then agree to within Monte Carlo
-error in every cell. Their size is the same (0.058 and 0.059).
+error in every cell. Their size is the same (0.058 and 0.059) [verified,
+summary-alt250-null500-followup.csv].
 
 **Correction to `docs/41`.** Section 7 of `docs/41` derived that, with
 complete data, an unstructured covariance and $\beta_B$ free at
@@ -646,10 +660,12 @@ Table: Raw `us-KR` power by exposure coding and assumed half-life $t_{1/2}^{a}$
   assumptions cost nothing in CO was not analyzed.
 
 **The estimand.** With $D_{it}$, carryover attenuates the estimate, for
-example from $-0.135$ to $-0.100$ in CS Hybrid at $t_{1/2} = 1$.
+example from $-0.135$ to $-0.100$ in CS Hybrid at $t_{1/2} = 1$
+[verified, summary-alt250-null500-dbc.csv].
 $D_{bc,it}$ with $t_{1/2}^{a} = t_{1/2}$ recovers the full on-drug
-interaction ($-0.129$). A longer assumed half-life overshoots it
-($-0.151$ at $t_{1/2}^{a} = 2$; $-0.168$ without carryover). Under
+interaction ($-0.129$) [verified, summary-alt250-null500-dbc.csv]. A
+longer assumed half-life overshoots it ($-0.151$ at $t_{1/2}^{a} = 2$;
+$-0.168$ without carryover) [verified, summary-alt250-null500-dbc.csv]. Under
 $D_{bc,it}$, $\beta_{bm:D}$ is the interaction per unit of modeled
 exposure, so its scale depends on $t_{1/2}^{a}$. The assumed half-life
 must be fixed, not chosen from the data, and the estimate is interpretable as the on-drug
@@ -703,19 +719,22 @@ replicates per cell (verified):
 Table: Power (CR2 standard errors) under corrected and manuscript 02 pre-exposure coding of $D_{bc,it}$; the last column counts participants whose indicator is constant over all visits under manuscript 02's coding
 
 - **In Hybrid** the two codings give identical fits, as they must.
-- **In CO** the defect costs 0.26 to 0.30 in power, and it raises the
-  empirical standard deviation of the estimate by a factor of 1.44 to
-  1.47 (from 0.049 to 0.070 under CS). That is close to the $\sqrt{2}$
+- **In CO** the defect costs 0.26 to 0.30 in power [verified,
+  10-dbc-preexposure-check.R output], and it raises the empirical
+  standard deviation of the estimate by a factor of 1.44 to 1.47
+  (from 0.049 to 0.070 under CS) [verified,
+  10-dbc-preexposure-check.R output]. That is close to the $\sqrt{2}$
   expected from losing half the participants' contrasts.
 - **The corrected coding performs like $D_{it}$ in CO,** as in the
-  covariance study.
+  covariance study [verified, 10-dbc-preexposure-check.R output].
 
 Manuscript 02 reports exposure-weighted power of 0.488 against 0.830 for
-the binary coding in CO (its Section 3.4). It attributes this to "the
-continuous decayed predictor's mismatch with CO's design". The size of
-the loss matches the defect, and the corrected coding shows no mismatch.
-The reported finding is very likely an artifact of the coding (inferred:
-manuscript 02's own pipeline has not been rerun with the correction).
+the binary coding in CO [inspected, manuscript 02 Section 3.4].
+It attributes this to "the continuous decayed predictor's mismatch with
+CO's design". The size of the loss matches the defect, and the corrected
+coding shows no mismatch. The reported finding is very likely an artifact
+of the coding (inferred: manuscript 02's own pipeline has not been rerun
+with the correction).
 
 The same applies to its finding that AIC selection of the half-life
 picks the largest candidate in CO. That selection was made among
@@ -772,13 +791,15 @@ summary(fit)$coefficients['bmc:Dbc', ]
 **Why this analysis.**
 
 - **Size:** slightly liberal, 0.057 on average, never above 0.064 in
-  any cell with linear time.
+  any cell with linear time [verified, summary-alt250-null500.csv].
 - **Robustness:** its validity does not depend on the serial
   correlation structure.
 - **Power:** it is the most powerful correctly sized analysis under
-  AR(1) data and as powerful as any under CS data.
+  AR(1) data and as powerful as any under CS data [verified,
+  size-adjusted-power-alt250-null500.csv].
 - **Carryover:** at $t_{1/2}^{a} = 0.5$ it insures against
-  pharmacological carryover at almost no cost.
+  pharmacological carryover at almost no cost [verified,
+  size-adjusted-power-alt250-null500.csv].
 
 **What the protocol must state.**
 
@@ -813,7 +834,8 @@ summary(fit)$coefficients['bmc:Dbc', ]
   missed, so that 45 covariance parameters are poorly determined: use
   `csh-CR2` or `RI+CAR1-CR2` as primary. Both are nominal in every
   cell, at a size-adjusted power cost of up to about 0.20 against the
-  recommended primary under AR(1) data (least in Hybrid without
+  recommended primary under AR(1) data [verified,
+  size-adjusted-power-alt250-null500.csv] (least in Hybrid without
   carryover, most in CO). This study did not test smaller samples.
 - **If the design is CO rather than Hybrid,** the same recommendation
   holds, and $D_{bc,it}$ makes no difference.
@@ -822,17 +844,18 @@ summary(fit)$coefficients['bmc:Dbc', ]
 
 - **The published random-intercept model with model-based inference
   (`cs-Satt`, equivalently `lmer`).** It is anticonservative under
-  serial correlation in CO, 0.15 to 0.16.
+  serial correlation in CO, 0.15 to 0.16 [verified,
+  summary-alt250-null500.csv].
 - **`us` without Kenward-Roger, and `us` with CR2.** Both are liberal,
-  0.080 to 0.090.
+  0.080 to 0.090 [verified, summary-alt250-null500.csv].
 - **`cs` or `csh` with Kenward-Roger.** Same failure as the published
-  model.
+  model [verified, summary-alt250-null500.csv].
 - **`sp_exp` with model-based inference.** It is conservative and loses
   a third of the power under CS data.
 - **Manuscript 02's $D_{bc,it}$ coding** in any design with off-drug
   visits before the first exposure.
 - **A long assumed half-life chosen for safety.** It costs up to 0.14 in
-  power when carryover is short.
+  power when carryover is short [verified, size-adjusted-power-alt250-null500.csv].
 
 ## 10. Corrections to earlier documents
 

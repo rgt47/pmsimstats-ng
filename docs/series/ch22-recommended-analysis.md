@@ -242,23 +242,27 @@ cannot usually be excluded (`docs/49`, Section 6).
 - *A prognostic biomarker.* With the biomarker correlated 0.3 with the
   natural course or with the placebo response and no interaction, S
   rejects 0.099 and 0.100 and the published-type analysis R 0.107 and
-  0.159; F1 rejects 0.047 and 0.040.
+  0.159; F1 rejects 0.047 and 0.040 [verified,
+  decision-screen-ds-nosym-all14.csv].
 - *A misspecified working covariance.* Over 11 standard null cells F1
   rejects 0.051 pooled, and at most 0.062 in any cell, including the
   cells where the true half-life (0 or 1 week) differs from the assumed
-  0.5 week. R, with a compound-symmetry working covariance and
-  model-based inference, rejects 0.069 pooled and 0.081 at $N = 35$.
+  0.5 week [verified, summary-full.csv]. R, with a compound-symmetry
+  working covariance and model-based inference, rejects 0.069 pooled and
+  0.081 at $N = 35$ [verified, summary-full.csv].
 
 **What it costs.** Power. At $c_{bm} = 0.30$, $N = 70$, under AR(1)
 data, F1's size-adjusted power is 0.364 against 0.514 for S, a
 relative loss of 29%; over ten AR(1) alternative cells the loss ranges
-from 9% to 30%. Under compound-symmetry data it is small (0.522
-against 0.554) (verified). Plan the sample size for F1, not for S.
+from 9% to 30% [verified, decision-power-ds-nosym-all14.csv,
+56-cost-F1-vs-S.csv]. Under compound-symmetry data it is small (0.522
+against 0.554) [verified, decision-power-ds-nosym-all14.csv].
+Plan the sample size for F1, not for S.
 
 **The one thing not to do.** Do not choose the half-life by AIC and then
 test as if it had been fixed. That is F1A, and it fails the size
 criterion: 0.057 pooled and 0.073 when the true half-life is 1 week
-(verified; Section 6).
+[verified, summary-full-extra2.csv; Section 6].
 
 **Status.** The validated analysis is F1 with a half-life fixed in
 advance. The project's intended analysis lets the data choose the
@@ -274,15 +278,17 @@ stress-test extension, `docs/57`, Section 8: 58 cells, 40,000 fresh
 trials under the refined process, with the bootstrap arms estimated by
 the warp-speed method. F1 at the fixed 0.5 week rejected 0.053 pooled
 over 12 non-prognostic null cells, F1A0 0.053, and the bootstrap
-versions F1A0B and F1AB 0.050 each; F1A failed again (0.060). The
-revised data-driven recommendation (`docs/57`, Sections 1 and 7.2) is
-F1A0B, the half-life chosen by AIC without the interaction term and the
-test calibrated by a parametric null-model bootstrap that repeats the
+versions F1A0B and F1AB 0.050 each; F1A failed again (0.060) [verified,
+`docs/57` Section 8, summary-full-anchored.csv]. The revised
+data-driven recommendation (`docs/57`, Sections 1 and 7.2) is F1A0B,
+the half-life chosen by AIC without the interaction term and the test
+calibrated by a parametric null-model bootstrap that repeats the
 selection, with F1AB as the alternative and F1 at a fixed half-life as
 the validated simple fallback. F1A0B's mean size-adjusted power was
 0.395 against F1's 0.388, and 0.500 against 0.352 at a true half-life
-of 2 weeks with $c_{bm} = 0.45$. A real analysis needs about 999
-bootstrap resamples per trial. Section 6.3 is updated accordingly.)
+of 2 weeks with $c_{bm} = 0.45$ [verified, `docs/57` Section 8,
+decision-power-f1-nosym-ext3-anchored.csv]. A real analysis needs about
+999 bootstrap resamples per trial. Section 6.3 is updated accordingly.)
 
 ## 2. Scope
 
@@ -771,7 +777,8 @@ Table: Null rejection rates by cell and analysis, stress test as run on 2026-10-
   cell, as the small-sample theory allows.
 - *F1 is right-sized when its half-life is wrong.* With the true
   half-life 0 or 1 week and $t_{1/2}^a$ fixed at 0.5, F1 rejects 0.049
-  and 0.061; under Weibull decay 0.046 and 0.045 (Section 6.2).
+  and 0.061; under Weibull decay 0.046 and 0.045 [verified, Table 8,
+  summary-full.csv; Section 6.2].
 
 ### 5.2 Size-adjusted power
 
@@ -799,17 +806,19 @@ Table: Size-adjusted power at $c_{bm} = 0.30$ (0.25 in the CS curve), $N = 70$ u
   AR(1) data F1 loses 29% of S's power at the reference cell, and
   between 9% (MAR dropout) and 30% ($t_{1/2} = 1$ week)
   over ten AR(1) alternative cells (verified, `56-cost-F1-vs-S.csv`).
-  Under compound symmetry the loss is 6% (0.522 against 0.554). The
-  loss comes from no longer using the baseline row as a clean
-  observation of the off-drug biomarker slope (`docs/45`, Section 6;
-  `docs/48`, Section 1).
+  Under compound symmetry the loss is 6% (0.522 against 0.554) [verified,
+  decision-power-ds-nosym-all14.csv]. The loss comes from no longer
+  using the baseline row as a clean observation of the off-drug biomarker
+  slope (`docs/45`, Section 6; `docs/48`, Section 1).
 - *F1 keeps its power under every prognostic form*; ES loses most of
   it when the natural-course association grows over time (0.192).
 - *G1 and G2 are effectively equivalent to F1* in the standard cells
   and somewhat better in the natural-course prognostic cells (0.520,
-  0.524 against 0.482; 0.484, 0.490 against 0.378).
+  0.524 against 0.482; 0.484, 0.490 against 0.378) [verified,
+  decision-power-ds-nosym-all14.csv].
 - *None of the robust analyses reaches power 0.80 on the grid at
-  $N = 70$*; at $N = 150$, F1 reaches 0.748.
+  $N = 70$*; at $N = 150$, F1 reaches 0.748 [verified,
+  decision-power-ds-nosym-all14.csv].
 
 ## 6. The analysis half-life
 
@@ -941,18 +950,19 @@ The project's position, set out in `docs/57`:
 (Status note, 2026-10-10. The intended procedures have been evaluated:
 see `docs/57`, Section 8, for the stress-test extension results and
 Section 7.2 for the revised plan, which supersede the "pending
-evaluation" wording above. In summary (verified there): F1A0 holds size
-at scale (0.053 pooled, F1's rate on the same trials) but gains no
-power as a nominal test; its bootstrap calibration F1A0B holds size
-(0.050) and gains power where the fixed value is far from the truth,
-and is the primary data-driven candidate, with F1AB (0.050) as the
-alternative. F1 with $t_{1/2}^a$ fixed in advance remains the validated
-simple fallback; fixing it at the pharmacological 0.2 week instead of
-0.5 week gave no power gain. AIC-weight averaging is slightly
-conservative (0.0455) unless bootstrapped. The bootstrap figures are
-warp-speed estimates, and their excess in the prognostic-baseline null
-cell (0.067 to 0.077) is Monte Carlo error, not a failure of the null
-model (`docs/57`, Section 8.5).)
+evaluation" wording above. In summary [verified, `docs/57` Section 8,
+summary-full-anchored.csv]: F1A0 holds size at scale (0.053 pooled,
+F1's rate on the same trials) but gains no power as a nominal test; its
+bootstrap calibration F1A0B holds size (0.050) and gains power where
+the fixed value is far from the truth, and is the primary data-driven
+candidate, with F1AB (0.050) as the alternative. F1 with $t_{1/2}^a$
+fixed in advance remains the validated simple fallback; fixing it at
+the pharmacological 0.2 week instead of 0.5 week gave no power gain
+[verified, `docs/57` Section 8]. AIC-weight averaging is slightly
+conservative (0.0455) unless bootstrapped [verified, `docs/57`
+Section 8]. The bootstrap figures are warp-speed estimates, and their
+excess in the prognostic-baseline null cell (0.067 to 0.077) is Monte
+Carlo error, not a failure of the null model (`docs/57`, Section 8.5).)
 
 ## 7. Alternatives and when to prefer them
 

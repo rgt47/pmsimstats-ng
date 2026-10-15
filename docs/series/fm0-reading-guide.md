@@ -145,53 +145,56 @@ and analysis context.
 
 <!-- From docs/series/registry/chapters.csv -->
 
-Generated from `docs/series/registry/chapters.csv`. All chapters are
-stubs as of Phase 2 (2026-10-15). Front-matter files `fm0` and `fm1`
-were filled in Phase 3 (2026-10-15).
+Status as of 2026-10-15 after Phases 2-4. **substantial** = most
+sections have real content, construct box filled where applicable,
+evidence labels present; **partial** = real prose in some sections
+but material TODO items or incomplete extractions remain; **stub** =
+section headers and source-pointer comments only.
+Summary: 24 substantial, 16 partial, 1 stub (appB).
 
 | ID | Title | Part | Needs | Est. pp. | Status |
 |----|-------|------|-------|----------|--------|
-| `fm0` | Reading guide and index | Front matter | | 6 | stub |
-| `fm1` | Executive summary | Front matter | | 4 | stub |
-| `fm2` | Notation, vocabulary and conventions | Front matter | | 8 | stub |
-| `ch01` | The question: a predictive biomarker in aggregated N-of-1 trials | I | `fm2` | 12 | stub |
-| `ch02` | Trial designs, randomization paths and exposure clocks | I | `ch01` | 14 | stub |
-| `ch03` | The published process at commit `58b32a9` | I | `ch02` | 22 | stub |
-| `ch04` | Three defects of the published process | I | `ch03` | 18 | stub |
-| `ch05` | Response components and the modified Gompertz trajectory | II | `ch02` | 16 | stub |
-| `ch06` | Carryover on the mean | II | `ch05` | 10 | stub |
-| `ch07` | Interaction architectures: mean, covariance and dual-channel | II | `ch06` | 20 | stub |
-| `ch08` | Biomarker coupling under carryover | II | `ch07` | 12 | stub |
-| `ch09` | The response covariance and the coupling ceiling | II | `ch08` | 30 | stub |
-| `ch10` | The refined process: specification, the adjustments evaluated, and the roadmap | II | `ch04`, `ch09` | 18 | stub |
-| `ch11` | Features of an N-of-1 data-generating process | II | `ch10` | 26 | stub |
-| `ch12` | Component decomposition, identification and reduction | II | `ch05`, `ch07` | 22 | stub |
-| `ch13` | Informative dropout and missingness | II | `ch02`, `ch10` | 10 | stub |
-| `ch14` | Beyond the refined process: a pharmacodynamic sensitivity model | II | `ch09`, `ch10` | 10 | stub |
-| `ch15` | Closed-form theory: E9, the coupling gap and power | III | `ch08`, `ch09` | 30 | stub |
-| `ch16` | Design efficiency and the choice of schedule | III | `ch15` | 20 | stub |
-| `ch17` | The analysis model: exposure codings, time and baseline | IV | `ch15` | 22 | stub |
-| `ch18` | Inference and calibration | IV | `ch17` | 16 | stub |
-| `ch19` | The prognostic biomarker and the shared biomarker effect | IV | `ch17`, `ch18` | 16 | stub |
-| `ch20` | The covariance study: size of candidate analyses | IV | `ch18`, `ch19` | 16 | stub |
-| `ch21` | The stress test: protocol, results and the refined-process rerun | IV | `ch19`, `ch20` | 26 | stub |
-| `ch22` | The recommended analysis | IV | `ch21` | 22 | stub |
-| `ch23` | Choosing the analysis half-life from the data | IV | `ch22` | 30 | stub |
-| `ch24` | Testing the drug main effect when the half-life is unknown | V | `ch15`, `ch23` | 30 | stub |
-| `ch25` | Analyzing a real trial | V | `ch22`, `ch23`, `ch24` | 12 | stub |
-| `ch26` | Note: the carryover recursion in the published code | VI | | 20 | stub |
-| `ch27` | Note: step coupling in the published code | VI | | 24 | stub |
-| `ch28` | Note: patching `58b32a9` | VI | `ch26`, `ch27` | 8 | stub |
-| `appA` | Catalog of analyses and the ID registry | Appendix | | 20 | stub |
+| `fm0` | Reading guide and index | Front matter | | 6 | substantial |
+| `fm1` | Executive summary | Front matter | | 4 | substantial |
+| `fm2` | Notation, vocabulary and conventions | Front matter | | 8 | substantial |
+| `ch01` | The question: a predictive biomarker in aggregated N-of-1 trials | I | `fm2` | 12 | partial |
+| `ch02` | Trial designs, randomization paths and exposure clocks | I | `ch01` | 14 | substantial |
+| `ch03` | The published process at commit `58b32a9` | I | `ch02` | 22 | substantial |
+| `ch04` | Three defects of the published process | I | `ch03` | 18 | partial |
+| `ch05` | Response components and the modified Gompertz trajectory | II | `ch02` | 16 | partial |
+| `ch06` | Carryover on the mean | II | `ch05` | 10 | substantial |
+| `ch07` | Interaction architectures: mean, covariance and dual-channel | II | `ch06` | 20 | partial |
+| `ch08` | Biomarker coupling under carryover | II | `ch07` | 12 | partial |
+| `ch09` | The response covariance and the coupling ceiling | II | `ch08` | 30 | substantial |
+| `ch10` | The refined process: specification, the adjustments evaluated, and the roadmap | II | `ch04`, `ch09` | 18 | substantial |
+| `ch11` | Features of an N-of-1 data-generating process | II | `ch10` | 26 | substantial |
+| `ch12` | Component decomposition, identification and reduction | II | `ch05`, `ch07` | 22 | partial |
+| `ch13` | Informative dropout and missingness | II | `ch02`, `ch10` | 10 | partial |
+| `ch14` | Beyond the refined process: a pharmacodynamic sensitivity model | II | `ch09`, `ch10` | 10 | substantial |
+| `ch15` | Closed-form theory: E9, the coupling gap and power | III | `ch08`, `ch09` | 30 | substantial |
+| `ch16` | Design efficiency and the choice of schedule | III | `ch15` | 20 | substantial |
+| `ch17` | The analysis model: exposure codings, time and baseline | IV | `ch15` | 22 | partial |
+| `ch18` | Inference and calibration | IV | `ch17` | 16 | substantial |
+| `ch19` | The prognostic biomarker and the shared biomarker effect | IV | `ch17`, `ch18` | 16 | partial |
+| `ch20` | The covariance study: size of candidate analyses | IV | `ch18`, `ch19` | 16 | substantial |
+| `ch21` | The stress test: protocol, results and the refined-process rerun | IV | `ch19`, `ch20` | 26 | substantial |
+| `ch22` | The recommended analysis | IV | `ch21` | 22 | substantial |
+| `ch23` | Choosing the analysis half-life from the data | IV | `ch22` | 30 | substantial |
+| `ch24` | Testing the drug main effect when the half-life is unknown | V | `ch15`, `ch23` | 30 | substantial |
+| `ch25` | Analyzing a real trial | V | `ch22`, `ch23`, `ch24` | 12 | partial |
+| `ch26` | Note: the carryover recursion in the published code | VI | | 20 | substantial |
+| `ch27` | Note: step coupling in the published code | VI | | 24 | substantial |
+| `ch28` | Note: patching `58b32a9` | VI | `ch26`, `ch27` | 8 | partial |
+| `appA` | Catalog of analyses and the ID registry | Appendix | | 20 | partial |
 | `appB` | Decision history | Appendix | | 8 | stub |
-| `appC` | Errata to earlier documents and manuscripts | Appendix | | 8 | stub |
-| `appD` | Implementation status and open-items register | Appendix | | 8 | stub |
-| `appE` | Lexicon | Appendix | | 16 | stub |
-| `appF` | Style guide | Appendix | | 6 | stub |
-| `appG` | Bibliography | Appendix | | 14 | stub |
-| `appH` | Classical test equivalents: repeated-measures ANOVA | Appendix | | 14 | stub |
-| `appI` | The legacy record (`docs/00` to `docs/20`) | Appendix | | 40 | stub |
-| `appJ` | Software and parity workflow | Appendix | | 1 | stub |
+| `appC` | Errata to earlier documents and manuscripts | Appendix | | 8 | partial |
+| `appD` | Implementation status and open-items register | Appendix | | 8 | partial |
+| `appE` | Lexicon | Appendix | | 16 | substantial |
+| `appF` | Style guide | Appendix | | 6 | substantial |
+| `appG` | Bibliography | Appendix | | 14 | partial |
+| `appH` | Classical test equivalents: repeated-measures ANOVA | Appendix | | 14 | substantial |
+| `appI` | The legacy record (`docs/00` to `docs/20`) | Appendix | | 40 | substantial |
+| `appJ` | Software and parity workflow | Appendix | | 1 | substantial |
 
 ---
 
@@ -299,3 +302,4 @@ replacing chapter. "Remove from series" means the file moves out of
 |------|---------|--------|--------|
 | 2026-10-15 | all | Phase 2 content move: reading paths, chapter status table, old-to-new map | Phase 2 skeleton fill |
 | 2026-10-15 | About this series, Reading paths, Notation cross-reference | Phase 3 GP-01: purpose section, path annotations, additional paths, notation cross-reference | GP-01 fill |
+| 2026-10-15 | Chapter status | Update status column from "stub" for all to actual state after Phases 3-4: 24 substantial, 16 partial, 1 stub | Post-Phase-4 survey |

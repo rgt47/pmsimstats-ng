@@ -239,7 +239,9 @@ dropout_visit <- function(Y, type) {
 }
 
 ## ---------------- analyses (docs/46, Section 4) ----------------
-TH_A <- 0.5
+## 0.2 week per the validated fixed-half-life policy (docs/59 s2.11).
+## Stored runs (jobs 15, 21, 22, 37) used 0.5 week; reproduce with TH_A <- 0.5.
+TH_A <- 0.2
 GRID <- c(0, 0.25, 0.5, 1, 2)
 dbc <- function(Db, tsd, h) {
   if (h <= 0) return(as.numeric(Db))

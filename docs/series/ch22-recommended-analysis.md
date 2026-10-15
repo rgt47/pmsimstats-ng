@@ -41,8 +41,15 @@
 
 ## Construct box
 
-<!-- table: process, carryover, coupling, allocation, design, N, analysis ID,
-t_half_a, n_reps -->
+| Process | Carryover | Coupling | Allocation | Design | N | Analysis ID | t_half_a (wk) | n_reps |
+|---|---|---|---|---|---|---|---|---|
+| config C at $\rho = 0.7$ | compounding (recursive) | graded | fixed | Hybrid | 70 | F1, S | 0.5 | 1000 null / 500 alt |
+| refined | anchored | graded | randomized | Hybrid | 70 | F1, S | 0.5 (stored; 0.2 is current policy) | 500 |
+
+*Row 1: stress test as run on 2026-10-07 (docs/56; published recursive
+carryover, fixed allocation). Row 2: job 15 anchored rerun (Phase 3
+GP-14). Stored runs used $t_{1/2}^a = 0.5$ week; the 0.2 week policy
+applies to new runs.*
 
 ---
 

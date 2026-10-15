@@ -69,8 +69,12 @@ are proposals.
 
 ## Construct box
 
-<!-- table: process, carryover, coupling, allocation, design, N,
-analysis ID, t_half_a, n_reps -->
+| Process | Carryover | Coupling | Allocation | Design | N | Analysis ID | t_half_a (wk) | n_reps |
+|---|---|---|---|---|---|---|---|---|
+| refined | anchored | graded | randomized | Hybrid | 70 | F1, S | 0.5 (stored; 0.2 is current policy) | 500 |
+
+*Stored runs (job 15) used $t_{1/2}^a = 0.5$ week; the 0.2 week policy
+applies to new runs.*
 
 ---
 
@@ -119,9 +123,7 @@ Section 4). The cross-factor form follows from AR(1) when separability
 is adopted (`docs/32` Section 5). The carryover recursion is a repair
 (`docs/53`; ch06).
 
-<!-- TODO: full difference table per Paper 01 tab:spec: list every
-parameter and whether it is the same as or different from the
-published process, with the rationale column from docs/32 -->
+<!-- Difference table now at line 207 (GP-02, Phase 3). -->
 
 ### The eight roadmap steps
 

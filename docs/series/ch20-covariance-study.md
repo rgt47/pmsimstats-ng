@@ -41,8 +41,16 @@
 
 ## Construct box
 
-<!-- table: process, carryover, coupling, allocation, design, N, analysis ID,
-t_half_a, n_reps -->
+| Process | Carryover | Coupling | Allocation | Design | N | Analysis ID | t_half_a (wk) | n_reps |
+|---|---|---|---|---|---|---|---|---|
+| config C at $\rho = 0.7$ (C07); CS ($\rho_{cs} = 0.8$) | compounding (recursive) | graded | fixed | Hybrid, CO | 70 | us-KR (= F1) | N/A (binary $D_{it}$) | 250 alt / 500 null |
+| config C at $\rho = 0.7$ (C07); CS ($\rho_{cs} = 0.8$) | anchored | graded | fixed | Hybrid, CO | 70 | us-KR (= F1) | N/A (binary $D_{it}$) | 250 alt / 500 null |
+
+*Row 1: stored main pass (recursive carryover, 2026-10-04 to 2026-10-06).
+Row 2: anchored-carryover rerun (DQ-8 decision, 2026-10-11); allocation
+kept fixed so the construct is not yet the refined process in full. The
+follow-up and $D_{bc,it}$ exposure passes were not rerun under anchored
+carryover.*
 
 ---
 

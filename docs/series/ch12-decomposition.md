@@ -87,8 +87,7 @@ account -->
 
 ## Construct box
 
-<!-- table: process, carryover, coupling, allocation, design, N,
-analysis ID, t_half_a, n_reps -->
+*No Monte Carlo simulation results in this chapter.*
 
 ---
 

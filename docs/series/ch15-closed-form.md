@@ -41,8 +41,7 @@
 
 ## Construct box
 
-<!-- table: process, carryover, coupling, allocation, design, N, analysis ID,
-t_half_a, n_reps -->
+*Power estimates in this chapter use the closed-form approximation. No Monte Carlo simulation.*
 
 ---
 

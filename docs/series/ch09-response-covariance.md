@@ -41,8 +41,7 @@
 
 ## Construct box
 
-<!-- table: process, carryover, coupling, allocation, design, N, analysis ID,
-t_half_a, n_reps -->
+*Coupling ceiling values in this chapter are derived analytically (see the CM coupling-ceiling section). No Monte Carlo simulation.*
 
 ---
 

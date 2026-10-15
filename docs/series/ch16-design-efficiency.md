@@ -41,8 +41,7 @@
 
 ## Construct box
 
-<!-- table: process, carryover, coupling, allocation, design, N, analysis ID,
-t_half_a, n_reps -->
+*Design efficiency comparisons in this chapter are analytic. No Monte Carlo simulation.*
 
 ---
 

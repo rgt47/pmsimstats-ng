@@ -42,8 +42,7 @@
 
 ## Construct box
 
-<!-- table: process, carryover, coupling, allocation, design, N,
-analysis ID, t_half_a, n_reps -->
+*Results in this chapter come from a clinical trial data analysis, not Monte Carlo simulation.*
 
 ---
 

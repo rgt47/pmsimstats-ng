@@ -42,8 +42,14 @@ table; power cost of prognostic biomarker.
 
 ## Construct box
 
-<!-- table: process, carryover, coupling, allocation, design, N,
-analysis ID, t_half_a, n_reps -->
+| Process | Carryover | Coupling | Allocation | Design | N | Analysis ID | $t_{1/2}^a$ (wk) | $n_{	ext{reps}}$ |
+|---|---|---|---|---|---|---|---|---|
+| not stated (`docs/48`) | not stated | 0 (null); 0.3 (predictive) | not stated | Hybrid | 70 | S, F1 | not stated | 500 per cell |
+
+Table: Construct box: simulations underlying the null-rejection results in
+this chapter. All figures are from `docs/48` Section 3 Table 3 and `docs/51`
+Feature 6 (inspected; not reproduced from source data in this series).
+Process and carryover specification are not recorded in `docs/48`.
 
 ---
 

@@ -67,8 +67,7 @@ largest mean shortfall on the Hybrid design at $t_{1/2} = 1$ week is
 
 ## Construct box
 
-<!-- table: process, carryover, coupling, allocation, design, N,
-analysis ID, t_half_a, n_reps -->
+*No Monte Carlo simulation results in this chapter.*
 
 ---
 

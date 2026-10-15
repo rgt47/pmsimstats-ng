@@ -42,8 +42,17 @@ KR vs CR2; Satterthwaite df.
 
 ## Construct box
 
-<!-- table: process, carryover, coupling, allocation, design, N,
-analysis ID, t_half_a, n_reps -->
+*Data source: job 15
+(`analysis/data/quick-sim/carryover-closed-form/strawman-stress/`
+`summary-full-anchored.csv`). Kappa results cover 15 null-hypothesis
+cells (Hybrid, $c_{bm} = 0$).*
+
+| Process | Carryover | Coupling | Allocation | Design | N | Analysis ID | t_half_a (wk) | n_reps |
+|---|---|---|---|---|---|---|---|---|
+| refined | anchored | graded | randomized | Hybrid | 70 | F1, S | 0.5 | 500 |
+
+Stored runs (job 15) used $t_{1/2}^a = 0.5$ week; the 0.2 week
+policy applies to new runs.
 
 ---
 

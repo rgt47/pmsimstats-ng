@@ -67,8 +67,20 @@ marginal rate each) that are distinct from Paper 09's hazard.
 
 ## Construct box
 
-<!-- table: process, carryover, coupling, allocation, design, N,
-analysis ID, t_half_a, n_reps, dropout mechanism, dropout rate -->
+*Data source: job 15
+(`analysis/data/quick-sim/carryover-closed-form/strawman-stress/`
+`summary-full-anchored.csv`). The Dropout column is not in the
+standard construct box spec; it is included here because this
+chapter's numerical results vary by dropout mechanism.*
+
+| Process | Carryover | Coupling | Allocation | Design | N | Analysis ID | t_half_a (wk) | n_reps | Dropout |
+|---|---|---|---|---|---|---|---|---|---|
+| refined | anchored | graded | randomized | Hybrid | 70 | F1, S | 0.5 | 500 | none |
+| refined | anchored | graded | randomized | Hybrid | 70 | F1, S | 0.5 | 500 | MCAR 20% |
+| refined | anchored | graded | randomized | Hybrid | 70 | F1, S | 0.5 | 500 | MAR 20% |
+
+Stored runs (job 15) used $t_{1/2}^a = 0.5$ week; the 0.2 week
+policy applies to new runs.
 
 ---
 

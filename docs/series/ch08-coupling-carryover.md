@@ -248,13 +248,43 @@ clearly and cite Paper 02 page 5. -->
 <!-- TODO: Appendix I Section 7: off-drug coupling and the coupling
 gap under AR(1) -- not yet written, leave TODO -->
 
-<!-- TODO: the trait-against-state variance question as an open
-modeling choice: the biomarker is treated as a fixed participant
-trait (no within-person variation in $B_i$); in reality biomarker
-levels fluctuate over time. If the biomarker is a state variable
-rather than a trait, its correlation with $BR$ at a given visit
-would depend on the joint dynamics of both, not just on the drug
-effect. Characterize this as an unresolved modeling choice. -->
+### Trait vs state variance of the biomarker (open choice)
+
+In the current implementation, the biomarker $B_i$ is drawn once per
+subject from $\mathcal{N}(\mu_{bm}, \sigma_{bm}^2)$ at the start of
+each simulated trial and held fixed across all visits: it is a trait
+variable. The Sigma matrix construction uses the same $B_i$ value at
+every timepoint, so the within-person biomarker variance is zero by
+construction.
+
+In reality, many candidate biomarkers fluctuate across visits. If
+$B_i$ has within-person variation $\sigma_{bm,w}^2 > 0$, then the
+realized biomarker value at visit $t$ is $B_{it} = \mu_i + \epsilon_{it}$
+where $\mu_i$ is the subject's latent trait and $\epsilon_{it}$ is
+visit-specific noise. The correlation $\mathrm{Cor}(B_{it}, BR_{it})$
+is then attenuated relative to the trait-level coupling: only the
+stable component $\mu_i$ drives the interaction, and the noise
+$\epsilon_{it}$ is uninformative.
+
+The simulation's current model is equivalent to the limiting case
+$\sigma_{bm,w}^2 = 0$, or equivalently to the assumption that the
+analysis uses a single baseline biomarker value fixed at enrollment.
+This assumption is common in power analysis for predictive biomarker
+trials, where the biomarker is measured once at screening.
+
+Whether the trait assumption is adequate depends on the clinical
+context. For PTSD nightmares and prazosin, the treating-as-trait
+assumption may be reasonable given that weekly symptom assessments
+would be analyzed against a pre-treatment biomarker measurement; no
+pharmacokinetic justification for the assumption is explicitly stated
+in any compendium manuscript (open item).
+
+The consequence of biomarker state variance is conservative power
+estimates: biomarker noise attenuates the observed interaction in the
+analysis, so realized power is lower than the simulation predicts. A
+formal sensitivity analysis would require specifying the intraclass
+correlation of the biomarker and re-deriving the coupling under the
+mixed trait-state model; this has not been done.
 
 ---
 
@@ -328,3 +358,4 @@ Rscript analysis/scripts/compendium-mathematics/\
 | Date | Section | Change | Reason |
 |------|---------|--------|--------|
 | 2026-10-15 | All | Phase 2 content move from CM sec:cg-estimand, CM sec:inva-pk, CM sec:inve-ce-shape, docs/37, docs/55, docs/51 | Whitepaper refactor |
+| 2026-10-15 | New-to-write: trait vs state | GP-10: replace TODO with subsection on trait vs state biomarker variance as open modeling choice | Phase 3 gap fill |

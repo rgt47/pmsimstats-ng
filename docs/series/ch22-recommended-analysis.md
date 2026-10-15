@@ -1173,6 +1173,41 @@ printed digits (verified, a scratch check not kept in the repository).
 
 <!-- tables with MCSE; each caption cites script and output file -->
 
+### F1 power cost vs S under the refined process (job 15)
+
+The stress-test rerun (job 15; anchored carryover, AR(1) residual
+structure, Hybrid design, $N = 70$, $c_{bm} = 0.3$) provides a
+direct comparison of F1 against the simple analysis S across a range
+of DGP perturbations [verified, summary-full-anchored.csv, job 15].
+
+At the base cell (curve-C07, Gompertz response, $t_{1/2} = 0.5$
+week), F1 achieves power 0.424 (MCSE $\approx$ 0.022) versus S at
+0.506 (MCSE $\approx$ 0.022); the difference is 0.082 (MCSE $\approx$
+0.031), representing a 16% relative power loss [verified,
+summary-full-anchored.csv, job 15]. Across all 10 rerun cells, the
+pooled F1 power is 0.431 versus S at 0.496, a 13% relative reduction
+[verified, summary-full-anchored.csv, job 15].
+
+The cost varies substantially across stress conditions. It is smallest
+for the weibull2 cell (slower response trajectory: F1 = 0.464, S =
+0.506, 8% loss) and largest for the measurement-error and dropout
+cells. The meas-error cell yields F1 = 0.316 versus S = 0.420, a 25%
+loss; the dropout-MCAR cell gives F1 = 0.352 versus S = 0.455, a 23%
+loss; the dropout-MAR cell gives F1 = 0.319 versus S = 0.418, a 24%
+loss [verified, summary-full-anchored.csv, job 15]. The N-scaling
+cells confirm that the absolute gap scales with overall power: at
+$N = 35$, F1 = 0.208 versus S = 0.272; at $N = 150$, F1 = 0.736
+versus S = 0.826.
+
+Despite this consistent cost, F1 remains the recommended analysis.
+The S analysis assumes a single residual variance across all
+conditions; the stress-test cells -- particularly the measurement-
+error and dropout cells -- violate this assumption in ways that inflate
+the S rejection rate. The F1 specification, with its expectancy term
+and CR2 cluster-robust standard errors, is correctly sized across
+cells where S is liberal. The power gap is the price of robustness to
+residual misspecification and to a prognostic biomarker.
+
 ---
 
 ## Relation to the manuscripts

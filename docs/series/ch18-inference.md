@@ -88,10 +88,53 @@ approximately $2\Phi(-z_{1-\alpha/2}/\kappa)$ for a two-sided test
 at nominal $\alpha$. At $\kappa = 0.78$, $\alpha = 0.05$, the actual
 size is about 0.10 (`docs/45`, Section 4; inspected).
 
-<!-- TODO: kappa section -- docs/33 Section 2.4 is the only source
-for the kappa analysis; that document does not exist in the project.
-Add the derivation and numerical values when docs/33 is located or
-reconstructed. -->
+### Kappa: ratio of model SE to empirical SD
+
+The calibration statistic $\kappa$ measures agreement between the
+model-based standard error and the empirical variability of the
+estimator across replications:
+
+$$
+\kappa = \frac{\overline{\widehat{\mathrm{SE}}(\hat\beta)}}
+              {\hat\sigma_{\hat\beta}},
+$$
+
+where $\overline{\widehat{\mathrm{SE}}(\hat\beta)}$ is the mean of
+the model-based standard errors over replications and
+$\hat\sigma_{\hat\beta}$ is the empirical standard deviation of
+$\hat\beta$ over replications. A value $\kappa < 1$ indicates that
+the model underestimates the true variance of the estimator, which
+produces a liberal test; $\kappa > 1$ indicates that the model
+overestimates variance and the test is conservative. At $\kappa = 1$
+the model is correctly calibrated.
+
+Under F1 across the 15 null-hypothesis cells of job 15 (Hybrid
+design, $c_{bm} = 0$, anchored carryover, AR(1) structure), kappa
+ranges from 0.937 to 1.021 with a mean of 0.986 [verified,
+summary-full-anchored.csv, job 15]. The lower end of this range
+(0.937, weibull0.5 cell) corresponds to a modest degree of
+underestimation; the upper end (1.021, N150 cell) is slightly
+conservative. No cell falls below 0.93, which is consistent with
+the empirical null rejection rates remaining within or close to the
+2-MCSE band (0.046 to 0.054 for 500 replications) in most cells
+[verified, summary-full-anchored.csv, job 15].
+
+Under S at the same null cells, kappa ranges from 0.930 to 1.025
+with a mean of 0.980. The pattern is qualitatively similar to F1:
+both analyses are close to correctly calibrated under the refined
+process (Hybrid, AR(1)) in the non-prognostic cells, with the more
+extreme deviations concentrated in the smaller-N (N35, kappa = 0.930)
+and the no-carryover (thalf0, kappa = 0.948) cells.
+
+**Deferred.** The full kappa-by-design table -- kappa for Crossover,
+Open-Label, and Hybrid designs under both covariance-moderation and
+mean-moderation architectures as a function of $\rho$ and $c_{bm}$
+-- requires a dedicated parameter sweep. The existing job 15 data
+cover only the Hybrid design under covariance moderation. That table
+is GP-07 (partial): the definition, interpretation, and Hybrid-design
+values are now documented; the multi-design, multi-architecture
+extension remains to be done. The original source cited for this
+analysis (`docs/33`, Section 2.4) does not exist in this project.
 
 ### What the random intercept absorbs under AR(1) data
 

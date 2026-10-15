@@ -143,6 +143,54 @@ items for the coupling ceiling] -->
 
 ---
 
+## Package implementation status
+
+Last inspection date: 2026-10-15. Status values: Implemented, Open,
+Partial, Deferred.
+
+| Feature | Status | Notes |
+|---|---|---|
+| Separable AR(1) covariance matrix | Open | `buildSigma()` uses the published compound-symmetry construct by default; PKG-01 |
+| Graded coupling profile ($c_{bm} \cdot e^{-\lambda t_{sd}}$ off drug) | Implemented | Encoded in Sigma matrix for on/off-drug timepoints in `generateData.R` |
+| Anchored carryover | Implemented | Default in drivers since 2026-10-08; `--carryover recursive` reproduces stored runs |
+| Pre-exposure guard on $D_{bc}$ ($D_{bc} = 0$ before first dose) | Implemented | Guarded in `lme_analysis.R` |
+| Randomized path allocation | Implemented | `randomize_paths` option in `buildtrialdesign()` |
+| Stop on non-positive-definite matrix | Open | Package still silently repairs non-PD matrix via Cholesky fallback; PKG-03 (`R/generateData.R` known open item) |
+| Factored generator (step 5 of refined process) | Open | Efficiency improvement, not blocking correctness; PKG-02 |
+| `cbmCeiling()` coupling-ceiling function | Open | Not yet exported from package; PKG-04 |
+| Prognostic biomarker couplings | Implemented | `blparam` list accepts `c.bm.pb` for contaminated-biomarker DGP |
+| Mean-moderation architecture | Implemented | `dgp_architecture = 'mean_moderation'` in `generateData()` |
+| Dual-channel architecture | Implemented | `dgp_architecture = 'combined'` with `c.bm_a` and `c.bm_b` |
+
+---
+
+## Open items register
+
+Computational gaps from `docs/59` Section 8 and implementation open
+items. Status: open, in progress, deferred, or blocked.
+
+| Item | Chapter | Gap | Status |
+|---|---|---|---|
+| F1A0B full bootstrap check ($M=999$, $\approx$170 worker-hours) | ch23 | GP-15 | deferred |
+| Sample-size planning for F1 and F1A0B | ch16 | GP-16 | deferred |
+| CO and OL+BDC interaction analysis | ch02, ch17 | GP-17 | deferred |
+| Prognostic coupling strengths other than 0.3 | ch19 | GP-18 | deferred |
+| Features 11-17 of docs/51 simulation | ch11 | GP-19 | deferred |
+| Calibration to prazosin trial data | ch10 | GP-20 | blocked (data access) |
+| Main-effect stress test under rebuilt P04 | ch24 | GP-21 | in progress (per P04 Section 7.3) |
+| Coverage of profile-likelihood intervals | ch18 | GP-22 | deferred |
+| Design ranking under refined process at matched $N$ | ch16 | GP-25 | deferred |
+| Paper 02 CO rerun with corrected pre-exposure coding | appC | GP-31 | open (computation) |
+| OL+BDC Type I error under compound symmetry | ch04 | GP-32 | open (analysis) |
+| Paper 11 boundary cells and super-additivity proof | ch07 | GP-33 | open (computation) |
+| F1 at 0.2 week in 41-cell stress test | ch21 | GP-39 | deferred (optional) |
+| Silent Cholesky repair in `generateData.R` | appD | PKG-03 | open |
+| Factored generator in `generateSimulatedResults()` | appD | PKG-02 | open |
+| `cbmCeiling()` exported function | appD | PKG-04 | open |
+| Parity baselines after refined-process adoption | appD | PKG-06 | open (depends on PKG-01 to PKG-05) |
+
+---
+
 ## Derivations
 
 <!-- one row per result: statement | CM label | verification
@@ -190,3 +238,4 @@ numbers agree? -->
 | Date | Section | Change | Reason |
 |------|---------|--------|--------|
 | 2026-10-15 | Setting and argument | Initial register from docs/35 Secs 7,9; docs/44 Sec 4; docs/legacy/52 Sec 4; docs/legacy/23 Sec 14; docs/36 Sec 9 | Phase 2 content move |
+| 2026-10-15 | Package implementation status, Open items register | GP-27 and GP-38: implementation status table and computational gap register | Phase 3 gap fill |

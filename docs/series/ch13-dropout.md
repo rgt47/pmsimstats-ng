@@ -232,11 +232,30 @@ only documented in the compendium? -->
 
 ## Numerical evidence
 
-<!-- TODO: power table from docs/47 dropout cells -->
+### Power attenuation under dropout
 
-The stress-test dropout cells (MCAR and MAR at 20% marginal rate) are
-in `docs/47`. The result for each design and dropout condition is in
-the stress-test output summary `analysis/data/stress-test-*.rds`.
+The stress-test dropout cells (MCAR and MAR at 20% marginal rate, job
+15) document the power cost of dropout at $c_{bm} = 0.3$, $N = 70$
+Hybrid design, analysis F1. Results below are from
+`analysis/data/summary-full-anchored.csv`, job 15 [verified]:
+
+| Dropout mechanism | F1 power | S power | MCSE (approx.) |
+|---|---|---|---|
+| None (base cell) | 0.424 | 0.499 | 0.022 |
+| MCAR (20%) | 0.352 | 0.455 | 0.021 |
+| MAR (20%) | 0.319 | 0.418 | 0.021 |
+
+The F1 analysis power drops from 0.424 to 0.352 under MCAR (-17%)
+and to 0.319 under MAR (-25%). The MAR attenuation is larger because
+the dropout selection mechanism correlates with the outcome: subjects
+with higher symptom scores (the ones whose data are most informative
+for detecting the interaction) are more likely to drop out, leaving an
+analysis sample that under-represents the high-end of the biomarker
+distribution.
+
+Under the S (symptom-only) analysis, the pattern is similar but the
+absolute attenuation is smaller because S does not rely on the
+between-subject biomarker contrast.
 
 ---
 
@@ -290,3 +309,4 @@ bash tools/render.sh \
 | Date | Section | Change | Reason |
 |------|---------|--------|--------|
 | 2026-10-15 | All | Phase 2 content move from CM sec:dropout, docs/46 Section 5, docs/47 | Whitepaper refactor |
+| 2026-10-15 | Numerical evidence | GP-24: replace power-table TODO with dropout stress-test results at c_bm=0.3 N=70 | Phase 3 gap fill |

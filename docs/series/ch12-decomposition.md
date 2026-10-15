@@ -215,7 +215,7 @@ contrast makes available.
 
 A phase-augmented analysis model:
 
-```
+```{r}
 Sx ~ bm + t + Dbc + phase + Dbc:phase + bm:Dbc + bm:Dbc:phase
 ```
 
@@ -309,7 +309,7 @@ identity of eq:lumped-slope still applies unchanged -->
 
 <!-- TODO: the two-component reductions (BR+PB and BR+TV) and their
 power implications: which reduced models remain adequate for detecting
-bm:Dbc; sourced from docs/31 Parts IV-V -->
+`bm:Dbc`; sourced from docs/31 Parts IV-V -->
 
 ---
 

@@ -66,7 +66,7 @@ analysis model and its carryover specifications" -->
 
 Across the compendium both architectures are fit identically:
 
-```
+```{r}
 Sx ~ bm + t + Dbc + bm:Dbc
 ```
 
@@ -325,8 +325,8 @@ half-life.
 be coded 0, not $e^{-\lambda \cdot 0} = 1$. Manuscript 02's
 implementation codes them 1, giving CO's placebo-first path
 $D_{bc,it} = 1$ at every visit and costing 0.26 to 0.30 in power
-(`docs/45`, Section 8). Fix: `Dbc = ifelse(Db == 1, 1, ifelse(tsd > 0,
-carryover_decay(tsd, h), 0))`.
+(`docs/45`, Section 8). Fix: `Dbc = ifelse(Db == 1, 1, ifelse(tsd > 0, carryover_decay(tsd, h), 0))`.
+
 
 ### Analysis implications of each DGP step
 
@@ -372,7 +372,7 @@ Four constraints make a component-matched analysis impractical.
 The smallest useful step toward component-aware analysis is phase
 indicators and their interactions with the drug term, schematically:
 
-```r
+```{r}
 Sx ~ bm + t + Dbc + phase + Dbc:phase
      + bm:Dbc + bm:Dbc:phase + (1 | ptID),
      correlation = corCAR1(...)

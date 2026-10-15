@@ -306,13 +306,13 @@ per participant and no explicit residual correlation structure.
 For designs with within-subject drug variation (CO, N-of-1, OL+BDC),
 the formula was:
 
-```
+```{r}
 Sx ~ bm + t + Dbc + bm:Dbc + (1|ptID)
 ```
 
 For OL (no within-subject drug variation), the formula was:
 
-```
+```{r}
 Sx ~ bm + t + bm:t + (1|ptID)
 ```
 
@@ -400,7 +400,7 @@ independent residuals (given a random intercept) became
 misspecified. The original analysis used `lme4::lmer` with a
 random intercept only:
 
-```r
+```{r}
 lmer(Sx ~ bm + t + Dbc + bm:Dbc + (1|ptID), data = datamerged)
 ```
 
@@ -452,7 +452,7 @@ with linear time, so the AR(1) structure has less impact.
 The analysis model was changed to `nlme::lme` with continuous-time
 AR(1) residual correlation:
 
-```r
+```{r}
 nlme::lme(Sx ~ bm + t + Dbc + bm:Dbc,
           random = ~1|ptID,
           correlation = corCAR1(form = ~t|ptID),

@@ -117,7 +117,7 @@ exposure-decayed indicator $D_{bc}$ rather than the binary $D$.
 
 **Step 3: run the analysis.**
 
-```r
+```{r}
 result <- lme_analysis(td, CTdata, op, full_model_out = TRUE)
 print(result$summary['bm:Dbc', ])
 ```
@@ -141,7 +141,7 @@ overlaid on observed values, with shaded carryover windows.
 
 For a researcher applying F1 to their own trial dataset:
 
-```r
+```{r}
 library(nlme)
 library(clubSandwich)
 

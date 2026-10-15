@@ -95,19 +95,19 @@ source documents, and any notes.
 
 | ID | Formula | Inference | Source | Notes |
 |---|---|---|---|---|
-| S | Y ~ bmc + t + Dbc + bmc:Dbc; corCAR1; RI; E9 at fixed $t_{1/2}^a$ | CR2/Satterthwaite | docs/46,47; plan Sec 2.7 | Baseline interaction model; stress-test reference arm |
-| C1 | Y ~ bmc + t + Dbc + bmc:Dbc; corCAR1; RI; compound-symmetry Dbc coding | CR2/Satterthwaite | docs/46,47 | Compound-symmetry exposure coding variant of S |
-| C2 | Y ~ bmc + t + Dbc + bmc:Dbc; corCAR1; RI; compound-symmetry Dbc coding | Model-based (REML) | docs/46,47 | Model-based inference variant of C1 |
-| A | Y ~ bmc + t + Dbc + bmc:Dbc; MMRM; E9 at fixed $t_{1/2}^a$ | Kenward-Roger (KR2) | docs/45,46,47 | MMRM with KR2 inference; from covariance study |
-| ES | Y ~ bmc + t + Dbc + bmc:Dbc; corCAR1; RI; E9 exposure coding | CR2/Satterthwaite | docs/46,47 | E9 exposure coding, CR2 inference |
-| EA | Y ~ bmc + t + Dbc + bmc:Dbc; MMRM; E9 exposure coding | Kenward-Roger (KR2) | docs/46,47 | E9 exposure coding, KR2 inference |
-| F1 | Y ~ bmc + t + Dbc + bmc:Dbc + De + bmc:De; corCAR1; RI; E9 at fixed $t_{1/2}^a$ = 0.2 week | CR2/Satterthwaite | docs/56,57; plan Sec 2.11 | Recommended analysis; expectancy terms |
-| F2 | Y ~ bmc + t + Dbc + bmc:Dbc + De + bmc:De; corCAR1; RI; E9 at fixed $t_{1/2}^a$ | Model-based (REML) | docs/46,47 | Model-based variant of F1 |
-| R | Y ~ bmc + t + Dbc + bmc:Dbc; corCAR1; RI; ratio-graded coupling rule | CR2/Satterthwaite | docs/46,47 | Ratio-coupling exposure coding |
-| DS | Y ~ bmc + t + Dbc + bmc:Dbc; corCAR1; RI; grid search over $t_{1/2}^a$ in {0, 0.25, 0.5, 1, 2} | CR2/Satterthwaite | docs/46,47 | Data-selected half-life; S formula |
-| DA | Y ~ bmc + t + Dbc + bmc:Dbc; MMRM; grid search over $t_{1/2}^a$ in {0, 0.25, 0.5, 1, 2} | Kenward-Roger (KR2) | docs/46,47 | Data-selected half-life; A formula |
-| G1 | Y ~ bmc + t + Dbc + bmc:Dbc + De + bmc:De; corCAR1; $t_{1/2}^a$ chosen by AIC over null model | CR2/Satterthwaite | docs/47; plan Sec 2.7 | AIC-selected half-life without interaction in selection model |
-| G2 | Y ~ bmc + t + Dbc + bmc:Dbc + De + bmc:De; corCAR1; $t_{1/2}^a$ chosen by AIC over null model | Model-based (REML) | docs/47; plan Sec 2.7 | Model-based variant of G1 |
+| S | Y ~ bmc + t + `Dbc` + bmc:`Dbc`; corCAR1; RI; E9 at fixed $t_{1/2}^a$ | CR2/Satterthwaite | docs/46,47; plan Sec 2.7 | Baseline interaction model; stress-test reference arm |
+| C1 | Y ~ bmc + t + `Dbc` + bmc:`Dbc`; corCAR1; RI; compound-symmetry `Dbc` coding | CR2/Satterthwaite | docs/46,47 | Compound-symmetry exposure coding variant of S |
+| C2 | Y ~ bmc + t + `Dbc` + bmc:`Dbc`; corCAR1; RI; compound-symmetry `Dbc` coding | Model-based (REML) | docs/46,47 | Model-based inference variant of C1 |
+| A | Y ~ bmc + t + `Dbc` + bmc:`Dbc`; MMRM; E9 at fixed $t_{1/2}^a$ | Kenward-Roger (KR2) | docs/45,46,47 | MMRM with KR2 inference; from covariance study |
+| ES | Y ~ bmc + t + `Dbc` + bmc:`Dbc`; corCAR1; RI; E9 exposure coding | CR2/Satterthwaite | docs/46,47 | E9 exposure coding, CR2 inference |
+| EA | Y ~ bmc + t + `Dbc` + bmc:`Dbc`; MMRM; E9 exposure coding | Kenward-Roger (KR2) | docs/46,47 | E9 exposure coding, KR2 inference |
+| F1 | Y ~ bmc + t + `Dbc` + bmc:`Dbc` + De + bmc:De; corCAR1; RI; E9 at fixed $t_{1/2}^a$ = 0.2 week | CR2/Satterthwaite | docs/56,57; plan Sec 2.11 | Recommended analysis; expectancy terms |
+| F2 | Y ~ bmc + t + `Dbc` + bmc:`Dbc` + De + bmc:De; corCAR1; RI; E9 at fixed $t_{1/2}^a$ | Model-based (REML) | docs/46,47 | Model-based variant of F1 |
+| R | Y ~ bmc + t + `Dbc` + bmc:`Dbc`; corCAR1; RI; ratio-graded coupling rule | CR2/Satterthwaite | docs/46,47 | Ratio-coupling exposure coding |
+| DS | Y ~ bmc + t + `Dbc` + bmc:`Dbc`; corCAR1; RI; grid search over $t_{1/2}^a$ in {0, 0.25, 0.5, 1, 2} | CR2/Satterthwaite | docs/46,47 | Data-selected half-life; S formula |
+| DA | Y ~ bmc + t + `Dbc` + bmc:`Dbc`; MMRM; grid search over $t_{1/2}^a$ in {0, 0.25, 0.5, 1, 2} | Kenward-Roger (KR2) | docs/46,47 | Data-selected half-life; A formula |
+| G1 | Y ~ bmc + t + `Dbc` + bmc:`Dbc` + De + bmc:De; corCAR1; $t_{1/2}^a$ chosen by AIC over null model | CR2/Satterthwaite | docs/47; plan Sec 2.7 | AIC-selected half-life without interaction in selection model |
+| G2 | Y ~ bmc + t + `Dbc` + bmc:`Dbc` + De + bmc:De; corCAR1; $t_{1/2}^a$ chosen by AIC over null model | Model-based (REML) | docs/47; plan Sec 2.7 | Model-based variant of G1 |
 | F1A | F1 formula; $t_{1/2}^a$ chosen by AIC with interaction term; tested as if fixed | CR2/Satterthwaite | docs/57 Sec 1; plan Sec 2.7 | Liberal: AIC selection with interaction inflates size |
 | F1A0 | F1 formula; $t_{1/2}^a$ chosen by AIC over model without interaction | CR2/Satterthwaite | docs/57 Secs 1,8; plan Sec 2.7 | AIC selection excludes interaction from model |
 | F1A0B | F1 formula; $t_{1/2}^a$ chosen by AIC over null model; inference calibrated by parametric bootstrap | Bootstrap/CR2 | docs/57 Secs 1,8; plan Sec 2.11 | Provisional primary; bootstrap recalibrates size |
@@ -124,8 +124,8 @@ Table: Interaction-track analysis IDs with formula and inference
 
 | ID | Formula | Inference | Source | Notes |
 |---|---|---|---|---|
-| M-S | Y ~ t + Dbc + De; corCAR1; RI; fixed $t_{1/2}^a$ = 0.2 week | CR2/Satterthwaite | docs/58; P04 protocol; plan Sec 2.7 | Standard main-effect test without biomarker terms |
-| M-F1 | Y ~ bmc + t + Dbc + bmc:Dbc + De + bmc:De; corCAR1; fixed $t_{1/2}^a$ = 0.2 week; test bmc:Dbc | CR2/Satterthwaite | docs/58; plan Sec 2.7 | Full F1 model; main-effect estimand extracted |
+| M-S | Y ~ t + `Dbc` + De; corCAR1; RI; fixed $t_{1/2}^a$ = 0.2 week | CR2/Satterthwaite | docs/58; P04 protocol; plan Sec 2.7 | Standard main-effect test without biomarker terms |
+| M-F1 | Y ~ bmc + t + `Dbc` + bmc:`Dbc` + De + bmc:De; corCAR1; fixed $t_{1/2}^a$ = 0.2 week; test bmc:`Dbc` | CR2/Satterthwaite | docs/58; plan Sec 2.7 | Full F1 model; main-effect estimand extracted |
 | M-VF | Vertically-flipped test; row-group weighted estimand | CR2/Satterthwaite | docs/58; plan Sec 2.7 | Addresses null bias from unknown half-life |
 | M-RV | Randomization-test variant of main-effect analysis | Permutation | docs/58; plan Sec 2.7 | Permutation test for main effect |
 | M-F1A | M-F1 formula; $t_{1/2}^a$ chosen by AIC over null model | CR2/Satterthwaite | docs/58; plan Sec 2.7 | Data-chosen half-life for main-effect track |
@@ -145,14 +145,14 @@ Table: Covariance study analysis IDs (source: `analyses.csv`)
 
 | ID | Description | Source |
 |---|---|---|
-| E1 | Binary Dbc: 1 on-drug, 0 off-drug and pre-exposure | CM E-series; docs/43 Sec 2; NOTATION |
-| E2 | Binary Dbc with pre-exposure guard: 0 before first dose | CM E-series; docs/37 App A; NOTATION |
+| E1 | Binary $D_{bc}$: 1 on-drug, 0 off-drug and pre-exposure | CM E-series; docs/43 Sec 2; NOTATION |
+| E2 | Binary $D_{bc}$ with pre-exposure guard: 0 before first dose | CM E-series; docs/37 App A; NOTATION |
 | E3 | Exponential decay off-drug; step to 1 on-drug | CM E-series; NOTATION |
 | E4 | Exponential decay off-drug; step to 1 on-drug; pre-exposure guard | CM E-series; NOTATION |
-| E5 | Compound-symmetry Dbc: constant off-drug value | CM E-series; NOTATION |
-| E6 | AR(1) Dbc: correlated off-drug decay | CM E-series; NOTATION |
-| E7 | Cumulative-exposure Dbc: integral of on-drug indicator | CM E-series; NOTATION |
-| E8 | Phase-indicator Dbc: per-phase average | CM E-series; NOTATION |
+| E5 | Compound-symmetry $D_{bc}$: constant off-drug value | CM E-series; NOTATION |
+| E6 | AR(1) $D_{bc}$: correlated off-drug decay | CM E-series; NOTATION |
+| E7 | Cumulative-exposure $D_{bc}$: integral of on-drug indicator | CM E-series; NOTATION |
+| E8 | Phase-indicator $D_{bc}$: per-phase average | CM E-series; NOTATION |
 | E9 | Exponential decay with pre-exposure guard and restart on re-exposure: exp(-lambda_cor * tsd) | CM E-series; docs/37; NOTATION |
 | E9b | E9 with Dbc_it variant (time-varying biomarker-interaction term) | docs/45; CM E-series; NOTATION |
 

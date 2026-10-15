@@ -55,10 +55,48 @@ t_half_a, n_reps -->
   corrected) if CM lacks it; 31 Section 20; 44 Steps 5 to 6; CM "Validity of
   covariance binding" (15 subsections).
 
-- New to write: one full ceiling table (construct by $\rho \in \{0.7, 0.8\}$
-  by design by $t_{1/2}$); a box "a higher ceiling is not more power" (35
-  Section 6).
 -->
+
+### Coupling ceiling by $\rho$, design and $t_{1/2}$
+
+The table below reports $c_{bm}^*$ under configuration C (the
+`ar1/decay/graded` construct: AR(1) within-factor correlation,
+decaying carryover, graded coupling) at the $\rho$ and $t_{1/2}$
+values present in the simulation grid. Grid points $\rho \in
+\{0.6, 0.8\}$ and $t_{1/2} \in \{0.5, 2\}$ wk are not yet
+computed.
+[verified, analysis/data/quick-sim/cbm-ceiling/rho.csv]
+
+| $\rho$ | Design | $t_{1/2}$ (wk) | $c_{bm}^*$ |
+|--------|--------|----------------|------------|
+| 0.5    | CO     | 0              | 0.549      |
+| 0.5    | Hybrid | 0              | 0.489      |
+| 0.5    | OL+BDC | 0              | 0.448      |
+| 0.5    | CO     | 1              | 0.549      |
+| 0.5    | Hybrid | 1              | 0.515      |
+| 0.5    | OL+BDC | 1              | 0.468      |
+| 0.7    | CO     | 0              | 0.619      |
+| 0.7    | Hybrid | 0              | 0.456      |
+| 0.7    | OL+BDC | 0              | 0.452      |
+| 0.7    | CO     | 1              | 0.619      |
+| 0.7    | Hybrid | 1              | 0.544      |
+| 0.7    | OL+BDC | 1              | 0.533      |
+
+Table: Coupling ceiling $c_{bm}^*$ by $\rho$, design and $t_{1/2}$
+for the `ar1/decay/graded` construct (configuration C)
+
+The ceiling falls as $t_{1/2}$ increases (more off-drug coupling
+tightens the positive-definiteness constraint), and the
+design-specific relationship with $\rho$ reflects switch-cost
+structure: designs with more on-to-off transitions carry higher
+step costs at larger $\rho$, reducing the ceiling, while CO,
+with fewer transitions, shows the reverse pattern. At $\rho = 0.7$,
+$t_{1/2} = 0$, the separable AR(1) ceilings are 0.474 for OL+BDC
+and 0.480 for Hybrid (Section 6); these are the landmarks reported
+in Paper 01. A higher ceiling does not imply more power at a given
+true $c_{bm}$: it only means the DGP is feasible at larger effect
+sizes. Power at $c_{bm} = 0.35$ is the same regardless of whether
+the ceiling is 0.474 or 0.480.
 
 <!-- Spine: docs/35-separable-response-covariance.md (copied verbatim; Phase 2) -->
 

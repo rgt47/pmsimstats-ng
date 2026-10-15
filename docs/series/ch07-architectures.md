@@ -71,9 +71,10 @@ with independent weights $c_{bm,A}$ (mean) and $c_{bm,B}$
 At matched total $N = 70$ and matched effect size the power
 difference between mean moderation and covariance moderation under the
 refined process is 15.4% for covariance moderation against 6.9% for
-mean moderation under carryover (Paper 01 Results; NOTATION.md Part
-2). This reflects the graded off-drug coupling of the covariance
-channel, which attenuates the interaction signal under carryover.
+mean moderation under carryover [inspected, Paper 01 Results;
+NOTATION.md Part 2]. This reflects the graded off-drug coupling of
+the covariance channel, which attenuates the interaction signal under
+carryover.
 
 ### Estimands and units by architecture
 
@@ -146,9 +147,9 @@ $$
 $$
 
 (Paper 01, Estimand). Under the plain profile the moderation stops
-when the drug stops, and power is flat in $t_{1/2}$ (0.681 at every
-half-life for E9 in Hybrid at $N = 70$, $\beta_{bm} = 0.25$,
-compound symmetry; Paper 01, Results). Paper 01 calls this flatness
+when the drug stops, and power is flat in $t_{1/2}$ (0.681 at every half-life for E9 in
+Hybrid at $N = 70$, $\beta_{bm} = 0.25$, compound symmetry)
+[inspected, Paper 01 Results]. Paper 01 calls this flatness
 a coding choice rather than a finding, because the drug effect itself
 carries over.
 
@@ -290,8 +291,8 @@ class-varying within-class covariance.
 
 At matched total $N = 70$ in the Hybrid design, the relative power
 loss under carryover at $t_{1/2} = 0.5$ week is 15.4% for covariance
-moderation against 6.9% for mean moderation (Paper 01 Results;
-NOTATION.md Part 2). This supersedes the earlier "40-60% versus
+moderation against 6.9% for mean moderation [inspected, Paper 01
+Results; NOTATION.md Part 2]. This supersedes the earlier "40-60% versus
 8-13%" contrast, which came from a pre-restatement version of the
 paper that used unmatched N and the published step-rule coupling
 (not graded coupling).
@@ -324,9 +325,9 @@ off estimand -- which uses information from both on-drug and off-drug
 assessments -- therefore loses nothing from off-drug visits: there is
 nothing to lose. Power is flat across carryover half-lives, because
 the half-life controls only off-drug mean carryover, not the
-moderation itself (verified under configuration D, Hybrid, $N = 70$,
+moderation itself [inspected, docs/36 Table 9] (configuration D, Hybrid, $N = 70$,
 $c_{bm} = 0.30$: power 0.78, 0.75, 0.74, 0.77, 0.73 at half-lives
-0, 0.1, 0.2, 0.5, 1 week; `docs/36` Table 9). Paper 01 notes this
+0, 0.1, 0.2, 0.5, 1 week). Paper 01 notes this
 flatness is a coding choice -- the drug effect carries over, but the
 moderation is not coded to carry over with it.
 

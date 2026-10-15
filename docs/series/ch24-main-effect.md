@@ -236,52 +236,52 @@ tested column.
 2. **A fixed half-life does not by itself guarantee size for the main
    effect.** The null limit $b_0(h)$ is exactly 0 for every $h$ and any
    working covariance when the time adjustment contains visit effects
-   (VF), or in the CO design (derived). Under F1 it is $+0.33$ points
-   in the Hybrid design (SE 1.22 at $N = 70$), which gives size 0.058
-   at $N = 70$ and 0.068 at $N = 150$ by the normal approximation;
-   under S it is $-0.61$ (size 0.083) in the Hybrid design and $-2.23$
-   (size 0.47) in OL+BDC (verified). This corrects the expectation,
+   (VF), or in the CO design (derived). Under F1 it is $+0.33$ points [inspected, docs/58 Table 2]
+   in the Hybrid design (SE 1.22 [inspected, docs/58 Table 3] at $N = 70$), which gives size 0.058 [inspected, docs/58 Table 3]
+   at $N = 70$ and 0.068 [inspected, docs/58 Table 3] at $N = 150$ by the normal approximation;
+   under S it is $-0.61$ [inspected, docs/58 Table 2] (size 0.083 [inspected, docs/58 Table 3]) in the Hybrid design and $-2.23$ [inspected, docs/58 Table 2]
+   (size 0.47 [inspected, docs/58 Table 3]) in OL+BDC (verified). This corrects the expectation,
    carried over from the interaction, that any fixed $h$ is right-sized.
 3. **AIC choice of $h$ is the maximum-$|t|$ test with a one-test
    critical value** (derived): because the model without the drug term
    does not depend on $h$, $\ell_1(h) = \ell_0 + \mathrm{LR}(h)/2$, so
    AIC picks the $h$ with the largest likelihood-ratio statistic. Its
-   size is $\Pr(\max_h |T(h)| > 1.96)$: 0.088 for F1 and 0.077 for VF in
+   size is $\Pr(\max_h |T(h)| > 1.96)$: 0.088 [inspected, docs/58 Table 6] for F1 and 0.077 [inspected, docs/58 Table 6] for VF in
    the Hybrid design, against a calibrated critical value
-   $c_{\max} \approx 2.15$ (verified, closed form); the Monte Carlo
-   check gives 0.093 and 0.087 (MCSE 0.012; Section 11).
+   $c_{\max} \approx 2.15$ [inspected, docs/58 Table 6] (verified, closed form); the Monte Carlo
+   check gives 0.093 [inspected, docs/58 Section 11] and 0.087 [inspected, docs/58 Section 11] (MCSE 0.012 [inspected, docs/58 Section 11]; Section 11).
 4. **A randomization test is exact under the sharp null and can contain
    the selection,** and it is cheap if the working covariance is taken
    from the null model, whose design does not depend on the path labels
    (derived). It uses only the randomized between-path contrasts: at
-   $f_m = 0.4$ its power is 0.39 whatever statistic it is applied to,
-   against 0.63 for the model-based F1 test, whose extra power rests on
+   $f_m = 0.4$ its power is 0.39 [inspected, docs/58 Table 7] whatever statistic it is applied to,
+   against 0.63 [inspected, docs/58 Table 7] for the model-based F1 test, whose extra power rests on
    within-path contrasts protected only by the time and expectancy
    model (verified, closed form). Under the weak null an unstudentized
    permutation test is not exact; in the Hybrid design the variance
-   ratio is 1.027 at $\tau = 5.49$ (size 0.053), and with two equally
+   ratio is 1.027 [inspected, docs/58 Table 6] at $\tau = 5.49$ (size 0.053 [inspected, docs/58 Table 6]), and with two equally
    allocated paths it is exactly 1 (derived, verified).
 5. **The half-life is barely identified for the main effect at
    realistic effect sizes.** At $f_m = 0.4$ and $N = 70$ the expected
-   ML deviance of F1 between $h = 0$ and $h = 2$ weeks is below 2 for
+   ML deviance of F1 between $h = 0$ and $h = 2$ weeks is below 2 [inspected, docs/58 Table 9] for
    every true half-life examined; at the published ceiling it reaches
-   10 to 15 against a short truth (verified). The best-fitting $h$ is
+   10 to 15 [inspected, docs/58 Table 9] against a short truth (verified). The best-fitting $h$ is
    a working value that depends on the effect size (Section 9.6).
 
 **Anchored against compounding carryover** matters more for the main
 effect than for the interaction: at a true half-life of 1 week the
-compounding recursion inflates $\beta_D^{\text{exp}}$ by 11% in the
-Hybrid design and 14% in OL+BDC and F1's power by 0.047 and 0.068
+compounding recursion inflates $\beta_D^{\text{exp}}$ by 11% [inspected, docs/58 Table 7] in the
+Hybrid design and 14% [inspected, docs/58 Table 7] in OL+BDC and F1's power by 0.047 [inspected, docs/58 Table 7] and 0.068 [inspected, docs/58 Table 7]
 (verified), where the interaction's closed-form power moved by at most
-0.002 (quoted, paper 01, Appendix B.3).
+0.002 [inspected, paper 01 Appendix B.3] (quoted, paper 01, Appendix B.3).
 
 **The worked example** (one trial, $N = 70$, $f_m = 0.4$, true
 $t_{1/2} = 0.2$, truth $\beta_D^{\text{exp}} = -2.85$; Section 10):
-F1 at $h = 0.2$ estimated an exposure contrast of $-2.61$ ($p = 0.031$);
-paying for a data-chosen $h$ gave $p$ = 0.047 (multivariate normal),
-0.049 (Davies) and 0.056 (exact randomization with the maximum inside),
+F1 at $h = 0.2$ estimated an exposure contrast of $-2.61$ ($p = 0.031$ [inspected, docs/58 Section 10]);
+paying for a data-chosen $h$ gave $p$ = 0.047 [inspected, docs/58 Section 10] (multivariate normal),
+0.049 [inspected, docs/58 Section 10] (Davies) and 0.056 [inspected, docs/58 Section 10] (exact randomization with the maximum inside),
 while every test resting on the randomized contrast alone gave 0.11 to
-0.19. The profile could not exclude any half-life. The Monte Carlo
+0.19 [inspected, docs/58 Section 10]. The profile could not exclude any half-life. The Monte Carlo
 check (Section 11) reproduced the closed-form moments, sizes and
 powers within its error.
 
@@ -397,7 +397,7 @@ where $\bar\Psi_p^{\,\text{on}}$ and $\bar\Psi_p^{\,\text{off}}$ are means of
 $\boldsymbol\Psi_p$ over the post-baseline on-drug and off-drug visits. The
 script reproduces the protocol's values at $t_{1/2} = 0$: Hybrid
 $-7.22$, OL+BDC $-9.35$, CO $-6.70$ for $\beta_D^{\text{exp}}$, and
-Hybrid $-7.56$ for $\beta_D^{\text{bl}}$ (verified against the
+Hybrid $-7.56$ for $\beta_D^{\text{bl}}$ [inspected, docs/58 Table 2] (verified against the
 protocol's `estimand-check.R` values, quoted). Table 2 adds the
 dependence on the true half-life and on the carryover form.
 
@@ -416,7 +416,7 @@ dependence on the true half-life and on the carryover form.
 Table: Estimand values at the published ceiling ($f_m = 1$; every value scales with $f_m$), equal path weights (verified, `58-cf-estimands.csv`)
 
 Two readings (derived from the table). In the pharmacological range
-the estimands barely move ($-7.22$ to $-7.13$ in the Hybrid design),
+the estimands barely move ($-7.22$ to $-7.13$ [inspected, docs/58 Table 2] in the Hybrid design),
 because the effect is almost gone one week after stopping. At one week
 or more carryover fills the off-drug visits and $\beta_D^{\text{exp}}$
 shrinks by a third or more, which is a property of the estimand, not
@@ -524,9 +524,9 @@ limit has $\rho_a = 0.646$ per week for F1 (verified).
 
 The limit of F1 under the true covariance is close to that under the
 working covariance, and the working-independence limit of `docs/42` is
-not: F1's null bias is $+0.29$ under independence, $+0.18$ under the
-true covariance and $+0.33$ under the random-intercept CAR(1) limit,
-with standard errors 1.63, 1.21 and 1.22 at $N = 70$ (verified,
+not: F1's null bias is $+0.29$ [inspected, docs/58 Table 2] under independence, $+0.18$ [inspected, docs/58 Table 2] under the
+true covariance and $+0.33$ [inspected, docs/58 Table 2] under the random-intercept CAR(1) limit,
+with standard errors 1.63, 1.21 and 1.22 [inspected, docs/58 Table 2] at $N = 70$ (verified,
 `58-cf-null.csv`). The working covariance, not only the time
 adjustment, decides the weights.
 
@@ -565,10 +565,10 @@ Table: Null bias $b_0(h)$ (points), standard error and normal-approximation size
 Readings (verified unless stated):
 
 - **F1 is nearly, not exactly, right-sized in the Hybrid design.** Its
-  null bias of $+0.33$ points is a quarter of a standard error at
+  null bias of $+0.33$ points [inspected, docs/58 Table 2] is a quarter of a standard error at
   $N = 70$; because the bias is fixed and the standard error falls as
   $N^{-1/2}$, the size grows with $N$: 0.054 at $N = 35$, 0.058 at 70,
-  0.068 at 150 and 0.086 at 300 (derived from Table 3 by scaling the
+  0.068 at 150 and 0.086 at 300 [inspected, docs/58 Table 3] (derived from Table 3 by scaling the
   standard error). The protocol's size screen (pooled rate within
   2 MCSE of 0.05, no cell above 0.075) would pass F1 at $N \le 150$
   and fail it at large $N$.
@@ -609,27 +609,27 @@ Readings (verified unless stated):
 
 - **In the pharmacological range the half-life hardly matters.** At
   true $t_{1/2} = 0.2$, every $h \le 0.5$ gives F1 power between 0.590
-  and 0.630; a wrong $h = 1$ costs 0.10 and $h = 2$ costs 0.17,
+  and 0.630 [inspected, docs/58 Table 4]; a wrong $h = 1$ costs 0.10 and $h = 2$ costs 0.17 [inspected, docs/58 Table 4],
   because a long $h$ codes the off-drug visits as exposed and
-  inflates the standard error (1.22 to 1.96).
+  inflates the standard error (1.22 to 1.96 [inspected, docs/58 Table 4]).
 - **Under long carryover the best $h$ is longer than the truth.** At
-  true $t_{1/2} = 1$, F1's power is 0.263 at $h = 0$, 0.336 at $h = 1$
-  and 0.353 at $h = 2$. Power peaks near the working value that best
+  true $t_{1/2} = 1$, F1's power is 0.263 [inspected, docs/58 Table 4] at $h = 0$, 0.336 [inspected, docs/58 Table 4] at $h = 1$
+  and 0.353 [inspected, docs/58 Table 4] at $h = 2$. Power peaks near the working value that best
   fits the misspecified mean, not at the pharmacological half-life
   (the working-parameter point of `docs/57`, Section 3.2; Section 9.6).
 - **F1 targets $\beta_D^{\text{exp}}$ closely when $h$ is near the
   truth**: its exposure contrast limit is within 0.09 point (3%) of
   $\beta_D^{\text{exp}}$ at $t_{1/2} = h = 0.2$, including the null
-  bias, and within 0.17 at $t_{1/2} = h = 0.5$. A wrong long $h$
-  attenuates it by 14% to 30%.
+  bias, and within 0.17 at $t_{1/2} = h = 0.5$ [inspected, docs/58 Table 4]. A wrong long $h$
+  attenuates it by 14% to 30% [inspected, docs/58 Table 4].
 - **VF is unbiased under the null but pays in precision** (SE 1.66
-  against 1.22, power 0.40 against 0.63) and targets the randomized
+  against 1.22, power 0.40 against 0.63 [inspected, docs/58 Table 4]) and targets the randomized
   contrast, whose value is close to $\beta_D^{\text{exp}}$ in the
   Hybrid design and equal to $\beta_D^{\text{bl}}$ in OL+BDC
-  ($-4.38$ at $f_m = 0.4$; verified).
+  ($-4.38$ at $f_m = 0.4$ [inspected, docs/58 Table 4]; verified).
 
 In OL+BDC F1's exposure contrast overstates $\beta_D^{\text{exp}}$ by
-21% at $t_{1/2} = h = 0.2$ ($-4.40$ against $-3.68$), because the four
+21% [inspected, docs/58 Table 4] at $t_{1/2} = h = 0.2$ ($-4.40$ against $-3.68$ [inspected, docs/58 Table 4]), because the four
 open-label visits carry the rising Gompertz response at full expectancy
 and a linear time term with $\eta_t$ cannot separate the two; in CO
 the limit is within 10% of the estimand at every $h$ and true
@@ -641,8 +641,8 @@ half-life (verified,
 The open-label visits are all on drug at $\eta_t = 1$, the blinded
 visits have $\eta_t = 0.5$ and baseline has neither. Over the nine
 rows with equal path weights the correlation of $\eta_t$ with $D_{it}$
-is 0.588 (0.591 with $D_{bc}(0.2)$; 0.509 over the eight post-baseline
-rows), reproducing the compendium's 0.588 (verified; compendium,
+is 0.588 [inspected, docs/58 Section 6] (0.591 with $D_{bc}(0.2)$; 0.509 over the eight post-baseline
+rows [inspected, docs/58 Section 6]), reproducing the compendium's 0.588 (verified; compendium,
 Section "The published Hybrid construct").
 
 **How F1 identifies $\beta_D$** (derived from Proposition 1). F1's
@@ -664,17 +664,17 @@ Table: Weights of the drug coefficient by row group (Hybrid, $h = t_{1/2} = 0.2$
 
 Readings (derived from the table, verified numbers):
 
-- **Adding $\eta_t$ moves the weight to the blinded rows**, from 75%
-  under S to 87% under F1; VF puts 99% there. The blinded on-off
+- **Adding $\eta_t$ moves the weight to the blinded rows**, from 75% [inspected, docs/58 Table 5]
+  under S to 87% [inspected, docs/58 Table 5] under F1; VF puts 99% [inspected, docs/58 Table 5] there. The blinded on-off
   contrast at matched expectancy is what identifies $\beta_D$ once the
   expectancy step is modeled, as the protocol's estimand discussion
   intends (protocol, Section 4.1).
 - **The open-label rows enter F1 with net negative weight** and reduce
-  the drug signal by 1.03 points per unit ceiling: F1 uses them mainly
+  the drug signal by 1.03 points [inspected, docs/58 Table 5] per unit ceiling: F1 uses them mainly
   to estimate the time and expectancy terms, and the residual Gompertz
   rise between weeks 4 and 8 then feeds back into the drug coefficient.
 - **The null bias is a sum of four non-small parts that nearly cancel**
-  ($-0.52$, $+0.61$, $-1.21$, $+1.44$). Its size is therefore fragile
+  ($-0.52$, $+0.61$, $-1.21$, $+1.44$ [inspected, docs/58 Table 5]). Its size is therefore fragile
   to the shape of the natural course and the placebo curve, which a
   real trial does not know (argued).
 
@@ -720,9 +720,9 @@ closed-form power changed by at most 0.002 (quoted, Appendix B.3).
 Table: Anchored against compounding carryover at $f_m = 0.4$, $N = 70$, $h = t_{1/2}$ (verified, `58-cf-anchored-recursive.csv`)
 
 Readings (verified): in the pharmacological range the two forms agree
-to three decimals. At $t_{1/2} = 1$ week the compounding form inflates
-$\beta_D^{\text{exp}}$ by 11% (Hybrid) and 14% (OL+BDC) and F1's power
-by 0.047 and 0.068; at 2 weeks by 28% and 34%, and 0.068 and 0.078.
+to three decimals [inspected, docs/58 Table 7]. At $t_{1/2} = 1$ week the compounding form inflates
+$\beta_D^{\text{exp}}$ by 11% [inspected, docs/58 Table 7] (Hybrid) and 14% [inspected, docs/58 Table 7] (OL+BDC) and F1's power
+by 0.047 [inspected, docs/58 Table 7] and 0.068 [inspected, docs/58 Table 7]; at 2 weeks by 28% [inspected, docs/58 Table 7] and 34% [inspected, docs/58 Table 7], and 0.068 [inspected, docs/58 Table 7] and 0.078 [inspected, docs/58 Table 7].
 VF changes little, because the second off-drug visits are at weeks 11
 and 12, where VF's weights are smaller. CO has a single off-drug run of
 four visits 2.5 weeks apart and is barely affected. Any main-effect
@@ -778,12 +778,12 @@ Table: Normal-approximation power at $f_m = 0.4$, $h = t_{1/2} = 0.2$, by design
 Readings (verified):
 
 - **Power rises with $\rho$** in the N-of-1 designs (Hybrid F1 0.44,
-  0.63, 0.80 at $\rho$ = 0.5, 0.7, 0.8), because a stronger serial
+  0.63, 0.80 [inspected, docs/58 Table 7] at $\rho$ = 0.5, 0.7, 0.8), because a stronger serial
   correlation makes nearby on and off visits more alike apart from the
   drug, so within-participant contrasts are less noisy.
 - **Heterogeneity costs little at these values**: $\tau = 5.49$
   points (half the published ceiling) lowers Hybrid F1 power from
-  0.627 to 0.568 at $N = 70$, because $\boldsymbol\omega_p'\boldsymbol\Psi_p$
+  0.627 to 0.568 [inspected, docs/58 Table 7] at $N = 70$, because $\boldsymbol\omega_p'\boldsymbol\Psi_p$
   is about 0.7, so it adds $0.5\,\tau^2$ to a contrast variance of
   about 100.
 - **OL+BDC F1's high power is partly its bias** away from zero
@@ -880,18 +880,18 @@ Table: Joint null distribution of $T(h)$ over $\mathcal T$, $N = 70$, $t_{1/2} =
 Readings (verified):
 
 - **The five statistics are highly correlated** (0.83 or more in the
-  Hybrid design, 0.98 in CO), so the maximum costs little: $c_{\max}$
-  is 2.14 to 2.19 rather than the Bonferroni 2.58. In the Hybrid design
-  the F1 correlations fall from 0.999 between $h = 0$ and 0.2 to 0.83
+  Hybrid design, 0.98 in CO [inspected, docs/58 Table 6]), so the maximum costs little: $c_{\max}$
+  is 2.14 to 2.19 [inspected, docs/58 Table 6] rather than the Bonferroni 2.58. In the Hybrid design
+  the F1 correlations fall from 0.999 between $h = 0$ and 0.2 to 0.83 [inspected, docs/58 Table 6]
   between 0 and 2 weeks.
-- **Selection by AIC with a one-test critical value is liberal**: 0.088
-  for F1 and 0.077 for VF in the Hybrid design. Without the null bias,
-  F1's figure would be 0.080; the selection, not the bias, is most of
+- **Selection by AIC with a one-test critical value is liberal**: 0.088 [inspected, docs/58 Table 6]
+  for F1 and 0.077 [inspected, docs/58 Table 6] for VF in the Hybrid design. Without the null bias,
+  F1's figure would be 0.080 [inspected, docs/58 Table 6]; the selection, not the bias, is most of
   the excess.
 - **Calibration repairs the selection but not the bias**: F1's
-  calibrated max-$|t|$ test has size 0.056 in the Hybrid design, the
+  calibrated max-$|t|$ test has size 0.056 [inspected, docs/58 Table 6] in the Hybrid design, the
   same as F1 at a fixed $h$, because the null bias of Section 5.2
-  remains. VF's calibrated test is at 0.051 (the residual 0.001 is the
+  remains. VF's calibrated test is at 0.051 [inspected, docs/58 Table 6] (the residual 0.001 is the
   normal approximation of a maximum over five correlated statistics).
 
 **Davies' bound for a continuous range** (derived; formula as
@@ -904,10 +904,10 @@ two tails gives $2\Phi(-u) + \mathcal V e^{-u^2/2}/\sqrt{2\pi}$. The
 expected value of the observed variation is $\sqrt{2/\pi}$ times the
 arc length $\sum_j\arccos\mathrm{cor}\{Z(h_j), Z(h_{j-1})\}$, which turns
 the bound into $2\Phi(-u) + (\text{arc length})\,e^{-u^2/2}/\pi$
-(derived). Over $h \in [0, 2]$ weeks the arc length is 0.65 for F1 and
-0.59 for VF in the Hybrid design; the bound puts the critical value at
-2.168 and 2.151, against 2.165 and 2.150 from the multivariate normal
-on the fine grid, and at 2.22 and 2.17 over $[0, 4]$ weeks
+(derived). Over $h \in [0, 2]$ weeks the arc length is 0.65 [inspected, docs/58 Table 6] for F1 and
+0.59 [inspected, docs/58 Table 6] for VF in the Hybrid design; the bound puts the critical value at
+2.168 [inspected, docs/58 Table 6] and 2.151 [inspected, docs/58 Table 6], against 2.165 [inspected, docs/58 Table 6] and 2.150 [inspected, docs/58 Table 6] from the multivariate normal
+on the fine grid, and at 2.22 and 2.17 [inspected, docs/58 Table 6] over $[0, 4]$ weeks
 (verified, `58-tg-davies.csv`). The bound is nearly exact here because
 the process is smooth and short, and it is a convenient one-line
 calibration for a continuous $h$.
@@ -990,7 +990,7 @@ $\beta_D^{\text{full}}\sum_p\varpi_p(\boldsymbol\omega_p -
 between-path differences of the drug profile carry signal. For VF
 $\bar{\boldsymbol\omega} = 0$ and $\hat K = 0$. For F1, $\hat K$
 carries the within-path, time-modeled part of the estimate, including
-the null bias $b_0$: at $f_m = 0.4$ in the Hybrid design 45% of F1's
+the null bias $b_0$: at $f_m = 0.4$ in the Hybrid design 45% [inspected, docs/58 Table 7] of F1's
 limit is in $\hat K$ (verified, `58-cf-randomization-power.csv`).
 
 Two consequences (verified, closed form, normal approximation):
@@ -998,10 +998,10 @@ Two consequences (verified, closed form, normal approximation):
 - **The randomization test removes F1's null bias**, since the bias is
   in $\hat K$.
 - **Its power is that of the randomized contrast, whatever statistic
-  it is applied to**: 0.392, 0.391 and 0.393 for F1, VF and S in the
-  Hybrid design at $f_m = 0.4$, against 0.627 for the model-based F1
-  test and 0.400 for VF; 0.44 against 0.88 for F1 in OL+BDC; 0.35
-  against 0.36 in CO, where the within-path information is already
+  it is applied to**: 0.392, 0.391 and 0.393 [inspected, docs/58 Table 7] for F1, VF and S in the
+  Hybrid design at $f_m = 0.4$, against 0.627 [inspected, docs/58 Table 7] for the model-based F1
+  test and 0.400 [inspected, docs/58 Table 7] for VF; 0.44 [inspected, docs/58 Table 7] against 0.88 [inspected, docs/58 Table 7] for F1 in OL+BDC; 0.35 [inspected, docs/58 Table 7]
+  against 0.36 [inspected, docs/58 Table 7] in CO, where the within-path information is already
   balanced by the crossover (Figure 1, panel D). The randomization test
   does not throw information away arbitrarily: the extra power of F1
   is exactly the information whose validity depends on modeling the
@@ -1028,8 +1028,8 @@ paths, $\boldsymbol\omega_2 - \bar{\boldsymbol\omega} =
 equal, so the unstudentized test is asymptotically exact, the
 multivariate form of the known result for the two-sample difference in
 means with equal group sizes [28] (derived). In the Hybrid design the
-variance ratio is 1.007 at $\tau = 2.75$ and 1.027 at $\tau = 5.49$,
-which raises the size of the unstudentized test to 0.051 and 0.053; in
+variance ratio is 1.007 [inspected, docs/58 Table 6] at $\tau = 2.75$ and 1.027 [inspected, docs/58 Table 6] at $\tau = 5.49$,
+which raises the size of the unstudentized test to 0.051 [inspected, docs/58 Table 6] and 0.053 [inspected, docs/58 Table 6]; in
 OL+BDC and CO it is 1 (verified, `58-tg-weak-null-permutation.csv`).
 
 **Studentization.** A permutation test of a studentized statistic is
@@ -1076,8 +1076,8 @@ problems for the main effect (derived):
 - **The averaged quantity must be common to the models.** The
   coefficients of $D_{bc}(h)$ for different $h$ are on different scales
   (Section 4.2): at true $t_{1/2} = 0.2$ the F1 limits are $-2.74$ at
-  $h = 0$ and $-3.62$ at $h = 2$ while the model-implied exposure
-  contrasts are $-2.74$ and $-2.00$ (Table 4). Averaging coefficients
+  $h = 0$ and $-3.62$ at $h = 2$ [inspected, docs/58 Table 4] while the model-implied exposure
+  contrasts are $-2.74$ and $-2.00$ [inspected, docs/58 Table 4] (Table 4). Averaging coefficients
   averages different estimands. The model-implied exposure contrast
   $\hat\beta_D^{\text{exp}}(h) = \hat\beta_D(h)\bar d(h)$ is common to
   all $h$ and targets $\beta_D^{\text{exp}}$; it is the quantity to
@@ -1161,14 +1161,14 @@ Readings (verified):
 
 - **At the protocol's alternative ($f_m = 0.4$) a trial of 70 says
   almost nothing about $h$**: no finite $h$ is more than 2 deviance
-  units from the best when the truth is short, so every profile
+  units [inspected, docs/58 Table 9] from the best when the truth is short, so every profile
   interval would cover 0 to 2 weeks.
 - **At the published ceiling it separates short from long**: a truth
-  of 0.2 week excludes $h \ge 1$ (deviance 8.5), as in the interaction
+  of 0.2 week excludes $h \ge 1$ (deviance 8.5 [inspected, docs/58 Table 9]), as in the interaction
   example of `docs/57`, Section 5.
 - **The best-fitting $h$ is a working value that depends on the effect
-  size**: for a true one-week half-life, $h^* = 2.4$ at $f_m = 0.4$ and
-  1.2 at $f_m = 1$; for a true 2 weeks, $h^* = 6$. Under F1 the null
+  size**: for a true one-week half-life, $h^* = 2.4$ [inspected, docs/58 Table 9] at $f_m = 0.4$ and
+  1.2 [inspected, docs/58 Table 9] at $f_m = 1$; for a true 2 weeks, $h^* = 6$ [inspected, docs/58 Table 9]. Under F1 the null
   bias $b_0(h)$ and the Gompertz onset both pull the fit, and their
   relative weight changes with $f_m$ (derived from Proposition 1). A
   data-chosen $h$ must be reported as a working value, not as the
@@ -1245,17 +1245,17 @@ Table: Example: F1 and VF at each grid half-life, REML with CR2 and Satterthwait
 Readings (verified):
 
 - **The coefficient grows with $h$ while the exposure contrast
-  shrinks**: from $-2.60$ to $-3.08$ against $-2.60$ to $-1.71$, the
+  shrinks**: from $-2.60$ to $-3.08$ against $-2.60$ to $-1.71$ [inspected, docs/58 Table 10], the
   scale effect of Section 4.2. At $h \le 0.5$ the exposure contrast
-  is within 0.34 point of the estimand.
+  is within 0.34 point of the estimand [inspected, docs/58 Table 10].
 - **The profile cannot locate $h$**: the ML estimate is on the boundary
   (0.020 week on a continuous search), the deviance never exceeds 2.1
-  at any $h$ (1.40 at 1 week, 1.29 as $h \to \infty$), and the profile
+  at any $h$ (1.40 at 1 week, 1.29 as $h \to \infty$ [inspected, docs/58 Section 10]), and the profile
   interval is all of $[0, \infty)$ at either cut (Figure 2B), as Table
   9 predicts for $f_m = 0.4$.
 - **The likelihood ratio for the drug term is largest at $h = 0$**
-  (4.27), so F1A chooses $h = 0$; in this trial that changes nothing,
-  because $T(0)$ and $T(0.2)$ differ by 0.003.
+  (4.27 [inspected, docs/58 Table 10]), so F1A chooses $h = 0$; in this trial that changes nothing,
+  because $T(0)$ and $T(0.2)$ differ by 0.003 [inspected, docs/58 Table 10].
 
 ### 10.3 What each procedure reports
 
@@ -1297,25 +1297,25 @@ Readings (verified unless stated):
 - **The verdict depends on what the analysis is allowed to assume**,
   not on the half-life. Every F1 procedure that relies on the time and
   expectancy model rejects at or near 0.05 (0.031 at a fixed $h$,
-  0.047 to 0.056 once the choice of $h$ is paid for); every procedure
+  0.047 to 0.056 [inspected, docs/58 Table 11] once the choice of $h$ is paid for); every procedure
   that relies only on the randomized between-path contrast (VF, its
   calibrated maximum, the VF randomization tests) does not (0.108 to
-  0.186). The half-life
+  0.186 [inspected, docs/58 Table 11]). The half-life
   choice moves $p$ by 0.02 at most within either family.
 - **The randomization test of the F1 statistic agrees with the
   calibrated F1 tests** (0.048 at a fixed $h$, 0.056 with the maximum
-  inside), because its direction comes from the invariant within-path
+  inside [inspected, docs/58 Table 11]), because its direction comes from the invariant within-path
   part (Section 11.3). The refit version with 49 permutations gives
-  0.08, which with 49 relabelings has a resolution of 0.02 and a Monte
+  0.08 [inspected, docs/58 Table 11], which with 49 relabelings has a resolution of 0.02 and a Monte
   Carlo error of about 0.04 (derived); it was cut from 199 because the
   machine was heavily loaded (Section 10.4), and it is not evidence
   against the cheap version.
 - **The bootstrap of F1 is centered in the wrong place by design**
-  (Section 9.5); with 49 resamples its $p$-values (0.08, 0.10) are too
+  (Section 9.5); with 49 resamples its $p$-values (0.08, 0.10 [inspected, docs/58 Table 11]) are too
   imprecise to compare.
 - **Accounting for the choice widens the intervals modestly**: the F1
   interval at the AIC choice goes from $[-4.96, -0.25]$ to
-  $[-5.19, -0.02]$ with the max-$|t|$ constant; the union over the
+  $[-5.19, -0.02]$ [inspected, docs/58 Table 12] with the max-$|t|$ constant; the union over the
   grid crosses zero. All intervals cover the truth in this trial,
   which is one trial.
 
@@ -1328,7 +1328,7 @@ statistics): 1.9 seconds; the refit randomization test (49
 permutations): 324 seconds and the null-model bootstrap (49): 25
 seconds, the same work, so the difference measures the machine load
 at the time; the randomization inversion (265 hypotheses, 199
-permutations each): 8 seconds; 379 seconds in all on 7 workers
+permutations each): 8 seconds; 379 seconds [inspected, docs/58 Section 10] in all on 7 workers
 (verified, `58-ex-timing.csv`). A first run with 199 refits and
 resamples was stopped after 15 minutes under a load average near 70.
 
@@ -1397,44 +1397,44 @@ Table: Share of trials in which AIC (with the tested term) chose each analysis h
 ### 11.3 Reading
 
 - **The closed form holds** (verified). F1's mean estimate under the
-  sharp null is 0.329 against the limit 0.327, and its empirical SD
-  1.245 against 1.219 (2% larger); VF's mean is 0.011 against 0, and
+  sharp null is 0.329 [inspected, docs/58 Table 13] against the limit 0.327 [inspected, docs/58 Table 3], and its empirical SD
+  1.245 [inspected, docs/58 Table 13] against 1.219 [inspected, docs/58 Table 3] (2% larger); VF's mean is 0.011 [inspected, docs/58 Table 13] against 0, and
   its SD 3% above the closed form. Power agrees within one to two MCSE
   in every cell checked (0.653 against 0.627, 0.400 against 0.400,
-  0.263 against 0.269, 0.167 against 0.172). The mean CR2 standard
+  0.263 against 0.269, 0.167 against 0.172 [inspected, docs/58 Table 13]). The mean CR2 standard
   errors match the closed-form SEs to within 0.3%, and the CR2
   Satterthwaite degrees of freedom average 69 for F1 and 66 to 67 for
-  VF, so the normal reference is adequate (Section 8).
+  VF [inspected, docs/58 Table 13], so the normal reference is adequate (Section 8).
 - **AIC selection with the tested term is liberal, as Proposition 5
-  says**: 0.093 and 0.087 under the sharp null (closed form 0.088 and
-  0.077), 0.085 and 0.083 under the weak null. Its choices pile up at
-  the ends of the grid, 0 and 2 weeks (71% to 75% of null trials), the
+  says**: 0.093 [inspected, docs/58 Table 13] and 0.087 [inspected, docs/58 Table 13] under the sharp null (closed form 0.088 [inspected, docs/58 Table 6] and
+  0.077 [inspected, docs/58 Table 6]), 0.085 [inspected, docs/58 Table 13] and 0.083 [inspected, docs/58 Table 13] under the weak null. Its choices pile up at
+  the ends of the grid, 0 and 2 weeks (71% to 75% [inspected, docs/58 Table 14] of null trials), the
   signature of a maximum over correlated statistics whose ends are the
   least correlated. Under the alternative with $t_{1/2} = 1$ week it
-  chose 2 weeks in 52% of trials, which is $h^*$ territory (Table 9).
-- **F1 at a fixed $h$ is close to, and slightly above, nominal**: 0.065
-  (closed form 0.058) under the sharp null and 0.060 under the weak
+  chose 2 weeks in 52% [inspected, docs/58 Table 14] of trials, which is $h^*$ territory (Table 9).
+- **F1 at a fixed $h$ is close to, and slightly above, nominal**: 0.065 [inspected, docs/58 Table 13]
+  (closed form 0.058 [inspected, docs/58 Table 6]) under the sharp null and 0.060 [inspected, docs/58 Table 13] under the weak
   null, consistent with the null bias of Section 5.2 within MC error.
-  VF at a fixed $h$ is at 0.058 and 0.055.
+  VF at a fixed $h$ is at 0.058 [inspected, docs/58 Table 13] and 0.055 [inspected, docs/58 Table 13].
 - **The calibrated maximum and averaging are near nominal; Bonferroni
-  is conservative**: max-$|t|$ with the multivariate normal 0.060 (F1)
-  and 0.058 (VF) under the sharp null, 0.072 and 0.068 under the weak
-  null; averaging 0.053 and 0.050, 0.062 under the weak null;
-  Bonferroni 0.020. The calibrated maximum costs 0.014 to 0.017 of
-  power relative to the fixed $h$ when the fixed $h$ is right
-  ($t_{1/2} = 0.2$) and gains 0.016 to 0.077 when it is wrong
+  is conservative**: max-$|t|$ with the multivariate normal 0.060 [inspected, docs/58 Table 13] (F1)
+  and 0.058 [inspected, docs/58 Table 13] (VF) under the sharp null, 0.072 [inspected, docs/58 Table 13] and 0.068 [inspected, docs/58 Table 13] under the weak
+  null; averaging 0.053 [inspected, docs/58 Table 13] and 0.050 [inspected, docs/58 Table 13], 0.062 [inspected, docs/58 Table 13] under the weak null;
+  Bonferroni 0.020 [inspected, docs/58 Table 13]. The calibrated maximum costs 0.014 to 0.017 [inspected, docs/58 Table 13]
+  of power relative to the fixed $h$ when the fixed $h$ is right
+  ($t_{1/2} = 0.2$) and gains 0.016 to 0.077 [inspected, docs/58 Table 13] when it is wrong
   ($t_{1/2} = 1$).
 - **The randomization tests are exact by construction, and the
   rejection rates are consistent with that within MC error**: 0.055
-  to 0.067 under the sharp null for the eight randomization
+  to 0.067 [inspected, docs/58 Table 13] under the sharp null for the eight randomization
   statistics, 1 to 2 MCSE above 0.05, on the same trials on which the
-  model-based VF test rejected 0.058; with 199 relabelings the exact
+  model-based VF test rejected 0.058 [inspected, docs/58 Table 13]; with 199 relabelings the exact
   size is 0.050 (derived), so these rates indicate a chance excess
   shared by the trials, not a defect, but they cannot show exactness
   more sharply than 0.018.
-- **The randomization power matches Proposition 6** for VF (0.393
-  against 0.391). For the F1 statistic it is higher than predicted,
-  0.507: because $\hat K$ is invariant and carries the within-path
+- **The randomization power matches Proposition 6** for VF (0.393 [inspected, docs/58 Table 13]
+  against 0.391 [inspected, docs/58 Table 7]). For the F1 statistic it is higher than predicted,
+  0.507 [inspected, docs/58 Table 13]: because $\hat K$ is invariant and carries the within-path
   estimate, $|\hat C + \hat K|$ behaves as a one-sided test of $\hat C$
   in the direction of $\hat K$, at 0.05 one-sided rather than 0.025
   per side; a one-sided test with $\Lambda \approx 1.68$ has power
@@ -1442,18 +1442,18 @@ Table: Share of trials in which AIC (with the tested term) chose each analysis h
   a label-invariant quantity, and it is the one way the within-path
   information can enter an exact test.
 - **The weak null** (single cell, $\tau = 5.49$): the unstudentized VF
-  randomization test rejected 0.067 against a predicted 0.053, the
-  studentized one 0.052; the difference is within 2 MCSE and does not
+  randomization test rejected 0.067 [inspected, docs/58 Table 13] against a predicted 0.053 [inspected, docs/58 Table 6], the
+  studentized one 0.052 [inspected, docs/58 Table 13]; the difference is within 2 MCSE and does not
   resolve Proposition 7.
 
 ### 11.4 Run time
 
-The 1,800 trials took 44,050 worker-seconds as recorded in the chunks,
+The 1,800 trials took 44,050 worker-seconds [inspected, docs/58 Section 11] as recorded in the chunks,
 but that figure is not a property of the procedure: the first launch
 ran with a multithreaded BLAS, which oversubscribed the cores, and the
 machine was heavily loaded by other processes (load average 50 to 70)
 and appears to have been suspended for part of the run. A single trial
-with one BLAS thread on an unloaded worker takes 1.7 seconds for the
+with one BLAS thread on an unloaded worker takes 1.7 seconds [inspected, docs/58 Section 11] for the
 whole per-trial procedure (verified), so the check would take about
 $1{,}800 \times 1.7 / 7 \approx 7$ minutes on 7 workers (derived). The elapsed time
 from the first launch to the last chunk was about two hours, well over
@@ -1502,8 +1502,8 @@ trials in four Hybrid cells and one example trial.
    A fixed $h$ in the pharmacological range costs almost nothing when
    the truth is in that range (Table 4), and no data-chosen rule can
    gain much power where the data barely identify $h$ (Table 9). Its
-   null bias ($+0.33$ points in the Hybrid design) must be reported and
-   its size checked at $N = 150$, where the closed form predicts 0.068;
+   null bias ($+0.33$ points [inspected, docs/58 Table 2] in the Hybrid design) must be reported and
+   its size checked at $N = 150$, where the closed form predicts 0.068 [inspected, docs/58 Table 3];
    if the stress test confirms an excess there, VF becomes the primary
    analysis.
 2. **Size-exact companion with data-chosen half-life: a randomization

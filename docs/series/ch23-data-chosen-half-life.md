@@ -204,28 +204,28 @@ been derived in full or checked by computation).
 ## 1. Summary for the busy reader
 
 **The question.** F1 tests $\beta_{bm:D}$ with $D_{bc,it}$ built at a
-half-life $t_{1/2}^a$. Fixed in advance at 0.5 week, F1 rejected 0.051
+half-life $t_{1/2}^a$. Fixed in advance at 0.5 week, F1 rejected 0.051 [inspected, docs/47 Section 3]
 of 11,000 null trials pooled over the 11 non-prognostic null cells,
-and at most 0.062 in any cell, including the cells whose true
+and at most 0.062 [inspected, docs/47 Section 3] in any cell, including the cells whose true
 half-life was 0 or 1 week (quoted from `docs/47`, Section 3; stored
 setting: configuration C at $\rho = 0.7$, the published recursive
 carryover and fixed allocation; an anchored rerun is pending). The
 project now wants the half-life chosen from the data.
 
 **Why the obvious way fails.** F1A chose $t_{1/2}^a$ by AIC with the
-interaction in the model and rejected 0.057 pooled (outside the band
-0.046 to 0.054) and 0.073 at true $t_{1/2} = 1$ week (quoted,
+interaction in the model and rejected 0.057 [inspected, docs/47] pooled (outside the band
+0.046 to 0.054) and 0.073 [inspected, docs/47] at true $t_{1/2} = 1$ week (quoted,
 `docs/47`). Because the candidates have equal parameter counts,
 $\mathrm{AIC}_1(h) = \mathrm{AIC}_0(h) - \mathrm{LR}(h)$: the rule
 rewards the half-life at which the interaction looks strongest, and
 the test then ignores that it was chosen (derived, Section 3.4). On
-the stored trials, when F1A chose 2 weeks it rejected 0.079 against
-F1's 0.046 on the same trials (verified).
+the stored trials, when F1A chose 2 weeks it rejected 0.079 [inspected, docs/57 Table 2] against
+F1's 0.046 [inspected, docs/57 Table 2] on the same trials (verified).
 
 **What the data say about the half-life.** Coarsely something. AIC
-chose 0 in 87% of null trials when the truth was 0, and 1 or 2 weeks
-in 77% when it was 1 week, but the true 0.5 week in only 38% of
-base-cell trials, and 1 or 2 weeks in 85% of compound-symmetry trials
+chose 0 in 87% [inspected, docs/57 Table 3] of null trials when the truth was 0, and 1 or 2 weeks
+in 77% [inspected, docs/57 Table 3] when it was 1 week, but the true 0.5 week in only 38% [inspected, docs/57 Table 3] of
+base-cell trials, and 1 or 2 weeks in 85% [inspected, docs/57 Table 3] of compound-symmetry trials
 whose truth was also 0.5 (verified from stored replicates). In the
 example trial the profile likelihood cannot separate 0 from 0.5 week
 but rejects a week or more decisively (verified, Section 5). The
@@ -244,33 +244,33 @@ randomized independently of the biomarker (derived, Section 4.6).
 
 **What the illustration shows.** On stored stress-test trials
 (Section 6; illustration, not a size study; 1,000 pooled null trials,
-MCSE about 0.007), F1 at the fixed 0.5 week rejected 0.061, F1A 0.074
-and F1A0 0.067 on the same trials: F1A0 removes about half of F1A's
+MCSE about 0.007), F1 at the fixed 0.5 week rejected 0.061 [inspected, docs/57 Table 6], F1A 0.074 [inspected, docs/57 Table 6]
+and F1A0 0.067 [inspected, docs/57 Table 6] on the same trials: F1A0 removes about half of F1A's
 excess, not all. The procedures that do not commit to one selected
-value held size: AIC-weight averaging 0.053 (0.049 with null-model
-weights), cross-fitting with a Cauchy combination 0.050, and the
-maximum $|t|$ over the grid with bootstrap calibration 0.048. A rule
+value held size: AIC-weight averaging 0.053 [inspected, docs/57 Table 6] (0.049 [inspected, docs/57 Table 6] with null-model
+weights), cross-fitting with a Cauchy combination 0.050 [inspected, docs/57 Table 6], and the
+maximum $|t|$ over the grid with bootstrap calibration 0.048 [inspected, docs/57 Table 6]. A rule
 that keeps 0.5 week unless the null-model profile rejects it (F1G,
-post hoc) behaved as F1 (0.063) and switched in 1% to 15% of trials.
-Power in the base alternative cell was 0.400 for F1 and F1G, 0.39 for
-averaging and the bootstrap max-$|t|$, 0.29 for the Cauchy cross-fit
-and 0.21 for a single split (verified).
+post hoc) behaved as F1 (0.063 [inspected, docs/57 Table 6]) and switched in 1% to 15% of trials [inspected, docs/57 Section 6].
+Power in the base alternative cell was 0.400 [inspected, docs/57 Table 6] for F1 and F1G, 0.39 [inspected, docs/57 Table 6] for
+averaging and the bootstrap max-$|t|$, 0.29 [inspected, docs/57 Table 6] for the Cauchy cross-fit
+and 0.21 [inspected, docs/57 Table 6] for a single split (verified).
 
 **What the stress-test extension shows** (2026-10-10, Section 8; 58
 cells, 40,000 fresh trials, refined process; verified). Pooled over the
 12 non-prognostic null cells (band 0.046 to 0.054), F1 at the fixed
-0.5 week rejects 0.053, F1 at 0.2 week 0.050, F1A 0.060 (fails again),
-F1A0 0.053, AIC-weight averaging (MA) 0.0455 (just below the band) and
-the grid maximum 0.018 with Bonferroni, 0.072 with a multivariate
-normal reference (liberal) and 0.053 with a multivariate $t$. Every
-warp-speed bootstrap arm rejects 0.048 to 0.051. The illustration's
+0.5 week rejects 0.053 [inspected, docs/57 Table 7], F1 at 0.2 week 0.050 [inspected, docs/57 Table 7], F1A 0.060 [inspected, docs/57 Table 7] (fails again),
+F1A0 0.053 [inspected, docs/57 Table 7], AIC-weight averaging (MA) 0.0455 [inspected, docs/57 Table 7] (just below the band) and
+the grid maximum 0.018 [inspected, docs/57 Table 7] with Bonferroni, 0.072 [inspected, docs/57 Table 7] with a multivariate
+normal reference (liberal) and 0.053 [inspected, docs/57 Table 7] with a multivariate $t$. Every
+warp-speed bootstrap arm rejects 0.048 to 0.051 [inspected, docs/57 Table 7]. The illustration's
 F1A0 excess does not recur. Mean size-adjusted power over the 26
-non-prognostic alternative cells is 0.38 to 0.40 for every rule that
+non-prognostic alternative cells is 0.38 to 0.40 [inspected, docs/57 Table 9] for every rule that
 passes; the gains are where 0.5 week is far from the truth, and they
 belong to the bootstrap arms: at true $t_{1/2} = 2$ weeks and $c_{bm} =
-0.45$, F1 has 0.352, F1AB 0.456 and F1A0B 0.500. Maximin shortfall is
-0.076 for F1A0B, 0.078 for F1AB and 0.148 for F1 (0.062 for the post
-hoc MA0B). The bootstrap arms reach 0.067 to 0.077 in the
+0.45$, F1 has 0.352 [inspected, docs/57 Table 9], F1AB 0.456 [inspected, docs/57 Table 9] and F1A0B 0.500 [inspected, docs/57 Table 9]. Maximin shortfall is
+0.076 [inspected, docs/57 Table 10] for F1A0B, 0.078 [inspected, docs/57 Table 10] for F1AB and 0.148 [inspected, docs/57 Table 10] for F1 (0.062 [inspected, docs/57 Table 10] for the post
+hoc MA0B). The bootstrap arms reach 0.067 to 0.077 [inspected, docs/57 Table 7] in the
 prognostic-baseline null cell; that is Monte Carlo error, not a
 failure of the null model (derived and verified, Section 8.5).
 
@@ -282,9 +282,9 @@ parametric null-model bootstrap that repeats the selection in every
 resample (Section 4.5). The alternative is **F1AB**, the same bootstrap
 of the selection with the interaction in the model. **F1 at a fixed
 half-life** stays the validated simple fallback. MA is slightly
-conservative (0.0455) and its bootstrap MAB passes; MaxTMVN is liberal
+conservative (0.0455 [inspected, docs/57 Table 7]) and its bootstrap MAB passes; MaxTMVN is liberal
 and MaxTBonf too conservative; the pharmacological fixed 0.2 week
-gives no power gain over 0.5. The bootstrap evidence is warp-speed
+gives no power gain over 0.5 [inspected, docs/57 Table 10]. The bootstrap evidence is warp-speed
 (one resample per trial; the binomial MCSE understates its Monte Carlo
 error), and a real analysis needs about $M = 999$ resamples, about 17
 worker-minutes for F1A0B at $N = 70$ (derived, Section 8.4). Report the
@@ -362,7 +362,7 @@ The value of $h$ that best fits a given trial therefore reflects the
 on-drug shape, the visit schedule and the correlation structure as
 well as the pharmacology. In the stored stress test, which used the
 published recursive carryover that decays faster than its stated
-half-life (`docs/53`), AIC chose 1 or 2 weeks in 85% of null trials of
+half-life (`docs/53`), AIC chose 1 or 2 weeks in 85% [inspected, docs/57 Table 3] of null trials of
 the compound-symmetry cell although the stated half-life was 0.5 week
 (verified, Table 3). A data-chosen $t_{1/2}^a$ is an estimate of the
 best-fitting exposure regressor, not of the drug's carryover
@@ -379,8 +379,8 @@ $\hat\beta_{bm:D}$ is 0 for every $h$ (derived; compendium,
 eq:bp-plim, and `docs/56`, Section 6.2). A wrong $h$ mis-scales the
 alternative: it moves the estimand and costs power, but it does not
 create false positives. The stress test agrees (quoted, `docs/47`,
-Section 3, and `docs/56`, Section 6.2): F1 at 0.5 week rejected 0.049
-when the true half-life was 0 and 0.061 when it was 1 week. With a
+Section 3, and `docs/56`, Section 6.2): F1 at 0.5 week rejected 0.049 [inspected, docs/47 Section 3]
+when the true half-life was 0 and 0.061 [inspected, docs/47 Section 3] when it was 1 week. With a
 prognostic biomarker the leakage terms of `docs/56` depend mildly on
 $h$; no stored cell combined a prognostic pathway with a wrong
 half-life.
@@ -402,7 +402,7 @@ $$
 ratio and the squared Wald statistic, here with a CR2 rather than a
 model-based standard error). In the example trial of Section 5,
 $\mathrm{LR}(0) = 0.678$ against $T(0)^2 = 0.641$, and
-$\mathrm{LR}(2) = 0.0016$ against $T(2)^2 = 0.0016$ (verified). F1A
+$\mathrm{LR}(2) = 0.0016$ against $T(2)^2 = 0.0016$ [inspected, docs/57 Table 4] (verified). F1A
 therefore maximizes
 
 $$
@@ -482,9 +482,9 @@ Three readings (verified unless stated):
   cells with different truths and should not be read as "AIC cannot
   find the half-life".
 - **The likelihood separates "little carryover" from "a week or
-  more"**, not 0.25 from 0.5 or 1: 87% at 0 when the truth is 0, 77%
-  at 1 or 2 weeks when it is 1 week, but the true 0.5 only 38% of the
-  time in the base cell. At $N = 150$ the share at 0.5 rises to 0.48.
+  more"**, not 0.25 from 0.5 or 1: 87% [inspected, docs/57 Table 3] at 0 when the truth is 0, 77% [inspected, docs/57 Table 3]
+  at 1 or 2 weeks when it is 1 week, but the true 0.5 only 38% [inspected, docs/57 Table 3] of the
+  time in the base cell. At $N = 150$ the share at 0.5 rises to 0.48 [inspected, docs/57 Table 3].
 - **The choice depends on things other than the half-life**: the
   correlation structure (compound symmetry pushes it to 1 or 2 weeks)
   and the decay shape (a Weibull shape-2 decay with the same half-life
@@ -554,15 +554,15 @@ the stated value (as it would exclude 1 week in the example trial of
 Section 5), a reader can fairly ask why the analysis uses a
 regressor the data contradict. A fixed value may also lose power when
 it is far from the best-fitting one: with $t_{1/2}^a = 0.5$, F1's
-size-adjusted power at $c_{bm} = 0.30$ was 0.496 when the true
-half-life was 0 and 0.272 when it was 1 week (quoted, `docs/47`,
+size-adjusted power at $c_{bm} = 0.30$ was 0.496 [inspected, docs/47 Section 6] when the true
+half-life was 0 and 0.272 [inspected, docs/47 Section 6] when it was 1 week (quoted, `docs/47`,
 Section 6). How much of that fall is due to the mismatch, rather than
 to the longer off-drug fading of the coupling itself, has not been
 separated.
 
-**Status.** Evaluated (`docs/47`): size 0.051 pooled, at most 0.062 in
-a cell, stored setting. Extension (Section 8, refined process): 0.053
-pooled over 12 cells, at most 0.062; at 0.2 week 0.050, with no power
+**Status.** Evaluated (`docs/47`): size 0.051 [inspected, docs/47] pooled, at most 0.062 [inspected, docs/47] in
+a cell, stored setting. Extension (Section 8, refined process): 0.053 [inspected, docs/57 Table 7]
+pooled over 12 cells, at most 0.062 [inspected, docs/57 Table 7]; at 0.2 week 0.050 [inspected, docs/57 Table 7], with no power
 gain over 0.5 week. The validated simple fallback.
 
 ### 4.2 Method 2: selection blind to the interaction (F1A0)
@@ -667,15 +667,15 @@ the few trials where the default is contradicted, so whatever
 selection effect F1A0 has is confined to those trials (argued). It
 was defined after the illustration's results were seen.
 
-**Status.** Illustrated (Section 6): 0.067 pooled null against F1's
-0.061 on the same trials; F1G 0.063. Evaluated in the extension
-(Section 8): 0.053 pooled, F1's rate on the same trials, at most 0.062
-in a cell; F1G 0.053. As nominal tests neither gains power over F1;
+**Status.** Illustrated (Section 6): 0.067 [inspected, docs/57 Table 6] pooled null against F1's
+0.061 [inspected, docs/57 Table 6] on the same trials; F1G 0.063 [inspected, docs/57 Table 6]. Evaluated in the extension
+(Section 8): 0.053 [inspected, docs/57 Table 7] pooled, F1's rate on the same trials, at most 0.062 [inspected, docs/57 Table 7]
+in a cell; F1G 0.053 [inspected, docs/57 Table 7]. As nominal tests neither gains power over F1;
 with bootstrap calibration (F1A0B) F1A0 is the primary data-driven
 candidate (Section 7.2).
 `docs/56`, Section 6.1, found that on 2 × 50 null trials F1A0 picked
-the same grid value as F1A in 86% and 88% of trials (quoted); here it
-did in 87% and 89% (verified, Table 8).
+the same grid value as F1A in 86% and 88% [inspected, docs/56 Section 6.1] of trials (quoted); here it
+did in 87% and 89% [inspected, docs/57 Table 8] (verified, Table 8).
 
 ### 4.3 Method 3: sample splitting and cross-fitting
 
@@ -739,9 +739,9 @@ random split; the split seed should be fixed in advance and reported,
 or the analysis repeated over many splits and summarized (for
 example by the median $p$-value, which needs its own calibration).
 
-**Status.** Illustrated (Section 6): single split 0.044 pooled null,
-power 0.208; cross-fit average 0.061 and 0.372; Cauchy 0.050 and
-0.292.
+**Status.** Illustrated (Section 6): single split 0.044 [inspected, docs/57 Table 6] pooled null,
+power 0.208 [inspected, docs/57 Table 6]; cross-fit average 0.061 [inspected, docs/57 Table 6] and 0.372 [inspected, docs/57 Table 6]; Cauchy 0.050 [inspected, docs/57 Table 6] and
+0.292 [inspected, docs/57 Table 6].
 
 ### 4.4 Method 4: reporting the half-life
 
@@ -866,11 +866,11 @@ one reported below.
 the bootstrap critical value, and $\hat h_0$.
 
 **Status.** Illustrated by the warp-speed method (Section 6: F1AB
-0.062 pooled null, F1's own rate on the same trials being 0.061; power
-0.364) and on one trial with $M = 199$ (Section 5). Evaluated by the
-warp-speed method in the extension (Section 8): F1A0B 0.050 and F1AB
-0.050 pooled, mean size-adjusted power 0.395 and 0.400, maximin
-shortfall 0.076 and 0.078. The prognostic-baseline cell, where the B
+0.062 [inspected, docs/57 Table 6] pooled null, F1's own rate on the same trials being 0.061 [inspected, docs/57 Table 6]; power
+0.364 [inspected, docs/57 Table 6]) and on one trial with $M = 199$ (Section 5). Evaluated by the
+warp-speed method in the extension (Section 8): F1A0B 0.050 [inspected, docs/57 Table 7] and F1AB
+0.050 [inspected, docs/57 Table 7] pooled, mean size-adjusted power 0.395 [inspected, docs/57 Table 9] and 0.400 [inspected, docs/57 Table 9], maximin
+shortfall 0.076 [inspected, docs/57 Table 10] and 0.078 [inspected, docs/57 Table 10]. The prognostic-baseline cell, where the B
 arms reached 0.067 to 0.077, does not show the null-model failure
 described under Validity: there the null model reproduces the
 association exactly and the excess is Monte Carlo error (Section 8.5).
@@ -992,12 +992,12 @@ reader who wants an effect size.
 **Cost.** Five REML fits with CR2 (about 1 second); bootstrap
 calibration adds $M$ times that per trial.
 
-**Status.** Illustrated (Section 6): Bonferroni 0.024 pooled null,
-power 0.220; warp-speed bootstrap 0.048 and 0.384. Evaluated in the
-extension (Section 8): Bonferroni 0.018 (too conservative), the
-multivariate normal reference 0.072 (liberal), the multivariate $t$
-0.053 (flagged at 0.077 in one prognostic cell), the warp-speed
-bootstrap 0.051 with mean size-adjusted power 0.388.
+**Status.** Illustrated (Section 6): Bonferroni 0.024 [inspected, docs/57 Table 6] pooled null,
+power 0.220 [inspected, docs/57 Table 6]; warp-speed bootstrap 0.048 [inspected, docs/57 Table 6] and 0.384 [inspected, docs/57 Table 6]. Evaluated in the
+extension (Section 8): Bonferroni 0.018 [inspected, docs/57 Table 7] (too conservative), the
+multivariate normal reference 0.072 [inspected, docs/57 Table 7] (liberal), the multivariate $t$
+0.053 [inspected, docs/57 Table 7] (flagged at 0.077 [inspected, docs/57 Table 7] in one prognostic cell), the warp-speed
+bootstrap 0.051 [inspected, docs/57 Table 7] with mean size-adjusted power 0.388 [inspected, docs/57 Table 9].
 
 ### 4.8 Method 8: marginalizing over the half-life
 
@@ -1043,11 +1043,11 @@ only.
 stand-in reports a model-averaged estimate and interval.
 
 **Status.** Proposed (Bayesian); the AIC-weight stand-in is
-illustrated (Section 6: 0.053 pooled null with $\ell_1$ weights and
-0.049 with $\ell_0$ weights; power 0.388 and 0.356). Evaluated in the
-extension (Section 8): 0.0455 with $\ell_1$ weights and 0.040 with
+illustrated (Section 6: 0.053 [inspected, docs/57 Table 6] pooled null with $\ell_1$ weights and
+0.049 [inspected, docs/57 Table 6] with $\ell_0$ weights; power 0.388 [inspected, docs/57 Table 6] and 0.356 [inspected, docs/57 Table 6]). Evaluated in the
+extension (Section 8): 0.0455 [inspected, docs/57 Table 7] with $\ell_1$ weights and 0.040 [inspected, docs/57 Table 7] with
 $\ell_0$ weights, both below the band; with bootstrap calibration, MAB
-0.048 and MA0B 0.049, mean size-adjusted power 0.401 and 0.399.
+0.048 [inspected, docs/57 Table 7] and MA0B 0.049 [inspected, docs/57 Table 7], mean size-adjusted power 0.401 [inspected, docs/57 Table 9] and 0.399 [inspected, docs/57 Table 9].
 
 ### 4.9 Permutation tests
 
@@ -1114,22 +1114,22 @@ Four observations (verified):
 - **The profile is flat where it matters and steep elsewhere.** The
   null-model deviance is 0 at $h = 0$, 0.41 at 0.25 week and 3.71 at
   0.5 week, then 11.8 at 1 week and 19.9 at 2 weeks, rising to 30.8 as
-  $h \to \infty$. The trial cannot tell 0 from 0.5 week but excludes a
+  $h \to \infty$ [inspected, docs/57 Table 4]. The trial cannot tell 0 from 0.5 week but excludes a
   week or more.
 - **The ML estimate is on the boundary.** The continuous maximum over
-  $[0.01, 100]$ weeks is at 0.024 week, the lower end of the range in
+  $[0.01, 100]$ weeks is at 0.024 week [inspected, docs/57 Section 5], the lower end of the range in
   practice, and $\ell_0(0)$ is at least as large: the binary indicator
   fits best, although the true half-life is 0.5 week. The
   profile-likelihood interval is $[0, 0.50]$ weeks for the null model
-  and $[0, 0.45]$ for F1, so the true value lies at the upper edge of
+  and $[0, 0.45]$ for F1 [inspected, docs/57 Section 5], so the true value lies at the upper edge of
   one and just outside the other; with a working parameter and a
   boundary estimate, neither interval has a known coverage (Section
   4.4).
 - **The two profiles are almost parallel.** $\mathrm{LR}(h)$ is below
-  0.7 at every $h$, so in this trial F1A and F1A0 make the same choice.
+  0.7 at every $h$ [inspected, docs/57 Table 4], so in this trial F1A and F1A0 make the same choice.
 - **The interaction statistic changes smoothly and modestly with
   $h$:** from $-0.80$ at 0 to $-0.04$ at 2 weeks and $+1.1$ near 20
-  weeks.
+  weeks [inspected, docs/57 Section 5].
 
 ### 5.3 What each method reports
 
@@ -1155,21 +1155,21 @@ In this trial every method agrees that there is no evidence of an
 interaction, as it should. Three details are worth noting (verified):
 
 - **The bootstrap critical values.** For a single fixed-$h$ test the
-  bootstrap gives 1.92, close to the $t_{26}$ value 2.06 and below it
+  bootstrap gives 1.92 [inspected, docs/57 Table 5], close to the $t_{26}$ value 2.06 and below it
   (199 resamples, so the quantile has a standard error of roughly
   0.13, derived from the binomial error of a 95% quantile).
-  For F1A it gives 1.93, barely more: in this trial the selection adds
+  For F1A it gives 1.93 [inspected, docs/57 Table 5], barely more: in this trial the selection adds
   little, because $\ell_0$ is steep enough to pin the choice near 0.
-  For the maximum over the grid it gives 2.19, the price of
+  For the maximum over the grid it gives 2.19 [inspected, docs/57 Table 5], the price of
   multiplicity across five strongly correlated statistics.
 - **The single split** tests on 35 participants with only 8.8
-  Satterthwaite degrees of freedom; its estimate has the opposite sign
+  Satterthwaite degrees of freedom [inspected, docs/57 Table 5]; its estimate has the opposite sign
   and a standard error 1.5 times F1's. The cross-fit average recovers
-  a standard error close to F1A0's (0.076 against 0.075).
+  a standard error close to F1A0's (0.076 against 0.075 [inspected, docs/57 Table 5]).
 - **Timing.** The fine profile (52 half-lives, three fits and one CR2
   each) took 11 seconds; the five-point grid with the split 1.5
   seconds; the bootstrap with $M = 199$ 128 seconds on 7 workers; the
-  whole example 146 seconds.
+  whole example 146 seconds [inspected, docs/57 Section 5].
 
 ## 6. Worked example 2: a small Monte Carlo illustration
 
@@ -1240,7 +1240,7 @@ The post hoc rows were defined after the other results were seen and
 are computed from the same grid fits (`57-posthoc-rules.R`). F1G keeps
 $t_{1/2}^a = 0.5$ week unless the null-model profile rejects it
 ($2\{\max_h \ell_0(h) - \ell_0(0.5)\} > 3.84$ on the grid), and only
-then uses $\hat h_0$; it switched in 1.0%, 15.0%, 2.0% and 3.6% of the
+then uses $\hat h_0$; it switched in 1.0% [inspected, docs/57 Section 6], 15.0% [inspected, docs/57 Section 6], 2.0% [inspected, docs/57 Section 6] and 3.6% [inspected, docs/57 Section 6] of the
 trials of the four cells (verified).
 
 ### 6.3 Reading
@@ -1253,49 +1253,49 @@ or more are resolved.
 - **The pairing holds.** F1 and F1A reproduce the stored estimates
   and decisions in every replicate (maximum absolute difference 0), so
   every comparison is paired with `docs/47`. In these first 500 trials
-  of the base cell F1 itself rejects 0.064 (0.062 over all 1,000
-  stored trials): the excess there is F1's, not the selection's.
+  of the base cell F1 itself rejects 0.064 [inspected, docs/57 Table 6] (0.062 [inspected, docs/57 Table 6]
+  over all 1,000 stored trials): the excess there is F1's, not the selection's.
 - **F1A0 removes about half of F1A's excess, not all of it.** Pooled,
-  F1A rejects 0.074, F1A0 0.067 and F1 0.061 on the same trials. In
-  the $t_{1/2} = 1$ cell F1A0 rejected 10 trials that F1 did not, and
-  F1 4 that F1A0 did not; F1A 12 and 2. F1A0's choices differ from
-  F1A's in only 11 to 13% of null trials (Table 8), which is where the
-  difference comes from. The first-order argument of Section 4.2 is
+  F1A rejects 0.074 [inspected, docs/57 Table 6], F1A0 0.067 [inspected, docs/57 Table 6] and F1 0.061 [inspected, docs/57 Table 6]
+  on the same trials. In the $t_{1/2} = 1$ cell F1A0 rejected 10 trials
+  that F1 did not, and F1 4 that F1A0 did not; F1A 12 and 2 [inspected, 57-mc-discordance.csv].
+  F1A0's choices differ from F1A's in only 11 to 13% of null trials (Table 8 [inspected, docs/57 Table 8]),
+  which is where the difference comes from. The first-order argument of Section 4.2 is
   therefore not borne out cleanly at $N = 70$, though the excess over
-  F1 (0.006, paired) is within the Monte Carlo error.
+  F1 (0.006 [inspected, 57-mc-discordance.csv], paired) is within the Monte Carlo error.
 - **The guard costs nothing measurable.** F1G is F1 except in the few
   trials whose data contradict 0.5 week; it rejected 2 null trials
-  that F1 did not, out of 1,250, and had the same power (0.400).
-- **Averaging over the grid holds size.** With $\ell_1$ weights, 0.053
-  pooled; with $\ell_0$ weights, 0.049. Both are slightly more
+  that F1 did not, out of 1,250 [inspected, 57-mc-discordance.csv], and had the same power (0.400 [inspected, docs/57 Table 6]).
+- **Averaging over the grid holds size.** With $\ell_1$ weights, 0.053 [inspected, docs/57 Table 6]
+  pooled; with $\ell_0$ weights, 0.049 [inspected, docs/57 Table 6]. Both are slightly more
   conservative than F1 on the same trials (in the base cell F1
   rejected 6 and 7 trials that they did not, against 1 and 0 the other
-  way), because the averaged
+  way [inspected, 57-mc-discordance.csv]), because the averaged
   standard error includes the spread of the estimates across the grid.
-  Their power cost against F1 is 0.012 and 0.044, within one and a
+  Their power cost against F1 is 0.012 and 0.044 [inspected, docs/57 Table 6], within one and a
   half MCSEs.
 - **Splitting is valid and expensive.** The single split holds size
-  (0.044) and loses half the power (0.208 against 0.400). The
-  cross-fit average recovers most of the power (0.372) but inherits a
-  little of the selection effect (0.066 in the $t_{1/2} = 1$ cell);
-  the Cauchy combination is at 0.050 with power 0.292.
+  (0.044 [inspected, docs/57 Table 6]) and loses half the power (0.208 against 0.400 [inspected, docs/57 Table 6]). The
+  cross-fit average recovers most of the power (0.372 [inspected, docs/57 Table 6]) but inherits a
+  little of the selection effect (0.066 in the $t_{1/2} = 1$ cell [inspected, docs/57 Table 6]);
+  the Cauchy combination is at 0.050 with power 0.292 [inspected, docs/57 Table 6].
 - **The bootstrap calibrates the selection but not F1's own excess.**
   The warp-speed critical value of F1A exceeds that of F1 by 0.02 to
-  0.21, and F1AB's pooled rate (0.062) is F1's (0.061). The bootstrap
+  0.21 [inspected, docs/57 Table 6], and F1AB's pooled rate (0.062 [inspected, docs/57 Table 6]) is F1's (0.061 [inspected, docs/57 Table 6]). The bootstrap
   of F1 at a fixed half-life does not bring F1 to 0.05 in the base
-  cell (0.062), which is consistent with a null model (random intercept
+  cell (0.062 [inspected, docs/57 Table 6]), which is consistent with a null model (random intercept
   plus CAR(1), constant drug effect) that is lighter-tailed than the
   data-generating process (argued). The max-$|t|$ statistic with
-  bootstrap calibration is at 0.048 pooled with power 0.384; its
-  Bonferroni version is conservative (0.024) and loses half the power.
+  bootstrap calibration is at 0.048 pooled with power 0.384 [inspected, docs/57 Table 6]; its
+  Bonferroni version is conservative (0.024 [inspected, docs/57 Table 6]) and loses half the power.
 - **The prognostic cell** ($c_{bm,TV} = 0.3$) is below 0.05 for every
-  procedure (0.016 to 0.044, $n_{\text{sim}} = 250$); no selection procedure
+  procedure (0.016 to 0.044 [inspected, docs/57 Table 6], $n_{\text{sim}} = 250$); no selection procedure
   reintroduced the prognostic leakage that F1 removes. This cell has
   the true half-life 0.5, so it does not test a prognostic biomarker
   combined with a wrong half-life.
 - **Power is that of a cell where 0.5 week is right.** In the
   alternative cell the fixed value matches the truth, so no
-  data-chosen procedure can gain; F1A's 0.428 is inflated by its size.
+  data-chosen procedure can gain; F1A's 0.428 [inspected, docs/57 Table 6] is inflated by its size.
   The cells where a data-chosen half-life could gain power ($t_{1/2} =
   0$ or 1 week under the alternative) were not run.
 
@@ -1364,7 +1364,7 @@ about it.
 | Permutation of $B^c_i$ | invalid for a prognostic biomarker | | not run | not run | | not recommended |
 | Residual permutation within path | approximate | $M$ times the procedure | not run | not run | good | proposed |
 
-Table: Decision table for choosing the analysis half-life from the data (extension of Section 8, refined process, unless marked "ill."; revised 2026-10-10)
+Table: Decision table for choosing the analysis half-life from the data (extension of Section 8, refined process, unless marked "ill."; revised 2026-10-10) [inspected, docs/57 Tables 7, 9, 10]
 
 ### 7.2 Plan
 
@@ -1390,38 +1390,38 @@ $N = 70$, and a warp-speed estimate of the bootstrap arms.
    Section 4.2), refit F1 by REML at $\hat h_0$ and compute the CR2
    $|T|$; refer it to $M = 999$ resamples from the null model FM0 at
    $\hat h_0$, each rerunning the selection and the test (Section 4.5).
-   In the extension it rejected 0.050 pooled over the 12 non-prognostic
-   null cells, at most 0.063 in one of them; its mean size-adjusted
-   power was 0.395 against F1's 0.388, 0.500 against 0.352 at true
-   $t_{1/2} = 2$ weeks and $c_{bm} = 0.45$, and its maximin shortfall
-   0.076 against 0.148 (Section 8). Its selection never sees the
+   In the extension it rejected 0.050 [inspected, docs/57 Table 7] pooled over the 12 non-prognostic
+   null cells, at most 0.063 [inspected, docs/57 Table 7] in one of them; its mean size-adjusted
+   power was 0.395 [inspected, docs/57 Table 9] against F1's 0.388 [inspected, docs/57 Table 9], 0.500 [inspected, docs/57 Table 9]
+   against 0.352 [inspected, docs/57 Table 9] at true $t_{1/2} = 2$ weeks and $c_{bm} = 0.45$, and its maximin shortfall
+   0.076 [inspected, docs/57 Table 10] against 0.148 [inspected, docs/57 Table 10] (Section 8). Its selection never sees the
    interaction and its calibration includes the selection.
 2. **Alternative: F1AB.** The same bootstrap applied to F1A (selection
-   with the interaction in the model): 0.050 pooled, mean power 0.400,
-   0.456 at $t_{1/2} = 2$ weeks and $c_{bm} = 0.45$, maximin 0.078. It is
+   with the interaction in the model): 0.050 [inspected, docs/57 Table 7] pooled, mean power 0.400 [inspected, docs/57 Table 9],
+   0.456 [inspected, docs/57 Table 9] at $t_{1/2} = 2$ weeks and $c_{bm} = 0.45$, maximin 0.078 [inspected, docs/57 Table 10]. It is
    at the 0.075 cap in the prognostic-baseline cell, which is Monte
    Carlo error (Section 8.5); the reported half-life is the one that
    maximizes the full model's likelihood.
 3. **Validated simple fallback: F1 at a fixed half-life.** When a
    bootstrap is not feasible, F1 with $t_{1/2}^a$ fixed before the data
-   are seen holds size (0.053 pooled; 0.051 in `docs/47`) and loses
+   are seen holds size (0.053 [inspected, docs/57 Table 7] pooled; 0.051 [inspected, docs/47] in `docs/47`) and loses
    power only when the fixed value is far from the truth. The
    pharmacological 0.2 week gave no power gain over 0.5 week (mean
-   0.376 against 0.388; behind F1 in 8 of 9 significant paired
-   comparisons), so a fixed value need not be pushed toward the drug's
+   0.376 [inspected, docs/57 Table 10] against 0.388 [inspected, docs/57 Table 10]; behind F1 in 8 of 9 significant paired
+   comparisons [inspected, docs/57 Table 10]), so a fixed value need not be pushed toward the drug's
    plasma half-life for power; 0.5 week is the stress test's base
    setting, not prazosin's pharmacological half-life, which report 01
    (Methods) puts at 0.1 to 0.2 week.
 4. **Not recommended, for stated reasons.** F1A tested as if the
-   half-life were fixed (0.060, fails); AIC-weight averaging without the
-   bootstrap (MA 0.0455, slightly conservative; its bootstrap version
-   MAB passes, 0.048, with the best mean power, 0.401, and is a
+   half-life were fixed (0.060 [inspected, docs/57 Table 7], fails); AIC-weight averaging without the
+   bootstrap (MA 0.0455 [inspected, docs/57 Table 7], slightly conservative; its bootstrap version
+   MAB passes, 0.048 [inspected, docs/57 Table 7], with the best mean power, 0.401 [inspected, docs/57 Table 9], and is a
    further alternative to F1A0B); the max-$|t|$ test with a
-   multivariate normal reference (0.072, liberal) or Bonferroni (0.018,
+   multivariate normal reference (0.072 [inspected, docs/57 Table 7], liberal) or Bonferroni (0.018 [inspected, docs/57 Table 7],
    too conservative); the multivariate $t$ reference (passes pooled, but
-   flagged at 0.077 in one prognostic cell and lowest in mean power);
+   flagged at 0.077 [inspected, docs/57 Table 7] in one prognostic cell and lowest in mean power);
    F1G and MA0B, which are post hoc (MA0B has the best maximin
-   shortfall, 0.062, but was defined after the illustration and should
+   shortfall, 0.062 [inspected, docs/57 Table 10], but was defined after the illustration and should
    not be primary on that ground).
 5. **The warp-speed caveat.** Every bootstrap figure is a warp-speed
    estimate: one resample per trial, pooled within a cell. Its Monte
@@ -1436,7 +1436,7 @@ $N = 70$, and a warp-speed estimate of the bootstrap arms.
    (Section 8.4) and is the next step before the recommendation is
    written into a paper.
 6. **The prognostic caveat.** In the prognostic-baseline null cell the
-   bootstrap arms reached 0.067 to 0.077 against F1's 0.057. That cell
+   bootstrap arms reached 0.067 to 0.077 [inspected, docs/57 Table 7] against F1's 0.057 [inspected, docs/57 Table 7]. That cell
    is, for every statistic, a non-prognostic null cell with a 4.6%
    smaller baseline SD (derived, Section 8.5), and the excess is Monte
    Carlo error. For prognostic pathways that vary over visits the null
@@ -1582,26 +1582,26 @@ for its own trial (Section 8.4).
 Table: Extension: null rejection rates at nominal 0.05 (verified; binomial MCSE 0.0020 pooled over 12,000 trials and 0.0069 in a cell; the B rows carry the larger warp-speed error of Section 8.1)
 
 - **F1 at the fixed 0.5 week holds size under the refined process**
-  (0.053 over 12 cells, 0.052 over the 11 of `docs/47`, against 0.051
+  (0.053 [inspected, docs/57 Table 7] over 12 cells, 0.052 [inspected, docs/57 Table 7] over the 11 of `docs/47`, against 0.051 [inspected, docs/47]
   there), on fresh trials.
-- **F1A fails again** (0.060 pooled, 0.077 under MAR dropout), as in
+- **F1A fails again** (0.060 [inspected, docs/57 Table 7] pooled, 0.077 [inspected, docs/57 Table 7] under MAR dropout), as in
   `docs/47`; the failure replicates on independent trials.
-- **F1A0 is at F1's rate at scale** (0.053; 0.052 over the 11 cells).
-  The excess seen in the illustration (0.067 against F1's 0.061,
+- **F1A0 is at F1's rate at scale** (0.053 [inspected, docs/57 Table 7]; 0.052 [inspected, docs/57 Table 7] over the 11 cells).
+  The excess seen in the illustration (0.067 [inspected, docs/57 Table 6] against F1's 0.061 [inspected, docs/57 Table 6],
   Section 6.2) does not recur, which is consistent with its having been
   Monte Carlo error in a 1,000-trial illustration (argued).
-- **Averaging is slightly conservative.** MA rejects 0.0455, just below
-  the band's lower edge 0.0460; MA0 0.040. Their bootstrap versions MAB
-  (0.048) and MA0B (0.049) pass.
+- **Averaging is slightly conservative.** MA rejects 0.0455 [inspected, docs/57 Table 7], just below
+  the band's lower edge 0.0460; MA0 0.040 [inspected, docs/57 Table 7]. Their bootstrap versions MAB
+  (0.048 [inspected, docs/57 Table 7]) and MA0B (0.049 [inspected, docs/57 Table 7]) pass.
 - **The grid maximum needs the bootstrap.** Bonferroni is very
-  conservative (0.018); the multivariate normal reference is liberal
-  (0.072, 0.088 at $N = 35$), because it ignores the small-sample $t$
+  conservative (0.018 [inspected, docs/57 Table 7]); the multivariate normal reference is liberal
+  (0.072 [inspected, docs/57 Table 7], 0.088 [inspected, docs/57 Table 7] at $N = 35$), because it ignores the small-sample $t$
   tails of each $T(h)$ (argued); the multivariate $t$ on the smallest
-  Satterthwaite df passes pooled (0.053) but is flagged in one
-  prognostic cell (0.077).
-- **Every bootstrap arm passes the pooled screen** (0.048 to 0.051), and
-  each reaches its highest rate, 0.067 to 0.077, in the `prog-BL` cell,
-  where F1 itself rejects 0.057. Three exceed the 0.075 flag there (F1B,
+  Satterthwaite df passes pooled (0.053 [inspected, docs/57 Table 7]) but is flagged in one
+  prognostic cell (0.077 [inspected, docs/57 Table 7]).
+- **Every bootstrap arm passes the pooled screen** (0.048 to 0.051 [inspected, docs/57 Table 7]), and
+  each reaches its highest rate, 0.067 to 0.077 [inspected, docs/57 Table 7], in the `prog-BL` cell,
+  where F1 itself rejects 0.057 [inspected, docs/57 Table 7]. Three exceed the 0.075 flag there (F1B,
   F1GB, MAB) and F1AB sits at it. Section 8.5 shows that this is Monte
   Carlo error rather than a failure of the null model.
 
@@ -1639,16 +1639,18 @@ Table: Extension: size-adjusted power, each analysis rejecting at the 5% quantil
 Table: Extension: maximin shortfall in size-adjusted power among the analyses that passed the nominal screen, and paired McNemar comparisons with F1 over the 26 non-prognostic alternative cells (verified; MA, MA0, MaxTBonf, MaxTMVN and F1A failed the screen and are not ranked)
 
 - **No rule gains much on average.** Mean size-adjusted power lies
-  between 0.375 and 0.401 for every survivor; F1 is at 0.388.
+  between 0.375 and 0.401 [inspected, docs/57 Table 10] for every survivor; F1 is at
+  0.388 [inspected, docs/57 Table 10].
 - **The gains are where the fixed value is far from the truth.** At
-  true $t_{1/2} = 2$ weeks and $c_{bm} = 0.45$, F1 has 0.352, F1A0
-  0.428, F1AB 0.456 and F1A0B 0.500; at $t_{1/2} = 0$ and $c_{bm} =
-  0.30$, F1 0.488 and F1A0B 0.550. At $t_{1/2} = 1$ week the rules are
-  within the Monte Carlo error of one another.
+  true $t_{1/2} = 2$ weeks and $c_{bm} = 0.45$, F1 has 0.352 [inspected, docs/57 Table 9],
+  F1A0 0.428 [inspected, docs/57 Table 9], F1AB 0.456 [inspected, docs/57 Table 9] and
+  F1A0B 0.500 [inspected, docs/57 Table 9]; at $t_{1/2} = 0$ and $c_{bm} =
+  0.30$, F1 0.488 [inspected, docs/57 Table 9] and F1A0B 0.550 [inspected, docs/57 Table 9].
+  At $t_{1/2} = 1$ week the rules are within the Monte Carlo error of one another.
 - **F1A0 needs the bootstrap to gain.** The nominal F1A0 is behind F1 in
   more significant paired comparisons (5) than it is ahead (2), and its
-  mean power (0.381) is below F1's; with the bootstrap calibration, F1A0B
-  is ahead in 9 of 12 and F1AB in 10 of 13. The statistic of F1A0B is
+  mean power (0.381 [inspected, docs/57 Table 10]) is below F1's; with the bootstrap
+  calibration, F1A0B is ahead in 9 of 12 and F1AB in 10 of 13 [inspected, docs/57 Table 10]. The statistic of F1A0B is
   that of F1A0, so the difference comes from the critical value, which
   in the warp-speed estimate is the cell's pooled resampled quantile
   and in a real analysis the trial's own (inspected). How much of this
@@ -1656,23 +1658,24 @@ Table: Extension: maximin shortfall in size-adjusted power among the analyses th
   the critical value varies from trial to trial, is not known (the
   warp-speed assumption of Section 8.1).
 - **The pharmacological 0.2 week gives no gain over 0.5.** F1h02 has a
-  mean power of 0.376 against 0.388 and is behind F1 in 8 of the 9
-  cells where they differ significantly (ahead in 1).
+  mean power of 0.376 [inspected, docs/57 Table 10] against 0.388 [inspected, docs/57 Table 10]
+  and is behind F1 in 8 of the 9 cells where they differ significantly (ahead in 1) [inspected, docs/57 Table 10].
 - **The maximin ranking resolves groups, not places.** Each power has
   an MCSE of up to 0.022, and the maximin shortfall is a maximum over
   26 cells of differences between noisy estimates, so it is biased
   upward and differences below about 0.04 between analyses are not
-  resolved (argued). MA0B, F1A0B, F1AB, MaxTB and MAB (0.062 to 0.088)
+  resolved (argued). MA0B, F1A0B, F1AB, MaxTB and MAB (0.062 to 0.088 [inspected, docs/57 Table 10])
   form one group, ahead of F1 and the other nominal rules (0.126 to
-  0.160).
+  0.160 [inspected, docs/57 Table 10]).
 
 **Selection.** Over all 58 cells, F1A chose 0, 0.25, 0.5, 1 and 2
 weeks in 33%, 13%, 19%, 15% and 20% of trials, and F1A0 in 34%, 13%,
-19%, 14% and 20% (verified). In the non-prognostic null cells F1A0
-chose 0 in 85% of trials when the truth was 0, 1 or 2 weeks in 70%
-when it was 1 week and 2 weeks in 84% when it was 2, but spread its
-choices 33%, 17%, 25%, 14% and 12% when it was 0.5 (verified). The
-guard F1G kept 0.5 week in 82% of trials and switched in 18%.
+19%, 14% and 20% [inspected, docs/57 Section 8] (verified). In the non-prognostic
+null cells F1A0 chose 0 in 85% of trials when the truth was 0, 1 or 2
+weeks in 70% when it was 1 week and 2 weeks in 84% when it was 2, but
+spread its choices 33%, 17%, 25%, 14% and 12% when it was 0.5 [inspected, docs/57 Section 8]
+(verified). The guard F1G kept 0.5 week in 82% of trials and switched
+in 18% [inspected, docs/57 Section 8].
 
 ### 8.4 Cost
 
@@ -1681,7 +1684,7 @@ trial on one `simrun` worker: the full set of analyses on the data plus
 one resample on which every bootstrapped procedure was rerun. Its
 median is 25.7 seconds at $N = 70$ (10th and 90th percentiles over all
 58 cells 22.4 and 29.1 seconds), 14.8 seconds at $N = 35$ and 49.0 seconds at $N =
-150$ (verified). The resample is roughly half of that work (derived
+150$ [inspected, docs/57 Section 8] (verified). The resample is roughly half of that work (derived
 from the operation counts of `RERUN-ext3.md`, Section 5), so a real
 analysis with $M = 999$ resamples of all the bootstrapped procedures
 would take about $999 \times 13 \approx 13{,}000$ worker-seconds, 3.6
@@ -1697,9 +1700,9 @@ the warp-speed method.
 
 ### 8.5 The prognostic-baseline cell
 
-The B arms reach 0.067 to 0.077 in the `prog-BL` null cell (cell 40;
+The B arms reach 0.067 to 0.077 [inspected, docs/57 Table 7] in the `prog-BL` null cell (cell 40;
 biomarker correlated $c_{bm,BL} = 0.3$ with the baseline level
-$\mathrm{BL}_i$, no interaction), against 0.057 for F1 on the same
+$\mathrm{BL}_i$, no interaction), against 0.057 [inspected, docs/57 Table 7] for F1 on the same
 trials. The hypothesis to be checked was that the null model, which
 reproduces a biomarker association with $Y$ only through $\beta_B B^c_i$
 and $\beta_{bm:\eta} B^c_i\eta_t$, does not reproduce the association
@@ -1727,17 +1730,18 @@ in `57-progbl-check.R`; the findings are these.
   slope $\beta_{B,0}$ (`bmc:bl0`) is zero in this process.
 - **The stored rates are consistent with Monte Carlo error**
   (verified, `57-progbl-check.R`, part 1). With the trial-resampling
-  MCSE of about 0.010, F1B's 0.077 is 2.5 MCSEs above the 22-cell mean
-  of 0.053; the largest of 22 such deviations is expected near 2
+  MCSE of about 0.010, F1B's 0.077 [inspected, docs/57 Table 7] is 2.5 MCSEs above the 22-cell mean
+  of 0.053 [inspected, 57-progbl-check.R]; the largest of 22 such deviations is expected near 2
   (derived, normal approximation), and the spread of the B rates over
-  the 22 null cells (SD 0.0103 to 0.0119) is no larger than their MCSE,
+  the 22 null cells (SD 0.0103 to 0.0119 [inspected, 57-progbl-check.R]) is no larger than their MCSE,
   so there is no sign of real between-cell differences. The base null
   cell, which differs from `prog-BL` only by the 4.6% in $\sigma_{BL}$,
-  has the opposite extreme: F1B 0.032, F1AB 0.033. In `prog-BL` the
+  has the opposite extreme: F1B 0.032 [inspected, 57-progbl-check.R], F1AB 0.033 [inspected, 57-progbl-check.R]. In `prog-BL` the
   resampled 95% quantile is the lowest of the 22 cells for seven of the
-  eight statistics and the second lowest for F1A0 (F1: 1.89 against a mean of 2.07, SD 0.077, over the
-  other 21 cells), while the observed $|T|$ quantile is ordinary (2.09,
-  F1's nominal rate 0.057); the resampled draws of the eight procedures
+  eight statistics and the second lowest for F1A0 (F1: 1.89 [inspected, 57-progbl-check.R] against a
+  mean of 2.07 [inspected, 57-progbl-check.R], SD 0.077 [inspected, 57-progbl-check.R], over the
+  other 21 cells), while the observed $|T|$ quantile is ordinary (2.09 [inspected, 57-progbl-check.R],
+  F1's nominal rate 0.057 [inspected, docs/57 Table 7]); the resampled draws of the eight procedures
   share each trial's resample, so their low quantiles are one event,
   not eight.
 - **Fresh trials** (verified, `57-progbl-check.R`, part 2; 200 new
@@ -1765,19 +1769,19 @@ in `57-progbl-check.R`; the findings are these.
 Table: Fresh-trial check of the prognostic-baseline cell: warp-speed size of each null-model bootstrap at nominal 0.05, $n_{\text{sim}} = 200$ per cell (trial-resampling MCSE in parentheses; binomial for the nominal row; verified)
 
 Under the stored parametric model the two cells do not differ
-detectably (0.050 and 0.065 for F1, 0.055 and 0.055 for F1A0), and
-the 95% quantile of the resampled F1 statistic is 1.95 in the base
-cell and 1.91 in `prog-BL`, a difference well inside the sampling
+detectably (0.050 and 0.065 [inspected, 57-progbl-check.R] for F1, 0.055 and 0.055 [inspected, 57-progbl-check.R] for F1A0), and
+the 95% quantile of the resampled F1 statistic is 1.95 [inspected, 57-progbl-check.R] in the base
+cell and 1.91 [inspected, 57-progbl-check.R] in `prog-BL`, a difference well inside the sampling
 error of a quantile from 200 draws, about 0.13 (derived). Adding
 `bmc:bl0` to the null model (P1) does not lower the `prog-BL` rate, as
 the derivation predicts. The wild cluster bootstrap is not a remedy:
 in the base null cell its resampled statistics are too narrow (95%
-quantile 1.67 for F1 against 2.00 for the observed $|T|$) and it
-rejects 0.115, consistent with the known shrinkage of unadjusted
+quantile 1.67 [inspected, 57-progbl-check.R] for F1 against 2.00 [inspected, 57-progbl-check.R] for the observed $|T|$) and it
+rejects 0.115 [inspected, 57-progbl-check.R], consistent with the known shrinkage of unadjusted
 residuals (argued).
 
 **Conclusion.** The `prog-BL` flag on F1B, F1GB and MAB, and F1AB's
-0.075, are Monte Carlo error of the warp-speed estimate, not a failure
+0.075 [inspected, docs/57 Table 7], are Monte Carlo error of the warp-speed estimate, not a failure
 of the null model to reproduce a baseline association: no remedy is
 needed for a biomarker associated with baseline severity alone. The
 equivalence is derived; the fresh-trial check supports it but, at 200
@@ -1786,7 +1790,7 @@ cells. The
 caveat of Section 4.5 still stands for prognostic pathways that change
 across visits, which the null model reproduces only through $B^c_i$ and
 $B^c_i\eta_t$; in the six prognostic null cells with a wrong half-life
-the B arms reject 0.037 to 0.073, within the cap.
+the B arms reject 0.037 to 0.073 [inspected, docs/57 Table 7], within the cap.
 
 ### 8.6 Reading
 

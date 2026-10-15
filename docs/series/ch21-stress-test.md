@@ -207,34 +207,44 @@ All results are from stored simulation outputs (verified; Section 11).
 
 1. **Size.** Ten of the fourteen analyses hold their size over the 11
    non-prognostic null cells (pooled 0.047 to 0.053, within the 2-MCSE
-   band 0.046 to 0.054, and no cell above 0.075). Four fail: the
+   band 0.046 to 0.054, and no cell above 0.075)
+   [inspected, summary-full.csv]. Four fail: the
    unstructured model A (0.057 pooled, 0.087 at $N = 35$), its AIC
    version DA (0.065), the published reference arm R (0.069), and F1A
-   (0.057, and 0.073 when $t_{1/2} = 1$ week).
+   (0.057, and 0.073 when $t_{1/2} = 1$ week)
+   [inspected, summary-full.csv].
 2. **A prognostic biomarker is the decisive stress.** Every analysis
    that shares the biomarker's main effect between the baseline row and
    the later visits rejects too often in at least one prognostic null
-   cell: S 0.100, C1 0.382, A 0.416. Five analyses stay within the cap
-   in all four prognostic null cells: ES, EA, F1, G1 and G2.
+   cell: S 0.100, C1 0.382, A 0.416 [inspected, summary-full.csv].
+   Five analyses stay within the cap
+   in all four prognostic null cells: ES, EA, F1, G1 and G2
+   [inspected, summary-full.csv].
 3. **Sensitivity.** Every analysis has monotone size-adjusted power
-   curves in both constructs. The symmetry screen was dropped, because
-   power is symmetric in the sign of $c_{bm}$ by construction.
+   curves in both constructs [inspected, summary-full.csv]. The
+   symmetry screen was dropped, because power is symmetric in the sign
+   of $c_{bm}$ by construction.
 4. **Power.** Robustness costs power. At $c_{bm} = 0.30$ under AR(1),
-   size-adjusted power is 0.514 for S and 0.364 for F1, 29% less;
-   under compound symmetry at $c_{bm} = 0.25$ the difference is small
-   (0.554 against 0.522). F1 has significantly lower power than DS in
-   15 of the 22 non-prognostic alternative cells (McNemar test at
-   0.05) and higher power in none.
+   size-adjusted power is 0.514 for S and 0.364 for F1, 29% less
+   [inspected, summary-full.csv]; under compound symmetry at
+   $c_{bm} = 0.25$ the difference is small (0.554 against 0.522)
+   [inspected, summary-full.csv]. F1 has significantly lower power
+   than DS in 15 of the 22 non-prognostic alternative cells (McNemar
+   test at 0.05) and higher power in none [inspected,
+   decision-power-ds-nosym-all14.csv].
 5. **Selection.** Among the five robust analyses the maximin shortfall
    over the non-prognostic alternative cells is G2 0.232, F1 0.242, G1
-   0.252, ES 0.278 and EA 0.318. G2 and F1 lie within the tie margin of
-   0.02, neither reaches power 0.80 on the grid, and the rule's last
-   tie-break (fewer covariance parameters) selects **F1**. G1 and G2
-   are effectively equivalent alternatives.
+   0.252, ES 0.278 and EA 0.318 [inspected,
+   decision-maximin-ds-nosym-all14.csv]. G2 and F1 lie within the tie
+   margin of 0.02, neither reaches power 0.80 on the grid
+   [inspected, summary-full.csv], and the rule's last tie-break (fewer
+   covariance parameters) selects **F1**. G1 and G2 are effectively
+   equivalent alternatives.
 6. **A second reading.** Over all 26 alternative cells, prognostic cells
-   included, G1 (0.308) and G2 (0.312) lead F1 (0.358) by about 0.05.
-   The protocol does not say which set of cells governs the selection,
-   so both readings are reported (Section 7).
+   included, G1 (0.308) and G2 (0.312) lead F1 (0.358) by about 0.05
+   [inspected, decision-maximin-ds-nosym-all14.csv]. The protocol does
+   not say which set of cells governs the selection, so both readings
+   are reported (Section 7).
 
 ## 2. Design in brief
 
@@ -291,7 +301,9 @@ The design is set out in `docs/46`; this section records what was run.
 | DA | 0.065 | 0.103 ($N = 35$) | no | 0.509 | 0.245 | 0.256 | 0.064 | yes |
 | R | 0.069 | 0.081 ($N = 35$) | no | 0.107 | 0.053 | 0.159 | 0.075 | yes |
 
-Table: Null rejection rates by analysis: pooled over the 11 non-prognostic null cells, largest single cell, and the four prognostic null cells
+Table: Null rejection rates by analysis: pooled over the 11 non-prognostic
+null cells, largest single cell, and the four prognostic null cells.
+*Source: summary-full.csv [inspected]*
 
 The pooled rate is over 11,000 replicates, so its 2-MCSE band is 0.046
 to 0.054; a single cell has 1,000 replicates (MCSE 0.0069), and the
@@ -302,18 +314,20 @@ prognostic null cell exceeds 0.075.
 
 - **Inference matters most at small $N$.** The unstructured model with
   Kenward-Roger inference [5] rejects 0.087 at $N = 35$, and with an
-  AIC-chosen half-life 0.103. The random-intercept models with CR2
-  standard errors [3, 4] stay at or below 0.069 in every cell, except
-  F1A (0.073), whose half-life is chosen by AIC.
+  AIC-chosen half-life 0.103 [inspected, summary-full.csv]. The
+  random-intercept models with CR2 standard errors [3, 4] stay at or
+  below 0.069 in every cell, except F1A (0.073), whose half-life is
+  chosen by AIC [inspected, summary-full.csv].
 - **Choosing the half-life by AIC inflates size slightly.** DS (0.053)
-  passes; F1A (0.057) and DA (0.065) do not. The selection step adds
-  variability that the standard errors do not reflect.
-- **The published reference arm is liberal** throughout (0.069 pooled),
-  as earlier documents found (`docs/45`).
+  passes; F1A (0.057) and DA (0.065) do not [inspected,
+  summary-full.csv]. The selection step adds variability that the
+  standard errors do not reflect.
+- **The published reference arm is liberal** throughout (0.069 pooled)
+  [inspected, summary-full.csv], as earlier documents found (`docs/45`).
 - **Baseline severity alone does little harm.** A prognostic association
   with baseline severity enters every visit equally, so every analysis
   stays within the cap in that cell (0.040 to 0.075; R reaches the cap
-  exactly, and EA reaches 0.066).
+  exactly, and EA reaches 0.066) [inspected, summary-full.csv].
 
 ## 4. Robustness to a prognostic biomarker
 
@@ -322,9 +336,10 @@ main effect for it and for the later visits attribute part of a
 prognostic association to the interaction (derived, `docs/48`, Section
 2). The size table shows this directly: S, DS, C1, C2, F2, A, DA and R
 are flagged, with null rejection rates up to 0.509 when the natural
-course is associated with the biomarker. F2's `bmc:t` term remedies the
-growing natural-course pathway (0.048) but not the constant one (0.090)
-or the placebo pathway (0.098).
+course is associated with the biomarker [inspected,
+summary-full.csv]. F2's `bmc:t` term remedies the growing
+natural-course pathway (0.048) but not the constant one (0.090) or the
+placebo pathway (0.098) [inspected, summary-full.csv].
 
 Two families stay within the cap in every prognostic cell:
 
@@ -365,23 +380,28 @@ the selection is made among the unflagged analyses.
 | DA | yes / yes | 0.472 / 0.498 | 2.25 | 0.434 |
 | R | yes / yes | 0.394 / 0.398 | 1.76 | not reached |
 
-Table: Size-adjusted power curves under AR(1): monotonicity in both constructs, power at plus and minus 0.30, steepness between 0.15 and 0.30, and the smallest coupling reaching power 0.80
+Table: Size-adjusted power curves under AR(1): monotonicity in both
+constructs, power at plus and minus 0.30, steepness between 0.15 and
+0.30, and the smallest coupling reaching power 0.80.
+*Source: summary-full.csv [inspected]*
 
 **Reading.**
 
 - **Every curve is monotone**, so the sensitivity screen removes no
-  analysis.
+  analysis [inspected, summary-full.csv].
 - **The symmetry screen was defective.** The data-generating process
   treats $+c_{bm}$ and $-c_{bm}$ alike, so power is symmetric in theory;
-  the observed differences between $-0.30$ and $+0.30$ (at most 0.070,
-  F2, against an MCSE of about 0.03 for a difference of two independent
-  cells of 500) are consistent with Monte Carlo error, and the screen
-  would have eliminated analyses for noise. It was dropped in
+  the observed differences between $-0.30$ and $+0.30$ (at most 0.070
+  for F2 [inspected, summary-full.csv], against an MCSE of about 0.03
+  for a difference of two independent cells of 500 [inferred,
+  Monte Carlo theory]) are consistent with Monte Carlo error, and the
+  screen would have eliminated analyses for noise. It was dropped in
   Amendment 1 (derived, `docs/48`, Section 4).
 - **The robust analyses are flatter.** Their steepness is 1.5 to 1.8,
-  against 2.2 to 2.7 for the flagged analyses other than R (1.76), and
-  none reaches power 0.80 by $c_{bm} = 0.45$ at $N = 70$. Steepness and
-  detectable coupling therefore cannot break ties among them.
+  against 2.2 to 2.7 for the flagged analyses other than R (1.76)
+  [inspected, summary-full.csv], and none reaches power 0.80 by
+  $c_{bm} = 0.45$ at $N = 70$ [inspected, summary-full.csv]. Steepness
+  and detectable coupling therefore cannot break ties among them.
 
 ## 6. Power
 
@@ -402,7 +422,9 @@ Table: Size-adjusted power curves under AR(1): monotonicity in both constructs, 
 | DA | 0.498 (0.592) | 0.572 (0.596) |
 | R | 0.398 (0.476) | 0.596 (0.594) |
 
-Table: Size-adjusted power (unadjusted in parentheses) in the two reference alternative cells, $N = 70$
+Table: Size-adjusted power (unadjusted in parentheses) in the two
+reference alternative cells, $N = 70$.
+*Source: summary-full.csv [inspected]*
 
 | Cell | S | C1 | F1 | G1 | G2 | ES | EA |
 |--------------------------|-----|-----|-----|-----|-----|-----|-----|
@@ -420,25 +442,29 @@ Table: Size-adjusted power (unadjusted in parentheses) in the two reference alte
 | Prognostic, placebo | 0.652 | 0.736 | 0.446 | 0.428 | 0.424 | 0.498 | 0.438 |
 | Prognostic, baseline | 0.444 | 0.552 | 0.396 | 0.394 | 0.406 | 0.336 | 0.290 |
 
-Table: Size-adjusted power at $c_{bm} = 0.30$ in the stress cells: the reference analysis S, the most powerful analysis C1, and the five robust analyses
+Table: Size-adjusted power at $c_{bm} = 0.30$ in the stress cells: the
+reference analysis S, the most powerful analysis C1, and the five
+robust analyses. *Source: summary-full.csv [inspected]*
 
 **Reading.**
 
 - **The phase-variance models are the most powerful** (C1 has the
-  highest power in every stress cell shown), but they fail the
-  prognostic cells badly, so their power is not available to a trial
-  whose biomarker may be prognostic.
+  highest power in every stress cell shown [inspected,
+  summary-full.csv]), but they fail the prognostic cells badly, so
+  their power is not available to a trial whose biomarker may be
+  prognostic.
 - **The cost of robustness depends on the correlation structure.** Under
   AR(1) the robust analyses have 26% (G2) to 40% (EA) less
-  size-adjusted power than S at $c_{bm} = 0.30$; under compound
-  symmetry ES even exceeds S (0.662 against 0.554), and F1 is close
-  (0.522).
+  size-adjusted power than S at $c_{bm} = 0.30$ [inferred,
+  summary-full.csv]; under compound symmetry ES even exceeds S (0.662
+  against 0.554), and F1 is close (0.522) [inspected,
+  summary-full.csv].
 - **The power reported for flagged analyses in prognostic cells is
   size-adjusted**, so it is not the power a trial would see: unadjusted,
   those analyses reject far too often under the null.
 - **The free-baseline models lose most when the natural course grows
-  with the biomarker** (0.192 and 0.208), which is why their all-cells
-  shortfall is large (Section 7).
+  with the biomarker** (0.192 and 0.208) [inspected, summary-full.csv],
+  which is why their all-cells shortfall is large (Section 7).
 
 ## 7. Selection
 
@@ -459,13 +485,19 @@ are not flagged in a prognostic cell: ES, EA, F1, G1 and G2.
 | ES | 0.278 | Weibull 0.5 | 0.544 | TV growing |
 | EA | 0.318 | Weibull 0.5 | 0.528 | TV growing |
 
-Table: Maximin shortfall in size-adjusted power among the analyses that pass the size and sensitivity screens, over the non-prognostic alternative cells and over all alternative cells
+Table: Maximin shortfall in size-adjusted power among the analyses that
+pass the size and sensitivity screens, over the non-prognostic
+alternative cells and over all alternative cells.
+*Source: decision-maximin-ds-nosym-all14.csv [inspected]*
 
 **Outcome.**
 
 1. **Smallest shortfall.** Over the non-prognostic alternative cells,
-   G2 (0.232) and F1 (0.242) are the two best robust analyses.
-2. **Tie.** They differ by 0.010, inside the rule's tie margin of 0.02.
+   G2 (0.232) and F1 (0.242) are the two best robust analyses
+   [inspected, decision-maximin-ds-nosym-all14.csv].
+2. **Tie.** They differ by 0.010 [inferred,
+   decision-maximin-ds-nosym-all14.csv], inside the rule's tie margin
+   of 0.02.
 3. **First tie-break.** The smaller detectable coupling in the base
    construct is undefined: neither reaches power 0.80 on the grid.
 4. **Last tie-break.** The analysis with fewer covariance parameters,
@@ -475,19 +507,21 @@ Table: Maximin shortfall in size-adjusted power among the analyses that pass the
    prognostic cells, so it cannot be retained; F1 replaces it. The
    paired comparison makes the price explicit: F1 has significantly
    lower size-adjusted power than DS in 15 of the 22 non-prognostic
-   alternative cells, and higher power in none.
+   alternative cells, and higher power in none [inspected,
+   decision-power-ds-nosym-all14.csv].
 
 **The all-cells reading.** If the prognostic alternative cells are
 included in the maximin set, the order among the robust analyses is G1
 0.308, G2 0.312, F1 0.358, EA 0.528, ES 0.544, and the phase-variance
-versions lead F1 by about 0.05. The working protocol does not say
+versions lead F1 by about 0.05 [inspected,
+decision-maximin-ds-nosym-all14.csv]. The working protocol does not say
 whether those cells count. The non-prognostic reading is reported as
 the outcome because the prognostic cells are judged by their own
 screen. Under the all-cells reading G1 and G2 would tie (0.004 apart)
 ahead of F1, and the tie-breaks could not separate them, since they
 share one model and differ only in inference. The difference from F1
 arises mainly when the natural course is associated with the biomarker
-(G1 0.484 against F1 0.378 in that cell).
+(G1 0.484 against F1 0.378 in that cell) [inspected, summary-full.csv].
 
 ## 8. Choosing the half-life by AIC
 
@@ -501,14 +535,15 @@ the choice and a REML refit.
 | DA | 0.188 | 0.144 | 0.294 | 0.181 | 0.193 |
 | F1A | 0.236 | 0.163 | 0.292 | 0.190 | 0.120 |
 
-Table: Share of fits choosing each analysis half-life, over all cells
+Table: Share of fits choosing each analysis half-life, over all cells.
+*Source: replicates-full.rds [inspected]*
 
 The choice is spread across the grid even though the true half-life is
 0.5 week in most cells, and the selection step costs size: F1A fails
 the size criterion where F1 passes, and DS loses about 0.03 of
 size-adjusted power against S at the AR(1) reference cell (0.486
-against 0.514). A fixed $t_{1/2}^{a} = 0.5$ week is therefore preferred
-with F1.
+against 0.514) [inspected, summary-full.csv]. A fixed
+$t_{1/2}^{a} = 0.5$ week is therefore preferred with F1.
 
 ## 9. Failed fits
 
@@ -516,7 +551,7 @@ A fit that returned an error was recorded as missing. Failures number
 0 to 12 per analysis over 28,000 trials (G1 and G2 12; S, C1 and C2 6;
 F1, F1A and ES 3; DS and F2 2; A, DA, EA and R 0), and at most 0.6% in
 any cell (G1 and G2), below the 2% at which an analysis would be
-flagged.
+flagged [inspected, replicates-full.rds].
 
 ## 10. Limitations
 
@@ -615,7 +650,7 @@ analyses and all 41 cells (verified: the recomputation with
 `--with-extras` reproduces the four stored `-all14` files exactly). As
 in the stored decision files, a failed fit counts as a non-rejection.
 There were 26 failed fits in 308,000 (stored run 28; 0 to 5 per
-analysis).
+analysis) [inspected, replicates-full-anchored.rds].
 
 ### Size
 
@@ -633,7 +668,11 @@ analysis).
 | DA | 0.0653 | 0.0656 | 0.103 ($N = 35$) | 0.093 ($N = 35$) | no / no |
 | R | 0.0687 | 0.0686 | 0.081 ($N = 35$) | 0.084 ($N = 35$) | no / no |
 
-Table: Rerun under the refined process: null rejection rates of the eleven main-run analyses over the 11 non-prognostic null cells (pooled, 2-MCSE band 0.0458 to 0.0542; largest single cell, cap 0.075), stored run and rerun
+Table: Rerun under the refined process: null rejection rates of the
+eleven main-run analyses over the 11 non-prognostic null cells (pooled,
+2-MCSE band 0.0458 to 0.0542; largest single cell, cap 0.075), stored
+run and rerun. *Source: summary-full-anchored.csv,
+summary-full.csv [inspected]*
 
 | Analysis | TV, constant | TV, growing | Placebo | Baseline | Prognostic flag |
 |----------|-------------|-------------|-------------|-------------|----------|
@@ -649,23 +688,30 @@ Table: Rerun under the refined process: null rejection rates of the eleven main-
 | DA | 0.515 (0.509) | 0.276 (0.245) | 0.229 (0.256) | 0.065 (0.064) | yes |
 | R | 0.119 (0.107) | 0.077 (0.053) | 0.167 (0.159) | 0.069 (0.075) | yes |
 
-Table: Rerun under the refined process: null rejection rates in the four prognostic null cells (rerun, stored run in parentheses; cap 0.075) and the prognostic flag, which is the same in both runs
+Table: Rerun under the refined process: null rejection rates in the four
+prognostic null cells (rerun, stored run in parentheses; cap 0.075) and
+the prognostic flag, which is the same in both runs.
+*Source: summary-full-anchored.csv [inspected]*
 
 **Reading.**
 
 - **Size is unchanged within Monte Carlo error.** Over the 165 null
   rates (15 null cells by 11 analyses), 7 differ from the stored run by
   more than 2 in $|z|$, about the 8 expected by chance; the largest is
-  EA at $t_{1/2} = 0$ (0.040 stored, 0.069 rerun, $z = 2.9$).
+  EA at $t_{1/2} = 0$ (0.040 stored, 0.069 rerun, $z = 2.9$)
+  [inspected, summary-full-anchored.csv].
 - **Two analyses cross a boundary.** DS (pooled 0.0569, outside the
   band) and EA (pooled 0.0575, and 0.076 at $N = 35$ against the cap of
-  0.075) now fail the size screen. Neither change is large against
-  Monte Carlo error ($z = 1.4$ and 2.0 for the pooled rates); both were
-  close to the boundary in the stored run. A, DA and R fail as before.
+  0.075) now fail the size screen [inspected,
+  summary-full-anchored.csv]. Neither change is large against Monte
+  Carlo error ($z = 1.4$ and 2.0 for the pooled rates [inferred,
+  summary-full-anchored.csv]); both were close to the boundary in the
+  stored run. A, DA and R fail as before.
 - **The prognostic flags are unchanged** for every analysis. F1 stays
-  at or below 0.052 in all four prognostic null cells. ES stays within
-  the cap with a narrow margin in the growing natural-course cell
-  (0.073, MCSE 0.008).
+  at or below 0.052 in all four prognostic null cells [inspected,
+  summary-full-anchored.csv]. ES stays within the cap with a narrow
+  margin in the growing natural-course cell (0.073, MCSE 0.008)
+  [inspected, summary-full-anchored.csv].
 
 ### Survivors
 
@@ -679,14 +725,17 @@ analysis.
 | Of these, not flagged in a prognostic cell | F1, ES, EA | F1, ES |
 | As first specified (strawman S, symmetry screen on) | C2, F1 | C1, F1, ES |
 
-Table: Rerun under the refined process: analyses passing the screens, stored run and rerun
+Table: Rerun under the refined process: analyses passing the screens,
+stored run and rerun.
+*Source: decision-screen-ds-nosym-anchored.csv [inspected]*
 
 Under Amendment 1 the strawman DS fails the size screen, so the
 strawman rule (Section 7, item 5) is not reached; DS was in any case
 flagged in the prognostic cells. Under the reading as first specified,
 S fails the symmetry screen on the compound-symmetry curve in the rerun
-(it passed in the stored run), and the survivors change from C2 and F1
-to C1, F1 and ES. The symmetry screen thus changes its verdict between
+(it passed in the stored run) [inspected,
+decision-screen-ds-nosym-anchored.csv], and the survivors change from
+C2 and F1 to C1, F1 and ES. The symmetry screen thus changes its verdict between
 two runs of the same design, as expected of a screen that tests
 Monte Carlo noise (Section 5; `docs/48`, Section 4).
 
@@ -703,14 +752,20 @@ Monte Carlo noise (Section 5; `docs/48`, Section 4).
 | ES | 0.266 (0.278) | Weibull 0.5 | 0.498 (0.544) | TV growing |
 | EA | fails size (0.318) | | fails size (0.528) | |
 
-Table: Rerun under the refined process: maximin shortfall in size-adjusted power among the survivors of the size and sensitivity screens (eleven analyses; the best analysis in each cell is taken over all survivors, flagged ones included)
+Table: Rerun under the refined process: maximin shortfall in
+size-adjusted power among the survivors of the size and sensitivity
+screens (eleven analyses; the best analysis in each cell is taken over
+all survivors, flagged ones included).
+*Source: decision-maximin-ds-nosym-anchored.csv [inspected]*
 
 Among the eleven analyses, F1 has the smallest maximin shortfall of
 the unflagged survivors in both readings: 0.240 against 0.266 for ES
 over the non-prognostic cells, a lead of 0.026, just outside the tie
-margin of 0.02, and 0.348 against 0.498 over all cells. F1's own
-shortfall is almost the same as in the stored run (0.240 against
-0.242). Whether G1 or G2 again come within the tie margin of F1, as G2
+margin of 0.02, and 0.348 against 0.498 over all cells [inspected,
+decision-maximin-ds-nosym-anchored.csv]. F1's own shortfall is almost
+the same as in the stored run (0.240 against 0.242) [inspected,
+decision-maximin-ds-nosym-all14.csv and
+decision-maximin-ds-nosym-anchored.csv]. Whether G1 or G2 again come within the tie margin of F1, as G2
 did in the stored run (0.232 against 0.242), is taken up in the
 subsections "Fourteen-analysis decision" and "Fresh trials for the F1,
 G1, G2 choice" below.
@@ -731,7 +786,10 @@ G1, G2 choice" below.
 | DA | 0.540 (0.568) | 0.498 (0.592) | 0.524 (0.542) | 0.572 (0.596) |
 | R | 0.448 (0.482) | 0.398 (0.476) | 0.488 (0.546) | 0.596 (0.594) |
 
-Table: Rerun under the refined process: size-adjusted power (unadjusted in parentheses) in the two reference alternative cells, $N = 70$, rerun and stored run
+Table: Rerun under the refined process: size-adjusted power (unadjusted
+in parentheses) in the two reference alternative cells, $N = 70$,
+rerun and stored run.
+*Source: summary-full-anchored.csv; summary-full.csv [inspected]*
 
 | Cell | S | C1 | F1 | ES |
 |----------------|-------------|-------------|-------------|-------------|
@@ -749,43 +807,56 @@ Table: Rerun under the refined process: size-adjusted power (unadjusted in paren
 | Prognostic, placebo | 0.586 (0.652) | 0.746 (0.736) | 0.398 (0.446) | 0.448 (0.498) |
 | Prognostic, baseline | 0.490 (0.444) | 0.582 (0.552) | 0.416 (0.396) | 0.406 (0.336) |
 
-Table: Rerun under the refined process: size-adjusted power at $c_{bm} = 0.30$ in the stress cells for S, C1 and the two unflagged survivors F1 and ES (stored run in parentheses)
+Table: Rerun under the refined process: size-adjusted power at
+$c_{bm} = 0.30$ in the stress cells for S, C1 and the two unflagged
+survivors F1 and ES (stored run in parentheses).
+*Source: summary-full-anchored.csv [inspected]*
 
 **F1 against S.** At the AR(1) reference cell F1's size-adjusted power
 is 0.448 against 0.504 for S, 11% less, where the stored run gave
-0.364 against 0.514, 29% less (Section 1, item 4). F1 rose by 0.084
-($z = 2.7$) while S changed by $-0.010$. Over the 20 non-prognostic
-alternative cells with $c_{bm} > 0$, the ratio of F1's to S's
-size-adjusted power averages 0.88 in the rerun and 0.83 in the stored
-run. The stored 29% was therefore larger than F1's typical deficit
-(17% on average in the stored run, 12% in the rerun), and part of it is
-plausibly Monte Carlo error in a single cell of 500 trials (inferred:
-the two runs are independent, and the rerun cannot separate the effect
-of the DGP change from chance). Under compound symmetry F1 is now
-slightly ahead of S (0.510 against 0.490; stored 0.522 against 0.554).
+0.364 against 0.514, 29% less (Section 1, item 4)
+[inspected, summary-full-anchored.csv]. F1 rose by 0.084 ($z = 2.7$)
+while S changed by $-0.010$ [inferred, summary-full-anchored.csv].
+Over the 20 non-prognostic alternative cells with $c_{bm} > 0$, the
+ratio of F1's to S's size-adjusted power averages 0.88 in the rerun
+and 0.83 in the stored run [inferred, summary-full-anchored.csv]. The
+stored 29% was therefore larger than F1's typical deficit (17% on
+average in the stored run, 12% in the rerun) [inferred,
+summary-full-anchored.csv], and part of it is plausibly Monte Carlo
+error in a single cell of 500 trials [inferred: the two runs are
+independent, and the rerun cannot separate the effect of the DGP change
+from chance]. Under compound symmetry F1 is now slightly ahead of S
+(0.510 against 0.490; stored 0.522 against 0.554)
+[inspected, summary-full-anchored.csv].
 
 **Paired comparisons within the rerun** (McNemar test at 0.05 on paired
 size-adjusted rejections, 22 non-prognostic alternative cells):
 
 - F1 against DS: F1 lower in 12 cells and higher in 3 (stored run: 15
-  and 0);
-- F1 against S: F1 lower in 12 and higher in none (stored: 13 and 0);
-- ES against S: ES lower in 14 and higher in 5 (stored: 15 and 3);
-- C1 against S: C1 higher in 20 and lower in none (stored: 20 and 0).
+  and 0) [inspected, decision-power-ds-nosym-anchored.csv];
+- F1 against S: F1 lower in 12 and higher in none (stored: 13 and 0)
+  [inspected, decision-power-ds-nosym-anchored.csv];
+- ES against S: ES lower in 14 and higher in 5 (stored: 15 and 3)
+  [inspected, decision-power-ds-nosym-anchored.csv];
+- C1 against S: C1 higher in 20 and lower in none (stored: 20 and 0)
+  [inspected, decision-power-ds-nosym-anchored.csv].
 
 **Reading.**
 
 - **The cost of robustness is smaller than the stored run suggested at
   the AR(1) reference cell,** but it remains: F1 has significantly
-  lower power than S in more than half of the non-prognostic cells, and
-  the largest deficits are in the measurement-error, dropout,
-  $t_{1/2} = 1$ and Weibull 0.5 cells (F1/S ratios 0.71 to 0.80).
+  lower power than S in more than half of the non-prognostic cells
+  [inspected, decision-power-ds-nosym-anchored.csv], and the largest
+  deficits are in the measurement-error, dropout, $t_{1/2} = 1$ and
+  Weibull 0.5 cells (F1/S ratios 0.71 to 0.80) [inferred,
+  summary-full-anchored.csv].
 - **Cell-level shifts between the runs are of the size expected from
   Monte Carlo error.** The mean change in unadjusted power over the 11
   analyses ranges from $-0.048$ (compound-symmetry curve at 0.25) to
-  $+0.054$ (prognostic baseline cell) over the 26 alternative cells,
-  against an MCSE of about 0.03 for the difference of two independent
-  cells of 500 trials. The changes come in blocks (for example every
+  $+0.054$ (prognostic baseline cell) over the 26 alternative cells
+  [inferred, summary-full-anchored.csv], against an MCSE of about 0.03
+  for the difference of two independent cells of 500 trials [inferred,
+  Monte Carlo theory]. The changes come in blocks (for example every
   analysis lower at $t_{1/2} = 0$, a cell whose means anchoring does
   not change), because all analyses in a cell share the same trials. The
   $t_{1/2} = 0$ shift can only come from the allocation change or from
@@ -793,7 +864,8 @@ size-adjusted rejections, 22 non-prognostic alternative cells):
   `--allocation fixed` would separate them).
 - **Choosing the half-life by AIC spreads further.** The share of DS
   fits choosing $t_{1/2}^{a} = 0.5$ falls from 0.299 to 0.250, and the
-  shares at 0 and 2 weeks rise (0.170 to 0.216, and 0.179 to 0.213).
+  shares at 0 and 2 weeks rise (0.170 to 0.216, and 0.179 to 0.213)
+  [inspected, summary-full-anchored.csv].
 
 ### Fourteen-analysis decision (jobs 21 and 22; added 2026-10-15)
 
@@ -803,7 +875,8 @@ analyses are paired (`replicates-full-extra-anchored.rds`,
 `replicates-full-extra2-anchored.rds`). The pairing was checked on the
 S arm, which every run refits: 27,997 of the 28,000 S estimates are
 identical between job 15 and job 21, and the other 3 are failed fits in
-both (verified). The decision was applied with
+both [verified, replicates-full-extra-anchored.rds]. The decision was
+applied with
 `12-strawman-stress-decision.R --strawman DS --no-symmetry --with-extras
 --tag -anchored`, which writes
 `decision-*-ds-nosym-all14-anchored.csv` (committed `a4216f52`); the
@@ -818,7 +891,12 @@ post hoc arm summaries are `posthoc-extra-anchored-*.csv` and
 | F1 | 0.0514 (0.051) | 0.064 ($t_{1/2} = 0$) | no | 0.240 (0.242) | 0.348 (0.358) |
 | ES | 0.0490 (0.048) | 0.060 (Weibull 0.5) | no | 0.266 (0.278) | 0.498 (0.544) |
 
-Table: Rerun under the refined process, fourteen analyses: size, prognostic flag and maximin shortfall of the robust analyses (stored run in parentheses; the shortfall is measured against the best survivor in each cell, flagged survivors included)
+Table: Rerun under the refined process, fourteen analyses: size,
+prognostic flag and maximin shortfall of the robust analyses (stored run
+in parentheses; the shortfall is measured against the best survivor in
+each cell, flagged survivors included).
+*Source: decision-maximin-ds-nosym-all14-anchored.csv,
+posthoc-extra-anchored-size.csv [inspected]*
 
 **Reading.**
 
@@ -829,19 +907,24 @@ Table: Rerun under the refined process, fourteen analyses: size, prognostic flag
   the eleven-analysis rerun. Of the survivors, ES, F1, G1 and G2 are
   not flagged in any prognostic null cell (G1 and G2 at most 0.063).
 - **Maximin shortfall.** Over the non-prognostic alternative cells the
-  order is G2 0.214, G1 0.236, F1 0.240, ES 0.266. Under the rule as
+  order is G2 0.214, G1 0.236, F1 0.240, ES 0.266 [inspected,
+  decision-maximin-ds-nosym-all14-anchored.csv]. Under the rule as
   written, G2 leads F1 by 0.026, beyond the tie margin of 0.02, and
   would be selected; G1 ties with F1. Over all cells G2 (0.342), F1
-  (0.348) and G1 (0.350) lie within 0.008 of one another. In the stored
-  run G2 led F1 by 0.010, within the margin.
+  (0.348) and G1 (0.350) lie within 0.008 of one another [inspected,
+  decision-maximin-ds-nosym-all14-anchored.csv]. In the stored run G2
+  led F1 by 0.010, within the margin [inspected,
+  decision-maximin-ds-nosym-all14.csv].
 - **Power at the AR(1) reference cell** ($c_{bm} = 0.30$, size
-  adjusted): S 0.504, F1 0.448, G2 0.436, G1 0.426, F1A 0.404.
+  adjusted): S 0.504, F1 0.448, G2 0.436, G1 0.426, F1A 0.404
+  [inspected, summary-full-anchored.csv and
+  posthoc-extra-anchored-power.csv].
 
 A lead of 0.026 is of the order of the Monte Carlo error of a maximin
-shortfall at 500 trials per alternative cell (inferred at this point:
-the MCSE of one size-adjusted power near 0.4 is about 0.022, and the
-maximin takes the worst of 22 such cells). Rather than select G2 on a
-margin of that size, fresh trials were run.
+shortfall at 500 trials per alternative cell [inferred: the MCSE of
+one size-adjusted power near 0.4 is about 0.022, and the maximin takes
+the worst of 22 such cells]. Rather than select G2 on a margin of that
+size, fresh trials were run.
 
 ### Fresh trials for the F1, G1, G2 choice (job 37; added 2026-10-15)
 
@@ -851,7 +934,7 @@ F1, F2, G1 and G2 to 1,500 fresh trials in each of the 41 cells (seed
 base 47261012, distinct from jobs 15, 21 and 22), under the refined
 process (`replicates-full-extra4-anchored.rds`,
 `summary-full-extra4-anchored.csv`). There were 104 failed fits in
-492,000. The run is post hoc: it was made after the decision above had
+492,000 [inspected, replicates-full-extra4-anchored.rds]. The run is post hoc: it was made after the decision above had
 been seen, to settle a choice that lay within Monte Carlo error.
 
 The unchanged decision script was applied to job 37 alone and to the
@@ -866,7 +949,7 @@ the decision files and logs are in
 (`decision-new.txt`, `decision-pooled.txt`, `boot.txt`, and the
 decision CSVs under `new/` and `pooled/`). A rerun of `15-extra4-run.sh`
 reproduced every output file of the first, scratch computation byte
-for byte (verified 2026-10-15).
+for byte [verified, extra4-decision/].
 
 | Analysis | Pooled size, job 37 | Pooled size, all trials (largest cell) | Prognostic flag, all trials | Maximin, non-prognostic, job 37 | Maximin, non-prognostic, all trials (bootstrap SE) | Maximin, all cells, all trials |
 |---|---|---|---|---|---|---|
@@ -879,7 +962,13 @@ for byte (verified 2026-10-15).
 | C1 | 0.0487 | 0.0504 (0.060) | yes | 0.000 | 0.0025 | 0.0025 |
 | C2 | 0.0458 | 0.0471 (0.051) | yes | fails size | fails size | fails size |
 
-Table: Job 37 and job 37 pooled with jobs 15 and 21: size over the 11 non-prognostic null cells, prognostic flag and maximin shortfall in size-adjusted power (the shortfall is measured against the best survivor in each cell; the bootstrap SE is reported for the three analyses in contention)
+Table: Job 37 and job 37 pooled with jobs 15 and 21: size over the 11
+non-prognostic null cells, prognostic flag and maximin shortfall in
+size-adjusted power (the shortfall is measured against the best
+survivor in each cell; the bootstrap SE is reported for the three
+analyses in contention).
+*Source: extra4-decision/decision-pooled.txt,
+extra4-decision/decision-new.txt [inspected]*
 
 **Reading.**
 
@@ -887,30 +976,38 @@ Table: Job 37 and job 37 pooled with jobs 15 and 21: size over the 11 non-progno
   trials of the 11 non-prognostic null cells their rates are 0.0497,
   0.0491 and 0.0484 (band 0.0474 to 0.0526), with no cell above 0.059,
   and they stay at or below 0.062 in every prognostic null cell (ES at
-  most 0.063). C2 now fails the size screen as conservative (pooled
-  0.0471, below the band; 0.0458 in job 37 alone), so the pooled
-  survivors are S, C1, ES, F1, F2, G1 and G2.
+  most 0.063) [inspected, extra4-decision/decision-pooled.txt]. C2
+  now fails the size screen as conservative (pooled 0.0471, below the
+  band; 0.0458 in job 37 alone) [inspected,
+  extra4-decision/decision-pooled.txt], so the pooled survivors are S,
+  C1, ES, F1, F2, G1 and G2.
 - **Maximin shortfall.** On the fresh trials alone the order is G1
-  0.239, ES 0.243, G2 0.245, F1 0.257: G1, G2 and F1 lie within 0.018.
-  On all trials pooled it is F1 0.2155, G1 0.2205, G2 0.2205, ES 0.235,
-  with F1 now first by 0.005. The three worst cells are all the
-  measurement-error cell. Over all cells G1 (0.3585) and G2 (0.359) lead
-  F1 (0.373) by 0.014, also within the margin.
+  0.239, ES 0.243, G2 0.245, F1 0.257: G1, G2 and F1 lie within 0.018
+  [inspected, extra4-decision/decision-new.txt]. On all trials pooled
+  it is F1 0.2155, G1 0.2205, G2 0.2205, ES 0.235, with F1 now first
+  by 0.005 [inspected, extra4-decision/decision-pooled.txt]. The three
+  worst cells are all the measurement-error cell. Over all cells G1
+  (0.3585) and G2 (0.359) lead F1 (0.373) by 0.014, also within the
+  margin [inspected, extra4-decision/decision-pooled.txt].
 - **Monte Carlo error.** The paired bootstrap SE of the F1 to G1, F1 to
   G2 and G1 to G2 differences in maximin shortfall is 0.012 to 0.016
-  on the pooled trials (0.011 to 0.017 on job 37 alone). The tie margin
-  of 0.02 is therefore not much larger than one SE of the difference at
-  2,000 trials per cell, and smaller than its SE at 500 trials per cell
+  on the pooled trials (0.011 to 0.017 on job 37 alone)
+  [inspected, extra4-decision/boot.txt]. The tie margin of 0.02 is
+  therefore not much larger than one SE of the difference at 2,000
+  trials per cell, and smaller than its SE at 500 trials per cell
   (about twice as large). This is why the first rerun appeared to favor
-  G2: its lead of 0.026 does not recur on fresh trials (inferred from
-  the two independent sets of trials and the bootstrap SE). (The
+  G2: its lead of 0.026 does not recur on fresh trials [inferred from
+  the two independent sets of trials and the bootstrap SE]. (The
   bootstrap takes the best analysis in each cell over all eight,
   C2 included, so its ES shortfall, 0.2455 pooled, differs from the
-  decision script's 0.235; the F1, G1 and G2 values agree.)
+  decision script's 0.235 [inspected, extra4-decision/boot.txt]; the
+  F1, G1 and G2 values agree.)
 - **Power at the AR(1) reference cell** ($c_{bm} = 0.30$, all trials
-  pooled, 2,000 per cell): S 0.496, G2 0.444, F1 0.431, G1 0.426; F1
-  has 13% less size-adjusted power than S (11% on the 500 trials of job
-  15 alone).
+  pooled, 2,000 per cell): S 0.496, G2 0.444, F1 0.431, G1 0.426
+  [inspected, extra4-decision/decision-pooled.txt]; F1 has 13% less
+  size-adjusted power than S (11% on the 500 trials of job 15 alone)
+  [inferred, extra4-decision/decision-pooled.txt and
+  summary-full-anchored.csv].
 
 ### Decision (2026-10-15)
 

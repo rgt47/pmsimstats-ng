@@ -41,8 +41,15 @@
 
 ## Construct box
 
-<!-- table: process, carryover, coupling, allocation, design, N, analysis ID,
-t_half_a, n_reps -->
+| Process | Carryover | Coupling | Allocation | Design | N | Analysis ID | t_half_a (wk) | n_reps |
+|---|---|---|---|---|---|---|---|---|
+| refined | anchored | graded | randomized | Hybrid | 70 | M-S, M-F1, M-VF, M-RV | 0.2 | 1000 (null) / 500 (alt) |
+| refined | anchored | graded | randomized | Hybrid | 70 | M-F1A | AIC-chosen {0, 0.2, 0.5, 1, 2} | 1000 (null) / 500 (alt) |
+
+*Source: docs/58 working protocol (not a finalized simulation study).
+Planned replicate counts cut to 600 (null) / 300 (alt) due to run-time
+constraints (Section 11). M- prefix denotes main-effect track. Primary
+policy: $t_{1/2}^a = 0.2$ week for all fixed analyses.*
 
 ---
 

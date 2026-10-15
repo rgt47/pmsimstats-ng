@@ -41,8 +41,14 @@
 
 ## Construct box
 
-<!-- table: process, carryover, coupling, allocation, design, N, analysis ID,
-t_half_a, n_reps -->
+| Process | Carryover | Coupling | Allocation | Design | N | Analysis ID | t_half_a (wk) | n_reps |
+|---|---|---|---|---|---|---|---|---|
+| refined | anchored | graded | randomized | Hybrid | 70 | F1A, F1A0, F1A0B, F1AB, DS, DA | AIC-chosen {0, 0.2, 0.5, 1, 2} | 1000 |
+
+*Source: docs/57 simulation. All analysis variants share the same
+data-generating process ($c_{bm} = 0.3$ base alternative cell).
+DS and DA are split-sample and averaging variants; ES and EA are the
+analogous exact-test variants (see Section 6).*
 
 ---
 

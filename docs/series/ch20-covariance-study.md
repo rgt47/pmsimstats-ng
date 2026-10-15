@@ -1054,6 +1054,97 @@ Rscript analysis/scripts/quick-sim/carryover-closed-form/10-dbc-preexposure-chec
 
 <!-- tables with MCSE; each caption cites script and output file -->
 
+### Anchored-carryover pass (DQ-8 main pass)
+
+**Setup.** The anchored-carryover pass repeats the main pass of the
+covariance study with the anchored mean model. Off drug, the drug
+response mean is anchored at the last on-drug value and decays as
+$\mu_{\text{last}} \, 2^{-t_{sd}/t_{1/2}}$, in place of the
+published recursive form that counted elapsed time twice from the
+second off-drug visit onward (see docs/53). The allocation remains
+fixed (18/18/17/17 in Hybrid, 35/35 in CO), so the construct is not
+yet the refined process in full: it incorporates the refined
+process's anchored carryover but not its randomized path allocation.
+The cell grid, analyses, and per-chunk seeds are those of the
+original main pass: two constructs (CS and C07), two designs
+(Hybrid and CO), data-generating half-lives $t_{1/2} \in \{0, 1\}$
+week, with 250 alternative replicates and 500 null replicates per
+cell. The seven main-pass analyses are carried over: `cs-Satt`,
+`csh-Satt`, `us-Satt`, `sp_exp-Satt`, `us-KR`, `BL+cs-Satt` and
+`BL+us-Satt`, each with linear, spline and visit-factor time
+(120,000 fits total; none failed). The follow-up pass (CR2 variants
+and `us-KR-sepbm`) and the $D_{bc,it}$ exposure pass were not rerun
+under anchored carryover (user decision DQ-8; see the Decision note
+below).
+
+**Size.** For F1 (us-KR with linear time), the null rejection rates
+across the eight null cells are 0.052, 0.054, 0.056 (three cells),
+0.058, 0.062, and 0.068 [verified, summary-alt250-null500-anchored.csv].
+The mean is 0.058 [verified, summary-alt250-null500-anchored.csv] and
+the maximum is 0.068 (C07 Hybrid, $t_{1/2} = 1$ week), which is
+below the 0.075 cell limit [verified,
+summary-alt250-null500-anchored.csv]. The size class is unchanged
+from the recursive main pass: slightly liberal. No other main-pass
+analysis changes its size class under anchored carryover. Size moves
+by at most 0.004 in any null cell and at most 0.001 averaged over
+the eight cells [verified, summary-alt250-null500-anchored.csv].
+
+| Analysis | Mean | Min | Max | Class |
+|-------------|------|-----|-----|-------|
+| `us-KR` | 0.058 | 0.052 | 0.068 | slightly liberal |
+
+Table: F1 (us-KR, linear time) null size under anchored carryover,
+over the eight null cells (2 constructs x 2 designs x 2 $t_{1/2}$).
+All values verified from
+`analysis/data/quick-sim/carryover-closed-form/covariance-study/
+summary-alt250-null500-anchored.csv`.
+
+**Power.** At the C07 construct ($\rho = 0.7$, $c_{bm} = 0.45$),
+Hybrid design, the F1 size-adjusted power is 0.940 without carryover
+($t_{1/2} = 0$) and 0.764 at $t_{1/2} = 1$ week [verified,
+size-adjusted-power-alt250-null500-anchored.csv]. The corresponding
+values from the recursive main pass (docs/45, Section 5) were 0.940
+and 0.756 [verified, docs/45-correctly-sized-hybrid-analysis.md].
+The difference at $t_{1/2} = 1$ (0.008) is within the size-adjusted
+power uncertainty (MCSE up to 0.032 per cell plus roughly 0.02 from
+the critical-value estimation, so differences under about 0.05 are
+not interpretable). Under CS data in Hybrid without carryover,
+size-adjusted power is 0.688, identical to the recursive pass
+[verified, size-adjusted-power-alt250-null500-anchored.csv].
+
+| Construct, design | Recursive | Anchored |
+|------------------|-----------|---------|
+| CS, Hybrid, $t_{1/2}=0$ | 0.688 | 0.688 |
+| CS, Hybrid, $t_{1/2}=1$ | 0.424 | 0.408 |
+| C07, Hybrid, $t_{1/2}=0$ | 0.940 | 0.940 |
+| C07, Hybrid, $t_{1/2}=1$ | 0.756 | 0.764 |
+
+Table: F1 (us-KR, linear time) size-adjusted power: recursive
+(docs/45 Section 5) versus anchored carryover
+(size-adjusted-power-alt250-null500-anchored.csv). Hybrid design
+only. Differences at $t_{1/2} = 1$ are within Monte Carlo
+uncertainty.
+
+**Decision: why the follow-up and $D_{bc,it}$ passes were
+cancelled (DQ-8).** The anchored main pass showed that correcting
+the carryover mean leaves every size class unchanged and moves
+power by at most 0.028 in any cell. Because the seven analyses in
+the follow-up pass and the three in the $D_{bc,it}$ exposure pass
+share the same null cells and the same simulated data (by construction
+via matched seeds), they were expected to change comparably little.
+Running them would not alter the conclusions of Section 6 (the
+shared-$\beta_B$ mechanism, which rests on the follow-up pass) or
+Section 7 ($D_{bc,it}$ at $t_{1/2}^{a} = 0.5$ week), because both
+depend on the within-participant biomarker-by-drug contrast, not
+on the off-drug mean level corrected by the carryover model. The
+original question the follow-up pass addressed (recursive versus
+anchored carryover) was superseded by the policy change to anchored
+carryover (2026-10-08): that question is settled by the anchored
+main pass itself. Sections 6 and 7 of this chapter therefore rest
+on the recursive passes, which remain valid for their original
+inferential purposes (DQ-8; inferred, not tested for the follow-up
+and $D_{bc,it}$ passes).
+
 ---
 
 ## Relation to the manuscripts

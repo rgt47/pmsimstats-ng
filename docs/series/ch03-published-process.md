@@ -61,13 +61,51 @@ analysis ID, t_half_a, n_reps -->
   `implementations/original/` is and is not.
 -->
 
-<!-- TODO: the commit attribution table for commits 42ac030,
-     58b32a9, 8609f12, f6ee86d, f70f86d, 325314f, 06dac83 -- date,
-     description, key change per commit -->
+### Commit history (42ac030 to 06dac83)
 
-<!-- TODO: what implementations/original/ is and is not: vendored
-     copy of orig at commit 58b32a9; differs from the 2024 state of
-     the upstream repo; read-only reference; no carryover driver -->
+The upstream repository (`rchendrickson/pmsimstats` on GitHub) has
+seven commits relevant to this project. The local vendored copy at
+`implementations/original/` holds the 2024 state of that repository
+(commit `06dac83`), not the published state (`58b32a9`). All commit
+dates and messages are from the GitHub commit history (inspected;
+not found in the local git log, which records a single "Initial
+commit" for `implementations/original/`).
+
+| Commit | Date | Summary | Role in project |
+|---|---|---|---|
+| `42ac030` | 2020-02-22 | Initial publication | First commit; the DGP as submitted. Data-generating code is identical to `58b32a9`; reference for "the published process" (inspected). |
+| `58b32a9` | 2020-11-19 | Last pre-publication commit | Sixth commit; the canonical reference for all "orig" analyses in this project. DGP code unchanged from `42ac030`; analysis driver may differ. |
+| `8609f12` | 2024-05-06 | Ron Thomas edits | First post-publication modification. Adds `scalefactor = 2` to the carryover exponent (halves the effective half-life), replaces the step-rule biomarker coupling with proportional scaling $c_{bm}\,\mu_{BR,t}/\mu_{BR,t-1}$, and introduces a timepoint-1 guard that forces $\mathrm{Cor}(B,BR_1) = 0$ on all paths (inspected, docs/53 Section 1; docs/55 Section 4; docs/legacy/23 Section 2.4). |
+| `f6ee86d` | 2024-05-08 | Autocorr typo fix | Corrects an index error in the same-visit cross-factor correlation assignment (`correlations[n2,n1]`). No change to carryover or coupling (inspected, docs/53 Section 1). |
+| `f70f86d` | ca. 2024-05 | Carryover added (DGP unchanged) | Reverts the cross-factor index fix from `f6ee86d` (regression). No functional changes to the core DGP files; described as "carryover added" in the commit message but the carryover term was already present (inspected, docs/legacy/04 Section A.3.3). |
+| `325314f` | 2024-05-10 | $D_{bc}$ added to analysis (broken) | Introduces the continuous drug indicator $D_{bc}$ with exponential decay into `generateSimulatedResults()`. The implementation contains two bugs: a reference to `op` instead of a scalar half-life parameter, and an off-by-one in the decay argument. Analysis results from this commit are unreliable (inspected, docs/legacy/04 Section A.3.4). |
+| `06dac83` | 2024-11-27 | Current upstream HEAD | The 2024 state copied as `implementations/original/`. Retains the scale factor 2 recursion and the proportional-scaling biomarker coupling from `8609f12`. Fixes the two $D_{bc}$ bugs from `325314f`. `generateSimulatedResults()` calls `generateData()` without the `scalefactor` argument, so the default $s_f = 2$ applies (inspected, docs/53; docs/55). |
+
+Table: Commit history of `rchendrickson/pmsimstats` from initial
+publication to current upstream HEAD (inspected from GitHub; dates
+for `f70f86d` inferred from sequence)
+
+### What implementations/original/ is and is not
+
+The directory `implementations/original/` holds a vendored copy of
+the upstream `rchendrickson/pmsimstats` repository at commit
+`06dac83` (2024-11-27). It is **not** the published code: it post-
+dates the publication by four years and includes the 2024 revisions
+described above (scale factor 2 in the carryover exponent,
+proportional-scaling biomarker coupling, `Dbc` in the analysis).
+
+The published process in this project refers to commit `58b32a9`.
+A snapshot of that commit's `R/generateData.R` is archived at
+`analysis/data/quick-sim/hendrickson-58b32a9/`. The `original`
+collection is kept for cross-implementation comparisons against
+the current upstream; it is not a reproduction of the published
+simulation.
+
+The `original` collection has no carryover sensitivity driver:
+its `generateSimulatedResults()` always calls `generateData()` with
+`scalefactor` defaulting to 2, so it cannot be used to reproduce
+published (zero-scalefactor) results without modification. Use the
+`original-extended` or `tidyverse` collections for new analyses.
 
 ### Overview of the published process
 

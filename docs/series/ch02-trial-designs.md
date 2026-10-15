@@ -59,12 +59,105 @@ analysis ID, t_half_a, n_reps -->
 - New to write: one table per design; a Hybrid schedule figure.
 -->
 
-<!-- TODO: one table per design (OL, CO, OL+BDC, Hybrid) with
-     schedule, visit weeks, expectancy weights, drug states per
-     path -->
+### Design summary tables
 
-<!-- TODO: a Hybrid schedule figure (paths as rows, colored bars
-     for drug state) -->
+The four designs share 8 post-baseline visits over 20 weeks but
+differ in blinding, number of paths, and on-drug fractions. The
+tables below give the structural parameters for each design; visit
+weeks and expectancy weights are from the `buildtrialdesign()` calls
+in the published code (inspected, `implementations/original/`).
+
+**Open Label (OL)**
+
+| Parameter | Value |
+|---|---|
+| Periods | 1 (drug only) |
+| Paths | 1 |
+| Sequences | 1 |
+| Visit weeks | 2.5, 5, 7.5, 10, 12.5, 15, 17.5, 20 |
+| Expectancy $\eta$ | 1.0 at all visits |
+| On-drug visits | 8 of 8 |
+| Off-drug visits | 0 of 8 |
+| Balance | unbalanced (no within-subject contrast) |
+
+Table: OL design parameters
+
+**Traditional Crossover (CO)**
+
+| Parameter | Value |
+|---|---|
+| Periods | 2 (one on drug, one on placebo, order randomized) |
+| Paths | 2 |
+| Sequences | drug-then-placebo (path A), placebo-then-drug (path B) |
+| Visit weeks | 2.5, 5, 7.5, 10, 12.5, 15, 17.5, 20 (uniform 2.5-wk intervals) |
+| Expectancy $\eta$ | 0.5 at all visits |
+| On-drug visits | 4 of 8 per path |
+| Off-drug visits | 4 of 8 per path |
+| Balance | balanced (equal on/off within path) |
+
+Table: CO design parameters
+
+**Open Label + Blinded Discontinuation (OL+BDC)**
+
+| Parameter | Value |
+|---|---|
+| Periods | 2 (16 wk open label, 4 wk blinded discontinuation) |
+| Paths | 2 |
+| Sequences | discontinuation at week 17 (path A), at week 18 (path B) |
+| Visit weeks | 4, 8, 12, 16, 17, 18, 19, 20 |
+| Expectancy $\eta$ | 1.0 at visits 1--4; 0.5 at visits 5--8 |
+| On-drug visits | 6 of 8 (path A), 5 of 8 (path B) |
+| Off-drug visits | 2 of 8 (path A), 3 of 8 (path B) |
+| Balance | unbalanced (majority on drug; short off-drug window) |
+
+Table: OL+BDC design parameters
+
+**Hybrid (N-of-1)**
+
+| Parameter | Value |
+|---|---|
+| Periods | 3 (open label, blinded discontinuation, crossover) |
+| Paths | 4 |
+| Sequences | 2 discontinuation times $\times$ 2 crossover orders |
+| Visit weeks | 4, 8, 9, 10, 11, 12, 16, 20 (clustered around wk 9--12) |
+| Expectancy $\eta$ | 1.0 at visits 1--2; 0.5 at visits 3--8 |
+| On-drug visits | 5 of 8 (paths A, C) or variable (paths B, D) |
+| Off-drug visits | 3 of 8 (paths A, C) or variable (paths B, D) |
+| Balance | moderately balanced; all four paths identical at weeks 4, 8 and 9 |
+
+Table: Hybrid design parameters
+
+### Hybrid design schedule
+
+The table below gives the complete visit timeline for the Hybrid
+design. $D_{bc}$ values at $t_{1/2}^a = 0.2$ wk are computed as
+$D_{bc} = \exp(-\ln 2 \cdot t_{sd}/0.2)$ off drug after first
+exposure, 0 before first exposure, and 1 on drug (derived;
+docs/legacy/13, Section 2).
+
+| Visit | Week | Phase | Path A drug | Path B drug | Path C drug | Path D drug | $D_{bc}$, $t_{1/2}^a = 0.2$ wk |
+|---|---|---|---|---|---|---|---|
+| 1 | 4 | Open label | on | on | on | on | 1.000 |
+| 2 | 8 | Open label | on | on | on | on | 1.000 |
+| 3 | 9 | Blinded discontinuation | on | on | on | on | 1.000 |
+| 4 | 10 | Blinded discontinuation | on | on | off | off | 1.000 (A/B); 0.031 (C/D) |
+| 5 | 11 | Blinded discontinuation | off | off | off | off | 0.031 (A/B); 0.001 (C/D) |
+| 6 | 12 | Blinded discontinuation | off | off | off | off | 0.001 (A/B); $<$0.001 (C/D) |
+| 7 | 16 | Crossover | on | off | on | off | 1.000 (A/C); $<$0.001 (B/D) |
+| 8 | 20 | Crossover | off | on | off | on | $<$0.001 (A/C); 1.000 (B/D) |
+
+Table: Hybrid design visit schedule with drug states and $D_{bc}$
+at analysis half-life $t_{1/2}^a = 0.2$ wk (inspected,
+`buildtrialdesign()` source and docs/40, Section 2)
+
+Notes: (1) Path labels A--D correspond to `pathA`--`pathD` in the
+published `buildtrialdesign()` call (ondrug vectors from ch02,
+"The four trial designs"). (2) $D_{bc}$ during the crossover
+off-drug visits (visits 7--8 for paths B and D, paths A and C
+respectively) is essentially zero because the four-week off-drug
+gap at $t_{1/2}^a = 0.2$ wk implies $\exp(-\ln 2 \cdot 4/0.2)
+\approx 1.2 \times 10^{-6}$. (3) At re-exposure in the crossover
+the time-on-drug clock resets to zero; $D_{bc} = 1$ at that visit.
 
 <!-- docs/33 not found in current or legacy docs; skipped. -->
 <!-- docs/27 not found in current or legacy docs; skipped. -->

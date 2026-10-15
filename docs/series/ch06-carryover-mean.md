@@ -47,9 +47,9 @@ half-life; restart on re-exposure.
 
 The carryover half-life in this compendium is a pharmacodynamic
 (response) half-life, not a plasma half-life. For prazosin, the plasma
-half-life is approximately 2.3 hours; the behavioral or physiological
-carryover that matters at weekly visits is a separate, slower process
-set by the turnover of the response.
+half-life is approximately 2.3 hours [inspected, Hobbs et al. 1978];
+the behavioral or physiological carryover that matters at weekly visits
+is a separate, slower process set by the turnover of the response.
 
 The refined process uses anchored exponential decay:
 $\mu_{BR,t} = \mu_{BR,\text{last}} \cdot 2^{-t_{sd,t}/t_{1/2}}$,
@@ -88,8 +88,8 @@ largest mean shortfall on the Hybrid design at $t_{1/2} = 1$ week is
 
 **Pharmacokinetic carryover** is drug still in the body. For prazosin
 in 24 normotensive subjects, the plasma half-life is approximately
-2.3 hours (Hobbs et al. 1978). Five half-lives -- about 12 hours --
-remove 97% of the drug. Hendrickson et al.'s half-lives of 0.1 and
+2.3 hours [inspected, Hobbs et al. 1978]. Five half-lives -- about
+12 hours -- remove 97% of the drug. Hendrickson et al.'s half-lives of 0.1 and
 0.2 weeks (17 and 34 hours) are on this scale or slightly above it.
 
 **Pharmacodynamic (disease-state) carryover** is improvement that
@@ -108,9 +108,10 @@ therefore be read as the response half-life $t_{1/2}^R$.
 
 ### Plasma and pharmacodynamic half-lives
 
-The prazosin plasma half-life is approximately 2.3 hours, measured in
-24 normotensive volunteers (Hobbs et al. 1978). Five plasma half-lives
-is about 12 hours, after which 97% of the drug has been eliminated.
+The prazosin plasma half-life is approximately 2.3 hours [inspected,
+Hobbs et al. 1978], measured in 24 normotensive volunteers. Five
+plasma half-lives is about 12 hours, after which 97% of the drug has
+been eliminated.
 The pharmacokinetic carryover half-lives used by Hendrickson et al.
 (0.1 and 0.2 weeks, or 17 and 34 hours) are on this scale or modestly
 above it, and are consistent with the drug being present for roughly
@@ -134,7 +135,9 @@ first-order rate set by the system's turnover rate (Dayneka et al.
 The convention in this project is therefore to interpret $t_{1/2}$ as
 the pharmacodynamic offset half-life $t_{1/2}^R$, not the plasma
 half-life. A response half-life of 0.5 week (84 hours) is
-approximately 36-fold longer than the plasma half-life of 2.3 hours.
+approximately 36-fold longer than the plasma half-life of 2.3 hours
+[inferred, Hobbs et al. 1978; pharmacodynamic ratio not independently
+verified].
 This is consistent with the pharmacology: the plasma compartment
 equilibrates within a day, while the behavioral and physiological
 response decays at the slower rate set by the target process.

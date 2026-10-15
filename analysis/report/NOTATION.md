@@ -6,6 +6,9 @@ across randomization paths; revised 2026-10-09 to merge the symbols
 of the whitepapers `docs/34` to `docs/58` and the mathematics
 compendium (see "Revision 2026-10-09" below)*
 
+The whitepaper series at `docs/series/` is the primary reference.
+Chapter cross-references in this file use the form `series/chNN`.
+
 This file is the single source of truth for mathematical notation,
 code identifiers, and controlled vocabulary across the manuscripts
 under `analysis/report/`. New manuscripts should adopt it rather than

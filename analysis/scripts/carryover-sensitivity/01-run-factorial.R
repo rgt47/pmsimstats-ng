@@ -99,10 +99,18 @@ cat(sprintf('Grid cells: %d, n_reps per cell: %d\n',
 if (robust_mode)
   cat('Robust mode: also fitting lme+CR2 and GEE+MD.\n')
 
+# simrun exports SIM_CORES, the job's CPU cap. detectCores() reports the
+# host's cores, so a capped job would start more workers than it may use.
+sim_cores <- suppressWarnings(as.integer(Sys.getenv('SIM_CORES')))
+n_workers <- if (!is.na(sim_cores) && sim_cores >= 1L) {
+  sim_cores
+} else {
+  max(1, parallel::detectCores() - 1)
+}
+
 plan(
   if (smoke_mode) sequential else multicore,
-  workers = if (smoke_mode) 1
-            else max(1, parallel::detectCores() - 1)
+  workers = if (smoke_mode) 1 else n_workers
 )
 
 t_start <- Sys.time()

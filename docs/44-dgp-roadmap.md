@@ -101,9 +101,10 @@ time adjustment of the analysis model in `docs/41`, `docs/42` and
   arm E of `hendrickson-problems/04-power-simulation.R` builds it.)
 - **The refined process.** The recommended DGP (paper 01, Table
   `tab:spec`): configuration C at $\rho = 0.7$ and $c_1 = 0.2$, with
-  anchored carryover, a stop on matrices that are not positive definite
-  and randomized path allocation. Configuration C alone is only its
-  covariance and coupling construct.
+  anchored carryover and a stop on matrices that are not positive
+  definite. Path allocation is RH's original fixed-numbers approach,
+  unchanged (randomization is not part of the definition; 2026-10-21).
+  Configuration C alone is only its covariance and coupling construct.
 - **Problem 1 and problem 2.** Correlation matrices that are not
   positive definite and are silently repaired; the collapse of power
   under negligible carryover (`docs/36`).
@@ -124,7 +125,8 @@ time adjustment of the analysis model in `docs/41`, `docs/42` and
    Steps 1 to 6 give the recommended near-term construct, the refined
    process: configuration C with anchored carryover and a stop on
    matrices that are not positive definite, at $\rho = 0.7$ (paper 01
-   adds randomized path allocation and options). Steps 7 and 8 are a proposal awaiting implementation and
+   adds options; path allocation is unchanged from the published
+   process). Steps 7 and 8 are a proposal awaiting implementation and
    validation (Section 3).
 2. **The order matters.** Graded coupling alone, under compound
    symmetry, converts problem 2 into problem 1: the ceiling stays at

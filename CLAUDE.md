@@ -58,8 +58,10 @@ The earlier "40-60% vs 8-13%" contrast is superseded.
 **Named processes.** "The published process" is Hendrickson's code at
 commit 58b32a9; "the refined process" is the recommended DGP (graded
 coupling, separable AR(1) with rho = 0.7 and c_1 = 0.2, anchored
-carryover, a stop on non-positive-definite matrices, randomized path
-allocation). See NOTATION.md "Named data-generating processes" and
+carryover, a stop on non-positive-definite matrices). Path allocation
+is RH's original fixed-numbers approach, unchanged; randomization of
+path allocation is not part of the refined process's definition
+(2026-10-21). See NOTATION.md "Named data-generating processes" and
 paper 01 Table tab:spec.
 
 ## Repository layout

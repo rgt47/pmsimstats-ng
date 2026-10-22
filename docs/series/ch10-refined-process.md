@@ -46,14 +46,17 @@ Named processes follow NOTATION.md "Named data-generating processes":
 
 The refined process is the recommended data-generating process for
 the compendium's power simulations. It is defined in Paper 01, Table
-`tab:spec`. Its five defining features are:
+`tab:spec`. Its four defining features are:
 
 1. Graded coupling ($g_t = 0$ before first exposure; ch08).
 2. Separable AR(1) with $\rho = 0.7$ and $c_1 = 0.2$ (configuration C;
    ch09).
 3. Anchored carryover on the drug-response mean (ch06).
 4. A stop on matrices that are not positive definite (ch09).
-5. Randomized path allocation.
+
+Path allocation is RH's original fixed-numbers approach, unchanged;
+randomizing path allocation is not part of the refined process's
+definition (2026-10-21).
 
 It differs from the published process in four respects: the coupling
 rule (defect, not preference), the within-factor temporal correlation
@@ -69,9 +72,9 @@ are proposals.
 
 ## Construct box
 
-| Process | Carryover | Coupling | Allocation | Design | N | Analysis ID | t_half_a (wk) | n_reps |
-|---|---|---|---|---|---|---|---|---|
-| refined | anchored | graded | randomized | Hybrid | 70 | F1, S | 0.5 (stored; 0.2 is current policy) | 500 |
+| Process | Carryover | Coupling | Design | N | Analysis ID | t_half_a (wk) | n_reps |
+|---|---|---|---|---|---|---|---|
+| refined | anchored | graded | Hybrid | 70 | F1, S | 0.5 (stored; 0.2 is current policy) | 500 |
 
 *Stored runs (job 15) used $t_{1/2}^a = 0.5$ week; the 0.2 week policy
 applies to new runs.*
@@ -98,7 +101,7 @@ applies to new runs.*
 | Name | Meaning | Defined in |
 |---|---|---|
 | the published process | Hendrickson's `generateData()` at 58b32a9: CS ($\rho_{cs} = 0.8$), constant cross-component, step coupling, compounding recursion, zero restart | Paper 01 |
-| the refined process | graded coupling (0 before first exposure), separable AR(1) with $\rho = 0.7$ and $c_1 = 0.2$, anchored carryover, stop on non-PD matrices, randomized allocation | Paper 01, Table `tab:spec` |
+| the refined process | graded coupling (0 before first exposure), separable AR(1) with $\rho = 0.7$ and $c_1 = 0.2$, anchored carryover, stop on non-PD matrices; path allocation as published (fixed, not randomized) | Paper 01, Table `tab:spec` |
 | configuration A | published compound-symmetry construct with whatever coupling the context states | `docs/36` |
 | configuration C | separable AR(1), graded coupling | `docs/36` |
 | configuration F | AR(1) with `covar` cross block, graded coupling | `docs/36` |
@@ -216,18 +219,18 @@ expectancy term `De` with its biomarker interaction (`docs/49`;
 | Coupling profile off drug | Step: full $c_{bm}$ wherever $\mu_{BR} \ne 0$ | Graded: $c_{bm} e^{-\lambda t_{sd}}$ off drug, 0 before first exposure | repair: step coupling flattens the on/off contrast at any $t_{1/2} > 0$, removing the interaction signal (`docs/37`) |
 | Carryover on $\mu_{BR}$ | Compounding recursion: applies decay factor to already-decayed mean | Anchored: $\mu_{\text{last}} \cdot 2^{-t_{sd}/t_{1/2}}$ | repair: recursion counts elapsed time twice, over-decaying faster than the stated $t_{1/2}$ (`docs/53`) |
 | Pre-exposure $D_{bc}$ coding | Coded as exposed before any dose | Zero before first dose | repair: pre-exposure guard removes spurious interaction on placebo-first paths (Paper 01 B.4) |
-| Path allocation | Deterministic (fixed order) | Randomized | choice: reduces path-order confounding |
 | Non-PD matrix handling | Silent Cholesky repair (`make.positive.definite`) | Stop | choice: fail-fast; package Cholesky fallback still present as open item |
 
-The four repairs remove defects in the published code: the coupling
-step rule and pre-exposure coding make the interaction
-non-identifiable or inflated under carryover; the compounding
-recursion misquantifies the off-drug mean. The two choices -- AR(1)
-temporal correlation and randomized paths -- improve clinical
-plausibility and design comparability without correcting a logical
-error. The net power change relative to the published process at
-matched feasible strengths is reported in the Numerical evidence
-section below.
+Path allocation is unchanged from the published process (RH's fixed
+numbers); randomizing it was considered and dropped from the refined
+process's definition (2026-10-21). The four repairs remove defects in
+the published code: the coupling step rule and pre-exposure coding
+make the interaction non-identifiable or inflated under carryover; the
+compounding recursion misquantifies the off-drug mean. The one choice
+-- AR(1) temporal correlation -- improves clinical plausibility
+without correcting a logical error. The net power change relative to
+the published process at matched feasible strengths is reported in
+the Numerical evidence section below.
 
 ### Common-grid contrast: published vs refined process
 

@@ -114,18 +114,13 @@ generate_data_multi_path <- function(model_param, resp_param,
                                      stop_on_nonpd = FALSE) {
   n_paths <- length(design_set)
   N_per_path <- rep(floor(model_param$N / n_paths), n_paths)
-  ## Randomized path allocation (refined process; docs/series/
-  ## ch10-refined-process.md). When N is not evenly divisible by
-  ## n_paths, the remainder must go to a randomly chosen subset of
-  ## paths each replicate, not deterministically to the first
-  ## `remainder` paths every time: the latter gives those paths one
-  ## extra patient in every single replicate of the study, a fixed
-  ## design imbalance that never averages out, rather than sampling
-  ## variability that does.
+  ## Deterministic path allocation (RH's original approach, retained
+  ## in the refined process; path allocation is not randomized).
+  ## When N is not evenly divisible by n_paths, the remainder goes to
+  ## the first `remainder` paths.
   remainder <- model_param$N %% n_paths
   if (remainder > 0) {
-    extra_paths <- sample.int(n_paths, remainder)
-    N_per_path[extra_paths] <- N_per_path[extra_paths] + 1
+    N_per_path[seq_len(remainder)] <- N_per_path[seq_len(remainder)] + 1
   }
 
   map2_dfr(design_set, seq_along(design_set), function(td_path, i) {

@@ -30,6 +30,17 @@
 #'    unchanged. Because the PB column SDs already carry the
 #'    expectancy scaling, the realised BM-PB covariance is automatically
 #'    larger at high-belief (open-label) timepoints.}
+#'  \item{\code{c.bm.bl}}{  Optional biomarker-baseline-severity
+#'    correlation (the prognostic-baseline cell of the stress test,
+#'    \code{docs/57} Section 7.3). Couples the biomarker to
+#'    \code{BL}, the patient's baseline severity level, independent
+#'    of any response component's time course. Unlike \code{c.bm}
+#'    and \code{c.bm.pb}, this coupling is a confound external to the
+#'    interaction channel, not part of it, so it applies the same way
+#'    under every \code{dgp_architecture} (\code{"mvn"},
+#'    \code{"mean_moderation"} or \code{"combined"}). Absent or zero
+#'    (the default) leaves \code{bm} and \code{BL} uncorrelated, as
+#'    before.}
 #'  \item{\code{carryover_t1half}}{  Halflife of the carryover effect}
 #'  \item{\code{c.tv}}{  Autocorrelation for the tv factor across timepoints}
 #'  \item{\code{c.pb}}{ Autocorrelation for the pb factor across timepoints}
@@ -376,6 +387,22 @@ buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefini
         }
       }
     }
+  }
+
+  # BM-BL correlation (prognostic-baseline-severity coupling; docs/57
+  # Section 7.3, stress-test cells 40-41). Couples the biomarker to
+  # the patient's baseline severity level BL, independent of any
+  # component's time course or of dgp_architecture: this is a
+  # confound on the interaction channel, not part of it, so it
+  # applies the same way whether the architecture is mvn,
+  # mean_moderation or combined. Gated on c.bm.bl; absent or zero
+  # leaves bm and BL uncorrelated, as before. BL is a single node in
+  # the correlation matrix (one value per patient), so this needs no
+  # per-timepoint loop, unlike the BM-TV/BM-PB couplings above.
+  c_bm_bl<-modelparam$c.bm.bl
+  if(!is.null(c_bm_bl) && !is.na(c_bm_bl) && c_bm_bl != 0){
+    correlations["BL","bm"]<-c_bm_bl
+    correlations["bm","BL"]<-c_bm_bl
   }
 
   # Covariance matrix

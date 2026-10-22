@@ -164,3 +164,38 @@ make_default_params <- function(c.bm = 0.3, carryover_t1half = 0) {
     pmsimstats:::buildSigma(p_pd$mp, p_pd$rp, p_pd$bp,
                             td$trialpaths[[1]], stopOnNonPD = TRUE))
 }
+
+{
+  # c.bm.bl: optional biomarker-baseline-severity correlation
+  # (docs/57 Section 7.3, stress-test cells 40-41). Absent or zero
+  # must leave bm and BL uncorrelated, as before; a nonzero value
+  # sets exactly that correlation and nothing else, and the matrix
+  # stays positive definite at a moderate coupling.
+  td <- make_ol_design()
+  p <- make_default_params()
+
+  result_default <- pmsimstats:::buildSigma(p$mp, p$rp, p$bp,
+                                             td$trialpaths[[1]])
+  expect_equal(result_default$sigma['BL', 'bm'], 0,
+               info = 'bm-BL correlation is 0 when c.bm.bl is absent')
+
+  p$mp$c.bm.bl <- 0.3
+  result_coupled <- pmsimstats:::buildSigma(p$mp, p$rp, p$bp,
+                                            td$trialpaths[[1]],
+                                            stopOnNonPD = TRUE)
+  corr_bl <- result_coupled$sigma['BL', 'bm'] /
+    sqrt(result_coupled$sigma['BL', 'BL'] * result_coupled$sigma['bm', 'bm'])
+  expect_equal(corr_bl, 0.3, tolerance = 1e-10,
+               info = 'c.bm.bl = 0.3 sets exactly that bm-BL correlation')
+
+  br_cols <- grepl('br$', result_default$labels)
+  expect_equal(result_coupled$sigma['bm', br_cols],
+               result_default$sigma['bm', br_cols],
+               info = 'c.bm.bl leaves bm-BR couplings untouched')
+
+  p$mp$c.bm.bl <- 0
+  result_zero <- pmsimstats:::buildSigma(p$mp, p$rp, p$bp,
+                                         td$trialpaths[[1]])
+  expect_equal(result_zero$sigma['BL', 'bm'], 0,
+               info = 'c.bm.bl = 0 reproduces the uncoupled default exactly')
+}

@@ -50,6 +50,17 @@ reproduces the BR-only coupling exactly, leaving all existing runs
 unchanged. Because the PB column SDs already carry the
 expectancy scaling, the realised BM-PB covariance is automatically
 larger at high-belief (open-label) timepoints.}
+\item{\code{c.bm.bl}}{  Optional biomarker-baseline-severity
+correlation (the prognostic-baseline cell of the stress test,
+\code{docs/57} Section 7.3). Couples the biomarker to
+\code{BL}, the patient's baseline severity level, independent
+of any response component's time course. Unlike \code{c.bm}
+and \code{c.bm.pb}, this coupling is a confound external to the
+interaction channel, not part of it, so it applies the same way
+under every \code{dgp_architecture} (\code{"mvn"},
+\code{"mean_moderation"} or \code{"combined"}). Absent or zero
+(the default) leaves \code{bm} and \code{BL} uncorrelated, as
+before.}
 \item{\code{carryover_t1half}}{  Halflife of the carryover effect}
 \item{\code{c.tv}}{  Autocorrelation for the tv factor across timepoints}
 \item{\code{c.pb}}{ Autocorrelation for the pb factor across timepoints}

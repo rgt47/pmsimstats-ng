@@ -288,6 +288,21 @@ build_correlation_matrix <- function(
     }
   }
 
+  # BM-BL correlation (prognostic-baseline-severity coupling; docs/57
+  # Section 7.3, stress-test cells 40-41; mirrors R/generateData.R).
+  # Couples the biomarker to the patient's baseline severity level
+  # BL, independent of any factor's time course or of
+  # dgp_architecture: this is a confound on the interaction channel,
+  # not part of it, so it applies the same way regardless of
+  # architecture. Gated on c.bm.bl; absent or zero leaves bm and BL
+  # uncorrelated, as before. BL is a single node in the correlation
+  # matrix, so this needs no per-timepoint loop.
+  c_bm_bl <- model_param$c.bm.bl
+  if (!is.null(c_bm_bl) && !is.na(c_bm_bl) && c_bm_bl != 0) {
+    correlations["BL", "bm"] <- c_bm_bl
+    correlations["bm", "BL"] <- c_bm_bl
+  }
+
   correlations
 }
 

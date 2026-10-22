@@ -468,6 +468,12 @@ simulate_cell <- function(cell, n_reps, robust = FALSE,
     model_param$c.bm <- cell$c_bm
   }
 
+  ## optional prognostic-baseline coupling (docs/57 Section 7.3,
+  ## stress-test cells 40-41; cell field matches that convention,
+  ## `cl$c_bl`). Absent or zero leaves bm and BL uncorrelated,
+  ## reproducing all existing cells exactly.
+  model_param$c.bm.bl <- default_val(cell[['c_bl']], 0)
+
   map_dfr(seq_len(n_reps), function(rep_i) {
     ## NOTE: with stop_on_nonpd = TRUE, generate_data_multi_path()
     ## raises an error on a non-PD matrix rather than repairing it,
@@ -872,6 +878,10 @@ simulate_cell_s7 <- function(cell, n_reps,
     ## single separable cross-factor correlation c_1 rho^|w_t-w_s|.
     c.cf1t = 0.2, c.cfct = 0.2
   )
+
+  ## optional prognostic-baseline coupling, same convention as
+  ## simulate_cell().
+  model_param$c.bm.bl <- default_val(cell[['c_bl']], 0)
 
   furrr::future_map_dfr(seq_len(n_reps), function(rep_i) {
     ## See simulate_cell()'s note on stop_on_nonpd: caught per

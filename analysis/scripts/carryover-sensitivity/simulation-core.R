@@ -209,8 +209,10 @@ prepare_long_data <- function(dat, design_set, carryover_t1half,
                  names_to = 'timepoint_name',
                  values_to = 'Sx') |>
     inner_join(
+      ## De: the design-expectancy covariate (F-family models,
+      ## docs/57/docs/62; De = e from build_trial_design()).
       td_all |> dplyr::select(path, timepoint_name,
-                              t = t_cum, Db, Dbc, L, tsd),
+                              t = t_cum, Db, Dbc, L, tsd, De = e),
       by = c('path', 'timepoint_name')
     ) |>
     mutate(ptID = paste(path, ptID, sep = '_')) |>
@@ -937,4 +939,229 @@ simulate_cell_s7 <- function(cell, n_reps,
     map_dfr(specs, ~ fit_spec_s7(dat_long, .x)) |>
       mutate(rep = rep_i, .before = 1)
   }, .options = furrr::furrr_options(seed = TRUE))
+}
+
+## -----------------------------------------------------------------
+## F-family analysis models (docs/57, docs/62): the richer model
+## Y ~ bmc + t + Dbc + bmc:Dbc + De + bmc:De. bm is already centered
+## at 0 by the DGP's baseline_param (bm_m = 0), so bm serves as bmc
+## directly. De requires prepare_long_data() above to carry the
+## expectancy column, which it now does. F1 fixes t1/2^a at the
+## project's policy value (0.2 week, CLAUDE.md); F1A selects it by
+## AIC with the interaction already in the model (the liberal
+## pattern); F1A0 selects it by AIC on the null (no-interaction)
+## model and refits with the interaction at the selected value;
+## F1A0B calibrates F1A0's test via a warp-speed parametric
+## bootstrap, one resample per Monte Carlo replicate, pooled across
+## the cell (docs/62, "Bootstrap calibration").
+##
+## This driver's 'CO' design preset (expectancies = rep(0.5, 8)) has
+## no variation in De, so De and bm:De are exactly collinear with the
+## intercept and bm under CO: FM1_F/FM0_F are not identifiable there
+## and every fit returns NA (verified). Use 'OLBDC' instead for the
+## design-robustness arm; its expectancy varies (1.0 open-label vs.
+## 0.5 blinded discontinuation).
+## -----------------------------------------------------------------
+
+F_GRID <- c(0, 0.2, 0.5, 1, 2)
+FM1_F <- Sx ~ bm + t + Dbc + bm:Dbc + De + bm:De
+FM0_F <- Sx ~ bm + t + Dbc + De + bm:De
+
+fit_lme_f <- function(form, dat_long, method = 'REML') {
+  tryCatch(
+    nlme::lme(form, random = ~1 | ptID,
+              correlation = nlme::corCAR1(form = ~t | ptID),
+              data = dat_long, method = method,
+              control = nlme::lmeControl(
+                opt = 'optim', maxIter = 200, msMaxIter = 200)),
+    error = function(e) NULL)
+}
+
+ll_or_na_f <- function(f) if (is.null(f)) NA_real_ else as.numeric(logLik(f))
+
+with_dbc_f <- function(dat_long, h, analysis_form = 'exponential',
+                       analysis_shape = 1) {
+  dat_long$Dbc <- exposure_weight(dat_long$Db, dat_long$tsd, h,
+                                  form = analysis_form, shape = analysis_shape)
+  dat_long
+}
+
+## ML log-likelihoods with (ll1) and without (ll0) the interaction at
+## every grid half-life, plus the REML + CR2 test of bm:Dbc at FM1_F.
+## Refits FM1_F by REML at every candidate (not just the one
+## eventually selected) so F1/F1A/F1A0 share one pass over the grid;
+## costs 2 ML fits + 1 REML fit per grid point, matching docs/62's
+## reported 5-6x-a-single-fit cost for the data-driven methods.
+grid_fits_f <- function(dat_long, grid = F_GRID,
+                        analysis_form = 'exponential', analysis_shape = 1) {
+  map_dfr(grid, function(h) {
+    dd <- with_dbc_f(dat_long, h, analysis_form, analysis_shape)
+    fit1_reml <- fit_lme_f(FM1_F, dd, 'REML')
+    r <- if (is.null(fit1_reml)) NULL else cr2_extract(fit1_reml, dd, c('bm:Dbc', 'Dbc:bm'))
+    tibble(h = h,
+          ll1 = ll_or_na_f(fit_lme_f(FM1_F, dd, 'ML')),
+          ll0 = ll_or_na_f(fit_lme_f(FM0_F, dd, 'ML')),
+          estimate = if (is.null(r)) NA_real_ else r$estimate,
+          std_error = if (is.null(r)) NA_real_ else r$std_error,
+          p_value = if (is.null(r)) NA_real_ else r$p_value)
+  })
+}
+
+pick_f <- function(g, k, name) {
+  if (length(k) == 0 || is.na(k)) {
+    return(tibble(method = name, h = NA_real_, estimate = NA_real_,
+                  std_error = NA_real_, p_value = NA_real_))
+  }
+  tibble(method = name, h = g$h[k], estimate = g$estimate[k],
+        std_error = g$std_error[k], p_value = g$p_value[k])
+}
+wmax_f <- function(x) if (all(is.na(x))) NA_integer_ else which.max(x)
+
+grid_methods_f <- function(g, h_fixed = 0.2) {
+  bind_rows(
+    pick_f(g, which(g$h == h_fixed), 'F1'),
+    pick_f(g, wmax_f(g$ll1), 'F1A'),
+    pick_f(g, wmax_f(g$ll0), 'F1A0')
+  )
+}
+
+## Null-model parametric resample at h0 (F1A0's own ML choice): FM0_F
+## refit by REML, simulated with the fitted random-intercept +
+## corCAR1 covariance structure, on the same participants, visits,
+## biomarker values and paths. Mirrors
+## analysis/scripts/data-chosen-half-life/57-common.R's sim_null().
+sim_null_f <- function(fit, dat_long, h0, analysis_form = 'exponential',
+                       analysis_shape = 1) {
+  dd <- with_dbc_f(dat_long, h0, analysis_form, analysis_shape)
+  mu <- drop(model.matrix(FM0_F[-2], dd) %*% nlme::fixef(fit))
+  tau <- as.numeric(nlme::VarCorr(fit)['(Intercept)', 'StdDev'])
+  phi <- as.numeric(coef(fit$modelStruct$corStruct, unconstrained = FALSE))
+  sig <- fit$sigma
+  y <- mu
+  for (idx in split(seq_len(nrow(dd)), dd$ptID)) {
+    tt <- dd$t[idx]
+    S <- tau^2 + sig^2 * phi^abs(outer(tt, tt, '-'))
+    y[idx] <- mu[idx] + drop(crossprod(chol(S), rnorm(length(idx))))
+  }
+  ds <- dd
+  ds$Sx <- y
+  ds
+}
+
+## F1A0's |t| statistic on one resample, rerunning the entire
+## selection (not just the test).
+boot_stat_f1a0 <- function(ds, grid = F_GRID, analysis_form = 'exponential',
+                           analysis_shape = 1) {
+  g <- grid_fits_f(ds, grid, analysis_form, analysis_shape)
+  m <- grid_methods_f(g)
+  row <- dplyr::filter(m, method == 'F1A0')
+  if (nrow(row) == 0 || is.na(row$estimate[1]) || is.na(row$std_error[1])) {
+    return(NA_real_)
+  }
+  abs(row$estimate[1] / row$std_error[1])
+}
+
+## One trial, all four F-family methods. Returns a 3-row table (F1,
+## F1A, F1A0, each with t = estimate/std_error) plus one warp-speed
+## bootstrap resample's F1A0 |t| statistic (boot_t_f1a0, identical
+## across the three rows) for later per-cell pooling into F1A0B's
+## calibrated size/power (docs/62; ws_size-style comparison of the
+## observed |t| against the pooled resampled |t| of the same cell).
+fit_f_family <- function(dat_long, n_boot = 1L, analysis_form = 'exponential',
+                         analysis_shape = 1) {
+  g <- grid_fits_f(dat_long, analysis_form = analysis_form,
+                   analysis_shape = analysis_shape)
+  m <- grid_methods_f(g)
+  m <- mutate(m, converged = !is.na(estimate) & !is.na(std_error),
+             t = estimate / std_error)
+  h0_rows <- dplyr::filter(m, method == 'F1A0')
+  h0 <- if (nrow(h0_rows) == 1) h0_rows$h[1] else NA_real_
+  boot_t <- NA_real_
+  if (n_boot > 0 && length(h0) == 1 && is.finite(h0)) {
+    nf <- fit_lme_f(FM0_F, with_dbc_f(dat_long, h0, analysis_form, analysis_shape), 'REML')
+    if (!is.null(nf)) {
+      boot_vals <- vapply(seq_len(n_boot), function(b)
+        boot_stat_f1a0(sim_null_f(nf, dat_long, h0, analysis_form, analysis_shape),
+                       analysis_form = analysis_form, analysis_shape = analysis_shape),
+        numeric(1))
+      boot_t <- mean(boot_vals, na.rm = TRUE)
+    }
+  }
+  mutate(m, boot_t_f1a0 = boot_t)
+}
+
+## Warp-speed calibrated rejection rate: fraction of observed |t|
+## values (a) exceeding the quantile of the pooled resampled |t|
+## values (s) implied by alpha, p* = (1 + #{s >= a}) / (n + 1) < alpha.
+ws_size <- function(a, s, alpha = 0.05) {
+  s <- sort(s[is.finite(s)]); a <- a[is.finite(a)]; n <- length(s)
+  if (n == 0 || length(a) == 0) return(NA_real_)
+  mean((1 + n - findInterval(a, s, left.open = TRUE)) / (n + 1) < alpha)
+}
+
+## F-family counterpart to simulate_cell(): same cell convention
+## (design, N, t1half, carryover_form, weibull_shape, dgp_arch, c_bm,
+## plus the optional prognostic fields c_bl/c_tv/b_tv), fitting the
+## four F-family methods instead of E1-E4. n_boot is the number of
+## warp-speed resamples per replicate (1 is the standard warp-speed
+## shortcut; more reduces resample noise at proportional extra cost).
+simulate_cell_f <- function(cell, n_reps, n_boot = 1L,
+                            resp_param = NULL, baseline_param = NULL,
+                            stop_on_nonpd = FALSE) {
+  design_set <- build_design_set(cell$design)
+  if (is.null(resp_param)) resp_param <- default_resp_param()
+  if (is.null(baseline_param)) baseline_param <- default_baseline_param()
+
+  rho <- default_val(cell[['rho']], 0.7)
+  analysis_t1half <- default_val(cell[['analysis_t1half']], cell$t1half)
+  analysis_form   <- default_val(cell[['analysis_form']], cell$carryover_form)
+  analysis_shape  <- default_val(cell[['analysis_shape']], cell$weibull_shape)
+  is_combined <- isTRUE(cell$dgp_arch == 'combined')
+
+  model_param <- list(
+    N = cell$N, carryover_t1half = cell$t1half,
+    carryover_form = cell$carryover_form,
+    weibull_shape = cell$weibull_shape,
+    dgp_architecture = cell$dgp_arch,
+    c.tv = rho, c.pb = rho, c.br = rho,
+    c.cf1t = 0.2, c.cfct = 0.2
+  )
+  if (is_combined) {
+    model_param$c.bm_a <- cell$c_bm_a
+    model_param$c.bm_b <- cell$c_bm_b
+  } else {
+    model_param$c.bm <- cell$c_bm
+  }
+  model_param$c.bm.bl <- default_val(cell[['c_bl']], 0)
+  model_param$c.bm.tv <- default_val(cell[['c_tv']], 0)
+  model_param$b.bm.tv <- default_val(cell[['b_tv']], 0)
+
+  map_dfr(seq_len(n_reps), function(rep_i) {
+    dat <- tryCatch(
+      generate_data_multi_path(model_param, resp_param, baseline_param,
+                               design_set, stop_on_nonpd = stop_on_nonpd),
+      error = function(e) NULL
+    )
+    if (is.null(dat) || nrow(dat) == 0) {
+      return(tibble(rep = rep_i,
+                    method = c('F1', 'F1A', 'F1A0'),
+                    h = NA_real_, estimate = NA_real_, std_error = NA_real_,
+                    p_value = NA_real_, converged = FALSE, t = NA_real_,
+                    boot_t_f1a0 = NA_real_))
+    }
+    dat_long <- prepare_long_data(
+      dat, design_set,
+      carryover_t1half = cell$t1half,
+      carryover_form = cell$carryover_form,
+      weibull_shape = cell$weibull_shape,
+      analysis_t1half = analysis_t1half,
+      analysis_form = analysis_form,
+      analysis_shape = analysis_shape
+    )
+    fit_f_family(dat_long, n_boot = n_boot,
+                analysis_form = analysis_form,
+                analysis_shape = analysis_shape) |>
+      as_tibble() |>
+      mutate(rep = rep_i, .before = 1)
+  })
 }

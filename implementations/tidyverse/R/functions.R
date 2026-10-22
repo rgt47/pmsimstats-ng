@@ -299,6 +299,7 @@ build_sigma_matrix <- function(model_param, resp_param, baseline_param,
                                verbose = FALSE,
                                lambda_cor = NA,
                                dgp_architecture = "mvn",
+                               stop_on_nonpd = FALSE,
                                ...) {
 
   dgp_architecture <- match.arg(dgp_architecture, c("mvn", "mean_moderation", "combined"))
@@ -350,7 +351,20 @@ build_sigma_matrix <- function(model_param, resp_param, baseline_param,
     cat("Sigma matrix positive definite:", is_pd, "\n")
   }
 
+  ## stop_on_nonpd: the refined process's recommendation (docs/series/
+  ## ch10-refined-process.md; paper 01 Table tab:spec and Appendix
+  ## B.2; mirrors R/generateData.R's stopOnNonPD) is to raise an
+  ## error instead of silently repairing a non-positive-definite
+  ## covariance matrix. Defaults to FALSE, preserving the unconditional
+  ## silent-repair behavior every existing caller relies on.
   if (!is_pd) {
+    if (stop_on_nonpd) {
+      eigenvalues <- eigen(sigma, only.values = TRUE)$values
+      neg_evals <- eigenvalues[eigenvalues < 0]
+      stop(sprintf(
+        'Non-PD covariance matrix (min eigenvalue: %.4f, %d negative). Refused to repair under stop_on_nonpd = TRUE. Constrain the correlation parameters (c.bm, rho, c.cf1t/c.cfct) so the matrix is positive definite, or set stop_on_nonpd = FALSE to repair silently.',
+        min(eigenvalues), length(neg_evals)))
+    }
     if (verbose) {
       eigenvalues <- eigen(sigma, only.values = TRUE)$values
       neg_evals <- eigenvalues[eigenvalues < 0]
@@ -362,6 +376,11 @@ build_sigma_matrix <- function(model_param, resp_param, baseline_param,
   }
 
   chol_sigma <- tryCatch(chol(sigma), error = function(e) {
+    if (stop_on_nonpd) {
+      stop(sprintf(
+        'Cholesky factorization failed (%s) on a matrix that passed the positive-definiteness check; refusing to repair under stop_on_nonpd = TRUE.',
+        conditionMessage(e)))
+    }
     chol(corpcor::make.positive.definite(sigma, tol = 1e-3))
   })
 
@@ -386,7 +405,8 @@ generate_data <- function(
     model_param, resp_param, baseline_param, trial_design,
     empirical, make_positive_definite, seed = NA,
     lambda_cor = NA, verbose = FALSE, track_pd_stats = TRUE,
-    cached_sigma = NULL, dgp_architecture = "mvn") {
+    cached_sigma = NULL, dgp_architecture = "mvn",
+    stop_on_nonpd = FALSE) {
 
   dgp_architecture <- match.arg(dgp_architecture, c("mvn", "mean_moderation", "combined"))
 
@@ -405,7 +425,8 @@ generate_data <- function(
     sigma_result <- build_sigma_matrix(
       model_param, resp_param, baseline_param, trial_design,
       lambda_cor = lambda_cor, verbose = verbose,
-      dgp_architecture = dgp_architecture
+      dgp_architecture = dgp_architecture,
+      stop_on_nonpd = stop_on_nonpd
     )
     labels <- sigma_result$labels
     means <- sigma_result$means

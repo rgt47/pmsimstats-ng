@@ -134,3 +134,33 @@ make_default_params <- function(c.bm = 0.3, carryover_t1half = 0) {
   expect_equal(reconstructed, result$sigma, tolerance = 1e-8,
                info = 'Cholesky factor reconstructs sigma')
 }
+
+{
+  # stopOnNonPD: the refined-process recommendation (paper 01, Table
+  # tab:spec and Appendix B.2) is to raise an error instead of
+  # silently repairing a non-positive-definite covariance matrix.
+  td <- make_ol_design()
+  p_nonpd <- make_default_params(c.bm = 0.6, carryover_t1half = 0)
+  expect_true(!is.positive.definite(
+    pmsimstats:::buildSigma(p_nonpd$mp, p_nonpd$rp, p_nonpd$bp,
+                            td$trialpaths[[1]],
+                            makePositiveDefinite = FALSE)$sigma),
+    info = 'c.bm = 0.6 produces a non-PD matrix at this design/rho (precondition for the tests below)')
+
+  expect_error(
+    pmsimstats:::buildSigma(p_nonpd$mp, p_nonpd$rp, p_nonpd$bp,
+                            td$trialpaths[[1]], stopOnNonPD = TRUE),
+    info = 'stopOnNonPD = TRUE raises an error on a non-PD matrix instead of repairing it')
+
+  repaired <- pmsimstats:::buildSigma(p_nonpd$mp, p_nonpd$rp, p_nonpd$bp,
+                                      td$trialpaths[[1]],
+                                      stopOnNonPD = FALSE,
+                                      makePositiveDefinite = TRUE)
+  expect_true(is.positive.definite(repaired$sigma),
+              info = 'stopOnNonPD = FALSE (default) preserves the prior silent-repair behavior')
+
+  p_pd <- make_default_params()
+  expect_silent(
+    pmsimstats:::buildSigma(p_pd$mp, p_pd$rp, p_pd$bp,
+                            td$trialpaths[[1]], stopOnNonPD = TRUE))
+}

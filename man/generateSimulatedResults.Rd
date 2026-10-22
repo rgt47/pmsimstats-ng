@@ -15,7 +15,8 @@ generateSimulatedResults(
   rawdataout = FALSE,
   lambda_cor = NA,
   n_cores = 1,
-  dgp_architecture = "mvn"
+  dgp_architecture = "mvn",
+  stopOnNonPD = FALSE
 )
 }
 \arguments{
@@ -65,6 +66,11 @@ random slopes, as well as random intercepts, for participants?}
 \item{dgp_architecture}{DGP architecture for the biomarker-treatment
 interaction (\code{"mvn"}, \code{"mean_moderation"}, or
 \code{"combined"}). See \link{generateData} for details.}
+
+\item{stopOnNonPD}{If \code{TRUE}, raise an error instead of silently
+repairing a non-positive-definite covariance matrix encountered
+while building the sigma cache (the refined-process
+recommendation; see \link{buildSigma}). Defaults to \code{FALSE}.}
 
 \item{rawdataout=FALSE}{Binary - output the raw data for all
 simulations?  This is memory intensive for large runs.}

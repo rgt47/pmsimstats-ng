@@ -16,7 +16,8 @@ buildSigma(
   br_family = "gompertz",
   br_p2 = NA,
   br_p3 = NA,
-  components = c("tv", "pb", "br")
+  components = c("tv", "pb", "br"),
+  stopOnNonPD = FALSE
 )
 }
 \arguments{

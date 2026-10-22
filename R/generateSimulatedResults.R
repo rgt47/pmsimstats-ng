@@ -48,6 +48,10 @@
 #' @param dgp_architecture DGP architecture for the biomarker-treatment
 #'   interaction (\code{"mvn"}, \code{"mean_moderation"}, or
 #'   \code{"combined"}). See \link{generateData} for details.
+#' @param stopOnNonPD If \code{TRUE}, raise an error instead of silently
+#'   repairing a non-positive-definite covariance matrix encountered
+#'   while building the sigma cache (the refined-process
+#'   recommendation; see \link{buildSigma}). Defaults to \code{FALSE}.
 #' @return Returns a list with three named parts:
 #'   \itemize{
 #'     \item{\code{results}}{  A large data table that tells you the parameters used
@@ -71,7 +75,7 @@
 generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
                                    censorparams,modelparams,simparam,analysisparams,
                                    rawdataout=FALSE,lambda_cor=NA,n_cores=1,
-                                   dgp_architecture="mvn"){
+                                   dgp_architecture="mvn",stopOnNonPD=FALSE){
 
   # defaults
   if(missing(analysisparams)) analysisparams<-list(useDE=TRUE,
@@ -101,6 +105,11 @@ generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
   validation<-validateParameterGrid(trialdesigns,modelparams,
     respparamsets[[1]]$param,blparamsets[[1]]$param,lambda_cor)
   if(validation$n_rejected > 0){
+    if(stopOnNonPD){
+      stop(sprintf(
+        "%d parameter combinations fail positive definiteness and stopOnNonPD = TRUE. Constrain the correlation parameters (c.bm, rho, c.cf1t/c.cfct) so every combination in the grid is positive definite, or set stopOnNonPD = FALSE to repair silently:\n%s",
+        validation$n_rejected, paste("  ", validation$rejected, collapse="\n")))
+    }
     cat("WARNING: ", validation$n_rejected, " parameter combinations",
         " fail positive definiteness.\n",
         "Results for these combinations may be affected by ",
@@ -128,7 +137,8 @@ generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
           mp, rp, bp, td[[iP]],
           makePositiveDefinite=TRUE,
           lambda_cor=lambda_cor, verbose=FALSE,
-          dgp_architecture=dgp_architecture)
+          dgp_architecture=dgp_architecture,
+          stopOnNonPD=stopOnNonPD)
       }
     }
   }

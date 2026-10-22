@@ -474,6 +474,11 @@ simulate_cell <- function(cell, n_reps, robust = FALSE,
   ## reproducing all existing cells exactly.
   model_param$c.bm.bl <- default_val(cell[['c_bl']], 0)
 
+  ## optional prognostic-TV coupling (prog-TV-const cell, docs/57
+  ## Section 7.3; cell field `cl$c_tv`). Absent or zero leaves bm and
+  ## TV uncorrelated, reproducing all existing cells exactly.
+  model_param$c.bm.tv <- default_val(cell[['c_tv']], 0)
+
   map_dfr(seq_len(n_reps), function(rep_i) {
     ## NOTE: with stop_on_nonpd = TRUE, generate_data_multi_path()
     ## raises an error on a non-PD matrix rather than repairing it,
@@ -882,6 +887,10 @@ simulate_cell_s7 <- function(cell, n_reps,
   ## optional prognostic-baseline coupling, same convention as
   ## simulate_cell().
   model_param$c.bm.bl <- default_val(cell[['c_bl']], 0)
+
+  ## optional prognostic-TV coupling, same convention as
+  ## simulate_cell().
+  model_param$c.bm.tv <- default_val(cell[['c_tv']], 0)
 
   furrr::future_map_dfr(seq_len(n_reps), function(rep_i) {
     ## See simulate_cell()'s note on stop_on_nonpd: caught per

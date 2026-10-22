@@ -30,6 +30,15 @@
 #'    unchanged. Because the PB column SDs already carry the
 #'    expectancy scaling, the realised BM-PB covariance is automatically
 #'    larger at high-belief (open-label) timepoints.}
+#'  \item{\code{c.bm.tv}}{  Optional biomarker-TV correlation for the
+#'    \code{"mvn"} and \code{"combined"} architectures (the
+#'    \code{prog-TV-const} cell of the stress test, \code{docs/57}
+#'    Section 7.3). Couples the biomarker to the TV component at
+#'    every timepoint, independent of \code{c.bm}, so a prognostic
+#'    biomarker that tracks the natural-history trajectory can be
+#'    simulated while \code{c.bm} (the real interaction channel)
+#'    stays at 0. Absent or zero (the default) reproduces the
+#'    BR-only coupling exactly, leaving all existing runs unchanged.}
 #'  \item{\code{c.bm.bl}}{  Optional biomarker-baseline-severity
 #'    correlation (the prognostic-baseline cell of the stress test,
 #'    \code{docs/57} Section 7.3). Couples the biomarker to
@@ -384,6 +393,21 @@ buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefini
           n1<-paste(trialdesign$timeptnames[p],"pb",sep=".")
           correlations[n1,'bm']<-c_bm_pb
           correlations['bm',n1]<-c_bm_pb
+        }
+      }
+    }
+    # BM-TV differential correlation (prog-TV-const stress-test cell,
+    # docs/57 Section 7.3). Couples the biomarker to the TV component
+    # so a prognostic biomarker that tracks natural history can be
+    # simulated independent of c.bm. Gated on c.bm.tv; absent or zero
+    # leaves the BR-only coupling untouched.
+    if(cc=="tv" && dgp_architecture %in% c("mvn", "combined")){
+      c_bm_tv<-modelparam$c.bm.tv
+      if(!is.null(c_bm_tv) && !is.na(c_bm_tv) && c_bm_tv != 0){
+        for(p in 1:nP){
+          n1<-paste(trialdesign$timeptnames[p],"tv",sep=".")
+          correlations[n1,'bm']<-c_bm_tv
+          correlations['bm',n1]<-c_bm_tv
         }
       }
     }

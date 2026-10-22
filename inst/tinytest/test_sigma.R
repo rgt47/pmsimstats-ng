@@ -199,3 +199,39 @@ make_default_params <- function(c.bm = 0.3, carryover_t1half = 0) {
   expect_equal(result_zero$sigma['BL', 'bm'], 0,
                info = 'c.bm.bl = 0 reproduces the uncoupled default exactly')
 }
+
+{
+  # c.bm.tv: optional biomarker-TV correlation (prog-TV-const cell,
+  # docs/57 Section 7.3). Absent or zero must leave bm and TV
+  # uncorrelated, as before; a nonzero value sets exactly that
+  # correlation at every timepoint and nothing else.
+  td <- make_ol_design()
+  p <- make_default_params()
+
+  result_default <- pmsimstats:::buildSigma(p$mp, p$rp, p$bp,
+                                             td$trialpaths[[1]])
+  tv_cols <- grepl('tv$', result_default$labels)
+  expect_true(all(result_default$sigma['bm', tv_cols] == 0),
+              info = 'bm-TV correlation is 0 when c.bm.tv is absent')
+
+  p$mp$c.bm.tv <- 0.3
+  result_coupled <- pmsimstats:::buildSigma(p$mp, p$rp, p$bp,
+                                            td$trialpaths[[1]],
+                                            stopOnNonPD = TRUE)
+  corr_tv <- result_coupled$sigma['bm', tv_cols] /
+    sqrt(result_coupled$sigma['bm', 'bm'] *
+           diag(result_coupled$sigma)[tv_cols])
+  expect_equal(unname(corr_tv), rep(0.3, sum(tv_cols)), tolerance = 1e-10,
+               info = 'c.bm.tv = 0.3 sets exactly that bm-TV correlation at every timepoint')
+
+  br_cols <- grepl('br$', result_default$labels)
+  expect_equal(result_coupled$sigma['bm', br_cols],
+               result_default$sigma['bm', br_cols],
+               info = 'c.bm.tv leaves bm-BR couplings untouched')
+
+  p$mp$c.bm.tv <- 0
+  result_zero <- pmsimstats:::buildSigma(p$mp, p$rp, p$bp,
+                                         td$trialpaths[[1]])
+  expect_true(all(result_zero$sigma['bm', tv_cols] == 0),
+              info = 'c.bm.tv = 0 reproduces the uncoupled default exactly')
+}

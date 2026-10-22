@@ -50,6 +50,15 @@ reproduces the BR-only coupling exactly, leaving all existing runs
 unchanged. Because the PB column SDs already carry the
 expectancy scaling, the realised BM-PB covariance is automatically
 larger at high-belief (open-label) timepoints.}
+\item{\code{c.bm.tv}}{  Optional biomarker-TV correlation for the
+\code{"mvn"} and \code{"combined"} architectures (the
+\code{prog-TV-const} cell of the stress test, \code{docs/57}
+Section 7.3). Couples the biomarker to the TV component at
+every timepoint, independent of \code{c.bm}, so a prognostic
+biomarker that tracks the natural-history trajectory can be
+simulated while \code{c.bm} (the real interaction channel)
+stays at 0. Absent or zero (the default) reproduces the
+BR-only coupling exactly, leaving all existing runs unchanged.}
 \item{\code{c.bm.bl}}{  Optional biomarker-baseline-severity
 correlation (the prognostic-baseline cell of the stress test,
 \code{docs/57} Section 7.3). Couples the biomarker to

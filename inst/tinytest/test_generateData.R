@@ -82,3 +82,34 @@ make_ol_setup <- function(N = 35) {
   expect_equal(dat$OL1, dat$BL - factor_sum, tolerance = 1e-10,
                info = 'outcome column equals BL minus factor sum')
 }
+
+{
+  # b.bm.tv: optional biomarker-TV mean shift (prog-TV-grow cell,
+  # docs/57 Section 7.3). Absent or zero must leave TV unshifted;
+  # a nonzero value shifts every TV column by exactly
+  # b.bm.tv * bm_z * sigma_TV and leaves BR untouched.
+  s <- make_ol_setup(N = 200)
+  set.seed(7)
+  dat_default <- generateData(s$mp, s$rp, s$bp, s$td$trialpaths[[1]],
+                               empirical = FALSE, makePositiveDefinite = TRUE)
+
+  s$mp$b.bm.tv <- 2
+  set.seed(7)
+  dat_shifted <- generateData(s$mp, s$rp, s$bp, s$td$trialpaths[[1]],
+                               empirical = FALSE, makePositiveDefinite = TRUE)
+
+  bm_z <- (dat_default$bm - s$bp[cat == 'bm']$m) / s$bp[cat == 'bm']$sd
+  expected_shift <- 2 * bm_z * s$rp[cat == 'tv']$sd
+  expect_equal(dat_shifted$OL1.tv - dat_default$OL1.tv, expected_shift,
+               tolerance = 1e-10,
+               info = 'b.bm.tv = 2 shifts TV by exactly b.bm.tv * bm_z * sigma_TV')
+  expect_equal(dat_shifted$OL1.br, dat_default$OL1.br,
+               info = 'b.bm.tv leaves BR untouched')
+
+  s$mp$b.bm.tv <- 0
+  set.seed(7)
+  dat_zero <- generateData(s$mp, s$rp, s$bp, s$td$trialpaths[[1]],
+                           empirical = FALSE, makePositiveDefinite = TRUE)
+  expect_equal(dat_zero$OL1.tv, dat_default$OL1.tv,
+               info = 'b.bm.tv = 0 reproduces the unshifted default exactly')
+}

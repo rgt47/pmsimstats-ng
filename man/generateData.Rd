@@ -59,6 +59,17 @@ biomarker that tracks the natural-history trajectory can be
 simulated while \code{c.bm} (the real interaction channel)
 stays at 0. Absent or zero (the default) reproduces the
 BR-only coupling exactly, leaving all existing runs unchanged.}
+\item{\code{b.bm.tv}}{  Optional biomarker-TV mean-shift
+coefficient (the \code{prog-TV-grow} cell of the stress test,
+\code{docs/57} Section 7.3). Additively shifts the TV
+natural-history trajectory at every timepoint by
+\code{b.bm.tv * bm_z * sigma_TV}, where \code{bm_z} is the
+standardized biomarker. Like \code{c.bm.bl}, this is a
+confound external to the interaction channel, so it applies
+the same way under every \code{dgp_architecture} and
+regardless of on/off-drug status. Requires \code{"tv"} to be
+among \code{components}. Absent or zero (the default) leaves
+TV unshifted, as before.}
 \item{\code{c.bm.bl}}{  Optional biomarker-baseline-severity
 correlation (the prognostic-baseline cell of the stress test,
 \code{docs/57} Section 7.3). Couples the biomarker to

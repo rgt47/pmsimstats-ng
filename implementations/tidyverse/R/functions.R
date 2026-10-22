@@ -499,6 +499,27 @@ generate_data <- function(
     }
   }
 
+  # BM-TV mean shift (prog-TV-grow stress-test cell, docs/57 Section
+  # 7.3; mirrors R/generateData.R). Additively shifts the TV
+  # natural-history trajectory at every timepoint, independent of
+  # dgp_architecture: like c.bm.bl, this is a confound external to
+  # the interaction channel. Applied regardless of on/off-drug
+  # status since TV reflects natural history. Gated on b.bm.tv;
+  # absent or zero leaves TV unshifted, as before.
+  b_bm_tv <- model_param$b.bm.tv
+  if (!is.null(b_bm_tv) && !is.na(b_bm_tv) && b_bm_tv != 0) {
+    bm_mean_tv <- baseline_param |> filter(cat == "bm") |> pull(m)
+    bm_sd_tv <- baseline_param |> filter(cat == "bm") |> pull(sd)
+    tv_sd <- resp_param |> filter(cat == "tv") |> pull(sd)
+    bm_z_tv <- (participant_data$bm - bm_mean_tv) / bm_sd_tv
+
+    for (tp in seq_len(nrow(trial_design))) {
+      tv_col <- paste(trial_design$timepoint_name[tp], "tv", sep = ".")
+      participant_data[[tv_col]] <- participant_data[[tv_col]] +
+        b_bm_tv * bm_z_tv * tv_sd
+    }
+  }
+
   participant_data <- process_participant_data(
     participant_data, trial_design$timepoint_name,
     factors, model_param$N

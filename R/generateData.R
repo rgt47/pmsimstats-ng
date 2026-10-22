@@ -39,6 +39,17 @@
 #'    simulated while \code{c.bm} (the real interaction channel)
 #'    stays at 0. Absent or zero (the default) reproduces the
 #'    BR-only coupling exactly, leaving all existing runs unchanged.}
+#'  \item{\code{b.bm.tv}}{  Optional biomarker-TV mean-shift
+#'    coefficient (the \code{prog-TV-grow} cell of the stress test,
+#'    \code{docs/57} Section 7.3). Additively shifts the TV
+#'    natural-history trajectory at every timepoint by
+#'    \code{b.bm.tv * bm_z * sigma_TV}, where \code{bm_z} is the
+#'    standardized biomarker. Like \code{c.bm.bl}, this is a
+#'    confound external to the interaction channel, so it applies
+#'    the same way under every \code{dgp_architecture} and
+#'    regardless of on/off-drug status. Requires \code{"tv"} to be
+#'    among \code{components}. Absent or zero (the default) leaves
+#'    TV unshifted, as before.}
 #'  \item{\code{c.bm.bl}}{  Optional biomarker-baseline-severity
 #'    correlation (the prognostic-baseline cell of the stress test,
 #'    \code{docs/57} Section 7.3). Couples the biomarker to
@@ -196,6 +207,27 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
         br_col<-paste(tnames[tp], "br", sep=".")
         dat[,(br_col):=get(br_col) + beta_bm * bm_z * scale_by_tp[tp]]
       }
+    }
+  }
+
+  # BM-TV mean shift (prog-TV-grow stress-test cell, docs/57 Section
+  # 7.3). Couples the biomarker to the TV natural-history trajectory
+  # via an additive mean shift at every timepoint, independent of
+  # dgp_architecture: like c.bm.bl, this is a confound external to
+  # the interaction channel, not part of it. Applied regardless of
+  # on/off-drug status since TV reflects natural history, unrelated
+  # to treatment exposure. Gated on b.bm.tv; absent or zero leaves
+  # TV unshifted, as before.
+  b_bm_tv<-modelparam$b.bm.tv
+  if(!is.null(b_bm_tv) && !is.na(b_bm_tv) && b_bm_tv != 0 && "tv" %in% cl){
+    bm_mean<-blparam[cat=="bm"]$m
+    bm_sd<-blparam[cat=="bm"]$sd
+    tv_sd<-respparam[cat=="tv"]$sd
+    bm_z<-(dat$bm - bm_mean) / bm_sd
+    tnames_tv<-trialdesign$timeptnames
+    for(tp in 1:nP){
+      tv_col<-paste(tnames_tv[tp], "tv", sep=".")
+      dat[,(tv_col):=get(tv_col) + b_bm_tv * bm_z * tv_sd]
     }
   }
 

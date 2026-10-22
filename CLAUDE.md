@@ -29,12 +29,31 @@ NOTATION.md Part 3):
 
 At matched total N = 70 in the Hybrid design, the relative power loss
 under carryover is 15.4% for covariance moderation against 6.9% for
-mean moderation (paper 01; NOTATION.md Part 2). Conditional on the
-biomarker, covariance binding is mean moderation with a smaller
-residual variance; the divergence reflects the exposure profile of
-the interaction (graded coupling fades off drug), not a difference in
-kind (paper 01, restated; compendium, sec:architectures). The earlier
-"40-60% vs 8-13%" contrast is superseded.
+mean moderation. This figure was computed for a pre-restatement
+version of paper 01 (2026-08-08 N-matching fix; verified then,
+NOTATION.md Part 2, "In paper 01 only the Hybrid column moved...").
+Paper 01's scope was narrowed on 2026-10-07 to the covariance-
+moderation DGP specification only, and this cross-architecture
+comparison was removed from its text along with the rest of the
+cross-architecture material; a 2026-10-07 referee pass
+(`revisions/33-paper01-dgp-architecture-review.md`) had also flagged
+the original comparison as using non-comparable absolute-power
+baselines across architectures (Section 3.3 there), a problem paper
+01's current Discussion resolves qualitatively via a conditioning/
+rank-one argument but without rerunning the matched-N numbers under
+it. The 15.4%/6.9% figure is therefore **not currently narrated in
+any live manuscript**: it survives only in NOTATION.md's historical
+record above, the archived draft
+(`analysis/report/01-dgp-mean-moderation-vs-mvn/archive/report-2026-10-07-pre-restatement.Rmd`),
+and `docs/series/ch07-architectures.md` (which cites it onward from
+"paper 01" rather than from a live source, and runs no simulation of
+its own). Cite NOTATION.md Part 2 directly for this figure, not
+"paper 01," until it is rerun and re-narrated somewhere live.
+Conditional on the biomarker, covariance binding is mean moderation
+with a smaller residual variance; the divergence reflects the
+exposure profile of the interaction (graded coupling fades off
+drug), not a difference in kind (compendium, sec:architectures).
+The earlier "40-60% vs 8-13%" contrast is superseded.
 
 **Named processes.** "The published process" is Hendrickson's code at
 commit 58b32a9; "the refined process" is the recommended DGP (graded
@@ -125,9 +144,16 @@ Seven files in `R/` implement the simulation pipeline:
 Utility modules: `utilities.R` (cumulative effects, modGompertz),
 `packagedocumentation.R`, `datadocumentation.R`.
 
-Known open item: the sampler in `R/generateData.R` still repairs a
-non-positive-definite matrix silently when the Cholesky factorization
-fails; the refined process requires a stop instead (paper 01 B.2).
+Resolved 2026-10-21: `buildSigma()`/`generateData()`/
+`generateSimulatedResults()` in `R/generateData.R` now accept
+`stopOnNonPD` (default `FALSE`, preserving all existing behavior).
+When `TRUE`, a non-positive-definite covariance matrix raises an
+error instead of being silently repaired, both at the explicit PD
+check and in the Cholesky-factorization fallback (the refined
+process's recommendation, paper 01 B.2 and Table tab:spec). Callers
+that want the refined process's validity guarantee must opt in
+explicitly; the package default remains silent repair for backward
+compatibility.
 
 ## Implementations
 
@@ -506,6 +532,20 @@ intercept.
   series.
 - `docs/52-whitepaper-review-2026-10-07.md` — last whitepaper review
   record.
+- `docs/60-trials-submission-gap-analysis.md` — gap analysis and
+  remediation plan for submitting papers 01 and 02 to *Trials*
+  (2026-10-20).
+- `docs/61-cross-factor-correlation-bug-paper02-driver.md` — the
+  `c.cf1t`/`c.cfct` mismatch in paper 02's simulation driver
+  (`simulation-core.R`), its exact size, and the fix (2026-10-21).
+- `docs/62-carryover-specification-and-half-life-method-catalog.md`
+  — catalog of paper 02's `G1`-`G9` specifications and the project's
+  `F`-family half-life-selection methods (`docs/57`/`ch23`), what's
+  determined about each and their relative cost (2026-10-21).
+- `docs/63-why-correlation-fades-with-time-a-clinicians-guide.md` —
+  clinician-facing explanation of the compound-symmetry-to-separable-
+  AR(1) change (`docs/35`, `ch10`), in the style of `docs/53`/`docs/55`
+  (2026-10-21).
 - `docs/legacy/INDEX.md` — maps every old `docs/NN` number to its
   new home (archived files live in `docs/legacy/`).
 - `docs/legacy/reorg-plan-2026-04-22.md` — the April 2026 repository

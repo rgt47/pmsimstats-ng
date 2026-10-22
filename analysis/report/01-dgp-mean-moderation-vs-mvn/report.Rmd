@@ -680,6 +680,45 @@ Hybrid design for each coupling rule and for mean-based binding.
 knitr::include_graphics('../../../docs/figures/37-fig3-power-heatmap.png')
 ```
 
+## A preliminary check under the recommended analysis (exploratory)
+
+Figures \@ref(fig:fig4b) and \@ref(fig:fig4bmc) both use statistics
+developed earlier in this paper: the closed-form paired-difference
+statistic and RH's own basic analysis model. A natural further
+question is whether the refined process's power behavior survives
+under the project's richer recommended analysis, F1
+(`Y ~ bmc + t + Dbc + bmc:Dbc + De + bmc:De`, random intercept,
+`corCAR1` residuals, CR2 cluster-robust inference with Satterthwaite
+degrees of freedom; `docs/56`), at its validated fixed half-life
+$t_{1/2}^a = 0.2$ week, rather than under `E9`/`E9b` or RH's `lmer`
+pipeline.
+
+Figure \@ref(fig:fig-f1-quickcheck) shows a small exploratory check:
+Hybrid design, $N = 70$, no censoring, true carryover half-life
+$t_{1/2} \in \{0, 0.1, 0.2\}$ weeks (the pharmacologically plausible
+range for a short-half-life drug stated earlier in this paper) and
+$c_{bm} \in \{0, 0.15, 0.30\}$, 500 replicates per cell. Type I error
+is close to nominal throughout (0.048 to 0.060 at $c_{bm} = 0$).
+Power does not decline with the carryover half-life over this range;
+if anything it rises slightly as the true half-life approaches F1's
+fixed assumed value (0.262 to 0.294 at $c_{bm} = 0.15$ from
+$t_{1/2} = 0$ to $0.2$), consistent with this paper's closed-form
+result that graded coupling's power loss vanishes rapidly at short
+half-lives.
+
+**This is a preliminary, exploratory check, not a validated result.**
+It covers one design, one $N$, no censoring, no dropout and no
+prognostic biomarker, at a modest replicate count. It is included to
+show initial evidence that the refined process's qualitative
+conclusions are not an artifact of the paired-difference statistic or
+RH's basic model, not as a quantitative claim to be cited on its own.
+A fuller version, matching this paper's existing grids (more
+half-lives, additional designs, prognostic cells), is future work.
+
+```{r fig-f1-quickcheck, fig.cap = 'Preliminary, exploratory check: power under the refined process, analyzed with F1 at its fixed $t_{1/2}^a = 0.2$ week, by true carryover half-life and interaction strength. Hybrid design, $N = 70$, no censoring, 500 replicates per cell. Not a validated production result (see text).', out.width = '70%', fig.align = 'center'}
+knitr::include_graphics('../../../docs/figures/01xs-f1-heatmap-quickcheck.png')
+```
+
 ## Room for larger effect sizes
 
 The ceiling $c_{bm}^{\ast} = (\tilde g^\top M^{-1} \tilde g)^{-1/2}$, with $\tilde g$
@@ -1437,15 +1476,44 @@ exposure_weight <- function(Db, tsd, halflife) {
 The package function `buildSigma()` (`R/generateData.R`) implements
 graded coupling, with `c.bm` on drug,
 `c.bm * exp(-lambda_cor * tsd)` off drug after exposure and zero
-before exposure. It also implements the AR(1) structures and the
-placebo coupling `c.bm.pb`. Two parts of the refined process are not
-yet in the package:
+before exposure. It also implements the within-factor separable
+AR(1) structure, anchored carryover on the drug-response mean (not
+the published recursion of B.3), and the placebo coupling
+`c.bm.pb`.
 
-- **The repair is still there.** Its sampler still repairs a matrix
-  silently when the Cholesky factorization fails
-  (`R/generateData.R`, lines 390 to 392). That repair must become an
-  error, as in B.2.
-- **The remaining refinements are in the drivers only.** The separable
-  form, anchored carryover, and the natural-course and
-  measurement-error options are implemented in the simulation drivers
-  of the stress test and are to be moved into the package.
+**Stop instead of repair, resolved.** `buildSigma()`,
+`generateData()` and `generateSimulatedResults()` now accept a
+`stopOnNonPD` argument (default `FALSE`, so every existing caller's
+behavior is unchanged). When `TRUE`, a non-positive-definite
+covariance matrix raises an error, exactly as in B.2, both at the
+explicit positive-definiteness check and in the Cholesky-
+factorization fallback that previously repaired silently regardless
+of the `makePositiveDefinite` setting. Callers that want the refined
+process's validity guarantee must set `stopOnNonPD = TRUE`
+explicitly.
+
+One part of the refined process is still driver-only, not a package
+default:
+
+- **Randomized path allocation.** Assigning participants to
+  randomization paths is a property of the calling driver (how `N`
+  is split across paths before `generateData()` is invoked for each
+  one), not of `buildSigma()` or `generateData()` themselves, so
+  there is no package-level option to toggle here; each driver must
+  allocate paths at random itself.
+
+A further caveat, outside the five properties above: the
+cross-factor correlation `buildSigma()` builds is not a single
+`c_1 \rho^{|w_t-w_s|}` at every lag as Table \@ref(tab:spec) states.
+It uses `c.cf1t` at the same timepoint and `c.cfct * rho^tg` at every
+other timepoint, i.e. two constants rather than one evaluated at
+every lag including zero. Whether this is a package defect or Table
+\@ref(tab:spec) overstates the uniformity of the cross-factor term
+is not resolved here and is noted for whichever paper's driver
+settings depend on it.
+
+Of the two optional rows in Table \@ref(tab:spec), the biomarker-PB
+prognostic coupling (`c.bm.pb`) is in the package; a biomarker-TV
+mean-moderation coupling and the measurement-error option are not,
+and remain implemented only in the simulation drivers of the stress
+test, to be moved into the package.

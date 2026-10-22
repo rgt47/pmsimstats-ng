@@ -71,10 +71,15 @@ with independent weights $c_{bm,A}$ (mean) and $c_{bm,B}$
 At matched total $N = 70$ and matched effect size the power
 difference between mean moderation and covariance moderation under the
 refined process is 15.4% for covariance moderation against 6.9% for
-mean moderation under carryover [inspected, Paper 01 Results;
-NOTATION.md Part 2]. This reflects the graded off-drug coupling of
-the covariance channel, which attenuates the interaction signal under
-carryover.
+mean moderation under carryover [inspected, NOTATION.md Part 2]. This
+figure predates paper 01's 2026-10-07 scope restatement and is not
+currently narrated in that manuscript's live text (see CLAUDE.md,
+"Key architectural feature," for the full provenance and the
+unresolved comparability caveat from the 2026-10-07 referee pass);
+cite NOTATION.md Part 2 directly, not "paper 01," until it is rerun
+and re-narrated somewhere live. This reflects the graded off-drug
+coupling of the covariance channel, which attenuates the interaction
+signal under carryover.
 
 ### Estimands and units by architecture
 
@@ -291,10 +296,11 @@ class-varying within-class covariance.
 
 At matched total $N = 70$ in the Hybrid design, the relative power
 loss under carryover at $t_{1/2} = 0.5$ week is 15.4% for covariance
-moderation against 6.9% for mean moderation [inspected, Paper 01
-Results; NOTATION.md Part 2]. This supersedes the earlier "40-60% versus
-8-13%" contrast, which came from a pre-restatement version of the
-paper that used unmatched N and the published step-rule coupling
+moderation against 6.9% for mean moderation [inspected, NOTATION.md
+Part 2; not currently narrated in paper 01's live text, see
+CLAUDE.md]. This supersedes the earlier "40-60% versus 8-13%"
+contrast, which came from an even earlier, pre-restatement version of
+the paper that used unmatched N and the published step-rule coupling
 (not graded coupling).
 
 <!-- TODO: the current contrast under graded coupling restated as a

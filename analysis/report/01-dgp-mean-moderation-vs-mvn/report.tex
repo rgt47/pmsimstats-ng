@@ -198,8 +198,8 @@
   \renewcommand{\headrulewidth}{0pt}%
   \renewcommand{\footrulewidth}{0.4pt}}
 \renewcommand{\stampsource}{\textasciitilde{}/\allowbreak{}prj/\allowbreak{}res/\allowbreak{}36-pmsimstats-ng/\allowbreak{}pmsimstats-ng/\allowbreak{}analysis/\allowbreak{}report/\allowbreak{}01-dgp-mean-moderation-vs-mvn/\allowbreak{}report.Rmd}
-\renewcommand{\stamptime}{2026-10-15 09:53 PDT}
-\renewcommand{\stampversion}{\detokenize{whitepapers-pre-series-6-ga3ea8f5f-wip}}
+\renewcommand{\stamptime}{2026-10-21 11:03 PDT}
+\renewcommand{\stampversion}{\detokenize{whitepapers-pre-series-51-g1067dc95-wip}}
 \usepackage{amssymb}
 \usepackage{booktabs}
 \usepackage{longtable}
@@ -233,7 +233,7 @@
 
 \title{Simulating predictive-biomarker interactions in aggregated N-of-1 trials: a refined data-generating process following Hendrickson et al.}
 \author{pmsimstats team}
-\date{October 15, 2026}
+\date{October 21, 2026}
 
 \begin{document}
 \maketitle
@@ -1066,6 +1066,50 @@ Hybrid design for each coupling rule and for mean-based binding.
 }
 
 \caption{Closed-form power of the paired-difference statistic by interaction strength ($c_{bm}$ for the covariance rules, $\beta_{bm}$ for the mean rules) and carryover half-life, in the layout of RH's Figure 4B: published step coupling, graded coupling, mean moderation and decayed mean moderation. Upper row: E9b, which counts baseline as an off-drug visit as RH's analysis does; lower row: E9. Gray cells: $c_{bm}$ at or above the compound-symmetry ceiling, where the correlation matrix is not positive definite. Hybrid design, $N = 70$, compound symmetry.}\label{fig:fig4b}
+\end{figure}
+
+\subsection{A preliminary check under the recommended analysis (exploratory)}\label{a-preliminary-check-under-the-recommended-analysis-exploratory}
+
+Figures \ref{fig:fig4b} and \ref{fig:fig4bmc} both use statistics
+developed earlier in this paper: the closed-form paired-difference
+statistic and RH's own basic analysis model. A natural further
+question is whether the refined process's power behavior survives
+under the project's richer recommended analysis, F1
+(\texttt{Y\ \textasciitilde{}\ bmc\ +\ t\ +\ Dbc\ +\ bmc:Dbc\ +\ De\ +\ bmc:De}, random intercept,
+\texttt{corCAR1} residuals, CR2 cluster-robust inference with Satterthwaite
+degrees of freedom; \texttt{docs/56}), at its validated fixed half-life
+\(t_{1/2}^a = 0.2\) week, rather than under \texttt{E9}/\texttt{E9b} or RH's \texttt{lmer}
+pipeline.
+
+Figure \ref{fig:fig-f1-quickcheck} shows a small exploratory check:
+Hybrid design, \(N = 70\), no censoring, true carryover half-life
+\(t_{1/2} \in \{0, 0.1, 0.2\}\) weeks (the pharmacologically plausible
+range for a short-half-life drug stated earlier in this paper) and
+\(c_{bm} \in \{0, 0.15, 0.30\}\), 500 replicates per cell. Type I error
+is close to nominal throughout (0.048 to 0.060 at \(c_{bm} = 0\)).
+Power does not decline with the carryover half-life over this range;
+if anything it rises slightly as the true half-life approaches F1's
+fixed assumed value (0.262 to 0.294 at \(c_{bm} = 0.15\) from
+\(t_{1/2} = 0\) to \(0.2\)), consistent with this paper's closed-form
+result that graded coupling's power loss vanishes rapidly at short
+half-lives.
+
+\textbf{This is a preliminary, exploratory check, not a validated result.}
+It covers one design, one \(N\), no censoring, no dropout and no
+prognostic biomarker, at a modest replicate count. It is included to
+show initial evidence that the refined process's qualitative
+conclusions are not an artifact of the paired-difference statistic or
+RH's basic model, not as a quantitative claim to be cited on its own.
+A fuller version, matching this paper's existing grids (more
+half-lives, additional designs, prognostic cells), is future work.
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{../../../docs/figures/01xs-f1-heatmap-quickcheck} 
+
+}
+
+\caption{Preliminary, exploratory check: power under the refined process, analyzed with F1 at its fixed $t_{1/2}^a = 0.2$ week, by true carryover half-life and interaction strength. Hybrid design, $N = 70$, no censoring, 500 replicates per cell. Not a validated production result (see text).}\label{fig:fig-f1-quickcheck}
 \end{figure}
 
 \subsection{Room for larger effect sizes}\label{room-for-larger-effect-sizes}
@@ -2084,22 +2128,50 @@ from 0.512 to 0.814, the level of the binary indicator (0.810):
 The package function \texttt{buildSigma()} (\texttt{R/generateData.R}) implements
 graded coupling, with \texttt{c.bm} on drug,
 \texttt{c.bm\ *\ exp(-lambda\_cor\ *\ tsd)} off drug after exposure and zero
-before exposure. It also implements the AR(1) structures and the
-placebo coupling \texttt{c.bm.pb}. Two parts of the refined process are not
-yet in the package:
+before exposure. It also implements the within-factor separable
+AR(1) structure, anchored carryover on the drug-response mean (not
+the published recursion of B.3), and the placebo coupling
+\texttt{c.bm.pb}.
+
+\textbf{Stop instead of repair, resolved.} \texttt{buildSigma()},
+\texttt{generateData()} and \texttt{generateSimulatedResults()} now accept a
+\texttt{stopOnNonPD} argument (default \texttt{FALSE}, so every existing caller's
+behavior is unchanged). When \texttt{TRUE}, a non-positive-definite
+covariance matrix raises an error, exactly as in B.2, both at the
+explicit positive-definiteness check and in the Cholesky-
+factorization fallback that previously repaired silently regardless
+of the \texttt{makePositiveDefinite} setting. Callers that want the refined
+process's validity guarantee must set \texttt{stopOnNonPD\ =\ TRUE}
+explicitly.
+
+One part of the refined process is still driver-only, not a package
+default:
 
 \begin{itemize}
 \tightlist
 \item
-  \textbf{The repair is still there.} Its sampler still repairs a matrix
-  silently when the Cholesky factorization fails
-  (\texttt{R/generateData.R}, lines 390 to 392). That repair must become an
-  error, as in B.2.
-\item
-  \textbf{The remaining refinements are in the drivers only.} The separable
-  form, anchored carryover, and the natural-course and
-  measurement-error options are implemented in the simulation drivers
-  of the stress test and are to be moved into the package.
+  \textbf{Randomized path allocation.} Assigning participants to
+  randomization paths is a property of the calling driver (how \texttt{N}
+  is split across paths before \texttt{generateData()} is invoked for each
+  one), not of \texttt{buildSigma()} or \texttt{generateData()} themselves, so
+  there is no package-level option to toggle here; each driver must
+  allocate paths at random itself.
 \end{itemize}
+
+A further caveat, outside the five properties above: the
+cross-factor correlation \texttt{buildSigma()} builds is not a single
+\texttt{c\_1\ \textbackslash{}rho\^{}\{\textbar{}w\_t-w\_s\textbar{}\}} at every lag as Table \ref{tab:spec} states.
+It uses \texttt{c.cf1t} at the same timepoint and \texttt{c.cfct\ *\ rho\^{}tg} at every
+other timepoint, i.e.~two constants rather than one evaluated at
+every lag including zero. Whether this is a package defect or Table
+\ref{tab:spec} overstates the uniformity of the cross-factor term
+is not resolved here and is noted for whichever paper's driver
+settings depend on it.
+
+Of the two optional rows in Table \ref{tab:spec}, the biomarker-PB
+prognostic coupling (\texttt{c.bm.pb}) is in the package; a biomarker-TV
+mean-moderation coupling and the measurement-error option are not,
+and remain implemented only in the simulation drivers of the stress
+test, to be moved into the package.
 
 \end{document}

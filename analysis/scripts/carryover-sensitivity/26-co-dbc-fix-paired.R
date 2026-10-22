@@ -125,7 +125,9 @@ run_cell <- function(cell) {
     N = cell$N, carryover_t1half = cell$t1half,
     carryover_form = 'exponential', weibull_shape = 1,
     dgp_architecture = 'mvn', c.bm = cell$c_bm,
-    c.tv = 0.7, c.pb = 0.7, c.br = 0.7, c.cf1t = 0.2, c.cfct = 0.1)
+    ## c.cfct = 0.2, not 0.1: matches c.cf1t so both carry the
+    ## refined process's single c_1 = 0.2 (see simulation-core.R).
+    c.tv = 0.7, c.pb = 0.7, c.br = 0.7, c.cf1t = 0.2, c.cfct = 0.2)
   furrr::future_map_dfr(seq_len(n_reps), function(rep_i) {
     dat <- tryCatch(generate_data_multi_path(model_param, default_resp_param(),
                                              default_baseline_param(), design_set),

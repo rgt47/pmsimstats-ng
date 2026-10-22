@@ -110,11 +110,23 @@ default_baseline_param <- function() {
 ## -----------------------------------------------------------------
 
 generate_data_multi_path <- function(model_param, resp_param,
-                                     baseline_param, design_set) {
+                                     baseline_param, design_set,
+                                     stop_on_nonpd = FALSE) {
   n_paths <- length(design_set)
   N_per_path <- rep(floor(model_param$N / n_paths), n_paths)
-  N_per_path[seq_len(model_param$N %% n_paths)] <-
-    N_per_path[seq_len(model_param$N %% n_paths)] + 1
+  ## Randomized path allocation (refined process; docs/series/
+  ## ch10-refined-process.md). When N is not evenly divisible by
+  ## n_paths, the remainder must go to a randomly chosen subset of
+  ## paths each replicate, not deterministically to the first
+  ## `remainder` paths every time: the latter gives those paths one
+  ## extra patient in every single replicate of the study, a fixed
+  ## design imbalance that never averages out, rather than sampling
+  ## variability that does.
+  remainder <- model_param$N %% n_paths
+  if (remainder > 0) {
+    extra_paths <- sample.int(n_paths, remainder)
+    N_per_path[extra_paths] <- N_per_path[extra_paths] + 1
+  }
 
   map2_dfr(design_set, seq_along(design_set), function(td_path, i) {
     mp_i <- model_param
@@ -123,7 +135,8 @@ generate_data_multi_path <- function(model_param, resp_param,
     dat <- generate_data(
       mp_i, resp_param, baseline_param, td_path,
       empirical = FALSE, make_positive_definite = TRUE,
-      dgp_architecture = mp_i$dgp_architecture %||% 'mvn'
+      dgp_architecture = mp_i$dgp_architecture %||% 'mvn',
+      stop_on_nonpd = stop_on_nonpd
     )
     dat$path <- i
     dat
@@ -411,7 +424,8 @@ fit_all_specs <- function(dat_long, robust = FALSE) {
 
 simulate_cell <- function(cell, n_reps, robust = FALSE,
                           resp_param = NULL,
-                          baseline_param = NULL) {
+                          baseline_param = NULL,
+                          stop_on_nonpd = FALSE) {
   design_set <- build_design_set(cell$design)
   if (is.null(resp_param))     resp_param     <- default_resp_param()
   if (is.null(baseline_param)) baseline_param <- default_baseline_param()
@@ -441,7 +455,16 @@ simulate_cell <- function(cell, n_reps, robust = FALSE,
     weibull_shape = cell$weibull_shape,
     dgp_architecture = cell$dgp_arch,
     c.tv = rho, c.pb = rho, c.br = rho,
-    c.cf1t = 0.2, c.cfct = 0.1
+    ## c.cf1t (same timepoint, lag 0) and c.cfct (other timepoints,
+    ## scaled by rho^lag) together implement the refined process's
+    ## single separable cross-factor correlation c_1 rho^|w_t-w_s|
+    ## (docs/series/ch10-refined-process.md; paper 01 Table
+    ## tab:spec, c_1 = 0.2) only when both equal c_1: at lag 0,
+    ## rho^0 = 1, so c.cf1t alone must carry c_1; at lag > 0 the
+    ## formula is c_1 * rho^lag, carried by c.cfct. Previously
+    ## c.cfct = 0.1 here, which is not c_1 = 0.2 and so did not
+    ## match the documented spec at any lag beyond zero.
+    c.cf1t = 0.2, c.cfct = 0.2
   )
   if (is_combined) {
     model_param$c.bm_a <- cell$c_bm_a
@@ -451,9 +474,21 @@ simulate_cell <- function(cell, n_reps, robust = FALSE,
   }
 
   map_dfr(seq_len(n_reps), function(rep_i) {
+    ## NOTE: with stop_on_nonpd = TRUE, generate_data_multi_path()
+    ## raises an error on a non-PD matrix rather than repairing it,
+    ## but this outer tryCatch still catches it per replicate (so a
+    ## long run doesn't crash on one bad draw) and records it as a
+    ## non-converged/failed replicate below, the same as any other
+    ## generation failure. This differs from the package's stop()
+    ## semantics (which propagate to the caller) but is the
+    ## appropriate adaptation for a Monte Carlo loop: a parameter
+    ## combination that is persistently non-PD will show up as an
+    ## elevated non-convergence rate for its cell, visible in the
+    ## usual summary, rather than as a silently-repaired matrix.
     dat <- tryCatch(
       generate_data_multi_path(model_param, resp_param,
-                               baseline_param, design_set),
+                               baseline_param, design_set,
+                               stop_on_nonpd = stop_on_nonpd),
       error = function(e) NULL
     )
     if (is.null(dat) || nrow(dat) == 0) {
@@ -809,7 +844,8 @@ fit_spec_s7 <- function(dat_long, spec) {
 }
 
 simulate_cell_s7 <- function(cell, n_reps,
-                             specs = c('E1', 'E7', 'E9')) {
+                             specs = c('E1', 'E7', 'E9'),
+                             stop_on_nonpd = FALSE) {
   design_set <- build_design_set(cell$design)
   resp_param     <- default_resp_param()
   baseline_param <- default_baseline_param()
@@ -836,13 +872,19 @@ simulate_cell_s7 <- function(cell, n_reps,
     dgp_architecture = cell$dgp_arch,
     c.bm = cell$c_bm,
     c.tv = rho, c.pb = rho, c.br = rho,
-    c.cf1t = 0.2, c.cfct = 0.1
+    ## See simulate_cell()'s comment above: both constants must
+    ## equal c_1 = 0.2 to match the refined process's documented
+    ## single separable cross-factor correlation c_1 rho^|w_t-w_s|.
+    c.cf1t = 0.2, c.cfct = 0.2
   )
 
   furrr::future_map_dfr(seq_len(n_reps), function(rep_i) {
+    ## See simulate_cell()'s note on stop_on_nonpd: caught per
+    ## replicate here too, recorded as converged = FALSE.
     dat <- tryCatch(
       generate_data_multi_path(model_param, resp_param,
-                               baseline_param, design_set),
+                               baseline_param, design_set,
+                               stop_on_nonpd = stop_on_nonpd),
       error = function(e) NULL
     )
     if (is.null(dat) || nrow(dat) == 0) {

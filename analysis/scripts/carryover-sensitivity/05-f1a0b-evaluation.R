@@ -9,6 +9,12 @@
 ##            docs/57 Section 7.3 prog-BL), null only -- this cell
 ##            tests Type I error under a confound unrelated to the
 ##            interaction, not power
+##   progtvconst, progtvgrow, progpb  the other three docs/57
+##            Section 7.3 prognostic pathways (c_tv = 0.3, b_tv =
+##            0.3, c_pb = 0.3 respectively), null only, same
+##            rationale as progbl. Added 2026-10-22 once c.bm.pb was
+##            mirrored into implementations/tidyverse and plumbed
+##            through this driver (previously package-only).
 ##
 ## Flattens all (cell, replicate) jobs into one list so the 8
 ## available cores are shared across cells rather than one cell
@@ -42,7 +48,10 @@ CELLS <- list(
   hybrid_alt  = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0.45)),
   olbdc_null  = modifyList(base_cell, list(design = 'OLBDC',  c_bm = 0)),
   olbdc_alt   = modifyList(base_cell, list(design = 'OLBDC',  c_bm = 0.45)),
-  progbl_null = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0, c_bl = 0.3))
+  progbl_null = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0, c_bl = 0.3)),
+  progtvconst_null = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0, c_tv = 0.3)),
+  progtvgrow_null = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0, b_tv = 0.3)),
+  progpb_null = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0, c_pb = 0.3))
 )
 
 jobs <- expand.grid(cell = names(CELLS), rep = seq_len(REPS),

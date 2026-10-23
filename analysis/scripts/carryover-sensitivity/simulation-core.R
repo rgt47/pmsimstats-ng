@@ -486,6 +486,15 @@ simulate_cell <- function(cell, n_reps, robust = FALSE,
   ## unshifted, reproducing all existing cells exactly.
   model_param$b.bm.tv <- default_val(cell[['b_tv']], 0)
 
+  ## optional prognostic-PB coupling (prog-PB cell, docs/57 Section
+  ## 7.3; cell field `cl$c_pb`, matching
+  ## 11-strawman-stress-test.R's convention). Not to be confused
+  ## with model_param$c.pb (the AR(1) PB autocorrelation, from
+  ## cell$rho above) or with the trial-design field of the same
+  ## name used elsewhere. Absent or zero leaves bm and PB
+  ## uncorrelated, reproducing all existing cells exactly.
+  model_param$c.bm.pb <- default_val(cell[['c_pb']], 0)
+
   map_dfr(seq_len(n_reps), function(rep_i) {
     ## NOTE: with stop_on_nonpd = TRUE, generate_data_multi_path()
     ## raises an error on a non-PD matrix rather than repairing it,
@@ -903,6 +912,10 @@ simulate_cell_s7 <- function(cell, n_reps,
   ## simulate_cell().
   model_param$b.bm.tv <- default_val(cell[['b_tv']], 0)
 
+  ## optional prognostic-PB coupling, same convention as
+  ## simulate_cell().
+  model_param$c.bm.pb <- default_val(cell[['c_pb']], 0)
+
   furrr::future_map_dfr(seq_len(n_reps), function(rep_i) {
     ## See simulate_cell()'s note on stop_on_nonpd: caught per
     ## replicate here too, recorded as converged = FALSE.
@@ -1135,6 +1148,7 @@ simulate_cell_f <- function(cell, n_reps, n_boot = 1L,
   model_param$c.bm.bl <- default_val(cell[['c_bl']], 0)
   model_param$c.bm.tv <- default_val(cell[['c_tv']], 0)
   model_param$b.bm.tv <- default_val(cell[['b_tv']], 0)
+  model_param$c.bm.pb <- default_val(cell[['c_pb']], 0)
 
   map_dfr(seq_len(n_reps), function(rep_i) {
     dat <- tryCatch(

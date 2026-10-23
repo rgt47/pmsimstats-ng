@@ -304,6 +304,23 @@ build_correlation_matrix <- function(
         }
       }
     }
+
+    # BM-PB differential correlation (contaminated-biomarker DGP;
+    # mirrors R/generateData.R). Couples the biomarker to the PB
+    # component so high-biomarker participants are also stronger
+    # placebo responders. Gated on c.bm.pb; absent or zero leaves
+    # the BR-only coupling untouched.
+    if (current_factor == "pb" && dgp_architecture %in% c("mvn", "combined")) {
+      c_bm_pb <- model_param$c.bm.pb
+      if (!is.null(c_bm_pb) && !is.na(c_bm_pb) && c_bm_pb != 0) {
+        for (timepoint_idx in seq_len(num_timepoints)) {
+          name1 <- paste(trial_design$timepoint_name[
+                           timepoint_idx], "pb", sep = ".")
+          correlations["bm", name1] <- c_bm_pb
+          correlations[name1, "bm"] <- c_bm_pb
+        }
+      }
+    }
   }
 
   # BM-BL correlation (prognostic-baseline-severity coupling; docs/57

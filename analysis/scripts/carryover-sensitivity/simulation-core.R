@@ -1080,9 +1080,14 @@ boot_stat_f1a0 <- function(ds, grid = F_GRID, analysis_form = 'exponential',
 ## across the three rows) for later per-cell pooling into F1A0B's
 ## calibrated size/power (docs/62; ws_size-style comparison of the
 ## observed |t| against the pooled resampled |t| of the same cell).
+## `grid` overrides F_GRID (docs/62 criterion 3's "what if the grid
+## is denser" stress test, 2026-10-23: a denser grid gives AIC more
+## candidate half-lives to overfit to under the null, which is the
+## scenario F1A0B's bootstrap correction is meant to guard against
+## but that the 5-point project grid never actually exercises).
 fit_f_family <- function(dat_long, n_boot = 1L, analysis_form = 'exponential',
-                         analysis_shape = 1) {
-  g <- grid_fits_f(dat_long, analysis_form = analysis_form,
+                         analysis_shape = 1, grid = F_GRID) {
+  g <- grid_fits_f(dat_long, grid = grid, analysis_form = analysis_form,
                    analysis_shape = analysis_shape)
   m <- grid_methods_f(g)
   m <- mutate(m, converged = !is.na(estimate) & !is.na(std_error),
@@ -1095,7 +1100,8 @@ fit_f_family <- function(dat_long, n_boot = 1L, analysis_form = 'exponential',
     if (!is.null(nf)) {
       boot_vals <- vapply(seq_len(n_boot), function(b)
         boot_stat_f1a0(sim_null_f(nf, dat_long, h0, analysis_form, analysis_shape),
-                       analysis_form = analysis_form, analysis_shape = analysis_shape),
+                       grid = grid, analysis_form = analysis_form,
+                       analysis_shape = analysis_shape),
         numeric(1))
       boot_t <- mean(boot_vals, na.rm = TRUE)
     }
@@ -1129,6 +1135,7 @@ simulate_cell_f <- function(cell, n_reps, n_boot = 1L,
   analysis_t1half <- default_val(cell[['analysis_t1half']], cell$t1half)
   analysis_form   <- default_val(cell[['analysis_form']], cell$carryover_form)
   analysis_shape  <- default_val(cell[['analysis_shape']], cell$weibull_shape)
+  f_grid          <- if (is.null(cell[['f_grid']])) F_GRID else cell[['f_grid']]
   is_combined <- isTRUE(cell$dgp_arch == 'combined')
 
   model_param <- list(
@@ -1174,7 +1181,8 @@ simulate_cell_f <- function(cell, n_reps, n_boot = 1L,
     )
     fit_f_family(dat_long, n_boot = n_boot,
                 analysis_form = analysis_form,
-                analysis_shape = analysis_shape) |>
+                analysis_shape = analysis_shape,
+                grid = f_grid) |>
       as_tibble() |>
       mutate(rep = rep_i, .before = 1)
   })

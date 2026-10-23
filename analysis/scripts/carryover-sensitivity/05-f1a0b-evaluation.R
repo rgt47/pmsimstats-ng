@@ -40,6 +40,16 @@
 ##            cells above; reported for Type I error and as an
 ##            exploratory power look only. Null and alt
 ##            (c_bm = 0.25). Added 2026-10-23.
+##   densegrid, vdensegrid  grid-density stress test, null only
+##            (c_bm = 0): F1A0 never shows Type I error inflation
+##            on the project's 5-point grid (0, 0.2, 0.5, 1, 2); a
+##            denser grid gives AIC more candidate half-lives to
+##            overfit to under the null, which is the scenario
+##            F1A0B's bootstrap correction exists to guard against
+##            but that the 5-point grid never exercises. densegrid
+##            uses 16 points, vdensegrid 31 (0 to 3 by 0.1). F1A and
+##            F1A0B are also evaluated here as points of comparison.
+##            Added 2026-10-23.
 ##
 ## Flattens all (cell, replicate) jobs into one list so the 8
 ## available cores are shared across cells rather than one cell
@@ -95,7 +105,14 @@ CELLS <- list(
   meanmod_null = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0,
                                              dgp_arch = 'mean_moderation')),
   meanmod_alt  = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0.25,
-                                             dgp_arch = 'mean_moderation'))
+                                             dgp_arch = 'mean_moderation')),
+  densegrid_null = modifyList(base_cell, list(
+    design = 'Hybrid', c_bm = 0,
+    f_grid = c(0, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.65, 0.75,
+              1, 1.25, 1.5, 1.75, 2, 2.5, 3))),
+  vdensegrid_null = modifyList(base_cell, list(
+    design = 'Hybrid', c_bm = 0,
+    f_grid = seq(0, 3, by = 0.1)))
 )
 
 jobs <- expand.grid(cell = names(CELLS), rep = seq_len(REPS),

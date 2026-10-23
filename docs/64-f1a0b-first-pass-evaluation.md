@@ -10,7 +10,7 @@ data-driven candidate -- "has not been tested in paper 02 or cited
 by it," and lists nine criteria ("what best would mean") against
 which no method has been fully checked. This note reports a first,
 small-scale evaluation of F1A0B (and its F1/F1A/F1A0 relatives)
-against three of those criteria, on paper 02's own driver and the
+against seven of those criteria, on paper 02's own driver and the
 refined-process DGP, as a first step toward closing that gap. It is
 exploratory, not pre-registered or confirmatory.
 
@@ -69,6 +69,9 @@ decay:
 | `hybrid_null` / `hybrid_alt` | Hybrid | 0 / 0.45 | -- |
 | `hybrid_alt_lo` | Hybrid | 0.25 | de-saturation arm, added 2026-10-22 |
 | `olbdc_null` / `olbdc_alt` | OL+BDC | 0 / 0.45 | -- |
+| `t1hifhi_null` / `_alt` | Hybrid | 0 / 0.25 | $t_{1/2}=2$ wk (crit. 3) |
+| `shapemis_null` / `_alt` | Hybrid | 0/0.25 | Weibull DGP, exp fit (crit 4) |
+| `meanmod_null` / `_alt` | Hybrid | 0 / 0.25 | mean-mod. DGP (crit. 6) |
 | `progbl_null` | Hybrid | 0 | $c_{bl} = 0.3$ (prog-BL) |
 | `progtvconst_null` | Hybrid | 0 | $c_{tv} = 0.3$ (prog-TV-const) |
 | `progtvgrow_null` | Hybrid | 0 | $b_{tv} = 0.3$ (prog-TV-grow) |
@@ -85,8 +88,10 @@ a further 15.6 minutes for 1,500 more jobs (the three additional
 prognostic pathways, added once `c.bm.pb` was mirrored into
 `implementations/tidyverse` and plumbed through this driver --
 previously package-only, a gap flagged earlier in this session),
-and a further 5.6 minutes for 500 more jobs (`hybrid_alt_lo`, added
-to de-saturate the Hybrid power comparison below).
+a further 5.6 minutes for 500 more jobs (`hybrid_alt_lo`, added to
+de-saturate the Hybrid power comparison), and a further 40.9 minutes
+for 3,000 more jobs (the six criterion-3/4/6 cells added
+2026-10-23).
 
 ## Results
 
@@ -106,6 +111,12 @@ so about $\pm 0.02$ at two MCSE.
 | prog-TV-const null | 0.040 | 0.044 | 0.042 | 0.032 |
 | prog-TV-grow null | 0.042 | 0.040 | 0.040 | 0.030 |
 | prog-PB null | 0.042 | 0.042 | 0.042 | 0.030 |
+| Half-life misspec. null ($t_{1/2}=2$ wk) | 0.042 | 0.058 | 0.054 | 0.060 |
+| Half-life misspec. alt ($t_{1/2}=2$ wk) | 0.193 | 0.291 | 0.269 | 0.269 |
+| Decay-shape misspec. null | 0.040 | 0.036 | 0.034 | 0.034 |
+| Decay-shape misspec. alt ($c_{bm}=0.25$) | 0.629 | 0.627 | 0.623 | 0.615 |
+| Mean-moderation null | 0.042 | 0.040 | 0.040 | 0.030 |
+| Mean-moderation alt ($c_{bm}=0.25$) | 0.614 | 0.622 | 0.612 | 0.561 |
 
 *Verified* (computed by running the driver above in this session).
 
@@ -154,22 +165,85 @@ No pathway shows inflation. This is the first check of this specific
 robustness claim across all four named confounds, at one effect
 size ($c_{tv}/b_{tv}/c_{bl}/c_{pb} = 0.3$) and one design (Hybrid).
 
+**3. Robustness to half-life misspecification.** This is the
+scenario the F1A0/F1A0B machinery exists for: when the true
+data-generating half-life is far from F1's fixed policy value of
+0.2 week, a correctly-specified adaptive method should recover
+power that F1 leaves on the table. At $t_{1/2}=2$ weeks (a
+"behavioral" scenario, `CLAUDE.md`), that is exactly what happens:
+power is 0.193 for F1 against 0.291 for F1A, 0.269 for F1A0, and
+0.269 for F1A0B -- a 7.6- to 9.8-point advantage over F1
+(*verified*; the F1-vs-F1A gap is about 5 Monte Carlo standard
+errors, $\mathrm{SE}\approx\sqrt{0.25\times0.75/500}\approx0.019$).
+This is the first result in this evaluation where an adaptive
+method clearly outperforms F1, and it is the one that most directly
+supports using a data-chosen half-life at all.
+
+The null cell at the same $t_{1/2}=2$ complicates that picture. F1's
+size is nominal (0.042), but F1A, F1A0 and (notably) F1A0B are all
+somewhat above nominal: 0.058, 0.054, and 0.060 respectively. The
+F1A0B deviation (0.0604 vs. 0.05) is about 1.06 Monte Carlo standard
+errors ($\mathrm{SE}\approx0.0098$) -- not statistically
+distinguishable from nominal at this replicate count, but notable
+because it is the only cell in this entire evaluation where F1A0B is
+not the most conservative of the four methods; here it is
+tied for the most liberal. Whether this is noise or a genuine small
+inflation specific to a strongly misspecified half-life cannot be
+resolved with 500 replicates and warrants a larger run before this
+cell's power result is used to argue for F1A0B specifically (as
+opposed to F1A/F1A0, which show the same power gain without this
+borderline-liberal null behavior).
+
+**4. Robustness to decay-shape misspecification.** Fitting the
+F-family model under an assumed exponential decay when the true DGP
+decay is Weibull ($k=2$, accelerated washout) produces no detectable
+Type I error inflation (0.034 to 0.040 across all four methods at
+the null) and no power advantage for the adaptive methods: F1
+(0.629), F1A (0.627), F1A0 (0.623) and F1A0B (0.615) are all close
+together, with F1A0B again the lowest, consistent with its pattern
+everywhere else in this evaluation except the half-life
+misspecification alt cell above. At this one shape and one
+half-life, misspecifying the decay *functional form* behaves
+differently from misspecifying the *half-life value*: it does not
+visibly cost F1 power, and it does not reward the adaptive methods.
+
+**6. Robustness to DGP architecture.** Under the mean-moderation
+architecture (`dgp_arch = 'mean_moderation'`) instead of the default
+covariance-moderation (`mvn`), the null cell shows no inflation
+(0.030 to 0.042, the same conservative-F1A0B pattern as under
+`mvn`). The alternative cell shows F1 (0.614), F1A (0.622) and F1A0
+(0.612) close together, with F1A0B noticeably lower at 0.561 -- a
+6.1-point gap from F1A, about 2.8 Monte Carlo standard errors
+($\mathrm{SE}\approx0.022$), the largest power deficit for F1A0B
+relative to the other three methods anywhere in this evaluation.
+Because $c_{bm}$ has a different scale under mean-moderation (a mean
+shift rather than a correlation; `CLAUDE.md`, "Biomarker
+parameterization"), this alt cell's absolute power is not
+comparable to the `mvn` alt cells elsewhere in this table; only the
+relative ordering among the four F-family methods, and the absence
+of Type I error inflation, should be read from it.
+
 **8. Computational cost.** 26.3 minutes for 2,500 (cell, replicate)
 jobs on 6 cores is approximately 0.38 seconds per job amortized
 across cores, or roughly 2.1 seconds serially per job (three nominal
 fits plus one bootstrap resample), consistent with `docs/62`'s
 reported cost for the data-driven F-family methods.
 
-**9. Validation completeness.** This pass checks criteria 1, 2
-(now at two effect sizes per design, one of them de-saturated), 5
-(partially, substituting OL+BDC for CO) and 7 (all four named
-prognostic pathways, one effect size each, one design) for F1A0B
-specifically, at 500 replicates per cell. Criteria 3 (half-life
-misspecification),
-4 (decay-shape misspecification) and 6 (DGP architecture) remain
-entirely untested for F1A0B, as does any direct, shared-grid
-comparison against `G8`/`G9` (criterion 3 of `docs/62` Part 3's "how
-the two families connect").
+**9. Validation completeness.** This pass now checks all seven of
+the docs/62 criteria that have an operational test on this driver:
+1 (size), 2 (power, at two effect sizes per design, one
+de-saturated), 3 (half-life misspecification, one scenario), 4
+(decay-shape misspecification, one scenario), 5 (trial design,
+substituting OL+BDC for CO), 6 (DGP architecture, mean-moderation
+only) and 7 (all four named prognostic pathways). Each is checked at
+one effect size and 500 replicates, which is enough to see the
+clearest effects (the criterion-3 power gain, the criterion-6 power
+deficit) but not enough to resolve the borderline criterion-3 null
+result. Criterion 8 (cost) is addressed below. No direct,
+shared-grid comparison against `G8`/`G9` has been run (criterion 3
+of `docs/62` Part 3's "how the two families connect"), and the dual-
+channel architecture (paper 11's `combined` DGP) was not included in
+the criterion-6 check.
 
 ## Caveats, unsolicited
 
@@ -192,6 +266,20 @@ the two families connect").
   interaction co-occur, is untested.
 - No comparison against the `G`-family (`G1`-`G9`) on the same
   cells; this note evaluates F1A0B in isolation, not head to head.
+- The half-life misspecification null result (criterion 3) needs a
+  larger run before it can be read as either "fine" or "a real
+  liberal bias": at 500 replicates, F1A0B's 0.060 at a 0.05 nominal
+  level is not statistically distinguishable from nominal, but it is
+  the only cell in this evaluation where F1A0B is not the most
+  conservative method, and that reversal co-occurs with its only
+  clear power advantage over F1. Both deserve a rerun at a larger
+  replicate count before either is trusted.
+- Criteria 3, 4 and 6 were each checked at exactly one scenario (one
+  misspecified half-life, one Weibull shape, one architecture), not
+  a grid; none of the three claims generalizes past the specific
+  values tested.
+- The dual-channel (`combined`) DGP architecture (paper 11) was not
+  included in the criterion-6 check, only mean-moderation.
 - This driver's F-family code and
   `analysis/scripts/data-chosen-half-life/57-common.R`'s are
   independent implementations of the same methods; they have not

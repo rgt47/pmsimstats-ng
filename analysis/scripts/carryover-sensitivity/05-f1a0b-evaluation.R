@@ -19,6 +19,27 @@
 ##            rationale as progbl. Added 2026-10-22 once c.bm.pb was
 ##            mirrored into implementations/tidyverse and plumbed
 ##            through this driver (previously package-only).
+##   t1hifhi  docs/62 criterion 3 (half-life misspecification):
+##            true DGP t1half = 2 weeks (a "behavioral" scenario,
+##            far from F1's fixed 0.2-week policy value), null and
+##            alt (c_bm = 0.25, matching the de-saturated Hybrid
+##            effect size so power is comparable). Added 2026-10-23.
+##   shapemis docs/62 criterion 4 (decay-shape misspecification):
+##            true DGP decay is Weibull (shape = 2, accelerated
+##            washout) rather than exponential, but the F-family
+##            analysis model is still fit assuming exponential decay
+##            (cell$analysis_form override) -- the model is
+##            misspecified on functional form, not just half-life.
+##            Null and alt (c_bm = 0.25). Added 2026-10-23.
+##   meanmod  docs/62 criterion 6 (DGP architecture): the
+##            mean-moderation architecture instead of the default
+##            covariance-moderation (mvn) architecture. c_bm has a
+##            different scale under mean-moderation (a mean-shift
+##            coefficient, not a correlation), so its alt cell's
+##            power is not directly comparable to the mvn alt
+##            cells above; reported for Type I error and as an
+##            exploratory power look only. Null and alt
+##            (c_bm = 0.25). Added 2026-10-23.
 ##
 ## Flattens all (cell, replicate) jobs into one list so the 8
 ## available cores are shared across cells rather than one cell
@@ -56,7 +77,25 @@ CELLS <- list(
   progbl_null = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0, c_bl = 0.3)),
   progtvconst_null = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0, c_tv = 0.3)),
   progtvgrow_null = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0, b_tv = 0.3)),
-  progpb_null = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0, c_pb = 0.3))
+  progpb_null = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0, c_pb = 0.3)),
+  t1hifhi_null = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0,
+                                             t1half = 2)),
+  t1hifhi_alt  = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0.25,
+                                             t1half = 2)),
+  shapemis_null = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0,
+                                              carryover_form = 'weibull',
+                                              weibull_shape = 2,
+                                              analysis_form = 'exponential',
+                                              analysis_shape = 1)),
+  shapemis_alt  = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0.25,
+                                              carryover_form = 'weibull',
+                                              weibull_shape = 2,
+                                              analysis_form = 'exponential',
+                                              analysis_shape = 1)),
+  meanmod_null = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0,
+                                             dgp_arch = 'mean_moderation')),
+  meanmod_alt  = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0.25,
+                                             dgp_arch = 'mean_moderation'))
 )
 
 jobs <- expand.grid(cell = names(CELLS), rep = seq_len(REPS),

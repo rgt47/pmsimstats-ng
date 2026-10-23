@@ -72,6 +72,8 @@ decay:
 | `t1hifhi_null` / `_alt` | Hybrid | 0 / 0.25 | $t_{1/2}=2$ wk (crit. 3) |
 | `shapemis_null` / `_alt` | Hybrid | 0/0.25 | Weibull DGP, exp fit (crit 4) |
 | `meanmod_null` / `_alt` | Hybrid | 0 / 0.25 | mean-mod. DGP (crit. 6) |
+| `densegrid_null` | Hybrid | 0 | AIC grid widened to 16 points |
+| `vdensegrid_null` | Hybrid | 0 | AIC grid widened to 31 points |
 | `progbl_null` | Hybrid | 0 | $c_{bl} = 0.3$ (prog-BL) |
 | `progtvconst_null` | Hybrid | 0 | $c_{tv} = 0.3$ (prog-TV-const) |
 | `progtvgrow_null` | Hybrid | 0 | $b_{tv} = 0.3$ (prog-TV-grow) |
@@ -89,9 +91,11 @@ prognostic pathways, added once `c.bm.pb` was mirrored into
 `implementations/tidyverse` and plumbed through this driver --
 previously package-only, a gap flagged earlier in this session),
 a further 5.6 minutes for 500 more jobs (`hybrid_alt_lo`, added to
-de-saturate the Hybrid power comparison), and a further 40.9 minutes
+de-saturate the Hybrid power comparison), a further 40.9 minutes
 for 3,000 more jobs (the six criterion-3/4/6 cells added
-2026-10-23).
+2026-10-23), and a further 58.2 minutes for 1,000 more jobs (the
+grid-density stress-test cells, denser grids cost more per
+replicate than the standard 5-point grid, also added 2026-10-23).
 
 ## Results
 
@@ -117,6 +121,8 @@ so about $\pm 0.02$ at two MCSE.
 | Decay-shape misspec. alt ($c_{bm}=0.25$) | 0.629 | 0.627 | 0.623 | 0.615 |
 | Mean-moderation null | 0.042 | 0.040 | 0.040 | 0.030 |
 | Mean-moderation alt ($c_{bm}=0.25$) | 0.614 | 0.622 | 0.612 | 0.561 |
+| Dense-grid null (16 points) | 0.042 | 0.042 | 0.040 | 0.038 |
+| Very-dense-grid null (31 points) | 0.042 | 0.042 | 0.040 | 0.034 |
 
 *Verified* (computed by running the driver above in this session).
 
@@ -194,6 +200,38 @@ cell's power result is used to argue for F1A0B specifically (as
 opposed to F1A/F1A0, which show the same power gain without this
 borderline-liberal null behavior).
 
+**3b. Grid-density stress test (does a denser AIC grid break
+F1A0's size?).** F1A0 never showed Type I error inflation anywhere
+in this evaluation's standard 5-point grid ($\{0, 0.2, 0.5, 1, 2\}$
+weeks), which raised the question of whether that is because the
+scenario the bootstrap correction is meant to guard against --
+AIC overfitting the half-life under the null, when it has more
+candidate values to choose from -- was never actually exercised.
+Two cells test this directly: a 16-point grid and a 31-point grid
+(0 to 3 weeks by 0.1), both at the null, with the true DGP half-life
+(0.5 week) and everything else matching `hybrid_null`.
+
+AIC genuinely explores the wider grid: F1A0 selects from 11
+distinct half-life values at the 31-point grid (*verified*, from
+the saved per-replicate data), clustering near the true DGP value
+(0, 0.1, ..., 0.9, with a mode around 0.3-0.5, plus one outlier at
+1.5), not collapsing to one or two points. Despite that, F1A0's size
+stays at 0.040 on both the 16- and 31-point grids, matching its
+5-point-grid value (0.038-0.042 elsewhere in this table) and showing
+no trend toward inflation as the grid widens six-fold. F1A0B tracks
+slightly below it (0.038 and 0.034), its usual conservative margin.
+F1 and F1A, both unaffected by the grid widening (F1's $t_{1/2}^a$
+is fixed; F1A's own size was already nominal at 0.042 throughout),
+serve as the unchanged baseline.
+
+This is the first genuine attempt in this evaluation to break
+F1A0's size, and it did not succeed at this $N=70$, this true
+half-life, and these two grid densities. It does not rule out
+inflation under a denser grid combined with a smaller $N$ (where
+AIC has less information per candidate and more room to overfit)
+or a true half-life that falls between grid points rather than on
+one -- neither of which was tried here.
+
 **4. Robustness to decay-shape misspecification.** Fitting the
 F-family model under an assumed exponential decay when the true DGP
 decay is Weibull ($k=2$, accelerated washout) produces no detectable
@@ -232,7 +270,9 @@ reported cost for the data-driven F-family methods.
 **9. Validation completeness.** This pass now checks all seven of
 the docs/62 criteria that have an operational test on this driver:
 1 (size), 2 (power, at two effect sizes per design, one
-de-saturated), 3 (half-life misspecification, one scenario), 4
+de-saturated), 3 (half-life misspecification, one scenario, plus a
+grid-density stress test aimed specifically at F1A0's size that did
+not find inflation), 4
 (decay-shape misspecification, one scenario), 5 (trial design,
 substituting OL+BDC for CO), 6 (DGP architecture, mean-moderation
 only) and 7 (all four named prognostic pathways). Each is checked at
@@ -278,6 +318,11 @@ the criterion-6 check.
   misspecified half-life, one Weibull shape, one architecture), not
   a grid; none of the three claims generalizes past the specific
   values tested.
+- The grid-density stress test (3b) failed to break F1A0's size at
+  $N=70$ and the true DGP half-life used everywhere else in this
+  table (0.5 week). It was not tried at a smaller $N$ or a true
+  half-life sitting between grid points, either of which plausibly
+  gives AIC more room to overfit than this attempt did.
 - The dual-channel (`combined`) DGP architecture (paper 11) was not
   included in the criterion-6 check, only mean-moderation.
 - This driver's F-family code and

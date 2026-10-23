@@ -548,6 +548,13 @@ intercept.
   clinician-facing explanation of the compound-symmetry-to-separable-
   AR(1) change (`docs/35`, `ch10`), in the style of `docs/53`/`docs/55`
   (2026-10-21).
+- `docs/64-f1a0b-first-pass-evaluation.md` — first-pass evaluation of
+  F1A0B against `docs/62`'s criteria: no Type I error inflation,
+  including under a prognostic biomarker (prog-BL), but no power
+  advantage over plain F1 (2026-10-22). Adds the F-family model to
+  `simulation-core.R`; documents that paper 02's `CO` design preset
+  is unidentifiable for this model (constant expectancy) and that
+  `OLBDC` was substituted for the design-robustness arm.
 - `docs/legacy/INDEX.md` — maps every old `docs/NN` number to its
   new home (archived files live in `docs/legacy/`).
 - `docs/legacy/reorg-plan-2026-04-22.md` — the April 2026 repository

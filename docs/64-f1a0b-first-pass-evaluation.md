@@ -69,6 +69,9 @@ decay:
 | `hybrid_null` / `hybrid_alt` | Hybrid | 0 / 0.45 | -- |
 | `olbdc_null` / `olbdc_alt` | OL+BDC | 0 / 0.45 | -- |
 | `progbl_null` | Hybrid | 0 | $c_{bl} = 0.3$ (prog-BL) |
+| `progtvconst_null` | Hybrid | 0 | $c_{tv} = 0.3$ (prog-TV-const) |
+| `progtvgrow_null` | Hybrid | 0 | $b_{tv} = 0.3$ (prog-TV-grow) |
+| `progpb_null` | Hybrid | 0 | $c_{pb} = 0.3$ (prog-PB) |
 
 500 replicates per cell, one warp-speed bootstrap resample per
 replicate ($n_{boot} = 1$, the cheapest setting). Driver:
@@ -76,7 +79,11 @@ replicate ($n_{boot} = 1$, the cheapest setting). Driver:
 Output: `analysis/data/carryover-sensitivity/f1a0b-evaluation/`
 (`all.rds` pooled per-replicate results, `summary.rds` the table
 below, `trials/` per-replicate checkpoints). Run time: 26.3 minutes
-for 2,500 (cell, replicate) jobs on 6 cores.
+for the first 2,500 (cell, replicate) jobs (five cells) on 6 cores,
+plus a further 15.6 minutes for 1,500 more jobs (the three
+additional prognostic pathways, added once `c.bm.pb` was mirrored
+into `implementations/tidyverse` and plumbed through this driver --
+previously package-only, a gap flagged earlier in this session).
 
 ## Results
 
@@ -92,6 +99,9 @@ so about $\pm 0.02$ at two MCSE.
 | OL+BDC null | 0.046 | 0.046 | 0.040 | 0.034 |
 | OL+BDC alt | 0.849 | 0.844 | 0.844 | 0.844 |
 | prog-BL null | 0.042 | 0.040 | 0.038 | 0.028 |
+| prog-TV-const null | 0.040 | 0.044 | 0.042 | 0.032 |
+| prog-TV-grow null | 0.042 | 0.040 | 0.040 | 0.030 |
+| prog-PB null | 0.042 | 0.042 | 0.042 | 0.030 |
 
 *Verified* (computed by running the driver above in this session).
 
@@ -117,14 +127,18 @@ of the same thing.
 
 **7. Robustness to a prognostic biomarker.** This is the criterion
 `docs/62` singles out as checked for no `G`-family specification at
-all. On the one prognostic cell tested (prog-BL, biomarker
-correlated with baseline severity, $c_{bm} = 0$), F1A0B holds
-nominal size (0.028), as do F1, F1A and F1A0. This is a first
-positive result for this specific robustness claim, not a complete
-check of it: `docs/57`'s other three prognostic pathways
-(prog-TV-const, prog-TV-grow, prog-PB, all implemented in
-`R/generateData.R` and the tidyverse mirror as of this session) were
-not run here.
+all. All four prognostic pathways of `docs/57` Section 7.3 are now
+run ($c_{bm} = 0$ throughout, so the biomarker drives none of the
+true interaction, only the confound named): prog-BL (biomarker
+correlated with baseline severity), prog-TV-const (correlated with
+the natural-history trajectory), prog-TV-grow (an additive mean
+shift of that trajectory) and prog-PB (correlated with the placebo
+response). F1A0B holds nominal size at every one (0.028 to 0.032),
+as do F1, F1A and F1A0, with the same qualitative pattern across all
+four: F1A0B mildly conservative, the other three close to nominal.
+No pathway shows inflation. This is the first check of this specific
+robustness claim across all four named confounds, at one effect
+size ($c_{tv}/b_{tv}/c_{bl}/c_{pb} = 0.3$) and one design (Hybrid).
 
 **8. Computational cost.** 26.3 minutes for 2,500 (cell, replicate)
 jobs on 6 cores is approximately 0.38 seconds per job amortized
@@ -134,10 +148,10 @@ reported cost for the data-driven F-family methods.
 
 **9. Validation completeness.** This pass checks criteria 1, 2
 (partially, confounded by ceiling effects at Hybrid), 5 (partially,
-substituting OL+BDC for CO) and 7 (partially, one of four
-prognostic pathways) for F1A0B specifically, at one effect size and
-500 replicates. Criteria 3 (half-life misspecification), 4
-(decay-shape misspecification) and 6 (DGP architecture) remain
+substituting OL+BDC for CO) and 7 (all four named prognostic
+pathways, one effect size each, one design) for F1A0B specifically,
+at 500 replicates per cell. Criteria 3 (half-life misspecification),
+4 (decay-shape misspecification) and 6 (DGP architecture) remain
 entirely untested for F1A0B, as does any direct, shared-grid
 comparison against `G8`/`G9` (criterion 3 of `docs/62` Part 3's "how
 the two families connect").
@@ -153,8 +167,10 @@ the two families connect").
 - $n_{boot} = 1$ is the noisiest warp-speed setting; a larger
   per-replicate resample count (or more replicates) would tighten
   F1A0B's calibration estimate specifically.
-- Only prog-BL was tested among the four prognostic pathways in
-  `docs/57` Section 7.3.
+- All four prognostic pathways were tested, but at one effect size
+  each ($0.3$) and one design (Hybrid); misspecification of that
+  effect size, or whether a prognostic confound and the true
+  interaction co-occur, is untested.
 - No comparison against the `G`-family (`G1`-`G9`) on the same
   cells; this note evaluates F1A0B in isolation, not head to head.
 - This driver's F-family code and

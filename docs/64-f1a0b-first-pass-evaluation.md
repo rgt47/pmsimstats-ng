@@ -67,6 +67,7 @@ decay:
 | Cell | Design | $c_{bm}$ | Other |
 |---|---|---|---|
 | `hybrid_null` / `hybrid_alt` | Hybrid | 0 / 0.45 | -- |
+| `hybrid_alt_lo` | Hybrid | 0.25 | de-saturation arm, added 2026-10-22 |
 | `olbdc_null` / `olbdc_alt` | OL+BDC | 0 / 0.45 | -- |
 | `progbl_null` | Hybrid | 0 | $c_{bl} = 0.3$ (prog-BL) |
 | `progtvconst_null` | Hybrid | 0 | $c_{tv} = 0.3$ (prog-TV-const) |
@@ -80,10 +81,12 @@ Output: `analysis/data/carryover-sensitivity/f1a0b-evaluation/`
 (`all.rds` pooled per-replicate results, `summary.rds` the table
 below, `trials/` per-replicate checkpoints). Run time: 26.3 minutes
 for the first 2,500 (cell, replicate) jobs (five cells) on 6 cores,
-plus a further 15.6 minutes for 1,500 more jobs (the three
-additional prognostic pathways, added once `c.bm.pb` was mirrored
-into `implementations/tidyverse` and plumbed through this driver --
-previously package-only, a gap flagged earlier in this session).
+a further 15.6 minutes for 1,500 more jobs (the three additional
+prognostic pathways, added once `c.bm.pb` was mirrored into
+`implementations/tidyverse` and plumbed through this driver --
+previously package-only, a gap flagged earlier in this session),
+and a further 5.6 minutes for 500 more jobs (`hybrid_alt_lo`, added
+to de-saturate the Hybrid power comparison below).
 
 ## Results
 
@@ -96,6 +99,7 @@ so about $\pm 0.02$ at two MCSE.
 |---|---|---|---|---|
 | Hybrid null | 0.042 | 0.040 | 0.040 | 0.030 |
 | Hybrid alt ($c_{bm}=0.45$) | 0.950 | 0.957 | 0.954 | 0.944 |
+| Hybrid alt, lower effect ($c_{bm}=0.25$) | 0.513 | 0.521 | 0.511 | 0.477 |
 | OL+BDC null | 0.046 | 0.046 | 0.040 | 0.034 |
 | OL+BDC alt | 0.849 | 0.844 | 0.844 | 0.844 |
 | prog-BL null | 0.042 | 0.040 | 0.038 | 0.028 |
@@ -112,11 +116,21 @@ most conservative of the four at every null cell checked (0.028 to
 0.034 against nominal 0.05), the expected direction for bootstrap
 calibration and never liberal in this pass.
 
-**2. Power.** No advantage for F1A0B over plain F1 at either
-design. OL+BDC: 0.844 vs. 0.849, within noise. Hybrid: both near
-ceiling (0.94 to 0.96) at this effect size, too saturated to
-discriminate among the four methods; a smaller $c_{bm}$ would be
-needed to compare power meaningfully there.
+**2. Power.** No advantage for F1A0B over plain F1 at any design or
+effect size checked. OL+BDC: 0.844 vs. 0.849, within noise. Hybrid
+at $c_{bm}=0.45$: both near ceiling (0.94 to 0.96), too saturated to
+discriminate among the four methods. A second Hybrid cell at
+$c_{bm}=0.25$ (added 2026-10-22 to de-saturate this comparison) puts
+power at 0.48 to 0.52, well clear of the ceiling: F1A0B is lowest
+(0.477) and F1 highest (0.513), a 3.6-point gap. The Monte Carlo
+standard error here is $\sqrt{0.5 \times 0.5/500} \approx 0.022$, so
+the gap is just under 2 MCSE and not conclusive on its own, but it is
+directionally consistent with every other cell in this table (F1A0B
+is the lowest-rejecting method everywhere it appears, null or
+alternative). The pattern is consistent with bootstrap calibration
+costing a small amount of power as well as controlling size, as
+expected, but this single de-saturated cell does not establish the
+size of that cost.
 
 **5. Robustness to trial design.** Both designs checked hold
 nominal size and show no collapse comparable to `G3`/`G4`'s CO
@@ -147,10 +161,11 @@ fits plus one bootstrap resample), consistent with `docs/62`'s
 reported cost for the data-driven F-family methods.
 
 **9. Validation completeness.** This pass checks criteria 1, 2
-(partially, confounded by ceiling effects at Hybrid), 5 (partially,
-substituting OL+BDC for CO) and 7 (all four named prognostic
-pathways, one effect size each, one design) for F1A0B specifically,
-at 500 replicates per cell. Criteria 3 (half-life misspecification),
+(now at two effect sizes per design, one of them de-saturated), 5
+(partially, substituting OL+BDC for CO) and 7 (all four named
+prognostic pathways, one effect size each, one design) for F1A0B
+specifically, at 500 replicates per cell. Criteria 3 (half-life
+misspecification),
 4 (decay-shape misspecification) and 6 (DGP architecture) remain
 entirely untested for F1A0B, as does any direct, shared-grid
 comparison against `G8`/`G9` (criterion 3 of `docs/62` Part 3's "how
@@ -158,12 +173,16 @@ the two families connect").
 
 ## Caveats, unsolicited
 
-- Single effect size per design; the Hybrid alternative cell is
-  saturated near the power ceiling and cannot discriminate among
-  the four methods there.
+- Single effect size per design at OL+BDC; the OL+BDC alternative
+  cell is not saturated but was only checked at $c_{bm}=0.45$.
+  Hybrid now has two effect sizes (0.45, saturated; 0.25,
+  de-saturated), but the de-saturated gap (F1A0B 3.6 points below
+  F1) is just under 2 MCSE and should be treated as suggestive, not
+  established.
 - 500 replicates, one pass: the gaps between F1A0B and the other
-  three methods (0.006 to 0.012 at the null cells) are within or
-  close to Monte Carlo noise, not established differences.
+  three methods (0.006 to 0.012 at the null cells, 0.036 at the
+  de-saturated Hybrid alternative) are within or close to Monte
+  Carlo noise, not established differences.
 - $n_{boot} = 1$ is the noisiest warp-speed setting; a larger
   per-replicate resample count (or more replicates) would tighten
   F1A0B's calibration estimate specifically.

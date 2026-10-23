@@ -2,6 +2,10 @@
 ## docs/62 "what best would mean" criteria, on the refined-process
 ## DGP, scoped to three cells (docs/62; this session, 2026-10-22):
 ##   hybrid   reference design, null (c_bm = 0) and alt (c_bm = 0.45)
+##   hybridlo same as hybrid_alt but c_bm = 0.25, to de-saturate the
+##            power comparison among F1/F1A/F1A0/F1A0B: at 0.45 all
+##            four are near the power ceiling (0.94-0.96) and cannot
+##            be told apart (docs/64). Added 2026-10-22.
 ##   olbdc    design-robustness arm (CO's constant De made it
 ##            unidentifiable for the F-family model; see
 ##            simulation-core.R's F-family block), null and alt
@@ -46,6 +50,7 @@ base_cell <- list(N = 70, t1half = 0.5, carryover_form = 'exponential',
 CELLS <- list(
   hybrid_null = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0)),
   hybrid_alt  = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0.45)),
+  hybrid_alt_lo = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0.25)),
   olbdc_null  = modifyList(base_cell, list(design = 'OLBDC',  c_bm = 0)),
   olbdc_alt   = modifyList(base_cell, list(design = 'OLBDC',  c_bm = 0.45)),
   progbl_null = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0, c_bl = 0.3)),

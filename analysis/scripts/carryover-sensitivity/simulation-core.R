@@ -1187,3 +1187,77 @@ simulate_cell_f <- function(cell, n_reps, n_boot = 1L,
       mutate(rep = rep_i, .before = 1)
   })
 }
+
+## -----------------------------------------------------------------
+## G-family (G1-G9, via fit_spec_s7's E1-E9/+cr2 specs) vs F-family
+## head-to-head: one DGP draw per replicate, both families fit to
+## the *same* simulated trial (not independently resampled), so the
+## comparison is not diluted by extra Monte Carlo noise between
+## families. docs/62 Part 3 names this comparison as missing
+## entirely ("no single document currently compares the two
+## families directly") and names criterion 7 (prognostic biomarker)
+## as untested for every G-family specification. Added 2026-10-23.
+## Same cell convention as simulate_cell_f()/simulate_cell_s7();
+## does not support the dual-channel ('combined') architecture or
+## dropout, neither used by any cell this function has been run on.
+simulate_cell_combined <- function(cell, n_reps, n_boot = 1L,
+                                   g_specs = c('E1', 'E2', 'E3', 'E7', 'E9',
+                                              'E1cr2', 'E3cr2', 'E2cr2', 'E7cr2'),
+                                   stop_on_nonpd = FALSE) {
+  design_set <- build_design_set(cell$design)
+  resp_param     <- default_resp_param()
+  baseline_param <- default_baseline_param()
+  rho <- default_val(cell[['rho']], 0.7)
+  analysis_t1half <- default_val(cell[['analysis_t1half']], cell$t1half)
+  analysis_form   <- default_val(cell[['analysis_form']],   cell$carryover_form)
+  analysis_shape  <- default_val(cell[['analysis_shape']],  cell$weibull_shape)
+  f_grid <- if (is.null(cell[['f_grid']])) F_GRID else cell[['f_grid']]
+
+  model_param <- list(
+    N = cell$N, carryover_t1half = cell$t1half,
+    carryover_form = cell$carryover_form,
+    weibull_shape = cell$weibull_shape,
+    dgp_architecture = cell$dgp_arch,
+    c.bm = cell$c_bm,
+    c.tv = rho, c.pb = rho, c.br = rho,
+    c.cf1t = 0.2, c.cfct = 0.2
+  )
+  model_param$c.bm.bl <- default_val(cell[['c_bl']], 0)
+  model_param$c.bm.tv <- default_val(cell[['c_tv']], 0)
+  model_param$b.bm.tv <- default_val(cell[['b_tv']], 0)
+  model_param$c.bm.pb <- default_val(cell[['c_pb']], 0)
+
+  map_dfr(seq_len(n_reps), function(rep_i) {
+    dat <- tryCatch(
+      generate_data_multi_path(model_param, resp_param, baseline_param,
+                               design_set, stop_on_nonpd = stop_on_nonpd),
+      error = function(e) NULL
+    )
+    if (is.null(dat) || nrow(dat) == 0) return(NULL)
+
+    dat_long <- prepare_long_data(
+      dat, design_set,
+      carryover_t1half = cell$t1half,
+      carryover_form = cell$carryover_form,
+      weibull_shape = cell$weibull_shape,
+      analysis_t1half = analysis_t1half,
+      analysis_form = analysis_form,
+      analysis_shape = analysis_shape
+    )
+
+    g_res <- map_dfr(g_specs, ~ fit_spec_s7(dat_long, .x)) |>
+      transmute(family = 'G', method = spec, h = best_t_half,
+               estimate, std_error, p_value, converged,
+               t = estimate / std_error, boot_t_f1a0 = NA_real_)
+
+    f_res <- fit_f_family(dat_long, n_boot = n_boot,
+                          analysis_form = analysis_form,
+                          analysis_shape = analysis_shape,
+                          grid = f_grid) |>
+      as_tibble() |>
+      transmute(family = 'F', method, h, estimate, std_error,
+               p_value, converged, t, boot_t_f1a0)
+
+    bind_rows(g_res, f_res) |> mutate(rep = rep_i, .before = 1)
+  })
+}

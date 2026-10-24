@@ -865,6 +865,61 @@ fit_spec_s7 <- function(dat_long, spec) {
          converged = TRUE)
 }
 
+## E0: Hendrickson's actual original analysis (github.com/
+## rchendrickson/pmsimstats, commit 58b32a9, R/lme_analysis.R;
+## *verified* by fetching that file directly via `gh api`, 2026-10-23
+## -- NOT the vendored implementations/original/, which is a later,
+## already-modified copy that has since picked up nlme::lme +
+## corCAR1; the actual 58b32a9 source never had that). Fits with
+## lme4::lmer (via lmerTest for Satterthwaite p-values), random
+## intercept only, NO residual correlation structure at all --
+## corCAR1/AR(1), used by every other spec in this file (G1-G9 and
+## F1-F1A0B alike), is a project addition the original paper never
+## had. Binary Db (not the exposure-decayed Dbc any other spec
+## uses). Model switches on whether Db varies within a patient after
+## t > 0: bm:Db if it does (and patients who are never on drug are
+## dropped, mirroring orig's own `iEverOnDrug` filter exactly), else
+## bm:t; De is added whenever the design's expectancy varies, both
+## mirroring orig's op$useDE = TRUE default. This translation uses
+## this driver's long-format data (prepare_long_data()), which has
+## no explicit baseline (BL, t = 0) outcome row the way orig's own
+## data munging does -- a limitation shared with every other spec
+## compared against it here, not unique to E0.
+fit_spec_e0 <- function(dat_long) {
+  na_out <- tibble(spec = 'E0', estimate = NA_real_, std_error = NA_real_,
+                   p_value = NA_real_, estimate_bmDb = NA_real_,
+                   p_value_bmDb = NA_real_, best_t_half = NA_real_,
+                   converged = FALSE)
+  dd <- dat_long
+  db_tab <- dd |> dplyr::filter(t > 0) |> dplyr::group_by(ptID) |>
+    dplyr::summarise(mean_db = mean(Db), .groups = 'drop')
+  var_in_db <- any(db_tab$mean_db != 0 & db_tab$mean_db != 1)
+  if (!var_in_db) {
+    ever_on <- db_tab$ptID[db_tab$mean_db == 1]
+    dd <- dplyr::filter(dd, ptID %in% ever_on)
+  }
+  var_in_exp <- length(unique(dd$De[dd$t > 0])) > 1
+  form <- if (var_in_db) {
+    if (var_in_exp) Sx ~ bm + De + Db + t + bm:Db else Sx ~ bm + Db + t + bm:Db
+  } else {
+    if (var_in_exp) Sx ~ bm + De + t + bm:t else Sx ~ bm + t + bm:t
+  }
+  fit <- tryCatch(
+    lmerTest::lmer(update(form, . ~ . + (1 | ptID)), data = dd),
+    error = function(e) NULL)
+  if (is.null(fit)) return(na_out)
+  cc <- tryCatch(summary(fit)$coefficients, error = function(e) NULL)
+  if (is.null(cc)) return(na_out)
+  tgt <- if (var_in_db) intersect(c('bm:Db', 'Db:bm'), rownames(cc))
+         else intersect(c('bm:t', 't:bm'), rownames(cc))
+  if (length(tgt) == 0) return(na_out)
+  tgt <- tgt[1]
+  tibble(spec = 'E0', estimate = cc[tgt, 'Estimate'],
+        std_error = cc[tgt, 'Std. Error'], p_value = cc[tgt, 'Pr(>|t|)'],
+        estimate_bmDb = NA_real_, p_value_bmDb = NA_real_,
+        best_t_half = NA_real_, converged = TRUE)
+}
+
 simulate_cell_s7 <- function(cell, n_reps,
                              specs = c('E1', 'E7', 'E9'),
                              stop_on_nonpd = FALSE) {
@@ -1197,6 +1252,10 @@ simulate_cell_f <- function(cell, n_reps, n_boot = 1L,
 ## entirely ("no single document currently compares the two
 ## families directly") and names criterion 7 (prognostic biomarker)
 ## as untested for every G-family specification. Added 2026-10-23.
+## Also fits E0, Hendrickson's actual original analysis (see
+## fit_spec_e0() above) alongside the nine G-family specs, labeled
+## family = 'G' for convenience though it predates that catalog and
+## is not really part of it.
 ## Same cell convention as simulate_cell_f()/simulate_cell_s7();
 ## does not support the dual-channel ('combined') architecture or
 ## dropout, neither used by any cell this function has been run on.
@@ -1245,7 +1304,8 @@ simulate_cell_combined <- function(cell, n_reps, n_boot = 1L,
       analysis_shape = analysis_shape
     )
 
-    g_res <- map_dfr(g_specs, ~ fit_spec_s7(dat_long, .x)) |>
+    g_res <- bind_rows(map_dfr(g_specs, ~ fit_spec_s7(dat_long, .x)),
+                      fit_spec_e0(dat_long)) |>
       transmute(family = 'G', method = spec, h = best_t_half,
                estimate, std_error, p_value, converged,
                t = estimate / std_error, boot_t_f1a0 = NA_real_)

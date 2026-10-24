@@ -50,6 +50,18 @@
 ##            uses 16 points, vdensegrid 31 (0 to 3 by 0.1). F1A and
 ##            F1A0B are also evaluated here as points of comparison.
 ##            Added 2026-10-23.
+##   smalln, offgrid, smalln_offgrid_dense  the grid-density stress
+##            test (above) at N=70 and the true half-life (0.5 wk)
+##            sitting exactly on the standard grid did not inflate
+##            F1A0's size. These three push the two conditions that
+##            more plausibly would: smalln halves N (70 -> 30, less
+##            information per AIC candidate); offgrid sets the true
+##            half-life to 0.35 wk (between the standard grid's 0.2
+##            and 0.5, so AIC cannot land on the exact truth even on
+##            the 5-point grid); smalln_offgrid_dense combines both
+##            with the 31-point grid, the most adversarial
+##            combination tried in this evaluation. All null only
+##            (c_bm = 0). Added 2026-10-23.
 ##
 ## Flattens all (cell, replicate) jobs into one list so the 8
 ## available cores are shared across cells rather than one cell
@@ -112,6 +124,13 @@ CELLS <- list(
               1, 1.25, 1.5, 1.75, 2, 2.5, 3))),
   vdensegrid_null = modifyList(base_cell, list(
     design = 'Hybrid', c_bm = 0,
+    f_grid = seq(0, 3, by = 0.1))),
+  smalln_null = modifyList(base_cell, list(
+    design = 'Hybrid', c_bm = 0, N = 30)),
+  offgrid_null = modifyList(base_cell, list(
+    design = 'Hybrid', c_bm = 0, t1half = 0.35)),
+  smalln_offgrid_dense_null = modifyList(base_cell, list(
+    design = 'Hybrid', c_bm = 0, N = 30, t1half = 0.35,
     f_grid = seq(0, 3, by = 0.1)))
 )
 

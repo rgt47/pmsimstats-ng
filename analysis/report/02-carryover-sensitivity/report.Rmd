@@ -1389,8 +1389,8 @@ Exposure-weighted does not lead in the first place.
 
 ## Sensitivity analyses
 
-Nine Tier 2 blocks (S1-S4, S7, S8, S9, S10, S11) perturb one axis at
-a time around a common reference cell (Hybrid, $N = 70$,
+Ten Tier 2 blocks (S1-S4, S7, S8, S9, S10, S11, S12) perturb one
+axis at a time around a common reference cell (Hybrid, $N = 70$,
 $c_{bm} = 0.45$, exponential DGP, $t_{1/2} = 1.0$), holding the
 remaining factors fixed. Two exceptions are S9, which changes the
 trial design itself, and S11, which sets $c_{bm} = 0$. A tenth
@@ -1692,6 +1692,77 @@ uncontrolled test: it wins on power while holding Type I error at
 nominal, the same standard `G3`+CR2 (`G8`) is held to. This does not
 generalize beyond the single cell tested. Full detail and the
 heatmap are in the Supplement, Section S11.
+
+### S12: the F-family, and Hendrickson's original analysis, against G1-G9
+
+Every specification reported to this point shares the base model
+`Sx ~ bm + t + X + bm:X`, with no design-expectancy covariate, and
+all are fit with `nlme::lme` plus `corCAR1(form = ~t|ptID)` residual
+correlation. Block S12 sets that common ground aside and checks two
+things no document so far compares directly: a richer, parallel
+line of work on the analysis-side carryover half-life (the
+`F`-family, catalogued in docs/62), and the data-generating
+process's actual original published analysis (`E0`).
+
+The `F`-family model, `Y ~ bmc + t + Dbc + bmc:Dbc + De + bmc:De`,
+adds the design-expectancy covariate $D_e$ ($\eta_t$) that every
+`G`-family specification omits. `F1` fixes the
+analysis-side half-life $t_{1/2}^a$ at a project policy value (0.2
+week); `F1A` selects it by AIC with the interaction already in the
+selection model (the liberal pattern); `F1A0` selects it on the null
+model and refits the interaction at the selected value; `F1A0B`
+calibrates `F1A0`'s test by a warp-speed parametric bootstrap that
+reruns the entire selection on each resample. All four still share
+the random-intercept-plus-`corCAR1` structure used throughout this
+manuscript.
+
+`E0` is Hendrickson's own original analysis
+(github.com/rchendrickson/pmsimstats, commit `58b32a9`,
+`R/lme_analysis.R`), fetched and read directly rather than from this
+project's vendored reference copy, which turns out to have already
+picked up `nlme::lme` and `corCAR1` at some later point and is not
+byte-identical to the originally published code. `E0` fits with
+`lme4::lmer` (Satterthwaite $p$-values via `lmerTest`), a random
+intercept and **no residual correlation structure at all** --
+`corCAR1`, shared by every other specification in this manuscript
+including `G1`-`G9`, is therefore a project addition that postdates
+the original paper, not a feature of it. `E0` also uses the binary
+on-drug indicator $D_b$ rather than any decayed form, switching
+between a `bm:Db` and a `bm:t` interaction depending on whether
+$D_b$ varies within a patient after baseline, exactly mirroring the
+original code's own model-selection and patient-filtering logic.
+
+All eleven specifications (`G1`-`G9`, `E0`, and the four `F`-family
+methods) are fit to the *same* simulated trial each replicate, not
+independently resampled, at the Hybrid reference cell and ten
+further cells covering trial design (OL+BDC), the four prognostic-
+biomarker pathways of docs/57 Section 7.3 (biomarker correlated
+with baseline severity, the natural-history trajectory, an additive
+mean shift of that trajectory, or the placebo response, each at
+$c_{bm} = 0$ so the true interaction is absent and only the
+confound is present), half-life misspecification, decay-shape
+misspecification, and the mean-moderation architecture. The driver
+is `analysis/scripts/carryover-sensitivity/06-g-vs-f-comparison.R`;
+the underlying fitting functions (`fit_spec_e0`, `fit_f_family`,
+`simulate_cell_combined`) are in `simulation-core.R`. Criterion 7
+(prognostic-biomarker robustness) in particular has not previously
+been checked for any `G`-family specification, or for `E0`
+(docs/62).
+
+```{r tab-s12, echo = FALSE}
+## Results pending: analysis/data/carryover-sensitivity/
+## g-vs-f-comparison/summary.rds, produced by 06-g-vs-f-comparison.R
+## run on the simulation server (simrun job 21, 500 replicates per
+## cell), not yet fetched and verified at the time this block was
+## drafted. This chunk is a placeholder, not a result -- do not cite
+## numbers from it until it reads from the fetched file and the
+## accompanying prose has been written against verified output.
+```
+
+*(S12's quantitative table and the accompanying discussion are not
+yet written; see docs/64 for a first-pass evaluation of the
+`F`-family alone, on an overlapping but not identical cell set,
+that this block is intended to supersede once complete.)*
 
 ## A higher-precision check
 

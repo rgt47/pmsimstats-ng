@@ -1749,20 +1749,111 @@ the underlying fitting functions (`fit_spec_e0`, `fit_f_family`,
 been checked for any `G`-family specification, or for `E0`
 (docs/62).
 
-```{r tab-s12, echo = FALSE}
-## Results pending: analysis/data/carryover-sensitivity/
-## g-vs-f-comparison/summary.rds, produced by 06-g-vs-f-comparison.R
-## run on the simulation server (simrun job 21, 500 replicates per
-## cell), not yet fetched and verified at the time this block was
-## drafted. This chunk is a placeholder, not a result -- do not cite
-## numbers from it until it reads from the fetched file and the
-## accompanying prose has been written against verified output.
+```{r tab-s12-null, echo = FALSE}
+suppressPackageStartupMessages(library(dplyr))
+s12 <- readRDS(here::here(
+  'analysis/data/carryover-sensitivity/g-vs-f-comparison/summary.rds'))
+lab12 <- c(E0 = 'E0 (Hendrickson original)', E1 = 'G1', E7 = 'G4',
+          E7cr2 = 'G9', F1 = 'F1', F1A0 = 'F1A0', F1A0B = 'F1A0B')
+null_cell_lab <- c(hybrid_null = 'Hybrid', olbdc_null = 'OL+BDC',
+                   progbl_null = 'prog-BL', progtvconst_null = 'prog-TVc',
+                   progtvgrow_null = 'prog-TVg', progpb_null = 'prog-PB',
+                   t1hifhi_null = 't1/2 misspec.',
+                   shapemis_null = 'decay-shape misspec.',
+                   meanmod_null = 'mean-moderation arch.')
+tab_null <- s12 |>
+  filter(method %in% names(lab12), cell %in% names(null_cell_lab)) |>
+  mutate(Cell = null_cell_lab[cell], Method = lab12[method]) |>
+  select(Cell, Method, reject) |>
+  tidyr::pivot_wider(names_from = Method, values_from = reject) |>
+  mutate(o = match(Cell, null_cell_lab)) |>
+  arrange(o) |>
+  select(Cell, `E0 (Hendrickson original)`, G1, G4, G9, F1, F1A0, F1A0B)
+knitr::kable(tab_null, booktabs = TRUE, escape = FALSE, digits = 3,
+  caption = 'Block S12, Type I error ($c_{bm} = 0$ throughout): `E0`
+    (Hendrickson\'s original analysis, no residual correlation
+    structure) against representative `G`-family (`G1`, `G4`, `G9`)
+    and `F`-family (`F1`, `F1A0`, `F1A0B`) specifications, nine null
+    cells, $n_{sim} = 500$ per cell, same simulated trial fit by every
+    specification each replicate. The 2-MCSE band around nominal
+    $0.05$ at this $n_{sim}$ is approximately $[0.031, 0.069]$.') |>
+  kableExtra::kable_styling(latex_options = "scale_down", font_size = 9)
 ```
 
-*(S12's quantitative table and the accompanying discussion are not
-yet written; see docs/64 for a first-pass evaluation of the
-`F`-family alone, on an overlapping but not identical cell set,
-that this block is intended to supersede once complete.)*
+```{r tab-s12-alt, echo = FALSE}
+alt_cell_lab <- c(hybrid_alt = 'Hybrid (c_bm=0.45)',
+                  hybrid_alt_lo = 'Hybrid (c_bm=0.25)',
+                  olbdc_alt = 'OL+BDC (c_bm=0.45)',
+                  t1hifhi_alt = 't1/2 misspec. (c_bm=0.25)',
+                  shapemis_alt = 'decay-shape misspec. (c_bm=0.25)',
+                  meanmod_alt = 'mean-moderation arch. (c_bm=0.25)')
+tab_alt <- s12 |>
+  filter(method %in% names(lab12), cell %in% names(alt_cell_lab)) |>
+  mutate(Cell = alt_cell_lab[cell], Method = lab12[method]) |>
+  select(Cell, Method, reject) |>
+  tidyr::pivot_wider(names_from = Method, values_from = reject) |>
+  mutate(o = match(Cell, alt_cell_lab)) |>
+  arrange(o) |>
+  select(Cell, `E0 (Hendrickson original)`, G1, G4, G9, F1, F1A0, F1A0B)
+knitr::kable(tab_alt, booktabs = TRUE, escape = FALSE, digits = 3,
+  caption = 'Block S12, power at the six alternative cells
+    (same specifications and $n_{sim}$ as the Type I error table
+    above).') |>
+  kableExtra::kable_styling(latex_options = "scale_down", font_size = 9)
+```
+
+`E0` -- the method actually published, not the vendored copy this
+manuscript's other eleven specifications descend from -- is at least
+mildly liberal at every one of the nine null cells checked: its
+Type I error is $0.060$-$0.074$ throughout, never at or below nominal
+$0.05$, against a $0.03$-$0.06$ range for every `G`-family and
+`F`-family specification over the same nine cells. Formally outside
+the 2-MCSE band around nominal ($[0.031, 0.069]$ at $n_{sim} = 500$),
+`E0` reaches $0.10$, roughly five MCSE above nominal, at OL+BDC, and
+$0.074$ at prog-PB; the remaining seven cells sit at the top of or
+just above the band ($0.060$-$0.066$), a smaller but consistent
+upward shift rather than a cell-specific anomaly. The most direct
+reading is that dropping `corCAR1` entirely, the one structural
+feature every other specification in this manuscript shares and
+that postdates Hendrickson's original code, is itself a source of
+Type I error inflation under this DGP, on top of and separable from
+the post-selection-inference concern Block S11 checked for `G4`.
+OL+BDC's informative-dropout structure appears to make the omission
+worst, consistent with ignored residual autocorrelation mattering
+most when within-patient measurement spacing is least regular.
+
+At the alternative cells, `E0`'s power is close to the `G`/`F`-family
+range except at the half-life-misspecification cell
+(t1/2 misspec., true $t_{1/2} = 2$ weeks against `F1`'s fixed
+$t_{1/2}^a = 0.2$-week policy value), where `E0` ($0.284$) and `G4`/
+`G9` ($0.265$/$0.281$) clearly outperform fixed-half-life `F1`
+($0.192$) and even the adaptive `F1A`/`F1A0`/`F1A0B` methods
+($0.236$-$0.262$). This is the one place in the comparison where
+`F1`'s policy value for $t_{1/2}^a$ costs real power against both
+other families' own half-life handling, consistent with docs/62's
+concern about that fixed value under a long, behavioral-range
+carryover half-life. Elsewhere -- the de-saturated Hybrid cell
+(`hybrid_alt_lo`, $c_{bm} = 0.25$) and the two misspecification/
+architecture cells with $c_{bm} = 0.25$ -- the four `F`-family
+methods and nine `G`-family specifications are within a few
+percentage points of each other, and `F1A0B`'s bootstrap calibration
+costs a small amount of power relative to `F1A0`/`F1A` at every
+alternative cell, the same trade-off documented in docs/64.
+
+Criterion 7, prognostic-biomarker robustness, is closed for the
+`G`-family and `E0` by this block: all four prognostic pathways
+(prog-BL, prog-TVc, prog-TVg, prog-PB) hold Type I error for every
+`G`-family specification and for `F1`/`F1A0`/`F1A0B`, with `E0`
+mildly elevated at all four ($0.060$-$0.066$) and formally outside
+the 2-MCSE band at prog-PB specifically ($0.074$). No specification
+in either family is correctly sized *and* substantially more
+powerful than the others at any cell checked; the comparison's main
+finding is `E0`'s Type I error behavior, not a power ranking.
+
+*(This supersedes docs/64's F-family-only evaluation on the
+Type I error and prognostic-biomarker questions; docs/64's
+grid-density and small-N/off-grid stress tests of `F1A0`'s own AIC
+selection have no analog here and remain the reference for those.)*
 
 ## A higher-precision check
 

@@ -74,6 +74,9 @@ decay:
 | `meanmod_null` / `_alt` | Hybrid | 0 / 0.25 | mean-mod. DGP (crit. 6) |
 | `densegrid_null` | Hybrid | 0 | AIC grid widened to 16 points |
 | `vdensegrid_null` | Hybrid | 0 | AIC grid widened to 31 points |
+| `smalln_null` | Hybrid | 0 | $N=30$ (halved) |
+| `offgrid_null` | Hybrid | 0 | true $t_{1/2}=0.35$ wk, between grid points |
+| `smalln_offgrid_dense_null` | Hybrid | 0 | $N=30$, $t_{1/2}=0.35$, 31 pts |
 | `progbl_null` | Hybrid | 0 | $c_{bl} = 0.3$ (prog-BL) |
 | `progtvconst_null` | Hybrid | 0 | $c_{tv} = 0.3$ (prog-TV-const) |
 | `progtvgrow_null` | Hybrid | 0 | $b_{tv} = 0.3$ (prog-TV-grow) |
@@ -95,7 +98,11 @@ de-saturate the Hybrid power comparison), a further 40.9 minutes
 for 3,000 more jobs (the six criterion-3/4/6 cells added
 2026-10-23), and a further 58.2 minutes for 1,000 more jobs (the
 grid-density stress-test cells, denser grids cost more per
-replicate than the standard 5-point grid, also added 2026-10-23).
+replicate than the standard 5-point grid, also added 2026-10-23),
+and a further 25.8 minutes for 1,500 more jobs (`smalln_null`,
+`offgrid_null`, `smalln_offgrid_dense_null`, added 2026-10-23 to push
+the two conditions most plausibly able to break F1A0's size, which
+the grid-density test alone did not exercise).
 
 ## Results
 
@@ -123,6 +130,9 @@ so about $\pm 0.02$ at two MCSE.
 | Mean-moderation alt ($c_{bm}=0.25$) | 0.614 | 0.622 | 0.612 | 0.561 |
 | Dense-grid null (16 points) | 0.042 | 0.042 | 0.040 | 0.038 |
 | Very-dense-grid null (31 points) | 0.042 | 0.042 | 0.040 | 0.034 |
+| Small-$N$ null ($N=30$) | 0.044 | 0.058 | 0.052 | 0.044 |
+| Off-grid null ($t_{1/2}=0.35$ wk) | 0.042 | 0.038 | 0.038 | 0.036 |
+| Small-$N$ + off-grid + dense-grid null | 0.044 | 0.056 | 0.052 | 0.044 |
 
 *Verified* (computed by running the driver above in this session).
 
@@ -224,13 +234,46 @@ F1 and F1A, both unaffected by the grid widening (F1's $t_{1/2}^a$
 is fixed; F1A's own size was already nominal at 0.042 throughout),
 serve as the unchanged baseline.
 
-This is the first genuine attempt in this evaluation to break
-F1A0's size, and it did not succeed at this $N=70$, this true
-half-life, and these two grid densities. It does not rule out
-inflation under a denser grid combined with a smaller $N$ (where
-AIC has less information per candidate and more room to overfit)
-or a true half-life that falls between grid points rather than on
-one -- neither of which was tried here.
+This first attempt did not succeed at this $N=70$, this true
+half-life, and these two grid densities. Two further cells push the
+conditions that most plausibly would: `smalln_null` halves $N$ to 30
+(less information per AIC candidate, more room to overfit), and
+`offgrid_null` sets the true half-life to 0.35 week, between the
+standard 5-point grid's 0.2 and 0.5, so AIC cannot land on the exact
+truth even on the narrowest grid tried. A third cell combines both
+with the 31-point grid (`smalln_offgrid_dense_null`), the most
+adversarial condition in this evaluation.
+
+Here the picture changes. At $N=30$, F1's nominal size stays at
+0.044, but F1A rises to 0.058 and F1A0 to 0.052 -- both above
+nominal, in the same direction as (though smaller than) the
+half-life-misspecification null result above. F1A0B, the bootstrap-
+calibrated method, pulls back to 0.044, exactly matching F1's size
+and correcting the inflation seen in the uncalibrated F1A/F1A0
+(*verified*, from the saved per-replicate data). At the off-grid
+true half-life (0.35 week, $N=70$), no method shows inflation: F1
+0.042, F1A 0.038, F1A0 0.038, F1A0B 0.036, all within noise of
+nominal and of each other. The combined cell (small $N$, off-grid
+truth, dense grid) reproduces the small-$N$ result almost exactly --
+F1 0.044, F1A 0.056, F1A0 0.052, F1A0B 0.044 -- suggesting $N$, not
+grid density or the true half-life's position relative to the grid,
+is driving what signal there is.
+
+None of these three deviations individually clears 2 Monte Carlo
+standard errors ($\mathrm{SE}\approx0.0098$ at $n_{sim}=500$,
+$p\approx0.05$): F1A's 0.058 and F1A0's 0.052 at $N=30$ are each
+under 1 SE from nominal. But this is the first demonstration
+anywhere in this evaluation of F1A0B's bootstrap calibration doing
+exactly the job it is designed for -- correcting an uncalibrated
+method's size back toward nominal -- rather than simply being the
+most conservative of the four by a fixed margin, as it is everywhere
+else in this table. Read together, the grid-density test (3b above)
+and these two additional stress cells suggest that if F1A0's
+uncalibrated size is vulnerable anywhere in this grid, it is to a
+smaller sample size, not to a denser AIC grid or an off-grid true
+half-life on their own -- and that vulnerability, where it shows up
+at all, is small and not statistically established at this replicate
+count.
 
 **4. Robustness to decay-shape misspecification.** Fitting the
 F-family model under an assumed exponential decay when the true DGP
@@ -318,11 +361,16 @@ the criterion-6 check.
   misspecified half-life, one Weibull shape, one architecture), not
   a grid; none of the three claims generalizes past the specific
   values tested.
-- The grid-density stress test (3b) failed to break F1A0's size at
+- The grid-density stress test (3b) did not break F1A0's size at
   $N=70$ and the true DGP half-life used everywhere else in this
-  table (0.5 week). It was not tried at a smaller $N$ or a true
-  half-life sitting between grid points, either of which plausibly
-  gives AIC more room to overfit than this attempt did.
+  table (0.5 week). A smaller $N$ (30) and an off-grid true half-life
+  (0.35 week) were tried as follow-ups: the off-grid condition alone
+  showed no signal, but $N=30$ showed a small, not individually
+  significant rise in F1A/F1A0's size (0.052-0.058) that F1A0B's
+  bootstrap correction pulled back to nominal (0.044) in both cells
+  where it appeared. This is suggestive, not established, at 500
+  replicates, and was not tried at any $N$ between 30 and 70, or at
+  any smaller $N$ than 30.
 - The dual-channel (`combined`) DGP architecture (paper 11) was not
   included in the criterion-6 check, only mean-moderation.
 - This driver's F-family code and

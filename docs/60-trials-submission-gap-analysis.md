@@ -4,6 +4,60 @@
 
 **Author:** pmsimstats team
 
+**Update, 2026-10-24.** This note's body (Parts 1-4) is unchanged
+from 2026-10-21 below and is now stale on two Part 2 items; read
+this update first, then the body for everything else, which still
+holds. Changes since 2026-10-21, both in paper 02's Part 2 plan
+table (updated in place below) and summarized here:
+
+- **Step 11, partially done.** `docs/64` and paper 02's new Block S12
+  (`report.Rmd`, added 2026-10-23/24) add at least one prognostic-
+  biomarker null cell -- in fact all four of paper 01 Study 3's
+  pathways (prog-BL, prog-TV-const, prog-TV-grow, prog-PB) -- to a
+  grid that also fits every `G1`-`G9` specification. All nine hold
+  nominal Type I error under every pathway without needing a `De`
+  term, a result paper 02 did not have before. The other half of
+  step 11, an expectancy-term variant of the `G1`-`G9` family
+  itself, was not built; S12 compares the existing `G`-family
+  (no `De`) against the separate `F`-family (which has `De`) rather
+  than adding `De` to `G1`-`G9`.
+- **Step 12, substantially done.** `F1A0B` (and `F1`/`F1A`/`F1A0`)
+  are now tested alongside all nine `G`-family specifications and
+  `E0` (Hendrickson's actual original analysis, newly added; see
+  below), on the same simulated trials each replicate, using the
+  corrected `c.cf1t`/`c.cfct = 0.2` constants from step 1 -- i.e. on
+  paper 02's own corrected driver, closing the main concern in this
+  step (F1A0B is no longer an untested, borrowed conclusion). Not yet
+  done: the Methods text (S12) names `docs/62` by its internal
+  document number rather than citing `docs/57`/`ch23` as the
+  method's source, which is adequate for an internal working draft
+  but is not a resolvable reference for a journal reviewer and needs
+  converting to a proper citation (or removing the internal
+  cross-reference) before submission. The same applies to every other
+  `docs/NN` in-text reference S12 added.
+- **Step 13, still open.** No explicit paper-01/paper-02/F1 synthesis
+  statement has been written in either paper.
+- **Step 4 (the headline rerun), still open and not to be confused
+  with the above.** The data files behind paper 02's headline
+  `G1`-`G9` table and figures (`analysis/scripts/carryover-
+  sensitivity/output/01-factorial.rds` etc.) are dated 2026-07-31,
+  before the step-1 `c.cf1t`/`c.cfct` fix (2026-10-21). The headline
+  ranking (`G9` best-performing) is still reported from the pre-fix
+  DGP. S12's new comparison is a separate grid (15 cells, not the
+  full factorial) and does not supersede this gap.
+- **New finding, not anticipated by this note's original gap list.**
+  S12 found that `E0`, Hendrickson's actual original analysis
+  (fetched directly from GitHub commit `58b32a9`, which omits
+  `corCAR1` entirely and differs from this project's own vendored
+  reference copy), runs Type I error at $0.06$-$0.10$ against
+  nominal $0.05$ across every null cell checked, while every
+  `G`-family and `F`-family specification in this project stays at
+  $0.03$-$0.06$. This is evidence that dropping the residual-
+  correlation structure this project added on top of the published
+  method is itself consequential, a point neither paper currently
+  states and that belongs in paper 02's Discussion once step 13 is
+  drafted.
+
 **Scope.** This note assesses how far paper 01
 (`analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd`) and
 paper 02 (`analysis/report/02-carryover-sensitivity/report.Rmd`) are
@@ -294,9 +348,9 @@ canonical DGP").
 | 8 | Verify companion citations (shared with paper 01 step 4). | none | **Done (2026-10-21).** Every `\@`-citation in paper 02's `report.Rmd` resolves to a real `references.bib` entry (no missing-key errors). But `@pmsimstats_dgp_architectures2026` and `@pmsimstats_calibration2026` are `@unpublished` placeholder entries for companion manuscripts that do not exist as actual report directories in this repo — a dangling-citation problem, not a missing-key one. See gap item 7: this is the same provenance issue as the F1A0B misattribution risk. These two citations need either a real companion manuscript to point to, or removal/rewording until one exists. |
 | 9 | Name ADEMP conformance explicitly (shared pattern with paper 01 step 5). | none | **Not needed — already present.** See the correction to gap item 6 above; this was an error in the original gap analysis. |
 | 10 | Full read-through against *Trials* Instructions for Authors once confirmed live. | 1-9 | Blocked, same as paper 01 step 6 — journal page not reachable this session. |
-| 11 | Add an expectancy-term (`De`/`bmc:De`) variant to the `G1`-`G9` family, and add at least one prognostic-biomarker null cell to the grid (reusing paper 01 Study 3's cell design), before paper 02's "best method" claim is extended to cover a prognostic biomarker. | 4 | Open |
-| 12 | Add `F1A0B` (and/or `F1AB`) as a tested candidate alongside `G1`-`G9`, run on paper 02's own corrected grid (post steps 1-3). Implement it directly from `docs/57-data-chosen-carryover-half-life.md` Section 4.5 (the parametric null-model bootstrap that repeats the selection step in every resample) and `docs/series/ch23-data-chosen-half-life.md`'s construct box and candidate grid ($\mathcal{T}_a = \{0, 0.25, 0.5, 1, 2\}$ weeks); cite both explicitly in paper 02's Methods as the source of the method, not just of the idea. If F1A0B is recommended, this makes paper 02 itself the source of that conclusion, on its own tested grid, rather than an uncited internal document the recommendation is currently borrowed from without attribution. | 1, 2, 3, 11 | Open |
-| 13 | Once 11-12 land, state the paper-01/paper-02/F1 synthesis explicitly in both papers: paper 02's Discussion should name `Dbc` as the carryover representation its own comparison selected, now combined with paper 01's expectancy terms into F1; paper 01 should re-verify, at least as a confirmatory check, that its headline refined-process power-vs-half-life results are consistent under F1/F1A0B, not only under `E9`/RH's `lmer`. This is a small addition to paper 01 (already otherwise resolved, Part 1) in addition to a paper 02 change. | 12 | Open |
+| 11 | Add an expectancy-term (`De`/`bmc:De`) variant to the `G1`-`G9` family, and add at least one prognostic-biomarker null cell to the grid (reusing paper 01 Study 3's cell design), before paper 02's "best method" claim is extended to cover a prognostic biomarker. | 4 | **Partially done (2026-10-23/24).** All four of paper 01 Study 3's prognostic pathways (prog-BL, prog-TV-const, prog-TV-grow, prog-PB) were added and run against all nine existing `G1`-`G9` specifications plus `E0`/the `F`-family (paper 02's new Block S12). All nine `G`-family specs hold nominal Type I error under every pathway *without* a `De` term -- a result paper 01 Study 3 did not establish for this specific family. The `De`/`bmc:De` variant of `G1`-`G9` itself was not built; S12 compares the unmodified `G`-family against the separate `De`-bearing `F`-family rather than adding `De` to `G1`-`G9` directly. |
+| 12 | Add `F1A0B` (and/or `F1AB`) as a tested candidate alongside `G1`-`G9`, run on paper 02's own corrected grid (post steps 1-3). Implement it directly from `docs/57-data-chosen-carryover-half-life.md` Section 4.5 (the parametric null-model bootstrap that repeats the selection step in every resample) and `docs/series/ch23-data-chosen-half-life.md`'s construct box and candidate grid ($\mathcal{T}_a = \{0, 0.25, 0.5, 1, 2\}$ weeks); cite both explicitly in paper 02's Methods as the source of the method, not just of the idea. If F1A0B is recommended, this makes paper 02 itself the source of that conclusion, on its own tested grid, rather than an uncited internal document the recommendation is currently borrowed from without attribution. | 1, 2, 3, 11 | **Substantially done (2026-10-23/24).** `F1A0B` (plus `F1`/`F1A`/`F1A0` and, newly, `E0`, Hendrickson's actual original analysis) is tested alongside all nine `G`-family specifications on the same simulated trials each replicate, using the corrected `c.cf1t`/`c.cfct = 0.2` constants from step 1 (`report.Rmd` Block S12, driver `06-g-vs-f-comparison.R`, `simrun` job 21, 500 reps per cell, fetched and verified). Not done: S12's Methods text cites `docs/62` by internal document number rather than `docs/57`/`ch23` as a proper reference; every `docs/NN` in-text pointer S12 added needs converting to a citation (or removing) before submission. |
+| 13 | Once 11-12 land, state the paper-01/paper-02/F1 synthesis explicitly in both papers: paper 02's Discussion should name `Dbc` as the carryover representation its own comparison selected, now combined with paper 01's expectancy terms into F1; paper 01 should re-verify, at least as a confirmatory check, that its headline refined-process power-vs-half-life results are consistent under F1/F1A0B, not only under `E9`/RH's `lmer`. This is a small addition to paper 01 (already otherwise resolved, Part 1) in addition to a paper 02 change. | 12 | Open. 11-12 are now far enough along (prognostic cells run, F1A0B tested) that this can be drafted; also fold in S12's new `E0`/`corCAR1` Type I error finding (see 2026-10-24 update above), which belongs in this synthesis discussion. |
 
 Paper 02's gap is substantially larger than paper 01's. Steps 1, 2,
 and 6 are mechanical and low-risk. Step 7 is the long pole: it either
@@ -390,15 +444,28 @@ explicitly. Only step 6 (the live *Trials* Instructions-for-Authors
 read-through) remains, blocked on access to that page rather than on
 further work here.
 
-Paper 02 is further out and unchanged by this update: it has a real,
-numeric deviation from the DGP its companion paper recommends, an
-under-powered and apparently-contradicted Type I error claim
-supporting its currently-best-performing specification, and
-pervasive stale terminology (see Part 2). Paper 02's own companion
-citations (`@pmsimstats_dgp_architectures2026`,
-`@pmsimstats_calibration2026`) were confirmed this session to be
+Paper 02 was further out and unchanged as of the 2026-10-21 revision:
+it had a real, numeric deviation from the DGP its companion paper
+recommends, an under-powered and apparently-contradicted Type I
+error claim supporting its currently-best-performing specification,
+and pervasive stale terminology (see Part 2). Paper 02's own
+companion citations (`@pmsimstats_dgp_architectures2026`,
+`@pmsimstats_calibration2026`) were confirmed in that session to be
 placeholder `@unpublished` bib entries for companion manuscripts that
 do not exist as actual report directories — the fabrication-risk
-check flagged as needed for both papers has therefore been done for
+check flagged as needed for both papers was therefore done for
 paper 01 (clean) and partly done for paper 02 (two citations found
 dangling; full code-level fabrication check still pending).
+
+**Correction/update (2026-10-24): "unchanged" above is now stale.**
+Steps 11 and 12 have moved substantially since 2026-10-21 (see the
+2026-10-24 update at the top of this document) -- the DGP deviation
+(step 1) was fixed that same day, the Type I error concern behind
+step 7 now has a direct, shared-grid `G`-vs-`F`-vs-`E0` comparison
+(paper 02's new Block S12) rather than remaining an unresolved
+single-cell disagreement with `docs/57`, and prognostic-biomarker
+robustness is now checked for every `G`-family specification. The
+two dangling companion citations and the stale-terminology sweep
+status are unchanged from 2026-10-21. The one item that has *not*
+moved and is now the clear long pole is step 4: the headline
+`G1`-`G9` table and figures still run on the pre-fix DGP.

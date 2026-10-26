@@ -12,6 +12,7 @@ build_sigma_matrix(
   verbose = FALSE,
   lambda_cor = NA,
   dgp_architecture = "mvn",
+  stop_on_nonpd = TRUE,
   ...
 )
 }
@@ -31,6 +32,15 @@ coupling. \code{NA} auto-derives from \code{carryover_t1half}.}
 
 \item{dgp_architecture}{Either \code{"mvn"} or \code{"mean_moderation"}.}
 
+\item{stop_on_nonpd}{Logical; if \code{TRUE} (default), a
+non-positive-definite matrix raises an error instead of being
+repaired. Components with exactly zero variance (the placebo
+response at an expectancy-0 timepoint) are not treated as a PD
+failure: only the positive-variance sub-block is checked and
+factored, and those components are drawn at their means. Pass
+\code{FALSE} only to reproduce the published process's silent repair
+deliberately.}
+
 \item{...}{Reserved for future use.}
 }
 \value{
@@ -40,7 +50,8 @@ A list with elements \code{sigma}, \code{labels},
 }
 \description{
 Composes \code{\link[=build_correlation_matrix]{build_correlation_matrix()}} with the standard-deviation
-vector and performs positive-definiteness checking, correcting
-non-PD matrices via \code{corpcor::make.positive.definite(tol = 1e-3)}.
+vector and performs positive-definiteness checking. A non-PD matrix
+raises an error by default; with \code{stop_on_nonpd = FALSE} it is
+repaired via \code{corpcor::make.positive.definite(tol = 1e-3)} instead.
 Returns the Cholesky factor for efficient sampling.
 }

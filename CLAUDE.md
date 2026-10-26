@@ -146,22 +146,34 @@ Seven files in `R/` implement the simulation pipeline:
 Utility modules: `utilities.R` (cumulative effects, modGompertz),
 `packagedocumentation.R`, `datadocumentation.R`.
 
-Resolved 2026-10-21: `buildSigma()`/`generateData()`/
-`generateSimulatedResults()` in `R/generateData.R` now accept
-`stopOnNonPD` (default `FALSE`, preserving all existing behavior).
-When `TRUE`, a non-positive-definite covariance matrix raises an
-error instead of being silently repaired, both at the explicit PD
-check and in the Cholesky-factorization fallback (the refined
-process's recommendation, paper 01 B.2 and Table tab:spec). Callers
-that want the refined process's validity guarantee must opt in
-explicitly; the package default remains silent repair for backward
-compatibility. Paper 02's driver core
-(`analysis/scripts/carryover-sensitivity/simulation-core.R`) is the
-exception: since 2026-10-26 it defaults to `stop_on_nonpd = TRUE`,
-after two jobs silently repaired infeasible prognostic-confound
-cells (docs/60, 2026-10-26 update); a non-PD cell there shows as a
-non-converged replicate. Pass `stop_on_nonpd = FALSE` to reproduce
-earlier paper 02 runs.
+**Non-PD matrices are refused, never repaired, by default
+(2026-10-26).** `buildSigma()`/`generateData()`/
+`generateSimulatedResults()` in `R/generateData.R` accept
+`stopOnNonPD`, default `TRUE`: a non-positive-definite covariance
+matrix raises an error, both at the explicit PD check and in the
+Cholesky-factorization fallback (the refined process's
+recommendation, paper 01 B.2 and Table tab:spec). The same default
+holds in `implementations/tidyverse` (`stop_on_nonpd`),
+`implementations/original-extended` (`stopOnNonPD`),
+`implementations/nof1power` (`stop_on_nonpd`) and paper 02's driver
+core (`analysis/scripts/carryover-sensitivity/simulation-core.R`,
+where a refused cell shows as a non-converged replicate). The
+argument was added 2026-10-21 with a `FALSE` default; the default was
+flipped after two paper 02 jobs silently repaired infeasible
+prognostic-confound cells and reported the attenuated interaction as
+a power loss (docs/60, 2026-10-26 update). Silent repair survives
+only as an explicit opt-in (`FALSE`), used by the scripts that study
+the repair itself (`cbm-ceiling/01-cbm-ceiling.R`,
+`hendrickson-original-comparison/02-pd-sweep.R`) and needed to
+reproduce any run made before 2026-10-26. `implementations/original`
+(Hendrickson's frozen reference) is untouched: silent repair is part
+of the published process it exists to reproduce. One carve-out, not
+a repair: the PB amplitude scales with expectancy, so an $e = 0$
+timepoint (a run-in phase, for instance) has exactly zero PB
+variance and makes $\Sigma$ singular by construction. The stop path
+checks and factors only the positive-variance sub-block and draws
+the degenerate components at their means; the correlations are never
+modified. The old repair path nudged those variances to $10^{-3}$.
 
 ## Implementations
 

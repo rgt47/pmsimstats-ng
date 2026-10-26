@@ -91,14 +91,18 @@
 #' @param makePositiveDefinite Should the covariance matrix be forced to be positive definite?
 #'   (Usually yes, although you may want to turn this off at times to test the impact of
 #'   this step on your covariance sturcture)
-#' @param stopOnNonPD If \code{TRUE}, a non-positive-definite covariance
-#'   matrix raises an error instead of being silently repaired (the
-#'   refined-process recommendation; paper 01, Table tab:spec and
-#'   Appendix B.2). Defaults to \code{FALSE}, which keeps the prior
-#'   silent-repair behavior via \code{makePositiveDefinite} unchanged for
-#'   existing callers. Takes precedence over \code{makePositiveDefinite}
-#'   when \code{TRUE}: the matrix is checked and, if non-PD, an error is
-#'   raised before any repair is attempted.
+#' @param stopOnNonPD If \code{TRUE} (the default since 2026-10-26), a
+#'   non-positive-definite covariance matrix raises an error instead of
+#'   being repaired (the refined-process recommendation; paper 01, Table
+#'   tab:spec and Appendix B.2). Takes precedence over
+#'   \code{makePositiveDefinite}: the matrix is checked and, if non-PD,
+#'   an error is raised before any repair is attempted. Components with
+#'   exactly zero variance (the placebo response at an expectancy-0
+#'   timepoint) are not a PD failure: only the positive-variance
+#'   sub-block is checked and factored, and those components are drawn
+#'   at their means. Set to \code{FALSE} only to reproduce the
+#'   published process's silent repair deliberately (for example, to
+#'   study the repair itself).
 #' @param seed Randomization seed (defaults to NA)
 #' @param lambda_cor Rate of BM-BR correlation decay during off-drug
 #'   periods (per week). Controls how fast the biomarker's predictive
@@ -127,7 +131,7 @@
 #' @export
 
 
-generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePositiveDefinite,seed=NA,lambda_cor=NA,verbose=FALSE,cached_sigma=NULL,dgp_architecture="mvn",br_family="gompertz",br_p2=NA,br_p3=NA,moderation_scaling="constant",components=c("tv","pb","br"),stopOnNonPD=FALSE){
+generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePositiveDefinite,seed=NA,lambda_cor=NA,verbose=FALSE,cached_sigma=NULL,dgp_architecture="mvn",br_family="gompertz",br_p2=NA,br_p3=NA,moderation_scaling="constant",components=c("tv","pb","br"),stopOnNonPD=TRUE){
 
   dgp_architecture<-match.arg(dgp_architecture, c("mvn", "mean_moderation", "combined"))
   moderation_scaling<-match.arg(moderation_scaling, c("constant", "trajectory"))
@@ -278,7 +282,7 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
 #'   defaults \code{NA} fall back to \code{respparam}'s disp/rate).
 #' @return List with sigma, means, labels, nP, cl, trialdesign
 #' @export
-buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefinite=TRUE,lambda_cor=NA,verbose=FALSE,dgp_architecture="mvn",br_family="gompertz",br_p2=NA,br_p3=NA,components=c("tv","pb","br"),stopOnNonPD=FALSE){
+buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefinite=TRUE,lambda_cor=NA,verbose=FALSE,dgp_architecture="mvn",br_family="gompertz",br_p2=NA,br_p3=NA,components=c("tv","pb","br"),stopOnNonPD=TRUE){
 
   # Compute lambda_cor from carryover half-life if not specified
   if(is.na(lambda_cor)){
@@ -464,42 +468,56 @@ buildSigma<-function(modelparam,respparam,blparam,trialdesign,makePositiveDefini
   # Covariance matrix
   sigma<-outer(sds,sds)*correlations
 
-  # PD check (skip eigenvalue computation unless verbose or stopOnNonPD).
-  # stopOnNonPD takes precedence over makePositiveDefinite: it always
-  # checks and, on failure, raises an error instead of repairing (the
-  # refined-process recommendation; paper 01, Table tab:spec and
-  # Appendix B.2). With stopOnNonPD = FALSE (the default), behavior is
-  # unchanged from before this option existed.
+  # PD check. stopOnNonPD (default TRUE since 2026-10-26) takes
+  # precedence over makePositiveDefinite: it checks and, on failure,
+  # raises an error instead of repairing (the refined-process
+  # recommendation; paper 01, Table tab:spec and Appendix B.2). The
+  # silent-repair branch below is reached only when a caller passes
+  # stopOnNonPD = FALSE explicitly (the published process's behavior).
+  #
+  # Zero-variance components are not a PD failure. The PB amplitude
+  # scales with expectancy, so a timepoint with e = 0 has an exactly
+  # zero PB standard deviation and sigma is singular there by
+  # construction, with nothing to repair. The stop path therefore
+  # checks and factors only the positive-variance sub-block and embeds
+  # that factor in a zero-padded matrix, so draws for the degenerate
+  # components equal their means exactly. (The repair path used to
+  # nudge those variances to 1e-3 instead.)
   if(stopOnNonPD){
-    if(!is.positive.definite(sigma)){
-      evals<-eigen(sigma, symmetric=TRUE, only.values=TRUE)$values
+    pos<-sds>0
+    sub<-sigma[pos,pos,drop=FALSE]
+    if(!is.positive.definite(sub)){
+      evals<-eigen(sub, symmetric=TRUE, only.values=TRUE)$values
       neg_evals<-evals[evals<0]
       stop(sprintf(
         "Non-PD covariance matrix (min eigenvalue: %.4f, %d negative). Refused to repair under stopOnNonPD = TRUE. Constrain the correlation parameters (c.bm, rho, c.cf1t/c.cfct) so the matrix is positive definite, or set stopOnNonPD = FALSE to repair silently.",
         min(evals), length(neg_evals)))
     }
-  } else if(makePositiveDefinite){
-    if(!is.positive.definite(sigma)){
-      if(verbose){
-        evals<-eigen(sigma, symmetric=TRUE, only.values=TRUE)$values
-        neg_evals<-evals[evals<0]
-        warning(sprintf(
-          "Non-PD covariance matrix corrected (min eigenvalue: %.4f, %d negative). Consider constraining correlation parameters.",
-          min(evals), length(neg_evals)))
-      }
-      sigma<-make.positive.definite(sigma, tol=1e-3)
-    }
-  }
-
-  # Pre-compute Cholesky factor for efficient MVN draws
-  chol_sigma<-tryCatch(chol(sigma), error=function(e){
-    if(stopOnNonPD){
+    chol_sub<-tryCatch(chol(sub), error=function(e){
       stop(sprintf(
         "Cholesky factorization failed (%s) on a matrix that passed the positive-definiteness check; refusing to repair under stopOnNonPD = TRUE.",
         conditionMessage(e)))
+    })
+    chol_sigma<-matrix(0, nrow(sigma), ncol(sigma), dimnames=dimnames(sigma))
+    chol_sigma[pos,pos]<-chol_sub
+  } else {
+    if(makePositiveDefinite){
+      if(!is.positive.definite(sigma)){
+        if(verbose){
+          evals<-eigen(sigma, symmetric=TRUE, only.values=TRUE)$values
+          neg_evals<-evals[evals<0]
+          warning(sprintf(
+            "Non-PD covariance matrix corrected (min eigenvalue: %.4f, %d negative). Consider constraining correlation parameters.",
+            min(evals), length(neg_evals)))
+        }
+        sigma<-make.positive.definite(sigma, tol=1e-3)
+      }
     }
-    chol(make.positive.definite(sigma, tol=1e-3))
-  })
+    # Pre-compute Cholesky factor for efficient MVN draws
+    chol_sigma<-tryCatch(chol(sigma), error=function(e){
+      chol(make.positive.definite(sigma, tol=1e-3))
+    })
+  }
 
   list(sigma=sigma, means=means, labels=labels, nP=nP, cl=cl,
        trialdesign=trialdesign, chol_sigma=chol_sigma)
@@ -530,8 +548,11 @@ validateParameterGrid<-function(trialdesigns,modelparams,respparam,blparam,lambd
         n_total<-n_total+1
         mp<-modelparams[iM,]
         result<-tryCatch({
+          # Probe only: the raw matrix is wanted, so neither stop nor
+          # repair applies here.
           s<-buildSigma(mp,respparam,blparam,td[[iP]],
-                        makePositiveDefinite=FALSE,lambda_cor=lambda_cor)
+                        makePositiveDefinite=FALSE,lambda_cor=lambda_cor,
+                        stopOnNonPD=FALSE)
           is.positive.definite(s$sigma)
         }, error=function(e) FALSE)
         if(!result){

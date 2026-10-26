@@ -16,7 +16,7 @@ generateSimulatedResults(
   lambda_cor = NA,
   n_cores = 1,
   dgp_architecture = "mvn",
-  stopOnNonPD = FALSE
+  stopOnNonPD = TRUE
 )
 }
 \arguments{
@@ -67,10 +67,12 @@ random slopes, as well as random intercepts, for participants?}
 interaction (\code{"mvn"}, \code{"mean_moderation"}, or
 \code{"combined"}). See \link{generateData} for details.}
 
-\item{stopOnNonPD}{If \code{TRUE}, raise an error instead of silently
-repairing a non-positive-definite covariance matrix encountered
-while building the sigma cache (the refined-process
-recommendation; see \link{buildSigma}). Defaults to \code{FALSE}.}
+\item{stopOnNonPD}{If \code{TRUE} (the default since 2026-10-26),
+raise an error instead of silently repairing a non-positive-definite
+covariance matrix encountered while building the sigma cache (the
+refined-process recommendation; see \link{buildSigma}). Set to
+\code{FALSE} only to reproduce the published process's silent
+repair deliberately.}
 
 \item{rawdataout=FALSE}{Binary - output the raw data for all
 simulations?  This is memory intensive for large runs.}

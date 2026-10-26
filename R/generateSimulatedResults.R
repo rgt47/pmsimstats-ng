@@ -48,10 +48,12 @@
 #' @param dgp_architecture DGP architecture for the biomarker-treatment
 #'   interaction (\code{"mvn"}, \code{"mean_moderation"}, or
 #'   \code{"combined"}). See \link{generateData} for details.
-#' @param stopOnNonPD If \code{TRUE}, raise an error instead of silently
-#'   repairing a non-positive-definite covariance matrix encountered
-#'   while building the sigma cache (the refined-process
-#'   recommendation; see \link{buildSigma}). Defaults to \code{FALSE}.
+#' @param stopOnNonPD If \code{TRUE} (the default since 2026-10-26),
+#'   raise an error instead of silently repairing a non-positive-definite
+#'   covariance matrix encountered while building the sigma cache (the
+#'   refined-process recommendation; see \link{buildSigma}). Set to
+#'   \code{FALSE} only to reproduce the published process's silent
+#'   repair deliberately.
 #' @return Returns a list with three named parts:
 #'   \itemize{
 #'     \item{\code{results}}{  A large data table that tells you the parameters used
@@ -75,7 +77,7 @@
 generateSimulatedResults<-function(trialdesigns,respparamsets,blparamsets,
                                    censorparams,modelparams,simparam,analysisparams,
                                    rawdataout=FALSE,lambda_cor=NA,n_cores=1,
-                                   dgp_architecture="mvn",stopOnNonPD=FALSE){
+                                   dgp_architecture="mvn",stopOnNonPD=TRUE){
 
   # defaults
   if(missing(analysisparams)) analysisparams<-list(useDE=TRUE,

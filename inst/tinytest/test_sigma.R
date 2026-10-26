@@ -144,7 +144,8 @@ make_default_params <- function(c.bm = 0.3, carryover_t1half = 0) {
   expect_true(!is.positive.definite(
     pmsimstats:::buildSigma(p_nonpd$mp, p_nonpd$rp, p_nonpd$bp,
                             td$trialpaths[[1]],
-                            makePositiveDefinite = FALSE)$sigma),
+                            makePositiveDefinite = FALSE,
+                            stopOnNonPD = FALSE)$sigma),
     info = 'c.bm = 0.6 produces a non-PD matrix at this design/rho (precondition for the tests below)')
 
   expect_error(
@@ -152,17 +153,59 @@ make_default_params <- function(c.bm = 0.3, carryover_t1half = 0) {
                             td$trialpaths[[1]], stopOnNonPD = TRUE),
     info = 'stopOnNonPD = TRUE raises an error on a non-PD matrix instead of repairing it')
 
+  expect_error(
+    pmsimstats:::buildSigma(p_nonpd$mp, p_nonpd$rp, p_nonpd$bp,
+                            td$trialpaths[[1]]),
+    info = 'the default (stopOnNonPD = TRUE since 2026-10-26) refuses a non-PD matrix')
+
+  expect_error(
+    pmsimstats::generateData(p_nonpd$mp, p_nonpd$rp, p_nonpd$bp,
+                             td$trialpaths[[1]],
+                             empirical = FALSE, makePositiveDefinite = TRUE),
+    info = 'generateData() refuses a non-PD matrix by default even with makePositiveDefinite = TRUE')
+
   repaired <- pmsimstats:::buildSigma(p_nonpd$mp, p_nonpd$rp, p_nonpd$bp,
                                       td$trialpaths[[1]],
                                       stopOnNonPD = FALSE,
                                       makePositiveDefinite = TRUE)
   expect_true(is.positive.definite(repaired$sigma),
-              info = 'stopOnNonPD = FALSE (default) preserves the prior silent-repair behavior')
+              info = 'stopOnNonPD = FALSE, passed explicitly, reproduces the published process\'s silent repair')
 
   p_pd <- make_default_params()
   expect_silent(
     pmsimstats:::buildSigma(p_pd$mp, p_pd$rp, p_pd$bp,
                             td$trialpaths[[1]], stopOnNonPD = TRUE))
+}
+
+{
+  # Zero-variance components are not a PD failure. PB SD scales with
+  # expectancy, so an e = 0 timepoint makes sigma exactly singular;
+  # the stop path must accept it, factor the positive-variance block
+  # only, and draw the degenerate components at their means.
+  td_runin <- buildtrialdesign(
+    name_longform = 'run-in then open label',
+    name_shortform = 'RI',
+    timepoints = cumulative(rep(2.5, 6)),
+    timeptnames = paste0('T', 1:6),
+    expectancies = c(0, 0, 1, 1, 1, 1),
+    ondrug = list(pathA = c(0, 0, 1, 1, 1, 1))
+  )
+  p <- make_default_params()
+  built <- pmsimstats:::buildSigma(p$mp, p$rp, p$bp, td_runin$trialpaths[[1]])
+  zero_cols <- c('T1.pb', 'T2.pb')
+  expect_true(all(diag(built$sigma)[zero_cols] == 0),
+              info = 'e = 0 timepoints have exactly zero PB variance in sigma')
+  expect_true(all(built$chol_sigma[zero_cols, ] == 0) &&
+                all(built$chol_sigma[, zero_cols] == 0),
+              info = 'the Cholesky factor is zero-padded at the degenerate components')
+  recon <- t(built$chol_sigma) %*% built$chol_sigma
+  expect_equal(unname(recon), unname(built$sigma), tolerance = 1e-10,
+               info = 'zero-padded factor reconstructs the unrepaired sigma exactly')
+  dat <- pmsimstats::generateData(p$mp, p$rp, p$bp, td_runin$trialpaths[[1]],
+                                  empirical = FALSE, makePositiveDefinite = TRUE,
+                                  seed = 7)
+  expect_true(all(dat$T1.pb == built$means[built$labels == 'T1.pb']),
+              info = 'draws at an e = 0 timepoint equal the PB mean exactly')
 }
 
 {

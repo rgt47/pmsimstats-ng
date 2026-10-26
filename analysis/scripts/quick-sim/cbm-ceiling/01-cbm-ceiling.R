@@ -109,7 +109,8 @@ for (dn in names(designs)) {
         c.tv = base$rho, c.pb = base$rho, c.br = base$rho,
         c.cf1t = base$c1, c.cfct = base$cx)
       pkg <- cov2cor(buildSigma(mp, extracted_rp, extracted_bp, tp,
-        makePositiveDefinite = FALSE, dgp_architecture = 'mvn')$sigma)
+        makePositiveDefinite = FALSE, stopOnNonPD = FALSE,
+        dgp_architecture = 'mvn')$sigma)
       own <- build_R(tp, 0.45, th, base$rho, base$c1, base$cx,
                      'ar1', 'decay', 'graded')$R
       max_err <- max(max_err, max(abs(pkg - own)))
@@ -210,10 +211,14 @@ for (dn in names(designs)) {
     mp <- data.table(N = 10, c.bm = cb, carryover_t1half = 0,
       c.tv = base$rho, c.pb = base$rho, c.br = base$rho,
       c.cf1t = base$c1, c.cfct = base$cx)
+    ## This block studies the repair itself, so it opts out of the
+    ## stop-on-non-PD default deliberately.
     raw <- buildSigma(mp, extracted_rp, extracted_bp, tp,
-      makePositiveDefinite = FALSE, dgp_architecture = 'mvn')
+      makePositiveDefinite = FALSE, stopOnNonPD = FALSE,
+      dgp_architecture = 'mvn')
     adj <- buildSigma(mp, extracted_rp, extracted_bp, tp,
-      makePositiveDefinite = TRUE, dgp_architecture = 'mvn')
+      makePositiveDefinite = TRUE, stopOnNonPD = FALSE,
+      dgp_architecture = 'mvn')
     br <- grep('\\.br$', raw$labels)
     r_raw <- cov2cor(raw$sigma)[1, br]
     r_adj <- cov2cor(adj$sigma)[1, br]

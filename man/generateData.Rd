@@ -21,7 +21,7 @@ generateData(
   br_p3 = NA,
   moderation_scaling = "constant",
   components = c("tv", "pb", "br"),
-  stopOnNonPD = FALSE
+  stopOnNonPD = TRUE
 )
 }
 \arguments{
@@ -143,14 +143,18 @@ channels simultaneously using independent weights \code{c.bm_a}
 (mean channel) and \code{c.bm_b} (covariance channel) (Architecture
 C). See the DGP architecture white paper for details.}
 
-\item{stopOnNonPD}{If \code{TRUE}, a non-positive-definite covariance
-matrix raises an error instead of being silently repaired (the
-refined-process recommendation; paper 01, Table tab:spec and
-Appendix B.2). Defaults to \code{FALSE}, which keeps the prior
-silent-repair behavior via \code{makePositiveDefinite} unchanged for
-existing callers. Takes precedence over \code{makePositiveDefinite}
-when \code{TRUE}: the matrix is checked and, if non-PD, an error is
-raised before any repair is attempted.}
+\item{stopOnNonPD}{If \code{TRUE} (the default since 2026-10-26), a
+non-positive-definite covariance matrix raises an error instead of
+being repaired (the refined-process recommendation; paper 01, Table
+tab:spec and Appendix B.2). Takes precedence over
+\code{makePositiveDefinite}: the matrix is checked and, if non-PD,
+an error is raised before any repair is attempted. Components with
+exactly zero variance (the placebo response at an expectancy-0
+timepoint) are not a PD failure: only the positive-variance
+sub-block is checked and factored, and those components are drawn
+at their means. Set to \code{FALSE} only to reproduce the
+published process's silent repair deliberately (for example, to
+study the repair itself).}
 }
 \value{
 A \code{dat} file that contains both the total symptom scores at each timepoint

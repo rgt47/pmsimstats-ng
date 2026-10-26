@@ -166,8 +166,9 @@ compute_means <- function(baseline_param, resp_param, trial_data,
 #' Build Sigma (covariance) matrix for MVN sampling
 #'
 #' Composes [build_correlation_matrix()] with the standard-deviation
-#' vector and performs positive-definiteness checking, correcting
-#' non-PD matrices via `corpcor::make.positive.definite(tol = 1e-3)`.
+#' vector and performs positive-definiteness checking. A non-PD matrix
+#' raises an error by default; with `stop_on_nonpd = FALSE` it is
+#' repaired via `corpcor::make.positive.definite(tol = 1e-3)` instead.
 #' Returns the Cholesky factor for efficient sampling.
 #'
 #' @param model_param Model-parameter tibble.
@@ -178,6 +179,14 @@ compute_means <- function(baseline_param, resp_param, trial_data,
 #' @param lambda_cor Correlation decay rate for off-drug BM-BR
 #'   coupling. `NA` auto-derives from `carryover_t1half`.
 #' @param dgp_architecture Either `"mvn"` or `"mean_moderation"`.
+#' @param stop_on_nonpd Logical; if `TRUE` (default), a
+#'   non-positive-definite matrix raises an error instead of being
+#'   repaired. Components with exactly zero variance (the placebo
+#'   response at an expectancy-0 timepoint) are not treated as a PD
+#'   failure: only the positive-variance sub-block is checked and
+#'   factored, and those components are drawn at their means. Pass
+#'   `FALSE` only to reproduce the published process's silent repair
+#'   deliberately.
 #' @param ... Reserved for future use.
 #' @return A list with elements `sigma`, `labels`,
 #'   `standard_deviations`, `correlations`, `means`, `nP`, `cl`,
@@ -188,6 +197,7 @@ build_sigma_matrix <- function(model_param, resp_param, baseline_param,
                                verbose = FALSE,
                                lambda_cor = NA,
                                dgp_architecture = "mvn",
+                               stop_on_nonpd = TRUE,
                                ...) {
 
   dgp_architecture <- match.arg(dgp_architecture,
@@ -251,25 +261,60 @@ build_sigma_matrix <- function(model_param, resp_param, baseline_param,
     cat("Sigma matrix positive definite:", is_pd, "\n")
   }
 
-  if (!is_pd) {
-    if (verbose) {
-      eigenvalues <- eigen(sigma, only.values = TRUE)$values
+  # Zero-variance components (PB at an expectancy-0 timepoint) are
+  # not a PD failure: the stop path checks and factors only the
+  # positive-variance sub-block and zero-pads the factor, so those
+  # components are drawn at their means exactly, with no repair.
+  if (stop_on_nonpd) {
+    pos <- standard_deviations > 0
+    sub <- sigma[pos, pos, drop = FALSE]
+    if (!corpcor::is.positive.definite(sub)) {
+      eigenvalues <- eigen(sub, only.values = TRUE)$values
       neg_evals <- eigenvalues[eigenvalues < 0]
-      warning(sprintf(
-        paste0("Non-PD covariance matrix corrected (min eigenvalue: ",
-               "%.4f, %d negative)"),
+      stop(sprintf(
+        paste0("Non-PD covariance matrix (min eigenvalue: %.4f, %d ",
+               "negative). Refused to repair under stop_on_nonpd = ",
+               "TRUE. Constrain the correlation parameters so the ",
+               "matrix is positive definite, or set stop_on_nonpd = ",
+               "FALSE to repair silently."),
         min(eigenvalues), length(neg_evals)
       ))
     }
-    sigma <- corpcor::make.positive.definite(sigma, tol = 1e-3)
-  }
-
-  chol_sigma <- tryCatch(
-    chol(sigma),
-    error = function(e) {
-      chol(corpcor::make.positive.definite(sigma, tol = 1e-3))
+    chol_sub <- tryCatch(
+      chol(sub),
+      error = function(e) {
+        stop(sprintf(
+          paste0("Cholesky factorization failed (%s) on a matrix that ",
+                 "passed the positive-definiteness check; refusing to ",
+                 "repair under stop_on_nonpd = TRUE."),
+          conditionMessage(e)
+        ))
+      }
+    )
+    chol_sigma <- matrix(0, nrow(sigma), ncol(sigma),
+                         dimnames = dimnames(sigma))
+    chol_sigma[pos, pos] <- chol_sub
+    is_pd <- TRUE
+  } else {
+    if (!is_pd) {
+      if (verbose) {
+        eigenvalues <- eigen(sigma, only.values = TRUE)$values
+        neg_evals <- eigenvalues[eigenvalues < 0]
+        warning(sprintf(
+          paste0("Non-PD covariance matrix corrected (min eigenvalue: ",
+                 "%.4f, %d negative)"),
+          min(eigenvalues), length(neg_evals)
+        ))
+      }
+      sigma <- corpcor::make.positive.definite(sigma, tol = 1e-3)
     }
-  )
+    chol_sigma <- tryCatch(
+      chol(sigma),
+      error = function(e) {
+        chol(corpcor::make.positive.definite(sigma, tol = 1e-3))
+      }
+    )
+  }
 
   list(
     sigma = sigma,
@@ -349,6 +394,9 @@ process_participant_data <- function(participant_data, timepoint_names,
 #'   [build_sigma_matrix()] to skip construction.
 #' @param dgp_architecture Either `"mvn"` (Architecture B, default)
 #'   or `"mean_moderation"` (Architecture A).
+#' @param stop_on_nonpd Logical; if `TRUE` (default), a
+#'   non-positive-definite covariance matrix raises an error instead of
+#'   being repaired (see [build_sigma_matrix()]).
 #' @return A tibble with `bm`, `BL`, one column per factor-timepoint
 #'   pair (`<tp>.tv`, `<tp>.pb`, `<tp>.br`), `ptID`, delta columns
 #'   `D_<tp>`, and symptom columns `<tp>`.
@@ -357,7 +405,8 @@ generate_data <- function(
     model_param, resp_param, baseline_param, trial_design,
     empirical, make_positive_definite, seed = NA,
     lambda_cor = NA, verbose = FALSE, track_pd_stats = TRUE,
-    cached_sigma = NULL, dgp_architecture = "mvn") {
+    cached_sigma = NULL, dgp_architecture = "mvn",
+    stop_on_nonpd = TRUE) {
 
   dgp_architecture <- match.arg(dgp_architecture,
                                 c("mvn", "mean_moderation"))
@@ -386,7 +435,8 @@ generate_data <- function(
     sigma_result <- build_sigma_matrix(
       model_param, resp_param, baseline_param, trial_design,
       lambda_cor = lambda_cor, verbose = verbose,
-      dgp_architecture = dgp_architecture
+      dgp_architecture = dgp_architecture,
+      stop_on_nonpd = stop_on_nonpd
     )
     labels <- sigma_result$labels
     means <- sigma_result$means

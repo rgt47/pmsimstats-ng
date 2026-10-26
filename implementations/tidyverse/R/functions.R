@@ -349,7 +349,7 @@ build_sigma_matrix <- function(model_param, resp_param, baseline_param,
                                verbose = FALSE,
                                lambda_cor = NA,
                                dgp_architecture = "mvn",
-                               stop_on_nonpd = FALSE,
+                               stop_on_nonpd = TRUE,
                                ...) {
 
   dgp_architecture <- match.arg(dgp_architecture, c("mvn", "mean_moderation", "combined"))
@@ -405,34 +405,50 @@ build_sigma_matrix <- function(model_param, resp_param, baseline_param,
   ## ch10-refined-process.md; paper 01 Table tab:spec and Appendix
   ## B.2; mirrors R/generateData.R's stopOnNonPD) is to raise an
   ## error instead of silently repairing a non-positive-definite
-  ## covariance matrix. Defaults to FALSE, preserving the unconditional
-  ## silent-repair behavior every existing caller relies on.
-  if (!is_pd) {
-    if (stop_on_nonpd) {
-      eigenvalues <- eigen(sigma, only.values = TRUE)$values
+  ## covariance matrix. Default TRUE since 2026-10-26 (docs/60); the
+  ## repair branch is reached only when a caller passes FALSE
+  ## explicitly to reproduce the published process's behavior.
+  ##
+  ## Zero-variance components are not a PD failure: the PB amplitude
+  ## scales with expectancy, so an e = 0 timepoint has an exactly zero
+  ## PB SD and sigma is singular there by construction. The stop path
+  ## checks and factors only the positive-variance sub-block and
+  ## embeds that factor in a zero-padded matrix, so the degenerate
+  ## components are drawn at their means exactly, with no repair.
+  if (stop_on_nonpd) {
+    pos <- standard_deviations > 0
+    sub <- sigma[pos, pos, drop = FALSE]
+    if (!corpcor::is.positive.definite(sub)) {
+      eigenvalues <- eigen(sub, only.values = TRUE)$values
       neg_evals <- eigenvalues[eigenvalues < 0]
       stop(sprintf(
         'Non-PD covariance matrix (min eigenvalue: %.4f, %d negative). Refused to repair under stop_on_nonpd = TRUE. Constrain the correlation parameters (c.bm, rho, c.cf1t/c.cfct) so the matrix is positive definite, or set stop_on_nonpd = FALSE to repair silently.',
         min(eigenvalues), length(neg_evals)))
     }
-    if (verbose) {
-      eigenvalues <- eigen(sigma, only.values = TRUE)$values
-      neg_evals <- eigenvalues[eigenvalues < 0]
-      warning(sprintf(
-        'Non-PD covariance matrix corrected (min eigenvalue: %.4f, %d negative)',
-        min(eigenvalues), length(neg_evals)))
-    }
-    sigma <- corpcor::make.positive.definite(sigma, tol = 1e-3)
-  }
-
-  chol_sigma <- tryCatch(chol(sigma), error = function(e) {
-    if (stop_on_nonpd) {
+    chol_sub <- tryCatch(chol(sub), error = function(e) {
       stop(sprintf(
         'Cholesky factorization failed (%s) on a matrix that passed the positive-definiteness check; refusing to repair under stop_on_nonpd = TRUE.',
         conditionMessage(e)))
+    })
+    chol_sigma <- matrix(0, nrow(sigma), ncol(sigma),
+                         dimnames = dimnames(sigma))
+    chol_sigma[pos, pos] <- chol_sub
+    is_pd <- TRUE
+  } else {
+    if (!is_pd) {
+      if (verbose) {
+        eigenvalues <- eigen(sigma, only.values = TRUE)$values
+        neg_evals <- eigenvalues[eigenvalues < 0]
+        warning(sprintf(
+          'Non-PD covariance matrix corrected (min eigenvalue: %.4f, %d negative)',
+          min(eigenvalues), length(neg_evals)))
+      }
+      sigma <- corpcor::make.positive.definite(sigma, tol = 1e-3)
     }
-    chol(corpcor::make.positive.definite(sigma, tol = 1e-3))
-  })
+    chol_sigma <- tryCatch(chol(sigma), error = function(e) {
+      chol(corpcor::make.positive.definite(sigma, tol = 1e-3))
+    })
+  }
 
   list(
     sigma = sigma,
@@ -456,7 +472,7 @@ generate_data <- function(
     empirical, make_positive_definite, seed = NA,
     lambda_cor = NA, verbose = FALSE, track_pd_stats = TRUE,
     cached_sigma = NULL, dgp_architecture = "mvn",
-    stop_on_nonpd = FALSE) {
+    stop_on_nonpd = TRUE) {
 
   dgp_architecture <- match.arg(dgp_architecture, c("mvn", "mean_moderation", "combined"))
 

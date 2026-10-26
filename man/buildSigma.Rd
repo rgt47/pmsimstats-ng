@@ -17,7 +17,7 @@ buildSigma(
   br_p2 = NA,
   br_p3 = NA,
   components = c("tv", "pb", "br"),
-  stopOnNonPD = FALSE
+  stopOnNonPD = TRUE
 )
 }
 \arguments{

@@ -42,8 +42,10 @@ for (cbm in cbm_grid) {
 
   pd_log$rows <- list()
   mp_cur <- list(N = 35L, c.bm = cbm, carryover_t1half = t1half, c.tv = 0.7, c.pb = 0.7, c.br = 0.7, c.cf1t = 0.2, c.cfct = 0.1)
+  ## Counts repairs, so it opts out of the stop-on-non-PD default.
   invisible(buildSigma(modelparam = mp_cur, respparam = rp, blparam = bp,
                         trialdesign = path1, makePositiveDefinite = TRUE,
+                        stopOnNonPD = FALSE,
                         lambda_cor = log(2)/t1half, dgp_architecture = 'mvn'))
   pd_archB <- pd_log$rows[[1]]$pd
 

@@ -16,7 +16,8 @@ generate_data(
   verbose = FALSE,
   track_pd_stats = TRUE,
   cached_sigma = NULL,
-  dgp_architecture = "mvn"
+  dgp_architecture = "mvn",
+  stop_on_nonpd = TRUE
 )
 }
 \arguments{
@@ -55,6 +56,10 @@ the returned tibble (\code{sigma_count},
 
 \item{dgp_architecture}{Either \code{"mvn"} (Architecture B, default)
 or \code{"mean_moderation"} (Architecture A).}
+
+\item{stop_on_nonpd}{Logical; if \code{TRUE} (default), a
+non-positive-definite covariance matrix raises an error instead of
+being repaired (see \code{\link[=build_sigma_matrix]{build_sigma_matrix()}}).}
 }
 \value{
 A tibble with \code{bm}, \code{BL}, one column per factor-timepoint

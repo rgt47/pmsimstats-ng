@@ -4,6 +4,68 @@
 
 **Author:** pmsimstats team
 
+**Update, 2026-10-26.** Two further `simrun` jobs (28 and 30) and a
+direct covariance check, all bearing on step 11's prognostic-
+biomarker work and on the `G9`-versus-F1A0B decision.
+
+- **Job 28 (`28-run-g9-prognostic-stress.R`, 32 cells x 500 reps)**
+  crossed all four prognostic pathways with two confound strengths
+  (0.3, 0.6), two $c_{bm}$ levels (0, 0.45) and $N \in \{35, 70\}$
+  on Hybrid, fitting `G1`-`G9`, `E0` and the `F`-family on the same
+  trials. Verified: `G9`'s Type I error is 0.042-0.050 at every null
+  cell, including strength 0.6, and at strength 0.3 no method loses
+  power relative to the no-confound alternative. At strength 0.6 on
+  the prog-PB and prog-TV-const pathways every method, `G` and `F`
+  alike, lost 15-25 points of power (`G9`: 0.597/0.853 on prog-PB
+  and 0.502/0.772 on prog-TV-const at $N=35/70$, against 0.759/0.969
+  with no confound). `G9` is at least as powerful as F1A0B in all 16
+  alternative cells of this job.
+- **Job 30 (`29-run-g9-random-effects.R`, 12 cells x 1000 reps)**
+  was launched on the hypothesis that this loss was added patient-
+  level variance that a richer random-effects structure might
+  absorb. It was not: `G9` with a random slope on `t`, on `De`, or
+  both matches plain `G9` to within one point of power and of SE in
+  all 12 cells (paired per-replicate gains at most 0.008), at the
+  cost of up to 2.5% non-convergence.
+- **The strength-0.6 loss is a DGP artifact, not a confound
+  effect.** The new check script
+  `30-check-prognostic-confound-pd.R` (output
+  `analysis/data/carryover-sensitivity/g9-prognostic-stress/pd-check.rds`)
+  shows, with no simulation, that every strength-0.6 cell on prog-PB
+  and prog-TV-const, and prog-BL at $c_{bm}=0.45$, has a non-
+  positive-definite $\Sigma$ on all four Hybrid paths (minimum
+  eigenvalue $-0.11$ to $-0.85$). Both drivers run with
+  `stop_on_nonpd = FALSE` (the default retained in step 3), so
+  `build_sigma_matrix()` repaired the matrix silently. The repair
+  shrinks the population on-drug minus off-drug slope contrast of
+  $S_x$ on the biomarker, the quantity `bm:Dbc` estimates, from
+  $-3.53$ to $-2.38$ (prog-PB), from $-3.26$ to $-1.81$
+  (prog-TV-const) and from $-3.26$ to $-3.00$ (prog-BL); the mean
+  estimates jobs 28 and 30 report at those cells match the repaired
+  values. Strength-0.3 cells are PD on every path, which is why they
+  show no loss. prog-TV-grow is a mean shift and never affects PD.
+
+Consequences. Job 28's strength-0.6 power numbers must not be cited
+as the cost of a strong confound, and no analysis-side remedy for
+them should be pursued; the premise of job 30 was wrong. `G9`'s
+nominal size at those cells stands as a result but was obtained
+under a repaired matrix. These cells are infeasible under the
+refined process, which is exactly what `stop_on_nonpd = TRUE`
+exists to refuse, and a valid "stronger confound" test needs a
+PD-feasible strength ladder run with `stop_on_nonpd = TRUE` (not
+yet done). One side observation, verified by the same script:
+prog-PB induces a small nonzero population contrast even at
+$c_{bm}=0$ ($-0.14$ at strength 0.3, $-0.27$ at 0.6, against $-3.3$
+at the alternative), because the placebo-response SD scales with
+expectancy and so differs on and off drug in Hybrid; `G9` showed no
+detectable size inflation from it at these $N$, but it is the
+mechanism the `F`-family's `De` term exists for and may matter at
+larger $N$ or stronger confounds. For the `G9`-versus-F1A0B
+decision: `G9` continues to hold nominal size under every
+prognostic pathway tested, now at doubled strength, and was never
+less powerful than F1A0B on the same trials in job 28. Neither
+manuscript yet states any of this.
+
 **Update, 2026-10-25.** Two compute jobs launched to close gaps this
 note flagged as open on 2026-10-24: both are complete, fetched, and
 applied.
@@ -389,7 +451,7 @@ canonical DGP").
 | 8 | Verify companion citations (shared with paper 01 step 4). | none | **Done (2026-10-21).** Every `\@`-citation in paper 02's `report.Rmd` resolves to a real `references.bib` entry (no missing-key errors). But `@pmsimstats_dgp_architectures2026` and `@pmsimstats_calibration2026` are `@unpublished` placeholder entries for companion manuscripts that do not exist as actual report directories in this repo — a dangling-citation problem, not a missing-key one. See gap item 7: this is the same provenance issue as the F1A0B misattribution risk. These two citations need either a real companion manuscript to point to, or removal/rewording until one exists. |
 | 9 | Name ADEMP conformance explicitly (shared pattern with paper 01 step 5). | none | **Not needed — already present.** See the correction to gap item 6 above; this was an error in the original gap analysis. |
 | 10 | Full read-through against *Trials* Instructions for Authors once confirmed live. | 1-9 | Blocked, same as paper 01 step 6 — journal page not reachable this session. |
-| 11 | Add an expectancy-term (`De`/`bmc:De`) variant to the `G1`-`G9` family, and add at least one prognostic-biomarker null cell to the grid (reusing paper 01 Study 3's cell design), before paper 02's "best method" claim is extended to cover a prognostic biomarker. | 4 | **Partially done (2026-10-23/24).** All four of paper 01 Study 3's prognostic pathways (prog-BL, prog-TV-const, prog-TV-grow, prog-PB) were added and run against all nine existing `G1`-`G9` specifications plus `E0`/the `F`-family (paper 02's new Block S12). All nine `G`-family specs hold nominal Type I error under every pathway *without* a `De` term -- a result paper 01 Study 3 did not establish for this specific family. The `De`/`bmc:De` variant of `G1`-`G9` itself was not built; S12 compares the unmodified `G`-family against the separate `De`-bearing `F`-family rather than adding `De` to `G1`-`G9` directly. |
+| 11 | Add an expectancy-term (`De`/`bmc:De`) variant to the `G1`-`G9` family, and add at least one prognostic-biomarker null cell to the grid (reusing paper 01 Study 3's cell design), before paper 02's "best method" claim is extended to cover a prognostic biomarker. | 4 | **Partially done (2026-10-23/24).** All four of paper 01 Study 3's prognostic pathways (prog-BL, prog-TV-const, prog-TV-grow, prog-PB) were added and run against all nine existing `G1`-`G9` specifications plus `E0`/the `F`-family (paper 02's new Block S12). All nine `G`-family specs hold nominal Type I error under every pathway *without* a `De` term -- a result paper 01 Study 3 did not establish for this specific family. The `De`/`bmc:De` variant of `G1`-`G9` itself was not built; S12 compares the unmodified `G`-family against the separate `De`-bearing `F`-family rather than adding `De` to `G1`-`G9` directly. **Extended (2026-10-26):** job 28 doubled the confound strength to 0.6 and added co-occurring-interaction cells; `G9` stays nominal throughout, but the strength-0.6 cells on prog-PB and prog-TV-const are non-PD and were silently repaired, so their power results are a DGP artifact (see the 2026-10-26 update and `30-check-prognostic-confound-pd.R`). A PD-feasible strength ladder under `stop_on_nonpd = TRUE` is still needed. |
 | 12 | Add `F1A0B` (and/or `F1AB`) as a tested candidate alongside `G1`-`G9`, run on paper 02's own corrected grid (post steps 1-3). Implement it directly from `docs/57-data-chosen-carryover-half-life.md` Section 4.5 (the parametric null-model bootstrap that repeats the selection step in every resample) and `docs/series/ch23-data-chosen-half-life.md`'s construct box and candidate grid ($\mathcal{T}_a = \{0, 0.25, 0.5, 1, 2\}$ weeks); cite both explicitly in paper 02's Methods as the source of the method, not just of the idea. If F1A0B is recommended, this makes paper 02 itself the source of that conclusion, on its own tested grid, rather than an uncited internal document the recommendation is currently borrowed from without attribution. | 1, 2, 3, 11 | **Substantially done (2026-10-23/24), extended (2026-10-25).** `F1A0B` (plus `F1`/`F1A`/`F1A0` and `E0`, Hendrickson's actual original analysis) is tested alongside all nine `G`-family specifications on the same simulated trials each replicate, using the corrected `c.cf1t`/`c.cfct = 0.2` constants from step 1. S12's own 15-cell comparison (driver `06-g-vs-f-comparison.R`, `simrun` job 21) is now joined by a second, larger comparison on the existing Tier 1 figure grid (driver `27-run-tier1-g-vs-f-e0.R`, `simrun` job 27, 30 cells x 500 reps x design {CO, Hybrid, OLBDC} x N {35, 70}, 4h03m, fetched and verified: `analysis/data/carryover-sensitivity/tier1-g-vs-f-e0/summary.rds`). This generalizes the E0 finding below across design and N rather than the single 15-cell slice. Not done: S12's Methods text cites `docs/62` by internal document number rather than `docs/57`/`ch23` as a proper reference; every `docs/NN` in-text pointer S12 added needs converting to a citation (or removing) before submission; and job 27's results are not yet narrated in either manuscript (see new finding below). |
 | 13 | Once 11-12 land, state the paper-01/paper-02/F1 synthesis explicitly in both papers: paper 02's Discussion should name `Dbc` as the carryover representation its own comparison selected, now combined with paper 01's expectancy terms into F1; paper 01 should re-verify, at least as a confirmatory check, that its headline refined-process power-vs-half-life results are consistent under F1/F1A0B, not only under `E9`/RH's `lmer`. This is a small addition to paper 01 (already otherwise resolved, Part 1) in addition to a paper 02 change. | 12 | Open. 11-12 are now far enough along (prognostic cells run, F1A0B tested) that this can be drafted; also fold in S12's new `E0`/`corCAR1` Type I error finding (see 2026-10-24 update above), which belongs in this synthesis discussion. |
 

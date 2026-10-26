@@ -347,6 +347,19 @@ the criterion-6 check.
   each ($0.3$) and one design (Hybrid); misspecification of that
   effect size, or whether a prognostic confound and the true
   interaction co-occur, is untested.
+- Update, 2026-10-26: the co-occurrence gap above was run (job 28,
+  `28-run-g9-prognostic-stress.R`) at strengths 0.3 and 0.6. The
+  strength-0.3 cells used in this note are positive definite on
+  every Hybrid path (verified by
+  `30-check-prognostic-confound-pd.R`), so this note's prognostic
+  results are unaffected. The strength-0.6 cells on prog-PB and
+  prog-TV-const are not: their $\Sigma$ is non-positive-definite and
+  was silently repaired under `stop_on_nonpd = FALSE`, which
+  attenuates the generated interaction contrast by 33-45%, so the
+  power loss every method shows there (F1A0B included) is a DGP
+  artifact, not a confound cost. Details in `docs/60`'s 2026-10-26
+  update. Any further prognostic cell should be run with
+  `stop_on_nonpd = TRUE`.
 - No comparison against the `G`-family (`G1`-`G9`) on the same
   cells; this note evaluates F1A0B in isolation, not head to head.
 - The half-life misspecification null result (criterion 3) needs a
@@ -387,6 +400,9 @@ the criterion-6 check.
   four prognostic pathways, of which only prog-BL was run here.
 - `analysis/scripts/carryover-sensitivity/05-f1a0b-evaluation.R` --
   the driver for this evaluation.
+- `analysis/scripts/carryover-sensitivity/30-check-prognostic-confound-pd.R`
+  -- positive-definiteness and population-contrast check for the
+  prognostic-confound cells (2026-10-26).
 - `analysis/scripts/carryover-sensitivity/simulation-core.R` -- the
   F-family machinery (`grid_fits_f`, `grid_methods_f`, `sim_null_f`,
   `boot_stat_f1a0`, `fit_f_family`, `simulate_cell_f`), the `c.bm.bl`

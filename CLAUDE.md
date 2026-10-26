@@ -573,6 +573,12 @@ intercept.
   `simulation-core.R`; documents that paper 02's `CO` design preset
   is unidentifiable for this model (constant expectancy) and that
   `OLBDC` was substituted for the design-robustness arm.
+- `docs/65-prognostic-confound-feasibility-ceilings.md` — the
+  prognostic-confound power loss in jobs 28/30 shown to be a
+  silent-PD-repair artifact of the DGP, and the closed-form
+  feasibility ceiling for a prognostic coupling alongside $c_{bm}$
+  (Schur complement; scripts 30 and 31 in
+  `analysis/scripts/carryover-sensitivity/`) (2026-10-26).
 - `docs/legacy/INDEX.md` — maps every old `docs/NN` number to its
   new home (archived files live in `docs/legacy/`).
 - `docs/legacy/reorg-plan-2026-04-22.md` — the April 2026 repository

@@ -681,9 +681,10 @@ cr2_extract <- function(fit, dat_long, target_candidates) {
 ## by ML for the comparison and the selected model is refitted by REML
 ## for inference. Returns NULL if no candidate or the refit fails.
 select_half_life_aic <- function(dat_long,
-                                 half_lives = c(0.25, 0.5, 1.0, 2.0)) {
+                                 half_lives = c(0.25, 0.5, 1.0, 2.0),
+                                 random = ~1 | ptID) {
   fit_dbc <- function(dl, method) tryCatch(
-    nlme::lme(Sx ~ bm + t + Dbc + bm:Dbc, random = ~1 | ptID,
+    nlme::lme(Sx ~ bm + t + Dbc + bm:Dbc, random = random,
               correlation = nlme::corCAR1(form = ~t | ptID),
               data = dl, method = method,
               control = nlme::lmeControl(
@@ -701,6 +702,38 @@ select_half_life_aic <- function(dat_long,
   fit <- fit_dbc(best$dl, 'REML')
   if (is.null(fit)) return(NULL)
   list(hl = best$hl, fit = fit, dl = best$dl)
+}
+
+## G9 with a richer random-effects structure (29-run-g9-random-
+## effects.R). Same AIC half-life selection and CR2 extraction as
+## E7cr2; only `random` differs. Job 28 showed every specification,
+## G9 included, losing power under a prog-PB or prog-TV-const
+## confound with no size inflation, i.e. the confound adds patient-
+## level variance correlated with bm rather than bias. The F-family's
+## fixed expectancy term is identical across patients and cannot
+## absorb that, so these variants model it as variance components:
+## a random slope on t (patient-specific natural-history trend,
+## the TV mechanism), a random coefficient on De (patient-specific
+## placebo responsiveness, the PB mechanism), or both.
+G9_RANDOM_VARIANTS <- list(
+  G9     = ~1 | ptID,
+  G9rs   = ~1 + t | ptID,
+  G9re   = ~1 + De | ptID,
+  G9rse  = ~1 + t + De | ptID
+)
+
+fit_g9_random <- function(dat_long, variant) {
+  random <- G9_RANDOM_VARIANTS[[variant]]
+  na_out <- tibble(spec = variant, estimate = NA_real_,
+                   std_error = NA_real_, p_value = NA_real_,
+                   best_t_half = NA_real_, converged = FALSE)
+  best <- select_half_life_aic(dat_long, random = random)
+  if (is.null(best)) return(na_out)
+  r <- cr2_extract(best$fit, best$dl, c('bm:Dbc', 'Dbc:bm'))
+  if (is.null(r)) return(na_out)
+  tibble(spec = variant, estimate = r$estimate,
+         std_error = r$std_error, p_value = r$p_value,
+         best_t_half = best$hl, converged = TRUE)
 }
 
 fit_spec_s7 <- function(dat_long, spec) {
@@ -1319,5 +1352,53 @@ simulate_cell_combined <- function(cell, n_reps, n_boot = 1L,
                p_value, converged, t, boot_t_f1a0)
 
     bind_rows(g_res, f_res) |> mutate(rep = rep_i, .before = 1)
+  })
+}
+
+## G9 and its random-effects variants (G9_RANDOM_VARIANTS) on the
+## same simulated trial. Data generation is the same sequence of
+## calls as simulate_cell_combined(), so under the same seed and
+## platform the trial is identical to job 28's for a matching cell.
+simulate_cell_g9_random <- function(cell, n_reps,
+                                    variants = names(G9_RANDOM_VARIANTS),
+                                    stop_on_nonpd = FALSE) {
+  design_set <- build_design_set(cell$design)
+  resp_param     <- default_resp_param()
+  baseline_param <- default_baseline_param()
+  rho <- default_val(cell[['rho']], 0.7)
+
+  model_param <- list(
+    N = cell$N, carryover_t1half = cell$t1half,
+    carryover_form = cell$carryover_form,
+    weibull_shape = cell$weibull_shape,
+    dgp_architecture = cell$dgp_arch,
+    c.bm = cell$c_bm,
+    c.tv = rho, c.pb = rho, c.br = rho,
+    c.cf1t = 0.2, c.cfct = 0.2
+  )
+  model_param$c.bm.bl <- default_val(cell[['c_bl']], 0)
+  model_param$c.bm.tv <- default_val(cell[['c_tv']], 0)
+  model_param$b.bm.tv <- default_val(cell[['b_tv']], 0)
+  model_param$c.bm.pb <- default_val(cell[['c_pb']], 0)
+
+  map_dfr(seq_len(n_reps), function(rep_i) {
+    dat <- tryCatch(
+      generate_data_multi_path(model_param, resp_param, baseline_param,
+                               design_set, stop_on_nonpd = stop_on_nonpd),
+      error = function(e) NULL
+    )
+    if (is.null(dat) || nrow(dat) == 0) return(NULL)
+
+    dat_long <- prepare_long_data(
+      dat, design_set,
+      carryover_t1half = cell$t1half,
+      carryover_form = cell$carryover_form,
+      weibull_shape = cell$weibull_shape
+    )
+
+    map_dfr(variants, ~ fit_g9_random(dat_long, .x)) |>
+      transmute(method = spec, h = best_t_half, estimate, std_error,
+                p_value, converged, t = estimate / std_error) |>
+      mutate(rep = rep_i, .before = 1)
   })
 }

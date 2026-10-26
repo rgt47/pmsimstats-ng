@@ -155,7 +155,13 @@ check and in the Cholesky-factorization fallback (the refined
 process's recommendation, paper 01 B.2 and Table tab:spec). Callers
 that want the refined process's validity guarantee must opt in
 explicitly; the package default remains silent repair for backward
-compatibility.
+compatibility. Paper 02's driver core
+(`analysis/scripts/carryover-sensitivity/simulation-core.R`) is the
+exception: since 2026-10-26 it defaults to `stop_on_nonpd = TRUE`,
+after two jobs silently repaired infeasible prognostic-confound
+cells (docs/60, 2026-10-26 update); a non-PD cell there shows as a
+non-converged replicate. Pass `stop_on_nonpd = FALSE` to reproduce
+earlier paper 02 runs.
 
 ## Implementations
 

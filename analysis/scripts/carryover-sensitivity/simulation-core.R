@@ -108,10 +108,19 @@ default_baseline_param <- function() {
 ## -----------------------------------------------------------------
 ## Generate data across paths for a multi-path design
 ## -----------------------------------------------------------------
+## stop_on_nonpd defaults to TRUE here and in every simulate_cell*()
+## below (changed 2026-10-26; the shared build_sigma_matrix() in
+## implementations/tidyverse keeps FALSE for other callers). Under
+## the FALSE default, jobs 28 and 30 silently repaired non-PD
+## matrices at prognostic-confound strength 0.6 and reported the
+## attenuated interaction as a power loss (docs/60, 2026-10-26
+## update; 30-check-prognostic-confound-pd.R). A non-PD cell now
+## surfaces as a failed replicate instead. Pass stop_on_nonpd =
+## FALSE explicitly to reproduce runs made before this date.
 
 generate_data_multi_path <- function(model_param, resp_param,
                                      baseline_param, design_set,
-                                     stop_on_nonpd = FALSE) {
+                                     stop_on_nonpd = TRUE) {
   n_paths <- length(design_set)
   N_per_path <- rep(floor(model_param$N / n_paths), n_paths)
   ## Deterministic path allocation (RH's original approach, retained
@@ -422,7 +431,7 @@ fit_all_specs <- function(dat_long, robust = FALSE) {
 simulate_cell <- function(cell, n_reps, robust = FALSE,
                           resp_param = NULL,
                           baseline_param = NULL,
-                          stop_on_nonpd = FALSE) {
+                          stop_on_nonpd = TRUE) {
   design_set <- build_design_set(cell$design)
   if (is.null(resp_param))     resp_param     <- default_resp_param()
   if (is.null(baseline_param)) baseline_param <- default_baseline_param()
@@ -955,7 +964,7 @@ fit_spec_e0 <- function(dat_long) {
 
 simulate_cell_s7 <- function(cell, n_reps,
                              specs = c('E1', 'E7', 'E9'),
-                             stop_on_nonpd = FALSE) {
+                             stop_on_nonpd = TRUE) {
   design_set <- build_design_set(cell$design)
   resp_param     <- default_resp_param()
   baseline_param <- default_baseline_param()
@@ -1214,7 +1223,7 @@ ws_size <- function(a, s, alpha = 0.05) {
 ## shortcut; more reduces resample noise at proportional extra cost).
 simulate_cell_f <- function(cell, n_reps, n_boot = 1L,
                             resp_param = NULL, baseline_param = NULL,
-                            stop_on_nonpd = FALSE) {
+                            stop_on_nonpd = TRUE) {
   design_set <- build_design_set(cell$design)
   if (is.null(resp_param)) resp_param <- default_resp_param()
   if (is.null(baseline_param)) baseline_param <- default_baseline_param()
@@ -1295,7 +1304,7 @@ simulate_cell_f <- function(cell, n_reps, n_boot = 1L,
 simulate_cell_combined <- function(cell, n_reps, n_boot = 1L,
                                    g_specs = c('E1', 'E2', 'E3', 'E7', 'E9',
                                               'E1cr2', 'E3cr2', 'E2cr2', 'E7cr2'),
-                                   stop_on_nonpd = FALSE) {
+                                   stop_on_nonpd = TRUE) {
   design_set <- build_design_set(cell$design)
   resp_param     <- default_resp_param()
   baseline_param <- default_baseline_param()
@@ -1325,7 +1334,17 @@ simulate_cell_combined <- function(cell, n_reps, n_boot = 1L,
                                design_set, stop_on_nonpd = stop_on_nonpd),
       error = function(e) NULL
     )
-    if (is.null(dat) || nrow(dat) == 0) return(NULL)
+    ## A failed generation (a non-PD cell under stop_on_nonpd = TRUE)
+    ## is recorded as a non-converged row per method so the cell's
+    ## nonconv rate shows it, rather than dropping the replicate.
+    if (is.null(dat) || nrow(dat) == 0) {
+      return(tibble(rep = rep_i,
+                    family = rep(c('G', 'F'), c(length(g_specs) + 1L, 3L)),
+                    method = c(g_specs, 'E0', 'F1', 'F1A', 'F1A0'),
+                    h = NA_real_, estimate = NA_real_, std_error = NA_real_,
+                    p_value = NA_real_, converged = FALSE, t = NA_real_,
+                    boot_t_f1a0 = NA_real_))
+    }
 
     dat_long <- prepare_long_data(
       dat, design_set,
@@ -1361,7 +1380,7 @@ simulate_cell_combined <- function(cell, n_reps, n_boot = 1L,
 ## platform the trial is identical to job 28's for a matching cell.
 simulate_cell_g9_random <- function(cell, n_reps,
                                     variants = names(G9_RANDOM_VARIANTS),
-                                    stop_on_nonpd = FALSE) {
+                                    stop_on_nonpd = TRUE) {
   design_set <- build_design_set(cell$design)
   resp_param     <- default_resp_param()
   baseline_param <- default_baseline_param()
@@ -1387,7 +1406,11 @@ simulate_cell_g9_random <- function(cell, n_reps,
                                design_set, stop_on_nonpd = stop_on_nonpd),
       error = function(e) NULL
     )
-    if (is.null(dat) || nrow(dat) == 0) return(NULL)
+    if (is.null(dat) || nrow(dat) == 0) {
+      return(tibble(rep = rep_i, method = variants, h = NA_real_,
+                    estimate = NA_real_, std_error = NA_real_,
+                    p_value = NA_real_, converged = FALSE, t = NA_real_))
+    }
 
     dat_long <- prepare_long_data(
       dat, design_set,

@@ -21,9 +21,9 @@
 ## 0.45, exponential DGP, t1/2 on the x-axis. Both panels are
 ## Figures 1-2 of the manuscript and were expanded from the original
 ## three specifications (G1-G3) to the full nine (G1-G9) via
-## 19-run-tier1-hendrickson-g9.R (analysis/data/
-## 02-grid-summary-hendrickson-g9.rds), replacing rather than
-## supplementing the three-spec version; this superseded the
+## 19-run-tier1-hendrickson-g9.R, and since 2026-10-26 are drawn
+## from 27-run-tier1-g-vs-f-e0.R's corrected-DGP rerun of the same
+## grid (see the Panels A/B block below); this superseded the
 ## separate Type I error figures (former Figures 6-9) since the
 ## c_bm = 0 column of Panel A now covers Type I error for all nine
 ## specifications directly.
@@ -98,12 +98,23 @@ hendrickson_heatmap <- function(d, x_var, x_lab, title) {
 }
 
 ## -----------------------------------------------------------------
-## Panels A/B: G1-G9, from 19-run-tier1-hendrickson-g9.R. Replaces
-## the original three-spec (G1-G3) version of both panels.
+## Panels A/B: G1-G9 on the corrected DGP, from
+## 27-run-tier1-g-vs-f-e0.R (simrun job 27, 2026-10-25), which fits
+## G1-G9, E0 and the F-family to the same trial on this 30-cell grid
+## under the pre-exposure Dbc guard and ML-AIC selection (docs/45
+## Section 8, 2026-10-06) and the c_1 = 0.2 cross-factor constant
+## (docs/61, 2026-10-21). This supersedes 19-run-tier1-hendrickson-
+## g9.R's 02-grid-summary-hendrickson-g9.rds, whose CO column showed
+## a collapse of the exposure-weighted family that the paired check
+## 26-co-dbc-fix-paired.R traced to the pre-exposure coding defect.
+## Only the G-family is drawn here.
 ## -----------------------------------------------------------------
 
 grid_g9 <- readRDS(file.path(repo_root,
-  'analysis/data/02-grid-summary-hendrickson-g9.rds'))$summary |>
+  'analysis/data/carryover-sensitivity/tier1-g-vs-f-e0/summary.rds')) |>
+  dplyr::filter(family == 'G', method %in% g_order) |>
+  dplyr::transmute(design, N, c_bm, t1half, panel, spec = method,
+                   n, power = reject) |>
   dplyr::mutate(
     spec = factor(g_labels_short[spec], levels = unname(g_labels_short[g_order])),
     design = factor(design, levels = c('CO', 'Hybrid', 'OLBDC'),

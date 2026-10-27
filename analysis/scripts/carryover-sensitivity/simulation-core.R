@@ -1327,6 +1327,10 @@ simulate_cell_combined <- function(cell, n_reps, n_boot = 1L,
   model_param$c.bm.tv <- default_val(cell[['c_tv']], 0)
   model_param$b.bm.tv <- default_val(cell[['b_tv']], 0)
   model_param$c.bm.pb <- default_val(cell[['c_pb']], 0)
+  ## optional dropout block, same convention as simulate_cell()
+  ## (added 2026-10-26 for 32-run-g9-gap-fill.R)
+  dropout_rate <- default_val(cell[['dropout_rate']], 0)
+  dropout_mech <- default_val(cell[['dropout_mech']], 'MCAR')
 
   map_dfr(seq_len(n_reps), function(rep_i) {
     dat <- tryCatch(
@@ -1344,6 +1348,11 @@ simulate_cell_combined <- function(cell, n_reps, n_boot = 1L,
                     h = NA_real_, estimate = NA_real_, std_error = NA_real_,
                     p_value = NA_real_, converged = FALSE, t = NA_real_,
                     boot_t_f1a0 = NA_real_))
+    }
+    if (dropout_rate > 0) {
+      dat <- apply_dropout(dat, design_set,
+                           rate = dropout_rate,
+                           mechanism = dropout_mech)
     }
 
     dat_long <- prepare_long_data(

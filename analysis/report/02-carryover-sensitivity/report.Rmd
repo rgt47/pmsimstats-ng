@@ -218,9 +218,13 @@ degrees of freedom. It requires no pharmacokinetic input from the
 analyst, holds nominal size including under prognostic biomarkers and
 after half-life selection, and loses no power to the richer
 expectancy-term family. The classical lagged-treatment term should
-not be reported as a carryover adjustment. The open item is a dropout
-check for G9 specifically. The scope is the covariance-moderation
-architecture.
+not be reported as a carryover adjustment. With 10 to 30 percent of
+patients dropping out, completely at random or as a function of
+baseline severity, G9 had no Type I error above 0.062 and exceeded
+G1 and F1 in power at every cell; when dropout
+removes most observations, every analysis loses power steeply and
+G9's standard error becomes optimistic. The scope is the
+covariance-moderation architecture.
 
 # Introduction
 
@@ -748,9 +752,23 @@ Section 3.5: $c_{pb}$ and $c_{tv}$ at 0.40 and 0.45 and $c_{bl}$ at
 0.6 and 0.8, each at $c_{bm} \in \{0, 0.30\}$, plus $c_{bl} = 0.45$
 at $c_{bm} \in \{0, 0.45\}$; and prog-PB at $c_{pb} \in \{0.3,
 0.45\}$ with $c_{bm} = 0$ at $N \in \{140, 280\}$ (1,000
-replicates). Every cell passed a pre-flight check that the smallest
-eigenvalue of its covariance matrix is positive before any
-simulation ran.
+replicates). It also imposes monotone dropout, completely at random
+(MCAR) or with a hazard that rises with the baseline severity rank
+(MAR, scaled by twice the rank so that the average hazard is
+unchanged), at rates of 0.1, 0.2 and 0.3, with $c_{bm} \in \{0,
+0.45\}$ and $N \in \{35, 70\}$. The rate is the fraction of patients
+whose series is incomplete: the first occasion is always observed and
+the per-occasion hazard over the remaining seven is $1 -
+(1 - \text{rate})^{1/7}$ (0.015, 0.031 and 0.050), which keeps about
+95, 90 and 84 percent of the observations. A first run used the
+earlier convention of the driver, in which the rate is the hazard at
+each of the eight occasions including the first. That convention
+keeps 64, 42 and 27 percent of the observations and leaves 10, 20
+and 30 percent of patients with none, so it is not a 10 to 30
+percent dropout scenario; it is reported separately as a
+heavy-missingness stress case. Every cell passed a pre-flight check
+that the smallest eigenvalue of its covariance matrix is positive
+before any simulation ran.
 
 ## Performance measures and computing environment
 
@@ -811,8 +829,12 @@ autocorrelation, analyst-truth half-life mismatch, dropout,
 effect-size curve, and single-cell comparisons of G4, G5 and the CR2
 variants) all predate both corrections and are no longer part of
 this manuscript. Their material remains in the supplement and the
-archived drafts; the autocorrelation and half-life scenarios were
-rerun under the corrected code in the gap-fill grids of Section 3.4.
+archived drafts; the autocorrelation, half-life and dropout scenarios
+were rerun under the corrected code in the gap-fill grids of Section
+3.4. The dropout block of those drafts used the per-occasion
+convention described in Section 2.6, under which a stated rate of
+0.1 to 0.3 removed 36 to 73 percent of the observations, so its
+rates are not comparable with the patient-level rates reported here.
 
 # Results
 
@@ -1309,6 +1331,103 @@ one scenario in which the CR2 degrees-of-freedom correction costs
 power at the smaller sample size, and it is the architecture outside
 the recommendation's scope.
 
+### Dropout
+
+The scenarios so far use complete data. The last block of the
+gap-fill study imposes monotone dropout (Section 2.6) on 10, 20 and
+30 percent of patients, completely at random and as a function of the
+baseline severity rank, at $N \in \{35, 70\}$ and 500 replicates
+(Table \@ref(tab:stage4-dropout)).
+
+```{r stage4-dropout, echo = FALSE}
+sD <- sgf |>
+  filter(sub == 'A1-dropout', dropout_per == 'patient') |>
+  mutate(Method = m_lab[method])
+dtab <- sD |>
+  filter(method %in% c('E1', 'E2cr2', 'E7cr2', 'F1')) |>
+  mutate(part = ifelse(c_bm == 0, 'null', 'alt')) |>
+  arrange(N, dropout_mech, dropout_rate) |>
+  mutate(Cell = sprintf('%s %.1f, $N = %d$', dropout_mech,
+                        dropout_rate, N)) |>
+  select(Cell, part, Method, reject) |>
+  pivot_wider(names_from = c(part, Method), values_from = reject) |>
+  select(Cell, null_G1, null_G8, null_G9, null_F1,
+         alt_G1, alt_G8, alt_G9, alt_F1) |>
+  mutate(across(-Cell, fmt3))
+knitr::kable(dtab, booktabs = TRUE, escape = FALSE,
+  col.names = c('Dropout (rate, $N$)', rep(c('G1', 'G8', 'G9', 'F1'), 2)),
+  caption = 'Stage 4: Type I error and power under monotone dropout
+    (Hybrid, $t_{1/2} = 0.5$ week; the rate is the fraction of
+    patients with an incomplete series; $n_{sim} = 500$; band $[0.031,
+    0.069]$).') |>
+  kableExtra::add_header_above(
+    c(' ' = 1, 'Type I error' = 4, 'Power, $c_{bm} = 0.45$' = 4),
+    escape = FALSE) |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+```{r stage4-dropout-numbers, echo = FALSE}
+dn <- function(d, m, alt) d |>
+  filter(method == m, if (alt) c_bm > 0 else c_bm == 0)
+g9n <- dn(sD, 'E7cr2', FALSE); g9a <- dn(sD, 'E7cr2', TRUE)
+g1n <- dn(sD, 'E1', FALSE); g1a <- dn(sD, 'E1', TRUE)
+f1a <- dn(sD, 'F1', TRUE); e0n <- dn(sD, 'E0', FALSE)
+f1n <- dn(sD, 'F1', FALSE)
+vs <- function(x, y) x$reject - y$reject[match(x$cell_id, y$cell_id)]
+gap_g1 <- vs(g9a, g1a); gap_f1 <- vs(g9a, f1a)
+ref_g9 <- s30 |> filter(pathway == 'none', c_bm == 0.45, method == 'G9')
+r35 <- ref_g9$reject[ref_g9$N == 35]; r70 <- ref_g9$reject[ref_g9$N == 70]
+in_band <- function(x) sum(x >= 0.031 & x <= 0.069)
+sO <- sgf |> filter(sub == 'A1-dropout', dropout_per == 'occasion')
+o9n <- dn(sO, 'E7cr2', FALSE); o9a <- dn(sO, 'E7cr2', TRUE)
+o1a <- dn(sO, 'E1', TRUE)
+```
+
+G9's Type I error is `r fmt3(min(g9n$reject))` to
+`r fmt3(max(g9n$reject))`, inside the band at
+`r in_band(g9n$reject)` of the 12 null cells; the exception, 0.026
+at MCAR rate 0.2 and $N = 70$, is below it and so conservative. No
+cell is above the band for G9, F1 or the published analysis E0
+(`r fmt3(min(e0n$reject))` to `r fmt3(max(e0n$reject))`). The
+model-based G1 is below the band at `r sum(g1n$reject < 0.031)` of
+the 12 cells (`r fmt3(min(g1n$reject))` to `r fmt3(max(g1n$reject))`),
+as it was without dropout. At the alternative G9 is more powerful
+than G1 at all 12 cells, by `r fmt3(min(gap_g1))` to
+`r fmt3(max(gap_g1))`, and than F1 at all 12, by
+`r fmt3(min(gap_f1))` to `r fmt3(max(gap_f1))`. Dropout costs power
+mainly at $N = 35$: G9 falls from the `r fmt3(r35)` of the Stage 5
+reference without dropout to
+`r fmt3(min(g9a$reject[g9a$N == 35 & g9a$dropout_rate == 0.3]))` to
+`r fmt3(max(g9a$reject[g9a$N == 35 & g9a$dropout_rate == 0.3]))` at
+rate 0.3, and at $N = 70$ from `r fmt3(r70)` to
+`r fmt3(min(g9a$reject[g9a$N == 70 & g9a$dropout_rate == 0.3]))` to
+`r fmt3(max(g9a$reject[g9a$N == 70 & g9a$dropout_rate == 0.3]))`. The
+standard error of G9 is close to calibrated at the null ($\kappa$
+`r sprintf('%.2f', min(g9n$kappa))` to `r sprintf('%.2f', max(g9n$kappa))`)
+and somewhat optimistic at the alternative
+(`r sprintf('%.2f', min(g9a$kappa))` to `r sprintf('%.2f', max(g9a$kappa))`).
+The block has no alternative cell without dropout under the same
+code, so the part of that shortfall that dropout causes is not
+separated from the part that is there already.
+
+The earlier convention of the driver, in which the rate is the
+per-occasion hazard, removes far more data (Section 2.6) and gives
+the heavy-missingness stress case. Its cells are not tabulated here;
+they are in `g9-gap-fill/job-31/summary.rds`. G9's Type I error is
+`r fmt3(min(o9n$reject))` to `r fmt3(max(o9n$reject))`, above the band
+at `r sum(o9n$reject > 0.069)` of 12 cells (the largest, 0.078, at
+MCAR rate 0.3 and $N = 70$), and its $\kappa$ falls to
+`r sprintf('%.2f', min(o9n$kappa))`, with the worst case at MCAR rate
+0.3 and $N = 35$. Power falls steeply for every specification, to
+`r fmt3(o9a$reject[o9a$dropout_mech == 'MCAR' & o9a$dropout_rate == 0.3 & o9a$N == 35])`
+for G9 at MCAR rate 0.3 and $N = 35$ and
+`r fmt3(o9a$reject[o9a$dropout_mech == 'MCAR' & o9a$dropout_rate == 0.3 & o9a$N == 70])`
+at $N = 70$, and G9 exceeds G1 at
+`r sum(vs(o9a, o1a) > 0)` of 12 cells. At that level of missingness
+the retention of patients matters more than the choice of
+specification, and G9's CR2 standard error understates its
+variability at the smaller sample.
+
 ## Stage 5: prognostic confounds, feasibility, and random effects {#sec-stage5}
 
 Stage 5 asks whether G9 survives a prognostic biomarker at twice the
@@ -1685,7 +1804,10 @@ correction G9 with CR2 does not need. The scenario grids confirmed
 this across sample size and effect size, with one exception worth
 stating: under mean moderation at $N = 35$ the CR2 variants trail
 the model-based test by five to six points of power while matching
-it in size.
+it in size. Dropout of 10 to 30 percent of patients changed neither
+the size of G9 nor its ordering against G1 and F1; only the heavier
+per-occasion convention, which removes up to 73 percent of the
+observations, degraded its standard error.
 
 Stage 5 established that G9 holds size under all four prognostic
 pathways at every feasible strength, loses no power and no part of
@@ -1757,12 +1879,14 @@ require them.
 The numbers come from a single parameter set calibrated to a
 prazosin and PTSD trajectory, so absolute power values are
 illustrative and the ranking, conditional on design, is the more
-portable result. Dropout was examined only in exploratory blocks that
-predate the code corrections and only for G1 to G3; there, power
-collapsed for all three alike as dropout rose, which suggests
-retaining patients matters more than any choice among
-specifications, but G9's behavior under dropout has not been
-measured. The scenario grids use one alternative effect size per
+portable result. Dropout was examined at 10 to 30 percent of
+patients, monotone, with the MAR mechanism tied to baseline severity
+only; informative dropout related to the outcome or to treatment
+response was not simulated, and the block has no alternative cell
+without dropout under the same code. Under the heavier per-occasion
+convention power collapsed for every specification and G9's
+standard error became optimistic, so the recommendation is for
+trials that retain most of their observations. The scenario grids use one alternative effect size per
 scenario and the prognostic ladder one sample size. The feasibility
 ceilings are specific to the Hybrid design at $t_{1/2} = 0.5$ week,
 $\rho = 0.7$ and $c_1 = 0.2$, and must be recomputed for any other
@@ -1830,8 +1954,10 @@ and is not pursued.
    be computed first.
 7. **Recommendation.** For a Hybrid aggregated N-of-1 trial under
    covariance moderation, use G9: the exposure-weighted predictor at
-   the AIC-selected half-life with CR2 inference. The open item is
-   its behavior under dropout.
+   the AIC-selected half-life with CR2 inference. Under dropout of
+   10 to 30 percent of patients it keeps its size and its power
+   advantage, but it should be accompanied by an effort to retain
+   patients, since heavier missingness costs every analysis power.
 
 # Declarations
 
@@ -1893,15 +2019,18 @@ summaries only.
   `coupling-ceilings.rds` in the former directory, each running in
   seconds with no simulation.
 - Gap-fill study: `32-run-g9-gap-fill.R` under the working protocol
-  `32-gap-fill-protocol.md`, run as three simrun jobs (blocks A, B
-  and C; jobs 31 and 32 on the primary host and job 40 on a second,
-  2026-10-26 to 2026-10-27, all at commit `ca2eef2` or a
-  code-identical successor), assembled by `33-assemble-gap-fill.R`
+  `32-gap-fill-protocol.md`, run as four simrun jobs (blocks A, B
+  and C; jobs 31, 32 and 33 on the primary host and job 40 on a
+  second, 2026-10-26 to 2026-10-27, at commit `ca2eef2` or a
+  code-identical successor, except job 33, which reran the dropout
+  cells at commit `fc7ee08` under the patient-level convention),
+  assembled by `33-assemble-gap-fill.R`
   into `carryover-sensitivity/g9-gap-fill/summary.rds` with each
   job's own outputs under `g9-gap-fill/job-NN/`. Tables
   \@ref(tab:tab-type1-cr2), \@ref(tab:stage4-grid-null),
-  \@ref(tab:stage4-grid-alt), \@ref(tab:stage5-ladder) and
-  \@ref(tab:stage5-largen) are drawn from it. Every cell's pre-flight
+  \@ref(tab:stage4-grid-alt), \@ref(tab:stage4-dropout),
+  \@ref(tab:stage5-ladder) and \@ref(tab:stage5-largen) are drawn
+  from it; job 31's per-occasion dropout cells are in the same file. Every cell's pre-flight
   eigenvalue is in `preflight.rds`.
 - Corrections: the paired check of the pre-exposure coding defect is
   `26-co-dbc-fix-paired.R` (`carryover-sensitivity/26-co-dbc-fix-paired-reps500.rds`);

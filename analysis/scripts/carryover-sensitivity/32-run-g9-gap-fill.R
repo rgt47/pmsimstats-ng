@@ -20,10 +20,21 @@
 ## infeasible, so the silent-repair artifact of docs/65 cannot
 ## recur here.
 ##
+## Dropout (block A1) is patient-level since 2026-10-27: `rate` is the
+## fraction of participants with an incomplete series, the first
+## occasion is always observed, and the per-occasion hazard is
+## calibrated to the eight-occasion Hybrid schedule
+## (apply_dropout(per = 'patient')). Job 31 ran the same cells with
+## the original per-occasion hazard, which removes 36/58/73% of the
+## observations at 0.1/0.2/0.3; its cell ids have no '-pt' suffix.
+##
 ## Usage:
 ##   Rscript analysis/scripts/carryover-sensitivity/32-run-g9-gap-fill.R \
-##     [--block A|B|C|all] [--reps R] [--reps-size R] [--reps-large R] \
-##     [--n-boot B] [--cores K] [--out-dir PATH] [--preflight] [--smoke]
+##     [--block A|B|C|all] [--sub SUB] [--reps R] [--reps-size R] \
+##     [--reps-large R] [--n-boot B] [--cores K] [--out-dir PATH] \
+##     [--preflight] [--smoke]
+##   --sub restricts the run to one sub-block (A1-dropout, A2-size,
+##   B1-shape, B2-halflife, B3-meanmod, B4-rho, C1-ladder, C2-largeN).
 suppressMessages({
   library(dplyr); library(purrr); library(tibble); library(tidyr)
   library(parallel)
@@ -34,6 +45,7 @@ source('analysis/scripts/carryover-sensitivity/simulation-core.R')
 args <- commandArgs(trailingOnly = TRUE)
 argv <- function(k, d) if (k %in% args) args[which(args == k) + 1] else d
 BLOCK      <- argv('--block', 'all')
+SUB        <- argv('--sub', 'all')
 REPS       <- as.integer(argv('--reps', '500'))
 REPS_SIZE  <- as.integer(argv('--reps-size', '2000'))
 REPS_LARGE <- as.integer(argv('--reps-large', '1000'))
@@ -62,9 +74,9 @@ grid_a <- bind_rows(
                        c_bm = c(0, 0.45), N = c(35, 70)),
            function(rate, mech, c_bm, N)
              cell_row('A', 'A1-dropout',
-                      sprintf('drop-%s%.1f-cbm%.2f-N%d', mech, rate, c_bm, N),
+                      sprintf('drop-%s%.1f-cbm%.2f-N%d-pt', mech, rate, c_bm, N),
                       REPS, dropout_rate = rate, dropout_mech = mech,
-                      c_bm = c_bm, N = N)),
+                      dropout_per = 'patient', c_bm = c_bm, N = N)),
   pmap_dfr(expand_grid(t1half = c(0.5, 1), N = c(35, 70)),
            function(t1half, N)
              cell_row('A', 'A2-size',
@@ -129,6 +141,8 @@ grid_c <- bind_rows(
 
 grid <- bind_rows(grid_a, grid_b, grid_c)
 if (BLOCK != 'all') grid <- grid |> filter(block == BLOCK)
+if (SUB != 'all') grid <- grid |> filter(sub == SUB)
+stopifnot(nrow(grid) > 0)
 if (SMOKE) {
   grid <- grid |> group_by(block) |> slice(c(1, n())) |> ungroup() |>
     mutate(reps = 2L)
@@ -255,6 +269,7 @@ cell_meta <- grid |>
          weibull_shape = map_dbl(cell, 'weibull_shape'),
          dropout_rate = map_dbl(cell, ~ default_val(.x[['dropout_rate']], 0)),
          dropout_mech = map_chr(cell, ~ default_val(.x[['dropout_mech']], 'none')),
+         dropout_per = map_chr(cell, ~ default_val(.x[['dropout_per']], 'occasion')),
          c_pb = map_dbl(cell, ~ default_val(.x[['c_pb']], 0)),
          c_tv = map_dbl(cell, ~ default_val(.x[['c_tv']], 0)),
          c_bl = map_dbl(cell, ~ default_val(.x[['c_bl']], 0))) |>
@@ -275,7 +290,7 @@ print(as.data.frame(summary_tab |>
 saveRDS(summary_tab, file.path(OUT_DIR, 'summary.rds'))
 
 meta <- list(
-  script = '32-run-g9-gap-fill.R', block = BLOCK, date = Sys.time(),
+  script = '32-run-g9-gap-fill.R', block = BLOCK, sub = SUB, date = Sys.time(),
   n_reps = REPS, n_reps_size = REPS_SIZE, n_reps_large = REPS_LARGE,
   n_boot = N_BOOT, smoke = SMOKE, elapsed_min_this_run = elapsed_min,
   r_version = R.version.string,

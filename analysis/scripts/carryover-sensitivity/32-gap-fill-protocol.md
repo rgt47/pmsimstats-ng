@@ -59,9 +59,13 @@ of `simulation-core.R`.
 | C2 prog-PB at large $N$ | $N$ $\times$ $c_{pb}$ | $\{140, 280\} \times \{0.3, 0.45\}$ | $c_{bm} = 0$ | 4 |
 
 Dropout is monotone: once a patient misses an occasion, all later
-occasions are missing. MAR scales the per-occasion dropout
-probability with baseline severity so that the sicker half of
-patients is about twice as likely to leave, with the marginal rate
+occasions are missing. The rate is the fraction of patients whose
+series is incomplete: the first occasion is always observed and the
+per-occasion hazard over the remaining seven Hybrid occasions is
+calibrated as $h = 1 - (1 - \text{rate})^{1/7}$ (0.015, 0.031 and
+0.050), which keeps 95%, 90% and 84% of the observations. MAR scales
+the hazard with baseline severity so that the sicker half of
+patients is about twice as likely to leave, with the average hazard
 preserved. The B1 cells generate Weibull data and analyze with the
 exponential predictor every specification assumes. In B2 the oracle
 G3 uses the true half-life; G4 and G9 select over
@@ -87,6 +91,21 @@ all 84 cells feasible (smallest eigenvalue 0.0028, at the top of the
 prognostic ladder). `--smoke` ran two replicates on two cells per
 block, covering dropout, a Weibull data shape, $\rho = 0.9$ and
 $N = 280$, with every specification converging.
+
+**Dropout convention corrected after the first block A run
+(2026-10-27).** Job 31 (zeus, commit `ca2eef2`) ran A1 with
+`apply_dropout()`'s original convention, in which the rate is a
+per-occasion hazard applied at every occasion including the first.
+On the eight-occasion Hybrid schedule that leaves 64%, 42% and 27%
+of the observations at 0.1, 0.2 and 0.3, makes 57%, 84% and 94% of
+the series incomplete, and gives 10%, 20% and 30% of patients no
+observations at all (measured over 400 draws). The 2026-08
+exploratory dropout block that paper 02's Limitations cites used the
+same convention, so its "collapse as dropout rose" describes a loss
+of up to three quarters of the data, not 30% dropout. Job 31's A1
+results are kept as a heavy-missingness stress result (cell ids
+without the `-pt` suffix) and A1 was re-run under the patient-level
+convention above (cell ids with `-pt`); A2 is unaffected.
 
 ## Estimands and methods
 

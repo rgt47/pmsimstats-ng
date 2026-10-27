@@ -449,6 +449,7 @@ simulate_cell <- function(cell, n_reps, robust = FALSE,
   ## optional dropout block (S3)
   dropout_rate <- default_val(cell[['dropout_rate']], 0)
   dropout_mech <- default_val(cell[['dropout_mech']], 'MCAR')
+  dropout_per  <- default_val(cell[['dropout_per']], 'occasion')
 
   ## For combined architecture, c_bm_a and c_bm_b are supplied
   ## separately; c_bm is unused. For mvn/mean_moderation the single
@@ -536,7 +537,8 @@ simulate_cell <- function(cell, n_reps, robust = FALSE,
     if (dropout_rate > 0) {
       dat <- apply_dropout(dat, design_set,
                            rate = dropout_rate,
-                           mechanism = dropout_mech)
+                           mechanism = dropout_mech,
+                           per = dropout_per)
     }
 
     dat_long <- prepare_long_data(
@@ -559,19 +561,35 @@ simulate_cell <- function(cell, n_reps, robust = FALSE,
 ##
 ## apply_dropout imposes missingness on timepoint outcome columns
 ## under two mechanisms:
-##   - MCAR: uniform random probability `rate` per observation
+##   - MCAR: uniform random probability per observation
 ##   - MAR:  probability scales with baseline severity (BL column),
 ##           with participants in the upper half of BL about twice
 ##           as likely to drop out as those in the lower half; the
-##           marginal rate still averages to `rate`.
+##           average hazard is unchanged.
 ## Dropout is monotone: once a participant misses a timepoint,
 ## subsequent timepoints are also missing, matching clinical
 ## trial dropout conventions.
+##
+## `per` fixes what `rate` means (2026-10-27):
+##   - 'occasion' (the original behavior, kept for the stored 2026-08
+##     block and job 31): `rate` is the per-occasion hazard, applied
+##     at every occasion including the first. On the eight-occasion
+##     Hybrid schedule a hazard of 0.1/0.2/0.3 leaves 64/42/27% of
+##     the observations, makes 57/84/94% of the series incomplete and
+##     gives 10/20/30% of participants no observations at all
+##     (measured 2026-10-27), so it is not a "10% dropout" scenario.
+##   - 'patient': `rate` is the fraction of participants whose series
+##     is incomplete. The first occasion is always observed, and the
+##     per-occasion hazard over the remaining n_tp - 1 occasions is
+##     h = 1 - (1 - rate)^(1 / (n_tp - 1)), so that
+##     P(incomplete) = rate exactly under MCAR (on average under MAR).
 ## -----------------------------------------------------------------
 
-apply_dropout <- function(dat, design_set, rate, mechanism) {
+apply_dropout <- function(dat, design_set, rate, mechanism,
+                          per = c('occasion', 'patient')) {
   if (rate == 0) return(dat)
   mechanism <- match.arg(mechanism, c('MCAR', 'MAR'))
+  per <- match.arg(per)
 
   tp_names <- design_set |>
     map(~ .x$timepoint_name) |>
@@ -581,14 +599,17 @@ apply_dropout <- function(dat, design_set, rate, mechanism) {
   n <- nrow(dat)
   n_tp <- length(tp_names)
 
+  hazard <- if (per == 'occasion') rate else 1 - (1 - rate)^(1 / (n_tp - 1))
+
   drop_prob <- if (mechanism == 'MCAR') {
-    matrix(rate, nrow = n, ncol = n_tp)
+    matrix(hazard, nrow = n, ncol = n_tp)
   } else {
     bl_rank <- rank(dat$BL) / n
-    base <- rate * 2 * bl_rank
+    base <- hazard * 2 * bl_rank
     base <- pmin(base, 1)
     matrix(base, nrow = n, ncol = n_tp)
   }
+  if (per == 'patient') drop_prob[, 1] <- 0
 
   draws <- matrix(runif(n * n_tp), nrow = n, ncol = n_tp)
   drop_mask <- draws < drop_prob
@@ -982,6 +1003,7 @@ simulate_cell_s7 <- function(cell, n_reps,
   ## optional dropout block, same convention as simulate_cell()
   dropout_rate <- default_val(cell[['dropout_rate']], 0)
   dropout_mech <- default_val(cell[['dropout_mech']], 'MCAR')
+  dropout_per  <- default_val(cell[['dropout_per']], 'occasion')
 
   model_param <- list(
     N = cell$N,
@@ -1033,7 +1055,8 @@ simulate_cell_s7 <- function(cell, n_reps,
     if (dropout_rate > 0) {
       dat <- apply_dropout(dat, design_set,
                            rate = dropout_rate,
-                           mechanism = dropout_mech)
+                           mechanism = dropout_mech,
+                           per = dropout_per)
     }
 
     dat_long <- prepare_long_data(
@@ -1328,9 +1351,10 @@ simulate_cell_combined <- function(cell, n_reps, n_boot = 1L,
   model_param$b.bm.tv <- default_val(cell[['b_tv']], 0)
   model_param$c.bm.pb <- default_val(cell[['c_pb']], 0)
   ## optional dropout block, same convention as simulate_cell()
-  ## (added 2026-10-26 for 32-run-g9-gap-fill.R)
+  ## (added 2026-10-26 for 32-run-g9-gap-fill.R; `dropout_per` 2026-10-27)
   dropout_rate <- default_val(cell[['dropout_rate']], 0)
   dropout_mech <- default_val(cell[['dropout_mech']], 'MCAR')
+  dropout_per  <- default_val(cell[['dropout_per']], 'occasion')
 
   map_dfr(seq_len(n_reps), function(rep_i) {
     dat <- tryCatch(
@@ -1352,7 +1376,8 @@ simulate_cell_combined <- function(cell, n_reps, n_boot = 1L,
     if (dropout_rate > 0) {
       dat <- apply_dropout(dat, design_set,
                            rate = dropout_rate,
-                           mechanism = dropout_mech)
+                           mechanism = dropout_mech,
+                           per = dropout_per)
     }
 
     dat_long <- prepare_long_data(

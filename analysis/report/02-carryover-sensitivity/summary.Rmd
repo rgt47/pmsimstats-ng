@@ -1,0 +1,823 @@
+---
+title: "Summary of paper 02: carryover representation and inference for
+  biomarker-treatment interaction tests in aggregated N-of-1 trials
+  under the correlation encoding of the interaction"
+author: 'pmsimstats team'
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    toc: false
+    number_sections: false
+    keep_tex: true
+    highlight: tango
+    includes:
+      in_header: ../sim-preamble.tex
+fontsize: 11pt
+linestretch: 1.1
+geometry: 'left=3cm,right=3cm,top=2.5cm,bottom=2.5cm'
+header-includes:
+  - \usepackage{amsmath}
+  - \usepackage{amssymb}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{float}
+  - \AtBeginDocument{\nolinenumbers}
+knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path(d, 'tools', 'stamp-render.R')) && d != dirname(d)) d <- dirname(d); source(file.path(d, 'tools', 'stamp-render.R'))$value(input) })
+---
+
+<!--
+  Summary of report.Rmd. Every table and figure of the paper, in its
+  order, with the same captions. Chunk code is copied verbatim from
+  report.Rmd so that the numbers cannot drift. No simulation runs.
+-->
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.path = "../../figures/02-cache-",
+  cache.path = "_cache/"
+)
+library(tibble)
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+## Display names. Stored values stay E1/E2/E3/E7/E9 and their cr2
+## variants everywhere; only the display layer maps them to G1-G9.
+source(here::here(
+  'analysis/scripts/carryover-sensitivity/spec-labels.R'))
+
+## Data loaded once for the stage tables below.
+grid <- readRDS(here::here('analysis/data/02-grid-summary.rds'))$summary
+s27  <- readRDS(here::here(
+  'analysis/data/carryover-sensitivity/tier1-g-vs-f-e0/summary.rds'))
+s21  <- readRDS(here::here(
+  'analysis/data/carryover-sensitivity/g-vs-f-comparison/summary.rds'))
+s28  <- readRDS(here::here(
+  'analysis/data/carryover-sensitivity/g9-prognostic-stress/summary.rds'))
+s30  <- readRDS(here::here(
+  'analysis/data/carryover-sensitivity/g9-random-effects/summary.rds'))
+pdc  <- readRDS(here::here(
+  'analysis/data/carryover-sensitivity/g9-prognostic-stress/pd-check.rds'))
+ceil <- readRDS(here::here(
+  'analysis/data/carryover-sensitivity/g9-prognostic-stress/coupling-ceilings.rds'))
+sgf  <- readRDS(here::here(
+  'analysis/data/carryover-sensitivity/g9-gap-fill/summary.rds'))
+## One rejection rate from the gap-fill summary; the dots are filter
+## conditions and must identify exactly one cell.
+gf <- function(sub_, m, ...) {
+  d <- sgf |> filter(sub == sub_, method == m, ...)
+  stopifnot(nrow(d) == 1)
+  d$reject
+}
+
+## Method display labels shared by the stage tables.
+m_lab <- c(E0 = 'E0', E1 = 'G1', E3 = 'G2', E2 = 'G3', E7 = 'G4',
+           E9 = 'G5', E1cr2 = 'G6', E3cr2 = 'G7', E2cr2 = 'G8',
+           E7cr2 = 'G9', F1 = 'F1', F1A = 'F1A', F1A0 = 'F1A0',
+           F1A0B = 'F1A0B')
+focus <- c('E1', 'E2', 'E7', 'E1cr2', 'E2cr2', 'E7cr2', 'E0', 'F1', 'F1A0B')
+focus_cols <- c('G1', 'G3', 'G4', 'G6', 'G8', 'G9', 'E0', 'F1', 'F1A0B')
+design_lab <- c(CO = 'CO', Hybrid = 'Hybrid', OLBDC = 'OL+BDC')
+fmt3 <- function(x) ifelse(is.na(x), '--', sprintf('%.3f', x))
+## Reanalysis of the per-replicate output for the 2026-10-27 referee
+## report (34-referee-reanalysis.R); the tables that use it are
+## skipped if the files are absent.
+rr_dir <- here::here('analysis/data/carryover-sensitivity/referee-reanalysis')
+has_rr <- file.exists(file.path(rr_dir, 'm2-pooled-size.csv'))
+g9_pooled <- if (has_rr) read.csv(file.path(rr_dir, 'm2-pooled-size.csv')) else NULL
+## The four referee-variant runs (36-run-referee-variants.R, simrun
+## jobs 34 to 37 on zeus, 2026-10-27), one directory per block.
+rv_dir <- here::here('analysis/data/carryover-sensitivity/referee-variants')
+rv_read <- function(block, what) {
+  f <- file.path(rv_dir, paste0('block-', block), paste0(what, '.rds'))
+  if (file.exists(f)) readRDS(f) else NULL
+}
+has_rv <- !is.null(rv_read('N', 'summary'))
+rv_lab <- c(E2cr2 = 'G8', E7cr2 = 'G9', E7null_cr2 = 'G9-null',
+            E3fix_cr2 = 'G8-fixed', F1 = 'F1')
+rv_method <- function(d) ifelse(d$method == 'E3fix_cr2',
+  sprintf('G8 at %.2f wk', d$h_fixed), rv_lab[d$method])
+rvN <- rv_read('N', 'summary'); rvA <- rv_read('A', 'summary')
+rvT <- rv_read('T', 'summary'); rvS <- rv_read('S', 'summary')
+rvNp <- rv_read('N', 'paired'); rvAp <- rv_read('A', 'paired')
+rv_cell <- function(d, m, ...) {
+  x <- d |> filter(method == m, ...)
+  stopifnot(nrow(x) == 1)
+  x
+}
+```
+
+# Problem and approach {-}
+
+Aggregated N-of-1 trials pool repeated within-patient on/off contrasts to validate predictive biomarkers. Drug carryover attenuates the biomarker-by-treatment interaction. The analyst must decide how to represent residual exposure, how to obtain a correctly sized test, and whether to guard against a prognostic biomarker. We ran an exploratory, staged simulation study under the extended DGP, in which the interaction is a correlation between the biomarker and the drug response. Stage 1 compares three representations of residual exposure over 162 configurations. Stage 2 selects the half-life by AIC. Stage 3 adds CR2 cluster-robust inference and measures the cost of selection. Stage 4 adds the original analysis and an expectancy-term family. Stage 5 stresses the result with prognostic correlations, dropout and random slopes. The study ends in analysis G9: the exposure-weighted predictor with an AIC-selected half-life, refitted by REML and tested with CR2.
+
+# Simulation design {-}
+
+## Estimand and analysis specifications {-}
+
+Table \@ref(tab:tab-spec-summary) defines the nine specifications, G1 to G9. G1 to G3 represent residual exposure, G4 selects the half-life, and G6 to G9 add CR2 inference.
+
+```{r tab-spec-summary, echo = FALSE}
+tab_spec <- tibble::tribble(
+  ~Code, ~Stored, ~Name, ~Formula, ~Target,
+  'G1', 'E1', 'Unadjusted', 'Sx ~ bm + t + Db + bm:Db', 'bm:Db',
+  'G2', 'E3', 'Lag-adjusted', 'Sx ~ bm + t + Db + bm:Db + L', 'bm:Db',
+  'G3', 'E2', 'Exposure-weighted', 'Sx ~ bm + t + Dbc + bm:Dbc', 'bm:Dbc',
+  'G4', 'E7', 'AIC-selected t1/2', 'G3 formula, t1/2 by AIC over \\{0.25,0.5,1.0,2.0\\}', 'bm:Dbc',
+  'G5', 'E9', 'Paired-difference', 'diff ~ bm (patient-level OLS)', 'bm slope',
+  'G6', 'E1cr2', 'Unadjusted + CR2', 'G1 formula, CR2 SE', 'bm:Db',
+  'G7', 'E3cr2', 'Lag-adjusted + CR2', 'G2 formula, CR2 SE', 'bm:Db',
+  'G8', 'E2cr2', 'Exposure-weighted + CR2', 'G3 formula, CR2 SE', 'bm:Dbc',
+  'G9', 'E7cr2', 'AIC-selected t1/2 + CR2', 'G4 formula, CR2 SE', 'bm:Dbc'
+)
+knitr::kable(tab_spec, booktabs = TRUE, escape = FALSE,
+  col.names = c('Code', 'Stored', 'Name', 'Formula', 'Target coefficient'),
+  caption = 'The nine G-family analysis specifications. G1-G3 are
+    the Stage 1 representations of residual exposure; G4 replaces
+    the assumed half-life by a data-driven choice (Stage 2); G6-G9
+    are CR2 cluster-robust variants of G1, G2, G4 and G3 (Stage 3).
+    G5 collapses to one row per patient before fitting and has no
+    CR2 variant. The external comparators E0 and the F-family are
+    defined in Section \\@ref(sec-comparators).') |>
+  kableExtra::kable_styling(latex_options = "scale_down", font_size = 9)
+```
+
+# Results {-}
+
+## Stage 1: representing residual exposure {-}
+
+Table \@ref(tab:headline) gives the reference cell: Hybrid design, $N = 70$, biomarker-response correlation 0.45. At a half-life of 1 week, power is 0.806 for G1, 0.808 for G2 and 0.888 for G3.
+
+```{r headline, echo = FALSE}
+hd <- grid |>
+  filter(carryover_form == 'exponential', dgp_arch == 'mvn',
+         design == 'Hybrid', N == 70, c_bm == 0.45,
+         spec %in% spec_order) |>
+  mutate(
+    Specification = spec_factor(spec),
+    `t1/2` = t1half,
+    `Power (MCSE)` = sprintf('%.3f (%.3f)', power, mc_se_power),
+    `Bias (MCSE)` = sprintf('%+.3f (%.3f)', bias, mc_se_bias),
+    `Empirical SE` = sprintf('%.3f', empirical_se),
+    `Coverage (MCSE)` = sprintf('%.3f (%.3f)',
+                                  coverage, mc_se_coverage),
+    `MSE (MCSE)` = sprintf('%.3f (%.3f)', mse, mc_se_mse),
+    `Non-conv` = sprintf('%.3f', non_convergence_rate)
+  ) |>
+  arrange(`t1/2`, Specification) |>
+  select(`t1/2`, Specification, `Power (MCSE)`, `Bias (MCSE)`,
+         `Empirical SE`, `Coverage (MCSE)`, `MSE (MCSE)`,
+         `Non-conv`)
+
+knitr::kable(
+  hd, booktabs = TRUE,
+  caption = 'Stage 1: performance at the reference cell
+    (exponential DGP, Hybrid design, $N = 70$,
+    $c_{bm} = 0.45$, $n_{sim} = 500$). Power is the rejection rate of
+    $H_0: \\beta_{bm:X} = 0$ at $\\alpha = 0.05$. Bias is
+    mean(estimate $-$ $\\theta_{\\text{true}}$) on the calibrated
+    effect-size scale, $\\theta_{\\text{true}} = -c_{bm}
+    \\cdot \\sigma_{BR} = -3.6$; see the estimand-mismatch caveat in
+    the text for G1/G2. Empirical SE is the standard deviation of the
+    point estimates across replicates. Coverage is the proportion of
+    nominal 95\\% Wald CIs containing $\\theta_{\\text{true}}$. MSE is
+    bias$^2$ + Empirical SE$^2$. Non-conv is the fraction of
+    replicates where `nlme::lme()` failed to converge. MCSEs follow
+    Morris et al. (2019, Table 6).'
+) |>
+  kableExtra::kable_styling(latex_options = "scale_down")
+```
+
+Figure \@ref(fig:fig-power-by-spec) shows power against the half-life. The G1 and G2 curves coincide, and G3 falls less as the half-life grows.
+
+```{r fig-power-by-spec, echo = FALSE, fig.cap = "Stage 1: power versus carryover half-life under the exponential DGP, by analysis specification and trial design ($c_{bm} = 0.45$, $n_{sim} = 500$).", out.width = "95%"}
+knitr::include_graphics("../../figures/02xs-power-by-spec.pdf")
+```
+
+## Stage 2: removing the analyst's half-life {-}
+
+Table \@ref(tab:stage2) adds G4, which chooses the half-life from the data. For Hybrid, $N = 70$, $c_{bm} = 0.45$ and $t_{1/2} = 1$, power is 0.790 for G1, 0.886 for G3 and 0.876 for G4.
+
+```{r stage2, echo = FALSE}
+st2 <- s27 |>
+  filter(method %in% c('E1', 'E2', 'E7'), c_bm > 0) |>
+  mutate(Design = design_lab[design],
+         Method = m_lab[method]) |>
+  select(Design, N, c_bm, t1half, Method, reject) |>
+  pivot_wider(names_from = Method, values_from = reject) |>
+  arrange(match(Design, design_lab), N, t1half, c_bm) |>
+  mutate(across(c(G1, G3, G4), fmt3))
+knitr::kable(st2, booktabs = TRUE, escape = FALSE,
+  col.names = c('Design', '$N$', '$c_{bm}$', '$t_{1/2}$', 'G1', 'G3', 'G4'),
+  caption = 'Stage 2: power of the binary indicator (G1), the
+    exposure-weighted predictor at the true half-life (G3) and the
+    exposure-weighted predictor at the AIC-selected half-life (G4),
+    model-based inference, on the 30-cell corrected grid
+    (exponential DGP, $n_{sim} = 500$, same simulated trial for all
+    three each replicate). Two-MCSE half-width is about 0.04 at
+    $p = 0.5$.') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+## Stage 3: a correctly sized test {-}
+
+Table \@ref(tab:tab-type1-cr2) shows the model-based test rejecting at 0.033 to 0.046 under the null. CR2 moves the rejection rate to 0.046 to 0.059, and G4 is highest.
+
+```{r tab-type1-cr2, echo = FALSE}
+pair <- c(E1 = 'E1cr2', E2 = 'E2cr2', E7 = 'E7cr2')
+a2 <- sgf |> filter(sub == 'A2-size')
+tab <- a2 |> filter(method %in% names(pair)) |>
+  select(t1half, N, method, k_mod = kappa, t1_mod = reject) |>
+  left_join(a2 |> filter(method %in% pair) |>
+              transmute(t1half, N, method = names(pair)[match(method, pair)],
+                        k_cr2 = kappa, t1_cr2 = reject),
+            by = c('t1half', 'N', 'method')) |>
+  arrange(t1half, N, match(method, names(pair))) |>
+  transmute(`$t_{1/2}$` = sprintf('%.1f', t1half), `$N$` = N,
+            Specification = m_lab[method],
+            `$\\kappa$ model` = sprintf('%.2f', k_mod),
+            `Type I model`    = fmt3(t1_mod),
+            `$\\kappa$ CR2`    = sprintf('%.2f', k_cr2),
+            `Type I CR2`      = fmt3(t1_cr2))
+knitr::kable(tab, booktabs = TRUE, escape = FALSE,
+  caption = 'Stage 3: conservatism of the model-based interaction
+    test and its cluster-robust correction at four Hybrid null cells
+    ($c_{bm} = 0$, exponential DGP, corrected simulation code,
+    2{,}000 replicates each). $\\kappa$ is the calibration ratio of
+    Section 2.4; $\\kappa > 1$ is a conservative test. The CR2
+    columns are G6, G8 and G9 for G1, G3 and G4 respectively.
+    Two-MCSE band around 0.05: $[0.040, 0.060]$.') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+Table \@ref(tab:stage3-pooled) pools the four null cells. G9 rejects at 0.0555 against 0.0493 for G8, a paired difference of 0.0059 (MCSE 0.0013).
+
+```{r stage3-pooled, echo = FALSE}
+if (has_rr) {
+  m2 <- g9_pooled |>
+    filter(item %in% c('pooled', 'paired G9 vs G8',
+                       'G9 conditional on selected h')) |>
+    transmute(Quantity = case_when(
+                item == 'pooled' ~ 'Pooled null rejection',
+                item == 'paired G9 vs G8' ~ 'Paired difference, G9 minus G8',
+                TRUE ~ paste0('G9 given selected $\\hat t^{a}_{1/2}$ = ',
+                              sub('h=', '', detail))),
+              Method = method, `$n$` = n,
+              Rate = sprintf('%.4f', reject), MCSE = sprintf('%.4f', mcse))
+  knitr::kable(m2, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = 'Stage 3: null rejection of G6, G8 and G9 pooled over
+      the four 2{,}000-replicate Hybrid null cells of Table
+      \\@ref(tab:tab-type1-cr2); the paired difference between G9
+      and G8 on the same trials (the discordant counts are 77
+      replicates rejected by G9 only and 30 by G8 only); and G9
+      conditional on the half-life it selected. From
+      `34-referee-reanalysis.R`.') |>
+    kableExtra::kable_styling(font_size = 9)
+}
+```
+
+Table \@ref(tab:stage3-selection) shows that AIC selection does not recover the half-life. At a true half-life of 0.5 week and $N = 70$, the smallest candidate is chosen in 0.59 of replicates and 0.5 week in 0.33.
+
+```{r stage3-selection, echo = FALSE}
+if (file.exists(file.path(rr_dir, 'm9-selection-frequencies.csv'))) {
+  m9 <- read.csv(file.path(rr_dir, 'm9-selection-frequencies.csv')) |>
+    filter(level != 'by source x scenario', method == 'G9',
+           design == 'Hybrid', N %in% c(35, 70)) |>
+    arrange(true_t1half, N) |>
+    transmute(`True $t_{1/2}$` = true_t1half, `$N$` = N, `$n$` = n,
+              `0.25` = sprintf('%.2f', p_0.25), `0.5` = sprintf('%.2f', p_0.5),
+              `1` = sprintf('%.2f', p_1), `2` = sprintf('%.2f', p_2))
+  knitr::kable(m9, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = 'Stage 3: share of replicates in which each candidate
+      half-life (weeks) was selected by AIC, Hybrid design, pooled
+      over every stored cell at the given true half-life and $N$
+      (null and alternative cells together). From
+      `34-referee-reanalysis.R`.') |>
+    kableExtra::add_header_above(c(' ' = 3, 'Selected half-life' = 4)) |>
+    kableExtra::kable_styling(font_size = 9)
+}
+```
+
+### Selection on the null model and fixed half-lives {-}
+
+Table \@ref(tab:stage3-variants-null) compares selection variants. At $t_{1/2} = 1.0$, $N = 35$ and $c_{PB} = 0$, G9 rejects at 0.0596, G9-null at 0.0506 and G8 at 0.0508.
+
+```{r stage3-variants-null, echo = FALSE}
+if (has_rv) {
+  tN <- rvN |>
+    mutate(Method = rv_method(rvN),
+           Cell = sprintf('$t_{1/2} = %.1f$, $N = %d$, $c_{PB} = %.1f$',
+                          t1half, N, c_pb)) |>
+    left_join(rvNp |> transmute(cell_id, method, h_fixed, diff_vs_g8),
+              by = c('cell_id', 'method', 'h_fixed')) |>
+    arrange(t1half, N, c_pb,
+            match(Method, c('G8', 'G9', 'G9-null', 'G8 at 0.25 wk',
+                            'G8 at 1.00 wk', 'F1'))) |>
+    transmute(Cell, Method, Rejection = sprintf('%.4f', reject),
+              `Paired diff. vs G8` = ifelse(is.na(diff_vs_g8), '--',
+                                            sprintf('%+.4f', diff_vs_g8)),
+              `$\\kappa$` = sprintf('%.2f', kappa))
+  tN$Cell[duplicated(tN$Cell)] <- ''
+  knitr::kable(tN, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = 'Stage 3, referee-variant runs: null rejection rate
+      ($c_{bm} = 0$) of G8, G9, G9-null, G8 at two fixed analysis
+      half-lives and F1 in eight Hybrid null cells, 5{,}000
+      replicates each (MCSE about 0.003), independent seeds per cell,
+      with the paired per-replicate difference against G8 (paired SE
+      0.0015 to 0.0021) and the calibration ratio. $c_{PB}$: a
+      prognostic correlation with the placebo-response component.') |>
+    kableExtra::kable_styling(font_size = 8)
+}
+```
+
+Table \@ref(tab:stage3-variants-alt) gives power. At a true half-life of 2 weeks and $N = 70$ with $c_{bm} = 0.45$, power is 0.679 for G8, 0.515 for G9, 0.667 for G9-null and 0.661 for G8 fixed at 1 week. The fixed 1-week analysis loses at most 0.022 against G8 in every row.
+
+```{r stage3-variants-alt, echo = FALSE}
+if (has_rv) {
+  tA <- rvA |>
+    mutate(Method = rv_method(rvA)) |>
+    select(t1half, N, c_bm, Method, reject) |>
+    pivot_wider(names_from = Method, values_from = reject) |>
+    arrange(t1half, c_bm, N) |>
+    mutate(across(-c(t1half, N, c_bm), fmt3))
+  knitr::kable(tA, booktabs = TRUE, escape = FALSE, linesep = '',
+    col.names = c('$t_{1/2}$', '$N$', '$c_{bm}$', 'G8', 'G9', 'G9-null',
+                  'G8 at 0.25 wk', 'G8 at 1 wk', 'F1'),
+    caption = 'Stage 3, referee-variant runs: power at eight Hybrid
+      alternative cells, 1{,}000 replicates each (MCSE at most 0.016),
+      independent seeds per cell, for the same analyses as the null
+      table. The true half-life is 0.5 or 2 weeks; the fixed analysis
+      half-lives are 0.25 and 1 week in every cell.') |>
+    kableExtra::kable_styling(font_size = 9)
+}
+```
+
+Table \@ref(tab:stage3-null) returns to the six corrected-grid null cells at $t_{1/2} = 1$ week. G1, G3 and G4 reject at 0.030 to 0.050, the CR2 variants at 0.044 to 0.074, and E0 at 0.060 to 0.150.
+
+```{r stage3-null, echo = FALSE}
+st3 <- s27 |>
+  filter(c_bm == 0, method %in% c('E0', 'E1', 'E1cr2', 'E2', 'E2cr2',
+                                  'E7', 'E7cr2')) |>
+  mutate(Design = design_lab[design], Method = m_lab[method]) |>
+  select(Design, N, Method, reject) |>
+  pivot_wider(names_from = Method, values_from = reject) |>
+  arrange(match(Design, design_lab), N) |>
+  select(Design, N, G1, G6, G3, G8, G4, G9, E0) |>
+  mutate(across(-c(Design, N), fmt3))
+knitr::kable(st3, booktabs = TRUE, escape = FALSE,
+  col.names = c('Design', '$N$', 'G1', 'G6', 'G3', 'G8', 'G4', 'G9', 'E0'),
+  caption = 'Stage 3: Type I error at the six null cells of the
+    corrected grid ($c_{bm} = 0$, $t_{1/2} = 1$ week, exponential
+    DGP, $n_{sim} = 500$). Each model-based specification is followed
+    by its CR2 variant (G1/G6, G3/G8, G4/G9). E0 is the original
+    analysis. Two-MCSE band around 0.05: $[0.031, 0.069]$.') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+Figure \@ref(fig:fig-hendrickson-a) shows power for the nine specifications at $t_{1/2} = 1$ week. In the Hybrid design at $N = 35$, G8 and G9 reach 0.54 at $c_{bm} = 0.45$.
+
+```{r fig-hendrickson-a, echo = FALSE, fig.cap = "Stage 3: power by trial design (columns), $N$ (row blocks) and analysis specification (rows within block) across $c_{bm} \\in \\{0, 0.30, 0.45\\}$ at $t_{1/2} = 1.0$ weeks, exponential DGP, corrected simulation code ($n_{sim} = 500$). The $c_{bm} = 0$ column is Type I error.", out.width = "95%"}
+knitr::include_graphics("../../figures/02xs-heatmap-hendrickson-a.pdf")
+```
+
+Figure \@ref(fig:fig-hendrickson-b) varies the half-life at $c_{bm} = 0.45$. Read the loss in power from left to right within each design.
+
+```{r fig-hendrickson-b, echo = FALSE, fig.cap = "Stage 3: power across $t_{1/2} \\in \\{0, 0.5, 1.0\\}$ weeks at $c_{bm} = 0.45$, exponential DGP, corrected simulation code ($n_{sim} = 500$).", out.width = "95%"}
+knitr::include_graphics("../../figures/02xs-heatmap-hendrickson-b.pdf")
+```
+
+## Stage 4: external comparators on the same trials {-}
+
+Table \@ref(tab:stage4-null) compares G9 with E0 and the expectancy-term family under the null. Under OL+BDC, E0 rejects at 0.100 and G9 at 0.060, and G9 stays at 0.048 to 0.052 on the prognostic rows.
+
+```{r stage4-null, echo = FALSE}
+null_lab <- c(hybrid_null = 'Hybrid', olbdc_null = 'OL+BDC',
+              progbl_null = 'prog-BL 0.3', progtvconst_null = 'prog-TV-const 0.3',
+              progtvgrow_null = 'prog-TV-grow 0.3', progpb_null = 'prog-PB 0.3',
+              t1hifhi_null = '$t_{1/2} = 2$ wk',
+              shapemis_null = 'Weibull $k = 2$ data')
+st4n <- s21 |>
+  filter(method %in% focus, cell %in% names(null_lab)) |>
+  mutate(Cell = null_lab[cell], Method = m_lab[method]) |>
+  select(Cell, Method, reject) |>
+  pivot_wider(names_from = Method, values_from = reject) |>
+  mutate(o = match(Cell, null_lab)) |> arrange(o) |>
+  select(Cell, all_of(focus_cols)) |>
+  mutate(across(-Cell, fmt3))
+knitr::kable(st4n, booktabs = TRUE, escape = FALSE,
+  caption = 'Stage 4: Type I error ($c_{bm} = 0$) at eight null
+    scenarios on Hybrid ($N = 70$, $t_{1/2} = 0.5$ week unless
+    stated; OL+BDC row is that design), $n_{sim} = 500$, same trial
+    for every specification each replicate. The prognostic rows set
+    one pathway parameter to 0.3; the prog-TV-grow row is a constant
+    shift absorbed by the biomarker main effect and is identical to
+    the Hybrid null row by construction. Two-MCSE band around 0.05:
+    $[0.031, 0.069]$.') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+Table \@ref(tab:stage4-alt) gives power. At $t_{1/2} = 2$ weeks and $c_{bm} = 0.25$, G9 reaches 0.281 against 0.192 for F1 and 0.228 for F1A0B.
+
+```{r stage4-alt, echo = FALSE}
+alt_lab <- c(hybrid_alt = 'Hybrid, $c_{bm} = 0.45$',
+             hybrid_alt_lo = 'Hybrid, $c_{bm} = 0.25$',
+             olbdc_alt = 'OL+BDC, $c_{bm} = 0.45$',
+             t1hifhi_alt = '$t_{1/2} = 2$ wk, $c_{bm} = 0.25$',
+             shapemis_alt = 'Weibull $k = 2$ data, $c_{bm} = 0.25$')
+st4a <- s21 |>
+  filter(method %in% focus, cell %in% names(alt_lab)) |>
+  mutate(Cell = alt_lab[cell], Method = m_lab[method]) |>
+  select(Cell, Method, reject) |>
+  pivot_wider(names_from = Method, values_from = reject) |>
+  mutate(o = match(Cell, alt_lab)) |> arrange(o) |>
+  select(Cell, all_of(focus_cols)) |>
+  mutate(across(-Cell, fmt3))
+knitr::kable(st4a, booktabs = TRUE, escape = FALSE,
+  caption = 'Stage 4: power at five alternative scenarios (same
+    specifications and $n_{sim}$ as the null table). G6 and G8 are
+    the equal-size comparators for G9; E0 is liberal and its power
+    is not comparable.') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+### Scenario grids {-}
+
+```{r stage4-grid, echo = FALSE}
+sB <- sgf |>
+  filter(block == 'B', sub %in% c('B1-shape', 'B2-halflife', 'B4-rho'),
+         method %in% focus) |>
+  mutate(level = case_when(
+           sub == 'B1-shape' ~ sprintf('Weibull $k = %g$ data', weibull_shape),
+           sub == 'B2-halflife' ~ sprintf('$t_{1/2} = %g$ wk', t1half),
+           sub == 'B4-rho' ~ sprintf('$\\rho = %g$', rho)),
+         Method = m_lab[method]) |>
+  arrange(match(sub, c('B1-shape', 'B2-halflife', 'B4-rho')),
+          weibull_shape, t1half, rho, N)
+alt_level <- c('B1-shape' = 0.45, 'B2-halflife' = 0.25, 'B4-rho' = 0.30)
+grid_tab <- function(d) d |>
+  select(Scenario = level, N, Method, reject) |>
+  pivot_wider(names_from = Method, values_from = reject) |>
+  select(Scenario, N, all_of(focus_cols)) |>
+  mutate(across(-c(Scenario, N), fmt3))
+## G9 against G1, G6, G8 and F1 over every non-dropout alternative
+## cell of the gap-fill summary (blocks B and C with c_bm > 0).
+alt_gf <- sgf |>
+  filter(block %in% c('B', 'C'), sub != 'B3-meanmod', c_bm > 0,
+         method %in% c('E1', 'E1cr2', 'E2cr2', 'E7cr2', 'F1')) |>
+  select(cell_id, method, reject) |>
+  pivot_wider(names_from = method, values_from = reject)
+alt_gfB <- sgf |>
+  filter(block == 'B', sub != 'B3-meanmod', c_bm > 0,
+         method %in% c('E1', 'E1cr2', 'E2cr2', 'E7cr2', 'F1')) |>
+  select(cell_id, sub, N, t1half, weibull_shape, rho, method, reject) |>
+  pivot_wider(names_from = method, values_from = reject) |>
+  mutate(d_g1 = E7cr2 - E1, d_g6 = E7cr2 - E1cr2, d_g8 = E7cr2 - E2cr2,
+         d_f1 = E7cr2 - F1)
+```
+
+Table \@ref(tab:stage4-grid-null) crosses the scenarios with two sample sizes. The G9 Type I error is 0.034 to 0.067 in all fourteen cells.
+
+```{r stage4-grid-null, echo = FALSE}
+knitr::kable(grid_tab(sB |> filter(c_bm == 0)), booktabs = TRUE,
+  escape = FALSE,
+  col.names = c('Scenario', '$N$', focus_cols),
+  caption = 'Stage 4, scenario grids: Type I error ($c_{bm} = 0$) on
+    Hybrid at $N \\in \\{35, 70\\}$ under a Weibull decay analyzed as
+    exponential, a true half-life below, at the boundary of and above
+    G4\'s candidate grid, and two autocorrelations ($t_{1/2} = 0.5$ week and $\\rho = 0.7$ unless
+    stated; $n_{sim} = 500$; band $[0.031, 0.069]$).') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+Table \@ref(tab:stage4-grid-alt) gives power. At $\rho = 0.9$ and $N = 35$, G9 reaches 0.808 against 0.684 for G1 and 0.608 for E0.
+
+```{r stage4-grid-alt, echo = FALSE}
+knitr::kable(grid_tab(sB |> filter(c_bm == alt_level[sub]) |>
+                        mutate(level = sprintf('%s, $c_{bm} = %.2f$',
+                                               level, c_bm))),
+  booktabs = TRUE, escape = FALSE,
+  col.names = c('Scenario', '$N$', focus_cols),
+  caption = 'Stage 4, scenario grids: power at one alternative per
+    scenario (same cells and $n_{sim}$ as the null table; $c_{bm} =
+    0.30$ for the autocorrelation rows because 0.45 is infeasible at
+    $\\rho = 0.9$).') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+### Dropout {-}
+
+Table \@ref(tab:stage4-dropout) imposes monotone dropout. The G9 Type I error is 0.026 to 0.062, and at rate 0.3 and $N = 35$ its power is 0.617 (MAR) and 0.649 (MCAR).
+
+```{r stage4-dropout, echo = FALSE}
+sD <- sgf |>
+  filter(sub == 'A1-dropout', dropout_per == 'patient') |>
+  mutate(Method = m_lab[method])
+dtab <- sD |>
+  filter(method %in% c('E1', 'E2cr2', 'E7cr2', 'F1')) |>
+  mutate(part = ifelse(c_bm == 0, 'null', 'alt')) |>
+  arrange(N, dropout_mech, dropout_rate) |>
+  mutate(Cell = sprintf('%s %.1f, $N = %d$', dropout_mech,
+                        dropout_rate, N)) |>
+  select(Cell, part, Method, reject) |>
+  pivot_wider(names_from = c(part, Method), values_from = reject) |>
+  select(Cell, null_G1, null_G8, null_G9, null_F1,
+         alt_G1, alt_G8, alt_G9, alt_F1) |>
+  mutate(across(-Cell, fmt3))
+knitr::kable(dtab, booktabs = TRUE, escape = FALSE,
+  col.names = c('Dropout (rate, $N$)', rep(c('G1', 'G8', 'G9', 'F1'), 2)),
+  caption = 'Stage 4: Type I error and power under monotone dropout
+    (Hybrid, $t_{1/2} = 0.5$ week; the rate is the fraction of
+    patients with an incomplete series; $n_{sim} = 500$; band $[0.031,
+    0.069]$).') |>
+  kableExtra::add_header_above(
+    c(' ' = 1, 'Type I error' = 4, 'Power, $c_{bm} = 0.45$' = 4),
+    escape = FALSE) |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+Table \@ref(tab:stage3-coverage) gives interval coverage. G8 covers at 0.950 to 0.959 on average, and G9 at 0.934 to 0.947.
+
+```{r stage3-coverage, echo = FALSE}
+if (file.exists(file.path(rr_dir, 'm3-coverage.csv'))) {
+  m3c <- read.csv(file.path(rr_dir, 'm3-coverage.csv')) |>
+    filter(level != 'cell') |>
+    arrange(method, N) |>
+    transmute(Method = method, `$N$` = N, Cells = cells,
+              `Mean coverage (lower, upper)` =
+                sprintf('%.3f, %.3f', mean_cov_lower, mean_cov_upper),
+              `Minimum (lower)` = sprintf('%.3f', min_cov_lower))
+  knitr::kable(m3c, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = 'Coverage of the nominal 95 percent CR2 interval for G8
+      and G9 over the alternative cells of the supplementary study, on the
+      calibrated scale ($\\theta = -c_{bm}\\sigma_{BR}$). The
+      Satterthwaite degrees of freedom are not stored per replicate
+      and were recovered from the stored $t$ and $p$ where $|t| \\ge
+      0.5$; the remaining replicates are classified as covering, not
+      covering, or ambiguous, which gives the lower and upper bounds.
+      From `34-referee-reanalysis.R`.') |>
+    kableExtra::kable_styling(font_size = 9)
+}
+```
+
+Table \@ref(tab:heavy-missing) is the heavy-missingness case. The conventional $\kappa$ of G9 is 0.46 and 0.49, but the estimate SD of 12.4 is more than twice the MAD-based SD, and the robust $\kappa$ is 0.78 and 0.86.
+
+```{r heavy-missing, echo = FALSE}
+if (file.exists(file.path(rr_dir, 'm10-heavy-missingness.csv'))) {
+  m10 <- read.csv(file.path(rr_dir, 'm10-heavy-missingness.csv')) |>
+    filter(method %in% c('G6', 'G8', 'G9', 'F1')) |>
+    arrange(cell_type, match(method, c('G6', 'G8', 'G9', 'F1'))) |>
+    transmute(Cell = ifelse(cell_type == 'null', 'null', '$c_{bm} = 0.45$'),
+              Method = method,
+              `SD of estimates` = sprintf('%.1f', sd_est),
+              `MAD-based SD` = sprintf('%.1f', mad_sd_est),
+              `Max $|\\hat\\beta|$` = sprintf('%.0f', max_abs_est),
+              `$\\kappa$` = sprintf('%.2f', kappa),
+              `Robust $\\kappa$` = sprintf('%.2f', robust_kappa),
+              `Rejection` = sprintf('%.3f', reject))
+  knitr::kable(m10, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = 'Heavy-missingness stress case (per-occasion MCAR 0.3,
+      $N = 35$, 500 replicates): dispersion of the interaction
+      estimates on the calibrated scale and the calibration ratio on
+      the conventional scale ($\\kappa$, mean SE over SD) and a robust
+      one (median SE over 1.4826 times the median absolute
+      deviation). From `34-referee-reanalysis.R`.') |>
+    kableExtra::kable_styling(font_size = 9)
+}
+```
+
+## Stage 5: prognostic confounds, feasibility, and random effects {-}
+
+### Prognostic confounds at two strengths {-}
+
+Table \@ref(tab:stage5-size) gives size at strength 0.3. The G9 Type I error is 0.044 to 0.050 on the four pathways.
+
+```{r stage5-size, echo = FALSE}
+path_lab <- c(progbl = 'prog-BL', progtvconst = 'prog-TV-const',
+              progtvgrow = 'prog-TV-shift (constant)', progpb = 'prog-PB')
+st5s <- s28 |>
+  filter(c_bm == 0, strength == 0.3, method %in% c('E7cr2', 'F1A0B')) |>
+  mutate(Pathway = path_lab[pathway], Method = m_lab[method]) |>
+  select(Pathway, Method, N, reject) |>
+  pivot_wider(names_from = c(Method, N), values_from = reject,
+              names_sep = ' ') |>
+  mutate(o = match(Pathway, path_lab)) |> arrange(o) |> select(-o) |>
+  mutate(across(-Pathway, fmt3))
+knitr::kable(st5s, booktabs = TRUE, escape = FALSE,
+  col.names = c('Pathway', '$N = 35$', '$N = 70$', '$N = 35$', '$N = 70$'),
+  caption = 'Stage 5: Type I error of G9 and F1A0B under each
+    prognostic pathway at confound strength 0.3, with no true
+    interaction ($c_{bm} = 0$), Hybrid, $t_{1/2} = 0.5$ week,
+    $n_{sim} = 500$ (band $[0.031, 0.069]$). The strength-0.6 cells
+    on prog-BL, prog-PB and prog-TV-const were generated under a
+    repaired covariance matrix, that is, a different DGP, and are
+    not evidence about size (see text). The constant-shift row is
+    identical to the no-confound null by construction.') |>
+  kableExtra::add_header_above(c(' ' = 1, 'G9' = 2, 'F1A0B' = 2)) |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+Table \@ref(tab:stage5-power) gives power at two strengths. At strength 0.3 and $N = 35$ the G9 power is 0.778 to 0.798, against a no-confound reference of 0.759, and the caption marks the strength-0.6 cells as a data-generating artifact.
+
+```{r stage5-power, echo = FALSE}
+base30 <- s30 |> filter(pathway == 'none', c_bm == 0.45, method == 'G9') |>
+  select(N, base = reject)
+st5p <- s28 |>
+  filter(c_bm == 0.45, method %in% c('E7cr2', 'F1A0B')) |>
+  mutate(Pathway = path_lab[pathway], Method = m_lab[method]) |>
+  select(Pathway, Method, N, strength, reject) |>
+  pivot_wider(names_from = c(Method, N, strength), values_from = reject,
+              names_sep = ' ') |>
+  mutate(o = match(Pathway, path_lab)) |> arrange(o) |> select(-o) |>
+  mutate(across(-Pathway, fmt3))
+knitr::kable(st5p, booktabs = TRUE, escape = FALSE,
+  col.names = c('Pathway', rep(c('0.3', '0.6'), 4)),
+  caption = sprintf('Stage 5: power of G9 and F1A0B with a true
+    interaction ($c_{bm} = 0.45$) and a co-occurring prognostic
+    confound, same layout as the size table. The no-confound
+    reference for G9 is %s at $N = 35$ and %s at $N = 70$
+    (1{,}000 replicates, a different job from these cells, so the
+    comparison is unpaired). Strength-0.6 cells on prog-BL, prog-PB
+    and prog-TV-const are a data-generating artifact, not a confound
+    effect (see text).', fmt3(base30$base[base30$N == 35]),
+    fmt3(base30$base[base30$N == 70]))) |>
+  kableExtra::add_header_above(c(' ' = 1, 'G9, $N = 35$' = 2,
+                                 'G9, $N = 70$' = 2, 'F1A0B, $N = 35$' = 2,
+                                 'F1A0B, $N = 70$' = 2), escape = FALSE) |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+### The strength-0.6 loss is a data-generating artifact {-}
+
+Table \@ref(tab:stage5-pd) shows that every strength-0.6 cell with the interaction had a matrix that was not positive definite on all four paths. The repair moved the contrast from $-3.53$ to $-2.38$ for prog-PB and from $-3.26$ to $-1.81$ for prog-TV-const.
+
+```{r stage5-pd, echo = FALSE}
+st5pd <- pdc$summary |>
+  filter(!(pathway == 'none' & c_bm == 0),
+         !(pathway == 'progtvgrow'),
+         c_bm == 0.45 | strength == 0.6) |>
+  mutate(Pathway = ifelse(pathway == 'none', 'none',
+                          path_lab[pathway])) |>
+  transmute(Pathway, Strength = strength, `$c_{bm}$` = c_bm,
+            `Paths repaired` = paths_repaired,
+            `Min. eigenvalue` = sprintf('%.3f', min_eigenvalue),
+            `Contrast, raw` = sprintf('%.2f', contrast_raw),
+            `Contrast, repaired` = sprintf('%.2f', contrast_repaired))
+knitr::kable(st5pd, booktabs = TRUE, escape = FALSE,
+  caption = 'Stage 5: positive definiteness of the raw joint
+    covariance matrix on the four Hybrid paths, and the population
+    on-drug minus off-drug slope contrast of the outcome on the
+    biomarker before and after the silent repair, for the prognostic
+    cells at $c_{bm} = 0.45$ and the strength-0.6 null cells
+    (computed from the matrix, no simulation). The contrast is the
+    population value of the interaction term.') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+### The feasibility bound for a prognostic correlation {-}
+
+Table \@ref(tab:stage5-ceiling) gives the closed-form bounds. The bound for $c_{pb}$ falls from 0.513 alone to 0.451 given $c_{bm} = 0.3$, so strength 0.6 is infeasible.
+
+```{r stage5-ceiling, echo = FALSE}
+st5c <- ceil$results |>
+  filter(coupling != 'c_bm' | given == 'alone') |>
+  transmute(Coupling = c(c_bm = '$c_{bm}$', c_pb = '$c_{pb}$',
+                         c_tv = '$c_{tv}$', c_bl = '$c_{bl}$')[coupling],
+            Given = gsub('c_bm', '$c_{bm}$', given),
+            Ceiling = ifelse(is.na(ceiling), 'infeasible', sprintf('%.3f', ceiling)))
+knitr::kable(st5c, booktabs = TRUE, escape = FALSE,
+  caption = 'Stage 5: exact feasibility bounds (the `Ceiling` column)
+    for each biomarker correlation (the `Coupling` column), alone and
+    given a fixed biomarker-response correlation $c_{bm}$, Hybrid
+    design (minimum over paths), $t_{1/2} = 0.5$ week, $\\rho = 0.7$,
+    $c_1 = 0.2$. Each bound is verified by the smallest eigenvalue
+    of the full correlation matrix being positive at $0.999$ times
+    and negative at $1.001$ times the stated value.') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+### Robustness up to the feasibility bound {-}
+
+Table \@ref(tab:stage5-ladder) runs confounds inside the bounds. The G9 Type I error is 0.042 to 0.046, and its power at $c_{bm} = 0.30$ is 0.682 to 0.780.
+
+```{r stage5-ladder, echo = FALSE}
+sC <- sgf |>
+  filter(block == 'C', method %in% focus) |>
+  mutate(path = case_when(c_pb > 0 ~ 'prog-PB', c_tv > 0 ~ 'prog-TV-const',
+                          c_bl > 0 ~ 'prog-BL'),
+         strength = pmax(c_pb, c_tv, c_bl), Method = m_lab[method])
+st5l <- sC |>
+  filter(sub == 'C1-ladder') |>
+  arrange(match(path, c('prog-PB', 'prog-TV-const', 'prog-BL')),
+          strength, c_bm) |>
+  mutate(Cell = sprintf('%s %.2f, $c_{bm} = %.2f$', path, strength, c_bm)) |>
+  select(Cell, Method, reject) |>
+  pivot_wider(names_from = Method, values_from = reject) |>
+  select(Cell, all_of(focus_cols)) |>
+  mutate(across(-Cell, fmt3))
+knitr::kable(st5l, booktabs = TRUE, escape = FALSE,
+  caption = 'Stage 5: rejection rate on the feasible
+    prognostic-confound ladder (Hybrid, $N = 70$, $t_{1/2} = 0.5$
+    week, $n_{sim} = 500$). Rows with $c_{bm} = 0$ are Type I error
+    (band $[0.031, 0.069]$); the others are power. Every cell passed
+    the pre-flight positive-definiteness check.') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+Table \@ref(tab:stage5-largen) tests larger samples under prog-PB. At $c_{pb} = 0.45$ the G9 rejection rate rises from 0.044 at $N = 70$ to 0.059 at 140 and 0.062 at 280, and F1 is at 0.067.
+
+```{r stage5-largen, echo = FALSE}
+st5n <- sC |>
+  filter(sub == 'C2-largeN' | (sub == 'C1-ladder' & path == 'prog-PB' &
+                                 c_bm == 0 & strength == 0.45)) |>
+  arrange(strength, N) |>
+  mutate(Cell = sprintf('$c_{pb} = %.2f$, $N = %d$', strength, N)) |>
+  select(Cell, Method, reject) |>
+  pivot_wider(names_from = Method, values_from = reject) |>
+  select(Cell, all_of(focus_cols)) |>
+  mutate(across(-Cell, fmt3))
+knitr::kable(st5n, booktabs = TRUE, escape = FALSE,
+  caption = 'Stage 5: Type I error under prog-PB with no true
+    interaction at larger samples (Hybrid, $t_{1/2} = 0.5$ week;
+    $n_{sim} = 1{,}000$ at $N = 140$ and $280$, band $[0.036,
+    0.064]$; the $N = 70$ row is from the ladder, $n_{sim} = 500$).') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+### A biomarker that predicts the rate of natural-history change {-}
+
+Table \@ref(tab:stage5-trend) shows the pathway that the feasibility bound does not limit. Under the null, G8 rejects at 0.068, G9 at 0.074 and F1 at 0.059, and the G9 mean estimate is $+0.19$ where the truth is zero.
+
+```{r stage5-trend, echo = FALSE}
+if (has_rv) {
+  tT <- rvT |>
+    mutate(Method = rv_lab[method],
+           Cell = ifelse(c_bm == 0, 'null ($c_{bm} = 0$)', '$c_{bm} = 0.45$')) |>
+    arrange(c_bm, match(Method, c('G8', 'G9', 'F1'))) |>
+    transmute(Cell, Method, Rejection = sprintf('%.3f (%.3f)', reject, mcse),
+              `Mean estimate` = sprintf('%+.2f', mean_est),
+              `$\\kappa$` = sprintf('%.2f', kappa))
+  tT$Cell[duplicated(tT$Cell)] <- ''
+  knitr::kable(tT, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = 'Stage 5, referee-variant runs: rejection rate (MCSE),
+      mean interaction estimate on the calibrated scale and
+      calibration ratio under a biomarker that predicts the rate of
+      natural-history change (coefficient 0.3), Hybrid, $N = 70$,
+      $t_{1/2} = 0.5$ week, 1{,}000 replicates (two-MCSE band at the
+      null $[0.036, 0.064]$). The true value at the alternative is
+      $-3.6$.') |>
+    kableExtra::kable_styling(font_size = 9)
+}
+```
+
+Table \@ref(tab:stage5-slope) adds a patient-specific linear trend. G9 rejects at 0.043 under the null and 0.969 at $c_{bm} = 0.45$.
+
+```{r stage5-slope, echo = FALSE}
+if (has_rv) {
+  tS <- rvS |>
+    mutate(Method = rv_lab[method],
+           Cell = ifelse(c_bm == 0, 'null ($c_{bm} = 0$)', '$c_{bm} = 0.45$')) |>
+    arrange(c_bm, match(Method, c('G8', 'G9', 'F1'))) |>
+    transmute(Cell, Method, Rejection = sprintf('%.3f (%.3f)', reject, mcse),
+              `Mean estimate` = sprintf('%+.2f', mean_est),
+              `$\\kappa$` = sprintf('%.2f', kappa))
+  tS$Cell[duplicated(tS$Cell)] <- ''
+  knitr::kable(tS, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = 'Stage 5, referee-variant runs: rejection rate (MCSE),
+      mean interaction estimate and calibration ratio under a
+      patient-specific linear trend in the natural-history component
+      (SD 0.3 outcome units per week), Hybrid, $N = 70$,
+      $t_{1/2} = 0.5$ week, 1{,}000 replicates.') |>
+    kableExtra::kable_styling(font_size = 9)
+}
+```
+
+Table \@ref(tab:stage5-re) adds random slopes to G9. The three variants differ from G9 by 0.010 or less in every cell.
+
+```{r stage5-re, echo = FALSE}
+re_lab <- c(G9 = 'G9', G9rs = '+ slope on $t$', G9re = '+ slope on $D_e$',
+            G9rse = '+ both')
+st5re <- s30 |>
+  mutate(Cell = sprintf('%s, $c_{bm} = %.2f$, $N = %d$',
+                        ifelse(pathway == 'none', 'none',
+                               paste(path_lab[pathway], strength)),
+                        c_bm, N),
+         Method = re_lab[method]) |>
+  select(Cell, Method, reject) |>
+  pivot_wider(names_from = Method, values_from = reject) |>
+  mutate(across(-Cell, fmt3))
+knitr::kable(st5re, booktabs = TRUE, escape = FALSE,
+  caption = 'Stage 5: rejection rate of G9 and its three
+    random-effects variants on twelve cells (Hybrid, $t_{1/2} = 0.5$
+    week, $n_{sim} = 1{,}000$; $c_{bm} = 0$ rows are Type I error).
+    The strength-0.6 rows were generated under the repaired matrix
+    described above and are not evidence about the confound.') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+# Recommendation {-}
+
+For a Hybrid trial we recommend G9, the exposure-weighted predictor with an AIC-selected half-life, refitted by REML and tested with CR2. Its size is about 0.055 at $N \le 70$, so the selection step costs about half a point of size. A fixed 1-week analysis half-life with CR2 holds nominal size for at most two points of power. The recommendation is conditional on the extended DGP and the parameters simulated. A biomarker that predicts the natural-history trend biases every analysis examined. A trial with such a biomarker needs a remedy that this study did not evaluate.

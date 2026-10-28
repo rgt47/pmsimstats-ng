@@ -70,6 +70,22 @@ the same way under every \code{dgp_architecture} and
 regardless of on/off-drug status. Requires \code{"tv"} to be
 among \code{components}. Absent or zero (the default) leaves
 TV unshifted, as before.}
+\item{\code{b.bm.tv.trend}}{  Optional biomarker-TV trend-shift
+coefficient (the \code{prog-TV-trend} pathway; paper 02 referee
+report of 2026-10-27, M7). Whereas \code{b.bm.tv} is a constant
+shift that the biomarker main effect of the analysis model
+absorbs exactly, this shifts the TV natural-history trajectory
+at timepoint \eqn{t} by
+\code{b.bm.tv.trend * bm_z * sigma_TV * g(t)}, where \code{g(t)}
+is the TV mean time course divided by its largest absolute value
+over the path's timepoints (0 at week 0, 1 at the peak), so the
+shift grows with time: a biomarker that predicts the rate of
+natural-history change. Like \code{b.bm.tv} it is a confound
+external to the interaction channel, applies under every
+\code{dgp_architecture} regardless of on/off-drug status, and
+requires \code{"tv"} among \code{components}. A path whose TV
+means are all zero is left unshifted. Absent or zero (the
+default) leaves TV unshifted, as before.}
 \item{\code{c.bm.bl}}{  Optional biomarker-baseline-severity
 correlation (the prognostic-baseline cell of the stress test,
 \code{docs/57} Section 7.3). Couples the biomarker to

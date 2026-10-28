@@ -50,6 +50,22 @@
 #'    regardless of on/off-drug status. Requires \code{"tv"} to be
 #'    among \code{components}. Absent or zero (the default) leaves
 #'    TV unshifted, as before.}
+#'  \item{\code{b.bm.tv.trend}}{  Optional biomarker-TV trend-shift
+#'    coefficient (the \code{prog-TV-trend} pathway; paper 02 referee
+#'    report of 2026-10-27, M7). Whereas \code{b.bm.tv} is a constant
+#'    shift that the biomarker main effect of the analysis model
+#'    absorbs exactly, this shifts the TV natural-history trajectory
+#'    at timepoint \eqn{t} by
+#'    \code{b.bm.tv.trend * bm_z * sigma_TV * g(t)}, where \code{g(t)}
+#'    is the TV mean time course divided by its largest absolute value
+#'    over the path's timepoints (0 at week 0, 1 at the peak), so the
+#'    shift grows with time: a biomarker that predicts the rate of
+#'    natural-history change. Like \code{b.bm.tv} it is a confound
+#'    external to the interaction channel, applies under every
+#'    \code{dgp_architecture} regardless of on/off-drug status, and
+#'    requires \code{"tv"} among \code{components}. A path whose TV
+#'    means are all zero is left unshifted. Absent or zero (the
+#'    default) leaves TV unshifted, as before.}
 #'  \item{\code{c.bm.bl}}{  Optional biomarker-baseline-severity
 #'    correlation (the prognostic-baseline cell of the stress test,
 #'    \code{docs/57} Section 7.3). Couples the biomarker to
@@ -222,7 +238,9 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
   # on/off-drug status since TV reflects natural history, unrelated
   # to treatment exposure. Gated on b.bm.tv; absent or zero leaves
   # TV unshifted, as before.
-  b_bm_tv<-modelparam$b.bm.tv
+  # [[ ]] rather than $: with b.bm.tv absent, $ partially matches
+  # b.bm.tv.trend and would apply the constant shift as well.
+  b_bm_tv<-modelparam[["b.bm.tv"]]
   if(!is.null(b_bm_tv) && !is.na(b_bm_tv) && b_bm_tv != 0 && "tv" %in% cl){
     bm_mean<-blparam[cat=="bm"]$m
     bm_sd<-blparam[cat=="bm"]$sd
@@ -232,6 +250,29 @@ generateData<-function(modelparam,respparam,blparam,trialdesign,empirical,makePo
     for(tp in 1:nP){
       tv_col<-paste(tnames_tv[tp], "tv", sep=".")
       dat[,(tv_col):=get(tv_col) + b_bm_tv * bm_z * tv_sd]
+    }
+  }
+
+  # BM-TV trend shift (prog-TV-trend pathway; paper 02 referee report
+  # 2026-10-27, M7; mirrors implementations/tidyverse). The constant
+  # b.bm.tv shift above is absorbed by the bm main effect of the
+  # analysis model; this one scales with g(t), the TV mean time
+  # course normalized to its largest absolute value over the path, so
+  # it grows with time and can confound bm:Dbc. Uses the same means
+  # as the MVN draw (cached or built). Gated on b.bm.tv.trend; absent
+  # or zero leaves TV unshifted, as before.
+  b_bm_tv_trend<-modelparam[["b.bm.tv.trend"]]
+  if(!is.null(b_bm_tv_trend) && !is.na(b_bm_tv_trend) && b_bm_tv_trend != 0 && "tv" %in% cl){
+    bm_mean<-blparam[cat=="bm"]$m
+    bm_sd<-blparam[cat=="bm"]$sd
+    tv_sd<-respparam[cat=="tv"]$sd
+    bm_z<-(dat$bm - bm_mean) / bm_sd
+    tv_cols<-paste(trialdesign$timeptnames,"tv",sep=".")
+    tv_course<-means[match(tv_cols,labels)]
+    tv_peak<-max(abs(tv_course))
+    g_t<-if(tv_peak > 0) tv_course / tv_peak else rep(0, nP)
+    for(tp in 1:nP){
+      dat[,(tv_cols[tp]):=get(tv_cols[tp]) + b_bm_tv_trend * bm_z * tv_sd * g_t[tp]]
     }
   }
 

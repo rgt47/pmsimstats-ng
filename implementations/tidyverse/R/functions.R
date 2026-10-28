@@ -539,7 +539,9 @@ generate_data <- function(
   # the interaction channel. Applied regardless of on/off-drug
   # status since TV reflects natural history. Gated on b.bm.tv;
   # absent or zero leaves TV unshifted, as before.
-  b_bm_tv <- model_param$b.bm.tv
+  # [[ ]] rather than $: with b.bm.tv absent, $ partially matches
+  # b.bm.tv.trend and would apply the constant shift as well.
+  b_bm_tv <- model_param[["b.bm.tv"]]
   if (!is.null(b_bm_tv) && !is.na(b_bm_tv) && b_bm_tv != 0) {
     bm_mean_tv <- baseline_param |> filter(cat == "bm") |> pull(m)
     bm_sd_tv <- baseline_param |> filter(cat == "bm") |> pull(sd)
@@ -550,6 +552,58 @@ generate_data <- function(
       tv_col <- paste(trial_design$timepoint_name[tp], "tv", sep = ".")
       participant_data[[tv_col]] <- participant_data[[tv_col]] +
         b_bm_tv * bm_z_tv * tv_sd
+    }
+  }
+
+  # BM-TV trend shift (prog-TV-trend pathway, paper 02 referee report
+  # 2026-10-27, M7). b.bm.tv above is a constant shift at every
+  # timepoint, which the bm main effect of the analysis model absorbs
+  # exactly, so it cannot confound bm:Dbc. Here the shift is
+  # b.bm.tv.trend * bm_z * sigma_TV * g(t), with g(t) the TV mean
+  # time course normalized to its largest absolute value over the
+  # path's timepoints (0 at week 0, 1 at the peak), so a high-biomarker
+  # patient's natural history diverges progressively from a
+  # low-biomarker patient's: a biomarker that predicts the rate of
+  # natural-history change. Uses the same means as the MVN draw, so
+  # the cached_sigma path is covered. A path whose TV means are all
+  # zero has no time course to scale and is left unshifted. Gated on
+  # b.bm.tv.trend; absent or zero leaves TV unshifted and consumes no
+  # random numbers, as before.
+  b_bm_tv_trend <- model_param[["b.bm.tv.trend"]]
+  if (!is.null(b_bm_tv_trend) && !is.na(b_bm_tv_trend) &&
+      b_bm_tv_trend != 0) {
+    bm_mean_tr <- baseline_param |> filter(cat == "bm") |> pull(m)
+    bm_sd_tr <- baseline_param |> filter(cat == "bm") |> pull(sd)
+    tv_sd_tr <- resp_param |> filter(cat == "tv") |> pull(sd)
+    bm_z_tr <- (participant_data$bm - bm_mean_tr) / bm_sd_tr
+    tv_cols <- paste(trial_design$timepoint_name, "tv", sep = ".")
+    tv_course <- means[match(tv_cols, labels)]
+    tv_peak <- max(abs(tv_course))
+    g_t <- if (tv_peak > 0) tv_course / tv_peak else rep(0, length(tv_cols))
+
+    for (tp in seq_along(tv_cols)) {
+      participant_data[[tv_cols[tp]]] <- participant_data[[tv_cols[tp]]] +
+        b_bm_tv_trend * bm_z_tr * tv_sd_tr * g_t[tp]
+    }
+  }
+
+  # Patient-specific slope (referee report M12). A random slope
+  # u_1i ~ N(0, sd_slope^2), in outcome units per calendar week, is
+  # drawn per participant and u_1i * t (t the cumulative week of the
+  # timepoint) is added to the TV component, so the outcome
+  # Sx = BL - (tv + pb + br) acquires a patient-specific linear trend
+  # independent of bm, of treatment and of the MVN components. This
+  # is additive after the draw and leaves the covariance machinery
+  # untouched. Gated on sd_slope; absent or zero draws nothing, so the
+  # random-number stream and every output are unchanged, as before.
+  sd_slope <- model_param[["sd_slope"]]
+  if (!is.null(sd_slope) && !is.na(sd_slope) && sd_slope > 0) {
+    u_1 <- rnorm(n, 0, sd_slope)
+    t_cum <- trial_data$t_wk_cumulative
+    for (tp in seq_len(nrow(trial_design))) {
+      tv_col <- paste(trial_design$timepoint_name[tp], "tv", sep = ".")
+      participant_data[[tv_col]] <- participant_data[[tv_col]] +
+        u_1 * t_cum[tp]
     }
   }
 

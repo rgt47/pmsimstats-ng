@@ -66,6 +66,32 @@ g_labels <- c(E1 = 'G1: Unadjusted',
 g_labels_short <- c(E1 = 'G1', E3 = 'G2', E2 = 'G3', E7 = 'G4', E9 = 'G5',
                     E1cr2 = 'G6', E3cr2 = 'G7', E2cr2 = 'G8', E7cr2 = 'G9')
 
+## Referee-report variants (2026-10-27; 36-run-referee-variants.R).
+## Added as a separate layer so g_order/g_code/g_labels above, and
+## every stored table built from them, are unchanged.
+##
+##   E7null_cr2 -> G9-null -> half-life chosen by AIC on the null
+##                 model Sx ~ bm + t + Dbc, refit with bm:Dbc, CR2 (M1)
+##   E3fix_cr2  -> G8-fixed -> G8 at a fixed analysis half-life that
+##                 need not equal the truth; the half-life used is in
+##                 the per-replicate `h` column (M9)
+g_order_referee <- c(g_order, 'E7null_cr2', 'E3fix_cr2')
+
+g_code_referee <- c(g_code, E7null_cr2 = 'G9-null', E3fix_cr2 = 'G8-fixed')
+
+g_labels_referee <- c(
+  g_labels,
+  E7null_cr2 = 'G9-null: null-model AIC-selected t1/2 + CR2',
+  E3fix_cr2  = 'G8-fixed: Exposure-weighted at a fixed t1/2 + CR2')
+
+g_labels_short_referee <- c(g_labels_short, E7null_cr2 = 'G9-null',
+                            E3fix_cr2 = 'G8-fixed')
+
+g_factor_referee <- function(x) {
+  factor(x, levels = g_order_referee,
+         labels = unname(g_labels_referee[g_order_referee]))
+}
+
 g_factor <- function(x) {
   factor(x, levels = g_order, labels = unname(g_labels[g_order]))
 }

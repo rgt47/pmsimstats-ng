@@ -113,3 +113,38 @@ make_ol_setup <- function(N = 35) {
   expect_equal(dat_zero$OL1.tv, dat_default$OL1.tv,
                info = 'b.bm.tv = 0 reproduces the unshifted default exactly')
 }
+
+{
+  # b.bm.tv.trend: biomarker-TV trend shift (referee M7). The shift at
+  # timepoint t is b.bm.tv.trend * bm_z * sigma_TV * g(t), g(t) the TV
+  # mean course normalized to its peak, so it grows with time; zero
+  # must reproduce the default exactly and BR must be untouched.
+  s <- make_ol_setup(N = 200)
+  td <- s$td$trialpaths[[1]]
+  sig <- pmsimstats:::buildSigma(s$mp, s$rp, s$bp, td)
+  tv_cols <- paste(td$timeptnames, 'tv', sep = '.')
+  g_t <- sig$means[match(tv_cols, sig$labels)]
+  g_t <- g_t / max(abs(g_t))
+  set.seed(11)
+  dat_default <- generateData(s$mp, s$rp, s$bp, td,
+                              empirical = FALSE, makePositiveDefinite = TRUE)
+  s$mp$b.bm.tv.trend <- 0.5
+  set.seed(11)
+  dat_trend <- generateData(s$mp, s$rp, s$bp, td,
+                            empirical = FALSE, makePositiveDefinite = TRUE)
+  bm_z <- (dat_default$bm - s$bp[cat == 'bm']$m) / s$bp[cat == 'bm']$sd
+  shift <- sapply(tv_cols, function(k) dat_trend[[k]] - dat_default[[k]])
+  expected <- outer(0.5 * bm_z * s$rp[cat == 'tv']$sd, g_t)
+  expect_equal(unname(shift), unname(expected), tolerance = 1e-10,
+               info = 'b.bm.tv.trend shifts TV by b * bm_z * sigma_TV * g(t)')
+  expect_true(all(diff(abs(colMeans(abs(shift)))) >= -1e-12),
+              info = 'the trend shift grows with time along the TV course')
+  expect_equal(dat_trend$OL1.br, dat_default$OL1.br,
+               info = 'b.bm.tv.trend leaves BR untouched')
+  s$mp$b.bm.tv.trend <- 0
+  set.seed(11)
+  dat_zero <- generateData(s$mp, s$rp, s$bp, td,
+                           empirical = FALSE, makePositiveDefinite = TRUE)
+  expect_identical(dat_zero, dat_default,
+                   info = 'b.bm.tv.trend = 0 reproduces the default exactly')
+}

@@ -495,6 +495,12 @@ simulate_cell <- function(cell, n_reps, robust = FALSE,
   ## Section 7.3; cell field `cl$b_tv`). Absent or zero leaves TV
   ## unshifted, reproducing all existing cells exactly.
   model_param$b.bm.tv <- default_val(cell[['b_tv']], 0)
+  ## prog-TV-trend mean shift (referee M7; cell field `b_tv_trend`)
+  ## and patient-specific slope SD (referee M12; cell field
+  ## `sd_slope`). Both default to 0, which leaves the generator's
+  ## output and random-number stream unchanged.
+  model_param$b.bm.tv.trend <- default_val(cell[['b_tv_trend']], 0)
+  model_param$sd_slope <- default_val(cell[['sd_slope']], 0)
 
   ## optional prognostic-PB coupling (prog-PB cell, docs/57 Section
   ## 7.3; cell field `cl$c_pb`, matching
@@ -710,11 +716,21 @@ cr2_extract <- function(fit, dat_long, target_candidates) {
 ## across different fixed-effect designs, so the candidates are fitted
 ## by ML for the comparison and the selected model is refitted by REML
 ## for inference. Returns NULL if no candidate or the refit fails.
+##
+## `selection_formula` is the model whose ML AIC chooses the half-life
+## and `refit_formula` the model refitted by REML at the chosen value.
+## The defaults reproduce the stored G4/G9 behavior exactly: both are
+## the interaction model, so the selected half-life depends on the
+## coefficient under test (the project's F1A pattern, referee report
+## 2026-10-27 M1). Passing the null model Sx ~ bm + t + Dbc as
+## `selection_formula` gives the F1A0 pattern (E7null_cr2 below).
 select_half_life_aic <- function(dat_long,
                                  half_lives = c(0.25, 0.5, 1.0, 2.0),
-                                 random = ~1 | ptID) {
-  fit_dbc <- function(dl, method) tryCatch(
-    nlme::lme(Sx ~ bm + t + Dbc + bm:Dbc, random = random,
+                                 random = ~1 | ptID,
+                                 selection_formula = Sx ~ bm + t + Dbc + bm:Dbc,
+                                 refit_formula = Sx ~ bm + t + Dbc + bm:Dbc) {
+  fit_dbc <- function(dl, method, form) tryCatch(
+    nlme::lme(form, random = random,
               correlation = nlme::corCAR1(form = ~t | ptID),
               data = dl, method = method,
               control = nlme::lmeControl(
@@ -723,16 +739,20 @@ select_half_life_aic <- function(dat_long,
   cands <- purrr::map(half_lives, function(hl) {
     dl <- dat_long
     dl$Dbc <- exposure_weight(dl$Db, dl$tsd, hl)
-    f <- fit_dbc(dl, 'ML')
+    f <- fit_dbc(dl, 'ML', selection_formula)
     list(hl = hl, dl = dl, aic = if (is.null(f)) NA_real_ else AIC(f))
   })
   aics <- purrr::map_dbl(cands, ~ .x$aic)
   if (all(is.na(aics))) return(NULL)
   best <- cands[[which.min(aics)]]
-  fit <- fit_dbc(best$dl, 'REML')
+  fit <- fit_dbc(best$dl, 'REML', refit_formula)
   if (is.null(fit)) return(NULL)
   list(hl = best$hl, fit = fit, dl = best$dl)
 }
+
+## Null-model selection formula for E7null_cr2 (referee M1): the
+## interaction is absent while AIC chooses the half-life.
+E7_NULL_SELECTION <- Sx ~ bm + t + Dbc
 
 ## G9 with a richer random-effects structure (29-run-g9-random-
 ## effects.R). Same AIC half-life selection and CR2 extraction as
@@ -766,14 +786,65 @@ fit_g9_random <- function(dat_long, variant) {
          best_t_half = best$hl, converged = TRUE)
 }
 
-fit_spec_s7 <- function(dat_long, spec) {
+## Two specifications added for the 2026-10-27 referee report:
+##
+##   E7null_cr2 (M1): E7cr2 with the half-life chosen by AIC on the
+##        null model Sx ~ bm + t + Dbc (no bm:Dbc), then the
+##        interaction model refitted by REML at the chosen value and
+##        bm:Dbc tested with CR2. The F1A0 pattern inside the G family.
+##        best_t_half records the selected half-life.
+##   E3fix_cr2 (M9): the G8 estimator (E2cr2's formula and CR2 test)
+##        with Dbc rebuilt at a fixed analysis half-life `hl_analysis`
+##        that need not equal the truth (the fixed-but-wrong
+##        comparator). best_t_half records hl_analysis so the
+##        per-replicate output carries the analysis half-life used.
+##        Requires hl_analysis; the stored name follows the caller's
+##        convention and does not relate to E3 (lag-adjusted).
+fit_spec_s7 <- function(dat_long, spec, hl_analysis = NULL) {
   spec <- match.arg(spec, c('E1', 'E2', 'E3', 'E7', 'E9',
-                            'E1cr2', 'E3cr2', 'E2cr2', 'E7cr2'))
+                            'E1cr2', 'E3cr2', 'E2cr2', 'E7cr2',
+                            'E7null_cr2', 'E3fix_cr2'))
 
   na_out <- tibble(spec = spec, estimate = NA_real_,
                    std_error = NA_real_, p_value = NA_real_,
                    estimate_bmDb = NA_real_, p_value_bmDb = NA_real_,
                    best_t_half = NA_real_, converged = FALSE)
+
+  if (spec == 'E7null_cr2') {
+    best <- select_half_life_aic(dat_long,
+                                 selection_formula = E7_NULL_SELECTION)
+    if (is.null(best)) return(na_out)
+    r <- cr2_extract(best$fit, best$dl, c('bm:Dbc', 'Dbc:bm'))
+    if (is.null(r)) return(na_out)
+    return(tibble(spec = spec, estimate = r$estimate,
+                  std_error = r$std_error, p_value = r$p_value,
+                  estimate_bmDb = NA_real_, p_value_bmDb = NA_real_,
+                  best_t_half = best$hl, converged = TRUE))
+  }
+
+  if (spec == 'E3fix_cr2') {
+    if (is.null(hl_analysis) || length(hl_analysis) != 1 ||
+        is.na(hl_analysis)) {
+      stop('E3fix_cr2 needs a single numeric hl_analysis')
+    }
+    dl <- dat_long
+    dl$Dbc <- exposure_weight(dl$Db, dl$tsd, hl_analysis)
+    fit <- tryCatch(
+      nlme::lme(Sx ~ bm + t + Dbc + bm:Dbc, random = ~1 | ptID,
+                correlation = nlme::corCAR1(form = ~t | ptID),
+                data = dl,
+                control = nlme::lmeControl(
+                  opt = 'optim', maxIter = 200, msMaxIter = 200)),
+      error = function(e) NULL)
+    na_fix <- mutate(na_out, best_t_half = hl_analysis)
+    if (is.null(fit)) return(na_fix)
+    r <- cr2_extract(fit, dl, c('bm:Dbc', 'Dbc:bm'))
+    if (is.null(r)) return(na_fix)
+    return(tibble(spec = spec, estimate = r$estimate,
+                  std_error = r$std_error, p_value = r$p_value,
+                  estimate_bmDb = NA_real_, p_value_bmDb = NA_real_,
+                  best_t_half = hl_analysis, converged = TRUE))
+  }
 
   ## G6/G7/G8: E1/E3/E2 refit with a CR2 cluster-robust SE instead of
   ## the model-based SE (bm:Db for E1/E3, bm:Dbc for E2).
@@ -1030,6 +1101,12 @@ simulate_cell_s7 <- function(cell, n_reps,
   ## optional prognostic-TV mean shift, same convention as
   ## simulate_cell().
   model_param$b.bm.tv <- default_val(cell[['b_tv']], 0)
+  ## prog-TV-trend mean shift (referee M7; cell field `b_tv_trend`)
+  ## and patient-specific slope SD (referee M12; cell field
+  ## `sd_slope`). Both default to 0, which leaves the generator's
+  ## output and random-number stream unchanged.
+  model_param$b.bm.tv.trend <- default_val(cell[['b_tv_trend']], 0)
+  model_param$sd_slope <- default_val(cell[['sd_slope']], 0)
 
   ## optional prognostic-PB coupling, same convention as
   ## simulate_cell().
@@ -1275,6 +1352,12 @@ simulate_cell_f <- function(cell, n_reps, n_boot = 1L,
   model_param$c.bm.bl <- default_val(cell[['c_bl']], 0)
   model_param$c.bm.tv <- default_val(cell[['c_tv']], 0)
   model_param$b.bm.tv <- default_val(cell[['b_tv']], 0)
+  ## prog-TV-trend mean shift (referee M7; cell field `b_tv_trend`)
+  ## and patient-specific slope SD (referee M12; cell field
+  ## `sd_slope`). Both default to 0, which leaves the generator's
+  ## output and random-number stream unchanged.
+  model_param$b.bm.tv.trend <- default_val(cell[['b_tv_trend']], 0)
+  model_param$sd_slope <- default_val(cell[['sd_slope']], 0)
   model_param$c.bm.pb <- default_val(cell[['c_pb']], 0)
 
   map_dfr(seq_len(n_reps), function(rep_i) {
@@ -1349,6 +1432,12 @@ simulate_cell_combined <- function(cell, n_reps, n_boot = 1L,
   model_param$c.bm.bl <- default_val(cell[['c_bl']], 0)
   model_param$c.bm.tv <- default_val(cell[['c_tv']], 0)
   model_param$b.bm.tv <- default_val(cell[['b_tv']], 0)
+  ## prog-TV-trend mean shift (referee M7; cell field `b_tv_trend`)
+  ## and patient-specific slope SD (referee M12; cell field
+  ## `sd_slope`). Both default to 0, which leaves the generator's
+  ## output and random-number stream unchanged.
+  model_param$b.bm.tv.trend <- default_val(cell[['b_tv_trend']], 0)
+  model_param$sd_slope <- default_val(cell[['sd_slope']], 0)
   model_param$c.bm.pb <- default_val(cell[['c_pb']], 0)
   ## optional dropout block, same convention as simulate_cell()
   ## (added 2026-10-26 for 32-run-g9-gap-fill.R; `dropout_per` 2026-10-27)
@@ -1432,6 +1521,12 @@ simulate_cell_g9_random <- function(cell, n_reps,
   model_param$c.bm.bl <- default_val(cell[['c_bl']], 0)
   model_param$c.bm.tv <- default_val(cell[['c_tv']], 0)
   model_param$b.bm.tv <- default_val(cell[['b_tv']], 0)
+  ## prog-TV-trend mean shift (referee M7; cell field `b_tv_trend`)
+  ## and patient-specific slope SD (referee M12; cell field
+  ## `sd_slope`). Both default to 0, which leaves the generator's
+  ## output and random-number stream unchanged.
+  model_param$b.bm.tv.trend <- default_val(cell[['b_tv_trend']], 0)
+  model_param$sd_slope <- default_val(cell[['sd_slope']], 0)
   model_param$c.bm.pb <- default_val(cell[['c_pb']], 0)
 
   map_dfr(seq_len(n_reps), function(rep_i) {
@@ -1454,6 +1549,128 @@ simulate_cell_g9_random <- function(cell, n_reps,
     )
 
     map_dfr(variants, ~ fit_g9_random(dat_long, .x)) |>
+      transmute(method = spec, h = best_t_half, estimate, std_error,
+                p_value, converged, t = estimate / std_error) |>
+      mutate(rep = rep_i, .before = 1)
+  })
+}
+
+## -----------------------------------------------------------------
+## Referee variants (paper 02 referee report 2026-10-27; driver
+## 36-run-referee-variants.R). One DGP draw per replicate, fitted by:
+##   E2cr2       G8, exposure weight at the true half-life, CR2
+##   E7cr2       G9, half-life by AIC on the interaction model, CR2
+##   E7null_cr2  half-life by AIC on the null model, refit, CR2 (M1)
+##   E3fix_cr2   G8 at each fixed analysis half-life in `hl_fixed`
+##               (cell field `hl_analysis` overrides), CR2 (M9)
+##   F1          the F-family model at t1/2^a = 0.2 week, CR2; the
+##               same fit grid_fits_f() makes at h = 0.2
+## The output records, per replicate and method, the half-life the
+## method used (`h`: selected for E7cr2/E7null_cr2, fixed for
+## E3fix_cr2 and F1, the truth for E2cr2). Supports the prog-TV-trend
+## (`b_tv_trend`) and patient-slope (`sd_slope`) DGP fields through
+## the shared plumbing above. No dropout, no bootstrap.
+## -----------------------------------------------------------------
+
+## Deterministic seed from a label (referee M4: independent streams
+## per cell rather than base + r shared across cells). Polynomial
+## hash of the UTF-8 code points modulo 2^31 - 1, in exact double
+## arithmetic (every intermediate is below 2^36).
+label_seed <- function(label) {
+  h <- 7
+  for (b in utf8ToInt(label)) h <- (h * 31 + b) %% 2147483647
+  as.integer(h)
+}
+
+REFEREE_SPECS <- c('E2cr2', 'E7cr2', 'E7null_cr2', 'E3fix_cr2', 'F1')
+
+fit_f1_cr2 <- function(dat_long, h_fixed = 0.2,
+                       analysis_form = 'exponential', analysis_shape = 1) {
+  na_out <- tibble(spec = 'F1', estimate = NA_real_, std_error = NA_real_,
+                   p_value = NA_real_, best_t_half = h_fixed,
+                   converged = FALSE)
+  dd <- with_dbc_f(dat_long, h_fixed, analysis_form, analysis_shape)
+  fit <- fit_lme_f(FM1_F, dd, 'REML')
+  if (is.null(fit)) return(na_out)
+  r <- cr2_extract(fit, dd, c('bm:Dbc', 'Dbc:bm'))
+  if (is.null(r)) return(na_out)
+  tibble(spec = 'F1', estimate = r$estimate, std_error = r$std_error,
+         p_value = r$p_value, best_t_half = h_fixed, converged = TRUE)
+}
+
+referee_method_rows <- function(specs, hl_fixed) {
+  bind_rows(map_dfr(specs, function(s) {
+    if (s == 'E3fix_cr2') tibble(method = s, h = hl_fixed)
+    else if (s == 'F1') tibble(method = s, h = 0.2)
+    else tibble(method = s, h = NA_real_)
+  }))
+}
+
+simulate_cell_referee <- function(cell, n_reps,
+                                  specs = REFEREE_SPECS,
+                                  hl_fixed = c(0.25, 1),
+                                  stop_on_nonpd = TRUE) {
+  design_set <- build_design_set(cell$design)
+  resp_param     <- default_resp_param()
+  baseline_param <- default_baseline_param()
+  rho <- default_val(cell[['rho']], 0.7)
+  analysis_t1half <- default_val(cell[['analysis_t1half']], cell$t1half)
+  analysis_form   <- default_val(cell[['analysis_form']],   cell$carryover_form)
+  analysis_shape  <- default_val(cell[['analysis_shape']],  cell$weibull_shape)
+  if (!is.null(cell[['hl_analysis']])) hl_fixed <- cell[['hl_analysis']]
+
+  model_param <- list(
+    N = cell$N, carryover_t1half = cell$t1half,
+    carryover_form = cell$carryover_form,
+    weibull_shape = cell$weibull_shape,
+    dgp_architecture = cell$dgp_arch,
+    c.bm = cell$c_bm,
+    c.tv = rho, c.pb = rho, c.br = rho,
+    c.cf1t = 0.2, c.cfct = 0.2
+  )
+  model_param$c.bm.bl <- default_val(cell[['c_bl']], 0)
+  model_param$c.bm.tv <- default_val(cell[['c_tv']], 0)
+  model_param$b.bm.tv <- default_val(cell[['b_tv']], 0)
+  model_param$b.bm.tv.trend <- default_val(cell[['b_tv_trend']], 0)
+  model_param$sd_slope <- default_val(cell[['sd_slope']], 0)
+  model_param$c.bm.pb <- default_val(cell[['c_pb']], 0)
+
+  map_dfr(seq_len(n_reps), function(rep_i) {
+    dat <- tryCatch(
+      generate_data_multi_path(model_param, resp_param, baseline_param,
+                               design_set, stop_on_nonpd = stop_on_nonpd),
+      error = function(e) NULL
+    )
+    if (is.null(dat) || nrow(dat) == 0) {
+      return(referee_method_rows(specs, hl_fixed) |>
+               mutate(estimate = NA_real_, std_error = NA_real_,
+                      p_value = NA_real_, converged = FALSE,
+                      t = NA_real_) |>
+               mutate(rep = rep_i, .before = 1))
+    }
+
+    dat_long <- prepare_long_data(
+      dat, design_set,
+      carryover_t1half = cell$t1half,
+      carryover_form = cell$carryover_form,
+      weibull_shape = cell$weibull_shape,
+      analysis_t1half = analysis_t1half,
+      analysis_form = analysis_form,
+      analysis_shape = analysis_shape
+    )
+
+    rows <- map_dfr(specs, function(s) {
+      if (s == 'E3fix_cr2') {
+        map_dfr(hl_fixed, ~ fit_spec_s7(dat_long, s, hl_analysis = .x))
+      } else if (s == 'F1') {
+        fit_f1_cr2(dat_long, 0.2, analysis_form, analysis_shape)
+      } else {
+        fit_spec_s7(dat_long, s)
+      }
+    })
+    rows |>
+      mutate(best_t_half = if_else(spec == 'E2cr2', analysis_t1half,
+                                   best_t_half)) |>
       transmute(method = spec, h = best_t_half, estimate, std_error,
                 p_value, converged, t = estimate / std_error) |>
       mutate(rep = rep_i, .before = 1)

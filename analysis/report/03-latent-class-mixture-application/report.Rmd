@@ -2,7 +2,7 @@
 title: "Latent-class and mixture-model formulations for
   biomarker-treatment interaction in N-of-1 trials"
 author: 'pmsimstats team'
-date: '`r format(Sys.Date(), "%B %d, %Y")`'
+date: 'October 28, 2026'
 output:
   bookdown::pdf_document2:
     latex_engine: xelatex
@@ -13,11 +13,13 @@ output:
     highlight: tango
     includes:
       in_header: ../sim-preamble.tex
+lof: true
+lot: true
 fontsize: 11pt
 linestretch: 1.1
 geometry: 'left=3cm,right=3cm,top=2.5cm,bottom=2.5cm'
 bibliography: references.bib
-csl: statistics-in-medicine.csl
+csl: vancouver.csl
 link-citations: true
 header-includes:
   - \usepackage{amsmath}
@@ -35,819 +37,793 @@ knitr::opts_chunk$set(
   echo = FALSE,
   warning = FALSE,
   message = FALSE,
-  fig.path = '../../figures/04-',
+  fig.path = '../../figures/03-',
   cache.path = '_cache/'
 )
+suppressPackageStartupMessages(library(data.table))
 ```
 
-# Abstract
+```{r stored-data, include = FALSE}
+pil <- readRDS(file.path('..', '..', 'data', 'quick-sim',
+                         '03-latent-replicates.rds'))
+prod_path <- file.path('..', '..', 'data', 'study5', 'study5-progress.rds')
+prod <- readRDS(prod_path)
+prod_date <- format(file.info(prod_path)$mtime, '%Y-%m-%d')
+rate <- function(x) {
+  x <- x[!is.na(x)]
+  c(p = mean(x), n = length(x))
+}
+fmt_rate <- function(x) {
+  r <- rate(x)
+  sprintf('%.3f (%.3f)', r['p'], sqrt(r['p'] * (1 - r['p']) / r['n']))
+}
+se_from_p <- function(beta, p) {
+  z <- stats::qnorm(1 - p / 2)
+  se <- abs(beta) / z
+  se[!is.finite(se)] <- NA_real_
+  se
+}
+kappa <- function(se, beta) {
+  mean(se, na.rm = TRUE) / stats::sd(beta, na.rm = TRUE)
+}
+pil_lme <- pil[analysis == 'lme']
+pil_lc <- pil[analysis == 'lcmm']
+pil_rows <- pil_lc[, {
+  l <- pil_lme[gating_slope == .BY$gating_slope]
+  ok <- conv == 1
+  list(
+    cell = sprintf('Pilot, gating slope %.1f', .BY$gating_slope),
+    N = 70L, n = .N, conv = sprintf('%.3f', mean(ok)),
+    lme = fmt_rate(l$p < 0.05),
+    gate = fmt_rate(p[ok] < 0.05),
+    within = fmt_rate(within_p[ok] < 0.05),
+    gated = fmt_rate(delta_bic[ok] > 0 & p[ok] < 0.05),
+    bic2 = fmt_rate(delta_bic[ok] > 0),
+    kappa_lme = sprintf('%.2f', kappa(l$betaSE, l$beta)),
+    kappa_gate = sprintf('%.1f', kappa(betaSE[ok], beta[ok])),
+    med_abs = sprintf('%.2f', median(abs(beta[ok]))),
+    frac10 = sprintf('%.3f', mean(abs(beta[ok]) > 10))
+  )
+}, by = gating_slope][, gating_slope := NULL]
+prod_rows <- prod[, {
+  ok <- lcmm_conv == 1 & !is.na(lcmm_gating_p)
+  list(
+    cell = 'Production null',
+    N = as.integer(.BY$N), n = .N,
+    conv = sprintf('%.3f', mean(lcmm_conv == 1)),
+    lme = fmt_rate(lme_p < 0.05),
+    gate = fmt_rate(lcmm_gating_p[ok] < 0.05),
+    within = fmt_rate(lcmm_within_p[ok] < 0.05),
+    gated = fmt_rate(lcmm_delta_bic[ok] > 0 & lcmm_gating_p[ok] < 0.05),
+    bic2 = fmt_rate(lcmm_delta_bic[ok] > 0),
+    kappa_lme = sprintf('%.2f*', kappa(se_from_p(lme_beta, lme_p), lme_beta)),
+    kappa_gate = sprintf('%.1f*',
+      kappa(se_from_p(lcmm_gating_beta[ok], lcmm_gating_p[ok]),
+            lcmm_gating_beta[ok])),
+    med_abs = sprintf('%.2f', median(abs(lcmm_gating_beta[ok]))),
+    frac10 = sprintf('%.3f', mean(abs(lcmm_gating_beta[ok]) > 10))
+  )
+}, by = N][, N := NULL]
+stored <- rbind(pil_rows, prod_rows)
+## Scalars quoted in the prose.
+null_lc <- pil_lc[gating_slope == 0]
+n_conv_null <- sum(null_lc$conv == 1)
+gate_null <- rate(null_lc[conv == 1, p < 0.05])
+lme_null_sd <- sd(pil_lme[gating_slope == 0, beta])
+lme_null_se <- mean(pil_lme[gating_slope == 0, betaSE])
+lme_null_minp <- min(pil_lme[gating_slope == 0, p])
+lme_null_medp <- median(pil_lme[gating_slope == 0, p])
+prod_counts <- prod[, .(n = .N, rej = sum(lme_p < 0.05, na.rm = TRUE)), by = N]
+bic2_pct <- pil_lc[conv == 1, 100 * mean(delta_bic > 0), by = gating_slope]
+bic6_any <- pil_lc[conv == 1, any(delta_bic > 6)]
+gated_pil <- pil_lc[conv == 1, rate(delta_bic > 0 & p < 0.05), by = gating_slope]
+```
 
-**Background.** Published practice tests biomarker-treatment
-interactions in aggregated N-of-1 clinical trials through a fixed
-continuous-heterogeneity regression. The psychometric literature has
-developed mature finite-mixture and latent-class machinery for
-representing discrete subpopulation structure, but the biostatistical
-literature on N-of-1 trials has not engaged it. We treat the choice
-between continuous-heterogeneity and latent-class encodings of the
-biomarker-moderation question as a substantive scientific question
-rather than a parameterization convenience. However, the field has
-not characterized when class-aware analyses become competitive with
-continuous regression at trial-relevant sample sizes.
+# Abstract {-}
 
-**Methods.** We develop a five-component biomarker-moderation
-spectrum (covariance-only, mean-and-covariance, location-scale,
-heterogeneous random-effects, latent-class) that bridges the
-continuous-heterogeneity and latent-class formulations, and we
-catalogue the finite-mixture taxonomy (latent class analysis,
-growth mixture models, factor mixture models, regression mixtures)
-for application to within-subject longitudinal designs. We commit
-to a heterogeneous-random-slopes generative data-generating process
-(DGP) and a class-aware analysis procedure (`lcmm::hlme` with
-gridsearch initialization), and we run a 240-replicate-per-cell
-prototype simulation at $N = 70$, gating slope $\in \{0, 1.0, 1.5\}$,
-on a 4-core parallel implementation. We record three test forms per
-replicate: the linear-mixed `bm:Dbc` Wald, the unconditional Wald on
-the lcmm gating coefficient, and a BIC-conditional gating procedure.
+**Background.** Aggregated N-of-1 trials can test whether a baseline
+biomarker predicts the response to a drug. Simulation studies of that
+test encode the biomarker interaction as a continuous effect. The
+interaction can instead be a latent-class structure, in which the
+biomarker predicts membership in a responder class. We ask whether a
+class-aware analysis has any advantage over a linear mixed model when
+the class structure is real.
 
-**Results.** In a 240-replicate-per-cell pilot we find that the
-unconditional Wald test on the latent-class gating coefficient
-inflates Type I error to $0.197$ (95% CI $[0.145, 0.250]$) at the
-null, decisively above nominal $0.05$ and consistent with the
-@bauercurran2003 and @lubkemuthen2005 overextraction predictions.
-The BIC-conditional gating procedure controls Type I ($0.004$ under
-the null) but is severely under-powered at trial-relevant $N$
-(rejection rate $0.025$ at gating slope $1.0$, $0.004$ at $1.5$).
-The linear-mixed `bm:Dbc` Wald test holds nominal Type I and reaches
-$0.542$ power at gating slope $1.5$, dominating both class-aware
-tests. The Monte Carlo standard error (MCSE) on power is
-approximately $0.030$ across the grid. These pilot estimates precede
-the production five-study program described in the companion
-simulation plan, which we have not yet executed.
+**Methods.** We define the continuous and latent-class encodings and
+give the marginal correlation induced by a two-class mixture. We
+report a 240-replicate pilot and two 2,000-replicate null cells at
+$N = 35$ and $N = 70$, all on an open-label design. We describe a
+corrected study on the Hybrid design at $N \in \{35, 70, 140\}$ that
+compares a linear mixed model with class-aware tests under identical
+fixed effects. The class-aware tests include a single-resample
+parametric-bootstrap likelihood-ratio test of two classes against
+one. The study is exploratory.
 
-**Conclusions.** Within the 240-replicate pilot, at trial-relevant
-sample sizes ($N = 70$, eight measurement timepoints), neither the
-unconditional Wald-on-gating nor the BIC-conditional gating test is
-competitive with the linear-mixed baseline under the
-heterogeneous-random-slopes DGP. It appears that the latent-class
-encoding requires a regime of large class separation for class-aware
-tests to gain power. The planned production program (five
-studies, $N \in \{35, 70, 100\}$, wider gating-slope grid) has not
-yet been executed; it is needed to map the regime where the
-BIC-conditional procedure becomes competitive.
+**Results.** The pilot's open-label design had no off-drug visit. Its
+linear mixed model therefore fitted a biomarker-by-time term, not the
+biomarker-by-drug interaction. That test rejected 0 of 240 null
+replicates and `r prod_counts[N == 35, rej]` of 2,000 and
+`r prod_counts[N == 70, rej]` of 2,000 in the production null cells.
+Its model standard error exceeded the empirical standard deviation by
+a factor of `r sprintf('%.2f', lme_null_se / lme_null_sd)`. The
+unconditional Wald test on the gating slope of a two-class mixed model
+rejected `r sprintf('%.3f', gate_null['p'])` of null replicates in the
+pilot (MCSE `r sprintf('%.3f', sqrt(gate_null['p'] * (1 - gate_null['p']) / gate_null['n']))`).
+It rejected `r stored[4, sub(' .*', '', gate)]` and
+`r stored[5, sub(' .*', '', gate)]` in the production cells. The
+gating slope exists only when two classes exist, so the Wald statistic
+has no chi-square limit under one class. BIC selected two classes in
+`r sprintf('%.1f', min(bic2_pct$V1))` to
+`r sprintf('%.1f', max(bic2_pct$V1))` percent of pilot fits. The
+corrected study's results will be inserted when the run completes.
 
-# Introduction
+**Conclusions.** The pilot and the production null cells do not answer
+the question. They show that an unconditional gating Wald test is
+anti-conservative at every sample size examined, and that a BIC gate
+turns it into a near-never-reject rule. The corrected study tests
+calibrated procedures on a design with an off-drug contrast.
 
-## The aggregated N-of-1 trial and the biomarker-moderation question
+**Trial registration.** Not applicable.
 
-The aggregated N-of-1 trial design is a class of clinical trials in
-which each enrolled participant cycles between active treatment and
-control across multiple within-person blocks. Within-person
-comparisons are then pooled across participants for population-level
-inference [@guyatt1986; @guyatt1988; @lillie2011; @senn2018]. The
-design preserves the within-subject contrast that gives
-single-participant N-of-1 trials their inferential strength, while at
-the same time accumulating the statistical efficiency of a
-multi-participant trial. For chronic conditions whose treatment
-response is reversible on a useful timescale, the design yields more
-information per participant per unit time than a parallel-group
-randomized trial of equivalent total sample size [@mirza2017]. It has
-been deployed in chronic pain [@yelland2009], inflammatory bowel
-disease, and neuropsychiatric symptoms in post-traumatic stress
-disorder [@hendrickson2020], as well as in a growing portfolio of rare
-and orphan disease applications where parallel-group trials are
-infeasible [@lillie2011; @schork2015].
+**Keywords:** N-of-1 trials; predictive biomarker; latent class;
+finite mixture; growth mixture model; simulation; Type I error.
 
-Within this design class, a question of increasing scientific weight
-is whether treatment response is moderated by a measured
-pre-treatment biomarker. If so, clinicians could stratify treatment
-decisions at the point of care, under the formal framework laid out
-in the PATH statement [@kent2020path]. The corresponding statistical
-estimand is the biomarker-treatment interaction term in the
-within-participant outcome model. Power to detect this interaction
-depends on several factors: the magnitude of moderation, the
-precision of the within-participant contrasts, the trial design
-(open-label, crossover, hybrid), and any time-dependent leakage
-between treatment phases. This last factor, conventionally termed
-'carryover', erodes the cleanness of the within-subject contrasts.
+# Background
 
-Recent methodological work has documented substantial power losses
-for biomarker-treatment interaction inference under realistic
-carryover, with the loss varying sharply according to how the
-moderation effect is represented in the data-generating process
-[@hendrickson2020]. The present paper takes up a question that the
-prior work raised but did not resolve: how should biomarker
-moderation be represented in the DGP itself? Two formal answers,
-drawn from a long history of work outside biostatistics, dominate the
-available options. We begin by laying out these two answers and the
-methodological tradition behind each, before turning to the specific
-consequences for N-of-1 trial design and analysis.
+## Aggregated N-of-1 trials and predictive biomarkers
 
-## Two formal answers: continuous heterogeneity and latent-class structure
+In an aggregated N-of-1 trial each participant moves between drug and
+placebo, or between drug and no drug, several times. The individual
+series are analyzed together [@guyatt1986; @guyatt1988; @zucker1997;
+@lillie2011; @vohra2015cent]. Every participant contributes an on-drug
+and an off-drug response, so the design can test whether a baseline
+measurement predicts who benefits [@schork2015; @kent2020path]. The
+statistical target is the biomarker-by-treatment interaction
+$\beta_{bm:D}$ in a within-participant outcome model. Its power
+depends on the strength of the interaction, on the precision of the
+within-participant contrast, on the design, and on carryover between
+phases. Power is estimated by simulation [@morris2019simulation;
+@percha2019]. Hendrickson et al. [@hendrickson2020] proposed a
+simulation method for the Hybrid design, which combines open-label
+titration, blinded discontinuation and a brief crossover. We call
+their process the original DGP.
 
-The first answer represents biomarker moderation as a graded
-continuous effect. Every participant has some degree of treatment
-response, the response is a smooth (typically linear) function of the
-biomarker, and population heterogeneity is captured by a single
-multivariate distribution with an interaction parameter. This is the
-dominant tradition in clinical biostatistics, where heterogeneity of
-treatment effect is routinely modeled via random slopes on the
-treatment indicator and via interaction terms in fixed-effects
-regression. In its most economical form, the moderation enters the
-conditional mean of the outcome as $\beta_{bm:D} \cdot B \cdot D$,
-where $B$ is the biomarker and $D$ is the (possibly continuous-decay)
-treatment indicator.
+## Two encodings of a continuous interaction
 
-The second answer represents biomarker moderation as a discrete
-subpopulation structure. Participants belong to one of a small number
-of unobserved classes (most commonly 'responder' and 'non-responder'),
-the classes have qualitatively distinct treatment-response curves, and
-the biomarker predicts class membership without determining it. The
-corresponding generative form is a finite mixture in which class
-membership is a Bernoulli or multinomial draw with mixing
-probabilities that depend on the biomarker, and the within-class
-outcome model is class-specific. The marginal moderation observed in
-the data emerges from the mixture rather than from a smooth
-conditional-mean function.
+The original DGP encodes the interaction as a correlation. The
+baseline biomarker and the drug-response component at every visit are
+drawn from one multivariate normal distribution. The predictive
+biomarker is a correlation $c_{bm}$ between the biomarker and the drug
+response that is present on drug and absent off drug. We call this
+the correlation encoding. The alternative in the trial literature
+shifts the drug-response mean by the centered biomarker, so the
+interaction is a coefficient $\beta_{bm}$ in the conditional mean. We
+call this the mean-shift encoding. The companion paper
+[@pmsimstats-paper01] compares the two. At a matched total
+$N = 70$ in the Hybrid design, carryover with a half-life of one week
+reduced power by 15.4 percent under the correlation encoding and by
+6.9 percent under the mean-shift encoding. Conditional on the
+biomarker, the correlation encoding is a mean shift with a smaller
+residual variance, so the two differ in the exposure profile of the
+interaction, not in kind.
 
-These two answers correspond to genuinely different biological
-hypotheses. The continuous-heterogeneity view is consistent with a
-mechanism in which the biomarker reflects a graded physiological
-substrate (receptor density, enzymatic activity, baseline trait
-severity) that scales drug effect across the entire population. The
-latent-class view, by contrast, is consistent with a mechanism in
-which qualitatively distinct phenotypes exist (a metabolizing versus
-non-metabolizing allelic variant, or a present versus absent target
-receptor) and the biomarker is an imperfect indicator of phenotype.
-We note that the two views can produce identical marginal
-biomarker-outcome associations at a single timepoint, yet diverge
-sharply once the longitudinal structure of an N-of-1 trial is
-engaged. This divergence arises because carryover and within-person
-serial dependence interact differently with continuous and
-class-structured heterogeneity. Both traditions have long histories
-of formalization and identifiability analysis in their respective
-fields, and the corresponding tools are mature.
+## The latent-class encoding
 
-## Related work: two methodological traditions
+Both encodings are continuous. Every participant has some degree of
+drug response, and the response is a smooth function of the
+biomarker. A third encoding is discrete. Participants belong to one of
+a small number of unobserved classes, most often a responder and a
+non-responder class. The classes have distinct drug-response curves.
+The biomarker predicts class membership without determining it. The
+marginal interaction then arises from the mixture, not from a
+conditional-mean function. The discrete encoding corresponds to a
+different biological hypothesis. A metabolizing or non-metabolizing
+allele, or a present or absent target receptor, produces classes. A
+receptor density or a baseline severity produces a continuous
+gradient. The two hypotheses can give the same biomarker-outcome
+association at a single visit and differ over a longitudinal series,
+because the class label is fixed within a participant while the
+within-class drug contrast decays under carryover.
 
-The continuous-heterogeneity and latent-class answers each arrive
-with a distinct history, which we summarize briefly here. The full
-literature review, tracing both traditions decade by decade, is given
-in the companion supplement (`supplement.pdf`, Section 1).
+## Related work
 
-The continuous-trait view originates with Spearman's two-factor
-theory of intelligence [@spearman1904] and was elaborated through the
-modern factor-analytic tradition [@thurstone1947;
-@lawleymaxwell1971], in which between-person heterogeneity in a
-latent construct is by assumption continuous. The discrete-class view
-emerged from Lazarsfeld's latent structure analysis [@lazarsfeld1950;
-@lazarsfeldhenry1968], was placed on rigorous footing by Goodman
-[-@goodman1974], and was unified in the finite-mixture monograph of
-McLachlan and Peel [-@mclachlanpeel2000]. Bartholomew
-[-@bartholomew1987] framed the tension between the two views as a
-choice between 'graded' and 'unfolding' models, one that the data
-themselves rarely settle without strong prior assumptions.
+The latent-class encoding has a direct precedent. Muthén et al.
+[@muthen2002] fitted a growth mixture model to a randomized
+longitudinal trial and estimated the treatment effect within latent
+trajectory classes. Our encoding is that model with the biomarker as a
+class-membership covariate. The N-of-1 and crossover literature has
+also examined the responder dichotomy. Senn [@senn2004individual;
+@senn2016mastering] showed that the patient-by-treatment interaction
+variance is identifiable only with repeated within-patient crossover,
+and that apparent responder classes are often artifacts of
+within-patient variation. Araujo, Julious and Senn [@araujo2016]
+extended this by simulation. These papers address treatment-effect
+heterogeneity. They do not encode a biomarker-predicted class
+structure in a simulation DGP, which is the gap this paper addresses.
 
-A largely independent strand developed in econometrics and
-marketing. Heckman and Singer [-@heckmansinger1984] showed that
-structural parameter estimates in duration models depend sensitively
-on the assumed heterogeneity distribution, and proposed estimating
-that distribution as a discrete mixture. Lindsay [-@lindsay1995] then
-placed the resulting theory of mixture likelihoods on a unified
-footing. In marketing science, DeSarbo and Cron [-@desarbocron1988],
-Wedel and DeSarbo [-@wedeldesarbo1995], and Jedidi and colleagues
-[-@jedidi1997] developed covariate-dependent gating functions for
-segment membership, a structure formalized independently in machine
-learning as 'mixtures of experts' [@jacobs1991]. This gating-function
-machinery is essentially the structure the biomarker-moderation
-problem requires: whether a single observed covariate (the biomarker)
-predicts latent class membership, and whether the within-class
-treatment coefficient differs across classes.
+The finite-mixture machinery comes from psychometrics and
+econometrics. Latent structure analysis [@lazarsfeldhenry1968;
+@goodman1974] and the finite-mixture monograph of McLachlan and Peel
+[@mclachlanpeel2000] supply the discrete model. Covariate-dependent
+gating of class membership was developed in marketing science
+[@desarbocron1988; @wedeldesarbo1995] and in machine learning as
+mixtures of experts [@jacobs1991]. The growth mixture model
+[@muthenshedden1999; @nagin1999] and the heterogeneous random-effects
+model [@verbekelesaffre1996] place the mixture on the random effects
+of a longitudinal mixed model. Lubke and Neale [@lubkeneale2006]
+simulated the continuous-versus-discrete question directly, and
+Bauer and Curran [@bauercurran2004] set out its conceptual problems.
+Growth and factor mixture models fitted to single-component
+non-normal data can extract spurious classes [@bauercurran2003;
+@bauer2007], and class enumeration at small $N$ has limited power
+[@nylund2007; @dziak2014; @lubkemuthen2007]. The `lcmm` package
+[@proustlima2017] and the joint latent class literature
+[@proustlima2014] implement these models in R. Reporting standards
+for mixture studies exist [@vandeschoot2017; @nylundgibson2018].
 
-By the late 1990s both strands converged on hybrid factor mixture
-models [@yung1997; @arminger1999; @lubkemuthen2005] and their
-longitudinal extension, the growth mixture model [@muthenshedden1999;
-@muthen2001; @muthen2004; @nagin1999; @nagin2005]. Bauer and Curran
-[-@bauercurran2003], Bauer [-@bauer2007], Lubke and Muthen
-[-@lubkemuthen2005], and Nylund and colleagues [-@nylund2007]
-subsequently documented overextraction hazards. Growth and factor
-mixture models fitted to single-component, non-gaussian data can
-spuriously identify multiple latent classes, and reliably
-distinguishing genuine from spurious class structure typically
-requires several hundred to several thousand participants. This
-caution, we note, is central to the identifiability argument
-developed below.
+## Aims
 
-Mixture methods entered longitudinal biostatistics through Verbeke
-and Lesaffre [-@verbekelesaffre1996] and Zhang and Davidian
-[-@zhangdavidian2001], and through the `lcmm` [@proustlima2017] and
-`flexmix` [@leisch2004; @grunleisch2008] R packages used in the
-present paper's pilot. Despite this translation, mixture and
-latent-class methods have not, to the best of our knowledge, been
-systematically applied to aggregated N-of-1 trial designs. The
-published N-of-1 methods literature specifies biomarker moderation as
-a continuous interaction term throughout [@zucker1997; @lillie2011;
-@zucker2010; @schork2015; @senn2018; @gabler2011; @hendrickson2020],
-with no parallel treatment of the latent-class formulation. This gap
-is what the present paper addresses.
+This paper has three aims. The first is to state the continuous and
+latent-class encodings of the biomarker interaction in one notation
+and to give the marginal correlation induced by a two-class mixture.
+The second is to report, for the record, a pilot and two production
+null cells on an open-label design, and to state what they do and do
+not show. The third is to describe and receive a corrected simulation
+on the Hybrid design that compares a linear mixed model with
+class-aware tests under identical fixed effects and with calibrated
+tests of class count. The paper does not derive identifiability
+conditions. It examines by simulation whether the gating slope of a
+two-class model is testable at $N \in \{35, 70, 140\}$. The study is
+exploratory.
 
-## Why this matters for N-of-1 designs specifically
+# Methods
 
-Three features of the aggregated N-of-1 design make the
-continuous-versus-discrete moderation question particularly
-consequential for design and analysis decisions.
+## Notation
 
-First, the within-participant longitudinal structure of an N-of-1
-trial provides repeated measurements at multiple drug states
-(on-drug, off-drug, in carryover). Under a continuous-heterogeneity
-DGP, the moderation signal is carried by how the within-participant
-treatment contrast varies with the biomarker. Under a latent-class
-DGP, the signal is instead carried by class membership, which is
-fixed across all measurements within a participant and is therefore
-in principle recoverable from the full trajectory even when
-individual on-drug contrasts are noisy. The two formulations thus
-imply different efficient analysis strategies and different power
-profiles under carryover [@hendrickson2020].
+$B_i$ is the pre-treatment biomarker of participant $i$ and
+$b_i = (B_i - \bar B)/s_B$ its standardized value. $BR_{it}$ is the
+drug-response component of the symptom score $Y_{it}$ at visit $t$.
+The original DGP adds a natural-history component $TV_{it}$ and a
+placebo-response component $PB_{it}$. $D_{it}$ is the binary drug
+state. $D_{bc,it}$ is the exposure-decayed drug indicator of the
+analysis model: 1 on drug, $\exp(-\lambda t_{sd,it})$ off drug after
+the first exposure, and 0 at off-drug visits before the first
+exposure. Here $t_{sd,it}$ is the time since discontinuation and
+$\lambda = \ln 2 / t_{1/2}$ with $t_{1/2}$ the carryover half-life.
+$D_{e,t}$, written `De` in code, is the design expectancy $\eta_t$: 1
+in the open-label phase, 0.5 when blinded and 0 at baseline. $Z_i$ is
+the unobserved class label. $\omega$ is a mixing proportion and
+$\omega(B_i) = \Pr(Z_i = 1 \mid B_i)$ the class-membership
+probability. $\psi_g$ is the gating slope, the steepness of
+$\omega(B_i)$ in $b_i$; the code calls it `gs`. $\mathbb E[\cdot]$ is
+the expectation. $\kappa$ is the mean model standard error divided by
+the empirical standard deviation of the estimates. MCSE is the Monte
+Carlo standard error $\sqrt{\hat\pi(1-\hat\pi)/n}$ of a rejection
+rate $\hat\pi$ over $n$ replicates. The symbol $\psi_g$ is unrelated
+to the $\gamma$ of the companion component-decomposition paper
+[@pmsimstats-paper06].
 
-Second, N-of-1 trials are typically conducted at $N \in [30, 150]$,
-well below the sample sizes at which mixture-model identifiability
-has been validated in the psychometric literature. The
-identifiability cautions documented by @bauercurran2003 and
-@lubkemuthen2005 therefore apply with full force: even if a
-latent-class DGP is the biologically correct generative model,
-mixture analysis at trial-relevant sample sizes may be underpowered
-or unidentified, and a misspecified single-component analysis may be
-the more reliable inferential tool despite its bias. Resolving this
-trade-off is in part an empirical question that the existing
-psychometric simulation literature has not addressed at
-N-of-1-relevant sample sizes.
+## The two-class mixture DGP
 
-Third, carryover enters the analysis as a continuous decay in the
-effective drug indicator $D_{bc,it} = \exp(-\lambda t_{sd,it})$, and
-it interacts differently with the two encodings. It erodes the
-moderation signal directly in the continuous-heterogeneity
-formulation, where moderation enters as a product with $D_{bc,it}$.
-In the latent-class formulation, on the other hand, it erodes only
-the within-class drug contrast, leaving class-membership information
-available if it can be recovered from the full trajectory. The two
-formulations therefore predict different power-loss profiles under
-carryover, a difference already documented to be empirically large in
-the companion carryover-sensitivity work.
-
-## Aims and structure of the paper
-
-This paper has four aims. The first is to formalize the latent-class
-and finite-mixture formulations of biomarker-treatment interaction in
-aggregated N-of-1 trials, with identifiability conditions specific to
-the trial-relevant sample-size regime. The second is to characterize
-estimation strategies and the diagnostics required to distinguish
-genuine from spurious class structure at small $N$. The third is to
-report a factorial simulation study benchmarking mixture-DGP and
-continuous-DGP power against the linear-mixed-model and class-aware
-analyses under realistic carryover. The fourth, left for future work,
-is to apply the developed methods to the prazosin-PTSD biomarker
-dataset of @hendrickson2020.
-
-The remainder of the paper proceeds as follows. We begin with
-notation to fix terminology. The latent-class generative form, its
-MVN second-moment approximation, and the regimes in which the
-approximation breaks down follow in three sections, and we then turn
-to the implications for power under carryover and the
-identifiability constraints that bound mixture analysis at
-trial-relevant sample sizes. A finite-mixture taxonomy and a
-biomarker-moderation spectrum locate the relevant model families and
-DGP encodings in condensed form, with full development given in the
-companion supplement. Implications for analysis and design, and
-software for mixture analyses, are then drawn together. The
-discussion addresses three open methodological questions and reports
-a 240-replicate pilot from the five-study simulation program
-described in the companion simulation plan, which constitutes the
-empirical core of the present line of work.
-
-# Notation
-
-Throughout, $B_i$ denotes the pre-treatment biomarker value for
-participant $i$. $BR_{it}$ denotes the biological-response component
-of outcome for participant $i$ at time $t$, decomposed in the
-Hendrickson framework into three latent response factors: $BR_{it}$
-itself, a time-variant component $TV_{it}$, and a placebo-belief
-component $PB_{it}$. $D_{bc,it}$ denotes drug state at time $t$ in the
-analysis-side continuous-decay form $D_{bc,it} =
-\exp(-\lambda t_{sd,it})$ during off-drug periods and $D_{bc,it} = 1$
-during on-drug periods, with $t_{sd,it}$ the time since drug
-discontinuation and $\lambda$ the decay rate. Following the
-convention used throughout this series, $D_{it}$ is reserved for the
-binary on-drug state and $D_{bc,it}$ for the continuous
-exposure-decayed indicator used here; the latter is the `Dbc`
-regressor of the analysis model. $Z_i$ denotes an unobserved class
-label, and $\psi_g$ denotes the gating slope, the steepness of the
-class-membership probability's gradient in the standardized biomarker
-(defined formally below; called \texttt{gs} in the code and elsewhere
-in this paper). The half-life of carryover is
-$t_{1/2} = \ln 2 / \lambda$, and we allow it to differ between the DGP
-and the analysis model.
-
-The principal psychometric and econometric terms used below are as
-follows.
-
-- **Latent class.** An unobserved categorical class, equivalent
-  in trial vocabulary to an unobserved responder/non-responder
-  class.
-- **Latent factor.** An unobserved continuous trait governing
-  covariation among observed variables, equivalent to a frailty
-  (the survival-analysis term for an unobserved multiplicative
-  random effect) or to a random intercept in a linear mixed model.
-- **Class-conditional distribution $f_z$.** The outcome
-  distribution within a single latent class.
-- **Mixing proportion $\pi$.** The prevalence of a given
-  latent class in the population.
-- **Measurement invariance.** Whether a model applies identically
-  across subpopulations.
-- **Growth mixture model (GMM).** A longitudinal mixed model in
-  which the population of random effects is itself a finite mixture.
-- **Factor mixture model (FMM).** A hybrid model with discrete
-  classes at the upper level and within-class continuous
-  heterogeneity at the lower level.
-- **Regression mixture / mixture of experts.** A finite mixture in
-  which the gating function (class-membership probability) depends
-  on covariates and within-class regressions are class-specific.
-- **EM algorithm.** Expectation-maximization (EM) applied to recover
-  unobserved class labels jointly with class-conditional model
-  parameters.
-
-# Faithful latent-class data-generating processes
-
-If a candidate predictive biomarker indexes an unobserved
-responder/non-responder dichotomy, it is natural to represent the
-mechanistically faithful data-generating process as a finite mixture:
+If the biomarker indexes an unobserved responder dichotomy, the
+generative form is a two-component mixture,
 
 $$
-Z_i \mid B_i \sim \mathrm{Bernoulli}\bigl(\pi(B_i)\bigr), \qquad
+Z_i \mid B_i \sim \mathrm{Bernoulli}\bigl(\omega(B_i)\bigr), \qquad
 BR_{it} \mid Z_i = z \sim f_z(t, D_{bc,it}),
 $$
 
-where $Z_i$ is the latent class indicator and $\pi(B_i) = \Pr(Z_i = 1
-\mid B_i)$ is the class-membership probability. We take this
-probability throughout the paper to be a logistic function of the
-standardized biomarker $b_i$,
+with a logistic gate in the standardized biomarker,
 
 $$
-\pi(B_i) = \mathrm{expit}(\psi_0 + \psi_g \, b_i), \qquad
-b_i = (B_i - \bar B)/s_B,
+\omega(B_i) = \mathrm{expit}(\psi_0 + \psi_g \, b_i).
 $$
 
-with $\psi_g$ the **gating slope**, the steepness of the
-class-membership gradient in the biomarker (code and prose elsewhere
-in this paper call it \texttt{gs}; $\psi_0$ sets the baseline class
-prevalence and is fixed so that $\pi(0) = 0.5$ in all simulations
-below). We note that this $\psi_g$ is unrelated to the $\gamma$
-coefficient of the companion component-decomposition manuscript
-[@pmsimstats-paper06], which scales a $BR \times PB$ interaction term
-rather than a class-membership gradient; the two symbols are kept
-distinct throughout the compendium to avoid that confusion. The
-class-conditional response distributions $f_0$ and $f_1$ differ in
-their drug-response parameters, whether peak response, onset rate, or
-both. Within-class temporal structure follows the same modGompertz
-form used in single-class formulations, with class-specific
-parameters substituted.
+In every simulation below $\psi_0 = 0$, so $\omega(\bar B) = 0.5$.
+The class-conditional distributions $f_0$ and $f_1$ differ in their
+drug-response parameters. Two consequences follow. The class label is
+fixed across all visits of a participant. The class-conditional mean
+still depends on $D_{bc,it}$, so the two class means converge when
+$D_{bc,it} \to 0$ after a long off-drug period. An analysis with
+access to $Z_i$ could use the fixed label where the instantaneous
+mean separation has decayed. The correlation encoding has no such
+label. Its correlation is the whole signal, and carryover erodes it
+directly.
 
-Two consequences of this DGP form are central to what follows. First,
-the class label $Z_i$ is fixed across all measurements within a
-participant, invariant to drug state and to time. Second, the
-class-conditional mean trajectory does still depend on $D_{bc,it}$.
-Under a full carryover off-drug period ($D_{bc,it} \to 0$), the two
-class-conditional means converge if the responder/non-responder
-distinction is purely in drug response. Class-label invariance
-therefore preserves participant-level information about the
-moderation signal that an analysis with access to $Z_i$ could
-exploit, even where instantaneous between-class mean separation in
-$BR$ is fully attenuated. The MVN-covariance encoding, by contrast,
-has no such latent-label information to exploit: the covariance is
-the entire signal, and its erosion under carryover is direct.
+## The MVN approximation
 
-# MVN approximation to mixture-induced moderation
-
-A two-component mixture with class-dependent means and common
-within-class covariance produces a marginal joint distribution of
-$(B_i, BR_{it})$ whose first two moments are reproduced, to leading
-order, by a single multivariate normal with $\mathrm{Cor}(B, BR) =
-c_{bm}$. Under within-class independence between $B_i$ and $BR_{it}$
-we may write
+A two-component mixture with class-dependent means and a common
+within-class covariance has a marginal distribution of
+$(B_i, BR_{it})$ whose first two moments are reproduced by one
+multivariate normal with $\mathrm{Cor}(B, BR) = c_{bm}$. Suppose $B_i$
+and $BR_{it}$ are independent given $Z_i$. Then
+$\mathrm{Cov}(B, BR) = \omega(1-\omega)\Delta_B\Delta_{BR}$ with
+$\Delta_B = \mu_B^1 - \mu_B^0$ and $\Delta_{BR} = \mu_{BR}^1 -
+\mu_{BR}^0$, and
 
 $$
 c_{bm}^2 \;=\;
-\frac{\pi(1-\pi)(\mu_B^1-\mu_B^0)^2}{\mathrm{Var}(B)}
+\frac{\omega(1-\omega)\Delta_B^2}{\mathrm{Var}(B)}
 \;\cdot\;
-\frac{\pi(1-\pi)(\mu_{BR}^1-\mu_{BR}^0)^2}{\mathrm{Var}(BR)},
+\frac{\omega(1-\omega)\Delta_{BR}^2}{\mathrm{Var}(BR)}.
 $$
 
-so that $c_{bm}^2$ is the product of the between-class variance
-fractions in $B$ and in $BR$. The marginal correlation that an MVN
-can reproduce is therefore bounded by the geometric mean of the two
-intra-class correlations. That is, if either class separation is
-small, the achievable marginal $c_{bm}$ is small even when class
-structure is otherwise well-defined.
+The squared marginal correlation is the product of the between-class
+variance fractions of $B$ and of $BR$. The marginal correlation
+therefore equals the geometric mean of the two between-class variance
+fractions. If either class separation is small, the marginal $c_{bm}$
+is small even when the classes are well defined. The formula
+conditions on $Z_i$. It requires $B_i \perp BR_{it} \mid Z_i$, which
+is a restriction beyond the mixture DGP above, where $B_i$ enters only
+through the gate. Within that restriction, and with $\omega$ bounded
+away from 0 and 1, a single multivariate normal with a correlation
+that is present on drug and absent off drug reproduces the mixture's
+second moments. A power calculation for a Wald test of
+$\beta_{bm:D}$ in a linear mixed model then rests on those moments.
 
-Under mild regularity conditions (adequate class overlap and mixing
-proportions $\pi$ bounded away from 0 and 1), the mixture's
-second-moment structure is well approximated by a single MVN with
-differential correlation across drug states: elevated correlation
-where class-conditional means separate (on-drug), and shrinkage
-toward zero where they coincide (off-drug, after carryover has
-decayed). For power calculations driven by t-tests on
-$\beta_{bm:D}$ in a linear mixed-effects model, this approximation is
-adequate within the regularity conditions, and it captures the
-covariance consequences of latent-class structure without committing
-to a discrete generative form.
+## Where the approximation may fail
 
-# Failure regimes of the MVN approximation
+The approximation can mislead in three regimes. Under well separated
+classes the marginal distribution of $BR$ is bimodal and no
+multivariate normal matches its tails. A mixture analysis might then
+exceed the power of a linear mixed model. We do not assert that it
+does. The pilot below shows the opposite at $N = 70$ on an open-label
+design, and the corrected study examines it on the Hybrid design.
+Under a steep gate the biomarker behaves as a class label and a
+thresholded mean-shift specification is the better approximation.
+Under class-varying covariance, if the residual variance or the
+serial correlation differs between classes, no single-component
+multivariate normal represents the generative structure. The
+class-scaling DGP below is in this regime.
 
-The MVN approximation is misleading in three identifiable regimes,
-each with a distinct empirical signature.
+## The class-scaling DGP and the random-slopes DGP
 
-Under **bimodal responses**, when $f_0$ and $f_1$ are well separated,
-the marginal distribution of $BR$ is genuinely bimodal and no MVN
-matches its tails. Power under the true mixture DGP will then exceed
-the MVN-LMM prediction, because a well-specified mixture analysis can
-exploit the bimodality. This pattern occurs where a subpopulation
-genuinely does not respond, as in certain targeted oncology
-indications.
+The pilot used the DGP of
+`02-heterogeneous-slopes-dgp.R`, which we call the class-scaling
+DGP. It draws one trial from the original DGP at $c_{bm} = 0$,
+assigns each participant a class by the logistic gate, and
+multiplies the drug-response component at on-drug visits by 1 in
+class 1 and by 0 in class 0. The non-responder class therefore loses
+the drug-response mean and the drug-response variance alike. The
+class-conditional variances differ: the drug-response variance
+$\sigma_{BR}^2$ is present in class 1 and absent in class 0 at every
+on-drug visit. The class-scaling DGP contains no random slope. The
+pilot's earlier label, "heterogeneous-random-slopes DGP", was wrong.
 
-Under a **strong class-membership gradient**, when $\pi(B_i)$ is
-steep and approaches a step function at a biomarker threshold, the
-biomarker behaves nearly deterministically as a class label, and a
-thresholded mean-moderation specification becomes the better
-approximation. This corresponds clinically to a predictive biomarker
-with near-perfect sensitivity and specificity.
+The random-slopes DGP of `07-true-heterogeneous-slopes-dgp.R` is the
+Study 3 DGP of the working protocol. Each participant's drug-effect
+slope is drawn from a class-conditional normal distribution,
+$\beta_R \sim \mathcal N(\mu_R, \sigma_R^2)$ in the responder class
+and $\beta_{NR} \sim \mathcal N(0, \sigma_{NR}^2)$ in the
+non-responder class, with class membership from the same gate. This
+is the Verbeke-Lesaffre heterogeneous random-effects form
+[@verbekelesaffre1996]. The corrected study runs both DGPs as
+distinct cells at the same gating slopes. In the working protocol the
+gating-slope cells belong to Study 3 and the single-component null
+cells to Study 5. The pilot's gating-slope cells were labeled Study 5
+in the earlier draft; that label was wrong.
 
-Under **class-varying covariance**, if autocorrelation, residual
-variance, or placebo-response parameters differ between classes, no
-single-component MVN can represent the generative structure, and
-analysis models assuming constant covariance are misspecified
-regardless of whether the biomarker interaction is represented in the
-mean or the covariance. This is essentially the latent-class analogue
-of the heteroscedastic residual variance addressed in standard
-mixed-effects practice with `varIdent` or `weights` specifications,
-except that here the stratifying variable is unobserved.
+## Testing for a second class
 
-# Implications for power under carryover
+The pilot tested the gating slope with an unconditional Wald
+statistic from a two-class `hlme` fit. Under one class the gating
+slope is a parameter that exists only under the alternative. The
+information matrix is singular at the null, and the Wald statistic
+has no $\chi^2_1$ limit at any sample size [@davies1977;
+@davies1987; @hansen1996]. The same problem affects the naive
+likelihood-ratio test of two classes against one, whose null
+distribution is not $\chi^2$ on the parameter-count difference
+[@mclachlanpeel2000]. The calibrated tests are the parametric
+bootstrap likelihood-ratio test [@mclachlan1987; @nylund2007], the
+Lo-Mendell-Rubin test [@lo2001], and the modified likelihood-ratio
+test of Chen, Chen and Kalbfleisch [@chen2001modified]. Dziak, Lanza
+and Tan [@dziak2014] give the power of the bootstrap test as a
+function of $N$ and class separation at sample sizes that include the
+N-of-1 range. Local solutions are common when the multi-start budget
+is small [@hippbauer2006]. One-step estimation of a covariate in the
+class-membership model, as the `classmb = ~bm` specification does, is
+the standard approach, and its alternatives are the three-step
+methods of Vermunt [@vermunt2010] and Asparouhov and Muthén
+[@asparouhov2014].
 
-The substantial covariance-only power loss under carryover (40--60\%
-across designs in @hendrickson2020) reflects erosion of a
-second-moment signal. A mixture-model analysis fitted to mixture-DGP
-data can in principle recover additional power by estimating class
-membership directly, because the class label is carryover-invariant.
-The gap between the covariance-only carryover-sensitive power
-estimate and the mixture-faithful power estimate therefore
-upper-bounds what a mixture analysis could recover. We note that this
-bound is asymptotic, and at finite $N$ finite-sample bias can drive
-the realized gap below the bound, or, in adverse identifiability
-regimes, even reverse its sign. A focused factorial simulation
-isolating second-moment approximation error from analysis-model
-misspecification is described in the companion simulation plan
-(Study 1: mixture-vs-MVN factorial), crossing mixture and MVN DGPs
-with linear-mixed and joint latent-class-mixed analyses. The
-mixture-DGP/MVN-analysis versus mixture-DGP/mixture-analysis contrast
-quantifies power recoverable by a faithful analysis model, and a null
-check on the MVN-DGP/mixture-analysis cell verifies that the mixture
-model does not extract spurious power where no latent-class structure
-exists.
+The earlier draft attributed the inflation of the gating Wald test to
+the overextraction mechanism of Bauer and Curran [@bauercurran2003].
+That mechanism concerns spurious classes extracted from a single
+non-normal population. The null DGP here is a single multivariate
+normal, so the pilot does not test that mechanism. The inflation is
+the non-regular testing problem above.
 
-# Identifiability at trial-relevant sample sizes
+The corrected study separates the two questions. It tests two classes
+against one with a single-resample parametric-bootstrap
+likelihood-ratio test. Under the null, one bootstrap sample from the
+one-class fit is drawn per replicate and the two fits are repeated on
+it. Across replicates the bootstrap statistics estimate the null
+distribution of the likelihood ratio, and each replicate's observed
+statistic is compared with that distribution. This is the
+single-resample form of the bootstrap test. Conditional on two
+classes, the test of whether the biomarker predicts class membership
+is a regular problem and the Wald test on $\psi_g$ applies. The
+BLRT-gated gating test rejects when both the bootstrap test and the
+gating Wald reject.
 
-Mixture modeling is attractive on faithfulness grounds, but it
-carries identifiability costs that are acute in N-of-1 settings. The
-EM algorithm for finite mixtures of mixed-effects models requires
-either informative priors on class-membership probabilities or
-strong separation between class-conditional response curves. The
-standard diagnostic for mixture identifiability, the entropy of
-posterior class-membership probabilities, requires substantial
-sample sizes ($N$ several hundred to several thousand) to stabilize
-at values supporting confident class extraction in published
-psychometric applications [@bauercurran2003; @bauer2007;
-@nylund2007]. Aggregated N-of-1 trials of the size contemplated in
-current biomarker applications, $N \in [30, 150]$, are well below
-this range, so mixture analysis at trial-relevant sample sizes may be
-underpowered or unidentified even when the underlying DGP is
-genuinely mixture-structured. The question is therefore not whether
-mixture formulations are more faithful, but whether the fidelity gain
-is recoverable at realistic sample sizes, or whether
-analysis-strategy mitigations within standard mixed-effects practice
-(restricted analysis, weighting, within-subject contrasts; see
-@hendrickson2020), which have better-understood inferential
-properties at the relevant sample sizes, deliver a better
-power-per-complexity trade. Resolving this empirically requires the
-simulation program described in the companion plan; Study 5 addresses
-small-$N$ identifiability and Type I error directly.
+## Analyses and test forms
 
-# Finite-mixture taxonomy
+The linear mixed model is $Y_{it} = \beta_0 + \beta_B B_i +
+\beta_T w_t + \beta_D D_{bc,it} + \beta_{bm:D} B_i D_{bc,it} +
+u_i + \varepsilon_{it}$, with a random intercept and a
+continuous-time AR(1) residual correlation, fitted by `nlme::lme`.
+The test of $\beta_{bm:D}$ is the Wald test on `bm:Dbc`, with
+model-based standard errors and, in the corrected study, also with
+CR2 cluster-robust standard errors and Satterthwaite degrees of
+freedom. The class-aware model is `lcmm::hlme` with the same fixed
+effects, a random intercept, class-specific coefficients on
+$D_{bc,it}$ (`mixture = ~Dbc`), and the biomarker in the
+class-membership model (`classmb = ~bm`). The one-class fit anchors
+the starting values of a `gridsearch` with five starts and 30
+iterations for the two-class fit, followed by a final fit with 100
+iterations. The class-aware test forms are the unconditional Wald on
+$\psi_g$, the within-class Wald on `bm:Dbc` from the two-class fit,
+the BIC-gated gating test, which rejects when BIC prefers two classes
+and the gating Wald rejects, and, in the corrected study, the
+BLRT-gated gating test. BIC selection of two classes is reported as
+an estimand in its own right.
 
-Four families of finite mixture model from the psychometric and
-econometric literatures bear directly on the biomarker-treatment
-interaction problem. Table \@ref(tab:taxonomy) summarizes each
-family's structure, origin, and relevance to the N-of-1 setting. The
-full development of each, including the reasoning behind the package
-recommendations, is given in the companion supplement (Section 2).
+On the open-label design of the pilot and of the production null
+cells, every post-baseline visit is on drug, so $D_{bc,it}$ equals 1
+at every post-baseline visit and 0 at baseline. `lme_analysis()`
+detects that no participant has within-person variation in drug
+state and fits `Sx ~ bm + t + bm:t`. The reported coefficient is
+`bm:t`, a biomarker-by-linear-time term. The `hlme` wrapper fits
+`Sx ~ bm + t + Dbc + bm:Dbc`, in which `Dbc` is a post-baseline
+indicator. The two arms of the pilot therefore fitted different fixed
+effects, and neither tested $\beta_{bm:D}$ as defined above. The
+carryover half-life of 1.0 week set in the pilot had no effect,
+because $t_{sd,it} = 0$ at every visit.
 
-| Family | Structure | Origin | Relevance to N-of-1 trials |
-|---|---|---|---|
-| Latent class / latent profile analysis (LCA/LPA) | Cross-sectional mixture; class-specific marginal distributions | @lazarsfeldhenry1968; @goodman1974; @mclachlanpeel2000 | Baseline responder-class discovery from biomarker panels; `poLCA` |
-| Growth mixture model (GMM) | Longitudinal mixed model with a class-mixture random-effects population; class label is drug-state-invariant | @muthenshedden1999; @nagin1999 | Closest analogue of the faithful latent-class DGP in Section 3; overextraction cautions [@bauercurran2003] apply with full force at N-of-1 sample sizes |
-| Factor mixture model (FMM) | Discrete classes at the upper level, continuous within-class factor structure at the lower level | @yung1997; @arminger1999; @lubkemuthen2005 | Biomarker as both a noisy class indicator and a continuous within-class modulator; higher estimation cost |
-| Regression mixture / mixture of experts | Class-specific regression surfaces with a covariate-dependent gating function | @desarbocron1988; @jacobs1991 | Biomarker governs both class probability and within-class drug-effect magnitude; `flexmix` |
+## Performance measures
 
-Table: (\#tab:taxonomy) Finite-mixture model families relevant to the
-biomarker-moderation problem.
+For each cell we report the number of replicates, the fraction of
+two-class fits that converged (`conv = 1`), the rejection rate at
+$\alpha = 0.05$ with its MCSE for each test form over converged fits,
+the fraction of fits in which BIC preferred two classes, $\kappa$ for
+the linear mixed model and for the gating coefficient, and the
+dispersion of the gating estimate as the median $|\hat\psi_g|$ and
+the fraction with $|\hat\psi_g| > 10$. Non-convergence is reported as
+an outcome. A test whose realized size is far below $\alpha$ is
+reported as conservative, not as controlled, because its power is not
+comparable with the power of a test at nominal size.
 
-GMM is the closest psychometric analogue of the faithful latent-class
-generative form developed in Section 3. Each participant belongs to a
-latent class with its own drug-response trajectory, and a GMM that
-uses the biomarker as a class-membership predictor is essentially
-that generative model written in psychometric vocabulary. This is why
-the overextraction cautions from the GMM literature [@bauercurran2003;
-@bauer2007] carry directly into the identifiability discussion below.
+## The pilot and the production null cells
 
-# The biomarker-moderation spectrum
+The pilot used an open-label design with a baseline visit and eight
+post-baseline visits at 2.5-week intervals, all on drug, with one
+randomization path, constant expectancy and no blinding. The total
+sample size was $N = 70$. Three cells were run at gating slopes
+$\psi_g \in \{0, 1.0, 1.5\}$ under the class-scaling DGP, with 240
+replicates each. The production null cells used the same design under
+the original DGP at $c_{bm} = 0$, at $N = 35$ and $N = 70$, with
+2,000 replicates each. The 100-replicate pre-flight of the earlier
+draft used the same design at $N = 70$ under the null.
 
-The covariance-only formulation of @hendrickson2020 specifies a
-biomarker-dependent covariance structure with population means held
-constant across biomarker values. It is useful to locate this
-formulation within the broader spectrum of biomarker-moderated DGPs,
-because the moment-by-moment organization of the spectrum (biomarker
-moderating the mean, the covariance, both, or higher moments)
-clarifies which features of the carryover-induced power loss are
-properties of the specification itself rather than of the underlying
-scientific question.
+## The corrected study
 
-Table \@ref(tab:spectrum) organizes the five points on the spectrum
-moment by moment. The full development of each, including the
-measurement-invariance parallel for the covariance-only case and the
-GAMLSS distributional-regression formalism, is given in the companion
-supplement (Section 3).
+The corrected study uses the Hybrid design: open-label titration,
+blinded discontinuation, then a brief crossover, with a baseline visit
+and visits at weeks 4, 8, 9, 10, 11, 12, 16 and 20, and four
+randomization paths. The total sample size is $N \in \{35, 70, 140\}$
+across paths, so $N = 140$ allocates about 35 per path. The DGP cells
+are the single-Gaussian null (the original DGP at $c_{bm} = 0$), the
+class-scaling DGP at $\psi_g \in \{1.0, 1.5\}$, the random-slopes DGP
+at the same gating slopes, and a correlation-encoding cell with
+$c_{bm}$ matched to the marginal on-drug $\mathrm{Cor}(B, BR)$ of the
+mixture cells. The analyses have identical fixed effects: the linear
+mixed model with model-based and with CR2 inference, `hlme` with one
+and two classes, the unconditional gating Wald, the within-class
+`bm:Dbc` Wald, BIC selection, and the single-resample bootstrap
+likelihood-ratio test with the BLRT-gated gating test. The driver is
+`analysis/scripts/latent-class-mixture-application/12-referee-rerun.R`.
+It writes `summary.rds`, `calibration.rds` and `all.rds` to
+`analysis/data/latent-class-mixture-application/referee-rerun/`. The
+seed scheme follows the production driver: a fixed seed base plus the
+replicate index plus a cell offset, with `mc.set.seed = FALSE`. The
+seed base and the replicate count per cell are recorded in the driver
+and in `summary.rds`.
 
-| Point on spectrum | What varies by class/biomarker | Behaviour under carryover |
-|---|---|---|
-| Covariance-only [@hendrickson2020] | $\mathrm{Cov}(B, BR)$ only; means constant | Signal is entirely in the eroded channel; power loss is largest |
-| Combined mean and covariance [@arminger1999] | Both $E[BR\mid B]$ and $\mathrm{Var}[BR\mid B]$ | Mean channel survives carryover; power loss intermediate |
-| Location-scale (GAMLSS) [@gamlss2005; @klein2015] | Location and scale of the marginal distribution, no discrete classes | Analogue of the combined case without committing to a class count |
-| Heterogeneous random-effects [@verbekelesaffre1996; @proustlima2017] | Class-specific random-intercept/slope distributions | Class label is carryover-invariant; used for the Study 5 pilot below |
-| Pure mean moderation (Architecture A) | $E[BR\mid B]$ only; covariance constant | Signal survives carryover essentially undiminished |
+## Reproducibility
 
-Table: (\#tab:spectrum) The biomarker-moderation spectrum, organized by
-which moment of the response distribution carries the biomarker
-signal.
+The 240-replicate pilot was produced by `quick-sim-driver-parallel.R`
+in `analysis/scripts/latent-class-mixture-application/` on four cores
+with `parallel::mclapply`, wall time 558.6 s. Its seed for each
+replicate is `SEED_BASE + rep_idx + 1000 * cell_index` with
+`SEED_BASE = 20260507` and `mc.set.seed = FALSE`. Its per-replicate
+output is `analysis/data/quick-sim/03-latent-replicates.rds`. Four
+drivers in that directory write to the same output path, so the
+stored file is identified by its run log
+(`03-latent-runlog.txt`: four cores, 240 replicates per cell, 1,440
+rows). The 100-replicate pre-flight was produced by
+`03-study5-pilot.R` with seed `20260507 + rep_idx` and is stored at
+`output/03-study5-pilot.rds` in the scripts directory. The production
+null cells were produced by `10-study5-production.R` with seed
+`20260509 + rep_idx + 1e6 * cell_id` and `mc.set.seed = FALSE`, and
+are stored at `analysis/data/study5/study5-progress.rds`, dated
+`r prod_date`. Every number in the Results is computed from these
+files when the manuscript is rendered. The working protocol is
+`00-ademp-protocol.md` and its deviations log `02-deviations-log.md`
+in the scripts directory.
 
-The covariance-only specification of @hendrickson2020 is the most
-restrictive point on this spectrum. It holds $E[BR_{it}]$ fixed across
-biomarker strata and places the entire interaction in
-$\mathrm{Cov}(B_i, BR_{it} \mid D_{bc,it})$, which is an unusual
-restriction within the psychometric mixture tradition (most standard
-FMM and GMM parameterizations permit class-specific means at a
-minimum). Its appeal lies in tractability for power simulation under
-multivariate normality. Its cost, on the other hand, is that it does
-not correspond cleanly to a natural generative mechanism, and,
-because the entire signal sits in a channel that carryover erodes by
-construction, a sensitivity analysis based solely on this point risks
-overstating the carryover-induced power loss a biomarker-guided trial
-should actually expect. The heterogeneous random-effects row is the
-point used for the Study 5 pilot reported below, because it preserves
-compatibility with the existing `nlme::lme` analysis machinery while
-admitting a biologically faithful latent-class generative structure
-at the DGP level; the `lcmm` package [@proustlima2017] implements
-this family directly.
+# Results
 
-# Implications for analysis and design
+## The pilot and the production null cells
 
-Three implications follow from locating the covariance-only encoding
-within the broader spectrum.
+We computed every entry of Tables \@ref(tab:stored-rates) and
+\@ref(tab:stored-diag) from the stored replicate files. These results
+are reported for the record. They are superseded by the corrected
+study, because the open-label design supplies no off-drug contrast
+and the two analysis arms fitted different fixed effects.
 
-First, the covariance-only parameterization is the most restrictive
-operational case of a much richer family. The substantial power loss
-under carryover documented in @hendrickson2020 is a specific property
-of this restrictive case, because it places the entire
-biomarker-outcome signal in a channel carryover erodes by
-construction, and it need not generalize to the mean-plus-covariance
-or heterogeneous-random-effects variants standard in psychometric and
-biostatistical practice. A complete sensitivity analysis should
-therefore report power under at least three points on the spectrum:
-pure mean moderation, pure covariance moderation, and a combined
-specification.
+```{r stored-rates}
+knitr::kable(
+  stored[, .(cell, N, n, conv, lme, gate, within, gated, bic2)],
+  booktabs = TRUE, align = c('l', rep('r', 8)),
+  col.names = c('Cell', '$N$', 'Reps', 'Conv.',
+                'LMM Wald', 'Gating Wald', 'Within-class',
+                'BIC-gated', 'BIC two'),
+  escape = FALSE,
+  caption = 'Rejection rates at $\\alpha = 0.05$ (MCSE in parentheses) over converged two-class fits, and the fraction of converged fits in which BIC preferred two classes (BIC two). The linear mixed model (LMM) column is the Wald test on \\texttt{bm:t}, the term actually fitted on the open-label design, over all replicates. Conv.\\ is the converged fraction. The pilot cells use the class-scaling DGP; the production cells use the original DGP at $c_{bm} = 0$.') |>
+  kableExtra::kable_styling(font_size = 8,
+    latex_options = c('hold_position', 'scale_down')) |>
+  kableExtra::column_spec(1, width = '2.6cm')
+```
 
-Second, the identifiability concerns documented in the GMM and FMM
-literatures [@bauercurran2003; @bauer2007; @lubkemuthen2005;
-@nylund2007] bound what can be asked of mixture-based analysis models
-at N-of-1 sample sizes. Published FMM applications typically involve
-several hundred to several thousand participants, an order of
-magnitude above biomarker-trial applications with $N \in [30, 150]$,
-so analysis plans built around fitting \texttt{lcmm} or
-\texttt{flexmix} directly to trial data should not be relied on as
-the primary analysis. Mixture analysis retains value, on the other
-hand, as a sensitivity check and as a DGP for power simulation.
+```{r stored-diag}
+knitr::kable(
+  stored[, .(cell, N, kappa_lme, kappa_gate, med_abs, frac10)],
+  booktabs = TRUE, align = c('l', rep('r', 5)),
+  col.names = c('Cell', '$N$', '$\\kappa$, LMM', '$\\kappa$, gating',
+                'Median $|\\hat\\psi_g|$', 'Fraction $|\\hat\\psi_g| > 10$'),
+  escape = FALSE,
+  caption = 'Calibration and dispersion diagnostics. $\\kappa$ is the mean model standard error divided by the empirical standard deviation of the estimates. Entries marked with an asterisk are computed from the stored $p$-value by normal inversion, because the production file does not store standard errors. The gating diagnostics use converged two-class fits.') |>
+  kableExtra::kable_styling(font_size = 8, latex_options = 'hold_position') |>
+  kableExtra::column_spec(1, width = '2.6cm')
+```
 
-Third, if N-of-1 simulation infrastructure pursues a richer DGP in
-subsequent work, the natural target is the heterogeneous
-random-slopes form rather than a full FMM. This form preserves the
-analysis model's compatibility with the existing \texttt{nlme::lme}
-machinery while admitting a biologically faithful latent-class
-generative structure at the DGP level, preserving the audit chain of
-the existing framework and permitting direct comparison against the
-covariance-only baseline under matched effect-size tuning.
+The linear mixed model's test rejected 0 of 240 null replicates in
+the pilot. Under a test of size 0.05 that event has probability
+$0.95^{240} = 4.5 \times 10^{-6}$. The empirical standard deviation of
+$\hat\beta$ was `r sprintf('%.3f', lme_null_sd)` and the mean model
+standard error `r sprintf('%.3f', lme_null_se)`, so
+$\kappa = `r sprintf('%.2f', lme_null_se / lme_null_sd)`$. The
+smallest of the 240 null $p$-values was
+`r sprintf('%.3f', lme_null_minp)` and the median
+`r sprintf('%.2f', lme_null_medp)`. The production null cells rejected
+`r prod_counts[N == 35, rej]` of `r format(prod_counts[N == 35, n], big.mark = ',')`
+at $N = 35$ and `r prod_counts[N == 70, rej]` of
+`r format(prod_counts[N == 70, n], big.mark = ',')` at $N = 70$. The
+test is severely conservative. Its power at gating slopes 1.0 and 1.5
+is not comparable with the power of any test at nominal size, and the
+earlier draft's statement that it "holds nominal Type I" was wrong.
+The conservatism is a property of the `bm:t` specification with a
+CAR(1) residual on a Gompertz trajectory and is not diagnosed here.
 
-# Software for mixture analyses
+The unconditional gating Wald rejected
+`r sprintf('%.3f', gate_null['p'])` of `r n_conv_null` converged
+null fits in the pilot and `r stored[4, gate]` and `r stored[5, gate]`
+in the production cells at $N = 35$ and $N = 70$. The inflation did
+not shrink with sample size. The gating estimates were dispersed: the
+median $|\hat\psi_g|$ was `r stored[1, med_abs]` under the null and
+`r stored[1, frac10]` of the estimates exceeded 10 in absolute value.
+These are boundary solutions with a near-empty class, the pattern that
+the non-regular testing problem predicts.
 
-We list here, in approximate order of fit to the longitudinal
-aggregated N-of-1 use case, the R packages relevant to estimating the
-models surveyed above: `lcmm` [@proustlima2017], the closest
-available tooling for heterogeneous random-effects specification,
-with syntax closely related to `nlme::lme`; `flexmix` [@leisch2004;
-@grunleisch2008], a more general regression-mixture framework
-requiring more configuration; `mclust` [@mclust2016], for
-cross-sectional latent-profile analyses of baseline biomarker panels;
-`gamlss` [@gamlss2005], for distributional regression; `poLCA`
-[@linzerlewis2011], for categorical-indicator LCA; and `OpenMx` and
-`lavaan` with mixture extensions, for FMM-style structural-equation
-specifications at higher configuration cost. The reference
-implementation outside R is Mplus [@mplus], the standard environment
-for GMM, FMM, and related mixture-SEM work, and the environment used
-by much of the identifiability and overextraction literature cited
-above [@bauercurran2003; @lubkemuthen2005; @nylund2007].
+BIC preferred two classes in `r sprintf('%.1f', bic2_pct[gating_slope == 0, V1])`,
+`r sprintf('%.1f', bic2_pct[gating_slope == 1.0, V1])` and
+`r sprintf('%.1f', bic2_pct[gating_slope == 1.5, V1])` percent of
+converged pilot fits at gating slopes 0, 1.0 and 1.5, and a BIC
+difference above 6 `r if (bic6_any) 'occurred' else 'never occurred'`.
+The BIC-gated gating test cannot reject more often than BIC selects
+two classes, so its rejection rates of `r stored[1, gated]`,
+`r stored[2, gated]` and `r stored[3, gated]` are bounded by the
+selection rate. The difference between the two non-null cells is
+within two MCSE and is not interpreted.
+
+The within-class `bm:Dbc` Wald, the fourth recorded test form,
+rejected `r stored[1, within]` of null fits in the pilot and
+`r stored[4, within]` and `r stored[5, within]` in the production
+cells. At gating slope 1.5 it rejected `r stored[3, within]`, within
+one MCSE of the linear mixed model's `r stored[3, lme]`. A test with a
+realized size of zero is uninformative about calibration, so this
+comparison does not rank the two tests.
+
+The production file contradicts the earlier draft's statement that
+the production driver had not been run. The file is dated
+`r prod_date` and holds `r format(nrow(prod), big.mark = ',')`
+replicates in two cells, both under the single-Gaussian null, at
+$N = 35$ and $N = 70$. The driver's non-Gaussian and two-class cells
+are absent from it, so the run was incomplete.
+
+## The corrected study: Hybrid design, matched models, calibrated tests
+
+```{r corrected-summary, results = 'asis'}
+rr_dir <- file.path('..', '..', 'data', 'latent-class-mixture-application',
+                    'referee-rerun')
+rr_summary <- file.path(rr_dir, 'summary.rds')
+if (file.exists(rr_summary)) {
+  rr <- as.data.frame(readRDS(rr_summary))
+  print(knitr::kable(rr, booktabs = TRUE, longtable = TRUE, digits = 3,
+    caption = 'Corrected study: cell-level summary, all stored columns.') |>
+    kableExtra::kable_styling(font_size = 7,
+      latex_options = c('repeat_header')))
+} else {
+  cat('The corrected study has not completed; its results will be',
+      'inserted here when `summary.rds` is present.\n')
+}
+```
+
+```{r corrected-calibration, results = 'asis'}
+rr_cal <- file.path(rr_dir, 'calibration.rds')
+if (file.exists(rr_cal)) {
+  cal <- as.data.frame(readRDS(rr_cal))
+  print(knitr::kable(cal, booktabs = TRUE, longtable = TRUE, digits = 3,
+    caption = 'Corrected study: effect-size calibration of the DGP cells, all stored columns.') |>
+    kableExtra::kable_styling(font_size = 7,
+      latex_options = c('repeat_header')))
+} else {
+  cat('The calibration table of the corrected study will be inserted',
+      'here when `calibration.rds` is present.\n')
+}
+```
+
+<!-- RESULTS-PENDING: corrected study -->
 
 # Discussion
 
-The biomarker-treatment moderation problem in aggregated N-of-1
-trials sits at the intersection of two methodological traditions
-that, until now, have only weakly engaged with each other: a
-biostatistical tradition with efficient within-participant estimators
-but a continuous-interaction-only specification of moderation, and a
-psychometric tradition with mature finite-mixture machinery applied
-primarily at sample sizes well above the N-of-1 range. The argument
-of this paper is that the choice between continuous-heterogeneity and
-latent-class encodings is a substantive scientific question, not
-merely a parameterization convenience. This opens both a
-sensitivity-analysis program (the moderation spectrum surveyed above)
-and an analysis-strategy program (class-aware mixture analyses where
-identifiability permits, mitigations where it does not).
+The pilot and the production null cells establish two facts. An
+unconditional Wald test on the gating slope of a two-class mixed model
+is anti-conservative at $N = 35$ and $N = 70$, and the inflation does
+not decline with $N$. This is the expected behavior of a Wald test on
+a parameter that exists only under the alternative. A BIC gate removes
+the inflation by rarely firing. Neither fact bears on whether a
+class-aware analysis can compete with a linear mixed model when the
+class structure is real, because the open-label design supplies no
+off-drug contrast and the linear mixed model of the pilot tested a
+different term. The corrected study answers that question with
+matched fixed effects on the Hybrid design and with a bootstrap test
+of class count.
 
-Two limitations bound what the paper currently provides. First, the
-240-replicate pilot reported below is a single cell of the five-study
-production factorial (mixture-vs-MVN, the mean-covariance-combined
-triptych, heterogeneous random slopes, the three-regime breakdown
-grid, and the small-$N$ identifiability pre-flight) described in the
-companion simulation plan; the production run at 1,000+ replicates
-per cell has not yet been executed. Second, the application to real
-biomarker-guided trial data has not been carried out. The
-prazosin-PTSD analysis of @hendrickson2020 provides the most
-immediate target for re-analysis under at least three
-biomarker-moderation encodings, once the production run completes.
+Three questions remain for the corrected study. The first is whether
+a class-aware test is usable as a primary analysis at any N-of-1
+sample size, or only as a sensitivity analysis. The second is how the
+analysis half-life should be chosen when the DGP is a mixture, since
+class-conditional carryover may differ. The third is whether a design
+that maximizes the per-participant contrast gains power under a
+latent-class DGP that the Hybrid design surrenders.
 
-Three open methodological questions remain, to be addressed by the
-production program. The first is whether class-aware analyses are
-usable as primary analyses at any realistic N-of-1 sample size, or
-only as sensitivity checks. The pilot evidence below suggests the
-latter, though only the wider production grid can settle the question
-definitively. The second is how analysis half-life should be
-specified when the DGP is a mixture rather than a single MVN, since
-the continuous-decay drug indicator $D_{bc,it} =
-\exp(-\lambda t_{sd,it})$ has a clean interpretation under a
-single-component generative model but a less obvious one when
-class-conditional carryover dynamics differ between classes. The
-third is whether the trial design itself should respond to the
-moderation-encoding question. If a latent-class generative form is
-biologically more plausible than a continuous one, designs that
-maximize the per-participant contrast and minimize carryover may gain
-power that the standard hybrid design surrenders.
+## Limitations
 
-Two secondary theoretical points are developed fully in the companion
-supplement (Section 5). First, the analysis model used throughout
-this program is a four-term linear mixed model rather than a
-component-matched non-linear model mirroring the DGP's
-biological-response, placebo-belief, and time-variant decomposition;
-the supplement gives four reasons this simpler analysis is the right
-choice at trial-relevant $N$. Second, the latent-class DGP specified
-for Study 1 is a natural mechanism for generating apparent
-subadditivity in a downstream single-component analysis, even absent
-any direct mechanistic interaction. The Study 1 working protocol
-includes an axis designed to distinguish this emergent mechanism from
-genuine mechanistic interaction empirically.
+The stored results come from one design that carries no interaction
+information. The linear mixed model's conservatism on that design is
+reported but not diagnosed. The production run was incomplete, and
+its non-Gaussian and two-class cells were never produced. The
+corrected study uses a single-resample bootstrap test, which estimates
+the null distribution across replicates rather than within each
+replicate. The two-class `hlme` fits use a multi-start budget of five
+starts and 30 iterations, and the fraction of fits at the iteration
+cap is not stored. The application to the prazosin-PTSD data of the
+original study has not been carried out.
 
-## Progress to date
+# Conclusions
 
-The five-study production program is described in a working
-protocol organized under the ADEMP framework of Morris, White, and
-Crowther [@morris2019simulation] at
-`analysis/scripts/latent-class-mixture-application/
-00-ademp-protocol.md` (approximately 2,300 cells across the
-program, seeded random-number control, an effect-size tuning
-sub-study, and a log of changes to the protocol). The study is
-exploratory, and its findings should be confirmed in an independent
-study. Phase 1 has reached
-the infrastructure-and-pilot milestone: a class-aware analysis
-wrapper around \texttt{lcmm::hlme} with the same input-output
-contract as the existing \texttt{lme\_analysis()}, and a
-heterogeneous-random-slopes DGP wrapper around
-\texttt{generateData()} that adds a Bernoulli class-membership
-channel with logistic gating in the biomarker. An earlier
-100-replicate pre-flight pilot under the null DGP compared six
-candidate class-aware test forms and found that an unconditional Wald
-test on the \texttt{lcmm} gating coefficient inflates Type I error to
-five times nominal (0.250 against 0.05), while a BIC-conditional
-gating procedure (fit \texttt{ng=1} and \texttt{ng=2}, test the
-gating coefficient only if BIC prefers \texttt{ng=2}) controls it.
-That pre-flight comparison, reported in full in the companion
-supplement (Section 6), fixed the BIC-conditional procedure as the
-primary class-aware moderation test carried into the production-scale
-pilot below. Extrapolated to the planned cell counts, the
-class-aware arm of Study 1 alone is approximately 340 hours of serial
-CPU time (22--44 hours parallelized across 8--16 cores); the full
-five-study program is feasible on a single workstation over a week of
-background compute.
+The latent-class encoding of a biomarker interaction is a growth
+mixture model with the biomarker as a class-membership covariate. Its
+marginal correlation equals the geometric mean of the between-class
+variance fractions of the biomarker and the drug response, so a
+single multivariate normal reproduces its second moments when the
+biomarker and the drug response are independent given class. Testing
+the gating slope without first establishing two classes is a
+non-regular problem, and the pilot's unconditional Wald test was
+anti-conservative at every sample size examined. The corrected study
+on the Hybrid design, with matched fixed effects and a bootstrap test
+of class count, is the comparison this paper set out to make.
 
-## Pilot results (Study 5, 240 replicates)
+# Glossary {-}
 
-The Study 5 prototype was rerun at 240 replicates per cell on 4-core
-\texttt{parallel::mclapply} with three gating-slope levels
-(gs $\in \{0, 1.0, 1.5\}$) and three test forms (lme \texttt{bm:Dbc}
-Wald, \texttt{lcmm} gating Wald unconditional, BIC-conditional
-gating). Wall time was 558 s; convergence was 92.9\% under the null
-and 98.3--98.8\% at non-null cells. Per-replicate output is at
-\texttt{analysis/data/quick-sim/03-latent-replicates.rds}; the Morris
-ADEMP summary is at \texttt{03-latent-summary.txt}. The MCSE at the
-working power near $0.5$ is approximately $0.030$.
+- **Gating slope** ($\psi_g$, `gs`): the coefficient of the
+  standardized biomarker in the logistic class-membership model; the
+  steepness of $\omega(B_i)$ in $b_i$.
+- **`ng`**: the number of latent classes in an `lcmm::hlme` fit; one
+  or two in this paper.
+- **BIC gate**: the rule that the gating Wald test is performed only
+  when the two-class fit has a lower BIC than the one-class fit; the
+  stored quantity is `delta_bic`, BIC of the one-class fit minus BIC
+  of the two-class fit, and the gate opens when it is positive.
+- **BLRT gate**: the rule that the gating Wald test is performed only
+  when the single-resample parametric-bootstrap likelihood-ratio test
+  rejects one class in favor of two.
+- **Single-resample bootstrap**: one bootstrap sample per replicate
+  from the one-class fit, with the null distribution of the
+  likelihood-ratio statistic estimated across replicates.
+- **OL**: the open-label design, in which every post-baseline visit
+  is on drug and there is one randomization path.
+- **OL+BDC**: open label followed by blinded discontinuation, with
+  two randomization paths.
+- **Hybrid design** (`Hybrid`): open-label titration, blinded
+  discontinuation, then a brief crossover, with visits at weeks 4, 8,
+  9, 10, 11, 12, 16 and 20 and four randomization paths.
+- **`bm:Dbc`**: the biomarker-by-exposure interaction term of the
+  analysis model, whose coefficient is $\beta_{bm:D}$.
+- **Exposure-decayed drug indicator** ($D_{bc}$, `Dbc`): 1 on drug,
+  $\exp(-\lambda t_{sd})$ off drug after the first exposure, and 0 at
+  off-drug visits before the first exposure.
+- **Design expectancy** ($D_e$, `De`, $\eta_t$): the participant's
+  probability of being on drug by design, 1 open label, 0.5 blinded
+  and 0 at baseline.
+- **Entropy** (`entropy`): one minus the mean over participants of
+  the posterior class-membership entropy divided by $\ln(\texttt{ng})$,
+  as computed in the `hlme` wrapper; 1 means perfectly separated
+  classes.
+- **Class-scaling DGP** (`02-heterogeneous-slopes-dgp.R`): a trial
+  drawn from the original DGP at $c_{bm} = 0$ in which the
+  drug-response component at on-drug visits is multiplied by 1 in the
+  responder class and by 0 in the non-responder class, with class
+  membership from the logistic gate.
+- **Random-slopes DGP** (`07-true-heterogeneous-slopes-dgp.R`): the
+  Study 3 DGP, in which each participant's drug-effect slope is drawn
+  from a class-conditional normal distribution, with class membership
+  from the logistic gate.
+- **Correlation encoding** (`mvn`): the interaction is a correlation
+  $c_{bm}$ between the biomarker and the drug response that is present
+  on drug and absent off drug.
+- **Mean-shift encoding** (`mean_moderation`): the interaction is a
+  shift of the drug-response mean by the centered biomarker, with
+  coefficient $\beta_{bm}$.
+- **Original DGP**: the data-generating process of Hendrickson et al.
+  (2020), with the correlation encoding.
+- **Within-class Wald**: the Wald test on `bm:Dbc` from the two-class
+  `hlme` fit, in which the coefficient is common to the classes.
+- **Calibration ratio** ($\kappa$): the mean model standard error
+  divided by the empirical standard deviation of the estimates;
+  $\kappa > 1$ means a conservative test.
+- **MCSE**: the Monte Carlo standard error of a rejection rate,
+  $\sqrt{\hat\pi(1-\hat\pi)/n}$ over $n$ replicates.
 
-The unconditional Wald-on-gating Type I error of $0.197$ (95\%
-binomial CI $[0.145, 0.250]$) is now decisively distinguishable from
-the nominal $0.05$ (more than five MCSE of separation), and it is
-statistically consistent with the 100-replicate pilot's $0.250$ point
-estimate. Power at gs = $1.0$ ($0.304$) and gs = $1.5$ ($0.360$) sits
-below the lme baseline ($0.325$ and $0.542$ respectively), so the
-unconditional Wald buys nothing in exchange for the Type I inflation.
-The BIC-conditional procedure does control Type I ($0.004$ under the
-null, with upper CI near $0.013$), but its power is only $0.025$ at
-gs = $1.0$ and $0.004$ at gs = $1.5$. Under the
-heterogeneous-random-slopes DGP at $N = 70$, the BIC step selects
-\texttt{ng=1} in essentially every replicate, and the conditional
-procedure approximates a never-reject rule. The non-monotonicity
-(gs = $1.5$ below gs = $1.0$) suggests that as the heterogeneous-slopes
-signal strengthens, a single-class lme captures it well enough that
-BIC continues to favor \texttt{ng=1}, and the conditional procedure
-does not fire.
+# Abbreviations {-}
 
-The lme \texttt{bm:Dbc} test holds nominal Type I (0 of 240 under the
-null) and reaches $0.542$ power at gs = $1.5$, dominating both
-\texttt{lcmm} tests at this sample size and DGP regime. We therefore
-conclude, on the evidence of this pilot, that at trial-relevant $N$
-and under the heterogeneous-random-slopes generating mechanism
-examined here, neither the unconditional Wald-on-gating nor the
-BIC-conditional gating test is competitive with the linear-mixed
-baseline. That is, the unconditional test is severely
-anti-conservative, and the BIC-conditional test is severely
-under-powered. A canonical run at 1,000 replicates per cell with a
-wider gating-slope grid (and at $N \in \{35, 70, 100\}$) is required
-to map the regime in which the BIC-conditional procedure does become
-competitive, plausibly at large class separations rather than under
-heterogeneous random slopes.
+ADEMP: aims, data-generating mechanisms, estimands, methods,
+performance measures; BDC: blinded discontinuation; BIC: Bayesian
+information criterion; BLRT: bootstrap likelihood-ratio test; BR:
+drug-response component; CAR(1): continuous-time first-order
+autoregressive correlation; CR2: bias-reduced cluster-robust variance
+estimator; DGP: data-generating process; GMM: growth mixture model;
+LMM: linear mixed model; MCSE: Monte Carlo standard error; MVN:
+multivariate normal; OL: open label; OL+BDC: open label followed by
+blinded discontinuation; PB: placebo-response component; PTSD:
+post-traumatic stress disorder; TV: natural-history component.
 
-# Conflict of interest
+# Declarations {-}
 
-The authors declare no conflicts of interest.
+**Ethics approval and consent to participate.** Not applicable: the
+study uses simulated data only.
 
-# Funding
+**Consent for publication.** Not applicable.
 
-This work received no specific funding.
-
-# Data availability statement
-
-The data and code that support the findings of this study are openly
-available in the pmsimstats-ng project repository. Per-replicate
-Monte Carlo outputs and ADEMP-compliant cell-level summaries are
-versioned under `analysis/data/`, and simulation drivers are at
-`analysis/scripts/`. Exact paths for this manuscript are listed in
-the Reproducibility section below.
-
-# Reproducibility
-
-This manuscript was rendered with R 4.4.x inside the project's
-zzcollab Docker container (image hash in `Dockerfile`; package set in
-`renv.lock`). The principal packages are `nlme` (`corCAR1`
-linear-mixed analysis), `parallel` (4-core `mclapply`), `lcmm`
-(class-aware analysis, `gridsearch` initialization), and
-`rmarkdown`/`bookdown` for the manuscript build. Each simulation
-driver sets `set.seed(20260507)` at the top of the replicate loop,
-with per-replicate seeds derived by `+ rep_idx` under
-`parallel::mc.set.seed`.
-
-Per-replicate outputs from the 240-replicate Study 5 pilot are
-checkpointed at `analysis/data/quick-sim/03-latent-replicates.rds`,
-with Morris ADEMP cell-level summaries at `03-latent-summary.txt` and
-the effect-size calibration table at `03-calibration-table.rds`.
-Driver scripts are under
-`analysis/scripts/latent-class-mixture-application/`, including the
-pilot driver `03-study5-pilot.R` (executed) and the production driver
-`10-study5-production.R` (committed, not yet run). The working
-ADEMP protocol is at `00-ademp-protocol.md` in the same
-directory. The manuscript source, bibliography, and CSL file are at
+**Availability of data and materials.** All code and simulated data
+are in the pmsimstats-ng repository
+(`https://github.com/rgt47/pmsimstats-ng`); a tagged release with a
+persistent identifier will be deposited at submission, and the commit
+reported here should be cited until then. The stored replicate files,
+drivers and seeds are listed in the Reproducibility section. The
+manuscript source, bibliography and CSL file are at
 `analysis/report/03-latent-class-mixture-application/`.
 
-# References
+**Competing interests.** To be completed by the authors.
+
+**Funding.** This work received no specific funding.
+
+**Authors' contributions.** To be completed by the authors.
+
+**Acknowledgements.** To be completed by the authors.
+
+# References {-}
 
 ::: {#refs}
 :::

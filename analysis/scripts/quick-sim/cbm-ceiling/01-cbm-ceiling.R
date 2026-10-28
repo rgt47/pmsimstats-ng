@@ -212,7 +212,9 @@ for (dn in names(designs)) {
       c.tv = base$rho, c.pb = base$rho, c.br = base$rho,
       c.cf1t = base$c1, c.cfct = base$cx)
     ## This block studies the repair itself, so it opts out of the
-    ## stop-on-non-PD default deliberately.
+    ## stop-on-non-PD default and of the repair lock deliberately.
+    options(pmsimstats.allow_repair = TRUE)
+    on.exit(options(pmsimstats.allow_repair = FALSE), add = TRUE)
     raw <- buildSigma(mp, extracted_rp, extracted_bp, tp,
       makePositiveDefinite = FALSE, stopOnNonPD = FALSE,
       dgp_architecture = 'mvn')

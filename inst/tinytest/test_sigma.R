@@ -164,12 +164,29 @@ make_default_params <- function(c.bm = 0.3, carryover_t1half = 0) {
                              empirical = FALSE, makePositiveDefinite = TRUE),
     info = 'generateData() refuses a non-PD matrix by default even with makePositiveDefinite = TRUE')
 
+  unrepaired <- pmsimstats:::buildSigma(p_nonpd$mp, p_nonpd$rp, p_nonpd$bp,
+                                        td$trialpaths[[1]],
+                                        stopOnNonPD = FALSE,
+                                        makePositiveDefinite = TRUE)
+  expect_true(!is.positive.definite(unrepaired$sigma),
+              info = 'stopOnNonPD = FALSE with makePositiveDefinite = TRUE does not repair without the repair lock opt-in')
+  expect_true(is.null(unrepaired$chol_sigma),
+              info = 'a non-PD matrix has no Cholesky factor when repair is locked')
+  expect_error(
+    pmsimstats::generateData(p_nonpd$mp, p_nonpd$rp, p_nonpd$bp,
+                             td$trialpaths[[1]],
+                             empirical = FALSE, makePositiveDefinite = TRUE,
+                             stopOnNonPD = FALSE),
+    info = 'generateData() refuses to draw from a non-PD matrix even with stopOnNonPD = FALSE')
+
+  old_opt <- options(pmsimstats.allow_repair = TRUE)
   repaired <- pmsimstats:::buildSigma(p_nonpd$mp, p_nonpd$rp, p_nonpd$bp,
                                       td$trialpaths[[1]],
                                       stopOnNonPD = FALSE,
                                       makePositiveDefinite = TRUE)
+  options(old_opt)
   expect_true(is.positive.definite(repaired$sigma),
-              info = 'stopOnNonPD = FALSE, passed explicitly, reproduces the published process\'s silent repair')
+              info = 'repair happens only with stopOnNonPD = FALSE, makePositiveDefinite = TRUE and options(pmsimstats.allow_repair = TRUE)')
 
   p_pd <- make_default_params()
   expect_silent(

@@ -161,11 +161,18 @@ where a refused cell shows as a non-converged replicate). The
 argument was added 2026-10-21 with a `FALSE` default; the default was
 flipped after two paper 02 jobs silently repaired infeasible
 prognostic-confound cells and reported the attenuated interaction as
-a power loss (docs/60, 2026-10-26 update). Silent repair survives
-only as an explicit opt-in (`FALSE`), used by the scripts that study
-the repair itself (`cbm-ceiling/01-cbm-ceiling.R`,
-`hendrickson-original-comparison/02-pd-sweep.R`) and needed to
-reproduce any run made before 2026-10-26. `implementations/original`
+a power loss (docs/60, 2026-10-26 update). Repair is locked off
+(2026-10-28): the repair branches of `buildSigma()`/`generateData()`
+in the package, `original-extended`, `tidyverse` and `nof1power` run
+only when the session sets `options(pmsimstats.allow_repair = TRUE)`
+in addition to `stopOnNonPD = FALSE`. Without the option, a probe that
+passes `stopOnNonPD = FALSE` gets the raw matrix back and no Cholesky
+factor, and any draw from it stops with an error. Only the scripts
+that study the repair itself set the option
+(`cbm-ceiling/01-cbm-ceiling.R`,
+`hendrickson-original-comparison/02-pd-sweep.R`, and the opt-in test in
+`inst/tinytest/test_sigma.R`); no manuscript driver does. Reproducing
+a run made before 2026-10-26 also needs the option. `implementations/original`
 (Hendrickson's frozen reference) is untouched: silent repair is part
 of the published process it exists to reproduce. One carve-out, not
 a repair: the PB amplitude scales with expectancy, so an $e = 0$

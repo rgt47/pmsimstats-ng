@@ -443,9 +443,10 @@ build_sigma_matrix <- function(model_param, resp_param, baseline_param,
           'Non-PD covariance matrix corrected (min eigenvalue: %.4f, %d negative)',
           min(eigenvalues), length(neg_evals)))
       }
-      sigma <- corpcor::make.positive.definite(sigma, tol = 1e-3)
+      sigma <- .repair_nonpd(sigma)
     }
     chol_sigma <- tryCatch(chol(sigma), error = function(e) {
+      if (!isTRUE(getOption('pmsimstats.allow_repair', FALSE))) return(NULL)
       chol(corpcor::make.positive.definite(sigma, tol = 1e-3))
     })
   }
@@ -459,7 +460,7 @@ build_sigma_matrix <- function(model_param, resp_param, baseline_param,
     nP = num_timepoints,
     cl = factors,
     chol_sigma = chol_sigma,
-    was_pd_corrected = !is_pd
+    was_pd_corrected = !is_pd && isTRUE(getOption('pmsimstats.allow_repair', FALSE))
   )
 }
 
@@ -507,6 +508,9 @@ generate_data <- function(
   n <- model_param$N
   p <- length(means)
   Z <- matrix(rnorm(n * p), nrow = n, ncol = p)
+  if (is.null(chol_sigma)) {
+    stop('The covariance matrix has no Cholesky factor (not positive definite) and repair is disabled. Constrain the correlation parameters.')
+  }
   participant_data <- Z %*% chol_sigma +
     matrix(means, nrow = n, ncol = p, byrow = TRUE)
   participant_data <- as_tibble(participant_data)
@@ -1160,4 +1164,17 @@ generate_simulated_results <- function(
   }
 
   if (!simparam$progressiveSave) outpt
+}
+
+# Repair lock (2026-10-28). Repairing a non-positive-definite matrix
+# is off for every manuscript. The repair branches call this helper,
+# which returns the matrix unrepaired unless the session sets
+# options(pmsimstats.allow_repair = TRUE), as the scripts that study
+# the repair itself do. Passing makePositiveDefinite = TRUE or
+# stopOnNonPD = FALSE alone no longer repairs anything: probes that
+# only read the raw matrix still work, and a draw from a matrix with
+# no Cholesky factor stops with an error.
+.repair_nonpd <- function(sigma) {
+  if (!isTRUE(getOption('pmsimstats.allow_repair', FALSE))) return(sigma)
+  corpcor::make.positive.definite(sigma, tol=1e-3)
 }

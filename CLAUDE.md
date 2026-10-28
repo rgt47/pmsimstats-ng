@@ -531,6 +531,12 @@ intercept.
 
 ## Documentation conventions
 
+- Manuscript voice and terminology: `analysis/report/STYLE.md`
+  (2026-10-27). Short declarative sentences; standard American
+  scientific prose; no project jargon such as "coupling" in prose
+  (use "biomarker-response correlation"); any unusual term goes in
+  the paper's glossary. Paper 01 describes extensions to the original
+  DGP, not a critique of Hendrickson et al.
 - Academic, scholarly tone. No em dashes, no hyperbole. US English.
 - The studies are exploratory: never describe them as
   pre-registered, pre-specified or confirmatory.

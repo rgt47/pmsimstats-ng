@@ -141,6 +141,26 @@ fmt3 <- function(x) ifelse(is.na(x), '--', sprintf('%.3f', x))
 rr_dir <- here::here('analysis/data/carryover-sensitivity/referee-reanalysis')
 has_rr <- file.exists(file.path(rr_dir, 'm2-pooled-size.csv'))
 g9_pooled <- if (has_rr) read.csv(file.path(rr_dir, 'm2-pooled-size.csv')) else NULL
+## The four referee-variant runs (36-run-referee-variants.R, simrun
+## jobs 34 to 37 on zeus, 2026-10-27), one directory per block.
+rv_dir <- here::here('analysis/data/carryover-sensitivity/referee-variants')
+rv_read <- function(block, what) {
+  f <- file.path(rv_dir, paste0('block-', block), paste0(what, '.rds'))
+  if (file.exists(f)) readRDS(f) else NULL
+}
+has_rv <- !is.null(rv_read('N', 'summary'))
+rv_lab <- c(E2cr2 = 'G8', E7cr2 = 'G9', E7null_cr2 = 'G9-null',
+            E3fix_cr2 = 'G8-fixed', F1 = 'F1')
+rv_method <- function(d) ifelse(d$method == 'E3fix_cr2',
+  sprintf('G8 at %.2f wk', d$h_fixed), rv_lab[d$method])
+rvN <- rv_read('N', 'summary'); rvA <- rv_read('A', 'summary')
+rvT <- rv_read('T', 'summary'); rvS <- rv_read('S', 'summary')
+rvNp <- rv_read('N', 'paired'); rvAp <- rv_read('A', 'paired')
+rv_cell <- function(d, m, ...) {
+  x <- d |> filter(method == m, ...)
+  stopifnot(nrow(x) == 1)
+  x
+}
 ```
 
 # Abstract {-}
@@ -166,26 +186,26 @@ prognostic correlation pathways, dropout and random slopes.
 **Results.** The lagged term changes nothing. Exposure weighting
 recovers most of the power that carryover removes under the Hybrid
 and OL+BDC designs. AIC selection matches the power at the true
-half-life without recovering it. The model-based test
-rejects at about 0.037. CR2 brings every specification to within
-half a point of nominal. Selection adds about half a point. Pooled
-over 7,987 null fits, G9 rejects at 0.055 against 0.049 for G8
-(paired difference 0.006, SE 0.001). The G9 interval covers at about
-0.93 to 0.94 under the alternative. E0 is liberal under the crossover
-and OL+BDC designs and marginally liberal under Hybrid. G9 holds
-size under the three prognostic pathways at every feasible strength
-and loses no power to F1A0B. A power loss at the strongest confound
-came from an infeasible covariance matrix that the code had
-repaired. A closed-form feasibility bound now excludes such
+half-life without recovering it. The model-based test rejects at
+about 0.037. CR2 brings every specification to within half a point
+of nominal. Pooled over 7,987 null fits, G9 rejects at 0.055 against
+0.049 for G8 (paired difference 0.006, SE 0.001), and its interval
+covers at about 0.93 under the alternative. E0 is liberal under the
+crossover and OL+BDC designs and marginally under Hybrid. G9 holds
+size under three prognostic correlation pathways at every feasible
+strength and loses no power to F1A0B. A power loss at the strongest
+confound came from an infeasible covariance matrix that the code
+had repaired; a closed-form feasibility bound now excludes such
 scenarios.
 
-**Conclusions.** For a Hybrid trial under this data-generating
-process we recommend G9: the exposure-weighted predictor with an
-AIC-selected half-life, refitted by REML and tested with CR2. Its
-size is about 0.055 at $N \le 70$ and its interval is slightly
-narrow. A fixed compromise half-life would avoid that cost and is
-under evaluation. The recommendation is conditional on the process
-and parameter set simulated.
+**Conclusions.** For a Hybrid trial under this process we recommend
+G9: the exposure-weighted predictor with an AIC-selected half-life,
+refitted by REML and tested with CR2. Its size is about 0.055 at
+$N \le 70$. A fixed 1-week analysis half-life with CR2 holds nominal
+size for at most two points of power. A biomarker that predicts the
+natural-history trend biases every analysis examined. The
+recommendation is conditional on the process and parameters
+simulated.
 
 **Keywords:** N-of-1 trials; carryover; predictive biomarker;
 cluster-robust inference; post-selection inference; simulation
@@ -699,7 +719,7 @@ $D_e$ is constant within every path of the crossover design. The
 F-family is therefore not identifiable there and is reported for
 Hybrid and OL+BDC only.
 
-### Prognostic biomarker pathways
+### Prognostic biomarker pathways {#sec-pathways}
 
 A biomarker may be associated with the outcome through channels
 other than the drug response. An interaction test that rejects
@@ -1301,10 +1321,141 @@ At 1 week the choice is spread over all four candidates. G4 and G9
 nevertheless match the power obtained at the true half-life (Table
 \@ref(tab:stage2)). The exposure weight is therefore insensitive to
 the half-life over this range. That insensitivity means a fixed
-compromise half-life with CR2 inference would avoid the selection
-cost altogether. The driver for that comparison is written
-(Reproducibility section, pending runs). Its results are not yet
-available.
+compromise half-life with CR2 inference could avoid the selection
+cost altogether. The next subsection tests that, together with
+selection on the model without the interaction.
+
+### Selection on the null model and fixed half-lives
+
+The referee-variant runs (Reproducibility section) fitted five
+analyses to the same simulated trials in eight Hybrid null cells at
+5,000 replicates each, with an independent random-number stream for
+every cell: G8 (the true half-life), G9 (AIC selection with the
+interaction in the selection model), G9-null (AIC selection on the
+model without the interaction, then a REML refit with it), G8 at a
+fixed analysis half-life of 0.25 week and of 1 week regardless of the
+truth, and F1. Table \@ref(tab:stage3-variants-null) gives the null
+rejection rates and the paired differences against G8. Table
+\@ref(tab:stage3-variants-alt) gives power at eight alternative cells
+at 1,000 replicates.
+
+```{r stage3-variants-null, echo = FALSE}
+if (has_rv) {
+  tN <- rvN |>
+    mutate(Method = rv_method(rvN),
+           Cell = sprintf('$t_{1/2} = %.1f$, $N = %d$, $c_{PB} = %.1f$',
+                          t1half, N, c_pb)) |>
+    left_join(rvNp |> transmute(cell_id, method, h_fixed, diff_vs_g8),
+              by = c('cell_id', 'method', 'h_fixed')) |>
+    arrange(t1half, N, c_pb,
+            match(Method, c('G8', 'G9', 'G9-null', 'G8 at 0.25 wk',
+                            'G8 at 1.00 wk', 'F1'))) |>
+    transmute(Cell, Method, Rejection = sprintf('%.4f', reject),
+              `Paired diff. vs G8` = ifelse(is.na(diff_vs_g8), '--',
+                                            sprintf('%+.4f', diff_vs_g8)),
+              `$\\kappa$` = sprintf('%.2f', kappa))
+  tN$Cell[duplicated(tN$Cell)] <- ''
+  knitr::kable(tN, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = 'Stage 3, referee-variant runs: null rejection rate
+      ($c_{bm} = 0$) of G8, G9, G9-null, G8 at two fixed analysis
+      half-lives and F1 in eight Hybrid null cells, 5{,}000
+      replicates each (MCSE about 0.003), independent seeds per cell,
+      with the paired per-replicate difference against G8 (paired SE
+      0.0015 to 0.0021) and the calibration ratio. $c_{PB}$: a
+      prognostic correlation with the placebo-response component.') |>
+    kableExtra::kable_styling(font_size = 8)
+}
+```
+
+```{r stage3-variants-alt, echo = FALSE}
+if (has_rv) {
+  tA <- rvA |>
+    mutate(Method = rv_method(rvA)) |>
+    select(t1half, N, c_bm, Method, reject) |>
+    pivot_wider(names_from = Method, values_from = reject) |>
+    arrange(t1half, c_bm, N) |>
+    mutate(across(-c(t1half, N, c_bm), fmt3))
+  knitr::kable(tA, booktabs = TRUE, escape = FALSE, linesep = '',
+    col.names = c('$t_{1/2}$', '$N$', '$c_{bm}$', 'G8', 'G9', 'G9-null',
+                  'G8 at 0.25 wk', 'G8 at 1 wk', 'F1'),
+    caption = 'Stage 3, referee-variant runs: power at eight Hybrid
+      alternative cells, 1{,}000 replicates each (MCSE at most 0.016),
+      independent seeds per cell, for the same analyses as the null
+      table. The true half-life is 0.5 or 2 weeks; the fixed analysis
+      half-lives are 0.25 and 1 week in every cell.') |>
+    kableExtra::kable_styling(font_size = 9)
+}
+```
+
+```{r stage3-variants-numbers, echo = FALSE}
+if (has_rv) {
+  dN <- function(m, h = NA) {
+    x <- rvNp |> filter(method == m, if (is.na(h)) is.na(h_fixed) else h_fixed == h)
+    x$diff_vs_g8
+  }
+  rN <- function(m, h = NA) {
+    x <- rvN |> filter(method == m, if (is.na(h)) is.na(h_fixed) else h_fixed == h)
+    x$reject
+  }
+  pA <- function(m, h = NA) {
+    x <- rvA |> filter(method == m, if (is.na(h)) is.na(h_fixed) else h_fixed == h) |>
+      arrange(t1half, c_bm, N)
+    x$reject
+  }
+  g8A <- rvA |> filter(method == 'E2cr2') |> arrange(t1half, c_bm, N)
+  dA <- function(m, h = NA) pA(m, h) - g8A$reject
+  kA <- function(m, h = NA) {
+    x <- rvA |> filter(method == m, if (is.na(h)) is.na(h_fixed) else h_fixed == h)
+    range(x$kappa)
+  }
+}
+```
+
+Three results follow. First, selecting the half-life on the model
+without the interaction removes the size excess. G9 rejects above G8
+in every cell, by `r if (has_rv) sprintf('%+.4f', min(dN('E7cr2')))`
+to `r if (has_rv) sprintf('%+.4f', max(dN('E7cr2')))` (eight paired
+differences, seven of them at least two paired standard errors above
+zero).
+G9-null differs from G8 by
+`r if (has_rv) sprintf('%+.4f', min(dN('E7null_cr2')))` to
+`r if (has_rv) sprintf('%+.4f', max(dN('E7null_cr2')))`, within one
+paired standard error in every cell, and its calibration ratio under
+the null is `r if (has_rv) sprintf('%.2f', min(rvN$kappa[rvN$method == 'E7null_cr2']))`
+to `r if (has_rv) sprintf('%.2f', max(rvN$kappa[rvN$method == 'E7null_cr2']))`
+against `r if (has_rv) sprintf('%.2f', min(rvN$kappa[rvN$method == 'E7cr2']))`
+to `r if (has_rv) sprintf('%.2f', max(rvN$kappa[rvN$method == 'E7cr2']))`
+for G9. The two selections choose the same half-life with nearly the
+same frequencies, so the difference is in the dependence of the
+selected value on the coefficient under test, not in the value
+selected. Second, the null-model selection costs power. At the
+alternatives G9-null is below G8 by
+`r if (has_rv) sprintf('%.3f', -max(dA('E7null_cr2')))` to
+`r if (has_rv) sprintf('%.3f', -min(dA('E7null_cr2')))`, and below G9
+by `r if (has_rv) sprintf('%.3f', min(pA('E7cr2') - pA('E7null_cr2')))`
+to `r if (has_rv) sprintf('%.3f', max(pA('E7cr2') - pA('E7null_cr2')))`.
+Part of the G9 advantage is its size excess. Under the alternative
+G9-null's calibration ratio is still below one
+(`r if (has_rv) sprintf('%.2f', kA('E7null_cr2')[1])` to
+`r if (has_rv) sprintf('%.2f', kA('E7null_cr2')[2])`, lowest at the
+2-week half-life with $N = 35$), so selection on the null model
+removes the size cost but not all of the standard-error optimism
+under the alternative. Third, a fixed analysis half-life of 1 week
+with CR2 inference holds the size of G8 (within
+`r if (has_rv) sprintf('%.4f', max(abs(dN('E3fix_cr2', 1))))` of it
+in every null cell) and loses at most
+`r if (has_rv) sprintf('%.3f', -min(dA('E3fix_cr2', 1)))` of power
+against G8 at a true half-life of 0.5 or 2 weeks. A fixed value of
+0.25 week also holds size but loses
+`r if (has_rv) sprintf('%.3f', -max(dA('E3fix_cr2', 0.25)[g8A$t1half == 2]))`
+to `r if (has_rv) sprintf('%.3f', -min(dA('E3fix_cr2', 0.25)[g8A$t1half == 2]))`
+of power when the true half-life is 2 weeks, as F1 does at 0.2 week.
+A fixed half-life of 1 week with CR2 is therefore an alternative to
+G9 with no selection step, nominal size, calibrated standard errors,
+and power within two points of the true-half-life predictor over the
+range simulated. Its weakness is that the range simulated is 0.5 to
+2 weeks. At a true half-life far from 1 week it may lose more, and
+the selection in G9 is what protects against that case.
 
 ```{r stage3-null, echo = FALSE}
 st3 <- s27 |>
@@ -2159,8 +2310,96 @@ implies. The DGP contains no patient-specific slope, so there is no
 variance for a random slope to absorb. The check therefore shows
 that adding random slopes costs nothing here. It does not show that
 random slopes would add nothing in a trial whose patients differ in
-their trends. That case needs a DGP with a patient-level slope
-variance, which was not simulated.
+their trends. The referee-variant runs added a patient-specific
+linear slope to the natural-history component, with standard
+deviation 0.3 outcome units per week, and fitted G8, G9 and F1 at
+$N = 70$ and 1,000 replicates (Table \@ref(tab:stage5-slope)). G9's
+size and power are unchanged by the slope variance (null rejection
+`r if (has_rv) fmt3(rv_cell(rvS, 'E7cr2', c_bm == 0)$reject)`, power
+`r if (has_rv) fmt3(rv_cell(rvS, 'E7cr2', c_bm == 0.45)$reject)` at
+$c_{bm} = 0.45$, against
+`r if (has_rv) fmt3(rv_cell(rvN, 'E7cr2', t1half == 0.5, N == 70, c_pb == 0)$reject)`
+and
+`r if (has_rv) fmt3(rv_cell(rvA, 'E7cr2', t1half == 0.5, N == 70, c_bm == 0.45)$reject)`
+without it, from other cells of the same runs). The random-slope
+variants of G9 were not refitted under this DGP, so whether they
+would gain power there is still open; what the run shows is that the
+random-intercept G9 with CR2 inference does not lose size or power to
+a patient-level trend of this size.
+
+### A biomarker that predicts the rate of natural-history change {#sec-trend}
+
+The referee-variant runs added the pathway Section \@ref(sec-pathways) describes as
+missing: a shift of the natural-history mean proportional to the
+standardized biomarker and to the component's own normalized time
+course, so that the shift grows over the trial. It is a mean shift,
+not a correlation, so the feasibility bound does not limit it. The
+coefficient was 0.3 natural-history standard deviations per standard
+deviation of the biomarker at the end of the trial. Table
+\@ref(tab:stage5-trend) gives the result at $N = 70$ and 1,000
+replicates.
+
+```{r stage5-trend, echo = FALSE}
+if (has_rv) {
+  tT <- rvT |>
+    mutate(Method = rv_lab[method],
+           Cell = ifelse(c_bm == 0, 'null ($c_{bm} = 0$)', '$c_{bm} = 0.45$')) |>
+    arrange(c_bm, match(Method, c('G8', 'G9', 'F1'))) |>
+    transmute(Cell, Method, Rejection = sprintf('%.3f (%.3f)', reject, mcse),
+              `Mean estimate` = sprintf('%+.2f', mean_est),
+              `$\\kappa$` = sprintf('%.2f', kappa))
+  tT$Cell[duplicated(tT$Cell)] <- ''
+  knitr::kable(tT, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = 'Stage 5, referee-variant runs: rejection rate (MCSE),
+      mean interaction estimate on the calibrated scale and
+      calibration ratio under a biomarker that predicts the rate of
+      natural-history change (coefficient 0.3), Hybrid, $N = 70$,
+      $t_{1/2} = 0.5$ week, 1{,}000 replicates (two-MCSE band at the
+      null $[0.036, 0.064]$). The true value at the alternative is
+      $-3.6$.') |>
+    kableExtra::kable_styling(font_size = 9)
+}
+```
+
+```{r stage5-slope, echo = FALSE}
+if (has_rv) {
+  tS <- rvS |>
+    mutate(Method = rv_lab[method],
+           Cell = ifelse(c_bm == 0, 'null ($c_{bm} = 0$)', '$c_{bm} = 0.45$')) |>
+    arrange(c_bm, match(Method, c('G8', 'G9', 'F1'))) |>
+    transmute(Cell, Method, Rejection = sprintf('%.3f (%.3f)', reject, mcse),
+              `Mean estimate` = sprintf('%+.2f', mean_est),
+              `$\\kappa$` = sprintf('%.2f', kappa))
+  tS$Cell[duplicated(tS$Cell)] <- ''
+  knitr::kable(tS, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = 'Stage 5, referee-variant runs: rejection rate (MCSE),
+      mean interaction estimate and calibration ratio under a
+      patient-specific linear trend in the natural-history component
+      (SD 0.3 outcome units per week), Hybrid, $N = 70$,
+      $t_{1/2} = 0.5$ week, 1{,}000 replicates.') |>
+    kableExtra::kable_styling(font_size = 9)
+}
+```
+
+This pathway does bias the test. Under the null G8 rejects at
+`r if (has_rv) fmt3(rv_cell(rvT, 'E2cr2', c_bm == 0)$reject)` and G9
+at `r if (has_rv) fmt3(rv_cell(rvT, 'E7cr2', c_bm == 0)$reject)`,
+above the band, with a mean estimate of
+`r if (has_rv) sprintf('%+.2f', rv_cell(rvT, 'E7cr2', c_bm == 0)$mean_est)`
+where the truth is zero. F1, which carries the expectancy terms,
+rejects at `r if (has_rv) fmt3(rv_cell(rvT, 'F1', c_bm == 0)$reject)`
+with a mean estimate of
+`r if (has_rv) sprintf('%+.2f', rv_cell(rvT, 'F1', c_bm == 0)$mean_est)`,
+so the expectancy terms absorb about half of the shift but not all
+of it. At the alternative the bias is the same size and the power is
+unchanged. The mechanism is the one the referee described: in the
+Hybrid design $D_{bc}$ is negatively related to time, so a biomarker
+that predicts the trend projects onto the interaction term in a
+model with no biomarker-by-time term. The inflation is modest at
+this coefficient (about 0.07 against 0.05), but it is real, it is
+unbounded by the correlation matrix, and none of the analyses
+examined removes it. An analysis that adds a biomarker-by-time term
+is the obvious remedy and was not evaluated.
 
 ```{r stage5-re, echo = FALSE}
 re_lab <- c(G9 = 'G9', G9rs = '+ slope on $t$', G9re = '+ slope on $D_e$',
@@ -2224,9 +2463,10 @@ before first exposure. Stage 2 does not establish that the selection
 recovers the half-life. The selected value is spread over the
 candidates (Table \@ref(tab:stage3-selection)). The power match
 means the exposure weight is insensitive to the half-life over this
-range. That insensitivity suggests a fixed compromise value with CR2
-inference as an alternative that avoids selection altogether. It has
-not been evaluated here.
+range. The referee-variant runs confirmed that a fixed analysis
+half-life of 1 week with CR2 inference holds nominal size and stays
+within two points of the true-half-life predictor's power at true
+half-lives of 0.5 and 2 weeks (Section 3.3).
 
 Stage 3 established three results. The model-based test is
 conservative by about a quarter of its nominal size. The
@@ -2240,7 +2480,10 @@ costs. Paired against the same predictor at the true half-life, the
 G9 size is about half a point above the G8 size. The G9 standard
 error under the alternative is a few percent too small. This is an
 effect of selection and not of CR2 (Section 3.4). The cost is small
-and is stated as a cost.
+and is stated as a cost. Selecting the half-life on the model without
+the interaction removes the size excess, at a cost of one to three
+points of power against G8, and does not fully restore the standard
+error under the alternative.
 
 Stage 4 established two results about analyses outside the family.
 The original analysis is liberal under the crossover and OL+BDC
@@ -2266,14 +2509,18 @@ Stage 5 established that G9 holds size under the three correlation
 pathways at strength 0.3 and on the feasible ladder. It loses no
 power and no part of its estimate to a confound inside the feasible
 region on the grid run. It gains nothing from random slopes under a
-DGP that has none. The strength-0.6 cells are evidence about a
-repaired DGP and not about the confound. A biomarker correlated with
-the placebo response does not inflate the G9 Type I error beyond
-that of the expectancy-term family at $N$ up to 280. At $N = 280$,
-however, both families sit at or just above the band, and the excess
-is not attributed. The pathway most likely to bias the estimator, a
-biomarker that predicts the rate of natural-history change, was not
-simulated. The stage makes two methodological contributions. It
+DGP that has none, and its size and power are unchanged under a DGP
+with a patient-specific trend of 0.3 outcome units per week. The
+strength-0.6 cells are evidence about a repaired DGP and not about
+the confound. A biomarker correlated with the placebo response does
+not inflate the G9 Type I error beyond that of the expectancy-term
+family at $N$ up to 280. At $N = 280$, however, both families sit at
+or just above the band, and the excess is not attributed. A biomarker
+that predicts the rate of natural-history change, a mean shift that
+the feasibility bound does not limit, inflates the size of G8 and G9
+to about 0.07 and of F1 to about 0.06 at $N = 70$. No analysis
+examined removes that bias. The stage makes two methodological
+contributions. It
 identifies a repaired non-positive-definite covariance matrix as the
 source of an apparent robustness failure. It gives the closed-form
 feasibility bound that allows a stress grid to be designed inside
@@ -2305,15 +2552,22 @@ size under the three prognostic correlation pathways at every
 feasible strength tested, without an expectancy term. It is at least
 as powerful as the richer expectancy-term family at every
 alternative scenario, with a clear advantage when the true half-life
-is long. Two qualifications apply. Its nominal confidence interval
+is long. Three qualifications apply. Its nominal confidence interval
 is slightly narrow under the alternative, by the few percent that
-selection costs. An analyst who needs an interval rather than a test
-should prefer an alternative that avoids selection. Two such
-alternatives are a fixed compromise half-life with CR2, and
-selection on the model without the interaction followed by a
-bootstrap calibration as in F1A0B. Its size has been measured only
-up to $N = 70$ with complete data and at $N = 280$ under one
-pathway, where it sits at the edge of the band.
+selection costs. An analyst who needs an interval rather than a test,
+or exact nominal size, has two alternatives that the referee-variant
+runs support. A fixed analysis half-life of 1 week with CR2 inference
+holds nominal size and loses at most two points of power against the
+true-half-life predictor at true half-lives of 0.5 to 2 weeks.
+Selection on the model without the interaction also holds nominal
+size, at a cost of one to three points of power, and leaves some
+standard-error optimism under the alternative. Its size has been
+measured only up to $N = 70$ with complete data and at $N = 280$
+under one pathway, where it sits at the edge of the band. And none
+of the analyses examined, G9 included, holds size under a biomarker
+that predicts the rate of natural-history change (Section \@ref(sec-trend)); a
+trial whose biomarker is plausibly prognostic for the trend should
+add a biomarker-by-time term, which was not evaluated.
 
 The recommendation transfers to OL+BDC on the evidence of Stages 1
 to 4, where G9 and G8 lead in the same near-tie. Under the crossover
@@ -2381,8 +2635,11 @@ one sample size. The prognostic pathways are correlations of a
 single latent biomarker with the components. The feasibility bound
 is a property of that parameterization. A biomarker that predicts
 the rate of natural-history change is a mean shift with no such
-bound. It was not simulated, and it is the pathway most likely to
-bias an estimator without a biomarker-by-time term. The feasibility
+bound. It was simulated at one coefficient, one sample size and one
+half-life, and it biased every analysis examined; neither larger
+coefficients nor the biomarker-by-time remedy were evaluated. The
+patient-specific slope variance was simulated at one value and
+without refitting the random-slope variants of G9. The feasibility
 bounds are specific to the Hybrid design at $t_{1/2} = 0.5$ week,
 $\rho = 0.7$ and $c_1 = 0.2$. They must be recomputed for any other
 configuration, which the closed form makes immediate. Size and power
@@ -2454,7 +2711,10 @@ term as a carryover adjustment in crossover trials is classical
    need for the analyst to supply a half-life. The selected value is
    spread over the candidates. The match therefore reflects the
    insensitivity of the predictor to the half-life rather than
-   recovery of it.
+   recovery of it. A fixed analysis half-life of 1 week with CR2
+   inference holds nominal size and stays within two points of the
+   true-half-life predictor's power at true half-lives of 0.5 to 2
+   weeks, with no selection step.
 3. **Use a CR2 cluster-robust standard error, and state the cost of
    selection.** The model-based test rejects at about 0.037 under the
    null. CR2 with Satterthwaite degrees of freedom brings every
@@ -2463,7 +2723,9 @@ term as a carryover adjustment in crossover trials is classical
    designs, but not under the crossover design. Paired against the
    predictor at the true half-life, selection adds about half a
    point of size and makes the standard error a few percent too
-   small under the alternative.
+   small under the alternative. Selecting on the model without the
+   interaction removes the size excess at a cost of one to three
+   points of power.
 4. **Do not use the original analysis as is.** It is liberal by two
    to three times nominal under the crossover and OL+BDC designs and
    marginally liberal under Hybrid. It differs from the G-family in
@@ -2478,7 +2740,9 @@ term as a carryover adjustment in crossover trials is classical
    at every alternative. At $N = 280$ under a biomarker correlated
    with the placebo response, both families sit at the edge of the
    band. A biomarker that predicts the rate of natural-history change
-   was not simulated.
+   inflates the size of every analysis examined, to about 0.07 for
+   G8 and G9 and 0.06 for F1 at $N = 70$; a biomarker-by-time term
+   is the untested remedy.
 6. **Check feasibility before stressing the data-generating
    process.** A prognostic correlation that exceeds the closed-form
    feasibility bound yields a non-positive-definite matrix. Repairing
@@ -2501,6 +2765,19 @@ term as a carryover adjustment in crossover trials is classical
   Section \@ref(sec-comparators). Stored data files label the G-family by `E`-prefixed
   codes (`E1`, `E3`, `E2`, `E7`, `E9` and their `cr2` variants for G1
   to G9 respectively), displayed as G codes at render time.
+- **G9-null; G8 at a fixed half-life.** Two variants from the
+  referee-variant runs. G9-null selects the analysis half-life by AIC
+  on the model without the interaction and then refits with it
+  (stored as `E7null_cr2`). G8 at a fixed half-life is G8 with the
+  analysis half-life set to 0.25 or 1 week regardless of the true
+  value (stored as `E3fix_cr2`, with the half-life in `h_fixed`).
+- **Trend pathway; slope variance.** Two data-generating options
+  added for the referee-variant runs. The trend pathway
+  (`b.bm.tv.trend`) shifts the natural-history mean by the
+  standardized biomarker times the component's normalized time
+  course, so the shift grows over the trial. The slope variance
+  (`sd_slope`) adds a patient-specific linear trend with the stated
+  standard deviation per week.
 - **Biomarker-response correlation ($c_{bm}$).** The on-drug
   correlation between the biomarker and the drug-response component.
   It is the interaction estimand of this study. Stored data and code
@@ -2687,21 +2964,25 @@ summaries only.
   `carryover-sensitivity/referee-reanalysis/`, from which Tables
   \@ref(tab:stage3-pooled), \@ref(tab:stage3-selection),
   \@ref(tab:stage3-coverage) and \@ref(tab:heavy-missing) are drawn.
-- Pending runs: `36-run-referee-variants.R` (checked by
-  `35-check-new-variants.R`) adds, with independent seeds per cell,
-  (i) a null-model selection variant of G9 (half-life chosen without
-  the interaction, stored as `E7null_cr2`), (ii) G8 at fixed wrong
-  half-lives of 0.25 and 1 week (`E3fix_cr2`), (iii) a biomarker-by-
-  trend prognostic pathway, a natural-history mean shift growing with
-  the component's time course (`b.bm.tv.trend`, unbounded by the
-  correlation matrix), and (iv) a patient-specific slope variance
-  (`sd_slope`), at 5,000 replicates for the null cells that carry the
-  recommendation and 1,000 for the alternatives. The local estimate
-  for the simulation host is about 8 to 10 hours. Its results are not
-  in this version of the manuscript. The claims they bear on (the
-  cost of selection against a fixed compromise half-life, size under
-  a trend pathway, and the random-slope check on a DGP with slopes)
-  are stated above as unresolved.
+- Referee-variant runs: `36-run-referee-variants.R` (checked by
+  `35-check-new-variants.R`) adds, with an independent seed per cell
+  derived from the cell label, (i) a null-model selection variant of
+  G9 (half-life chosen without the interaction, stored as
+  `E7null_cr2`, displayed as G9-null), (ii) G8 at fixed analysis
+  half-lives of 0.25 and 1 week whatever the truth (`E3fix_cr2`,
+  displayed as G8 at a fixed half-life), (iii) a biomarker-by-trend
+  prognostic pathway, a natural-history mean shift growing with the
+  component's time course (`b.bm.tv.trend`), and (iv) a
+  patient-specific slope variance (`sd_slope`). Run as simrun jobs 34
+  to 37 on the zeus host (8 cores) at commit `086f826` on 2026-10-27
+  (blocks N, A, T and S; 3.5 hours, 42 minutes, 8 minutes and 8
+  minutes), producing `carryover-sensitivity/referee-variants/block-{N,A,T,S}/`
+  with `summary.rds`, `selection.rds`, `paired.rds`, `preflight.rds`,
+  `meta.rds` and the job's `provenance.yml`. Tables
+  \@ref(tab:stage3-variants-null), \@ref(tab:stage3-variants-alt),
+  \@ref(tab:stage5-trend) and \@ref(tab:stage5-slope) are drawn from
+  them. Because these cells have their own seeds, comparisons between
+  them and any other stored cell are unpaired.
 
 The fitting functions for every specification (`fit_spec_s7`,
 `cr2_extract`, `select_half_life_aic`, `fit_spec_e0`,

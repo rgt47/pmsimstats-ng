@@ -15,11 +15,22 @@
 #' has been censored, all future datapoints for that particular
 #' participant are also censored
 #'
+#' The biased factor weights each timepoint by
+#' \eqn{(100 + S_t - BL)^{eb1}}, the change in symptoms since baseline
+#' shifted by 100 (Hendrickson et al. 2020, Methods). generateData stores
+#' the improvement D_<tp> = BL - S_t, so the weight is
+#' \eqn{(100 - D_t)^{eb1}}. Before 2026-10-29 this collection, like the
+#' published code at commit 58b32a9, used \eqn{(100 + D_t)^{eb1}}, which
+#' raised dropout with improvement. implementations/original keeps the
+#' published form.
+#'
 #' @param dat dat file as produced by \code{generateData}
 #' @param trialdesign a trial design as defined by \code{buildtrialdesign}
 #' @param censorparam a data.table provides 3 named parameters:
-#'   (1) beta0 - the total rate (approximately) of censoring (0-1)
-#'   (2) beta1 - the proportion of the total dropout that should be biased (0-1)
+#'   (1) beta0 - the mean per-timepoint probability that a participant
+#'   still in the trial drops out at that timepoint (0-1); a hazard, not a
+#'   total (beta0 = 0.05 removes about a third over eight timepoints)
+#'   (2) beta1 - the proportion of that hazard that is biased (0-1)
 #'   (3) eb1 - the exponent used to define the shape of the curve defining biased dropout.
 #'   See example, below.
 #' @return A new data file, with the censored data points replaced by \code{NA},
@@ -57,7 +68,9 @@ censordata<-function(dat,trialdesign,censorparam){
 
   cdt_ps1<-cdt
   cdt_ps1[]<-1
-  cdt_ps2<-sapply(cdt,function(x) ((x+100)^(censorparam$eb1)))
+  # D_ is improvement (BL - Sx), so worsening is -D_: weight by
+  # (100 - D_)^eb1, floored at 0 for improvements above 100 points.
+  cdt_ps2<-sapply(cdt,function(x) (pmax(100 - x, 0)^(censorparam$eb1)))
   cdt_p1<-t(t(cdt_ps1)*d$t_wk)
   cdt_p2<-t(t(cdt_ps2)*d$t_wk)
   cdt_r1<-runif(dim(cdt_p1)[1]*dim(cdt_p1)[2],min=0,max=2*mean(cdt_p1)*(.5/fna1))

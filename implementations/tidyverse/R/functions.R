@@ -918,7 +918,11 @@ censor_data <- function(dat, trialdesign, censorparam) {
   fna1 <- frac_NA * (1 - frac_NA_biased)
   fna2 <- frac_NA * frac_NA_biased
 
-  cdt_ps2 <- sapply(cdt, function(x) (x + 100)^censorparam$eb1)
+  # D_ is improvement (BL - Sx), so worsening is -D_. Weight by
+  # (100 - D_)^eb1 as in Hendrickson et al. (2020, Methods); before
+  # 2026-10-29 this was (100 + D_)^eb1, which raised dropout with
+  # improvement. beta0 is a per-timepoint hazard, not a total.
+  cdt_ps2 <- sapply(cdt, function(x) pmax(100 - x, 0)^censorparam$eb1)
   cdt_p1 <- matrix(td$t_wk, nrow = nrow(cdt), ncol = ncol(cdt),
                     byrow = TRUE)
   cdt_p2 <- t(t(cdt_ps2) * td$t_wk)

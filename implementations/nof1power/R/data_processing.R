@@ -6,14 +6,20 @@
 #' are also censored (carry-forward masking). Direct port of the
 #' pmsimstats-ng tidyverse `censor_data`.
 #'
+#' The biased component weights each timepoint by
+#' `(100 - D_<tp>)^eb1`, the change in symptoms since baseline shifted
+#' by 100, so dropout falls with improvement (Hendrickson et al. 2020,
+#' Methods). Before 2026-10-29 the weight was `(100 + D_<tp>)^eb1`,
+#' which raised dropout with improvement.
+#'
 #' @param dat Data tibble produced by [generate_data()] with symptom
-#'   columns `<tp>` and delta columns `D_<tp>`.
+#'   columns `<tp>` and delta columns `D_<tp>` (improvement, `BL - <tp>`).
 #' @param trialdesign Single-path trial-design tibble with
 #'   `timeptnames` (or `timepoint_name`), `t_wk`.
 #' @param censorparam One-row data frame or list with numeric entries
-#'   `beta0` (total censoring rate), `beta1` (fraction of censoring
-#'   that is trajectory-biased), and `eb1` (exponent for the biased
-#'   component).
+#'   `beta0` (mean per-timepoint dropout hazard, not a total),
+#'   `beta1` (fraction of that hazard that is trajectory-biased), and
+#'   `eb1` (exponent for the biased component).
 #' @return The input `dat` with symptom cells set to `NA` at censored
 #'   timepoints.
 #' @examples
@@ -31,7 +37,7 @@ censor_data <- function(dat, trialdesign, censorparam) {
   fna1 <- frac_NA * (1 - frac_NA_biased)
   fna2 <- frac_NA * frac_NA_biased
 
-  cdt_ps2 <- sapply(cdt, function(x) (x + 100)^censorparam$eb1)
+  cdt_ps2 <- sapply(cdt, function(x) pmax(100 - x, 0)^censorparam$eb1)
   cdt_p1 <- matrix(td$t_wk, nrow = nrow(cdt), ncol = ncol(cdt),
                    byrow = TRUE)
   cdt_p2 <- t(t(cdt_ps2) * td$t_wk)

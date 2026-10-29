@@ -78,6 +78,11 @@ for (nm in c('OL', 'OLBDC', 'CO', 'Hybrid')) {
   print(as.data.frame(one), row.names = FALSE)
 }
 
+## Since 2026-10-29 censor_data() weights the biased term by
+## (100 - D_)^eb1, the change in symptoms since baseline as the
+## published Methods describe; 58b32a9 uses (100 + D_)^eb1. The 58b32a9
+## function therefore reproduces the port when its D_ columns are
+## negated (identical whenever no improvement exceeds 100 points).
 cat('\n--- 2. Censoring port against the 58b32a9 censordata() ---\n')
 suppressMessages({library(data.table); library(MASS)})
 src <- 'analysis/data/quick-sim/hendrickson-58b32a9'
@@ -97,7 +102,10 @@ for (k in seq_len(nrow(cp))) {
   a <- censor_data(dat, td, cp[k, ])
   set.seed(100 + k)
   td_dt <- data.table(timeptname = td$timepoint_name, t_wk = td$t_wk)
-  b <- orig$censordata(as.data.table(dat), td_dt, cp[k, ])
+  dneg <- as.data.table(dat)
+  dcols <- paste0('D_', td$timepoint_name)
+  dneg[, (dcols) := lapply(.SD, `-`), .SDcols = dcols]
+  b <- orig$censordata(dneg, td_dt, cp[k, ])
   same <- identical(is.na(as.matrix(a[td$timepoint_name])),
                     is.na(as.matrix(as.data.frame(b)[td$timepoint_name])))
   all_equal <- all_equal && same
@@ -105,7 +113,7 @@ for (k in seq_len(nrow(cp))) {
               cp$names[k], same, sum(is.na(a[td$timepoint_name])),
               prod(dim(a[td$timepoint_name]))))
 }
-cat('  Censoring port reproduces censordata():', all_equal, '\n')
+cat('  Censoring port reproduces censordata() with D_ negated:', all_equal, '\n')
 
 cat('\n--- 3. Stored censoring parameters against the driver constants ---\n')
 drv <- readLines(DRIVER)

@@ -12,8 +12,11 @@ censordata(dat, trialdesign, censorparam)
 \item{trialdesign}{a trial design as defined by \code{buildtrialdesign}}
 
 \item{censorparam}{a data.table provides 3 named parameters:
-(1) beta0 - the total rate (approximately) of censoring (0-1)
-(2) beta1 - the proportion of the total dropout that should be biased (0-1)
+(1) beta0 - the mean per-timepoint probability that a participant
+still in the trial drops out at that timepoint (0-1). It is a
+hazard, not a total: with eight timepoints, beta0 = 0.05 removes
+about a third of participants by the end of the trial.
+(2) beta1 - the proportion of that hazard that is biased (0-1)
 (3) eb1 - the exponent used to define the shape of the curve defining biased dropout.
 See example, below.}
 }
@@ -37,6 +40,16 @@ increases the probability of dropout. In a separate, second pass
 all dropouts are carried forward, such that once a datapoint
 has been censored, all future datapoints for that particular
 participant are also censored
+
+The biased factor weights each timepoint by
+\eqn{(100 + S_t - BL)^{eb1}}, the change in symptoms since baseline
+shifted by 100 so that it is positive (Hendrickson et al. 2020,
+Methods). Because \code{generateData} stores the improvement
+\code{D_<tp> = BL - S_t}, the weight is \eqn{(100 - D_t)^{eb1}}.
+Before 2026-10-29 the code used \eqn{(100 + D_t)^{eb1}}, as did
+the published code at commit 58b32a9, which raised dropout with
+improvement, contrary to this description and to the published
+Methods. \code{implementations/original} keeps the published form.
 }
 \examples{
 # Create a set of censoring params to

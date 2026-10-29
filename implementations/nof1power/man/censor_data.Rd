@@ -8,15 +8,15 @@ censor_data(dat, trialdesign, censorparam)
 }
 \arguments{
 \item{dat}{Data tibble produced by \code{\link[=generate_data]{generate_data()}} with symptom
-columns \verb{<tp>} and delta columns \verb{D_<tp>}.}
+columns \verb{<tp>} and delta columns \verb{D_<tp>} (improvement, \verb{BL - <tp>}).}
 
 \item{trialdesign}{Single-path trial-design tibble with
 \code{timeptnames} (or \code{timepoint_name}), \code{t_wk}.}
 
 \item{censorparam}{One-row data frame or list with numeric entries
-\code{beta0} (total censoring rate), \code{beta1} (fraction of censoring
-that is trajectory-biased), and \code{eb1} (exponent for the biased
-component).}
+\code{beta0} (mean per-timepoint dropout hazard, not a total),
+\code{beta1} (fraction of that hazard that is trajectory-biased), and
+\code{eb1} (exponent for the biased component).}
 }
 \value{
 The input \code{dat} with symptom cells set to \code{NA} at censored
@@ -28,6 +28,13 @@ uniform censoring and symptom-trajectory-biased censoring. Once a
 timepoint is censored for a participant, all subsequent timepoints
 are also censored (carry-forward masking). Direct port of the
 pmsimstats-ng tidyverse \code{censor_data}.
+}
+\details{
+The biased component weights each timepoint by
+\verb{(100 - D_<tp>)^eb1}, the change in symptoms since baseline shifted
+by 100, so dropout falls with improvement (Hendrickson et al. 2020,
+Methods). Before 2026-10-29 the weight was \verb{(100 + D_<tp>)^eb1},
+which raised dropout with improvement.
 }
 \examples{
 # See vignettes for integrated usage.

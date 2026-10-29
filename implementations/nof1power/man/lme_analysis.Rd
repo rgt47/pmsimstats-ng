@@ -27,6 +27,9 @@ nuisance term when carryover is being modelled linearly.
 used to compute the continuous drug indicator \code{Dbc}.
 \item \code{carryover_scalefactor} (default \code{1}): scale factor in
 the \code{Dbc} decay.
+\item \code{use_corCAR1} (default \code{TRUE}): fit the continuous-time
+AR(1) residual correlation. \code{FALSE} fits independent
+residuals with the random intercept only.
 \item \code{parallel_analysis} (default \code{'ancova'}): analysis of a
 parallel-group design (every participant on one arm for all
 follow-up visits) when \code{target_coef = 'main'}. \code{'ancova'}

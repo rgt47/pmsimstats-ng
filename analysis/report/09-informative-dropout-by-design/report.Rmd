@@ -48,6 +48,16 @@ stopifnot(file.exists(file.path(pdir, 'paired-cells.csv')))
 }
 old <- fread(file.path(root, 'analysis', 'data', 'quick-sim',
                        '09-dropout-summary.txt'))
+## Large null check of CR2 in OL+BDC (analysis/scripts/cr2-olbdc-check/):
+## this paper's driver, 5,000 independent null datasets per N.
+cr2chk <- fread(file.path(root, 'analysis', 'data', 'cr2-olbdc-check',
+                          'summary.csv'))
+ck <- function(n_tot, col) {
+  x <- cr2chk[setting == 'p09' & design == 'OLBDC' & variant == 'ta0' &
+                N == n_tot][[col]]
+  stopifnot(length(x) == 1)
+  x
+}
 
 f2 <- function(x) sprintf('%.2f', x)
 f3 <- function(x) sprintf('%.3f', x)
@@ -148,8 +158,9 @@ curve. Improvement-driven dropout attenuated the estimate by
 Dropout did not change test size. The model-based test rejected in
 `r f3(null_rng('Hybrid', 'mb')[1])` to
 `r f3(null_rng('Hybrid', 'mb')[2])` of null Hybrid datasets. The
-CR2 test rejected in `r f3(null_rng('OLBDC', 'cr2')[1])` to
-`r f3(null_rng('OLBDC', 'cr2')[2])` of null OL+BDC datasets.
+CR2 test was calibrated: in 5,000 independent null OL+BDC datasets it
+rejected in `r f3(ck(70, 'rej_cr2'))` (MCSE
+`r f3(ck(70, 'mcse_cr2'))`).
 
 \textbf{Conclusions.} At this parameter point the Hybrid and OL+BDC
 designs carried the same information and lost it to dropout at the
@@ -730,9 +741,20 @@ in OL+BDC under the alternative was
 `r f2(cr('OLBDC', 'none', 'ta0', 'mb', 'kappa'))`. The CR2 test was
 close to nominal in the Hybrid design and CO. In OL+BDC it rejected in
 `r pm(cr('OLBDC', 'none', 'ta0', 'cr2', 'rej', 'null'), cr('OLBDC', 'none', 'ta0', 'cr2', 'mcse_rej', 'null'))`
-of null datasets. Neither test was calibrated in every design.
-Comparisons of power across designs therefore mix information with
-test calibration. For that reason we also compare designs by the
+of the 500 null datasets of this run. That figure is a Monte Carlo
+excursion of these 500 datasets, not a property of the test. The same
+driver applied to 5,000 independent null datasets gave
+`r pm(ck(70, 'rej_cr2'), ck(70, 'mcse_cr2'))` at $N = 70$ and
+`r pm(ck(35, 'rej_cr2'), ck(35, 'mcse_cr2'))` at $N = 35$, with a CR2
+standard error `r f2(ck(70, 'ratio_cr2'))` times the empirical
+standard deviation (`analysis/scripts/cr2-olbdc-check/`). The
+model-based test was conservative there, rejecting in
+`r f3(ck(70, 'rej_mb'))`. The seven dropout conditions of this run
+reuse the same 500 null datasets per design, so their null rejection
+rates are not independent replications. CR2 was within two MCSE of
+nominal in every design. The model-based test was conservative in the
+Hybrid design and OL+BDC. Comparisons of power across designs under the
+model-based test therefore mix information with test calibration. For that reason we also compare designs by the
 empirical standard deviation of the estimate, which does not depend on
 the test (Section \@ref(sec-design-compare)).
 
@@ -1026,8 +1048,10 @@ these accounts for the difference was not tested.
   construction. The study compares mechanisms at equal rates. It does
   not predict how often participants will leave a given design.
 - **Test calibration.** The model-based test was conservative in the
-  Hybrid design and the CR2 test liberal in OL+BDC. Power comparisons
-  across designs carry this difference.
+  Hybrid design and OL+BDC. Power comparisons across designs under that
+  test carry this difference. The null regime has 500 datasets per
+  design, so single-cell null rejection rates carry an MCSE of about
+  0.01. The CR2 calibration rests on a separate 5,000-dataset check.
 - **Platform.** The run was made on the host R session, not in the
   project container. Results are not draw-for-draw reproducible across
   the two.

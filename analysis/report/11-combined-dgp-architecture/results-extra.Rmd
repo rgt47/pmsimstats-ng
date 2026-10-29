@@ -1,0 +1,114 @@
+## The G9 analysis and the pharmacological half-life {#sec-g9}
+
+```{r g9-text, results = 'asis'}
+if (has_g9) {
+  g <- bench$g9_compare
+  gp <- function(d, h, a, b, m) {
+    r <- g[g$design == d & g$t1half == h & abs(g$c_bm_a - a) < 1e-9 &
+             abs(g$c_bm_b - b) < 1e-9 & g$method == m, ]
+    sprintf('%s (%s)', f3(r$power), f3(r$mcse_power))
+  }
+  n_g9 <- max(g$n_reps)
+  g9w <- tidyr::pivot_wider(
+    g[g$method %in% c('G9', 'E2cr2'),
+      c('design', 't1half', 'c_bm_a', 'c_bm_b', 'method', 'power')],
+    names_from = method, values_from = power)
+  gnull <- g$power[g$method == 'G9' & g$c_bm_a == 0 & g$c_bm_b == 0]
+  cnull <- g$power[g$method == 'E2cr2' & g$c_bm_a == 0 & g$c_bm_b == 0]
+  cat(sprintf(paste0(
+    'G9 chooses the analysis half-life by AIC over 0.25, 0.5, 1 and 2 ',
+    'weeks and tests with CR2 [@pmsimstats-paper02]. Its cost is about ',
+    'eight E2 fits per trial, so we ran it on the first %d replicates of ',
+    'four cells per design and half-life: the null cell and the three ',
+    'equal-total pairs. The trials are the same as those of the main run ',
+    'under the same seeds, so G9 and E2cr2 are paired. In the null cell ',
+    'G9 rejected at %s to %s, against %s to %s for E2cr2 on the same ',
+    'trials. The MCSE at the nominal level is %s.\n\n'),
+    n_g9, f3(min(gnull)), f3(max(gnull)), f3(min(cnull)), f3(max(cnull)),
+    f3(sqrt(0.05 * 0.95 / n_g9))))
+  cat('\\begin{table}[H]', '\\small\\centering',
+      sprintf(paste0('\\caption{G9 against E2cr2 on the same %d trials ',
+                     'per cell, $N = 70$, MCSE in parentheses. G9 chooses ',
+                     'the analysis half-life by AIC. E2cr2 uses the true ',
+                     'half-life. Mean $\\hat t_{1/2}^a$: the mean half-life ',
+                     'G9 chose, in weeks.}'), n_g9),
+      '\\label{tab:g9}', '\\begin{tabular}{llrrrrr}', '\\toprule',
+      paste0('Design & $t_{1/2}$ & Cell & E2cr2 & G9 & ',
+             'Mean $\\hat t_{1/2}^a$ \\\\'),
+      '\\midrule', sep = '\n')
+  for (d in designs) for (h in hl_main) {
+    for (k in list(c(0, 0), c(0.45, 0), c(0.225, 0.225), c(0, 0.45))) {
+      r <- g[g$design == d & g$t1half == h & abs(g$c_bm_a - k[1]) < 1e-9 &
+               abs(g$c_bm_b - k[2]) < 1e-9 & g$method == 'G9', ]
+      cat(sprintf('%s & %s & $(%s, %s)$ & %s & %s & %s \\\\\n',
+                  if (h == 0 && all(k == 0)) dname(d) else '',
+                  if (all(k == 0)) h else '', k[1], k[2],
+                  gp(d, h, k[1], k[2], 'E2cr2'), gp(d, h, k[1], k[2], 'G9'),
+                  f2(r$mean_h)))
+    }
+  }
+  cat('\\bottomrule', '\\end{tabular}', '\\end{table}', sep = '\n')
+  cat(sprintf(paste0(
+    '\n\nAt $t_{1/2} = 1$ week in OL+BDC, G9 gave %s at the mean-shift end ',
+    'and %s at the correlation end of the equal-total line. E2cr2 gave ',
+    '%s and %s on the same trials. In Hybrid, G9 gave %s and %s, and ',
+    'E2cr2 gave %s and %s. Over all %d cells, G9 power differed from ',
+    'E2cr2 power on the same trials by at most %s. Choosing the half-life ',
+    'by AIC therefore cost little power here, and the difference between ',
+    'the two ends of the equal-total line remained under G9. G9 cannot ',
+    'select $t_{1/2}^a = 0$, since its grid starts at 0.25 week. At ',
+    '$t_{1/2} = 0$ it chose a mean half-life of %s to %s week.\n\n'),
+    gp('OLBDC', 1, 0.45, 0, 'G9'), gp('OLBDC', 1, 0, 0.45, 'G9'),
+    gp('OLBDC', 1, 0.45, 0, 'E2cr2'), gp('OLBDC', 1, 0, 0.45, 'E2cr2'),
+    gp('Hybrid', 1, 0.45, 0, 'G9'), gp('Hybrid', 1, 0, 0.45, 'G9'),
+    gp('Hybrid', 1, 0.45, 0, 'E2cr2'), gp('Hybrid', 1, 0, 0.45, 'E2cr2'),
+    nrow(g9w), f3(max(abs(g9w$G9 - g9w$E2cr2))),
+    f2(min(g$mean_h[g$method == 'G9' & g$t1half == 0])),
+    f2(max(g$mean_h[g$method == 'G9' & g$t1half == 0]))))
+} else {
+  cat(paste0(
+    '**RESULTS-PENDING.** The G9 arm had not finished when this ',
+    'version was rendered. Command, from the ',
+    'repository root: `bash analysis/scripts/dgp-combined/run-combined.sh ',
+    '--methods g9 --cells g9 --reps 200 --t1half 0,0.5,1 --gate-reps 0 ',
+    '--workers 8 --out-tag -g9`, then rerun `02-summarise-combined.R`. ',
+    'Cost: 1800 replicate units of four cells, about 5 CPU-seconds per ',
+    'unit, roughly 20 to 30 minutes on eight idle workers.\n\n'))
+}
+```
+
+```{r hl02-text, results = 'asis'}
+if (has_hl02) {
+  cat(sprintf(paste0(
+    'The pharmacological range of the prazosin half-life is 0.1 to 0.2 ',
+    'week. We ran the full weight grid at $t_{1/2} = 0.2$ week with %d ',
+    'replicates per cell, as a separate pass of the same driver. Its ',
+    'validation gate passed in %d further comparisons. Under E2 the null ',
+    'cell rejected at %s in CO, ',
+    '%s in Hybrid and %s in OL+BDC. At weight 0.45, the mean-shift and ',
+    'correlation encodings had power %s and %s in CO, %s and %s in ',
+    'Hybrid, and %s and %s in OL+BDC. The paired differences were %s, ',
+    '%s and %s. The GLS projection puts the mean-shift overshoot at ',
+    '%s to %s percent at this half-life. At pharmacological half-lives ',
+    'the two channels are therefore close to interchangeable, and the ',
+    'dual-channel architecture adds little to a single encoding.\n\n'),
+    n_reps_main, nrow(rd('01-combined-gate-hl02.rds')),
+    pw('CO', 0.2, 0, 0), pw('Hybrid', 0.2, 0, 0), pw('OLBDC', 0.2, 0, 0),
+    pw('CO', 0.2, 0.45, 0), pw('CO', 0.2, 0, 0.45),
+    pw('Hybrid', 0.2, 0.45, 0), pw('Hybrid', 0.2, 0, 0.45),
+    pw('OLBDC', 0.2, 0.45, 0), pw('OLBDC', 0.2, 0, 0.45),
+    cv('CO', 0.2, 'eqsum_A_minus_B'), cv('Hybrid', 0.2, 'eqsum_A_minus_B'),
+    cv('OLBDC', 0.2, 'eqsum_A_minus_B'),
+    pct(min(analytic$kappas$overshoot_A[analytic$kappas$t1half == 0.2])),
+    pct(max(analytic$kappas$overshoot_A[analytic$kappas$t1half == 0.2]))))
+} else {
+  cat(paste0(
+    '**RESULTS-PENDING.** The grid at $t_{1/2} = 0.2$ week had not ',
+    'finished when this version was rendered. Command: `bash analysis/scripts/dgp-combined/run-combined.sh ',
+    '--methods e2 --cells all --reps 1000 --t1half 0.2 --gate-reps 50 ',
+    '--workers 8 --out-tag -hl02`, then rerun `02-summarise-combined.R`. ',
+    'Cost: 3000 replicate units, about 10 to 15 minutes on eight idle ',
+    'workers. The analytic projection (Section \\@ref(sec-analytic)) ',
+    'already covers this half-life.\n\n'))
+}
+```

@@ -103,50 +103,6 @@
 \setlength{\emergencystretch}{3em} % prevent overfull lines
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
-% Paragraph scaffolding for manuscript revision.
-%
-% Two environments, presented in this order per paragraph:
-%
-%   rgt   -- author's rewrite (initially a placeholder)
-%            small, italic, dark blue
-%   orig  -- original Claude-authored draft, and until the rewrite
-%            replaces it, the body text of the manuscript
-%            normal size, gray
-%
-% The `bullets' environment (a boiled-down topic sentence plus bullet
-% points, one per paragraph) is no longer used inside manuscripts:
-% those blocks now live in a companion bullets.Rmd supplement in the
-% same report directory, which typesets them as plain \textbf{} +
-% itemize and needs no part of this file. The definition is retained
-% only so that a stray block left in a document still compiles.
-%
-% This file is identical across every manuscript that includes it.
-% It previously existed in two variants that swapped the sizes of
-% rgt and orig, so the same markup rendered differently depending on
-% which repository the manuscript lived in. The variant retained here
-% keeps orig at full size because orig, not rgt, currently carries
-% the prose in every manuscript in the pool.
-
-\usepackage{xcolor}
-
-\newcounter{pgraph}
-
-\newenvironment{bullets}{%
-  \stepcounter{pgraph}%
-  \begin{quote}\small\sffamily\color[gray]{0.30}%
-  {\normalfont\scriptsize\color[gray]{0.58}[\thepgraph]\enspace}}{%
-  \end{quote}}
-
-\newenvironment{rgt}{%
-  \begin{quote}\small\itshape\color[RGB]{20,60,160}}{%
-  \end{quote}}
-
-\newenvironment{orig}{%
-  \begin{quote}\normalsize\color[gray]{0.55}}{%
-  \end{quote}}
-
-% backward compat alias
-\newenvironment{claudecode}{\begin{orig}}{\end{orig}}
 %% tools/stamp.tex
 %% Provenance footer for PDFs rendered from this project.
 %% Vendored by zzcollab; this file is not project-specific. The
@@ -183,8 +139,8 @@
   \renewcommand{\headrulewidth}{0pt}%
   \renewcommand{\footrulewidth}{0.4pt}}
 \renewcommand{\stampsource}{\textasciitilde{}/\allowbreak{}prj/\allowbreak{}res/\allowbreak{}36-pmsimstats-ng/\allowbreak{}pmsimstats-ng/\allowbreak{}analysis/\allowbreak{}report/\allowbreak{}11-combined-dgp-architecture/\allowbreak{}report.Rmd}
-\renewcommand{\stamptime}{2026-09-07 14:05 PDT}
-\renewcommand{\stampversion}{\detokenize{9a2047e-wip}}
+\renewcommand{\stamptime}{2026-10-29 13:27 PDT}
+\renewcommand{\stampversion}{\detokenize{whitepapers-pre-series-127-g8e810ca9d-wip}}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{booktabs}
@@ -200,14 +156,14 @@
 \@ifundefined{xmpquote}{\newcommand{\xmpquote}[1]{#1}}{}
 \makeatother
 \hypersetup{
-  pdftitle={A combined data-generating architecture for biomarker-treatment interactions: channel super-additivity and mixing-weight sensitivity in aggregated N-of-1 trials},
+  pdftitle={A dual-channel data-generating process for biomarker-treatment interactions in aggregated N-of-1 trials: two parameterizations of one conditional-mean slope},
   pdfauthor={pmsimstats team},
   hidelinks,
   pdfcreator={LaTeX via pandoc}}
 
-\title{A combined data-generating architecture for biomarker-treatment interactions: channel super-additivity and mixing-weight sensitivity in aggregated N-of-1 trials}
+\title{A dual-channel data-generating process for biomarker-treatment interactions in aggregated N-of-1 trials: two parameterizations of one conditional-mean slope}
 \author{pmsimstats team}
-\date{September 07, 2026}
+\date{October 29, 2026}
 
 \begin{document}
 \maketitle
@@ -217,516 +173,1194 @@
 \tableofcontents
 }
 \setstretch{1.1}
-\section{Abstract}
+\section*{Abstract}\label{abstract}
+\addcontentsline{toc}{section}{Abstract}
 
-\textbf{Background.} A companion paper\textsuperscript{\citeproc{ref-pmsimstats-paper01}{1}}
-distinguishes two data-generating architectures for
-biomarker-treatment interactions in aggregated N-of-1 trials:
-direct mean moderation (the mean-moderation architecture), in which
-the biomarker scales the treatment effect in the conditional mean,
-and differential correlation (the covariance-moderation
-architecture, the multivariate-normal approach), in which the
-interaction is encoded as treatment-state-dependent correlation in
-the joint distribution. That paper treats A and B as alternatives.
-Here we consider the case in which both channels are active at
-once.
+\textbf{Background.} Simulation studies of a predictive biomarker in
+aggregated N-of-1 trials must state how the biomarker-treatment
+interaction enters the data-generating process (DGP). Two encodings
+are in use. The mean-shift encoding adds a biomarker-proportional
+shift to the drug-response component on drug. The correlation
+encoding makes the biomarker-response correlation present on drug and
+absent off drug. We study a DGP with independent weights on both.
 
-\textbf{Methods.} We define the dual-channel architecture, which
-carries independent parameters \(c_{bm,A}\) (mean channel) and
-\(c_{bm,B}\) (covariance channel) and which reduces algebraically to
-the pure mean-moderation architecture when \(c_{bm,B} = 0\) and to the
-pure covariance-moderation architecture when \(c_{bm,A} = 0\). We show
-analytically that the biomarker-treatment signal delivered to the
-fixed analysis model is additive across the two channels. Because
-the Monte Carlo power function is convex in the noncentrality over
-the sub-ceiling regime, the two channels combine super-additively
-in power. We then quantify the combined architecture by Monte Carlo
-simulation on a \(3 \times 3\) grid of channel weights crossed with
-three within-subject designs and three carryover half-lives.
+\textbf{Methods.} We derived the joint law of the dual-channel DGP, the
+conditional slope of the outcome on the biomarker at every visit, and
+the population value of the fitted interaction coefficient. We then
+simulated a \(3 \times 3\) grid of channel weights in three designs and
+four carryover half-lives, at a total of 70 participants, with 1000
+replicates per cell. Common random numbers paired every weight cell
+within a replicate. A validation gate required the boundary cells to
+reproduce the single-encoding DGPs draw for draw.
 
-\textbf{Results.} {[}To be finalized after the common-driver boundary
-re-run; see Section 4.2.{]} Empirical power increases monotonically
-in each channel weight, and interior cells exceed the
-probability-scale additive benchmark, confirming the analytical
-prediction of super-additivity. The covariance and mean channels
-contribute comparably to carryover sensitivity, and the design
-ranking established for the pure architectures is preserved
-throughout the combined grid.
+\textbf{Results.} The boundary cells reproduced the single-encoding DGPs exactly in 1,800 paired comparisons. At zero half-life the fitted coefficient was additive in the two weights. Combined power exceeded the probability-scale additive benchmark by 0.22 to 0.34. Doubling one weight produced the same excess, 0.21 to 0.35. A benchmark that adds the two contributions on the probit scale, with the critical value calibrated to the observed size, matched every combined cell within two MCSE. At a half-life of 1 week and weight 0.45, Hybrid power was 0.818 (MCSE 0.012) under the mean-shift encoding. It was 0.723 (MCSE 0.014) under the correlation encoding. The mean-shift estimate exceeded its nominal value by up to 20 percent.
 
-\textbf{Conclusions.} A combined architecture is the appropriate
-data-generating model when a biomarker is hypothesized to act
-through both a pharmacodynamic-scaling pathway and a co-regulatory
-coupling pathway. We do not recommend it as a default: it carries a
-second free parameter and requires independent evidence for each
-channel. We see its principal use as a sensitivity framework
-spanning the two pure-architecture extremes.
+\textbf{Conclusions.} Under a normally distributed biomarker, the two
+channels act on the same quantity, the conditional mean slope. They
+are two parameterizations of one Gaussian model, not two mechanisms.
+They differ only in how much interaction persists off drug and in a
+small reduction of on-drug residual variance. The dual-channel DGP is
+useful as a two-parameter family of off-drug interaction profiles.
+A genuinely distinct second channel would require a variance that
+depends on the biomarker or a responder mixture.
 
 \bigskip\noindent
 
 \rule{\textwidth}{0.4pt}\bigskip
 
-\section{1. Introduction}
+\section{Introduction}\label{introduction}
 
-A companion paper\textsuperscript{\citeproc{ref-pmsimstats-paper01}{1}} formalizes two
-data-generating process (DGP) architectures for simulation studies
-of predictive biomarker-treatment interactions in aggregated N-of-1
-trials. That paper shows that the choice between them materially
-changes the estimated power loss under carryover. Under the
-mean-moderation architecture, the biomarker scales the treatment
-effect in the conditional mean. Under the covariance-moderation
-architecture, the interaction is instead carried by
-treatment-state-dependent correlation between biomarker and
-response in the joint distribution. That paper treats the two as
-competing choices. Here we take up the case, deferred there, in
-which both mechanisms operate at once. We call the resulting
-data-generating model the dual-channel architecture. It is not a
-third alternative on the same footing as A and B. Rather, it is
-their common generalization, with A and B recovered exactly as its
-single-channel limits.
+Hendrickson et al.\textsuperscript{\citeproc{ref-hendrickson2020}{1}} supplied the design machinery
+on which this series builds. That work introduced the Hybrid design,
+the decomposition of the outcome into three response components, and
+the correlation encoding of the biomarker-treatment interaction. A
+companion paper extends that DGP and describes the extensions\textsuperscript{\citeproc{ref-pmsimstats-paper01}{2}}. We call the result the extended DGP and the
+DGP of Hendrickson et al.~the original DGP.
 
-This paper makes two contributions. First, we give an analytical
-account (Section\textasciitilde3) of why the two channels, when active together,
-combine super-additively in power rather than merely adding. The
-argument identifies the additivity of the biomarker-treatment
-signal delivered to the analysis model as the mechanism. It
-identifies the convexity of the Monte Carlo power function over the
-sub-ceiling regime as the reason additivity of signal becomes
-super-additivity of power. This addresses a gap noted for the
-descriptive combined results reported in the companion paper, where
-the super-additivity was observed but not explained. Second, we
-characterize the combined architecture empirically over a
-\(3 \times 3\) grid of channel weights crossed with three
-within-subject designs and three carryover half-lives. The boundary
-cells are validated numerically against the pure-architecture
-baselines of the companion paper.
+A simulation study of power for a predictive biomarker has to say
+how the interaction is generated. The usual convention in trial
+simulation is the mean-shift encoding. The treatment effect is
+scaled by the biomarker in the conditional mean. The original DGP
+uses the correlation encoding instead. The interaction is a
+correlation between the biomarker and the drug-response component
+that is present on drug and absent off drug. The moderator framework
+of Kraemer et al.\textsuperscript{\citeproc{ref-kraemer2002}{3}} and the PATH statement\textsuperscript{\citeproc{ref-kent2020path}{4}} describe the estimand. Neither fixes the generating
+mechanism.
 
-\bigskip\noindent
+This paper studies a DGP with both encodings active at once, each
+with its own weight. We call it the dual-channel architecture. Either
+encoding is recovered by setting the other weight to zero. An earlier
+draft of this paper claimed two results. The first was that the two
+channels combine super-additively in power. The second was that the
+two channels are distinct mechanisms that act on different moments of
+the response. Neither claim holds. This version replaces both.
 
-\rule{\textwidth}{0.4pt}\bigskip
-
-\section{2. The Combined Architecture}
-
-\subsection{2.1 Definition}
-
-The dual-channel architecture applies both interaction mechanisms
-in sequence. First, we construct the multivariate-normal covariance
-matrix with biomarker-to-biological-response (BM-BR) differential
-correlation weighted by \(c_{bm,B}\), exactly as under the
-covariance-moderation architecture: the on-drug correlation is
-\(c_{bm,B}\), decaying to \(c_{bm,B} \cdot e^{-\lambda t_{sd}}\) during
-off-drug periods, where \(t_{sd}\) is time since discontinuation.
-Second, after the MVN draw, the BR component is additively shifted
-at on-drug timepoints by
-\[
-\Delta BR_{it} = c_{bm,A} \cdot z_{B,i} \cdot \sigma_{BR}
-  \cdot \mathbf{1}[\text{on-drug}],
-\]
-where \(z_{B,i} = (B_i - \mu_B)/\sigma_B\) is the standardized
-biomarker for participant \(i\), exactly as under the
-mean-moderation architecture.
-
-\subsection{2.2 Boundary reductions and identifiability}
-
-The two parameters \(c_{bm,A}\) and \(c_{bm,B}\) are independent.
-Setting \(c_{bm,B} = 0\) removes the covariance channel and recovers
-the pure mean-moderation architecture. Setting \(c_{bm,A} = 0\)
-removes the mean-shift channel and recovers the pure
-covariance-moderation architecture. This combined form is the
-mean-and-covariance-structure model of Arminger et al.\textsuperscript{\citeproc{ref-arminger1999}{2}}, the general psychometric parameterization within
-which the mean-moderation and covariance-moderation architectures
-are constrained submodels. A companion paper\textsuperscript{\citeproc{ref-pmsimstats-paper03}{3}}
-situates it as one node of a biomarker-moderation spectrum bridging
-continuous-heterogeneity and latent-class encodings. The boundary
-cases are enforced algebraically rather than by convention, so they
-serve as internal validation gates for any simulation study using
-the dual-channel architecture: a correctly implemented combined
-driver must reproduce the pure-architecture power values at the
-boundaries when run under matched design, sample-size, and
-calibration settings. Section\textasciitilde4.2 uses exactly this property to
-validate the simulation against the companion paper's baselines.
-We note that the two weights are in fact not separately
-identifiable from a single fitted interaction coefficient away from
-these boundaries either; Section\textasciitilde3 derives this explicitly once the
-additive covariance decomposition is in hand.
-
-We note that when both parameters are set to their full values
-(\(c_{bm,A} = c_{bm,B} = 0.45\)), the total interaction effect on the
-BR mean is approximately double that of either pure architecture at
-\(c_{bm} = 0.45\). A researcher wishing to hold total effect size
-constant across architectures may instead parameterize as
-\(c_{bm,A} = (1-\alpha) \cdot c\) and \(c_{bm,B} = \alpha \cdot c\)
-for a mixing weight \(\alpha \in [0,1]\) and total weight \(c\). We do
-not adopt this constraint in the simulations below. We instead
-prefer the factorial parameterization that spans the full
-\((c_{bm,A}, c_{bm,B})\) space.
-
-\subsection{2.3 Biological rationale}
-
-The two channels are mechanistically distinct and need not scale in
-proportion. The mean-shift channel (the mean-moderation
-architecture) reflects a pharmacodynamic relationship: the drug's
-biological effect on BR is amplified in participants whose
-biomarker is above the population mean, because the biomarker
-governs the effective dose or receptor occupancy. This mechanism
-operates at the level of the mean trajectory for each participant.
-The covariance channel (the covariance-moderation architecture)
-reflects a different process: on-drug periods impose a
-co-regulatory coupling between biomarker expression and treatment
-response, perhaps because the drug activates a pathway whose output
-is gated by the biomarker signal. This coupling is absent during
-off-drug periods, producing the differential correlation structure
-that the covariance-moderation architecture encodes in the
-covariance matrix. A given drug could plausibly activate one, both,
-or neither channel. Cast in latent-class terms, both channels carry
-information about an unobserved responder class: the mean channel
-through the class-conditional expectation \(E[BR \mid B]\), and the
-covariance channel through the class-conditional dispersion
-\(\mathrm{Var}[BR \mid B]\)\textsuperscript{\citeproc{ref-pmsimstats-paper03}{3}}. The linear-mixed
-analogue, in which the heterogeneity resides in the random-effects
-population, is developed by Verbeke and Lesaffre\textsuperscript{\citeproc{ref-verbekelesaffre1996}{4}}.
+The paper makes four contributions. First, we show that under a
+normally distributed biomarker the dual-channel DGP is one
+multivariate normal law. Both channels act on the conditional mean
+slope of the drug-response component on the biomarker. Neither makes
+the conditional variance depend on the biomarker (Section 2). Second,
+we derive the slope profile at every visit, off-drug visits
+included, and its projection onto the fitted interaction coefficient
+(Section 3). The two weights enter that coefficient additively, with
+coefficients that are equal only when there is no carryover. Third,
+we show that the excess of combined power over the
+probability-scale additive benchmark is a property of the power
+curve. A single channel whose weight is doubled shows the same excess
+(Section 4). Fourth, we report a corrected simulation under the
+extended DGP. It passes a validation gate that the earlier run lacked.
 
 \bigskip\noindent
 
 \rule{\textwidth}{0.4pt}\bigskip
 
-\section{3. Channel Super-additivity: an Analytical Account}
+\section{The dual-channel architecture}\label{sec-def}
 
-The fixed analysis model detects the interaction through the
-coefficient on the biomarker-by-exposure term, and this estimate is
-driven by the on-drug covariance between the biomarker \(B\) and the
-biological response \(BR\). We consider that covariance under each
-channel in turn. Under the covariance channel alone (the
-covariance-moderation architecture), the on-drug joint distribution
-sets
-\[
-\mathrm{Cov}(B,\, BR \mid \text{on-drug})
-  = c_{bm,B}\, \sigma_B \sigma_{BR}.
-\]
-Under the mean channel alone (the mean-moderation architecture),
-the on-drug shift
-\(\Delta BR = c_{bm,A}\, z_B\, \sigma_{BR}
- = c_{bm,A}\, (B - \mu_B)\, \sigma_{BR} / \sigma_B\) contributes
-\[
-\mathrm{Cov}(B,\, \Delta BR)
-  = \frac{c_{bm,A}\, \sigma_{BR}}{\sigma_B}\, \mathrm{Var}(B)
-  = c_{bm,A}\, \sigma_B \sigma_{BR}.
-\]
-Under the combined architecture, the on-drug response is the sum of
-the correlated draw and the mean shift, so the two covariance
-contributions add:
-\[
-\mathrm{Cov}(B,\, BR_C \mid \text{on-drug})
-  = (c_{bm,A} + c_{bm,B})\, \sigma_B \sigma_{BR}.
-\]
-The biomarker-treatment signal delivered to the analysis model is
-therefore exactly additive in the two channel weights. To leading
-order the residual variance is unchanged by the channels: the
-covariance channel preserves the marginal BR variance, and the mean
-channel inflates it only by the second-order term
-\(c_{bm,A}^2 \sigma_{BR}^2\). The noncentrality parameter of the
-interaction test is therefore, to first order, additive across
-channels: \(\eta_C \approx \eta_A + \eta_B\).
+\subsection{Definition}\label{definition}
 
-This has a direct consequence for identifiability, which we state
-here explicitly because Section\textasciitilde2.2 raises the question without
-answering it. Because \(\mathrm{Cov}(B, BR_C \mid \text{on-drug})\),
-and hence the noncentrality that drives the fitted \texttt{bm:Dbc}
-coefficient, depends on \(c_{bm,A}\) and \(c_{bm,B}\) only through their
-sum \(c_{bm,A} + c_{bm,B}\), any two weight pairs with the same sum
-are observationally equivalent to a single fitted interaction
-coefficient. That is, \((0.45, 0)\), \((0.225, 0.225)\), and \((0, 0.45)\)
-all deliver the same leading-order noncentrality and, empirically,
-very similar power. Table\textasciitilde{}\ref{tab:arch-c-power} shows this is not
-exact off the diagonal, because the super-additivity derived above
-operates at second order. However, the non-identifiability of the
-two channel weights from a single \texttt{bm:Dbc} coefficient is a
-first-order, structural fact, not a finite-sample limitation that
-more replicates would resolve. The two weights are separately
-identifiable only with auxiliary information outside the single
-interaction coefficient: for example, a design that independently
-manipulates expectancy, as in the belief-decoupling design of the
-companion component-decomposition manuscript\textsuperscript{\citeproc{ref-pmsimstats-paper06}{5}}, or an external measurement of the
-biomarker's correlation with \(BR\) specifically on-drug, as distinct
-from its association with the treatment-conditional mean.
+Let \(B_i\) be the biomarker of participant \(i\), with population mean
+\(\mu_{bm}\) and standard deviation \(\sigma_{bm}\). Write
+\(b_i = (B_i - \mu_{bm})/\sigma_{bm}\) for the biomarker standardized
+at its population values. The outcome at visit \(t\) is
+\(Y_{it} = \mathrm{BL}_i - TV_{it} - PB_{it} - BR_{it}\). Here
+\(\mathrm{BL}_i\) is the baseline level, \(TV_{it}\) the natural-history
+component, \(PB_{it}\) the placebo-response component and \(BR_{it}\)
+the drug-response component. The three components are reductions in
+symptom severity, so an increase in any of them lowers \(Y_{it}\).
+Interaction coefficients are therefore negative, and the channel
+weights are positive (NOTATION.md, rule 5).
 
-Additivity of the noncentrality does not imply additivity of power,
-because power is a nonlinear function of the noncentrality. Write
-\(\pi(\eta)\) for the rejection probability of the interaction test as
-a function of its noncentrality \(\eta \ge 0\). On the range over
-which \(\pi\) is below roughly one half, \(\pi\) is convex in \(\eta\):
-each additional unit of noncentrality buys more power than the
-last, until the function inflects and saturates toward one. For
-\(\eta_A, \eta_B\) in this convex regime, convexity gives
-\[
-\pi(\eta_A + \eta_B) - \pi(0) >
- \bigl[\pi(\eta_A) - \pi(0)\bigr] +
- \bigl[\pi(\eta_B) - \pi(0)\bigr],
-\]
-which is precisely super-additivity relative to the
-probability-scale additive benchmark
-\(p(c_{bm,A}, 0) + p(0, c_{bm,B}) - p(0,0)\). The combined power
-exceeds the benchmark exactly when the two single-channel cells sit
-in the convex, sub-ceiling part of the power curve. The excess
-shrinks, and can even reverse to sub-additivity, once cells
-approach the ceiling and enter the concave regime. The empirical
-grid of Section\textasciitilde4 lies in the sub-ceiling regime, with
-single-channel powers between roughly 0.03 and 0.30, so
-super-additivity is the predicted and observed pattern there.
+The extended DGP draws \((B_i, \mathrm{BL}_i, TV_{i\cdot},
+PB_{i\cdot}, BR_{i\cdot})\) from one multivariate normal law. Each
+component has the same first-order autoregressive correlation,
+\(\rho = 0.7\) per week. Two components correlate at
+\(c_1 \rho^{|w_t - w_s|}\) with \(c_1 = 0.2\), where \(w_t\) is the
+calendar week of visit \(t\). The mean of \(BR_{it}\) follows a modified
+Gompertz curve in the time on drug. Off drug, it decays from the last
+on-drug mean at the carryover half-life \(t_{1/2}\). A covariance matrix
+that is not positive definite stops the simulation.
+
+The dual-channel architecture adds two weights to this law.
+
+\begin{itemize}
+\tightlist
+\item
+  The \textbf{correlation channel}, weight \(c_{bm,B}\), sets
+  \(\mathrm{Cor}(B_i, BR_{it}) = c_{bm,B}\, g_t\). The profile \(g_t\)
+  is 1 on drug, \(\phi_t = 2^{-t_{sd}/t_{1/2}}\) off drug after first
+  exposure, and 0 before first exposure. Here \(t_{sd}\) is the time
+  since discontinuation.
+\item
+  The \textbf{mean-shift channel}, weight \(c_{bm,A}\), adds
+  \(c_{bm,A}\, b_i\, \sigma_{BR}\, D_{it}\) to \(BR_{it}\) after the
+  draw. Here \(D_{it}\) is 1 on drug and 0 off drug, and \(\sigma_{BR}\)
+  is the standard deviation of the drug-response component.
+\end{itemize}
+
+The two weights are calibrated to a common scale (NOTATION.md,
+rule 2). One unit of either weight moves the on-drug conditional mean
+of \(BR_{it}\) by \(\sigma_{BR}\) per standard deviation of the
+biomarker. The code labels are \texttt{combined} for the dual-channel
+architecture, \texttt{mean\_moderation} for the mean-shift encoding alone and
+\texttt{mvn} for the correlation encoding alone. The weights are \texttt{c.bm\_a}
+and \texttt{c.bm\_b}.
+
+\subsection{One Gaussian law, one conditional-mean slope}\label{sec-gauss}
+
+The mean shift is linear in \(b_i\), and \(b_i\) is normal. The
+dual-channel DGP is therefore a single multivariate normal law. Its
+conditional moments given the biomarker follow from standard
+regression algebra. At visit \(t\),
+\begin{equation}
+\mathbb{E}[BR_{it} \mid b_i] = \mu_{BR,t}
+  + \bigl(c_{bm,A}\, D_{it} + c_{bm,B}\, g_t\bigr)\,\sigma_{BR}\, b_i,
+\label{eq:condmean}
+\end{equation}
+\begin{equation}
+\mathrm{Var}[BR_{it} \mid b_i] = \sigma_{BR}^2
+  \bigl(1 - c_{bm,B}^2\, g_t^2\bigr).
+\label{eq:condvar}
+\end{equation}
+Equation \eqref{eq:condmean} shows that both channels act on the
+conditional mean. Equation \eqref{eq:condvar} shows that only the
+correlation channel changes the conditional variance, and that it
+lowers it. The mean shift is a fixed function of \(b_i\), so it adds no
+variance once the biomarker is given. Its contribution
+\(c_{bm,A}^2\sigma_{BR}^2\) to the marginal variance of \(BR_{it}\)
+disappears on conditioning. Neither conditional variance depends on
+\(b_i\). The package source states the on-drug equivalence of the two
+channels in a comment (\texttt{R/generateData.R}, lines 189 to 195).
+
+At the parameters used here, \(\sigma_{BR} = 8\) points. The
+on-drug conditional variance of \(BR_{it}\) falls from
+\(64\) to \(51.0\) at
+\(c_{bm,B} = 0.45\). The outcome sums four components, so the effect
+on \(\mathrm{Var}(Y_{it} \mid b_i)\) is smaller. At the on-drug Hybrid
+visits the ratio is 0.978
+to 0.982.
+
+Three consequences follow.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  On drug, the two channels are observationally the same. A pair
+  \((c_{bm,A}, c_{bm,B})\) gives the on-drug slope
+  \((c_{bm,A} + c_{bm,B})\,\sigma_{BR}\) and differs from another
+  pair with the same sum only through the small variance reduction
+  above.
+\item
+  Off drug, they differ. The mean shift is applied at on-drug
+  visits only, so the mean-shift channel's interaction has no
+  carryover. The correlation channel's interaction decays with
+  \(\phi_t\). The drug-response mean itself carries over under both.
+\item
+  Setting \(c_{bm,B} = 0\) gives the mean-shift encoding exactly.
+  Setting \(c_{bm,A} = 0\) gives the correlation encoding exactly. The
+  simulation uses this as a validation gate (Section
+  \ref{sec-gate}).
+\end{enumerate}
+
+Only \(c_{bm,B}\) is bounded by positive definiteness. The weight
+\(c_{bm,A}\) has no feasibility bound. At the parameters used here,
+every matrix with \(c_{bm,B} \le 0.45\) was positive definite in every
+design and half-life. The smallest eigenvalue over all
+108 design, half-life and weight combinations
+was 2.87.
+
+\subsection{Relation to mixture and location-scale models}\label{relation-to-mixture-and-location-scale-models}
+
+An earlier draft described the two channels as distinct biological
+mechanisms. It called the mean shift ``pharmacodynamic scaling'' and the
+correlation ``co-regulatory'' activity. It also said the correlation
+channel carries information through the class-conditional dispersion
+\(\mathrm{Var}[BR \mid B]\). Section \ref{sec-gauss} shows that, as
+specified, both channels move the conditional mean and neither makes
+the dispersion depend on the biomarker. The two descriptions are two
+readings of one model. They are not separable mechanisms within it.
+
+The earlier draft also called the combined form the mean- and
+covariance-structure model of Arminger et al.\textsuperscript{\citeproc{ref-arminger1999}{5}}. That
+paper concerns finite mixtures of conditional mean- and
+covariance-structure models. Verbeke and Lesaffre\textsuperscript{\citeproc{ref-verbekelesaffre1996}{6}} study a mixture distribution for the random
+effects of a linear mixed model. The dual-channel DGP has no mixture
+component, so neither paper describes it. Both describe the kind of
+extension that would create a second channel. A responder mixture
+with a biomarker-dependent class probability is one such extension.
+The latent-class companion paper develops it\textsuperscript{\citeproc{ref-pmsimstats-paper03}{7}}.
+A mixed-effects location-scale model, in which a covariate enters the
+within-participant variance, is another\textsuperscript{\citeproc{ref-hedeker2008}{8}}. Under either,
+a drug could change the spread of response as well as its mean.
+
+The variance-ratio literature tests that second moment directly.
+Under a constant treatment effect, treated and control arms have the
+same outcome variance\textsuperscript{\citeproc{ref-senn2016mastering}{9}}. Reviews of parallel-group
+trials\textsuperscript{\citeproc{ref-cortes2018}{10}}, antipsychotic trials\textsuperscript{\citeproc{ref-winkelbeiner2019}{11}} and
+antidepressant trials\textsuperscript{\citeproc{ref-ploderl2019}{12}} found treated-arm variances
+equal to or smaller than control-arm variances. The correlation
+encoding predicts exactly that pattern. It lowers the on-drug
+conditional variance and leaves the marginal variance unchanged. The
+mean-shift encoding raises the marginal on-drug variance by
+\(c_{bm,A}^2\sigma_{BR}^2\). Neither encoding produces a
+biomarker-dependent variance.
 
 \bigskip\noindent
 
 \rule{\textwidth}{0.4pt}\bigskip
 
-\section{4. Simulation Study}
+\section{Analytical results}\label{sec-analytic}
 
-\subsection{4.1 Design}
+\subsection{The slope profile over all visits}\label{the-slope-profile-over-all-visits}
 
-We ran a factorial simulation on the dual-channel architecture
-parameter grid. The design factors are the crossover (CO), Hybrid,
-and open-label-with-blinded-discontinuation (OL+BDC) designs;
-\(t_{1/2} \in \{0, 0.5, 1.0\}\) weeks; 1000 replicates per cell; and
-the E2 analysis specification. The channel-weight panel is
-\(c_{bm,A} \times c_{bm,B} \in \{0, 0.22, 0.45\}^2\), giving nine
-cells per design-carryover combination. The analysis model is held
-fixed throughout and is identical to that of the companion paper:
-an \texttt{nlme::lme} fit with \texttt{corCAR1} continuous-time
-residual correlation and a single biomarker-by-exposure interaction
-term.
+Write the outcome vector of a participant on path \(p\) as
+\(\mathbf{Y}_i = (\mathrm{BL}_i, Y_{i1}, \ldots, Y_{iT})^\top\). The
+baseline visit is included, because the analysis model includes it.
+Conditional on the biomarker,
+\begin{equation}
+\mathbb{E}[\mathbf{Y}_i \mid B_i] = \mathbf{m}_p
+  + \mathbf{s}_p\,(B_i - \mu_{bm}),
+\qquad
+s_{pt} = -\bigl(c_{bm,A}\, D_{pt} + c_{bm,B}\, g_{pt}\bigr)
+  \frac{\sigma_{BR}}{\sigma_{bm}},
+\label{eq:slope}
+\end{equation}
+with \(s_{p0} = 0\) at baseline. The conditional covariance
+\(\mathbf{V}_p = \mathrm{Var}(\mathbf{Y}_i \mid B_i)\) does not depend
+on \(B_i\) or on \(c_{bm,A}\). Both follow from the covariance matrix the
+DGP builds. Script \texttt{analysis/scripts/dgp-combined/03-analytic-projection.R}
+computes them.
 
-\subsection{4.2 Boundary validation against the companion baselines}
+\subsection{The fitted interaction coefficient}\label{the-fitted-interaction-coefficient}
 
-\textbf{Status: validation gate checked and not yet passed.} We
-note that the combined driver
-(\texttt{analysis/scripts/dgp-combined/
-01-run-combined-factorial.R}) already allocates its \texttt{N}
-argument as a total across randomization paths, via the same
-\texttt{generate\_data\_multi\_path()} helper used by the
-companion paper's own production driver. Its stored output
-(\texttt{analysis/data/dgp-combined/01-combined-summary.rds})
-already includes the matched \(N = 70\) cells alongside \(N = 35\).
-The sample-size-convention explanation given in an earlier version
-of this section is therefore not the operative problem. Reading the
-\(N = 70\), E2-specification boundary cells directly from that stored
-output and comparing them to the companion paper's Table
-(Section\textasciitilde3.1 baselines, \(c_{bm} = 0.45\)) shows that the two do
-\emph{not} agree. The gap is far larger than the
-\(\approx 0.013\)--\(0.016\) Monte Carlo standard error at these cell
-sizes would explain. At \(t_{1/2} = 0\), for example, the combined
-driver's mean-moderation boundary cell reads \(0.595\) (CO), \(0.738\)
-(Hybrid), \(0.612\) (OL+BDC) against the companion paper's \(0.739\),
-\(0.842\), \(0.751\); the covariance-moderation boundary cell reads
-\(0.581\), \(0.738\), \(0.601\) against \(0.745\), \(0.840\), \(0.777\). Every
-comparable cell checked is 10 to 19 percentage points below the
-companion baseline, which is inconsistent with sampling noise. It
-appears to us that a calibration mismatch between the two drivers'
-\texttt{resp\_param}, \texttt{baseline\_param}, or nuisance
-correlation arguments (\texttt{c.cf1t}, \texttt{c.cfct}, the AR(1)
-parameter \texttt{rho}) is the more likely explanation, rather than
-the sample-size bookkeeping this section previously blamed. The
-Section\textasciitilde4.3 table below is reported as originally produced. It
-should be treated as \emph{not yet validated} against the companion
-architecture baselines, and the boundary-reduction identities of
-Section\textasciitilde2.2 and Section\textasciitilde3 remain established analytically but not
-yet confirmed numerically in this driver. We defer locating and
-correcting the calibration mismatch to a follow-up revision of this
-manuscript.
+The analysis fits \(Y_{it} = \beta_0 + \beta_B B_i + \beta_T w_t +
+\beta_D D_{bc,it} + \beta_{bm:D} B_i D_{bc,it} + u_i +
+\varepsilon_{it}\), where \(D_{bc,it}\) is the exposure-decayed drug
+indicator at the true half-life (Section \ref{sec-methods}). The
+biomarker enters through \(\beta_B\) and \(\beta_{bm:D}\). Their
+population values are the projection of the slope profile
+\(\mathbf{s}_p\) onto the columns \((1, D_{bc,pt})\), pooled over paths.
+With generalized least squares under the true conditional covariance,
+\begin{equation}
+\begin{pmatrix} \beta_B \\ \beta_{bm:D} \end{pmatrix}
+= \Bigl(\sum_p n_p\, \mathbf{X}_p^\top \mathbf{V}_p^{-1}
+  \mathbf{X}_p\Bigr)^{-1}
+  \sum_p n_p\, \mathbf{X}_p^\top \mathbf{V}_p^{-1}\, \mathbf{s}_p,
+\qquad \mathbf{X}_p = (\mathbf{1}, \mathbf{D}_{bc,p}),
+\label{eq:proj}
+\end{equation}
+where \(n_p\) is the number of participants on path \(p\).
 
-\subsection{4.3 Empirical power over the channel-weight grid}
+Two cases follow from Equation \eqref{eq:slope}.
 
-\begin{table}[h]
+\begin{itemize}
+\tightlist
+\item
+  \emph{The correlation channel.} At the true half-life, \(g_{pt}\) equals
+  \(D_{bc,pt}\) at every visit. Its slope profile lies in the span of
+  \(\mathbf{X}_p\), so the projection is exact for any weighting. Its
+  contribution to \(\beta_{bm:D}\) is \(-c_{bm,B}\,\sigma_{BR}/\sigma_{bm}\)
+  in every design and at every half-life. At the parameters used
+  here that is \(-0.2344\) at \(c_{bm,B} = 0.45\).
+\item
+  \emph{The mean-shift channel.} Its profile is \(D_{pt}\), which is 0 at
+  off-drug visits where \(D_{bc,pt}\) is positive. At \(t_{1/2} = 0\) the
+  two coincide and the projection is again exact. At \(t_{1/2} > 0\) the
+  profile is not in the span of \(\mathbf{X}_p\). The projection then
+  depends on the weighting and exceeds the nominal value in absolute
+  size. The analysis model reads a step-shaped interaction through an
+  exposure-decayed regressor.
+\end{itemize}
+
+The coefficient is therefore linear in the two weights,
+\begin{equation}
+\beta_{bm:D} = c_{bm,A}\,\kappa_A + c_{bm,B}\,\kappa_B,
+\qquad \kappa_B = -\sigma_{BR}/\sigma_{bm},
+\label{eq:kappa}
+\end{equation}
+with \(\kappa_A = \kappa_B\) only at \(t_{1/2} = 0\). Under the true
+conditional covariance, the mean-shift channel's coefficient exceeds
+the nominal value by
+1 percent in the crossover design,
+8 percent in the Hybrid design and
+7 percent in the OL+BDC design at
+\(t_{1/2} = 1\) week. The departure from exact linearity caused by the
+dependence of \(\mathbf{V}_p\) on \(c_{bm,B}\) was at most
+9.2e-06 over the grid.
+The fitted model uses an estimated random-intercept and continuous
+AR(1) working covariance, not \(\mathbf{V}_p\), so its mean-shift
+overshoot can differ. Section \ref{sec-est} reports it.
+
+\subsection{Identifiability}\label{identifiability}
+
+At \(t_{1/2} = 0\), any two weight pairs with the same sum give the same
+fitted coefficient. The two weights are not separately identifiable
+from it. At \(t_{1/2} > 0\) they enter with different coefficients, but
+one coefficient still cannot identify two weights. The data carry the
+difference in the off-drug visits. A model that estimates the off-drug
+slope separately could identify the off-drug profile, and with it the
+split between the channels. An example is a specification with a
+biomarker-by-lagged-exposure term. We did not fit such a model.
+
+\subsection{Noncentrality and the scale of additivity}\label{noncentrality-and-the-scale-of-additivity}
+
+The GLS standard error of \(\beta_{bm:D}\) under the true conditional
+covariance is
+\(\{[(\sigma_{bm}^2 \sum_p n_p \mathbf{X}_p^\top \mathbf{V}_p^{-1}
+\mathbf{X}_p)^{-1}]_{22}\}^{1/2}\). The noncentrality of the test is
+\(\Lambda = |\beta_{bm:D}| / \mathrm{SE}\). By Equation
+\eqref{eq:kappa}, \(\Lambda\) is nearly linear in the two weights. It is
+not exactly linear, because \(\mathbf{V}_p\) depends on \(c_{bm,B}\).
+Power \(\pi(\Lambda) \approx \Phi(\Lambda - z_{0.975})\) is not linear
+in \(\Lambda\). It is convex below \(\pi = 0.5\) and concave above. A
+probability-scale benchmark \(p(a, 0) + p(0, b) - p(0, 0)\) therefore
+understates the combined power whenever the combined noncentrality
+lies in the convex region. It overstates it in the concave region,
+and it can exceed 1. This holds for any two additive contributions to
+\(\Lambda\). It holds equally when one channel's weight is doubled. The
+appropriate benchmark adds the two contributions on the
+noncentrality scale. Section \ref{sec-additivity} applies it.
+
+\bigskip\noindent
+
+\rule{\textwidth}{0.4pt}\bigskip
+
+\section{Simulation study}\label{sec-sim}
+
+We report the study under the ADEMP framework\textsuperscript{\citeproc{ref-morris2019simulation}{13}}. The study is exploratory.
+
+\subsection{Aims}\label{aims}
+
+The aims were (1) to check that the boundary cells reproduce the
+single-encoding DGPs, (2) to describe power over the weight grid under
+the extended DGP, (3) to test additivity on the scale of the fitted
+coefficient and of the noncentrality, and (4) to compare the
+equal-total weight pairs, which differ only in their off-drug
+profile.
+
+\subsection{Data-generating mechanisms}\label{data-generating-mechanisms}
+
+We used the extended DGP of Section \ref{sec-def} with the
+prazosin-PTSD calibration of the companion paper. The drug-response
+standard deviation was \(\sigma_{BR} = 8\) points and the
+biomarker standard deviation \(\sigma_{bm} = 15.36\)
+units. The factors were the following.
+
+\begin{itemize}
+\tightlist
+\item
+  Channel weights \(c_{bm,A}, c_{bm,B} \in \{0, 0.225, 0.45\}\), nine
+  cells. The anti-diagonal holds the three equal-total pairs with
+  \(c_{bm,A} + c_{bm,B} = 0.45\). They are the points
+  \(\omega \in \{0, 0.5, 1\}\) of the mixing parameterization
+  \(c_{bm,A} = (1 - \omega)\,c\), \(c_{bm,B} = \omega\, c\) at a total
+  weight \(c = 0.45\).
+\item
+  Three designs. The crossover design (CO) has two periods and two
+  randomization paths. Open-label titration followed by blinded
+  discontinuation (OL+BDC) has two paths. The Hybrid design
+  (open-label titration, blinded discontinuation, then a brief
+  crossover) has four paths. Each design has eight post-baseline
+  visits.
+\item
+  Carryover half-life \(t_{1/2} \in \{0, 0.5, 1\}\) week. The two
+  positive values are behavioral scenarios. The pharmacological range
+  of prazosin is 0.1 to 0.2 week, so a separate pass of the same driver
+  added \(t_{1/2} = 0.2\) week (Section \ref{sec-g9}).
+\item
+  A total of \(N = 70\) participants, allocated across the paths of each
+  design (35 per path in CO and OL+BDC, 18, 18, 17 and 17 in Hybrid).
+\end{itemize}
+
+Each replicate set one seed, determined by the design, half-life and
+replicate index, before generating the data of every weight cell.
+Since the Cholesky factor changes with \(c_{bm,B}\) but the normal
+deviates do not, the nine cells of a replicate share their random
+numbers. Contrasts between weight cells are paired. Designs and
+half-lives use independent streams. Every simulated covariance matrix
+was positive definite, so no replicate was refused.
+
+\subsection{Estimand}\label{estimand}
+
+The estimand is the biomarker-by-exposure coefficient
+\(\beta_{bm:D}\) of the analysis model, in outcome points per biomarker
+unit. Its population value is given by Equation \eqref{eq:kappa}.
+Power is the probability of rejecting \(\beta_{bm:D} = 0\) at two-sided
+\(\alpha = 0.05\).
+
+\subsection{Methods}\label{sec-methods}
+
+Each simulated trial was analyzed with the following model and two
+standard errors.
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{E2.} \texttt{Sx\ \textasciitilde{}\ bm\ +\ t\ +\ Dbc\ +\ bm:Dbc} fitted by \texttt{nlme::lme} with REML,
+  a random intercept per participant and a continuous AR(1) residual
+  correlation, \texttt{corCAR1(form\ =\ \textasciitilde{}\ t\ \textbar{}\ ptID)}. \(D_{bc,it}\) is built at
+  the true half-life. It is 1 on drug, \(2^{-t_{sd}/t_{1/2}}\) off drug
+  after exposure and 0 before first exposure. The test uses the
+  model-based standard error and the \texttt{lme} \(t\) distribution.
+\item
+  \textbf{E2cr2.} The same fit, with the CR2 cluster-robust standard error\textsuperscript{\citeproc{ref-bell2002bias}{14}} and a Satterthwaite \(t\) test\textsuperscript{\citeproc{ref-pustejovsky2018}{15}},
+  from \texttt{clubSandwich}. Paper 02 labels it G8\textsuperscript{\citeproc{ref-pmsimstats-paper02}{16}}.
+\end{itemize}
+
+The analysis data include the baseline visit, with \(t = 0\),
+\(D_{bc} = 0\) and outcome \(\mathrm{BL}_i\), followed by the eight
+post-baseline visits. A fit that failed was recorded as not converged.
+No fallback model was fitted.
+
+The program's current recommendation for the interaction is G9, the
+E2 form with the half-life chosen by AIC and a CR2 test, or F1 at a
+fixed analysis half-life\textsuperscript{\citeproc{ref-pmsimstats-paper02}{16}}. G9 costs about eight
+E2 fits per trial. We fitted it to a subset of the trials, the first
+200 replicates of four cells per design and half-life, and compared it
+with E2cr2 on the same trials (Section \ref{sec-g9}). We did not fit
+F1. Its expectancy term is not identifiable in the CO design, whose
+design expectancy is constant.
+
+\subsection{Performance measures}\label{performance-measures}
+
+For every cell we report the rejection rate \(\hat\pi\) with
+\(\mathrm{MCSE} = \{\hat\pi(1-\hat\pi)/n_{\text{reps}}\}^{1/2}\), the mean
+of the estimate, its empirical standard deviation, and the ratio
+\(\kappa\) of the mean model-based standard error to that standard
+deviation. Contrasts between weight cells of the same design and
+half-life are paired. Their MCSE is the standard deviation of the
+contrast over 2000 bootstrap resamples of the replicates. Contrasts
+across designs or half-lives combine the two cell MCSEs in quadrature.
+
+\subsection{Validation gate}\label{sec-gate}
+
+For the first 50 replicates of every design and
+half-life, the driver regenerated the four single-channel boundary
+cells under the single-encoding DGPs from the same seeds. That gave
+1,800 comparisons. The mean-shift
+encoding with weight \(a\) was compared with the cell \((a, 0)\), and the
+correlation encoding with weight \(b\) with the cell \((0, b)\). The
+generated data were identical in every comparison, with a largest
+absolute difference of 0.
+The fitted E2 estimates were identical too, with a largest difference
+of 0. The
+gate passed. The boundary cells of the grid are the two single-encoding
+DGPs of this driver exactly. Of the 216,000
+E2 and E2cr2 fits, 215,968 converged.
+
+\subsection{Test calibration under the null}\label{test-calibration-under-the-null}
+
+Table \ref{tab:null} gives the rejection rate in the null cell,
+\(c_{bm,A} = c_{bm,B} = 0\), with 1000 replicates per cell.
+The MCSE at the nominal level is 0.007.
+The model-based E2 test rejected at 0.060 to 0.071 in CO,
+0.036 to 0.048 in Hybrid and 0.018 to 0.044 in
+OL+BDC. Its size therefore depends on the design. It is slightly
+liberal in CO at \(t_{1/2} = 1\) week and conservative in OL+BDC at the
+same half-life. The calibration ratio \(\kappa\) of E2 ranged over
+0.92 to 0.99 in CO, 1.01 to 1.14 in Hybrid and
+1.05 to 1.22 in OL+BDC, across all weight cells. The CR2
+test rejected at 0.038 to 0.061 in the null cell over all designs
+and half-lives. Its \(\kappa\) ranged over 0.94 to 1.02.
+
+A design-dependent size means that E2 power is not comparable across
+designs without qualification. A conservative test loses power, and a
+liberal one gains it. Within one design and half-life, the size is
+the same for every weight cell, so contrasts between weight cells are
+unaffected. We therefore report design comparisons with both tests.
+
+\begin{table}[H]
 \small\centering
-\caption{the dual-channel architecture empirical power: $3 \times 3$ channel-weight
-panel at carryover $t_{1/2} = 1.0$ week, E2 analysis specification,
-$N=70$ (total, matched to the companion paper's convention), 1000
-replicates per cell. Rows index $c_{bm,A}$ (mean channel); columns
-index $c_{bm,B}$ (covariance channel). Boundary column $c_{bm,B} =
-0$ corresponds to the pure mean-moderation architecture; boundary
-row $c_{bm,A} = 0$ corresponds to the pure covariance-moderation
-architecture. An earlier version of this table used $N=35$, which
-is not the matched-sample-size convention needed for the boundary
-cells to be checked against the companion paper's baselines; this
-version instead uses the driver's already-computed $N=70$ cells. As
-Section~4.2 reports, even at matched $N$ these boundary cells do not
-yet numerically reproduce the companion paper's single-architecture
-results, so the table should still be read as provisional pending
-resolution of that calibration mismatch.}
-\label{tab:arch-c-power}
-\begin{tabular}{lrrrr}
+\caption{Rejection rate in the null cell ($c_{bm,A} = c_{bm,B} = 0$), 1000 replicates per cell, $N = 70$, MCSE in parentheses. E2 uses the model-based standard error, E2cr2 the CR2 standard error with a Satterthwaite test. Half-lives in weeks.}
+\label{tab:null}
+\begin{tabular}{lrrrrrr}
 \toprule
-& \multicolumn{3}{c}{$c_{bm,B}$ (covariance channel)} & \\
-\cmidrule(l){2-4}
-$c_{bm,A}$ (mean channel) & 0.00 & 0.22 & 0.45 & MCSE range \\
+& \multicolumn{3}{c}{E2} & \multicolumn{3}{c}{E2cr2} \\
+\cmidrule(lr){2-4}\cmidrule(l){5-7}
+Design & $t_{1/2} = 0$ & 0.5 & 1 & $t_{1/2} = 0$ & 0.5 & 1 \\
 \midrule
-\multicolumn{5}{l}{\textit{Crossover (CO)}} \\
-0.00 & 0.058 & 0.118 & 0.288 & 0.007--0.014 \\
-0.22 & 0.103 & 0.306 & 0.550 & 0.010--0.016 \\
-0.45 & 0.325 & 0.574 & 0.813 & 0.012--0.016 \\
-\addlinespace
-\multicolumn{5}{l}{\textit{Hybrid}} \\
-0.00 & 0.040 & 0.138 & 0.473 & 0.006--0.016 \\
-0.22 & 0.214 & 0.577 & 0.897 & 0.010--0.016 \\
-0.45 & 0.656 & 0.918 & 0.995 & 0.002--0.015 \\
-\addlinespace
-\multicolumn{5}{l}{\textit{OL+BDC}} \\
-0.00 & 0.024 & 0.080 & 0.277 & 0.005--0.014 \\
-0.22 & 0.117 & 0.370 & 0.693 & 0.010--0.015 \\
-0.45 & 0.498 & 0.791 & 0.950 & 0.007--0.016 \\
+CO & 0.061 (0.008) & 0.060 (0.008) & 0.071 (0.008) & 0.049 (0.007) & 0.061 (0.008) & 0.061 (0.008) \\
+Hybrid & 0.036 (0.006) & 0.048 (0.007) & 0.045 (0.007) & 0.038 (0.006) & 0.055 (0.007) & 0.045 (0.007) \\
+OL+BDC & 0.044 (0.006) & 0.028 (0.005) & 0.018 (0.004) & 0.057 (0.007) & 0.060 (0.008) & 0.047 (0.007) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Table\textasciitilde{}\ref{tab:arch-c-power} reports empirical power across the
-full \(3 \times 3\) channel-weight panel at the most demanding
-carryover condition (\(t_{1/2} = 1.0\) week). Three features merit
-comment. First, the monotone structure is exact: power increases
-strictly with each channel weight, holding the other fixed, across
-all three designs. This confirms that the channels contribute
-independently to detectability. Second, interior cells exceed the
-probability-scale additive benchmark. At (\(c_{bm,A} = 0.22\),
-\(c_{bm,B} = 0.22\)) in the Hybrid design, power is 0.577; the
-additive baseline \(p(0.22,0) + p(0,0.22) - p(0,0) = 0.214 + 0.138 -
-0.040 = 0.312\) is exceeded by 0.265, the super-additivity predicted
-in Section\textasciitilde3. Third, the covariance and mean channels contribute
-comparably to carryover sensitivity, and design choice remains
-consequential: at the full-signal, one-week-carryover cell, Hybrid
-(0.995) substantially outperforms OL+BDC (0.950) and CO (0.813).
+\subsection{Power over the weight grid}\label{power-over-the-weight-grid}
+
+Table \ref{tab:power-e2} gives E2 power for every cell and Table
+\ref{tab:power-cr2} gives E2cr2 power on the same trials. Power rose
+with each weight, holding the other fixed, in every design, half-life
+and test. There were 0 exceptions among all ordered
+pairs of cells. Monotonicity follows from Equation
+\eqref{eq:kappa}. Both weights add to the same coefficient with the
+same sign. It says nothing about whether the channels act
+independently.
+
+At \(t_{1/2} = 0\) the two single-channel cells at weight 0.45 had
+similar power in every design. Under E2 the values were
+0.751 (MCSE 0.014) and 0.767 (MCSE 0.013) in CO,
+0.894 (MCSE 0.010) and 0.911 (MCSE 0.009) in
+Hybrid, and 0.801 (MCSE 0.013) and 0.826 (MCSE 0.012)
+in OL+BDC, for the mean-shift and correlation channels in that order.
+At \(t_{1/2} = 1\) week they separated in Hybrid and OL+BDC (Section
+\ref{sec-eqsum}).
+
+\begin{table}[H]
+\small\centering
+\caption{Power of the E2 test (model-based standard error) over the channel weights, $N = 70$, 1000 replicates per cell, MCSE in parentheses. Rows give $c_{bm,A}$ (mean-shift channel), columns $c_{bm,B}$ (correlation channel). The column $c_{bm,B} = 0$ is the mean-shift encoding and the row $c_{bm,A} = 0$ the correlation encoding. Half-lives in weeks.}
+\label{tab:power-e2}
+\begin{tabular}{llrrr}
+\toprule
+& & \multicolumn{3}{c}{$c_{bm,B}$ (correlation channel)} \\
+\cmidrule(l){3-5}
+Design, $t_{1/2}$ & $c_{bm,A}$ & 0 & 0.225 & 0.45 \\
+\midrule
+CO, 0 & 0.000 & 0.061 (0.008) & 0.281 (0.014) & 0.767 (0.013) \\
+ & 0.225 & 0.279 (0.014) & 0.755 (0.014) & 0.985 (0.004) \\
+ & 0.450 & 0.751 (0.014) & 0.979 (0.005) & 0.999 (0.001) \\
+\addlinespace
+CO, 0.5 & 0.000 & 0.060 (0.008) & 0.264 (0.014) & 0.745 (0.014) \\
+ & 0.225 & 0.265 (0.014) & 0.732 (0.014) & 0.970 (0.005) \\
+ & 0.450 & 0.727 (0.014) & 0.970 (0.005) & 1.000 (0.000) \\
+\addlinespace
+CO, 1 & 0.000 & 0.071 (0.008) & 0.263 (0.014) & 0.722 (0.014) \\
+ & 0.225 & 0.273 (0.014) & 0.718 (0.014) & 0.964 (0.006) \\
+ & 0.450 & 0.720 (0.014) & 0.959 (0.006) & 0.999 (0.001) \\
+\addlinespace
+Hybrid, 0 & 0.000 & 0.036 (0.006) & 0.352 (0.015) & 0.911 (0.009) \\
+ & 0.225 & 0.360 (0.015) & 0.897 (0.010) & 1.000 (0.000) \\
+ & 0.450 & 0.894 (0.010) & 1.000 (0.000) & 1.000 (0.000) \\
+\addlinespace
+Hybrid, 0.5 & 0.000 & 0.048 (0.007) & 0.304 (0.015) & 0.817 (0.012) \\
+ & 0.225 & 0.351 (0.015) & 0.846 (0.011) & 0.996 (0.002) \\
+ & 0.450 & 0.868 (0.011) & 0.995 (0.002) & 0.999 (0.001) \\
+\addlinespace
+Hybrid, 1 & 0.000 & 0.045 (0.007) & 0.222 (0.013) & 0.723 (0.014) \\
+ & 0.225 & 0.290 (0.014) & 0.767 (0.013) & 0.985 (0.004) \\
+ & 0.450 & 0.818 (0.012) & 0.987 (0.004) & 1.000 (0.000) \\
+\addlinespace
+OL+BDC, 0 & 0.000 & 0.044 (0.006) & 0.269 (0.014) & 0.826 (0.012) \\
+ & 0.225 & 0.269 (0.014) & 0.798 (0.013) & 0.993 (0.003) \\
+ & 0.450 & 0.801 (0.013) & 0.990 (0.003) & 1.000 (0.000) \\
+\addlinespace
+OL+BDC, 0.5 & 0.000 & 0.028 (0.005) & 0.195 (0.013) & 0.711 (0.014) \\
+ & 0.225 & 0.247 (0.014) & 0.753 (0.014) & 0.980 (0.004) \\
+ & 0.450 & 0.803 (0.013) & 0.981 (0.004) & 0.999 (0.001) \\
+\addlinespace
+OL+BDC, 1 & 0.000 & 0.018 (0.004) & 0.150 (0.011) & 0.559 (0.016) \\
+ & 0.225 & 0.229 (0.013) & 0.660 (0.015) & 0.955 (0.007) \\
+ & 0.450 & 0.740 (0.014) & 0.973 (0.005) & 0.997 (0.002) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\small\centering
+\caption{Power of the E2cr2 test (CR2 standard error, Satterthwaite test) on the same trials as Table \ref{tab:power-e2}. MCSE in parentheses.}
+\label{tab:power-cr2}
+\begin{tabular}{llrrr}
+\toprule
+& & \multicolumn{3}{c}{$c_{bm,B}$ (correlation channel)} \\
+\cmidrule(l){3-5}
+Design, $t_{1/2}$ & $c_{bm,A}$ & 0 & 0.225 & 0.45 \\
+\midrule
+CO, 0 & 0.000 & 0.049 (0.007) & 0.244 (0.014) & 0.731 (0.014) \\
+ & 0.225 & 0.235 (0.013) & 0.694 (0.015) & 0.970 (0.005) \\
+ & 0.450 & 0.689 (0.015) & 0.959 (0.006) & 0.997 (0.002) \\
+\addlinespace
+CO, 0.5 & 0.000 & 0.061 (0.008) & 0.224 (0.013) & 0.723 (0.014) \\
+ & 0.225 & 0.225 (0.013) & 0.691 (0.015) & 0.951 (0.007) \\
+ & 0.450 & 0.680 (0.015) & 0.942 (0.007) & 0.999 (0.001) \\
+\addlinespace
+CO, 1 & 0.000 & 0.061 (0.008) & 0.244 (0.014) & 0.695 (0.015) \\
+ & 0.225 & 0.248 (0.014) & 0.666 (0.015) & 0.952 (0.007) \\
+ & 0.450 & 0.665 (0.015) & 0.945 (0.007) & 0.998 (0.001) \\
+\addlinespace
+Hybrid, 0 & 0.000 & 0.038 (0.006) & 0.377 (0.015) & 0.916 (0.009) \\
+ & 0.225 & 0.360 (0.015) & 0.892 (0.010) & 1.000 (0.000) \\
+ & 0.450 & 0.881 (0.010) & 0.999 (0.001) & 1.000 (0.000) \\
+\addlinespace
+Hybrid, 0.5 & 0.000 & 0.055 (0.007) & 0.305 (0.015) & 0.840 (0.012) \\
+ & 0.225 & 0.349 (0.015) & 0.834 (0.012) & 0.996 (0.002) \\
+ & 0.450 & 0.851 (0.011) & 0.994 (0.002) & 0.999 (0.001) \\
+\addlinespace
+Hybrid, 1 & 0.000 & 0.045 (0.007) & 0.243 (0.014) & 0.741 (0.014) \\
+ & 0.225 & 0.288 (0.014) & 0.767 (0.013) & 0.981 (0.004) \\
+ & 0.450 & 0.801 (0.013) & 0.981 (0.004) & 1.000 (0.000) \\
+\addlinespace
+OL+BDC, 0 & 0.000 & 0.057 (0.007) & 0.298 (0.014) & 0.877 (0.010) \\
+ & 0.225 & 0.292 (0.014) & 0.837 (0.012) & 0.996 (0.002) \\
+ & 0.450 & 0.824 (0.012) & 0.994 (0.002) & 1.000 (0.000) \\
+\addlinespace
+OL+BDC, 0.5 & 0.000 & 0.060 (0.008) & 0.265 (0.014) & 0.774 (0.013) \\
+ & 0.225 & 0.315 (0.015) & 0.790 (0.013) & 0.988 (0.003) \\
+ & 0.450 & 0.822 (0.012) & 0.987 (0.004) & 1.000 (0.000) \\
+\addlinespace
+OL+BDC, 1 & 0.000 & 0.047 (0.007) & 0.226 (0.013) & 0.688 (0.015) \\
+ & 0.225 & 0.295 (0.014) & 0.745 (0.014) & 0.973 (0.005) \\
+ & 0.450 & 0.808 (0.012) & 0.978 (0.005) & 0.999 (0.001) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{The fitted coefficient}\label{sec-est}
+
+At \(t_{1/2} = 0\) the fitted coefficient was additive in the two
+weights, replicate by replicate. The paired interaction contrast
+\(\hat\beta(0.45, 0.45) - \hat\beta(0.45, 0) - \hat\beta(0, 0.45) +
+\hat\beta(0, 0)\) averaged
+1.4e-11
+or less in absolute value. The reason is exact. At \(t_{1/2} = 0\) the
+mean shift is a linear combination of the fixed-effect columns
+\(B_i D_{bc,it}\) and \(D_{bc,it}\). Adding it changes neither the REML
+variance estimates nor anything but the interaction estimate. At
+\(t_{1/2} > 0\) the contrast was at most
+1.3e-04, against
+estimates near 0.23 in size.
+
+The two weights did not have equal coefficients at \(t_{1/2} > 0\). The
+correlation channel's mean estimate stayed within
+4 percent of its nominal value in every design and
+half-life. The
+mean-shift channel's estimate at weight 0.45 and \(t_{1/2} = 1\) week
+exceeded the nominal \(-0.234\) by
+2 percent in CO,
+15 percent in Hybrid and
+20 percent in OL+BDC. The MCSE of each mean
+estimate was about 0.003 or less.
+The GLS projection under the true conditional covariance gave
+1,
+8 and
+7 percent (Section
+\ref{sec-analytic}). The fitted model weights the off-drug visits
+differently from the true covariance. Its overshoot was roughly twice
+the projection's in Hybrid and three times in OL+BDC. The 2026-10-28
+internal review reported 21 to 39 percent for the earlier run, which
+lacked the baseline visit and used the original carryover rule. The
+direction agrees, and the size depends on the analysis data.
+
+The empirical standard deviation of the E2 estimate exceeded the GLS
+standard error under the true covariance in every cell. The ratio of
+the two ranged from 1.08 to 1.26.
+The working covariance of
+the analysis model is a random intercept with continuous AR(1)
+errors. The DGP has four correlated components, so the fitted
+estimator is less efficient than GLS. The GLS noncentrality therefore
+overstates the attainable power and serves as an upper reference only.
+
+\subsection{Additivity of power}\label{sec-additivity}
+
+Table \ref{tab:additivity} compares the combined cell
+\((0.225, 0.225)\) with three benchmarks. The first is the
+probability-scale benchmark \(p(0.225, 0) + p(0, 0.225) - p(0, 0)\).
+The second is the probit benchmark of the 2026-10-28 internal review.
+It maps each single-channel power to a noncentrality,
+\(\hat\Lambda = \Phi^{-1}(\hat\pi) + 1.96\), adds the two and maps back,
+\(\Phi(\hat\Lambda_A + \hat\Lambda_B - 1.96)\). The third is the same
+benchmark with the critical value calibrated to the observed null
+rejection rate, \(z = \Phi^{-1}(1 - \hat\pi_0/2)\). It corrects for a
+test whose size is not 0.05. The table also gives the within-channel
+control. It compares \(p(0.45, 0)\) with \(2p(0.225, 0) - p(0, 0)\) for
+the mean-shift channel and the analogous quantity for the correlation
+channel.
+
+The combined cell exceeded the probability-scale benchmark by
+0.221 to 0.339 under E2. The single channels
+doubled showed the same excess, 0.210 to 0.337 for the mean-shift
+channel and 0.243 to 0.349 for the correlation channel. The
+excess is therefore a property of the power curve, not of combining
+two channels. At \((0.45, 0.45)\) the probability-scale benchmark
+exceeded 1 in every design and half-life. The combined power fell
+short of it by 0.284 to 0.769.
+
+On the probit scale the combined cell agreed with the benchmark. Under
+E2 the departure was -0.047 to 0.028
+in CO and Hybrid, within about two MCSE in every cell. In OL+BDC it was
+0.031 to 0.092. These are the cells
+where E2 was conservative. With the critical value calibrated to the
+observed size, the OL+BDC departures were
+-0.062 to 0.015, and all nine
+departures were within two MCSE. Under the CR2 test, whose size was
+near nominal, the uncalibrated probit departures were
+-0.055 to 0.026.
+The probit approximation ignores the lower rejection tail and the \(t\)
+reference distribution, so agreement within a few hundredths is what
+it can deliver.
+
+\begin{table}[H]
+\small\centering
+\caption{Additivity of E2 power at the combined cell $(0.225, 0.225)$ and the within-channel control. Observed: power at $(0.225, 0.225)$. Excess over the probability-scale benchmark, over the probit benchmark with $z = 1.96$, and over the probit benchmark with $z$ calibrated to the observed null rejection. Doubling: $p(0.45, 0) - [2p(0.225, 0) - p(0, 0)]$ for the mean-shift channel and the same for the correlation channel. Paired bootstrap MCSE in parentheses.}
+\label{tab:additivity}
+\begin{tabular}{llrrrrrr}
+\toprule
+Design & $t_{1/2}$ & Observed & Prob. & Probit & Probit, cal. & Doubling, mean & Doubling, cor. \\
+\midrule
+CO & 0 & 0.755 & 0.256 (0.026) & -0.031 (0.024) & -0.005 (0.027) & 0.254 (0.026) & 0.266 (0.026) \\
+ & 0.5 & 0.732 & 0.263 (0.025) & -0.026 (0.024) & -0.001 (0.028) & 0.257 (0.025) & 0.277 (0.025) \\
+ & 1 & 0.718 & 0.253 (0.024) & -0.047 (0.024) & 0.003 (0.027) & 0.245 (0.025) & 0.267 (0.024) \\
+Hybrid & 0 & 0.897 & 0.221 (0.028) & 0.008 (0.016) & -0.016 (0.015) & 0.210 (0.028) & 0.243 (0.029) \\
+ & 0.5 & 0.846 & 0.239 (0.027) & -0.010 (0.018) & -0.014 (0.020) & 0.214 (0.028) & 0.257 (0.027) \\
+ & 1 & 0.767 & 0.300 (0.025) & 0.028 (0.026) & 0.013 (0.029) & 0.283 (0.028) & 0.324 (0.025) \\
+OL+BDC & 0 & 0.798 & 0.304 (0.026) & 0.031 (0.025) & 0.015 (0.027) & 0.307 (0.026) & 0.333 (0.026) \\
+ & 0.5 & 0.753 & 0.339 (0.024) & 0.092 (0.030) & 0.010 (0.032) & 0.337 (0.026) & 0.349 (0.025) \\
+ & 1 & 0.660 & 0.299 (0.022) & 0.088 (0.031) & -0.062 (0.038) & 0.300 (0.025) & 0.277 (0.022) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{The equal-total line and carryover}\label{sec-eqsum}
+
+The anti-diagonal of the grid holds three pairs with total weight
+0.45: \((0.45, 0)\), \((0.225, 0.225)\) and \((0, 0.45)\). On drug they give
+the same conditional slope. They differ in the off-drug profile only.
+Table \ref{tab:eqsum} gives their power and the paired difference
+between the two single-channel ends.
+
+At \(t_{1/2} = 0\) the correlation end had slightly higher power than
+the mean-shift end. The paired E2 differences, mean-shift minus
+correlation, were -0.025 to -0.016. This is the
+effect of the smaller conditional variance under the correlation
+channel. At \(t_{1/2} = 1\) week the order reversed in Hybrid and
+OL+BDC. The differences were 0.095 (0.009) and
+0.181 (0.012). In CO the difference stayed near
+zero, -0.002 (0.006). The mixed pair
+\((0.225, 0.225)\) lay between the two ends, or within two paired MCSE
+of the nearer end, in every design and half-life. Under E2cr2 the reversal at \(t_{1/2} = 1\) week was
+0.060 (0.008) in Hybrid and
+0.120 (0.010) in OL+BDC. Pairs with the
+same total weight therefore do not give similar power once carryover
+is present. The earlier draft stated that they did.
+
+The loss of power from \(t_{1/2} = 0\) to 1 week shows the same
+difference. Under E2, the mean-shift encoding at weight 0.45 lost
+0.076 in Hybrid and
+0.061 in OL+BDC. The correlation encoding
+lost 0.188 and 0.267.
+The MCSE of each loss is about 0.020. Under
+E2cr2 the losses were 0.080 and
+0.016 for the mean-shift encoding and
+0.175 and 0.189
+for the correlation encoding. Part of the E2 loss in OL+BDC reflects
+the test's growing conservatism there. In CO all losses were small,
+0.031 to
+0.045 under E2. The correlation
+channel's interaction decays with the drug effect. The mean-shift
+channel's interaction stops at discontinuation, so the off-drug
+visits keep their contrast with the on-drug visits. The earlier draft
+stated that the two channels contribute comparably to carryover
+sensitivity. In the Hybrid and OL+BDC designs the correlation channel
+lost more than twice as much power under either test.
+
+\begin{table}[H]
+\small\centering
+\caption{Power along the equal-total line $c_{bm,A} + c_{bm,B} = 0.45$, E2 and E2cr2, MCSE in parentheses. Difference: power at $(0.45, 0)$ minus power at $(0, 0.45)$, paired, with bootstrap MCSE. Half-lives in weeks.}
+\label{tab:eqsum}
+\begin{tabular}{lllrrrr}
+\toprule
+Design & $t_{1/2}$ & Test & $(0.45, 0)$ & $(0.225, 0.225)$ & $(0, 0.45)$ & Difference \\
+\midrule
+CO & 0 & E2 & 0.751 (0.014) & 0.755 (0.014) & 0.767 (0.013) & -0.016 (0.006) \\
+ &  & E2cr2 & 0.689 (0.015) & 0.694 (0.015) & 0.731 (0.014) & -0.042 (0.007) \\
+ & 0.5 & E2 & 0.727 (0.014) & 0.732 (0.014) & 0.745 (0.014) & -0.018 (0.007) \\
+ &  & E2cr2 & 0.680 (0.015) & 0.691 (0.015) & 0.723 (0.014) & -0.043 (0.007) \\
+ & 1 & E2 & 0.720 (0.014) & 0.718 (0.014) & 0.722 (0.014) & -0.002 (0.006) \\
+ &  & E2cr2 & 0.665 (0.015) & 0.666 (0.015) & 0.695 (0.015) & -0.030 (0.006) \\
+Hybrid & 0 & E2 & 0.894 (0.010) & 0.897 (0.010) & 0.911 (0.009) & -0.017 (0.007) \\
+ &  & E2cr2 & 0.881 (0.010) & 0.892 (0.010) & 0.916 (0.009) & -0.035 (0.007) \\
+ & 0.5 & E2 & 0.868 (0.011) & 0.846 (0.011) & 0.817 (0.012) & 0.051 (0.007) \\
+ &  & E2cr2 & 0.851 (0.011) & 0.834 (0.012) & 0.840 (0.012) & 0.011 (0.007) \\
+ & 1 & E2 & 0.818 (0.012) & 0.767 (0.013) & 0.723 (0.014) & 0.095 (0.009) \\
+ &  & E2cr2 & 0.801 (0.013) & 0.767 (0.013) & 0.741 (0.014) & 0.060 (0.008) \\
+OL+BDC & 0 & E2 & 0.801 (0.013) & 0.798 (0.013) & 0.826 (0.012) & -0.025 (0.009) \\
+ &  & E2cr2 & 0.824 (0.012) & 0.837 (0.012) & 0.877 (0.010) & -0.053 (0.009) \\
+ & 0.5 & E2 & 0.803 (0.013) & 0.753 (0.014) & 0.711 (0.014) & 0.092 (0.010) \\
+ &  & E2cr2 & 0.822 (0.012) & 0.790 (0.013) & 0.774 (0.013) & 0.048 (0.008) \\
+ & 1 & E2 & 0.740 (0.014) & 0.660 (0.015) & 0.559 (0.016) & 0.181 (0.012) \\
+ &  & E2cr2 & 0.808 (0.012) & 0.745 (0.014) & 0.688 (0.015) & 0.120 (0.010) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The ranking of designs depended on the channel and the half-life. The
+Hybrid design had the highest power, or power within two MCSE of the
+highest, in every single-channel cell at weight 0.45 under both
+tests. At weight 0.225 and \(t_{1/2} = 1\) week, CO exceeded Hybrid on
+the correlation channel under E2,
+0.041 (MCSE 0.019), but not under E2cr2,
+0.001 (MCSE 0.019). That E2 difference
+reflects the liberal E2 test in CO. The order of CO and OL+BDC was not fixed. At
+\(t_{1/2} = 0\) and weight 0.45 on the correlation channel, OL+BDC
+exceeded CO by 0.146 (MCSE 0.017) under E2cr2.
+At \(t_{1/2} = 1\) week the difference was
+-0.007 (MCSE 0.021). On the mean-shift channel
+at \(t_{1/2} = 1\) week, OL+BDC exceeded CO by
+0.143 (MCSE 0.019). Under E2 the CO and OL+BDC
+differences also carry the two tests' different sizes. The earlier
+draft stated that the design ranking was preserved throughout the
+grid. For CO and OL+BDC it is not.
+
+\subsection{The G9 analysis and the pharmacological half-life}\label{sec-g9}
+
+G9 chooses the analysis half-life by AIC over 0.25, 0.5, 1 and 2 weeks and tests with CR2\textsuperscript{\citeproc{ref-pmsimstats-paper02}{16}}. Its cost is about eight E2 fits per trial, so we ran it on the first 200 replicates of four cells per design and half-life: the null cell and the three equal-total pairs. The trials are the same as those of the main run under the same seeds, so G9 and E2cr2 are paired. In the null cell G9 rejected at 0.035 to 0.085, against 0.030 to 0.085 for E2cr2 on the same trials. The MCSE at the nominal level is 0.015.
+
+\begin{table}[H]
+\small\centering
+\caption{G9 against E2cr2 on the same 200 trials per cell, $N = 70$, MCSE in parentheses. G9 chooses the analysis half-life by AIC. E2cr2 uses the true half-life. Mean $\hat t_{1/2}^a$: the mean half-life G9 chose, in weeks.}
+\label{tab:g9}
+\begin{tabular}{llrrrrr}
+\toprule
+Design & $t_{1/2}$ & Cell & E2cr2 & G9 & Mean $\hat t_{1/2}^a$ \\
+\midrule
+CO & 0 & $(0, 0)$ & 0.030 (0.012) & 0.035 (0.013) & 0.58 \\
+ &  & $(0.45, 0)$ & 0.665 (0.033) & 0.680 (0.033) & 0.59 \\
+ &  & $(0.225, 0.225)$ & 0.665 (0.033) & 0.680 (0.033) & 0.59 \\
+ &  & $(0, 0.45)$ & 0.715 (0.032) & 0.720 (0.032) & 0.59 \\
+ & 0.5 & $(0, 0)$ & 0.050 (0.015) & 0.060 (0.017) & 0.64 \\
+ &  & $(0.45, 0)$ & 0.685 (0.033) & 0.705 (0.032) & 0.62 \\
+ &  & $(0.225, 0.225)$ & 0.695 (0.033) & 0.720 (0.032) & 0.63 \\
+ &  & $(0, 0.45)$ & 0.725 (0.032) & 0.735 (0.031) & 0.66 \\
+ & 1 & $(0, 0)$ & 0.085 (0.020) & 0.085 (0.020) & 0.98 \\
+ &  & $(0.45, 0)$ & 0.660 (0.033) & 0.665 (0.033) & 0.91 \\
+ &  & $(0.225, 0.225)$ & 0.650 (0.034) & 0.660 (0.033) & 0.96 \\
+ &  & $(0, 0.45)$ & 0.670 (0.033) & 0.685 (0.033) & 1.02 \\
+Hybrid & 0 & $(0, 0)$ & 0.035 (0.013) & 0.040 (0.014) & 0.29 \\
+ &  & $(0.45, 0)$ & 0.885 (0.023) & 0.885 (0.023) & 0.29 \\
+ &  & $(0.225, 0.225)$ & 0.895 (0.022) & 0.899 (0.021) & 0.29 \\
+ &  & $(0, 0.45)$ & 0.915 (0.020) & 0.915 (0.020) & 0.28 \\
+ & 0.5 & $(0, 0)$ & 0.045 (0.015) & 0.055 (0.016) & 0.68 \\
+ &  & $(0.45, 0)$ & 0.825 (0.027) & 0.835 (0.026) & 0.53 \\
+ &  & $(0.225, 0.225)$ & 0.820 (0.027) & 0.825 (0.027) & 0.58 \\
+ &  & $(0, 0.45)$ & 0.810 (0.028) & 0.815 (0.027) & 0.63 \\
+ & 1 & $(0, 0)$ & 0.080 (0.019) & 0.080 (0.019) & 1.47 \\
+ &  & $(0.45, 0)$ & 0.810 (0.028) & 0.805 (0.028) & 1.13 \\
+ &  & $(0.225, 0.225)$ & 0.775 (0.030) & 0.765 (0.030) & 1.27 \\
+ &  & $(0, 0.45)$ & 0.770 (0.030) & 0.770 (0.030) & 1.43 \\
+OL+BDC & 0 & $(0, 0)$ & 0.065 (0.017) & 0.065 (0.017) & 0.28 \\
+ &  & $(0.45, 0)$ & 0.830 (0.027) & 0.825 (0.027) & 0.27 \\
+ &  & $(0.225, 0.225)$ & 0.845 (0.026) & 0.835 (0.026) & 0.27 \\
+ &  & $(0, 0.45)$ & 0.865 (0.024) & 0.865 (0.024) & 0.27 \\
+ & 0.5 & $(0, 0)$ & 0.045 (0.015) & 0.045 (0.015) & 0.46 \\
+ &  & $(0.45, 0)$ & 0.840 (0.026) & 0.845 (0.026) & 0.44 \\
+ &  & $(0.225, 0.225)$ & 0.810 (0.028) & 0.810 (0.028) & 0.46 \\
+ &  & $(0, 0.45)$ & 0.780 (0.029) & 0.780 (0.029) & 0.48 \\
+ & 1 & $(0, 0)$ & 0.045 (0.015) & 0.040 (0.014) & 0.77 \\
+ &  & $(0.45, 0)$ & 0.815 (0.027) & 0.820 (0.027) & 0.68 \\
+ &  & $(0.225, 0.225)$ & 0.745 (0.031) & 0.750 (0.031) & 0.71 \\
+ &  & $(0, 0.45)$ & 0.680 (0.033) & 0.675 (0.033) & 0.77 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+At \(t_{1/2} = 1\) week in OL+BDC, G9 gave 0.820 (0.027) at the mean-shift end and 0.675 (0.033) at the correlation end of the equal-total line. E2cr2 gave 0.815 (0.027) and 0.680 (0.033) on the same trials. In Hybrid, G9 gave 0.805 (0.028) and 0.770 (0.030), and E2cr2 gave 0.810 (0.028) and 0.770 (0.030). Over all 36 cells, G9 power differed from E2cr2 power on the same trials by at most 0.025. Choosing the half-life by AIC therefore cost little power here, and the difference between the two ends of the equal-total line remained under G9. G9 cannot select \(t_{1/2}^a = 0\), since its grid starts at 0.25 week. At \(t_{1/2} = 0\) it chose a mean half-life of 0.27 to 0.59 week.
+
+The pharmacological range of the prazosin half-life is 0.1 to 0.2 week. We ran the full weight grid at \(t_{1/2} = 0.2\) week with 1000 replicates per cell, as a separate pass of the same driver. Its validation gate passed in 600 further comparisons. Under E2 the null cell rejected at 0.056 (MCSE 0.007) in CO, 0.050 (MCSE 0.007) in Hybrid and 0.026 (MCSE 0.005) in OL+BDC. At weight 0.45, the mean-shift and correlation encodings had power 0.734 (MCSE 0.014) and 0.743 (MCSE 0.014) in CO, 0.882 (MCSE 0.010) and 0.895 (MCSE 0.010) in Hybrid, and 0.810 (MCSE 0.012) and 0.821 (MCSE 0.012) in OL+BDC. The paired differences were -0.009 (0.006), -0.013 (0.007) and -0.011 (0.009). The GLS projection puts the mean-shift overshoot at 0 to 1 percent at this half-life. At pharmacological half-lives the two channels are therefore close to interchangeable, and the dual-channel architecture adds little to a single encoding.
 
 \bigskip\noindent
 
 \rule{\textwidth}{0.4pt}\bigskip
 
-\section{5. When a Combined Architecture is Appropriate}
+\section{When to use the dual-channel architecture}\label{when-to-use-the-dual-channel-architecture}
 
-We suggest that the dual-channel architecture is appropriate when
-there is independent evidence that both the pharmacodynamic-scaling
-pathway and the co-regulatory coupling pathway are biologically
-active for the same biomarker-drug pair. Such evidence might
-include mechanistic assay data. For example, the drug enhances
-biomarker-outcome correlation in vitro, consistent with the B
-channel, while receptor occupancy scales with biomarker level,
-consistent with the A channel; or the evidence might come from
-replication across independent trials that are individually
-underpowered to distinguish the channels. The dual-channel
-architecture should not be the default choice for simulation
-studies despite its generality. It carries two free parameters
-where either pure architecture requires one, and calibrating both
-independently demands more prior information than is typically
-available at the trial-design stage. This estimation caution is not
-a claim that the combined mechanism is biologically unusual. A
-companion paper\textsuperscript{\citeproc{ref-pmsimstats-paper03}{3}} argues that the combined
-mean-and-covariance form is plausibly the most biologically
-faithful regime for biomarker-guided psychiatric trials, because a
-biomarker that indexes a responder subtype will in general shift
-both the class-conditional mean and the class-conditional
-dispersion of response. The recommendation against the dual-channel
-architecture as a default is therefore about identifiability and
-prior information at the design stage, not about biological
-plausibility. The most faithful generative model is not always the
-most estimable one, and when independent evidence on the two
-channels is unavailable, the single-parameter pure architectures
-remain the more disciplined default. Its appropriate use cases are
-formal sensitivity analyses that ask how power estimates change
-across the \((c_{bm,A}, c_{bm,B})\) grid when the channel structure is
-genuinely uncertain, and evaluation studies designed to determine
-which channel is dominant for a given biomarker-drug pair.
+The dual-channel DGP does not represent two biological mechanisms.
+Within it, the two weights describe one conditional-mean slope and
+how much of that slope persists after discontinuation. The mean-shift
+channel's interaction stops at discontinuation. The correlation
+channel's interaction decays at the carryover half-life. The ratio of
+the weights fixes the off-drug profile of the interaction.
 
-In the prazosin-PTSD context, the dual-channel architecture
-captures the possibility that systolic blood pressure simultaneously
-governs the expected prazosin effect at the mean level, consistent
-with the pharmacological argument that noradrenergic tone
-determines the therapeutic window, and alters the coupling between
-blood pressure and symptom change during active drug exposure,
-consistent with a signaling-pathway interpretation. We regard the
-dual-channel architecture as the appropriate framework for the
-prazosin-blood-pressure interaction if and when mechanistic data
-become available to calibrate both channels separately.
+This gives the architecture a specific use. A simulation study
+usually does not know whether the biomarker's influence on response
+outlasts the drug. A sweep along the equal-total line,
+\(\omega \in [0, 1]\) at a fixed total weight, shows how power depends
+on that unknown profile. It holds the on-drug interaction fixed. At
+\(t_{1/2} = 0\) the sweep is nearly flat, so it is informative only when
+carryover is plausible.
+
+The architecture is not a model of a drug that changes the spread of
+response in high-biomarker participants. That question concerns the
+second moment. It needs a variance function\textsuperscript{\citeproc{ref-hedeker2008}{8}} or a
+responder mixture\textsuperscript{\citeproc{ref-pmsimstats-paper03}{7}}. In the prazosin-PTSD example,
+the question is whether blood pressure predicts a larger prazosin
+effect, and whether that predictive association fades after
+discontinuation at the rate the drug effect does. The dual-channel
+architecture can represent both answers to the second question. It
+cannot represent heterogeneity of response variance.
+
+As a default for a single power calculation, we recommend one of the
+two encodings, with its weight stated. The correlation encoding is the
+cautious choice when carryover is plausible. Its interaction decays
+with the drug effect. In the Hybrid and OL+BDC designs its power loss
+under carryover was more than twice that of the mean-shift encoding
+(Section \ref{sec-eqsum}). A second free weight adds nothing to a power
+calculation unless the off-drug profile is itself in question.
 
 \bigskip\noindent
 
 \rule{\textwidth}{0.4pt}\bigskip
 
-\section{6. Discussion}
+\section{Discussion}\label{discussion}
 
-The combined architecture places the two architectures of the
-companion paper within a single model, with each recovered as a
-single-channel limit. This reframes the A-versus-B contrast as a
-question about which channel weight is nonzero, rather than a
-choice between unrelated data-generating conventions. The
-super-additivity result of Section\textasciitilde3 explains, rather than merely
-reports, the compounding of the two channels: it follows from the
-additivity of the biomarker-treatment signal and the convexity of
-the power function, and is therefore a property of the estimand and
-the test, not of the particular calibration. As in the companion
-paper, the analysis model is held fixed. The conservatism of the
-standard \texttt{corCAR1} Wald test, and the cluster-robust remedy
-for it, are treated in the companion calibration study\textsuperscript{\citeproc{ref-pmsimstats-paper10}{6}} and apply here as a common-mode effect across
-the channel-weight grid. The combined form itself is not new to
-this series: a companion paper\textsuperscript{\citeproc{ref-pmsimstats-paper03}{3}} introduces it
-conceptually as the general node of a biomarker-moderation spectrum
-and supplies its psychometric lineage\textsuperscript{\citeproc{ref-arminger1999}{2},\citeproc{ref-verbekelesaffre1996}{4}}. The contribution of the present paper is
-complementary and specific: the analytical super-additivity result
-of Section\textasciitilde3 and the calibrated channel-weight simulation of
-Section\textasciitilde4, neither of which the conceptual treatment provides.
+The dual-channel DGP nests the two encodings of the biomarker-treatment
+interaction. Under a normally distributed biomarker it is one Gaussian
+model. Both weights set the conditional-mean slope of the
+drug-response component on the biomarker. They differ in two respects
+only. The correlation weight also lowers the on-drug residual
+variance, by about 2 percent at the outcome level in this calibration.
+The two weights also give different off-drug profiles. These facts
+replace the earlier draft's account of two mechanisms acting on two
+moments.
+
+The fitted interaction coefficient is linear in the two weights. Its
+coefficients are equal when there is no carryover and differ when
+there is. The difference comes from the mean-shift channel. Its
+interaction stops at discontinuation, but the analysis regressor
+\(D_{bc,it}\) decays. The projection of its step-shaped profile onto the
+regressor overshoots the nominal value. The correlation channel's
+profile matches the regressor at the true half-life and gives the
+nominal value exactly.
+
+Power is not additive in the weights, but nothing about the channels
+causes that. Additivity holds for the coefficient and, to a close
+approximation, for the noncentrality. Excess over the
+probability-scale benchmark is the curvature of the power function.
+A single channel with its weight doubled shows the same excess. The
+title of the earlier draft named a ``channel super-additivity''. We
+withdraw that term.
+
+The earlier run failed its own validation. Its boundary cells fell
+10 to 19 points below the single-encoding power reported in an
+earlier version of paper 01. The earlier draft attributed the gap to
+mismatched calibration inputs. Those inputs were in fact identical in
+the two drivers. The 2026-10-28 internal review traced most of the gap
+to the analysis data. The package analysis that produced paper 01's
+numbers adds the baseline visit. The combined driver did not. Adding
+the baseline visit closed the gap in CO and OL+BDC to within one MCSE
+in a 400-replicate check. In the Hybrid design a gap of 0.03 to 0.06
+remained, 1.3 to 2.5 MCSE. We have not located its source. One
+candidate is a difference between the package data generator and the
+\texttt{implementations/tidyverse} generator the combined driver uses. We do
+not compare with paper 01's numbers here. They come from a version of
+paper 01 that has since been restated, under the earlier DGP. The
+validation gate of Section \ref{sec-gate} instead compares each
+boundary cell with the single-encoding DGP of the same driver, draw
+for draw.
+
+The study has limitations. The half-lives 0.5 and 1 week are
+behavioral scenarios. At 0.2 week, inside the pharmacological range of
+prazosin, the two channels were close to interchangeable, so the
+differences reported here matter mainly for behavioral carryover. The
+G9 arm covered 200 replicates of four cells per design and half-life,
+so its comparisons are coarser than the main grid. The biomarker is
+normal, so the two channels share the
+conditional mean by construction. A skewed or discrete biomarker
+would break the equivalence. We did not fit a specification that
+models the off-drug slope separately, so we have not shown that the
+off-drug profile is estimable in practice. The study is exploratory.
 
 \bigskip\noindent
 
 \rule{\textwidth}{0.4pt}\bigskip
 
-\section{Conflict of interest}
+\section*{Glossary}\label{glossary}
+\addcontentsline{toc}{section}{Glossary}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Dual-channel architecture.} The DGP of this paper, with both
+  channel weights free. Data value \texttt{combined}. Formerly
+  ``Architecture C''.
+\item
+  \textbf{Mean-shift encoding, mean-shift channel.} The interaction as a
+  shift \(c_{bm,A}\, b_i\, \sigma_{BR}\) of the drug-response component
+  at on-drug visits. Data value \texttt{mean\_moderation}. NOTATION.md calls
+  it the mean-moderation architecture.
+\item
+  \textbf{Correlation encoding, correlation channel.} The interaction as a
+  correlation \(c_{bm,B}\, g_t\) between the biomarker and the
+  drug-response component, present on drug and decaying off drug.
+  Data value \texttt{mvn}. NOTATION.md calls it the covariance-moderation
+  architecture.
+\item
+  \textbf{\(c_{bm,A}\), \(c_{bm,B}\).} The mean-shift and correlation weights
+  (code \texttt{c.bm\_a}, \texttt{c.bm\_b}). The subscripts are symbol labels only.
+\item
+  \textbf{\(\omega\).} Share of a fixed total weight assigned to the
+  correlation channel.
+\item
+  \textbf{\(g_t\).} Correlation profile: the fraction of \(c_{bm,B}\) present
+  at visit \(t\).
+\item
+  \textbf{\(D_{bc,it}\).} Exposure-decayed drug indicator of the analysis
+  model (code \texttt{Dbc}).
+\item
+  \textbf{\(\kappa_A\), \(\kappa_B\).} Coefficients of the two weights in the
+  population value of \(\beta_{bm:D}\) (Equation \eqref{eq:kappa}).
+\item
+  \textbf{\(\kappa\).} Calibration ratio: mean model-based standard error
+  divided by the empirical standard deviation of the estimates.
+  Values above 1 mean a conservative test.
+\item
+  \textbf{\(\Lambda\).} Noncentrality of the interaction test.
+\item
+  \textbf{Extended DGP.} The DGP of the companion paper\textsuperscript{\citeproc{ref-pmsimstats-paper01}{2}}: decaying biomarker-response correlation (0
+  before first exposure), the same AR(1) correlation for every
+  component with a constant between-component correlation at every
+  lag, carryover that decays from the last on-drug mean, and a stop on
+  a matrix that is not positive definite. Code label \texttt{refined}.
+\item
+  \textbf{Original carryover rule.} The drug-response mean at an off-drug
+  visit is the previous visit's mean times the decay factor. The
+  earlier run of this paper used it.
+\item
+  \textbf{Largest feasible correlation.} The largest \(c_{bm,B}\) for which
+  every path's covariance matrix is positive definite.
+\item
+  \textbf{E2, E2cr2, G8, G9.} Analysis codes. E2 is the exposure-weighted
+  interaction model with a model-based test. E2cr2 (G8) is the same
+  fit with a CR2 test. G9 chooses the half-life by AIC and uses a CR2
+  test.
+\item
+  \textbf{CO.} Two-period crossover.
+\item
+  \textbf{OL+BDC.} Open-label titration followed by blinded
+  discontinuation.
+\item
+  \textbf{Hybrid.} Open-label titration, blinded discontinuation, then a
+  brief crossover.
+\item
+  \textbf{Common random numbers.} The same random deviates used for every
+  weight cell of a replicate.
+\item
+  \textbf{Probability-scale benchmark.} \(p(a, 0) + p(0, b) - p(0, 0)\).
+\item
+  \textbf{Probit benchmark.} \(\Phi(\hat\Lambda_a + \hat\Lambda_b - z)\)
+  with \(\hat\Lambda = \Phi^{-1}(\hat\pi) + z\), where \(z\) is the
+  critical value.
+\end{itemize}
+
+\section*{Abbreviations}\label{abbreviations}
+\addcontentsline{toc}{section}{Abbreviations}
+
+AIC, Akaike information criterion. AR(1), first-order autoregressive.
+CR2, bias-reduced cluster-robust variance estimator. DGP,
+data-generating process. GLS, generalized least squares. MCSE, Monte
+Carlo standard error. PTSD, posttraumatic stress disorder. REML,
+restricted maximum likelihood.
+
+\section*{Conflict of interest}\label{conflict-of-interest}
+\addcontentsline{toc}{section}{Conflict of interest}
 
 The pmsimstats team declares no conflicts of interest.
 
-\section{Funding}
+\section*{Funding}\label{funding}
+\addcontentsline{toc}{section}{Funding}
 
 This work received no specific funding.
 
-\section{Reproducibility}
+\section*{Reproducibility}\label{reproducibility}
+\addcontentsline{toc}{section}{Reproducibility}
 
-This manuscript was rendered with R\textasciitilde4.6.0 inside the project's
-zzcollab Docker container (\texttt{rocker/tidyverse:4.6.0}; package
-set captured in \texttt{renv.lock}). The combined-architecture
-driver is at
-\texttt{analysis/scripts/dgp-combined/01-run-combined-factorial.R}
-and uses \texttt{furrr::future\_map\_dfr} with
-\texttt{plan(multicore)}; it sets \texttt{set.seed(20260610)} and
-\texttt{furrr\_options(seed = 20260610L)}. Per-replicate outputs are
-at
-\texttt{analysis/data/dgp-combined/01-combined-replicates.rds} and
-cell-level summaries at \texttt{01-combined-summary.rds}. The matched
-boundary re-run described in Section\textasciitilde4.2 will be added as a separate
-driver that adopts the per-randomization-path sample-size convention
-of the companion paper's production driver
-(\texttt{analysis/scripts/quick-sim/01-dgp-prototype.R}). The
-manuscript source, bibliography, and CSL file are at
+The driver is
+\texttt{analysis/scripts/dgp-combined/01-run-combined-factorial.R}, run
+through \texttt{analysis/scripts/dgp-combined/run-combined.sh}, which sets the
+BLAS thread variables to 1. Its header lists the exact invocations.
+It sources the data generator in
+\texttt{implementations/tidyverse/R/functions.R} and the shared helpers in
+\texttt{analysis/scripts/carryover-sensitivity/simulation-core.R}. The seed of
+each replicate is a hash of the design, half-life and replicate index
+(\texttt{label\_seed()}). Results do not depend on the number of workers.
+\texttt{02-summarise-combined.R} produces the summaries, CSV files and
+bootstrap MCSEs. \texttt{03-analytic-projection.R} produces the closed-form
+quantities. Outputs are in \texttt{analysis/data/dgp-combined/}. The main
+grid has untagged file names. The \(t_{1/2} = 0.2\) week pass and the G9
+pass carry the suffixes \texttt{-hl02} and \texttt{-g9} and have their own \texttt{meta}
+files.
+The stored run was made on 2026-10-29 12:36 PDT with R version 4.6.1 (2026-06-24) on aarch64-apple-darwin25.4.0, nlme 3.1.169 and clubSandwich 0.7.0, from commit 8918e5c6e. The driver and its sourced files had uncommitted changes at the time, so the commit alone does not reproduce the run. It took 168 minutes of wall time on 8 workers.
+It ran on the host, not in the project container. Results from the
+container and from the host are not identical draw for draw, because
+the BLAS and LAPACK libraries differ.
+
+The run of 2026-07-31 that the earlier draft reported is archived in
+\texttt{analysis/data/dgp-combined/archive-2026-07-31/}. It used the original
+carryover rule, a cross-component correlation of 0.1 at nonzero lags,
+an exposure indicator without the pre-exposure guard, repair of
+matrices that were not positive definite, no baseline visit in the
+analysis data and independent random streams per cell. Under the
+missing guard, placebo-first CO participants were coded as exposed at
+every visit when \(t_{1/2} > 0\). No matrix in that run needed repair.
+The manuscript source, bibliography and CSL file are in
 \texttt{analysis/report/11-combined-dgp-architecture/}.
 
-\section{References}\label{references}
+\section*{References}\label{references}
+\addcontentsline{toc}{section}{References}
 
 \protect\phantomsection\label{refs}
 \begin{CSLReferences}{0}{1}
-\bibitem[\citeproctext]{ref-pmsimstats-paper01}
+\bibitem[\citeproctext]{ref-hendrickson2020}
 \CSLLeftMargin{1. }%
-\CSLRightInline{{pmsimstats team}. Two architectures for simulating biomarker-treatment interactions: Implications for statistical power under carryover. Published online 2026.}
+\CSLRightInline{Hendrickson RC, Thomas RG, Schork NJ, Raskind MA. Optimizing aggregated {N}-of-1 trial designs for predictive biomarker validation: Statistical methods and theoretical findings. \emph{Frontiers in Digital Health}. 2020;2:13. doi:\href{https://doi.org/10.3389/fdgth.2020.00013}{10.3389/fdgth.2020.00013}}
+
+\bibitem[\citeproctext]{ref-pmsimstats-paper01}
+\CSLLeftMargin{2. }%
+\CSLRightInline{{pmsimstats team}. Simulating predictive-biomarker interactions in aggregated {N}-of-1 trials: An extended data-generating process building on {Hendrickson} et al. Published online 2026.}
+
+\bibitem[\citeproctext]{ref-kraemer2002}
+\CSLLeftMargin{3. }%
+\CSLRightInline{Kraemer HC, Wilson GT, Fairburn CG, Agras WS. Mediators and moderators of treatment effects in randomized clinical trials. \emph{Archives of General Psychiatry}. 2002;59(10):877-883. doi:\href{https://doi.org/10.1001/archpsyc.59.10.877}{10.1001/archpsyc.59.10.877}}
+
+\bibitem[\citeproctext]{ref-kent2020path}
+\CSLLeftMargin{4. }%
+\CSLRightInline{{Kent DM, Paulus JK, Klaveren D van, et al.} The predictive approaches to treatment effect heterogeneity ({PATH}) statement. \emph{Annals of Internal Medicine}. 2020;172(1):35-45. doi:\href{https://doi.org/10.7326/M18-3667}{10.7326/M18-3667}}
 
 \bibitem[\citeproctext]{ref-arminger1999}
-\CSLLeftMargin{2. }%
-\CSLRightInline{Arminger G, Stein P, Wittenberg J. Mixtures of conditional mean- and covariance-structure models. \emph{Psychometrika}. 1999;64(4):475-494.}
-
-\bibitem[\citeproctext]{ref-pmsimstats-paper03}
-\CSLLeftMargin{3. }%
-\CSLRightInline{{pmsimstats team}. Latent-class and mixture-model formulations for biomarker-treatment interaction in {N}-of-1 trials. Published online 2026.}
+\CSLLeftMargin{5. }%
+\CSLRightInline{Arminger G, Stein P, Wittenberg J. Mixtures of conditional mean- and covariance-structure models. \emph{Psychometrika}. 1999;64(4):475-494. doi:\href{https://doi.org/10.1007/BF02294568}{10.1007/BF02294568}}
 
 \bibitem[\citeproctext]{ref-verbekelesaffre1996}
-\CSLLeftMargin{4. }%
-\CSLRightInline{Verbeke G, Lesaffre E. A linear mixed-effects model with heterogeneity in the random-effects population. \emph{Journal of the American Statistical Association}. 1996;91(433):217-221.}
-
-\bibitem[\citeproctext]{ref-pmsimstats-paper06}
-\CSLLeftMargin{5. }%
-\CSLRightInline{{pmsimstats team}. Three-component decomposition of treatment response in aggregated {N}-of-1 trials: Pharmacological, expectation-driven, and natural-history components. Published online 2026.}
-
-\bibitem[\citeproctext]{ref-pmsimstats-paper10}
 \CSLLeftMargin{6. }%
-\CSLRightInline{{pmsimstats team}. Type {I} calibration of fixed-effect interaction tests in linear mixed models: A staged diagnosis of working-covariance misspecification and a cluster-robust remedy. Published online 2026.}
+\CSLRightInline{Verbeke G, Lesaffre E. A linear mixed-effects model with heterogeneity in the random-effects population. \emph{Journal of the American Statistical Association}. 1996;91(433):217-221. doi:\href{https://doi.org/10.2307/2291398}{10.2307/2291398}}
+
+\bibitem[\citeproctext]{ref-pmsimstats-paper03}
+\CSLLeftMargin{7. }%
+\CSLRightInline{{pmsimstats team}. Latent-class and mixture-model formulations for biomarker-treatment interaction in {N}-of-1 trials. Published online 2026.}
+
+\bibitem[\citeproctext]{ref-hedeker2008}
+\CSLLeftMargin{8. }%
+\CSLRightInline{Hedeker D, Mermelstein RJ, Demirtas H. An application of a mixed-effects location scale model for analysis of ecological momentary assessment ({EMA}) data. \emph{Biometrics}. 2008;64(2):627-634. doi:\href{https://doi.org/10.1111/j.1541-0420.2007.00924.x}{10.1111/j.1541-0420.2007.00924.x}}
+
+\bibitem[\citeproctext]{ref-senn2016mastering}
+\CSLLeftMargin{9. }%
+\CSLRightInline{Senn S. Mastering variation: Variance components and personalised medicine. \emph{Statistics in Medicine}. 2016;35(7):966-977. doi:\href{https://doi.org/10.1002/sim.6739}{10.1002/sim.6739}}
+
+\bibitem[\citeproctext]{ref-cortes2018}
+\CSLLeftMargin{10. }%
+\CSLRightInline{Cortés J, González JA, Medina MN, et al. Does evidence support the high expectations placed in precision medicine? {A} bibliographic review. \emph{F1000Research}. 2018;7:30. doi:\href{https://doi.org/10.12688/f1000research.13490.5}{10.12688/f1000research.13490.5}}
+
+\bibitem[\citeproctext]{ref-winkelbeiner2019}
+\CSLLeftMargin{11. }%
+\CSLRightInline{Winkelbeiner S, Leucht S, Kane JM, Homan P. Evaluation of differences in individual treatment response in schizophrenia spectrum disorders: A meta-analysis. \emph{JAMA Psychiatry}. 2019;76(10):1063-1073. doi:\href{https://doi.org/10.1001/jamapsychiatry.2019.1530}{10.1001/jamapsychiatry.2019.1530}}
+
+\bibitem[\citeproctext]{ref-ploderl2019}
+\CSLLeftMargin{12. }%
+\CSLRightInline{Plöderl M, Hengartner MP. What are the chances for personalised treatment with antidepressants? {Detection} of patient-by-treatment interaction with a variance ratio meta-analysis. \emph{BMJ Open}. 2019;9(12):e034816. doi:\href{https://doi.org/10.1136/bmjopen-2019-034816}{10.1136/bmjopen-2019-034816}}
+
+\bibitem[\citeproctext]{ref-morris2019simulation}
+\CSLLeftMargin{13. }%
+\CSLRightInline{Morris TP, White IR, Crowther MJ. Using simulation studies to evaluate statistical methods. \emph{Statistics in Medicine}. 2019;38(11):2074-2102. doi:\href{https://doi.org/10.1002/sim.8086}{10.1002/sim.8086}}
+
+\bibitem[\citeproctext]{ref-bell2002bias}
+\CSLLeftMargin{14. }%
+\CSLRightInline{Bell RM, McCaffrey DF. Bias reduction in standard errors for linear regression with multi-stage samples. \emph{Survey Methodology}. 2002;28(2):169-181.}
+
+\bibitem[\citeproctext]{ref-pustejovsky2018}
+\CSLLeftMargin{15. }%
+\CSLRightInline{Pustejovsky JE, Tipton E. Small-sample methods for cluster-robust variance estimation and hypothesis testing in fixed effects models. \emph{Journal of Business and Economic Statistics}. 2018;36(4):672-683. doi:\href{https://doi.org/10.1080/07350015.2016.1247004}{10.1080/07350015.2016.1247004}}
+
+\bibitem[\citeproctext]{ref-pmsimstats-paper02}
+\CSLLeftMargin{16. }%
+\CSLRightInline{{pmsimstats team}. Carryover representation and inference for biomarker-treatment interaction tests in aggregated {N}-of-1 trials: A staged simulation study and a recommended analysis for the {Hybrid} design. Published online 2026.}
 
 \end{CSLReferences}
 

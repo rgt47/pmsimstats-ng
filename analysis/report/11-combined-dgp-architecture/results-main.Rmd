@@ -1,0 +1,390 @@
+```{r res-setup, include = FALSE}
+hl_main <- c(0, 0.5, 1)
+designs <- c('CO', 'Hybrid', 'OLBDC')
+nr <- bench$null_rej
+n_reps_main <- meta$n_reps
+n_fit <- sum(cs$n_reps[cs$method %in% c('E2', 'E2cr2')])
+n_conv <- sum(cs$n_conv[cs$method %in% c('E2', 'E2cr2')])
+nrng <- function(method, d = designs, h = hl_main) {
+  v <- nr$power[nr$method == method & nr$design %in% d & nr$t1half %in% h]
+  sprintf('%s to %s', f3(min(v)), f3(max(v)))
+}
+krng <- function(method, d = designs) {
+  v <- cs$kappa[cs$method == method & cs$design %in% d &
+                  cs$t1half %in% hl_main]
+  sprintf('%s to %s', f2(min(v)), f2(max(v)))
+}
+power_table <- function(method, caption, label) {
+  s <- cs[cs$method == method & cs$t1half %in% hl_main, ]
+  lines <- c('\\begin{table}[H]', '\\small\\centering',
+             sprintf('\\caption{%s}', caption),
+             sprintf('\\label{tab:%s}', label),
+             '\\begin{tabular}{llrrr}', '\\toprule',
+             '& & \\multicolumn{3}{c}{$c_{bm,B}$ (correlation channel)} \\\\',
+             '\\cmidrule(l){3-5}',
+             'Design, $t_{1/2}$ & $c_{bm,A}$ & 0 & 0.225 & 0.45 \\\\',
+             '\\midrule')
+  for (d in designs) for (h in hl_main) {
+    for (a in c(0, 0.225, 0.45)) {
+      vals <- vapply(c(0, 0.225, 0.45), function(b) {
+        r <- s[s$design == d & s$t1half == h &
+                 abs(s$c_bm_a - a) < 1e-9 & abs(s$c_bm_b - b) < 1e-9, ]
+        sprintf('%s (%s)', f3(r$power), f3(r$mcse_power))
+      }, character(1))
+      lab <- if (a == 0) sprintf('%s, %s', dname(d), h) else ''
+      lines <- c(lines, sprintf('%s & %s & %s \\\\', lab,
+                                sprintf('%.3f', a),
+                                paste(vals, collapse = ' & ')))
+    }
+    if (!(d == 'OLBDC' && h == 1)) lines <- c(lines, '\\addlinespace')
+  }
+  c(lines, '\\bottomrule', '\\end{tabular}', '\\end{table}')
+}
+cv <- function(d, h, n, m = 'E2') sprintf('%s (%s)', f3(ctr(d, h, n, m)),
+                                          f3(ctr(d, h, n, m, 'mcse')))
+crng <- function(n, d = designs, h = hl_main, m = 'E2') {
+  r <- bench$contrasts
+  v <- r$value[r$contrast == n & r$design %in% d & r$t1half %in% h &
+                 r$method == m]
+  sprintf('%s to %s', f3(min(v)), f3(max(v)))
+}
+ev <- bench$est_vs_analytic
+cor_cells <- cs$method == 'E2' & cs$c_bm_a == 0 & cs$c_bm_b > 0 &
+  cs$t1half %in% hl_main
+cor_dev <- max(abs(cs$mean_est[cor_cells] /
+                     (-cs$c_bm_b[cor_cells] * sd_br / sd_bm) - 1))
+ev_main <- ev[ev$t1half %in% hl_main, ]
+sd_ratio <- ev_main$sd_est / ev_main$se_gls
+over_sim <- function(d, h) {
+  cell(d, h, 0.45, 0, 'E2', 'mean_est') / -nominal - 1
+}
+cl <- bench$carry_loss
+loss <- function(d, a, b, what = 'loss') {
+  cl[[what]][cl$design == d & abs(cl$c_bm_a - a) < 1e-9 &
+               abs(cl$c_bm_b - b) < 1e-9]
+}
+loss_cr2 <- function(d, a, b) {
+  cell(d, 0, a, b, 'E2cr2') - cell(d, 1, a, b, 'E2cr2')
+}
+monotone_viol <- local({
+  n <- 0
+  for (m in c('E2', 'E2cr2')) for (d in designs) for (h in hl_main) {
+    g <- cs[cs$method == m & cs$design == d & cs$t1half == h, ]
+    for (i in seq_len(nrow(g))) for (j in seq_len(nrow(g))) {
+      if (i != j && g$c_bm_a[j] >= g$c_bm_a[i] &&
+          g$c_bm_b[j] >= g$c_bm_b[i] && g$power[i] > g$power[j]) n <- n + 1
+    }
+  }
+  n
+})
+dc <- function(h, a, b, m = 'E2') {
+  x <- c(CO = cell('CO', h, a, b, m), Hybrid = cell('Hybrid', h, a, b, m),
+         OLBDC = cell('OLBDC', h, a, b, m))
+  s <- c(CO = cell('CO', h, a, b, m, 'mcse_power'),
+         Hybrid = cell('Hybrid', h, a, b, m, 'mcse_power'),
+         OLBDC = cell('OLBDC', h, a, b, m, 'mcse_power'))
+  list(p = x, s = s)
+}
+dz <- function(h, a, b, d1, d2, m = 'E2') {
+  z <- dc(h, a, b, m)
+  sprintf('%s (MCSE %s)', f3(z$p[[d1]] - z$p[[d2]]),
+          f3(sqrt(z$s[[d1]]^2 + z$s[[d2]]^2)))
+}
+```
+
+## Validation gate {#sec-gate}
+
+For the first `r meta$gate_reps` replicates of every design and
+half-life, the driver regenerated the four single-channel boundary
+cells under the single-encoding DGPs from the same seeds. That gave
+`r format(nrow(gate), big.mark = ',')` comparisons. The mean-shift
+encoding with weight $a$ was compared with the cell $(a, 0)$, and the
+correlation encoding with weight $b$ with the cell $(0, b)$. The
+generated data were identical in every comparison, with a largest
+absolute difference of `r sprintf('%g', max(gate$max_abs_data_diff))`.
+The fitted E2 estimates were identical too, with a largest difference
+of `r sprintf('%g', max(gate$max_abs_est_diff, na.rm = TRUE))`. The
+gate passed. The boundary cells of the grid are the two single-encoding
+DGPs of this driver exactly. Of the `r format(n_fit, big.mark = ',')`
+E2 and E2cr2 fits, `r format(n_conv, big.mark = ',')` converged.
+
+## Test calibration under the null
+
+Table \@ref(tab:null) gives the rejection rate in the null cell,
+$c_{bm,A} = c_{bm,B} = 0$, with `r n_reps_main` replicates per cell.
+The MCSE at the nominal level is `r f3(sqrt(0.05 * 0.95 / n_reps_main))`.
+The model-based E2 test rejected at `r nrng('E2', 'CO')` in CO,
+`r nrng('E2', 'Hybrid')` in Hybrid and `r nrng('E2', 'OLBDC')` in
+OL+BDC. Its size therefore depends on the design. It is slightly
+liberal in CO at $t_{1/2} = 1$ week and conservative in OL+BDC at the
+same half-life. The calibration ratio $\kappa$ of E2 ranged over
+`r krng('E2', 'CO')` in CO, `r krng('E2', 'Hybrid')` in Hybrid and
+`r krng('E2', 'OLBDC')` in OL+BDC, across all weight cells. The CR2
+test rejected at `r nrng('E2cr2')` in the null cell over all designs
+and half-lives. Its $\kappa$ ranged over `r krng('E2cr2')`.
+
+A design-dependent size means that E2 power is not comparable across
+designs without qualification. A conservative test loses power, and a
+liberal one gains it. Within one design and half-life, the size is
+the same for every weight cell, so contrasts between weight cells are
+unaffected. We therefore report design comparisons with both tests.
+
+```{r null-table, results = 'asis'}
+nt <- nr |>
+  dplyr::filter(t1half %in% hl_main) |>
+  dplyr::mutate(txt = sprintf('%s (%s)', f3(power), f3(mcse_power))) |>
+  dplyr::select(design, t1half, method, txt) |>
+  tidyr::pivot_wider(names_from = c(method, t1half), values_from = txt)
+cat('\\begin{table}[H]', '\\small\\centering',
+    sprintf(paste0('\\caption{Rejection rate in the null cell ',
+                   '($c_{bm,A} = c_{bm,B} = 0$), %d replicates per cell, ',
+                   '$N = 70$, MCSE in parentheses. E2 uses the ',
+                   'model-based standard error, E2cr2 the CR2 standard ',
+                   'error with a Satterthwaite test. Half-lives in ',
+                   'weeks.}'), n_reps_main),
+    '\\label{tab:null}', '\\begin{tabular}{lrrrrrr}', '\\toprule',
+    '& \\multicolumn{3}{c}{E2} & \\multicolumn{3}{c}{E2cr2} \\\\',
+    '\\cmidrule(lr){2-4}\\cmidrule(l){5-7}',
+    'Design & $t_{1/2} = 0$ & 0.5 & 1 & $t_{1/2} = 0$ & 0.5 & 1 \\\\',
+    '\\midrule', sep = '\n')
+for (d in designs) {
+  r <- nt[nt$design == d, ]
+  cat(sprintf('%s & %s & %s & %s & %s & %s & %s \\\\\n', dname(d),
+              r$E2_0, r$E2_0.5, r$E2_1, r$E2cr2_0, r$E2cr2_0.5,
+              r$E2cr2_1))
+}
+cat('\\bottomrule', '\\end{tabular}', '\\end{table}', sep = '\n')
+```
+
+## Power over the weight grid
+
+Table \@ref(tab:power-e2) gives E2 power for every cell and Table
+\@ref(tab:power-cr2) gives E2cr2 power on the same trials. Power rose
+with each weight, holding the other fixed, in every design, half-life
+and test. There were `r monotone_viol` exceptions among all ordered
+pairs of cells. Monotonicity follows from Equation
+\@ref(eq:kappa). Both weights add to the same coefficient with the
+same sign. It says nothing about whether the channels act
+independently.
+
+At $t_{1/2} = 0$ the two single-channel cells at weight 0.45 had
+similar power in every design. Under E2 the values were
+`r pw('CO', 0, 0.45, 0)` and `r pw('CO', 0, 0, 0.45)` in CO,
+`r pw('Hybrid', 0, 0.45, 0)` and `r pw('Hybrid', 0, 0, 0.45)` in
+Hybrid, and `r pw('OLBDC', 0, 0.45, 0)` and `r pw('OLBDC', 0, 0, 0.45)`
+in OL+BDC, for the mean-shift and correlation channels in that order.
+At $t_{1/2} = 1$ week they separated in Hybrid and OL+BDC (Section
+\@ref(sec-eqsum)).
+
+```{r power-e2, results = 'asis'}
+cat(power_table('E2', sprintf(paste0(
+  'Power of the E2 test (model-based standard error) over the channel ',
+  'weights, $N = 70$, %d replicates per cell, MCSE in parentheses. ',
+  'Rows give $c_{bm,A}$ (mean-shift channel), columns $c_{bm,B}$ ',
+  '(correlation channel). The column $c_{bm,B} = 0$ is the mean-shift ',
+  'encoding and the row $c_{bm,A} = 0$ the correlation encoding. ',
+  'Half-lives in weeks.'), n_reps_main), 'power-e2'), sep = '\n')
+```
+
+```{r power-cr2, results = 'asis'}
+cat(power_table('E2cr2', paste0(
+  'Power of the E2cr2 test (CR2 standard error, Satterthwaite test) on ',
+  'the same trials as Table \\ref{tab:power-e2}. MCSE in ',
+  'parentheses.'), 'power-cr2'), sep = '\n')
+```
+
+## The fitted coefficient {#sec-est}
+
+At $t_{1/2} = 0$ the fitted coefficient was additive in the two
+weights, replicate by replicate. The paired interaction contrast
+$\hat\beta(0.45, 0.45) - \hat\beta(0.45, 0) - \hat\beta(0, 0.45) +
+\hat\beta(0, 0)$ averaged
+`r sprintf('%.1e', max(abs(bench$est_pairs$additivity_dev[bench$est_pairs$t1half == 0])))`
+or less in absolute value. The reason is exact. At $t_{1/2} = 0$ the
+mean shift is a linear combination of the fixed-effect columns
+$B_i D_{bc,it}$ and $D_{bc,it}$. Adding it changes neither the REML
+variance estimates nor anything but the interaction estimate. At
+$t_{1/2} > 0$ the contrast was at most
+`r sprintf('%.1e', max(abs(bench$est_pairs$additivity_dev)))`, against
+estimates near `r f2(nominal)` in size.
+
+The two weights did not have equal coefficients at $t_{1/2} > 0$. The
+correlation channel's mean estimate stayed within
+`r pct(cor_dev)` percent of its nominal value in every design and
+half-life. The
+mean-shift channel's estimate at weight 0.45 and $t_{1/2} = 1$ week
+exceeded the nominal $-`r f3(nominal)`$ by
+`r pct(over_sim('CO', 1))` percent in CO,
+`r pct(over_sim('Hybrid', 1))` percent in Hybrid and
+`r pct(over_sim('OLBDC', 1))` percent in OL+BDC. The MCSE of each mean
+estimate was about `r f3(max(cs$mcse_est[cs$method == 'E2']))` or less.
+The GLS projection under the true conditional covariance gave
+`r pct(kap('CO', 1, 'overshoot_A'))`,
+`r pct(kap('Hybrid', 1, 'overshoot_A'))` and
+`r pct(kap('OLBDC', 1, 'overshoot_A'))` percent (Section
+\@ref(sec-analytic)). The fitted model weights the off-drug visits
+differently from the true covariance. Its overshoot was roughly twice
+the projection's in Hybrid and three times in OL+BDC. The 2026-10-28
+internal review reported 21 to 39 percent for the earlier run, which
+lacked the baseline visit and used the original carryover rule. The
+direction agrees, and the size depends on the analysis data.
+
+The empirical standard deviation of the E2 estimate exceeded the GLS
+standard error under the true covariance in every cell. The ratio of
+the two ranged from `r f2(min(sd_ratio))` to `r f2(max(sd_ratio))`.
+The working covariance of
+the analysis model is a random intercept with continuous AR(1)
+errors. The DGP has four correlated components, so the fitted
+estimator is less efficient than GLS. The GLS noncentrality therefore
+overstates the attainable power and serves as an upper reference only.
+
+## Additivity of power {#sec-additivity}
+
+Table \@ref(tab:additivity) compares the combined cell
+$(0.225, 0.225)$ with three benchmarks. The first is the
+probability-scale benchmark $p(0.225, 0) + p(0, 0.225) - p(0, 0)$.
+The second is the probit benchmark of the 2026-10-28 internal review.
+It maps each single-channel power to a noncentrality,
+$\hat\Lambda = \Phi^{-1}(\hat\pi) + 1.96$, adds the two and maps back,
+$\Phi(\hat\Lambda_A + \hat\Lambda_B - 1.96)$. The third is the same
+benchmark with the critical value calibrated to the observed null
+rejection rate, $z = \Phi^{-1}(1 - \hat\pi_0/2)$. It corrects for a
+test whose size is not 0.05. The table also gives the within-channel
+control. It compares $p(0.45, 0)$ with $2p(0.225, 0) - p(0, 0)$ for
+the mean-shift channel and the analogous quantity for the correlation
+channel.
+
+The combined cell exceeded the probability-scale benchmark by
+`r crng('prob_excess_0.225_0.225')` under E2. The single channels
+doubled showed the same excess, `r crng('double_A')` for the mean-shift
+channel and `r crng('double_B')` for the correlation channel. The
+excess is therefore a property of the power curve, not of combining
+two channels. At $(0.45, 0.45)$ the probability-scale benchmark
+exceeded 1 in every design and half-life. The combined power fell
+short of it by `r sprintf('%s to %s', f3(-max(bench$contrasts$value[bench$contrasts$contrast == 'prob_excess_0.450_0.450' & bench$contrasts$method == 'E2' & bench$contrasts$t1half %in% hl_main])), f3(-min(bench$contrasts$value[bench$contrasts$contrast == 'prob_excess_0.450_0.450' & bench$contrasts$method == 'E2' & bench$contrasts$t1half %in% hl_main])))`.
+
+On the probit scale the combined cell agreed with the benchmark. Under
+E2 the departure was `r crng('probit_excess_0.225_0.225', c('CO', 'Hybrid'))`
+in CO and Hybrid, within about two MCSE in every cell. In OL+BDC it was
+`r crng('probit_excess_0.225_0.225', 'OLBDC')`. These are the cells
+where E2 was conservative. With the critical value calibrated to the
+observed size, the OL+BDC departures were
+`r crng('probitcal_excess_0.225_0.225', 'OLBDC')`, and all nine
+departures were within two MCSE. Under the CR2 test, whose size was
+near nominal, the uncalibrated probit departures were
+`r crng('probit_excess_0.225_0.225', m = 'E2cr2')`.
+The probit approximation ignores the lower rejection tail and the $t$
+reference distribution, so agreement within a few hundredths is what
+it can deliver.
+
+```{r additivity-table, results = 'asis'}
+cat('\\begin{table}[H]', '\\small\\centering',
+    paste0('\\caption{Additivity of E2 power at the combined cell ',
+           '$(0.225, 0.225)$ and the within-channel control. Observed: ',
+           'power at $(0.225, 0.225)$. Excess over the probability-scale ',
+           'benchmark, over the probit benchmark with $z = 1.96$, and ',
+           'over the probit benchmark with $z$ calibrated to the observed ',
+           'null rejection. Doubling: $p(0.45, 0) - [2p(0.225, 0) - ',
+           'p(0, 0)]$ for the mean-shift channel and the same for the ',
+           'correlation channel. Paired bootstrap MCSE in parentheses.}'),
+    '\\label{tab:additivity}', '\\begin{tabular}{llrrrrrr}', '\\toprule',
+    paste0('Design & $t_{1/2}$ & Observed & Prob. & Probit & ',
+           'Probit, cal. & Doubling, mean & Doubling, cor. \\\\'),
+    '\\midrule', sep = '\n')
+for (d in designs) for (h in hl_main) {
+  cat(sprintf('%s & %s & %s & %s & %s & %s & %s & %s \\\\\n',
+              if (h == 0) dname(d) else '', h,
+              f3(cell(d, h, 0.225, 0.225)),
+              cv(d, h, 'prob_excess_0.225_0.225'),
+              cv(d, h, 'probit_excess_0.225_0.225'),
+              cv(d, h, 'probitcal_excess_0.225_0.225'),
+              cv(d, h, 'double_A'), cv(d, h, 'double_B')))
+}
+cat('\\bottomrule', '\\end{tabular}', '\\end{table}', sep = '\n')
+```
+
+## The equal-total line and carryover {#sec-eqsum}
+
+The anti-diagonal of the grid holds three pairs with total weight
+0.45: $(0.45, 0)$, $(0.225, 0.225)$ and $(0, 0.45)$. On drug they give
+the same conditional slope. They differ in the off-drug profile only.
+Table \@ref(tab:eqsum) gives their power and the paired difference
+between the two single-channel ends.
+
+At $t_{1/2} = 0$ the correlation end had slightly higher power than
+the mean-shift end. The paired E2 differences, mean-shift minus
+correlation, were `r crng('eqsum_A_minus_B', h = 0)`. This is the
+effect of the smaller conditional variance under the correlation
+channel. At $t_{1/2} = 1$ week the order reversed in Hybrid and
+OL+BDC. The differences were `r cv('Hybrid', 1, 'eqsum_A_minus_B')` and
+`r cv('OLBDC', 1, 'eqsum_A_minus_B')`. In CO the difference stayed near
+zero, `r cv('CO', 1, 'eqsum_A_minus_B')`. The mixed pair
+$(0.225, 0.225)$ lay between the two ends, or within two paired MCSE
+of the nearer end, in every design and half-life. Under E2cr2 the reversal at $t_{1/2} = 1$ week was
+`r cv('Hybrid', 1, 'eqsum_A_minus_B', 'E2cr2')` in Hybrid and
+`r cv('OLBDC', 1, 'eqsum_A_minus_B', 'E2cr2')` in OL+BDC. Pairs with the
+same total weight therefore do not give similar power once carryover
+is present. The earlier draft stated that they did.
+
+The loss of power from $t_{1/2} = 0$ to 1 week shows the same
+difference. Under E2, the mean-shift encoding at weight 0.45 lost
+`r f3(loss('Hybrid', 0.45, 0))` in Hybrid and
+`r f3(loss('OLBDC', 0.45, 0))` in OL+BDC. The correlation encoding
+lost `r f3(loss('Hybrid', 0, 0.45))` and `r f3(loss('OLBDC', 0, 0.45))`.
+The MCSE of each loss is about `r f3(max(cl$loss_mcse))`. Under
+E2cr2 the losses were `r f3(loss_cr2('Hybrid', 0.45, 0))` and
+`r f3(loss_cr2('OLBDC', 0.45, 0))` for the mean-shift encoding and
+`r f3(loss_cr2('Hybrid', 0, 0.45))` and `r f3(loss_cr2('OLBDC', 0, 0.45))`
+for the correlation encoding. Part of the E2 loss in OL+BDC reflects
+the test's growing conservatism there. In CO all losses were small,
+`r f3(min(cl$loss[cl$design == 'CO']))` to
+`r f3(max(cl$loss[cl$design == 'CO']))` under E2. The correlation
+channel's interaction decays with the drug effect. The mean-shift
+channel's interaction stops at discontinuation, so the off-drug
+visits keep their contrast with the on-drug visits. The earlier draft
+stated that the two channels contribute comparably to carryover
+sensitivity. In the Hybrid and OL+BDC designs the correlation channel
+lost more than twice as much power under either test.
+
+```{r eqsum-table, results = 'asis'}
+cat('\\begin{table}[H]', '\\small\\centering',
+    paste0('\\caption{Power along the equal-total line ',
+           '$c_{bm,A} + c_{bm,B} = 0.45$, E2 and E2cr2, MCSE in ',
+           'parentheses. Difference: power at $(0.45, 0)$ minus power at ',
+           '$(0, 0.45)$, paired, with bootstrap MCSE. Half-lives in ',
+           'weeks.}'),
+    '\\label{tab:eqsum}', '\\begin{tabular}{lllrrrr}', '\\toprule',
+    paste0('Design & $t_{1/2}$ & Test & $(0.45, 0)$ & $(0.225, 0.225)$ & ',
+           '$(0, 0.45)$ & Difference \\\\'),
+    '\\midrule', sep = '\n')
+for (d in designs) for (h in hl_main) for (m in c('E2', 'E2cr2')) {
+  ps <- function(a, b) sprintf('%s (%s)', f3(cell(d, h, a, b, m)),
+                               f3(cell(d, h, a, b, m, 'mcse_power')))
+  cat(sprintf('%s & %s & %s & %s & %s & %s & %s \\\\\n',
+              if (h == 0 && m == 'E2') dname(d) else '',
+              if (m == 'E2') h else '', m, ps(0.45, 0), ps(0.225, 0.225),
+              ps(0, 0.45), cv(d, h, 'eqsum_A_minus_B', m)))
+}
+cat('\\bottomrule', '\\end{tabular}', '\\end{table}', sep = '\n')
+```
+
+The ranking of designs depended on the channel and the half-life. The
+Hybrid design had the highest power, or power within two MCSE of the
+highest, in every single-channel cell at weight 0.45 under both
+tests. At weight 0.225 and $t_{1/2} = 1$ week, CO exceeded Hybrid on
+the correlation channel under E2,
+`r dz(1, 0, 0.225, 'CO', 'Hybrid')`, but not under E2cr2,
+`r dz(1, 0, 0.225, 'CO', 'Hybrid', 'E2cr2')`. That E2 difference
+reflects the liberal E2 test in CO. The order of CO and OL+BDC was not fixed. At
+$t_{1/2} = 0$ and weight 0.45 on the correlation channel, OL+BDC
+exceeded CO by `r dz(0, 0, 0.45, 'OLBDC', 'CO', 'E2cr2')` under E2cr2.
+At $t_{1/2} = 1$ week the difference was
+`r dz(1, 0, 0.45, 'OLBDC', 'CO', 'E2cr2')`. On the mean-shift channel
+at $t_{1/2} = 1$ week, OL+BDC exceeded CO by
+`r dz(1, 0.45, 0, 'OLBDC', 'CO', 'E2cr2')`. Under E2 the CO and OL+BDC
+differences also carry the two tests' different sizes. The earlier
+draft stated that the design ranking was preserved throughout the
+grid. For CO and OL+BDC it is not.
+
+```{r g9-hl02, child = 'results-extra.Rmd'}
+```

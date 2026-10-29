@@ -134,6 +134,37 @@ Figure \@ref(fig:fig4bmc) repeats the comparison for all four designs, both samp
 knitr::include_graphics('../../figures/quick-sim/hendrickson-problems/fig4b-graded-cbm0.25.png')
 ```
 
+```{r fig4bg9data}
+g9f <- read.csv(file.path('..', '..', 'data', 'quick-sim',
+                          'carryover-closed-form', 'g9-planning',
+                          'fig4b-g9-cbm0.25.csv'))
+g9f_pick <- function(d, N, th, cens = 'No censoring') {
+  sprintf('%.2f', g9f$power[g9f$design == d & g9f$N == N &
+                            g9f$t_half == th & g9f$censoring == cens])
+}
+```
+
+Figure \@ref(fig:fig4bg9) repeats the grid under the extended DGP with the recommended analysis G9 (a random-intercept CAR(1) mixed model with an AIC-chosen analysis half-life and CR2 standard errors). At $N = 70$ without censoring, Hybrid power is `r g9f_pick('N-of-1', 70, 0)`, `r g9f_pick('N-of-1', 70, 0.1)` and `r g9f_pick('N-of-1', 70, 0.2)` at half-lives of 0, 0.1 and 0.2 week. The open-label design has no off-drug visit, so the interaction is not estimable under G9.
+
+```{r fig4bg9, fig.cap = 'Power of the analysis G9 under the extended DGP (separable AR(1), $\\rho = 0.7$, $c_1 = 0.2$, decaying correlation), in the layout of Figure 4B of the original study. $c_{bm} = 0.25$, 250 replicates per cell (Monte Carlo SE at most 0.032). Gray cells (n/e): the open-label design, in which every visit is on drug and the interaction is not estimable under G9.', out.width = '100%', fig.align = 'center', fig.width = 9, fig.height = 5.2}
+library(ggplot2)
+fd <- g9f
+fd$design <- factor(fd$design, levels = c('OL', 'OL+BDC', 'CO', 'N-of-1'))
+fd$censoring <- factor(fd$censoring,
+  levels = c('high dropout', 'more of biased', 'more of flat', 'balanced',
+             'No censoring'))
+fd$N <- factor(paste0('N = ', fd$N), levels = c('N = 35', 'N = 70'))
+fd$label <- ifelse(is.na(fd$power), 'n/e', sprintf('%.2f', fd$power))
+ggplot(fd, aes(factor(t_half), censoring, fill = power)) +
+  geom_tile(color = 'white') +
+  geom_text(aes(label = label), size = 2.8) +
+  facet_grid(N ~ design) +
+  scale_fill_distiller(palette = 'RdYlBu', limits = c(0, 1),
+                       name = 'Power', na.value = 'grey85') +
+  labs(x = 'Carryover half-life (weeks)', y = 'Censoring parameters') +
+  theme_grey(base_size = 10)
+```
+
 Figure \@ref(fig:fig4b) extends the comparison over interaction strengths and longer half-lives. Gray cells mark effect sizes with no valid joint distribution.
 
 ```{r fig4b, fig.cap = 'Closed-form power of the paired-difference statistic by interaction strength ($c_{bm}$) and carryover half-life, in the layout of Figure 4B of the original study: the original rule (labeled Step in the figure) and the decaying correlation (labeled Graded). Upper row: E9b, which counts baseline as an off-drug visit as the original analysis does; lower row: E9. Gray cells: $c_{bm}$ at or above the compound-symmetry feasibility bound, where the correlation matrix is not positive definite. Hybrid design, $N = 70$, compound symmetry.', out.width = '100%', fig.align = 'center'}
@@ -278,7 +309,23 @@ Table: (\#tab:spec) The extended data-generating process. Defaults are those use
 
 ## Using the extended DGP to plan a trial
 
-Table \@ref(tab:planning) gives the total sample size for 80 percent power. At a half-life of 0.2 week the Hybrid design needs 278 participants at $c_{bm} = 0.25$ and 84 at 0.45. At 1 week it needs 480 and 146.
+```{r planningg9data}
+pg <- read.csv(file.path('..', '..', 'data', 'quick-sim',
+                         'carryover-closed-form', 'g9-planning',
+                         'planning-g9.csv'))
+pg_design <- c(Hybrid = 'Hybrid', `OL+BDC` = 'OL+BDC', Crossover = 'CO')
+pg_pow <- function(d, cbm, th, nlab = '70') {
+  r <- pg[pg$design == pg_design[d] & pg$c_bm == cbm & pg$t_half == th &
+          pg$N_label == nlab, ]
+  paste0(sprintf('%.3f', r$power), if (r$capped) '$^\\dagger$' else '')
+}
+pg_n80 <- pg[pg$c_bm > 0 & pg$N_label == 'N80_E9' & !pg$capped, ]
+pg_n80_range <- sprintf('%.3f to %.3f', min(pg_n80$power), max(pg_n80$power))
+pg_size_range <- sprintf('%.3f to %.3f', min(pg$size, na.rm = TRUE),
+                         max(pg$size, na.rm = TRUE))
+```
+
+Table \@ref(tab:planning) gives the total sample size for 80 percent power of the paired-difference statistic E9. At a half-life of 0.2 week the Hybrid design needs 278 participants at $c_{bm} = 0.25$ and 84 at 0.45. At 1 week it needs 480 and 146. The last column gives the simulated power of the recommended analysis G9 at $N = 70$ (1,000 replicates per cell, Monte Carlo SE at most 0.016). G9 rejected the null at `r pg_size_range` (2,000 replicates per cell). At the E9 sample size for 80 percent power, G9 power was `r pg_n80_range` in the `r nrow(pg_n80)` cells whose sample size was at most 400. The closed-form E9 rule is conservative for G9.
 
 ```{r planning}
 tab <- data.frame(
@@ -289,11 +336,13 @@ tab <- data.frame(
   n02 = c(278, 140, 84, 404, 206, 124, 424, 216, 130),
   n1 = c(480, 244, 146, '> 800', 452, 272, 454, 230, 138),
   p70 = c(0.285, 0.503, 0.728, 0.210, 0.368, 0.558, 0.202, 0.353, 0.537))
-knitr::kable(tab, booktabs = TRUE, digits = 3, escape = FALSE, align = 'lrrrrrr',
+tab$g70 <- mapply(function(d, cb) pg_pow(d, cb, 0.2, '70'),
+                  rep(c('Hybrid', 'OL+BDC', 'Crossover'), each = 3), tab$cbm)
+knitr::kable(tab, booktabs = TRUE, digits = 3, escape = FALSE, align = 'lrrrrrrr',
   linesep = '',
-  col.names = c('Design', '$c_{bm}$', 'Slope (points per SD)', '$t_{1/2} = 0$', '0.2 week', '1 week', 'Power at $N = 70$, 0.2 week'),
-  caption = 'Planning under the extended DGP (separable AR(1), $\\rho = 0.7$, $c_1 = 0.2$, decaying correlation, carryover decaying from the last on-drug mean): total $N$ for 80 percent power of the paired-difference statistic E9 at $\\alpha = 0.05$, by design, interaction strength and carryover half-life, with the implied slope in symptom points per SD of biomarker ($\\sigma_{BR} = 8$) and the power at $N = 70$. Participants are allocated to paths in the original fixed proportions.') |>
-  kableExtra::add_header_above(c(' ' = 3, 'N for 80 percent power' = 3, ' ' = 1))
+  col.names = c('Design', '$c_{bm}$', 'Slope (points per SD)', '$t_{1/2} = 0$', '0.2 week', '1 week', 'E9', 'G9'),
+  caption = 'Planning under the extended DGP (separable AR(1), $\\rho = 0.7$, $c_1 = 0.2$, decaying correlation, carryover decaying from the last on-drug mean): total $N$ for 80 percent power of the paired-difference statistic E9 at $\\alpha = 0.05$, by design, interaction strength and carryover half-life, with the implied slope in symptom points per SD of biomarker ($\\sigma_{BR} = 8$) and the power at $N = 70$ and the 0.2-week half-life for E9 (closed form) and for the analysis G9 (simulated, 1,000 replicates per cell, Monte Carlo SE at most 0.016). Participants are allocated to paths in the original fixed proportions.') |>
+  kableExtra::add_header_above(c(' ' = 3, 'N for 80 percent power' = 3, 'Power at $N = 70$, 0.2 week' = 2), escape = FALSE)
 ```
 
 # Appendix A. Closed-form derivations {-}

@@ -7,7 +7,8 @@
 ## The open-label design is not estimable under G9 (Dbc is constant, so
 ## bm:Dbc is aliased with bm); its tiles are grey and marked n/e. The
 ## existing figure is left unchanged and the new file is written beside
-## it under docs/figures.
+## it under analysis/figures. Version labels follow STYLE.md: the
+## original rule (constant correlation) and the decaying correlation.
 ##
 ## Run from the repository root:
 ##   Rscript analysis/scripts/quick-sim/carryover-closed-form/21-fig4b-g9-heatmap.R \
@@ -23,14 +24,15 @@ base_file <- argv('--base', sprintf(
 g9_file <- argv('--g9', sprintf(
   'analysis/data/quick-sim/carryover-closed-form/g9-planning/fig4b-g9-cbm%.2f.csv', cbm))
 out_file <- argv('--out', sprintf(
-  'docs/figures/quick-sim/hendrickson-problems/fig4b-graded-g9-cbm%.2f.png', cbm))
+  'analysis/figures/quick-sim/hendrickson-problems/fig4b-graded-g9-cbm%.2f.png', cbm))
 dir.create(dirname(out_file), recursive = TRUE, showWarnings = FALSE)
 
 cols <- c('censorparamset', 'power', 'version', 'design', 'N', 't_half', 'censoring')
 d <- rbind(fread(base_file)[, ..cols], fread(g9_file)[, ..cols])
 stopifnot(setequal(unique(d$version), c('published', 'graded', 'extended-G9')))
-v_levels <- c('Published coupling (58b32a9)', 'Graded coupling',
-              'Extended DGP, G9 analysis')
+v_levels <- c('Original rule (58b32a9)\noriginal analysis',
+              'Decaying correlation\noriginal analysis',
+              'Extended DGP\nG9 analysis')
 d[, design := factor(design, levels = c('OL', 'OL+BDC', 'CO', 'N-of-1'))]
 d[, censoring := factor(censoring, levels = c('high dropout', 'more of biased',
                                               'more of flat', 'balanced', 'No censoring'))]

@@ -29,6 +29,17 @@ driver scripts live inside `pmsimstats-ng` so that the full set of
 papers in development share a common build, bibliography, and
 review surface.
 
+## Status (2026-10-28)
+
+`report.Rmd` was revised after the referee report of 2026-10-28 into a
+linear-DGP pilot (multi-crossover, not the Hybrid design). It depends on
+`analysis/scripts/treatment-main-effect/pilot-core.R`, not on
+`nof1power`, so the dependency section below applies to the older
+notebooks only. The previous manuscript is archived at
+`archive/report-2026-10-09-pre-revision.Rmd`, and `report_short.Rmd` is
+superseded and archived with its outputs. Simulation tables are marked
+RESULTS-PENDING until `04-mainfx-pilot-summary.rds` exists.
+
 ## Directory contents
 
 | File | Role |

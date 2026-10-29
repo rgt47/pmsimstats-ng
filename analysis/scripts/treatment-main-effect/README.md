@@ -5,6 +5,17 @@
 Driver scripts for the manuscript at
 `analysis/report/04-treatment-main-effect/`.
 
+## Paper 04 pilot (2026-10-28)
+
+| File | Role |
+|---|---|
+| `pilot-core.R` | DGP, analysis rules, closed form, summaries |
+| `production-run.R` | Driver (`--smoke`, `--force`) |
+| `check-pilot.R` | Fast checks, about 15 seconds |
+
+The other files in this directory belong to earlier versions of the
+study and are not used by the current manuscript.
+
 ## Provenance
 
 Migrated on 2026-05-06 from

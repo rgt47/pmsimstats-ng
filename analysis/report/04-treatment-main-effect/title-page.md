@@ -7,7 +7,7 @@ fontsize: 11pt
 geometry: "left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm"
 ---
 
-# Comparative Statistical Power of Aggregated N-of-1 and Parallel-Group Trial Designs for Detecting Treatment Main Effects
+# Power of a Multi-Crossover N-of-1 Design Versus a Parallel-Group Trial for a Treatment Main Effect: A Linear-DGP Pilot Simulation
 
 **Authors.** Temperance Persons, on behalf of the pmsimstats team.
 

@@ -377,7 +377,11 @@ results <- generateSimulatedResults(
 
 Long runs go to the simulation host with `simrun` (see
 `analysis/scripts/quick-sim/carryover-closed-form/RERUN-anchored.md`).
-The host has 2 physical cores (4 threads); jobs run one at a time.
+The default host, zeus, gives each job 8 cores and 24 GB, enforced
+by a cgroup, so `parallel::detectCores()` overstates what a job may
+use; size worker pools with `parallelly::availableCores()`. Jobs run
+one at a time per host; `--host sim-mercury-ts` targets the second
+host, whose job numbers are separate.
 Results from the container and from a local session are not
 draw-for-draw identical (different BLAS/LAPACK), so arms that must be
 paired trial by trial have to run on the same platform.

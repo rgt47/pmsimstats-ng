@@ -447,6 +447,9 @@ paired_diff <- function(reps, arm_a, arm_b, col = 'p_c',
   a <- reps[reps$arm == arm_a, c('rep', col)]
   b <- reps[reps$arm == arm_b, c('rep', col)]
   m <- merge(a, b, by = 'rep', suffixes = c('_a', '_b'))
+  # A failed fit stores NA; the paired contrast needs both arms, so a
+  # replicate where either arm failed is dropped from both.
+  m <- m[stats::complete.cases(m), ]
   ia <- m[[paste0(col, '_a')]] < alpha
   ib <- m[[paste0(col, '_b')]] < alpha
   dd <- as.numeric(ia) - as.numeric(ib)

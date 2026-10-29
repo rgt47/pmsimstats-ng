@@ -4,8 +4,8 @@ author: 'pmsimstats team'
 date: '`r format(Sys.Date(), "%B %d, %Y")`'
 abstract: |
   **Background.** Aggregated N-of-1 trials are proposed as an efficient alternative to parallel-group trials. Published simulations compare them at matched participant counts but not at matched observation counts. Carryover handling is rarely compared across rules that a trial can apply.
-  **Methods.** We simulated a linear data-generating process for prazosin and PTSD nightmares. The N-of-1 arm was a randomized 4 + 4 multi-crossover of one-week periods in 35 participants. Five analysis rules handled carryover. Three parallel-group comparators used 35 participants. We derived power in closed form and planned 2,000 replicates per cell to confirm it.
-  **Results.** The closed form gave power 0.84 for the schedule-exclusion rule and 0.24 for a one-visit trial at an effect of -1 nightmare per week. A trial with eight visits and a noisy baseline reached 0.63. Under a true half-life of one week, schedule exclusion had bias 0.20 and coverage 0.91. The simulation confirmation is pending.
+  **Methods.** We simulated a linear data-generating process for prazosin and PTSD nightmares. The N-of-1 arm was a randomized 4 + 4 multi-crossover of one-week periods in 35 participants. Five analysis rules handled carryover. Three parallel-group comparators used 35 participants. We derived power in closed form and checked it with 2,000 simulated replicates per cell.
+  **Results.** The closed form gave power 0.84 for the schedule-exclusion rule and 0.24 for a one-visit trial at an effect of -1 nightmare per week. A trial with eight visits and a noisy baseline reached 0.63. The simulated powers were 0.83, 0.23, and 0.64, with Monte Carlo standard errors of at most 0.011. Null rejection rates ranged from 0.043 to 0.054 across arms. Ignoring carryover biased the estimate toward zero by 0.17 at an effect of -1. Under a true half-life of one week, schedule exclusion had simulated bias 0.19 and coverage 0.90.
   **Conclusions.** Most of the apparent N-of-1 advantage reflects the number of observations per participant. The remaining advantage is smaller and depends on how carryover is handled. This pilot does not simulate the hybrid design, treatment-effect heterogeneity, or a placebo response.
   **Keywords:** N-of-1 trials; randomized controlled trials; statistical power; carryover; crossover design; Monte Carlo simulation.
 output:
@@ -48,11 +48,66 @@ source(file.path(root, 'analysis', 'scripts', 'treatment-main-effect',
 
 sim_file <- file.path(root, 'analysis', 'data', 'derived_data',
                       '04-mainfx-pilot-summary.rds')
-have_sim <- file.exists(sim_file)
-pending <- function(what = 'simulation result') {
-  paste0('**[RESULTS-PENDING: ', what, ' awaits the production run]**')
-}
+stopifnot('production-run summary is missing' = file.exists(sim_file))
 fmt <- function(x, d = 2) formatC(x, format = 'f', digits = d)
+```
+
+```{r sim-load}
+sim <- readRDS(sim_file)
+ssum <- sim$summary
+n_sim <- sim$meta$n_sim
+
+# The driver names each cell with format(), which pads to a common
+# width, so the null cell is 'M1-b 0.0-h0.2'. Read the stored names
+# rather than rebuilding them.
+rep_dir <- file.path(root, 'analysis', 'data', 'derived_data',
+                     '04-mainfx-pilot')
+rep_files <- file.path(rep_dir, paste0('rep-', sim$cells$cell, '.rds'))
+stopifnot('a replicate file is missing' = all(file.exists(rep_files)))
+reps_all <- lapply(rep_files, readRDS)
+stopifnot(all(vapply(reps_all, function(r) length(unique(r$rep)),
+                     integer(1)) == n_sim))
+
+# The stored paired table is NA in any cell where one fit failed,
+# because the 2026-10-28 paired_diff() did not drop failed rows.
+# Recompute it from the replicate rows with the corrected function.
+pairs <- list(c('XS', 'RCT1_r08'), c('XS', 'RCT8_r08'),
+              c('DBC', 'RCT8_r08'), c('XS', 'DBC'))
+spaired <- do.call(rbind, lapply(seq_along(reps_all), function(ci) {
+  do.call(rbind, lapply(pairs, function(p) {
+    r <- paired_diff(reps_all[[ci]], p[1L], p[2L])
+    data.frame(true_effect = sim$cells$true_effect[ci],
+               t_half = sim$cells$t_half[ci], arm_a = p[1L],
+               arm_b = p[2L], diff = r[['diff']], mcse = r[['mcse']],
+               mcse_ind = r[['mcse_independent']])
+  }))
+}))
+stopifnot(!anyNA(spaired$diff))
+
+n_fail <- sum(vapply(reps_all, function(r) sum(!r$ok), integer(1)))
+n_fits <- sum(vapply(reps_all, nrow, integer(1)))
+
+sv <- function(arm, b, h, col) {
+  ssum[[col]][ssum$arm == arm & ssum$true_effect == b &
+                ssum$t_half == h & (ssum$study == 'S1' | h == 0.2)]
+}
+m1 <- function(arm, col, b = -1) sv(arm, b, 0.2, col)
+s1 <- function(arm, h, col) sv(arm, -1, h, col)
+pd <- function(a, b, col = 'diff', e = -1, h = 0.2) {
+  spaired[[col]][spaired$arm_a == a & spaired$arm_b == b &
+                   spaired$true_effect == e & spaired$t_half == h]
+}
+null_c <- ssum[ssum$study == 'M1' & ssum$true_effect == 0, ]
+nof1_arms <- c('ALL', 'XS', 'DBC', 'DBCL', 'XO')
+null_r <- null_c[null_c$arm %in% nof1_arms, ]
+null_z <- max(abs(c(null_c$power_c, null_r$power_r) - 0.05) /
+                sqrt(0.05 * 0.95 / n_sim))
+xo_xs_same <- all(vapply(reps_all[1:4], function(r) {
+  x <- r[r$arm == 'XS', ]
+  o <- r[r$arm == 'XO', ]
+  isTRUE(all.equal(x$beta[order(x$rep)], o$beta[order(o$rep)]))
+}, logical(1)))
+stopifnot(xo_xs_same)
 ```
 
 ```{r closed-form}
@@ -75,13 +130,25 @@ icc <- PILOT$sigma_u^2 / (PILOT$sigma_u^2 + PILOT$sigma_w^2)
 
 ```{r abstract-check}
 # The abstract is static text. These guards fail the render if the
-# closed form no longer supports the numbers it quotes.
+# closed form or the stored simulation no longer supports the
+# numbers it quotes.
 stopifnot(
   round(pw('XS', -1), 2) == 0.84,
   round(pw('RCT1_exact', -1), 2) == 0.24,
   round(pw('RCT8_r08', -1), 2) == 0.63,
   round(s1v('XS', 1, 'bias'), 2) == 0.20,
-  round(s1v('XS', 1, 'coverage'), 2) == 0.91
+  round(s1v('XS', 1, 'coverage'), 2) == 0.91,
+  n_sim == 2000,
+  fmt(m1('XS', 'power_c')) == '0.83',
+  fmt(m1('RCT1_exact', 'power_c')) == '0.23',
+  fmt(m1('RCT8_r08', 'power_c')) == '0.64',
+  max(ssum$power_c_mcse[ssum$study == 'M1' &
+                          ssum$true_effect == -1]) <= 0.011,
+  fmt(min(null_c$power_c), 3) == '0.043',
+  fmt(max(null_c$power_c), 3) == '0.054',
+  fmt(m1('ALL', 'bias')) == '0.17',
+  fmt(s1('XS', 1, 'bias')) == '0.19',
+  fmt(s1('XS', 1, 'cov_c')) == '0.90'
 )
 ```
 
@@ -136,7 +203,7 @@ The objectives were fourfold.
 1. To derive the power of each analysis arm in closed form.
 2. To compare a multi-crossover N-of-1 design with parallel-group comparators of one visit and of eight visits, at 35 participants.
 3. To compare five carryover rules, including one that uses the truth and is labeled as such.
-4. To confirm the closed form and the Type I error by Monte Carlo simulation.
+4. To check the closed form and the Type I error by Monte Carlo simulation.
 
 # Methods
 
@@ -408,94 +475,94 @@ if (file.exists(old_file)) {
 
 ## Simulation results
 
-```{r sim-load}
-if (have_sim) {
-  sim <- readRDS(sim_file)
-  ssum <- sim$summary
-  spaired <- sim$paired
-}
-```
+We ran `r format(n_sim, big.mark = ',')` replicates in each of the eight cells, seeded as described under Reproducibility. Of the `r format(n_fits, big.mark = ',')` model fits, `r n_fail` failed. Every failure was in XS or XO, and each cell retained at least `r format(min(ssum$n_ok), big.mark = ',')` replicates per arm. Table \@ref(tab:sim-m1) gives the rejection rates of the M1 effect sweep.
 
-```{r sim-m1, eval=have_sim}
+```{r sim-m1}
 m1s <- ssum[ssum$study == 'M1', ]
-m1s$cell <- sprintf('%s (%.3f)', fmt(m1s$power_c, 3), m1s$power_c_mcse)
+m1s$arm <- factor(m1s$arm, levels = c('ALL', arms_order))
+m1s <- m1s[order(m1s$arm, -m1s$true_effect), ]
+m1s$cell <- sprintf('%s (%s)', fmt(m1s$power_c, 3),
+                    fmt(m1s$power_c_mcse, 3))
 tab <- reshape(m1s[, c('arm', 'true_effect', 'cell')],
                idvar = 'arm', timevar = 'true_effect', direction = 'wide')
-names(tab) <- c('Arm', paste0('beta_D = ', sort(unique(m1s$true_effect))))
-kable(tab, booktabs = TRUE, row.names = FALSE,
-      caption = 'Simulated rejection rate (MCSE) with containment-df inference. The column for beta_D = 0 is the Type I error.')
+eff_cols <- sub('^cell\\.', '', names(tab)[-1])
+names(tab) <- c('Arm', paste0('$\\beta_D = ', eff_cols, '$'))
+tab$Arm <- gsub('_', '\\\\_', as.character(tab$Arm))
+kable(tab, booktabs = TRUE, row.names = FALSE, escape = FALSE,
+      caption = 'Simulated rejection rate (MCSE) with containment-df inference at a half-life of 0.2 week. The column for $\\beta_D = 0$ is the Type I error. XO is an oracle.') |>
+  kable_styling(latex_options = c('hold_position'), font_size = 9)
 ```
 
-```{r sim-pending-m1, eval=!have_sim, results='asis'}
-cat(pending('the M1 effect-sweep table of rejection rates with MCSE'), '\n')
-```
+The Type I error ranged from `r fmt(min(null_c$power_c), 3)` to `r fmt(max(null_c$power_c), 3)` across the eight arms with containment-df inference. The MCSE of each rate is about `r fmt(mean(null_c$power_c_mcse), 3)`. With CR2 and Satterthwaite df, the N-of-1 rules ranged from `r fmt(min(null_r$power_r), 3)` to `r fmt(max(null_r$power_r), 3)`. No rate differs from 0.05 by more than `r fmt(null_z, 1)` MCSE.
 
-```{r sim-text, results='asis'}
-if (have_sim) {
-  null <- ssum[ssum$study == 'M1' & ssum$true_effect == 0, ]
-  cat('The Type I error ranges from', fmt(min(null$power_c), 3), 'to',
-      fmt(max(null$power_c), 3), 'across arms with containment-df inference.',
-      'With CR2 and Satterthwaite df the N-of-1 range is',
-      fmt(min(null$power_r, na.rm = TRUE), 3), 'to',
-      fmt(max(null$power_r, na.rm = TRUE), 3), '.\n')
-} else {
-  cat(pending('Type I error of each arm under containment-df and CR2 inference'), '\n')
-}
-```
+XS and XO gave identical estimates in every M1 replicate. At a half-life of 0.2 week, the carryover fraction is `r fmt(carry_fraction(0, 0.2), 3)` in the first off-drug period and `r fmt(carry_fraction(1, 0.2), 4)` in the second. The oracle cut is `r PILOT$oracle_cut`, so XO drops exactly the periods that XS drops by schedule.
 
-```{r sim-s1, eval=have_sim}
-s1s <- ssum[ssum$study == 'S1' | (ssum$study == 'M1' & ssum$true_effect == -1), ]
-s1s <- s1s[s1s$arm %in% c('ALL', 'XS', 'DBC', 'DBCL', 'XO'), ]
-s1o <- s1s[order(s1s$t_half, s1s$arm),
-           c('t_half', 'arm', 'bias', 'bias_mcse', 'power_c', 'cov_c')]
-names(s1o) <- c('t_half', 'Rule', 'Bias', 'MCSE of bias', 'Power', 'Coverage')
-kable(s1o, booktabs = TRUE, digits = 3, row.names = FALSE,
-      caption = 'Simulated bias, power, and coverage by rule and true half-life at $\\beta_D = -1$.') |>
-  kable_styling(latex_options = c('hold_position', 'scale_down'),
-                font_size = 8)
-```
+Without carryover handling, ALL was biased toward zero. Its bias was `r fmt(m1('ALL', 'bias', -0.5), 3)` at $\beta_D = -0.5$, `r fmt(m1('ALL', 'bias'), 3)` at $-1$, and `r fmt(m1('ALL', 'bias', -2), 3)` at $-2$, with MCSE `r fmt(m1('ALL', 'bias_mcse'), 3)`. Its coverage at the last two effects was `r fmt(m1('ALL', 'cov_c'))` and `r fmt(m1('ALL', 'cov_c', -2))`. The bias of XS, DBC, and DBCL was at most `r fmt(max(abs(ssum$bias[ssum$study == 'M1' & ssum$arm %in% c('XS', 'DBC', 'DBCL')])), 3)` in absolute value across the M1 cells.
 
-```{r sim-pending-s1, eval=!have_sim, results='asis'}
-cat(pending('the S1 half-life table of simulated bias, power, and coverage'), '\n')
-```
-
-```{r sim-agree, eval=have_sim}
-a <- ssum[ssum$study == 'M1' & ssum$true_effect == -1, c('arm', 'power_c', 'power_c_mcse', 'mean_se_c', 'emp_se')]
-a$cf_power <- sapply(a$arm, function(x) pw(x, -1))
-a$cf_se <- sapply(a$arm, function(x) se_of(x))
+```{r sim-agree}
+a <- ssum[ssum$study == 'M1' & ssum$true_effect == -1,
+          c('arm', 'power_c', 'power_c_mcse', 'mean_se_c', 'emp_se')]
+a$arm <- factor(a$arm, levels = c('ALL', arms_order))
+a <- a[order(a$arm), ]
+a$cf_power <- sapply(as.character(a$arm), function(x) pw(x, -1))
+a$cf_se <- sapply(as.character(a$arm), function(x) se_of(x))
 a$z <- (a$power_c - a$cf_power) / a$power_c_mcse
-kable(a, booktabs = TRUE, digits = 3, row.names = FALSE,
-      caption = 'Simulation against closed form at $\\beta_D = -1$ and half-life 0.2 week.') |>
+agree <- a
+nof1_gap <- with(agree[agree$arm %in% nof1_arms, ], cf_power - power_c)
+stopifnot(all(nof1_gap > 0))
+a$arm <- gsub('_', '\\\\_', as.character(a$arm))
+names(a) <- c('Arm', 'Power, sim.', 'MCSE', 'Mean model SE', 'Empirical SE',
+              'Power, closed form', 'SE, closed form', 'z')
+kable(a, booktabs = TRUE, digits = 3, row.names = FALSE, escape = FALSE,
+      caption = 'Simulation against closed form at $\\beta_D = -1$ and half-life 0.2 week. The column z is the simulated minus the closed-form power, divided by the MCSE.') |>
   kable_styling(latex_options = c('hold_position', 'scale_down'), font_size = 8)
 ```
 
-```{r sim-pending-agree, eval=!have_sim, results='asis'}
-cat(pending('the comparison of simulated and closed-form power and standard error'), '\n')
+Table \@ref(tab:sim-agree) compares the simulation with the closed form at $\beta_D = -1$. The simulated power was `r fmt(m1('XS', 'power_c'), 3)` for XS, `r fmt(m1('DBC', 'power_c'), 3)` for DBC, `r fmt(m1('RCT1_exact', 'power_c'), 3)` for RCT1_exact, and `r fmt(m1('RCT8_r08', 'power_c'), 3)` for RCT8_r08. The closed-form values were `r fmt(pw('XS', -1))`, `r fmt(pw('DBC', -1))`, `r fmt(pw('RCT1_exact', -1))`, and `r fmt(pw('RCT8_r08', -1))`. Every arm was within `r fmt(max(abs(agree$z)), 1)` MCSE of the closed form. The simulated power of each N-of-1 rule was below the closed form, by `r fmt(min(nof1_gap), 3)` to `r fmt(max(nof1_gap), 3)`. The five rules are fitted to the same data, so these differences are not independent. Their direction is consistent with the sampling error of the variance components, which the closed form ignores. The mean model standard error was within `r fmt(max(abs(agree$mean_se_c / agree$cf_se - 1)) * 100, 1)`% of the closed-form standard error for every arm.
+
+Table \@ref(tab:sim-s1) gives the S1 half-life sweep at $\beta_D = -1$, with the M1 cell at 0.2 week included.
+
+```{r sim-s1}
+s1s <- ssum[ssum$study == 'S1' | (ssum$study == 'M1' & ssum$true_effect == -1), ]
+s1s <- s1s[s1s$arm %in% nof1_arms, ]
+s1s$arm <- factor(s1s$arm, levels = nof1_arms)
+s1o <- s1s[order(s1s$t_half, s1s$arm),
+           c('t_half', 'arm', 'bias', 'bias_mcse', 'power_c', 'cov_c',
+             'mean_obs')]
+s1o$arm <- as.character(s1o$arm)
+names(s1o) <- c('$t_{1/2}$', 'Rule', 'Bias', 'MCSE of bias', 'Power',
+                'Coverage', 'Periods')
+kable(s1o, booktabs = TRUE, digits = c(1, 0, 3, 3, 3, 3, 1),
+      row.names = FALSE, escape = FALSE,
+      caption = 'Simulated bias, power, and 95\\% interval coverage by rule and true half-life at $\\beta_D = -1$, containment-df inference. The MCSE of power and coverage is at most 0.012. Periods is the mean number analyzed per participant. XO is an oracle.') |>
+  kable_styling(latex_options = c('hold_position', 'scale_down'),
+                font_size = 8)
+
+s1_cf <- merge(s1s, cf_s1[cf_s1$arm %in% nof1_arms, ],
+               by = c('arm', 't_half'), suffixes = c('', '_cf'))
+s1_bias_z <- max(abs((s1_cf$bias - s1_cf$bias_cf) / s1_cf$bias_mcse))
+stopifnot(max(s1s$power_c_mcse, s1s$cov_c_mcse) <= 0.012)
 ```
 
-```{r sim-paired, results='asis'}
-if (have_sim) {
-  p <- spaired[spaired$true_effect == -1 & spaired$t_half == 0.2, ]
-  cat('The paired difference in power between XS and RCT8_r08 at',
-      '$\\beta_D = -1$ was', fmt(p$diff[p$arm_a == 'XS' & p$arm_b == 'RCT8_r08'], 3),
-      'with paired MCSE', fmt(p$mcse[p$arm_a == 'XS' & p$arm_b == 'RCT8_r08'], 3),
-      'computed from the replicate-level rejection indicators.\n')
-} else {
-  cat(pending('the paired power differences and their MCSE from replicate-level indicators'), '\n')
-}
-```
+As the true half-life rose from 0 to 2 weeks, the bias of XS rose. It was `r fmt(m1('XS', 'bias'), 3)` at 0.2 week, `r fmt(s1('XS', 0.5, 'bias'), 3)` at 0.5 week, `r fmt(s1('XS', 1, 'bias'), 3)` at 1 week, and `r fmt(s1('XS', 2, 'bias'), 3)` at 2 weeks. Its MCSE was at most `r fmt(max(s1s$bias_mcse[s1s$arm == 'XS']), 3)`. The coverage of XS fell to `r fmt(s1('XS', 1, 'cov_c'))` at 1 week and `r fmt(s1('XS', 2, 'cov_c'))` at 2 weeks. At a half-life of zero, XS had bias `r fmt(s1('XS', 0, 'bias'), 3)` with MCSE `r fmt(s1('XS', 0, 'bias_mcse'), 3)`, where the closed-form bias is zero. When the true half-life was zero, DBC had bias `r fmt(s1('DBC', 0, 'bias'), 3)` and coverage `r fmt(s1('DBC', 0, 'cov_c'))`.
+
+The power of DBC fell from `r fmt(m1('DBC', 'power_c'), 3)` at 0.2 week to `r fmt(s1('DBC', 2, 'power_c'), 3)` at 2 weeks. The power of DBCL fell less, from `r fmt(m1('DBCL', 'power_c'), 3)` to `r fmt(s1('DBCL', 2, 'power_c'), 3)`. DBCL had higher power than DBC at 1 and 2 weeks. At 1 week its bias was `r fmt(s1('DBCL', 1, 'bias'), 3)`, against `r fmt(s1('DBC', 1, 'bias'), 3)` for DBC.
+
+The oracle XO had absolute bias of at most `r fmt(max(abs(s1s$bias[s1s$arm == 'XO'])), 3)` at every half-life. It analyzed `r fmt(s1('XO', 1, 'mean_obs'), 1)` periods per participant at 1 week, and its power fell to `r fmt(s1('XO', 1, 'power_c'), 3)` at 1 week and `r fmt(s1('XO', 2, 'power_c'), 3)` at 2 weeks. Across the S1 cells, the simulated bias of every N-of-1 rule was within `r fmt(s1_bias_z, 1)` MCSE of the closed form.
+
+The paired difference in power between XS and RCT8_r08 at $\beta_D = -1$ and 0.2 week was `r fmt(pd('XS', 'RCT8_r08'), 3)`, with paired MCSE `r fmt(pd('XS', 'RCT8_r08', 'mcse'), 3)`. The difference between DBC and RCT8_r08 was `r fmt(pd('DBC', 'RCT8_r08'), 3)` (MCSE `r fmt(pd('DBC', 'RCT8_r08', 'mcse'), 3)`). The difference between XS and DBC was `r fmt(pd('XS', 'DBC'), 3)`. Its paired MCSE was `r fmt(pd('XS', 'DBC', 'mcse'), 3)`, against `r fmt(pd('XS', 'DBC', 'mcse_ind'), 3)` if the two arms had been treated as independent. At 2 weeks, XS had lower power than RCT8_r08 by `r fmt(-pd('XS', 'RCT8_r08', h = 2), 3)` (MCSE `r fmt(pd('XS', 'RCT8_r08', 'mcse', h = 2), 3)`).
 
 # Discussion
 
 ## Principal findings
 
-Under this linear DGP, power is a deterministic function of the two variance components, the lag-one correlation, the participant count, the design, and the carryover rule. The closed form reproduces the power of the stored v1 run to within 0.03. The standard error of the one-visit comparator is `r fmt(se_of('RCT1_exact') / se_of('XS'))` times that of XS. Most of that ratio reflects the number of observations per participant. Giving the parallel-group trial eight visits and a covariate with reliability 0.8 reduces the ratio to `r fmt(se_of('RCT8_r08') / se_of('XS'))`.
+Under this linear DGP, power is a deterministic function of the two variance components, the lag-one correlation, the participant count, the design, and the carryover rule. The closed form reproduces the power of the stored v1 run to within 0.03. In the present run it agreed with the simulated power at $\beta_D = -1$ within `r fmt(max(abs(agree$z)), 1)` MCSE for every arm, and the Type I error stayed between `r fmt(min(null_c$power_c), 3)` and `r fmt(max(null_c$power_c), 3)`. The standard error of the one-visit comparator is `r fmt(se_of('RCT1_exact') / se_of('XS'))` times that of XS. Most of that ratio reflects the number of observations per participant. Giving the parallel-group trial eight visits and a covariate with reliability 0.8 reduces the ratio to `r fmt(se_of('RCT8_r08') / se_of('XS'))`.
 
-The multi-crossover still has higher power than the matched-burden comparator at $\beta_D = -1$. The power is `r fmt(pw('XS', -1))` for XS and `r fmt(pw('DBC', -1))` for DBC, against `r fmt(pw('RCT8_r08', -1))`. Two features of the DGP limit this comparison. It has no placebo response, so the blinded structure of the parallel-group trial earns no credit. It also has no period or order effect, so the randomized order of the N-of-1 arm is not tested.
+The multi-crossover still has higher power than the matched-burden comparator at $\beta_D = -1$. The closed-form power is `r fmt(pw('XS', -1))` for XS and `r fmt(pw('DBC', -1))` for DBC, against `r fmt(pw('RCT8_r08', -1))`. In the simulation, the paired difference between XS and RCT8_r08 was `r fmt(pd('XS', 'RCT8_r08'), 3)` (MCSE `r fmt(pd('XS', 'RCT8_r08', 'mcse'), 3)`). Two features of the DGP limit this comparison. It has no placebo response, so the blinded structure of the parallel-group trial earns no credit. It also has no period or order effect, so the randomized order of the N-of-1 arm is not tested.
 
 ## Carryover
 
-The schedule rule XS is nearly unbiased at the pharmacological half-life and biased at behavioral half-lives of 0.5 week or longer. The rule DBC has the best power at 0.2 week, which is the half-life it assumes. Among the rules that handle carryover, it has the largest bias at one week and longer. The lag regressor in DBCL reduces that bias to the level of XS at a cost in standard error. The oracle shows that unbiasedness at long half-lives requires dropping most periods. Our results on carryover depend on the DGP's assumption that carryover is an exponential decay of the on-drug effect. Other shapes were not simulated.
+The schedule rule XS is nearly unbiased at the pharmacological half-life and biased at behavioral half-lives of 0.5 week or longer. In the simulation its bias was `r fmt(m1('XS', 'bias'), 3)` at 0.2 week and `r fmt(s1('XS', 1, 'bias'), 3)` at 1 week. The rule DBC has the best power at 0.2 week, which is the half-life it assumes. Among the rules that handle carryover, it has the largest bias at one week and longer. The lag regressor in DBCL reduces that bias to the level of XS at a cost in standard error. Ignoring carryover altogether, as ALL does, biased the estimate toward zero even at 0.2 week and reduced coverage to `r fmt(m1('ALL', 'cov_c'))` at $\beta_D = -1$. The oracle shows that unbiasedness at long half-lives requires dropping most periods. Our results on carryover depend on the DGP's assumption that carryover is an exponential decay of the on-drug effect. Other shapes were not simulated.
 
 An earlier version of this paper reported that period exclusion was robust across half-lives. That result was an identity of the oracle rule, which dropped contaminated periods whatever the half-life. It is not a property of any rule that a trial can apply.
 
@@ -510,12 +577,12 @@ Blackston et al. found higher power for aggregated N-of-1 trials than for a para
 3. There is no placebo response, natural-history trend, period effect, dropout, or missing data.
 4. The design is a multi-crossover. It is not the Hybrid design.
 5. The parameters are assumed. They are not estimated from prazosin trials.
-6. Confirmatory simulation results are pending. The closed form ignores the sampling error of the estimated variance components.
+6. The simulation has 2,000 replicates per cell. A difference in power of less than about 0.03 between two independent cells is within two MCSE. The closed form ignores the sampling error of the estimated variance components.
 7. Both arms share one participant pool within a replicate, so arm comparisons within a cell are paired. Different cells use independent streams.
 
 # Conclusions
 
-In a linear DGP at 35 participants, a randomized multi-crossover has higher power than a one-visit parallel-group trial mainly because it observes each participant several times. Matching the number of visits removes most of the standard-error gap. The remaining advantage depends on the carryover rule. At a pharmacological half-life the schedule rule is nearly unbiased, and at behavioral half-lives of 0.5 week or longer every applicable rule is biased or loses power. The Monte Carlo confirmation of these closed-form results is pending.
+In a linear DGP at 35 participants, a randomized multi-crossover has higher power than a one-visit parallel-group trial mainly because it observes each participant several times. Matching the number of visits removes most of the standard-error gap. The remaining advantage depends on the carryover rule. At a pharmacological half-life the schedule rule is nearly unbiased, and at behavioral half-lives of 0.5 week or longer every applicable rule is biased or loses power. A simulation with 2,000 replicates per cell agreed with the closed form within `r fmt(max(abs(agree$z)), 1)` MCSE for power at an effect of -1. The Type I error of every arm was between `r fmt(min(null_c$power_c), 3)` and `r fmt(max(null_c$power_c), 3)`.
 
 # Glossary
 
@@ -542,7 +609,7 @@ ADEMP, aims, data-generating mechanisms, estimands, methods, performance measure
 
 **Consent for publication.** Not applicable.
 
-**Availability of data and materials.** The code is in the pmsimstats-ng repository under `analysis/scripts/treatment-main-effect/`. The closed-form results are computed when this document is rendered. Replicate-level simulation output will be stored under `analysis/data/derived_data/04-mainfx-pilot/` after the production run. The repository URL will be added at submission.
+**Availability of data and materials.** The code is in the pmsimstats-ng repository under `analysis/scripts/treatment-main-effect/`. The closed-form results are computed when this document is rendered. Replicate-level simulation output is stored under `analysis/data/derived_data/04-mainfx-pilot/`, one file per cell, and the cell summary is `analysis/data/derived_data/04-mainfx-pilot-summary.rds`. The repository URL will be added at submission.
 
 **Competing interests.** The authors declare no competing interests.
 
@@ -554,7 +621,7 @@ ADEMP, aims, data-generating mechanisms, estimands, methods, performance measure
 
 # Reproducibility
 
-The random-number scheme is one L'Ecuyer-CMRG chain seeded with `20261028`, advanced with `parallel::nextRNGStream()`. Replicate $i$ of cell $c$ uses stream number $(c-1) \times 2000 + i$ of that chain, and each replicate sets its stream explicitly. The production run stores one row per replicate and rule. The per-replicate streams can be regenerated from the seed with `make_streams()` in `pilot-core.R`. Simulation results depend on the platform's BLAS and LAPACK in the last digits.
+The random-number scheme is one L'Ecuyer-CMRG chain seeded with `20261028`, advanced with `parallel::nextRNGStream()`. Replicate $i$ of cell $c$ uses stream number $(c-1) \times 2000 + i$ of that chain, and each replicate sets its stream explicitly. The production run stores one row per replicate and rule. The per-replicate streams can be regenerated from the seed with `make_streams()` in `pilot-core.R`. The stored run used R `r sim$meta$r_version` on `r sim$meta$platform` with `r sim$meta$n_cores` cores and finished on `r sim$meta$run_date`. Simulation results depend on the platform's BLAS and LAPACK in the last digits.
 
 The fast checks (`check-pilot.R`) cover the structure of the rules, the agreement of the closed form with the stored 2026-05-19 run, the agreement of the closed form with a 60-replicate simulation, and the reproducibility of the streams. They run in about 15 seconds. They do not replace the production run.
 

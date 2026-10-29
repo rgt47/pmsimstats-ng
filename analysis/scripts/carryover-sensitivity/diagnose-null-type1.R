@@ -1,25 +1,33 @@
 ## analysis/scripts/carryover-sensitivity/diagnose-null-type1.R
 ##
-## Stages 1 to 3 of type1-examination-plan.md. Examines why the
-## empirical type-I error of the biomarker-by-treatment interaction
-## test runs below nominal 0.05 in the null (c_bm = 0) cells.
+## Paper 10 (analysis/report/10-interaction-test-calibration/),
+## Section "The conservatism is standard-error over-estimation".
+## Stages 1 to 3 of type1-examination-plan.md: the first-order
+## decomposition of the null rejection rate of the biomarker-by-drug
+## interaction test under the production model M3 (lme, random
+## intercept plus corCAR1).
 ##
-## Stage 1  Instrument the per-replicate output: an augmented fitter
-##          records, beyond estimate/std_error/p_value, the lme
-##          degrees of freedom, the corCAR1 phi, and the random-
-##          intercept and residual standard deviations.
-## Stage 2  Decompose the conservatism into four channels: point-
-##          estimate bias, SE calibration, statistic dispersion, and
-##          p-value uniformity.
-## Stage 3  Separate the degrees-of-freedom channel from the SE
-##          channel by recomputing p-values against a normal
-##          reference.
+## Stage 1  Per-replicate output: estimate, model SE, lme degrees of
+##          freedom, corCAR1 rho_a, random-intercept and residual SDs.
+## Stage 2  Bias, kappa, SD of the statistic, CV of the SE, size.
+## Stage 3  Normal-reference p-values (degrees-of-freedom channel).
+## Oracle   The same M3 fit to Sx minus its true path-by-visit mean
+##          (correct mean model), on the same datasets. Isolates the
+##          share of the excess kappa due to mean-model misfit.
 ##
-## Primary null cell: c_bm = 0, exponential DGP, Hybrid design,
-## N = 70, t1half = 1.0, rho = 0.7. Architecture is irrelevant at
-## the null (see check-null-architecture-equivalence.R).
+## Corrections of 2026-10-29 (referee report 2026-10-28):
+##   - refined DGP (paper10-common.R: c.cfct = 0.2, carryover decaying
+##     from the last on-drug mean, stop_on_nonpd = TRUE);
+##   - no fallback refit without corCAR1: a failed M3 fit is recorded
+##     as not converged (the earlier version counted 32 to 40 random-
+##     intercept-only fits as M3).
 ##
-## Usage:
+## Primary null cell: c_bm = 0, exponential decay, Hybrid design,
+## N = 70, t1half = 1.0 week, rho = 0.7. The seed is shared with the
+## stage-4, CR2, GEE and KR drivers, so replicate i is the same
+## dataset in every one of them.
+##
+## Usage (thread variables set to 1, see run-paper10-refined.sh):
 ##   Rscript analysis/scripts/carryover-sensitivity/diagnose-null-type1.R [--reps N]
 
 suppressPackageStartupMessages({
@@ -28,7 +36,6 @@ suppressPackageStartupMessages({
   library(tidyr)
   library(purrr)
   library(furrr)
-  library(ggplot2)
   library(nlme)
 })
 
@@ -36,6 +43,8 @@ repo_root <- here::here()
 source(file.path(repo_root, 'implementations/tidyverse/R/functions.R'))
 source(file.path(repo_root,
   'analysis/scripts/carryover-sensitivity/simulation-core.R'))
+source(file.path(repo_root,
+  'analysis/scripts/carryover-sensitivity/paper10-common.R'))
 
 args <- commandArgs(trailingOnly = TRUE)
 reps_idx <- which(args == '--reps')
@@ -43,237 +52,119 @@ N_REPS <- if (length(reps_idx) && reps_idx < length(args))
   as.integer(args[reps_idx + 1]) else 5000L
 SEED <- 20260520L
 
-## ------------------------------------------------------------------
-## Primary null cell
-## ------------------------------------------------------------------
 cell <- list(
   c_bm = 0, carryover_form = 'exponential', weibull_shape = 1,
   t1half = 1.0, design = 'Hybrid', N = 70, rho = 0.7,
-  dgp_arch = 'mvn'
-)
+  dgp_arch = 'mvn')
 
-resp_param     <- default_resp_param()
-baseline_param <- default_baseline_param()
-design_set     <- build_design_set(cell$design)
+design_set  <- build_design_set(cell$design)
+model_param <- p10_model_param(cell$N, cell$c_bm, cell$t1half, cell$rho)
+true_means  <- p10_true_means(model_param, design_set)
 
-model_param <- list(
-  N = cell$N, c.bm = cell$c_bm,
-  carryover_t1half = cell$t1half,
-  carryover_form   = cell$carryover_form,
-  weibull_shape    = cell$weibull_shape,
-  dgp_architecture = cell$dgp_arch,
-  c.tv = cell$rho, c.pb = cell$rho, c.br = cell$rho,
-  c.cf1t = 0.2, c.cfct = 0.1
-)
-
-## ------------------------------------------------------------------
-## Stage 1 ancillary: positive-definiteness of the null covariance.
-## At c_bm = 0 the sigma is fixed per path, so a single build per
-## path is definitive.
-## ------------------------------------------------------------------
-pd_corrected <- map_lgl(design_set, function(td) {
-  build_sigma_matrix(model_param, resp_param, baseline_param, td,
-                     dgp_architecture = cell$dgp_arch)$was_pd_corrected
+## Every path builds under stop_on_nonpd = TRUE; record the minimum
+## eigenvalue of each.
+pd_min_eig <- map_dbl(design_set, function(td) {
+  s <- build_sigma_matrix(model_param, default_resp_param(),
+                          default_baseline_param(), td,
+                          dgp_architecture = cell$dgp_arch,
+                          stop_on_nonpd = TRUE)$sigma
+  pos <- diag(s) > 0
+  min(eigen(s[pos, pos], only.values = TRUE)$values)
 })
 
-## ------------------------------------------------------------------
-## Stage 1: augmented fitter
-## ------------------------------------------------------------------
-na_spec_row <- function(spec) {
-  tibble(spec = spec, estimate = NA_real_, std_error = NA_real_,
-         df = NA_real_, t_value = NA_real_, p_value = NA_real_,
-         phi = NA_real_, sd_ranef = NA_real_, sd_resid = NA_real_,
-         has_corcar1 = NA, converged = FALSE)
+na_spec_row <- function(spec, mean_model) {
+  tibble(spec = spec, mean_model = mean_model, estimate = NA_real_,
+         std_error = NA_real_, df = NA_real_, t_value = NA_real_,
+         p_value = NA_real_, rho_a = NA_real_, sd_ranef = NA_real_,
+         sd_resid = NA_real_, converged = FALSE)
 }
 
-fit_spec_diag <- function(dat_long, spec) {
-  spec <- match.arg(spec, c('E1', 'E2', 'E3'))
-  form <- switch(spec,
-    E1 = as.formula('Sx ~ bm + t + Db  + bm:Db'),
-    E2 = as.formula('Sx ~ bm + t + Dbc + bm:Dbc'),
-    E3 = as.formula('Sx ~ bm + t + Db  + bm:Db + L'))
-
-  fit <- tryCatch(
-    nlme::lme(form, random = ~1 | ptID,
-              correlation = nlme::corCAR1(form = ~t | ptID),
-              data = dat_long,
-              control = nlme::lmeControl(
-                opt = 'optim', maxIter = 200, msMaxIter = 200)),
-    error = function(e) {
-      tryCatch(nlme::lme(form, random = ~1 | ptID, data = dat_long,
-                         control = nlme::lmeControl(opt = 'optim')),
-               error = function(e2) NULL)
-    })
-
-  if (is.null(fit)) return(na_spec_row(spec))
-
+fit_spec_diag <- function(dat_long, spec, mean_model = 'fitted') {
+  dl <- dat_long
+  if (mean_model == 'oracle') dl$Sx <- dl$Sx - dl$mu_true
+  fit <- p10_lme(p10_spec_formula(spec), dl,
+                 correlation = nlme::corCAR1(form = ~t | ptID))
+  if (is.null(fit)) return(na_spec_row(spec, mean_model))
   cc <- summary(fit)$tTable
-  target <- switch(spec,
-    E1 = intersect(c('bm:Db',  'Db:bm'),  rownames(cc)),
-    E2 = intersect(c('bm:Dbc', 'Dbc:bm'), rownames(cc)),
-    E3 = intersect(c('bm:Db',  'Db:bm'),  rownames(cc)))
-  if (length(target) == 0) return(na_spec_row(spec))
-
-  has_cor <- !is.null(fit$modelStruct$corStruct)
-  phi <- if (has_cor)
-    as.numeric(coef(fit$modelStruct$corStruct,
-                    unconstrained = FALSE))[1] else NA_real_
+  target <- intersect(p10_target(spec), rownames(cc))
+  if (length(target) == 0) return(na_spec_row(spec, mean_model))
+  rho_a <- as.numeric(coef(fit$modelStruct$corStruct,
+                           unconstrained = FALSE))[1]
   sd_ranef <- suppressWarnings(
     as.numeric(nlme::VarCorr(fit)['(Intercept)', 'StdDev']))
-
-  tibble(
-    spec        = spec,
-    estimate    = cc[target[1], 'Value'],
-    std_error   = cc[target[1], 'Std.Error'],
-    df          = cc[target[1], 'DF'],
-    t_value     = cc[target[1], 't-value'],
-    p_value     = cc[target[1], 'p-value'],
-    phi         = phi,
-    sd_ranef    = sd_ranef,
-    sd_resid    = fit$sigma,
-    has_corcar1 = has_cor,
-    converged   = TRUE)
+  tibble(spec = spec, mean_model = mean_model,
+         estimate  = cc[target[1], 'Value'],
+         std_error = cc[target[1], 'Std.Error'],
+         df        = cc[target[1], 'DF'],
+         t_value   = cc[target[1], 't-value'],
+         p_value   = cc[target[1], 'p-value'],
+         rho_a = rho_a, sd_ranef = sd_ranef, sd_resid = fit$sigma,
+         converged = TRUE)
 }
 
-## ------------------------------------------------------------------
-## One replicate: generate null data, fit all three specs
-## ------------------------------------------------------------------
+grid <- expand_grid(spec = c('E1', 'E2', 'E3'),
+                    mean_model = c('fitted', 'oracle'))
+
 one_rep <- function(i) {
-  dat <- tryCatch(
-    generate_data_multi_path(model_param, resp_param,
-                             baseline_param, design_set),
-    error = function(e) NULL)
-  if (is.null(dat) || nrow(dat) == 0) {
-    return(bind_rows(na_spec_row('E1'), na_spec_row('E2'),
-                     na_spec_row('E3')) |> mutate(rep = i, .before = 1))
+  dl <- p10_gen_long(model_param, design_set, cell$t1half)
+  if (is.null(dl)) {
+    return(pmap_dfr(grid, na_spec_row) |>
+             mutate(rep = i, gen_ok = FALSE, .before = 1))
   }
-  dat_long <- prepare_long_data(
-    dat, design_set,
-    carryover_t1half = cell$t1half,
-    carryover_form   = cell$carryover_form,
-    weibull_shape    = cell$weibull_shape)
-  bind_rows(
-    fit_spec_diag(dat_long, 'E1'),
-    fit_spec_diag(dat_long, 'E2'),
-    fit_spec_diag(dat_long, 'E3')
-  ) |> mutate(rep = i, .before = 1)
+  dl$path_i <- as.integer(sub('_.*', '', dl$ptID))
+  dl <- dl |> left_join(true_means,
+                        by = c(path_i = 'path', 'timepoint_name'))
+  pmap_dfr(grid, function(spec, mean_model)
+    fit_spec_diag(dl, spec, mean_model)) |>
+    mutate(rep = i, gen_ok = TRUE, .before = 1)
 }
 
-cat(sprintf('Primary null cell: %s, N=%d, c_bm=0, exp DGP, t1half=%.1f\n',
-            cell$design, cell$N, cell$t1half))
-cat(sprintf('Replicates: %d\n', N_REPS))
-cat(sprintf('PD correction triggered on %d of %d %s paths.\n',
-            sum(pd_corrected), length(pd_corrected), cell$design))
+cat(sprintf('Null cell: %s, N=%d, c_bm=0, t1half=%.1f, c.cfct=%.1f, %d reps\n',
+            cell$design, cell$N, cell$t1half, P10_CFCT, N_REPS))
 
-plan(multicore, workers = max(1, parallel::detectCores() - 1))
+plan(multicore, workers = max(1, parallelly::availableCores() - 1))
 t0 <- Sys.time()
 res <- future_map_dfr(seq_len(N_REPS), one_rep,
                       .options = furrr_options(seed = SEED))
 elapsed <- as.numeric(Sys.time() - t0, units = 'secs')
 cat(sprintf('Completed in %.0f s.\n\n', elapsed))
 
-## ------------------------------------------------------------------
-## Stage 3 column: p-value under a standard-normal reference
-## ------------------------------------------------------------------
 res <- res |> mutate(p_value_z = 2 * pnorm(-abs(t_value)))
 
-## ------------------------------------------------------------------
-## Stage 2: four-channel decomposition
-## ------------------------------------------------------------------
 decomp <- res |>
   filter(converged) |>
-  group_by(spec) |>
+  group_by(spec, mean_model) |>
   summarise(
     n_conv    = n(),
     mean_est  = mean(estimate),
-    bias_z    = mean(estimate) / (sd(estimate) / sqrt(n())),
+    mcse_mean = sd(estimate) / sqrt(n()),
     emp_se    = sd(estimate),
     mod_se    = mean(std_error),
     se_ratio  = mean(std_error) / sd(estimate),
+    cv_se     = sd(std_error) / mean(std_error),
     sd_tstat  = sd(t_value),
     type1_01  = mean(p_value < 0.01),
     type1_05  = mean(p_value < 0.05),
     type1_10  = mean(p_value < 0.10),
-    ks_p      = suppressWarnings(
-      ks.test(p_value, 'punif')$p.value),
-    .groups = 'drop')
-
-## ------------------------------------------------------------------
-## Stage 3: degrees-of-freedom versus standard-error channel
-## ------------------------------------------------------------------
-stage3 <- res |>
-  filter(converged) |>
-  group_by(spec) |>
-  summarise(
-    mean_df    = mean(df),
-    min_df     = min(df),
-    max_df     = max(df),
-    type1_05_t = mean(p_value   < 0.05),
     type1_05_z = mean(p_value_z < 0.05),
-    .groups = 'drop')
+    mean_df   = mean(df),
+    ri_boundary = mean(sd_ranef < 1),
+    .groups = 'drop') |>
+  mutate(mcse_05 = p10_mcse(type1_05, n_conv))
 
-conv_rate <- res |>
-  group_by(spec) |>
-  summarise(conv = mean(converged),
-            corcar1 = mean(has_corcar1, na.rm = TRUE),
+conv <- res |>
+  group_by(spec, mean_model) |>
+  summarise(n = n(), n_conv = sum(converged), gen_fail = sum(!gen_ok),
             .groups = 'drop')
 
-mcse_05 <- sqrt(0.05 * 0.95 / N_REPS)
-
-cat('=== Convergence ===\n')
-print(as.data.frame(conv_rate), digits = 4)
-cat(sprintf('\nMC SE on a 0.05 type-I estimate at n=%d: %.4f\n\n',
-            N_REPS, mcse_05))
-
-cat('=== Stage 2: four-channel decomposition ===\n')
-cat('mean_est : mean interaction estimate (should be ~0)\n')
-cat('bias_z   : mean_est / SE(mean_est); |bias_z| > ~2 flags bias\n')
-cat('emp_se   : SD(estimate) across reps (the true SE)\n')
-cat('mod_se   : mean model-reported std_error\n')
-cat('se_ratio : mod_se / emp_se; > 1.05 flags SE over-estimation\n')
-cat('sd_tstat : SD(t-statistic) under H0; < 1 flags conservatism\n')
-cat('ks_p     : KS test of p-values vs Uniform(0,1)\n\n')
+print(as.data.frame(conv))
 print(as.data.frame(decomp), digits = 4)
 
-cat('\n=== Stage 3: DF channel vs SE channel ===\n')
-cat('type1_05_t : type-I under the lme t reference (production)\n')
-cat('type1_05_z : type-I under a normal reference (same stat)\n')
-cat('If type1_05_z rises to ~0.05, the DF rule is the cause.\n')
-cat('If mean_df is large, t and z coincide and DF is excluded.\n\n')
-print(as.data.frame(stage3), digits = 4)
-
-## ------------------------------------------------------------------
-## p-value ECDF figure
-## ------------------------------------------------------------------
-out_dir <- file.path(repo_root,
-  'analysis/scripts/carryover-sensitivity/output')
-
-p_ecdf <- res |>
-  filter(converged) |>
-  ggplot(aes(p_value, colour = spec)) +
-  stat_ecdf(geom = 'step', linewidth = 0.6) +
-  geom_abline(slope = 1, intercept = 0,
-              linetype = 'dashed', colour = 'grey50') +
-  coord_equal(xlim = c(0, 1), ylim = c(0, 1)) +
-  scale_colour_manual(
-    values = c(E1 = '#1f78b4', E2 = '#33a02c', E3 = '#e31a1c')) +
-  labs(x = 'Null p-value', y = 'Empirical CDF', colour = 'Spec',
-       title = 'Null p-value ECDF versus Uniform(0,1)',
-       subtitle = sprintf(
-         'Hybrid, N=70, c_bm=0, exp DGP, t1half=1.0, %d reps',
-         N_REPS)) +
-  theme_bw(base_size = 10) +
-  theme(panel.grid.minor = element_blank())
-
-ggsave(file.path(out_dir, 'diag-null-type1-ecdf.pdf'),
-       p_ecdf, width = 5.5, height = 5.2)
-
+out_dir <- p10_out_dir(repo_root)
 saveRDS(
-  list(results = res, decomp = decomp, stage3 = stage3,
-       conv = conv_rate, cell = cell, n_reps = N_REPS,
-       seed = SEED, pd_corrected = pd_corrected,
+  list(results = res, decomp = decomp, conv = conv, cell = cell,
+       n_reps = N_REPS, seed = SEED, pd_min_eig = pd_min_eig,
+       true_means = true_means, dgp = p10_dgp_meta(repo_root),
        elapsed_secs = elapsed),
   file.path(out_dir, 'diag-null-type1.rds'))
-
-cat(sprintf('\nWrote %s\n', file.path(out_dir, 'diag-null-type1-ecdf.pdf')))
 cat(sprintf('Wrote %s\n', file.path(out_dir, 'diag-null-type1.rds')))

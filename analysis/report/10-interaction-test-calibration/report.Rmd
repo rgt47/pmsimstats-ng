@@ -1,7 +1,7 @@
 ---
-title: "Type I calibration of fixed-effect interaction tests in
-  linear mixed models: a staged diagnosis of working-covariance
-  misspecification and a cluster-robust remedy"
+title: "Type I calibration of a mixed-model interaction test in an
+  aggregated N-of-1 simulation: mean-model misfit absorbed by REML
+  and a cluster-robust remedy"
 author: 'pmsimstats team'
 date: '`r format(Sys.Date(), "%B %d, %Y")`'
 output:
@@ -12,8 +12,6 @@ output:
     number_sections: true
     keep_tex: true
     highlight: tango
-    includes:
-      in_header: claudecode.tex
 fontsize: 11pt
 linestretch: 1.1
 geometry: 'left=3cm,right=3cm,top=2.5cm,bottom=2.5cm'
@@ -34,35 +32,30 @@ knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path
   Build pipeline for this manuscript
   ==================================
 
-  This Rmd loads the diagnostic outputs produced by the staged
-  examination of Type I conservatism in the carryover-sensitivity
-  study. It does not itself run any simulation. Regenerate the
-  inputs with, from the repository root:
+  The Rmd runs no simulation. It reads replicate-level .rds files and
+  computes every table, figure and quoted number inline.
 
-    Rscript analysis/scripts/carryover-sensitivity/\
-      check-null-architecture-equivalence.R
-    Rscript analysis/scripts/carryover-sensitivity/\
-      diagnose-null-type1.R
-    Rscript analysis/scripts/carryover-sensitivity/\
-      diagnose-null-type1-stages46.R --stage 4
-    Rscript analysis/scripts/carryover-sensitivity/\
-      diagnose-null-type1-stages46.R --stage 6
-    Rscript analysis/scripts/carryover-sensitivity/\
-      diagnose-null-type1-cr2.R
-    Rscript analysis/scripts/carryover-sensitivity/\
-      diagnose-alt-cell-cr2.R
-    Rscript analysis/scripts/carryover-sensitivity/\
-      diagnose-null-type1-gee.R
-    Rscript analysis/scripts/carryover-sensitivity/\
-      diagnose-null-type1-kr.R
+  Inputs (analysis/scripts/carryover-sensitivity/):
+    output/paper10-refined/  runs under the extended DGP (c.cfct = 0.2,
+                             carryover decaying from the last on-drug
+                             mean, stop on non-PD), written by
+                             run-paper10-refined.sh
+    output/diag-*.rds        the pre-correction run of 2026-05-20
+                             (c.cfct = 0.1, original carryover rule)
 
-  These write diagnostic .rds files into
-  analysis/scripts/carryover-sensitivity/output/. Then knit:
+  Each table uses the extended-DGP file when it exists with its full
+  replicate count, and otherwise the pre-correction file, and its
+  caption says which. The analytic file
+  output/paper10-refined/diag-kappa-analytic.rds is always used.
 
-    Rscript -e "rmarkdown::render(
-      'analysis/report/10-interaction-test-calibration/report.Rmd')"
+  Regenerate the extended-DGP inputs, from the repository root:
+    bash analysis/scripts/carryover-sensitivity/run-paper10-refined.sh
 
-  The examination plan that preceded this manuscript is retained
+  Render through the project wrapper, never rmarkdown::render():
+    bash tools/render.sh \
+      analysis/report/10-interaction-test-calibration/report.Rmd
+
+  The examination plan that preceded the manuscript is retained
   alongside it as type1-examination-plan.md.
 -->
 
@@ -75,564 +68,757 @@ suppressPackageStartupMessages({
   library(dplyr)
   library(tidyr)
   library(tibble)
+  library(purrr)
   library(ggplot2)
   library(knitr)
 })
 
-out_dir <- here::here(
-  'analysis/scripts/carryover-sensitivity/output')
-d13 <- readRDS(file.path(out_dir, 'diag-null-type1.rds'))
-d4  <- readRDS(file.path(out_dir, 'diag-null-type1-stage4.rds'))
-d6  <- readRDS(file.path(out_dir, 'diag-null-type1-stage6.rds'))
-dcr <- readRDS(file.path(out_dir, 'diag-null-type1-cr2.rds'))
-dalt <- readRDS(file.path(out_dir, 'diag-alt-cell-cr2.rds'))
-dgee <- readRDS(file.path(out_dir, 'diag-null-type1-gee.rds'))
-dkr <- readRDS(file.path(out_dir, 'diag-null-type1-kr.rds'))
+old_dir <- here::here('analysis/scripts/carryover-sensitivity/output')
+new_dir <- file.path(old_dir, 'paper10-refined')
+
+load_run <- function(f, full_reps) {
+  pn <- file.path(new_dir, f)
+  if (file.exists(pn)) {
+    x <- readRDS(pn)
+    if (isTRUE(x$n_reps >= full_reps)) {
+      x$refined <- TRUE
+      return(x)
+    }
+  }
+  x <- readRDS(file.path(old_dir, f))
+  x$refined <- FALSE
+  x
+}
+
+d13  <- load_run('diag-null-type1.rds', 5000)
+d4   <- load_run('diag-null-type1-stage4.rds', 5000)
+d6   <- load_run('diag-null-type1-stage6.rds', 1500)
+dcr  <- load_run('diag-null-type1-cr2.rds', 3000)
+dalt <- load_run('diag-alt-cell-cr2.rds', 3000)
+dgee <- load_run('diag-null-type1-gee.rds', 5000)
+dkr  <- load_run('diag-null-type1-kr.rds', 2000)
+dan  <- readRDS(file.path(new_dir, 'diag-kappa-analytic.rds'))
+dmm  <- readRDS(file.path(old_dir,
+  'diag-null-meanmisfit-referee-2026-10-28.rds'))
+dkr_smoke <- readRDS(file.path(new_dir, 'smoke',
+  'diag-null-type1-kr-smoke21.rds'))
+
+all_refined <- all(map_lgl(list(d13, d4, d6, dcr, dalt, dgee, dkr),
+                           ~ .x$refined))
+
+run_lab <- function(x) {
+  if (isTRUE(x$refined))
+    'Extended DGP ($c_\\times = 0.2$, carryover decaying from the last on-drug mean)'
+  else
+    'Pre-correction run of 2026-05-20 ($c_\\times = 0.1$, original carryover rule)'
+}
+
+## Normalize the stored (pre-correction) and the extended-DGP layouts.
+r13 <- d13$results
+if (!d13$refined) {
+  r13 <- r13 |> mutate(mean_model = 'fitted', rho_a = phi,
+                       converged = converged & has_corcar1)
+}
+r13 <- r13 |> filter(converged)
+
+r4 <- d4$results
+if (!d4$refined) r4 <- r4 |> mutate(mean_model = 'fitted')
+r4 <- r4 |> filter(converged %in% TRUE)
+
+r6 <- d6$results |> filter(converged %in% TRUE)
+
+norm_cr2 <- function(x) {
+  r <- x$results
+  if (!x$refined) r <- r |> mutate(fit_ok = converged,
+                                   cr2_ok = converged & !is.na(cr2_p))
+  r
+}
+rcr  <- norm_cr2(dcr)
+ralt <- norm_cr2(dalt)
+
+rgee <- dgee$results
+if (!dgee$refined) {
+  rgee <- rgee |>
+    mutate(lz_se = naive_se,
+           df = ifelse(spec == 'E3', 64, 65),
+           lz_p_z = 2 * pnorm(-abs(estimate / lz_se)),
+           lz_p_t = 2 * pt(-abs(estimate / lz_se), df),
+           md_p_z = 2 * pnorm(-abs(estimate / md_se)),
+           md_p_t = 2 * pt(-abs(estimate / md_se), df))
+}
+rgee <- rgee |> filter(converged, !is.na(md_se))
+
+rkr <- dkr$results |> filter(!is.na(p))
+
+## Formatting and Monte Carlo helpers.
+f2 <- function(x) sprintf('%.2f', x)
+f3 <- function(x) sprintf('%.3f', x)
+f4 <- function(x) sprintf('%.4f', x)
+fp <- function(x) ifelse(x < 0.001, '< 0.001', sprintf('%.3f', x))
+fs <- function(x) sprintf('%+.3f', x)
+pct <- function(x) sprintf('%.1f', 100 * x)
+binom_p <- function(k, n) binom.test(k, n, 0.05)$p.value
+size_tab <- function(p) {
+  p <- p[!is.na(p)]
+  n <- length(p)
+  r <- mean(p < 0.05)
+  tibble(n = n, rate = r, mcse = sqrt(r * (1 - r) / n),
+         z = (r - 0.05) / sqrt(0.05 * 0.95 / n),
+         bp = binom_p(sum(p < 0.05), n))
+}
+paired <- function(pa, pb) {
+  ok <- !is.na(pa) & !is.na(pb)
+  d <- (pa[ok] < 0.05) - (pb[ok] < 0.05)
+  list(est = mean(d), mcse = sd(d) / sqrt(sum(ok)), n = sum(ok))
+}
+kap_mcse <- function(k, n) k / sqrt(2 * (n - 1))
+boot_kdiff <- function(se_a, est_a, se_b, est_b, B = 500) {
+  set.seed(20261029)
+  sd(replicate(B, {
+    j <- sample(length(se_a), replace = TRUE)
+    mean(se_a[j]) / sd(est_a[j]) - mean(se_b[j]) / sd(est_b[j])
+  }))
+}
 
 theme_paper <- theme_bw(base_size = 10) +
   theme(panel.grid.minor = element_blank(),
         strip.background = element_rect(fill = 'grey92',
                                         colour = NA),
         legend.position = 'top')
-
 spec_cols <- c(E1 = '#1f78b4', E2 = '#33a02c', E3 = '#e31a1c')
+```
+
+```{r compute-decomp}
+dec <- r13 |>
+  filter(mean_model == 'fitted') |>
+  group_by(spec) |>
+  summarise(
+    n = n(), mean_est = mean(estimate),
+    mcse_est = sd(estimate) / sqrt(n()),
+    emp_se = sd(estimate), mod_se = mean(std_error),
+    kappa = mean(std_error) / sd(estimate),
+    cv_se = sd(std_error) / mean(std_error),
+    sd_t = sd(t_value),
+    t1 = mean(p_value < 0.05),
+    t1z = mean(2 * pnorm(-abs(t_value)) < 0.05),
+    df = mean(df), ri_b = mean(sd_ranef < 1),
+    rho_med = median(rho_a), su_med = median(sd_ranef),
+    se_med = median(sd_resid),
+    .groups = 'drop') |>
+  mutate(z_bias = mean_est / mcse_est,
+         mcse_t1 = sqrt(t1 * (1 - t1) / n),
+         bp = map2_dbl(round(t1 * n), n, binom_p),
+         pred = 2 * pnorm(-kappa * qt(0.975, df)),
+         lin = 0.05 - 0.229 * (kappa - 1))
+dk <- function(s, col) dec[[col]][dec$spec == s]
+
+## Cross-specification and cross-model correlation of the estimates.
+est_wide <- r13 |> filter(mean_model == 'fitted') |>
+  select(rep, spec, estimate) |>
+  pivot_wider(names_from = spec, values_from = estimate)
+cor_e1e2 <- cor(est_wide$E1, est_wide$E2, use = 'complete')
+
+## Correct-mean (oracle) check from the referee run (c_x = 0.1).
+mm_k_raw <- mean(dmm$se_raw) / sd(dmm$est_raw)
+mm_k_c   <- mean(dmm$se_c) / sd(dmm$est_c)
+mm_k_se  <- boot_kdiff(dmm$se_raw, dmm$est_raw, dmm$se_c, dmm$est_c)
+mm_t1    <- paired(dmm$p_c, dmm$p_raw)
+mm_raw   <- size_tab(dmm$p_raw)
+mm_c     <- size_tab(dmm$p_c)
+
+has_oracle <- d13$refined && any(r13$mean_model == 'oracle')
+if (has_oracle) {
+  orw <- r13 |> filter(spec == 'E1') |>
+    select(rep, mean_model, estimate, std_error, p_value) |>
+    pivot_wider(names_from = mean_model,
+                values_from = c(estimate, std_error, p_value)) |>
+    na.omit()
+  or_k_f <- mean(orw$std_error_fitted) / sd(orw$estimate_fitted)
+  or_k_o <- mean(orw$std_error_oracle) / sd(orw$estimate_oracle)
+  or_k_se <- boot_kdiff(orw$std_error_fitted, orw$estimate_fitted,
+                        orw$std_error_oracle, orw$estimate_oracle)
+  or_t1 <- paired(orw$p_value_oracle, orw$p_value_fitted)
+}
+```
+
+```{r compute-analytic}
+ak <- dan$kappa
+akv <- function(dgp, spec, model, mm, col = 'kappa')
+  ak[[col]][ak$dgp == dgp & ak$spec == spec & ak$model == model &
+              ak$mean_model == mm]
+akr <- function(model, mm, col = 'kappa')
+  range(ak[[col]][ak$dgp == 'refined' & ak$model == model &
+                    ak$mean_model == mm])
+fr <- function(x, fmt = f3) {
+  if (fmt(x[1]) == fmt(x[2])) fmt(x[1]) else paste(fmt(x[1]), 'to', fmt(x[2]))
+}
+dg13 <- if (d13$refined) 'refined' else 'stored'
+```
+
+```{r compute-ladder}
+lad <- r4 |>
+  group_by(spec, mean_model, model) |>
+  summarise(n = n(), kappa = mean(std_error) / sd(estimate),
+            t1 = mean(p_value < 0.05), .groups = 'drop') |>
+  mutate(mcse = sqrt(t1 * (1 - t1) / n),
+         mcse_k = kap_mcse(kappa, n))
+lv <- function(s, m, col, mm = 'fitted')
+  lad[[col]][lad$spec == s & lad$model == m & lad$mean_model == mm]
+lw <- r4 |> filter(spec == 'E1', mean_model == 'fitted',
+                   model %in% c('M1', 'M3')) |>
+  select(rep, model, p_value) |>
+  pivot_wider(names_from = model, values_from = p_value)
+pd_m1m3 <- paired(lw$M1, lw$M3)
+```
+
+```{r compute-gradient}
+grad <- r6 |>
+  group_by(N, spec) |>
+  summarise(n = n(), kappa = mean(std_error) / sd(estimate),
+            t1 = mean(p_value < 0.05), .groups = 'drop') |>
+  mutate(mcse_k = kap_mcse(kappa, n), mcse = sqrt(t1 * (1 - t1) / n))
+slopes <- grad |>
+  group_by(spec) |>
+  group_modify(function(d, k) {
+    w <- 1 / d$mcse_k^2
+    x <- log2(d$N)
+    xb <- sum(w * x) / sum(w)
+    b <- sum(w * (x - xb) * d$kappa) / sum(w * (x - xb)^2)
+    se <- sqrt(1 / sum(w * (x - xb)^2))
+    tibble(slope = b, lo = b - 1.96 * se, hi = b + 1.96 * se)
+  }) |> ungroup()
+sl <- function(s, col) slopes[[col]][slopes$spec == s]
+g70 <- function(s) grad |> filter(N == 70, spec == s)
+```
+
+```{r compute-cr2}
+cr2_sum <- function(r) {
+  r |>
+    filter(fit_ok, cr2_ok) |>
+    group_by(spec) |>
+    summarise(
+      n = n(),
+      k_mod = mean(mod_se) / sd(estimate),
+      k_cr2 = mean(cr2_se) / sd(estimate),
+      cv_cr2 = sd(cr2_se) / mean(cr2_se),
+      t1_mod = mean(mod_p < 0.05), t1_cr2 = mean(cr2_p < 0.05),
+      df_q05 = quantile(cr2_df, 0.05), df_q95 = quantile(cr2_df, 0.95),
+      df = mean(cr2_df),
+      d_est = mean((cr2_p < 0.05) - (mod_p < 0.05)),
+      d_mcse = sd((cr2_p < 0.05) - (mod_p < 0.05)) / sqrt(n()),
+      .groups = 'drop') |>
+    mutate(mcse_mod = sqrt(t1_mod * (1 - t1_mod) / n),
+           mcse_cr2 = sqrt(t1_cr2 * (1 - t1_cr2) / n),
+           z_cr2 = (t1_cr2 - 0.05) / sqrt(0.05 * 0.95 / n),
+           bp_cr2 = map2_dbl(round(t1_cr2 * n), n, binom_p))
+}
+crs <- cr2_sum(rcr)
+cv <- function(s, col) crs[[col]][crs$spec == s]
+cr_fail <- rcr |> group_by(spec) |>
+  summarise(fail = sum(!(fit_ok & cr2_ok)), n = n(), .groups = 'drop')
+crf <- function(s) cr_fail$fail[cr_fail$spec == s]
+has_g9 <- dcr$refined && any(rcr$spec == 'G9')
+## The closed form misses for CR2: kappa near one, size below 0.05.
+cr_pred <- crs |> mutate(pred = 2 * pnorm(-k_cr2 * qt(0.975, df)))
+```
+
+```{r compute-alt}
+als <- cr2_sum(ralt)
+av <- function(s, col) als[[col]][als$spec == s]
+aw <- ralt |> filter(fit_ok, cr2_ok, spec %in% c('E1', 'E2', 'E3')) |>
+  select(rep, spec, mod_p, cr2_p) |>
+  pivot_wider(names_from = spec, values_from = c(mod_p, cr2_p)) |>
+  na.omit()
+a21m <- paired(aw$mod_p_E2, aw$mod_p_E1)
+a21c <- paired(aw$cr2_p_E2, aw$cr2_p_E1)
+a23m <- paired(aw$mod_p_E2, aw$mod_p_E3)
+a23c <- paired(aw$cr2_p_E2, aw$cr2_p_E3)
+did <- with(aw, ((cr2_p_E2 < .05) - (cr2_p_E1 < .05)) -
+                ((mod_p_E2 < .05) - (mod_p_E1 < .05)))
+did_est <- mean(did)
+did_mcse <- sd(did) / sqrt(length(did))
+```
+
+```{r compute-gee}
+gs <- rgee |>
+  group_by(spec) |>
+  summarise(
+    n = n(),
+    k_lz = mean(lz_se) / sd(estimate), k_md = mean(md_se) / sd(estimate),
+    lz_z = mean(lz_p_z < .05), lz_t = mean(lz_p_t < .05),
+    md_z = mean(md_p_z < .05), md_t = mean(md_p_t < .05),
+    .groups = 'drop') |>
+  mutate(across(c(lz_z, lz_t, md_z, md_t),
+                ~ sqrt(.x * (1 - .x) / n), .names = 'mcse_{.col}'),
+         z_md_t = (md_t - 0.05) / sqrt(0.05 * 0.95 / n),
+         bp_md_t = map2_dbl(round(md_t * n), n, binom_p),
+         pred_lz = 2 * pnorm(-k_lz * qnorm(0.975)))
+gv <- function(s, col) gs[[col]][gs$spec == s]
+eff <- rgee |> select(rep, spec, est_gee = estimate) |>
+  inner_join(r13 |> filter(mean_model == 'fitted') |>
+               select(rep, spec, est_lme = estimate),
+             by = c('rep', 'spec')) |>
+  group_by(spec) |>
+  summarise(sd_gee = sd(est_gee), sd_lme = sd(est_lme),
+            rel_eff = var(est_lme) / var(est_gee), n = n(),
+            .groups = 'drop')
+ev <- function(s, col) eff[[col]][eff$spec == s]
+```
+
+```{r compute-kr}
+krs <- rkr |>
+  filter(cov %in% c('sp_exp', 'us')) |>
+  group_by(cov, method, spec) |>
+  summarise(n = n(), kappa = mean(se) / sd(estimate),
+            df = mean(df), t1 = mean(p < 0.05), .groups = 'drop') |>
+  mutate(mcse = sqrt(t1 * (1 - t1) / n),
+         z = (t1 - 0.05) / sqrt(0.05 * 0.95 / n))
+kv <- function(cv_, m, s, col)
+  krs[[col]][krs$cov == cv_ & krs$method == m & krs$spec == s]
+kr_change <- rkr |>
+  filter(cov %in% c('sp_exp', 'us')) |>
+  select(rep, spec, cov, method, se) |>
+  pivot_wider(names_from = method, values_from = se) |>
+  group_by(cov) |>
+  summarise(pct = 100 * mean(`Kenward-Roger` / Satterthwaite - 1,
+                             na.rm = TRUE), .groups = 'drop')
+krc <- function(cv_) kr_change$pct[kr_change$cov == cv_]
+
+## The gls M2 rung against mmrm sp_exp on the same datasets.
+if (dkr$refined) {
+  gm <- rkr |> filter(cov == 'gls_car1') |>
+    select(rep, spec, se_g = se)
+} else {
+  gm <- r4 |> filter(model == 'M2', mean_model == 'fitted') |>
+    select(rep, spec, se_g = std_error)
+}
+gm <- gm |>
+  inner_join(rkr |> filter(cov == 'sp_exp', method == 'Satterthwaite') |>
+               select(rep, spec, se_m = se), by = c('rep', 'spec')) |>
+  group_by(spec) |>
+  summarise(ratio = mean(se_g) / mean(se_m), n = n(), .groups = 'drop')
+gmv <- function(s) gm$ratio[gm$spec == s]
+sm <- dkr_smoke$results
+sm_g <- sm |> filter(cov == 'gls_car1') |> select(rep, spec, se_g = se)
+sm_m <- sm |> filter(cov == 'sp_exp', method == 'Satterthwaite') |>
+  select(rep, spec, se_m = se)
+sm_j <- inner_join(sm_g, sm_m, by = c('rep', 'spec'))
+sm_maxdiff <- max(abs(sm_j$se_g / sm_j$se_m - 1))
 ```
 
 # Abstract {-}
 
-**Background.** The linear mixed model is the standard tool for
-testing a fixed-effect interaction in longitudinal and clustered
-data. The model-based Wald test of that interaction is correctly
-calibrated only when the working within-cluster covariance is
-correctly specified. In practice an analyst chooses a convenient
-parametric residual structure, a continuous-time autoregressive
-correlation, compound symmetry, or an unstructured form, and then
-trusts the model-based standard error. The direction and the
-magnitude of the miscalibration that follows when the working
-covariance is wrong are rarely checked.
+**Background.** A linear mixed model with a random intercept and a
+continuous-time autoregressive residual is a common analysis of an
+aggregated N-of-1 trial. Its model-based Wald test of a
+biomarker-by-drug interaction can be miscalibrated. We diagnosed why,
+in one simulated design.
 
-**Methods.** We set out a staged diagnostic protocol, a
-four-channel decomposition of the test statistic, a
-working-covariance model ladder, and a sample-size gradient, and we
-apply it to a worked example: the test of a biomarker-treatment
-interaction in an aggregated N-of-1 carryover simulation, analyzed
-with an `lme` model carrying a random intercept and a corCAR1
-residual correlation.
+**Methods.** We simulated the null of the Hybrid design with
+$N = 70$ participants. We computed the population calibration ratio
+$\kappa$ exactly from the data-generating mean and covariance. We
+crossed the mean model with the working covariance in a model ladder.
+We compared model-based, CR2 cluster-robust and Kenward-Roger
+inference, and generalized estimating equations.
 
-**Results.** At the null the model-based standard error of the
-interaction is over-estimated by 6 to 10 percent, and the realized
-Type I error is approximately 0.03 against a nominal 0.05. We rule
-out the degrees-of-freedom rule, the positive-definiteness
-correction, and point-estimate bias as causes. The model ladder
-localizes the miscalibration to the corCAR1 residual layer: a
-random intercept alone is well calibrated. The sample-size gradient
-shows the bias is asymptotic, not a moderate-sample artifact. It
-does not attenuate from $N = 35$ to $N = 280$, and an empirical
-Kenward-Roger check confirms the small-sample correction is
-numerically inert on the parsimonious autoregressive covariance. A
-CR2 bias-reduced cluster-robust standard error restores the
-standard-error ratio to approximately one and the Type I error to
-approximately 0.05; a generalized-estimating-equations analysis
-with a bias-corrected sandwich reaches the same calibration from
-the marginal side. At an alternative cell with a non-null effect
-the recalibration raises power by a near-uniform increment and
-leaves the ranking of analysis specifications unchanged.
+**Results.** `r if (d13$refined) 'The' else 'In the pre-correction run the'`
+model-based standard error exceeded the empirical
+standard deviation by `r pct(min(dec$kappa) - 1)` to
+`r pct(max(dec$kappa) - 1)` percent. The Type I error was
+`r f3(min(dec$t1))` to `r f3(max(dec$t1))` against 0.05. The analysis
+mean, a linear trend plus a drug indicator, could not follow the
+curved mean trajectories. Restricted maximum likelihood absorbed this
+misfit into the variance parameters. Under the project's current
+data-generating process the exact population $\kappa$ of the
+production model was
+`r fr(akr('M3', 'fitted'))` with the fitted mean. It was
+`r fr(akr('M3', 'correct'))` with a correct mean and
+`r fr(akr('M3', 'visit'))` with a free mean per visit. The calibrated
+appearance of the random-intercept-only model was a cancellation of
+two errors. `r if (dcr$refined) 'The' else 'In the pre-correction run the'`
+CR2 test rejected at `r f3(min(crs$t1_cr2[crs$spec %in% c('E1','E2','E3')]))`
+to `r f3(max(crs$t1_cr2[crs$spec %in% c('E1','E2','E3')]))`.
 
-**Conclusions.** A misspecified parametric working covariance can
-bias the model-based standard error of a mixed-model interaction
-test asymptotically, in either direction. Cluster-robust standard
-errors are a general remedy, and we offer the staged diagnostic as
-a reusable instrument for detecting the problem.
+**Conclusions.** In this example the conservatism came mainly from
+the mean model, not from the residual correlation. A visit-level mean
+removed most of it. A CR2 standard error restored the size without
+changing the model.
 
 # Introduction
 
-The linear mixed model is by far the most common vehicle for testing
-whether a covariate moderates an effect in longitudinal or clustered
-data [@laird1982; @diggle2002]. The quantity of interest is a
-fixed-effect interaction coefficient, and inference nearly always
-proceeds by a Wald test: the coefficient estimate divided by a
-model-based standard error, referred to a $t$ distribution. That
-procedure is correctly calibrated, exactly so in balanced cases and to
-first order otherwise, only under one condition. The condition is easy
-to state and, unfortunately, easy to forget. The working covariance,
-that is, the random-effects structure together with the parametric
-residual correlation the analyst has assumed, must be correct.
+The linear mixed model is a standard tool for testing whether a
+covariate moderates an effect in longitudinal data
+[@laird1982; @diggle2002]. The quantity of interest is a fixed-effect
+interaction coefficient. Inference usually proceeds by a Wald test:
+the estimate divided by a model-based standard error, referred to a
+$t$ distribution. The model-based standard error is consistent only
+when the working model is correct. Two parts of the working model
+matter. One is the within-participant covariance, the random effects
+together with the residual correlation. The other is the mean model.
 
-It has been understood since the work of Eicker, Huber, and White that
-this condition is more demanding than it appears
-[@eicker1967; @huber1967; @white1980]. When the working covariance is
-misspecified, the model-based standard error no longer consistently
-estimates the true sampling variability of the fixed-effect estimate.
-Liang and Zeger [-@liang1986] carried this insight into longitudinal
-data analysis. Their generalized estimating equations decouple the
-point estimate, computed under a convenient working correlation, from
-the variance estimate, computed by an empirical sandwich that stays
-consistent whatever the working correlation happens to be. This
-cluster-robust (sandwich) standard error has since become a standard
-instrument, and a substantial literature has refined it for the
-small-sample case [@mancl2001covariance; @bell2002; @cameron2015;
-@pustejovsky2018].
+The consequences of a misspecified working covariance are well
+established. The model-based standard error is then inconsistent, and
+the sandwich estimator repairs it
+[@eicker1967; @huber1967; @white1980; @white1982; @liang1986; @royall1986].
+Gurka, Edwards and Muller [-@gurka2011] proved that an underspecified
+covariance biases mixed-model fixed-effect inference in large samples
+as well as small ones. More participants do not remove the bias. Lu
+and Mehrotra [-@lu2010] and Gosho et al. [-@gosho2017] compared the
+sandwich, its small-sample corrections and the Kenward-Roger method
+under misspecified covariance in longitudinal trials. Luke
+[-@luke2017] evaluated the Type I error of Kenward-Roger and
+Satterthwaite tests in linear mixed models.
 
-Yet in routine mixed-model practice the working covariance is still
-trusted. An analyst fitting longitudinal data with \texttt{nlme} or a
-comparable package will choose a residual correlation, often a
-continuous-time first-order autoregressive form, because it is
-pharmacokinetically or biologically plausible [@pinheirobates2000],
-and will then report the model-based standard error of the interaction
-without asking what happens if the chosen form is not exactly the form
-the data follow. We see this less as negligence than as a reasonable
-working assumption that is seldom audited. But how large is the error
-when the assumption fails? Is the resulting test conservative or
-anti-conservative? Does the miscalibration diminish as the sample
-grows, so that it might be dismissed as a small-sample nuisance, or
-does it persist? These questions do not have a single answer, because
-the answer depends on the interaction being tested and on the way the
-working covariance departs from the truth. They have to be asked of a
-particular analysis, and we ask them of one here.
+Less attention has gone to the mean model. When the fixed effects
+cannot follow the true mean trajectory, the residuals carry a
+systematic pattern. If that pattern is common to many participants,
+restricted maximum likelihood (REML) treats it as covariance. The
+variance parameters then absorb it, and the model-based standard error
+of a fixed effect changes. This paper shows that this mechanism, not
+the residual correlation structure, produced most of a conservative
+interaction test in one simulation of aggregated N-of-1 trials.
 
-In this paper we endeavor to do exactly that for one analysis, and in
-doing so we offer two contributions that we believe carry beyond the
-single case. The first is a diagnostic protocol. We decompose the Wald
-statistic into four channels through which miscalibration can enter,
-and we add two further instruments: a working-covariance model ladder
-that localizes the cause, and a sample-size gradient that separates a
-finite-sample artifact from an asymptotic one. The protocol is not
-specific to the example and can be applied to any mixed-model
-interaction test whose calibration is in doubt. The second contribution
-is the finding the protocol produced. In our worked example the
-model-based interaction test is conservative, not anti-conservative as
-the sandwich literature's emphasis on under-estimated standard errors
-might lead one to expect. The conservatism is material, on the order
-of ten percent in standard-error terms, and it is asymptotic,
-persisting undiminished across an eightfold range of sample size. We
-trace it to a single component of the working covariance, and we show
-that a cluster-robust standard error removes it.
+The example comes from the pmsimstats-ng project. The project studies
+power to detect biomarker-treatment interactions in aggregated N-of-1
+trials under carryover [@hendrickson2020]. Methods for combining
+N-of-1 trials, including the choice of covariance, are reviewed by
+Zucker, Ruthazer and Schmid [-@zucker2010] and by Araujo, Julious and
+Senn [-@araujo2016]. The companion carryover paper
+[@pmsimstats-paper02] recommends an analysis, G9, that uses a CR2
+cluster-robust standard error. The companion test-procedure paper
+[@pmsimstats-paper08] reports a conservative model-based mixed model
+in a different design. The present paper supplies the diagnosis behind
+that conservatism and behind the CR2 remedy.
 
-The worked example is drawn from the pmsimstats-ng project, a
-simulation study of power to detect biomarker-treatment interactions
-in aggregated N-of-1 trials under carryover [@hendrickson2020]. The
-example is incidental to the argument. The phenomenon, a parametric
-working covariance that biases a fixed-effect interaction test
-asymptotically, and the remedy are not properties of that simulation.
-They are properties of the mixed-model Wald test, and the example
-serves only to make them concrete and quantified. We begin in Section
-2 with the diagnostic protocol. Section 3 describes the worked
-example. Section 4 reports the staged diagnosis and the
-cluster-robust remedy. Section 5 discusses the generality of the
-result and its limits.
+We make three contributions, each confined to the example. First, we
+compute the population calibration ratio $\kappa$ exactly from the
+data-generating mean and covariance. This separates the mean and
+covariance contributions without Monte Carlo error. Second, we show
+that the mean misfit, absorbed by REML, accounts for most of the
+excess $\kappa$, and that the apparent calibration of a
+random-intercept-only model is a cancellation of errors. Third, we
+report the CR2 remedy, Kenward-Roger and generalized estimating
+equations on the same simulated datasets, with paired Monte Carlo
+standard errors. Section 2 sets out the instruments. Section 3
+describes the example. Section 4 reports the results. Section 5
+discusses them.
 
-# A staged diagnostic protocol
+# Diagnostic instruments
 
-Consider a fixed-effect interaction coefficient $\theta$ estimated by
-$\hat\theta$, with a model-based standard error
-$\widehat{\mathrm{SE}}$ and an assigned degrees of freedom $\nu$. The
-Wald test rejects the null $H_0: \theta = 0$ at level $\alpha$ when
-the statistic $T = \hat\theta / \widehat{\mathrm{SE}}$ exceeds the
-critical value $t_{\nu, 1-\alpha/2}$ in absolute value. The test is
-correctly calibrated when the realized rejection rate under $H_0$
-equals $\alpha$. When it does not, the discrepancy must enter through
-one of exactly four channels, and the channels are separable by
-simulation. The general anatomy of a Wald statistic, and of the
-reference distribution against which it is judged, is itself
-classical [@coxhinkley1974]. We begin with the decomposition itself,
-and then describe the two further instruments we add to it.
+## A first-order decomposition of the rejection rate
 
-## The four-channel decomposition
-
-We begin by writing the interaction estimate in a form that exposes the
-four channels. We use the word 'channel' for the four mutually
-exclusive routes by which a discrepancy can reach the realized error
-rate; the term is adopted because the more familiar nouns are already
-committed in this setting, 'component' to variance components, 'factor'
-to the latent factors of the data-generating process, and 'term' to the
-terms of the model. Let
+Let $\hat\theta$ estimate an interaction coefficient $\theta$, with
+model-based standard error $\widehat{\mathrm{SE}}$ and denominator
+degrees of freedom $\nu$. The Wald test rejects $H_0: \theta = 0$ at
+level $\alpha$ when $|T| > t_{\nu, 1-\alpha/2}$, with
+$T = \hat\theta / \widehat{\mathrm{SE}}$. Write
 \begin{equation}
-\hat\theta \;=\; \mu + \sigma\,Z^{\star},
-\qquad
-\mu = \mathrm{E}(\hat\theta), \quad
-\sigma = \mathrm{SD}(\hat\theta),
+\hat\theta = \mu + \sigma Z^{\star},
+\qquad \mu = \mathbb E(\hat\theta), \quad
+\sigma = \mathrm{SD}(\hat\theta).
 (\#eq:decomp)
 \end{equation}
-so that $Z^{\star} = (\hat\theta - \mu)/\sigma$ is the standardized
-estimate, of mean zero and unit variance by construction; when
-$\hat\theta$ is approximately normal, $Z^{\star}$ is approximately
-standard normal. Write $\overline{\widehat{\mathrm{SE}}}$ for the
-mean of the model-based standard error and
-$\kappa = \overline{\widehat{\mathrm{SE}}}/\sigma$ for its ratio to the
-true sampling standard deviation $\sigma$. Then the Wald statistic,
-to the order at which the variability of $\widehat{\mathrm{SE}}$
-about its mean may be neglected, is
+Then $Z^{\star}$ has mean zero and unit variance by construction. Let
+$\kappa = \mathbb E(\widehat{\mathrm{SE}})/\sigma$, the calibration
+ratio. If the variability of $\widehat{\mathrm{SE}}$ about its mean is
+neglected,
 \begin{equation}
-T \;=\; \frac{\hat\theta}{\widehat{\mathrm{SE}}}
-  \;\approx\; \frac{\mu + \sigma Z^{\star}}{\kappa\,\sigma}
-  \;=\; \frac{1}{\kappa}\,\bigl(Z^{\star} + \delta\bigr),
-\qquad \delta = \frac{\mu}{\sigma},
+T \approx \frac{1}{\kappa}\bigl(Z^{\star} + \delta\bigr),
+\qquad \delta = \mu/\sigma,
 (\#eq:wald)
 \end{equation}
-where $\delta$ is the bias expressed in standard-deviation units. In
-this form the statistic is a shifted and rescaled standard normal, the
-structure that underlies the noncentral $t$ distribution
-[@johnson1940noncentral]: $\delta$ enters as a non-centrality and
-$\kappa$ as a scale distortion.
-The realized Type I error follows at once,
+and
 \begin{equation}
-\alpha_{\mathrm{real}}
-  \;=\; \Pr\!\bigl(|T| > t_{\nu,\,1-\alpha/2}\bigr)
-  \;\approx\; \Pr\!\bigl(|Z^{\star} + \delta|
-              > \kappa\,t_{\nu,\,1-\alpha/2}\bigr),
+\alpha_{\mathrm{real}} \approx
+\Pr\!\bigl(|Z^{\star} + \delta| > \kappa\, t_{\nu, 1-\alpha/2}\bigr).
 (\#eq:alpha)
 \end{equation}
-and exactly four quantities appear in it. They are the four
-channels: the standardized bias $\delta$, which decenters the
-statistic; the scale $\kappa$, which multiplies the rejection
-threshold; the degrees of freedom $\nu$, which fix the critical
-value $t_{\nu,1-\alpha/2}$; and the distribution of $Z^{\star}$,
-the shape of the reference. When all four take their nominal
-values, $\delta = 0$, $\kappa = 1$, $\nu = \infty$, and
-$Z^{\star} \sim \mathrm{N}(0,1)$, the expression collapses to
-$\Pr(|\mathrm{N}(0,1)| > z_{1-\alpha/2}) = \alpha$ and the test is
-exact; a departure in any one channel miscalibrates it. A second
-identity is worth recording, since the diagnosis turns on it:
-because $T \approx (Z^{\star} + \delta)/\kappa$, the dispersion of the
-statistic satisfies
+Four quantities appear: the standardized bias $\delta$, the scale
+$\kappa$, the degrees of freedom $\nu$ and the law of $Z^{\star}$.
+When $\hat\theta$ is approximately normal, $\delta = 0$ and $\nu$ is
+large, the expression reduces to the closed form
 \begin{equation}
-\mathrm{SD}(T) \;\approx\; \mathrm{SD}(Z^{\star})\,/\,\kappa ,
-(\#eq:sdt)
+\alpha_{\mathrm{real}} \approx 2\,\Phi\!\bigl(-\kappa\,
+t_{\nu, 1-\alpha/2}\bigr).
+(\#eq:closed)
 \end{equation}
-so a statistic standard deviation below one is read at once as a
-scale inflation ($\kappa > 1$), a sub-normal reference shape, or both.
-One qualification attends the decomposition: equation \@ref(eq:wald)
-treats $\kappa$ as a fixed mean ratio and neglects the sampling
-variability of $\widehat{\mathrm{SE}}$ itself. That variability is not
-lost but carried by the degrees-of-freedom and reference-shape
-channels, with which the scale channel is therefore only approximately
-separable. The approximation is excellent when the model assigns many
-degrees of freedom to the standard error, as in the worked example
-below, and we return to its limits where the cluster-robust standard
-error, which carries far fewer, is taken up.
 
-We measure the four channels by simulation as follows.
+This is a first-order heuristic, not an exact or exhaustive
+decomposition. Under the approximation, $\mathrm{SD}(T) \approx
+1/\kappa$ because $\mathrm{SD}(Z^{\star}) = 1$. Any gap between
+$\mathrm{SD}(T)$ and $1/\kappa$ comes from the variability of
+$\widehat{\mathrm{SE}}$ and from its dependence on $\hat\theta$, which
+the approximation discards. We therefore report a fifth diagnostic,
+the coefficient of variation of the standard error,
+$\mathrm{CV}(\widehat{\mathrm{SE}})$. When it is large, the closed
+form can fail even with $\kappa = 1$. Section 4 shows two such cases.
+The components are standard simulation performance measures: bias,
+the ratio of model-based to empirical standard error, and the
+rejection rate [@morris2019simulation]. The bias $\delta$ acts as the
+noncentrality of a noncentral $t$ [@johnson1940noncentral].
+Approximate degrees of freedom $\nu$ follow Satterthwaite
+[-@satterthwaite1946], Welch [-@welch1947generalization] and Kenward
+and Roger [-@kenward1997small].
 
-1. **Point-estimate bias** ($\delta$). If
-   $\mathrm{E}(\hat\theta) \neq 0$ under $H_0$ the statistic is
-   decentred, acquiring the non-centrality of a noncentral $t$
-   [@johnson1940noncentral]. We measure $\mu$, and hence
-   $\delta = \mu/\sigma$, by the mean of $\hat\theta$ across null
-   replicates.
-2. **Standard-error calibration** ($\kappa$). If the model-based
-   $\widehat{\mathrm{SE}}$ does not estimate the true sampling
-   standard deviation of $\hat\theta$, the statistic is rescaled.
-   We measure $\kappa$ as the mean model-reported standard error over
-   the empirical standard deviation of the estimate across
-   replicates. That unequal error variances or correlation among the
-   errors distort the realized level of a test through this channel
-   is a classical result of Box [@box1954i; @box1954ii]. A ratio
-   above one indicates an over-stated standard error and a
-   conservative test; a ratio below one the reverse.
-3. **Degrees of freedom** ($\nu$). If $\nu$ is too small the $t$
-   reference has tails too heavy and the test is conservative; if
-   too large, the reverse. The approximate degrees of freedom such a
-   reference carries trace to Satterthwaite [@satterthwaite1946] and
-   Welch [@welch1947generalization]. We measure this by recomputing
-   the p-values against a normal reference and comparing the realized
-   Type I error.
-4. **Reference-distribution shape** (the law of $Z^{\star}$). Even
-   with $\delta = 0$, $\kappa = 1$, and $\nu$ correct, $Z^{\star}$ may
-   not be standard normal. The consequences of such non-normality for
-   the true level of a test were studied classically by Pearson
-   [@pearson1931], Box [@box1953nonnormality], and Scheffé
-   [@scheffe1959analysis, ch. 10]. We measure this by the standard
-   deviation of $T$ under $H_0$, which should be approximately
-   one, and by the empirical distribution function of the
-   p-values, which should be Uniform$(0,1)$.
+Two quantities are measured by simulation in addition to the rejection
+rate. The degrees-of-freedom channel is checked by recomputing the
+$p$-values against a normal reference. The shape of the null
+distribution is checked by the empirical distribution function of the
+$p$-values, which should be uniform.
 
-None of the individual channels is new, and each carries a classical
-provenance. The decentering of the statistic by a non-null mean is the
-non-centrality of the noncentral $t$ distribution, whose properties
-were charted by Johnson and Welch [-@johnson1940noncentral]. As
-performance measures, the bias of the estimate and the ratio of the
-model-based to the empirical standard error are among the standard
-summaries of a simulation study codified by Morris, White, and
-Crowther [-@morris2019simulation], who recommend that the model-based
-and empirical standard errors be reported and compared as a matter of
-course. The scale channel has the longest pedigree of the four. Box
-established, in his two-part study of departures from the assumptions
-of the analysis of variance [-@box1954i; -@box1954ii], that unequal
-error variances and correlation among the errors push the realized
-significance level of a test away from its nominal value. This is
-precisely the mechanism by which a misspecified working covariance
-acts here. The asymptotic counterpart is the inconsistency of the
-model-based standard error under the conditions of Eicker, Huber, and
-White [@eicker1967; @huber1967; @white1980]. The degrees-of-freedom
-channel rests on the approximate-distribution arguments of
-Satterthwaite [-@satterthwaite1946] and Welch
-[-@welch1947generalization], refined for the mixed model by Kenward
-and Roger [-@kenward1997small]. The reference-shape channel, the
-departure of the law of $Z^{\star}$ from normality, is the subject of
-the classical robustness literature of Pearson [-@pearson1931], Box
-[-@box1953nonnormality], and Scheffé [-@scheffe1959analysis, ch. 10],
-its formal small-sample anatomy given by the Edgeworth expansion of
-the studentised statistic [@hall1992], with the uniformity of the null
-p-value distribution following from the probability integral
-transform. The anatomy of the Wald statistic that organizes the four
-is itself standard [@coxhinkley1974]. What the decomposition
-contributes is not a new measure, nor the observation that any single
-assumption matters, but the demonstration that these four quantities,
-and exactly these four, compose into the single expression for
-$\alpha_{\mathrm{real}}$ derived above. Two consequences follow.
-First, the channels are exhaustive: a Wald test is a centered
-statistic, a scale, a reference shape, and a degrees-of-freedom
-choice, and the realized error rate is a function of those and of
-nothing else, so a discrepancy absent from all four cannot exist.
-Second, because the channels enter the expression in distinct and
-separately measurable roles, they interact within
-$\alpha_{\mathrm{real}}$ but are estimated independently. Measuring
-all four therefore does not merely detect a miscalibration; it
-localizes it, identifying which term carries the fault. We note that
-because the channels have different causes and different remedies, a
-diagnosis is in this sense a decomposition and not a checklist.
+## The calibration ratio under a misspecified mean and covariance
 
-## The working-covariance model ladder
-
-The four-channel decomposition tells us how a test is miscalibrated.
-It does not tell us why. When the decomposition points to the
-standard-error channel, it is worth being precise about what the scale
-$\kappa$ measures. Let the interaction estimate be written
-$\hat\theta = \ell'\hat\beta$, with $\ell$ the contrast vector that
-selects the interaction coefficient from the fixed-effects vector. A
-fixed-effect estimator that solves a generalized least squares system
-under a working covariance $V_0$, when the data are in truth generated
-under a covariance $V$, has a model-based variance
+Let $\hat\theta = \ell^\top\hat\beta$ for a contrast vector $\ell$,
+with $\hat\beta$ the generalized least squares estimate under a
+working covariance $V_0$ and fixed-effects design $X$. Clusters are
+independent, so every cross-product below is a sum over participants.
+The model-based variance is
 \begin{equation}
-v_0 \;=\; \ell'\bigl(X' V_0^{-1} X\bigr)^{-1}\ell ,
+v_0 = \ell^\top\bigl(X^\top V_0^{-1} X\bigr)^{-1}\ell .
 (\#eq:v0)
 \end{equation}
-while its true sampling variance is the sandwich form
+The true sampling variance is the sandwich
 \begin{equation}
-v \;=\; \ell'\bigl(X' V_0^{-1} X\bigr)^{-1}
-\bigl(X' V_0^{-1} V V_0^{-1} X\bigr)
-\bigl(X' V_0^{-1} X\bigr)^{-1}\ell ,
+v = \ell^\top\bigl(X^\top V_0^{-1} X\bigr)^{-1}
+\bigl(X^\top V_0^{-1}\, S\, V_0^{-1} X\bigr)
+\bigl(X^\top V_0^{-1} X\bigr)^{-1}\ell
 (\#eq:vsand)
 \end{equation}
-where $X$ is the fixed-effects design and, the clusters being
-independent, every cross-product is a sum over clusters,
-$X' V_0^{-1} X = \sum_i X_i' V_{0i}^{-1} X_i$ and likewise
-$X' V_0^{-1} V V_0^{-1} X = \sum_i X_i' V_{0i}^{-1} V_i V_{0i}^{-1}
-X_i$ [@white1980; @liang1986; @boos2013]. For the mixed model fitted by
-maximum or restricted maximum likelihood
-[@patterson1971; @harville1977], the inconsistency of the model-based
-variance $v_0$ for the true variance $v$ under a wrong $V_0$ is the
-misspecified-likelihood result of White [-@white1982], of which the
-sandwich form is the consistent counterpart. The scale of Section 2.1
-is the ratio of these two quadratic forms, $\kappa^2 = v_0 / v$. They
-coincide when $V_0 = V$, and for a generic contrast $\ell$ they do not
-otherwise; the scale channel is therefore not a finite-sample nuisance
-but a direct consequence of the working covariance: $\kappa$ departs
-from one whenever $V_0 \neq V$, and no quantity of data removes the
-discrepancy.
+[@white1980; @liang1986; @boos2013]. Here $S$ is the second moment of
+the outcome about the fitted working mean. When the mean model is
+correct, $S = V$, the true covariance. When it is not,
+\begin{equation}
+S = V + r r^\top ,
+(\#eq:vrr)
+\end{equation}
+where $r$ is the misfit, the true mean minus the best-fitting working
+mean. In a design where every participant on a randomization path
+shares the same visit schedule, $r$ is common to the participants of
+the path. REML estimates the variance parameters of $V_0$ by fitting
+$S$, not $V$. A common misfit pattern therefore enters the estimated
+variance components. The calibration ratio is $\kappa^2 = v_0/v$,
+with $V_0$ at the pseudo-true values that minimize the
+Kullback-Leibler criterion $\log|V_0| + \mathrm{tr}(V_0^{-1} S)$
+[@white1982; @patterson1971; @harville1977].
 
-This is also what makes a model ladder informative. Each rung is a
-different working covariance $V_0$ fitted to the same data. Tracking
-$\kappa$ along a graded sequence of working covariances, from the
-simplest to the production model, isolates the rung, that is, the
-covariance component, at which $\kappa$ departs from one. Because
-every rung is fitted to the identical simulated data, the comparison
-is free of Monte Carlo noise between models.
+We compute $\kappa$ exactly in this way from the data-generating
+process (DGP). At the null the biomarker is independent of the
+outcome with mean zero, so the information for the biomarker terms
+separates from the rest. The computation needs only the per-path mean
+and covariance of the outcome, which the DGP supplies in closed form.
+It has no Monte Carlo error. It is a per-participant functional, so
+it does not depend on the number of participants. It captures the
+asymptotic calibration and excludes finite-sample REML terms by
+construction. We validated it against the simulation in Section 4.
+
+## A two-factor model ladder
+
+The ladder refits the same datasets under a mean model crossed with a
+working covariance. The covariance factor has four rungs: ordinary
+least squares (M0), a random intercept (M1), a continuous-time
+first-order autoregressive residual alone (M2), and both (M3, the
+production model). The mean factor has four levels: the fitted mean
+of the analysis model, the fitted mean plus expectancy terms (the mean
+structure of the project's F1 analysis), a free mean for each visit,
+and a correct mean. The correct mean is a free mean for each
+path-by-visit cell in simulation, and the true mean in the analytic
+computation. Because every rung is fitted to the same data, the rungs
+can be compared replicate by replicate.
 
 ## The sample-size gradient
 
-A standard-error miscalibration may be one of two qualitatively
-different things. It may be a finite-sample artifact, in which case it
-attenuates as the sample grows and the working-covariance parameters
-are estimated more sharply; the small-sample corrections of Kenward
-and Roger [-@kenward1997small; -@kenward2009] address miscalibration
-of this kind. Or it may be asymptotic, a consequence of a working
-covariance that does not match the data-generating covariance no
-matter how much data is collected, in which case it persists. The two
-are distinguished by running the decomposition across a range of
-cluster counts. Here a point of construction guides the reading. The
-scale $\kappa$ of Section 2.2 is a functional of the per-cluster
-quantities $(X_i, V_i, V_{0i})$ alone, so it does not depend on the
-number of clusters and is, to leading order, constant along the
-gradient by construction. What a varying cluster count changes is the
-precision with which the variance parameters of $V_0$ are estimated,
-the very quantity whose finite-sample uncertainty the Kenward-Roger
-correction addresses, following Kackar and Harville [-@kackar1984]. A
-gradient that is flat in the cluster count therefore does two things
-at once: it confirms that no spurious trend enters through parameter
-estimation, and it shows that the bias is not of the kind a
-finite-sample correction would remove.
+The analytic $\kappa$ of Section 2.2 does not depend on the number of
+participants. A simulation gradient in $N$ therefore cannot show
+whether the excess is asymptotic. That is settled by the analytic
+computation. The gradient checks only for finite-sample terms in the
+REML variance estimates, the terms that the Kenward-Roger correction
+addresses [@kackar1984; @kenward1997small]. We report the slope of
+the simulated $\kappa$ on $\log_2 N$ with a confidence interval.
 
-Attenuation toward nominal calibration marks the finite-sample case; a
-flat profile marks the asymptotic case. The distinction matters,
-because a finite-sample artifact at a realistic sample size may be
-tolerable, whereas an asymptotic bias is a property of the method and
-will not be outgrown. The gradient varies the number of clusters and
-not the number of timepoints within a cluster. We note that the
-latter is the axis along which the per-cluster covariance mismatch
-could itself change, and we return to it among the limitations.
+# Worked example {#sec-example}
 
-# Worked example: an interaction test under carryover
+## Design and data-generating process
 
-The example we work through is the test of a biomarker-treatment
-interaction in the carryover-sensitivity simulation study of the
-pmsimstats-ng project [@pmsimstats_carryover2026]. Aggregated N-of-1
-trials repeatedly cross each participant between an active treatment
-and a control condition, and the scientific question is whether a
-baseline biomarker moderates the treatment effect. Carryover, the
-persistence of drug effect into an off-drug period, is a long-standing
-concern in the analysis of crossover designs
-[@jones2014crossover; @senn2016mastering], and the study compares
-analysis-model strategies for accommodating it
-[@morris2019simulation]. The reporting follows the ADEMP structure of
-Morris, White, and Crowther [-@morris2019simulation].
+Table \@ref(tab:tab-ademp) summarizes the study in the ADEMP structure
+of Morris, White and Crowther [-@morris2019simulation]. The design is
+the Hybrid design: open-label titration, blinded discontinuation, then
+a brief crossover. It has four randomization paths and eight visits,
+at weeks 4, 8, 9, 10, 11, 12, 16 and 20. $N = 70$ is the total across
+paths, allocated 18, 18, 17 and 17. The outcome $Y_{it}$ is a
+baseline level minus three components: a natural-history component, a
+placebo-response component whose standard deviation scales with the
+design expectancy $\eta_t$, and a drug-response component. Each
+component follows a modified Gompertz mean curve and a first-order
+autoregressive correlation in calendar weeks with $\rho = 0.7$. The
+components are non-negative reductions in symptom severity. An
+increase in any component therefore lowers $Y_{it}$, and interaction
+coefficients are negative under the alternative.
+
+Carryover acts on the drug-response mean after discontinuation, with a
+half-life of $t_{1/2} = 1$ week. The interaction is carried by the
+correlation between the biomarker and the drug response, $c_{bm}$
+(the covariance-moderation architecture of the companion DGP paper
+[@pmsimstats-paper01]). At $c_{bm} = 0$ the interaction is null, and
+the mean-moderation and covariance-moderation architectures generate
+identical data under a common seed (verified,
+`check-null-architecture-equivalence.R`).
+
+Two versions of the DGP appear in this paper. The **pre-correction
+run** of 2026-05-20 used a cross-component correlation of
+$c_1 = 0.2$ at the same visit but $c_\times = 0.1$ at different
+visits, a mismatch documented in the project's driver audit. It also
+used the original carryover rule, which compounds the decay. The
+**extended DGP** of the companion DGP paper sets $c_1 = c_\times = 0.2$,
+lets carryover decay from the last on-drug mean, and stops on a
+covariance matrix that is not positive definite. Every table caption
+names the version that produced it. The analytic computation is
+reported for both. No cell of either version needed a
+positive-definiteness repair. The minimum eigenvalue of the
+covariance matrix over the four paths is
+`r f3(dan$pd_check$min_eig[dan$pd_check$c_bm == 0 & dan$pd_check$c_cfct == 0.1])`
+for the pre-correction constants and
+`r f3(dan$pd_check$min_eig[dan$pd_check$c_bm == 0 & dan$pd_check$c_cfct == 0.2])`
+for the extended DGP at $c_{bm} = 0$.
+
+```{r tab-ademp}
+ademp <- tibble(
+  Element = c('Aims', 'Data-generating mechanisms', 'Estimand',
+              'Methods', 'Performance measures'),
+  Content = c(
+    'Explain the conservatism of the model-based interaction test and evaluate remedies.',
+    'Hybrid design, N = 70, c_bm = 0 (null) and 0.45 (alternative), half-life 1 week, rho = 0.7. Extended DGP and pre-correction run.',
+    'theta, the biomarker-by-drug interaction coefficient. theta = 0 at the null.',
+    'E1, E2, E3 under M0 to M3 and four mean models. CR2 Satterthwaite, G9, F1. GEE with Liang-Zeger and Mancl-DeRouen sandwiches. Kenward-Roger on M2.',
+    'Rejection rate with MCSE and binomial test, kappa, CV of the SE, mean estimate with MCSE, paired differences between procedures.'))
+kable(ademp, booktabs = TRUE,
+  caption = 'ADEMP summary of the simulation study.') |>
+  kableExtra::column_spec(2, width = '10cm')
+```
 
 ## The analysis model
 
-For a symptom score $S_{x,it}$ on participant $i$ at timepoint $t$,
-the analysis model is the linear mixed model
+The production analysis model is
 \begin{equation}
-S_{x,it} \;=\; \beta_0 + \beta_1\,\mathrm{bm}_i
-  + \beta_2\,t + \beta_3\,X_{it}
-  + \theta\,(\mathrm{bm}_i \times X_{it}) + b_i + \varepsilon_{it},
+Y_{it} = \beta_0 + \beta_B B_i + \beta_T w_t + \beta_D D^{\ast}_{it}
+  + \theta\,B_i D^{\ast}_{it} + u_i + \varepsilon_{it},
 (\#eq:lmm)
 \end{equation}
-fitted by \texttt{nlme::lme} with a participant random intercept
-$b_i \sim \mathrm{N}(0, \sigma_b^2)$ and a continuous-time
-first-order autoregressive residual correlation,
-$\mathrm{corCAR1}(\mathrm{form} = \sim t \mid \mathrm{ptID})$. Here
-$\mathrm{bm}_i$ is the standardized biomarker, $X_{it}$ a
-drug-exposure predictor, and $\theta$ the interaction coefficient of
-interest. The project adopted the continuous-time autoregressive
-residual for its clinical realism, nearby measurements being more
-strongly correlated than distant ones, and for the numerical range it
-affords [@pinheirobates2000]. Whether that choice is also well
-calibrated for the fixed-effect interaction test is precisely the
-question we address.
+with $B_i$ the biomarker, drawn from $\mathcal N(0, 1)$, $w_t$ the
+calendar week, $u_i \sim \mathcal N(0, \sigma_u^2)$ a participant
+random intercept, and $\varepsilon_{it}$ a residual with
+continuous-time first-order autoregressive correlation
+$\rho_a^{|w_t - w_s|}$ and variance $\sigma_\varepsilon^2$. It is
+fitted by REML with `nlme::lme` [@pinheirobates2000; @nlme3169], with
+`corCAR1(form = ~t | ptID)`. The drug term $D^{\ast}_{it}$ defines
+three specifications. Under E1 it is the binary drug state $D_{it}$.
+Under E2 it is the exposure-decayed indicator $D_{bc,it}$ at the true
+half-life. E3 uses $D_{it}$ and adds the lagged just-off-drug
+indicator $L_{it}$. The interaction $\theta$ is the coefficient of
+`bm:Db` under E1 and E3 and of `bm:Dbc` under E2. This is the
+historical analysis of the project, not its current recommendation.
 
-## The null configuration
+In the codes of the companion carryover paper [@pmsimstats-paper02],
+E1 with model-based inference is G1 and with CR2 inference is G6. E2
+at the true half-life is G3, and G8 with CR2. G9 is the recommended
+analysis: E2 with the analysis half-life chosen by AIC over
+$\{0.25, 0.5, 1, 2\}$ weeks, a REML refit and a CR2 test. F1 adds the
+design expectancy and its interaction with the biomarker,
+`bm + t + Dbc + bm:Dbc + De + bm:De`, at a fixed analysis half-life
+of 0.2 week, with a CR2 test.
 
-Calibration is a null-hypothesis property, so we run the diagnosis
-where the biomarker exerts no moderation, $c_{bm} = 0$, and the true
-interaction is therefore $\theta = 0$. The primary cell is the
-reference configuration of the parent study: the Hybrid N-of-1
-design, $N = 70$ participants, an exponential carryover form with a
-one-week half-life, and an autoregressive parameter of 0.7. A
-preliminary check established that at $c_{bm} = 0$ the study's two
-data-generating architectures [@pmsimstats_dgp_architectures2026]
-collapse to a bit-identical process, so the diagnosis need not
-stratify by architecture.
+## Replicates and Monte Carlo error
 
-The feature of the example that merits attention for the argument is
-the relationship between the working covariance and the truth. The
-simulated symptom score is a sum of three latent factors, each
-following its own autoregressive process, with timepoint-dependent
-variances, plus a participant-level baseline term. The working
-covariance of the analysis model, one random intercept and one
-single-parameter corCAR1 residual, cannot reproduce that structure
-exactly. The example is therefore an instance of the general
-situation the protocol is designed for: a parametric working
-covariance that is plausible, conventional, and not exactly correct.
+The decomposition and the ladder used 5,000 null replicates, the CR2
+and alternative-cell runs 3,000, generalized estimating equations
+5,000, the Kenward-Roger check 2,000 and the gradient 1,500 per point.
+All null-cell runs share one seed, so replicate $i$ is the same
+dataset in every run. Every comparison between procedures is
+therefore paired. A rejection rate $\hat\pi$ from $n$ replicates has
+Monte Carlo standard error (MCSE) $\sqrt{\hat\pi(1-\hat\pi)/n}$. A
+paired difference of rejection indicators has MCSE equal to the
+standard deviation of the differences over $\sqrt n$. The MCSE of
+$\kappa$ is approximated by $\kappa/\sqrt{2(n-1)}$, which ignores the
+variability of the mean standard error.
 
 # Results
 
-We carried out the diagnosis at 5000 null replicates for the
-four-channel decomposition and the model ladder, and at 1500
-replicates per point for the sample-size gradient. We verified the
-cluster-robust remedy at 3000 replicates. A rejection rate estimated
-from $n_{\mathrm{sim}}$ replicates carries an MCSE of
-$\sqrt{p(1-p)/n_{\mathrm{sim}}}$ [@morris2019simulation]. At a Type I
-error near 0.03 this is approximately 0.0024 at 5000 replicates,
-0.0031 at 3000, and 0.0044 at 1500, and we read the comparisons to the
-nominal level reported below against those tolerances. We retained
-all replicate-level outputs for inspection.
+## The model-based test is conservative because its standard error is too large
 
-## The conservatism is standard-error over-estimation
+We fitted M3 to the primary null cell for E1, E2 and E3. Table
+\@ref(tab:tab-decomp) reports the decomposition. The model-based
+standard error exceeded the empirical standard deviation of the
+estimate, with $\kappa$ = `r f3(dk('E1','kappa'))`,
+`r f3(dk('E2','kappa'))` and `r f3(dk('E3','kappa'))` for E1, E2 and
+E3. The MCSE of each $\kappa$ is about
+`r f3(kap_mcse(mean(dec$kappa), min(dec$n)))`. The Type I error was
+`r f3(dk('E1','t1'))`, `r f3(dk('E2','t1'))` and `r f3(dk('E3','t1'))`,
+each with MCSE about `r f4(max(dec$mcse_t1))`. Each was below 0.05 by
+an exact binomial test
+(`r if (max(dec$bp) < 0.001) 'each $p < 0.001$' else paste('largest $p$ =', fp(max(dec$bp)))`).
 
 ```{r tab-decomp}
-t1 <- d13$decomp |>
-  left_join(d13$stage3 |> select(spec, mean_df, type1_05_z),
-            by = 'spec') |>
+t1 <- dec |>
   transmute(
-    Spec = spec,
-    `Mean estimate` = sprintf('%+.3f', mean_est),
-    `SE ratio $\\kappa$`  = sprintf('%.3f', se_ratio),
-    `SD($T$)`       = sprintf('%.3f', sd_tstat),
-    `Type I ($t$)`  = sprintf('%.3f', type1_05),
-    `Type I ($z$)`  = sprintf('%.3f', type1_05_z),
-    `Mean DF`       = sprintf('%.0f', mean_df))
+    Spec = spec, n = n,
+    `Mean est. (MCSE)` = sprintf('%+.3f (%.3f)', mean_est, mcse_est),
+    `$\\kappa$` = f3(kappa),
+    `CV(SE)` = f3(cv_se),
+    `SD($T$)` = f3(sd_t),
+    `Type I (MCSE)` = sprintf('%.4f (%.4f)', t1, mcse_t1),
+    `Binom. $p$` = fp(bp),
+    `Type I, $z$` = f4(t1z),
+    `Closed form` = f3(pred),
+    `df` = sprintf('%.0f', df))
 kable(t1, booktabs = TRUE, escape = FALSE,
-  caption = 'Four-channel decomposition at the primary null cell
-    (Hybrid design, $N = 70$, $c_{bm} = 0$, 5000 replicates), for
-    the three analysis specifications E1, E2, E3. The interaction
-    estimate is effectively unbiased; the SE ratio exceeds one; the
-    statistic is correspondingly compressed; the $t$ and $z$
-    references coincide because the degrees of freedom are large.')
+  caption = paste0('First-order decomposition at the primary null cell ',
+    '(Hybrid, $N = 70$, $c_{bm} = 0$), production model M3 with the ',
+    'fitted mean. ', run_lab(d13), '. Fits that failed are excluded, ',
+    'not refitted without the residual correlation. Closed form is ',
+    'the closed-form size of Section 2.1 at the observed $\\kappa$ ',
+    'and df.')) |>
+  kableExtra::kable_styling(latex_options = 'scale_down')
 ```
 
-Table \@ref(tab:tab-decomp) reports the decomposition for the three
-analysis specifications carried by the parent study, which differ
-only in the drug-exposure predictor $X_{it}$ and which we treat here
-as three instances of the same interaction test. The reading is
-consistent across all three. The interaction estimate is effectively
-unbiased: the null mean falls between $+0.03$ and $+0.04$ across the
-three specifications, on a coefficient whose sampling standard
-deviation is near unity, a displacement of about 0.035 of a standard
-deviation. A displacement of that size is statistically detectable at
-5000 replicates but is negligible in magnitude, and in any case it
-points toward rejection, so it cannot produce a conservative test. We
-exclude the degrees-of-freedom channel directly: the model assigns
-approximately 487 degrees of freedom to the interaction term, and
-recomputing the p-values against a normal reference moves the
-realized Type I error by about 0.001, as the near-identical $t$- and
-$z$-reference columns show.
+The other first-order quantities did not produce the conservatism.
+The degrees of freedom were about `r sprintf('%.0f', mean(dec$df))`,
+and a normal reference moved the Type I error by at most
+`r f4(max(abs(dec$t1z - dec$t1)))`. The closed form \@ref(eq:closed)
+at the observed $\kappa$ predicted `r f3(min(dec$pred))` to
+`r f3(max(dec$pred))`. The observed range was `r f3(min(dec$t1))` to
+`r f3(max(dec$t1))`. Each prediction exceeded its observed value, by
+`r sprintf('%.1f', min((dec$pred - dec$t1) / dec$mcse_t1))` to
+`r sprintf('%.1f', max((dec$pred - dec$t1) / dec$mcse_t1))` MCSE. The
+three errors share a direction because the three specifications were
+fitted to the same datasets. The linearization
+$\alpha_{\mathrm{real}} \approx 0.05 - 0.23(\kappa - 1)$, from the
+derivative $-2 z_{0.975}\varphi(z_{0.975}) = -0.229$ at $\kappa = 1$,
+is used only to state the elasticity
+$\mathrm{d}\log\alpha_{\mathrm{real}}/\mathrm{d}\log\kappa = -4.58$.
+At $\kappa$ = `r f3(dk('E2','kappa'))` it gives
+`r f3(dk('E2','lin'))`, against the closed form `r f3(dk('E2','pred'))`.
 
-The discrepancy is in the standard-error channel. The model-based
-standard error exceeds the empirical sampling standard deviation of the
-estimate by 6 to 10 percent, and the standard deviation of the test
-statistic agrees with the reciprocal of that ratio to within half a
-percent, as the identity $\mathrm{SD}(T) \approx \mathrm{SD}(Z^{\star})/\kappa$
-of equation \@ref(eq:sdt) with $\mathrm{SD}(Z^{\star}) = 1$ leads us to
-expect. With the other three channels inert, $\delta \approx 0$, $\nu$
-large, and $Z^{\star}$ standard normal, the realized Type I error of
-equation \@ref(eq:alpha) reduces to the closed form
-\begin{equation}
-\alpha_{\mathrm{real}} \;\approx\;
-  2\,\Phi\!\bigl(-\,\kappa\,t_{\nu,\,1-\alpha/2}\bigr),
-(\#eq:closed)
-\end{equation}
-the probability that a standard normal exceeds the threshold
-$\kappa\,t_{\nu,1-\alpha/2}$ rather than $z_{1-\alpha/2}$.
+The mean estimate was `r fs(min(dec$mean_est))` to
+`r fs(max(dec$mean_est))`, `r sprintf('%.1f', min(dec$z_bias))` to
+`r sprintf('%.1f', max(dec$z_bias))` MCSE from zero. This is not a
+property of the estimator. At $c_{bm} = 0$ the biomarker is
+independent of the outcome and symmetric about its mean. The model
+contains the biomarker main effect and the drug main effect, so
+replacing $B_i$ by its reflection about the mean changes the sign of
+$\hat\theta$ and leaves the variance estimates unchanged. Hence
+$\mathbb E(\hat\theta) = 0$ exactly. The displacement is one chance
+fluctuation. It recurs across specifications because they share
+datasets: the E1 and E2 estimates have correlation
+`r f2(cor_e1e2)`.
 
-Differentiating this closed form exposes the leverage of the scale
-channel. Near $\kappa = 1$, with $\nu$ large enough that
-$t_{\nu,1-\alpha/2} \approx z_{1-\alpha/2} = 1.96$,
-\begin{equation}
-\frac{\mathrm{d}\,\alpha_{\mathrm{real}}}{\mathrm{d}\,\kappa}
-  \;=\; -\,2\,t_{\nu,1-\alpha/2}\,
-        \phi\!\bigl(\kappa\,t_{\nu,1-\alpha/2}\bigr)
-  \;\approx\; -0.23 ,
-(\#eq:deriv)
-\end{equation}
-so to first order
-$\alpha_{\mathrm{real}} \approx 0.05 - 0.23\,(\kappa - 1)$. The
-leverage is best read as an elasticity: at $\kappa = 1$,
-$\mathrm{d}\log\alpha_{\mathrm{real}}/\mathrm{d}\log\kappa \approx
--4.6$, so each one percent of over-statement in the standard error
-removes about four to five percent of the nominal Type I error. A
-six-to-ten percent over-statement therefore depresses the Type I
-error into the low 0.03 range, and it is in this sense that a
-numerically modest miscalibration of the standard error constitutes a
-material miscalibration of the test. For the standard-error ratios of
-Table \@ref(tab:tab-decomp) this predicts a Type I error of 0.031 to
-0.037 across the three specifications, matching the observed 0.029 to
-0.033 (at $\alpha = 0.05$) to within Monte Carlo error. The scale
-channel alone, with no contribution from the other three, reproduces
-the conservatism.
+The random-intercept standard deviation fell below 1 in
+`r pct(dk('E1','ri_b'))` percent of E1 fits, at the boundary of the
+parameter space, against a pseudo-true value of
+`r f2(akv(dg13, 'E1', 'M3', 'fitted', 'sigma_u'))`.
+`r if (!d13$refined) sprintf('In the pre-correction run %d, %d and %d of the 5,000 fits for E1, E2 and E3 failed with the residual correlation and had been refitted without it. They are excluded here.', sum(!d13$results$has_corcar1[d13$results$spec == "E1"], na.rm = TRUE), sum(!d13$results$has_corcar1[d13$results$spec == "E2"], na.rm = TRUE), sum(!d13$results$has_corcar1[d13$results$spec == "E3"], na.rm = TRUE)) else sprintf('Failed fits numbered %d of %d.', sum(!d13$results$converged), nrow(d13$results))`
 
-```{r fig-ecdf, fig.width = 5.6, fig.height = 5.2, out.width = "62%", fig.cap = "Empirical distribution function of the null p-values at the primary cell, against the Uniform(0,1) diagonal. All three specifications bow uniformly below the diagonal, the signature of a global scale compression rather than a tail anomaly."}
-d13$results |>
-  filter(converged) |>
+```{r fig-ecdf, fig.width = 5.6, fig.height = 5.2, out.width = "60%", fig.cap = "Empirical distribution function of the null p-values of the model-based M3 test at the primary cell, against the Uniform(0,1) diagonal. The curves lie below the diagonal across the unit interval."}
+r13 |>
+  filter(mean_model == 'fitted') |>
   ggplot(aes(p_value, colour = spec)) +
   stat_ecdf(geom = 'step', linewidth = 0.6) +
   geom_abline(slope = 1, intercept = 0, linetype = 'dashed',
@@ -643,672 +829,699 @@ d13$results |>
   theme_paper
 ```
 
-Figure \@ref(fig:fig-ecdf) confirms the nature of the miscalibration.
-The empirical distribution function of the null p-values lies below
-the diagonal across the whole unit interval and for all three
-specifications. A test that failed only in its tails would depart
-from the diagonal only near zero. We note that the uniform bowing
-seen here is instead the signature of a global scale compression,
-which is precisely what an inflated standard error produces. The
-positive-definiteness correction available to the data generator was
-not triggered in any of the cell's paths and is excluded as a
-contributor.
+Figure \@ref(fig:fig-ecdf) shows the null $p$-values. They lie below
+the diagonal over the whole unit interval, as an inflated standard
+error predicts.
 
-## The corCAR1 residual layer is the cause
+## The excess comes mainly from the mean model
+
+We computed the population $\kappa$ for every combination of mean
+model and working covariance (Table \@ref(tab:tab-analytic)). The
+computation reproduced the simulation. For the
+`r if (d13$refined) 'extended' else 'pre-correction'` DGP and E1 under
+M3 it gave $\kappa$ = `r f3(akv(dg13,'E1','M3','fitted'))` against
+`r f3(dk('E1','kappa'))` simulated, $\rho_a$ =
+`r f3(akv(dg13,'E1','M3','fitted','rho_a'))` against a simulated
+median of `r f3(dk('E1','rho_med'))`, and $\sigma_u$ =
+`r f2(akv(dg13,'E1','M3','fitted','sigma_u'))` against a median of
+`r f2(dk('E1','su_med'))`. As a
+check of the computation, a DGP whose outcome covariance is exactly a
+random intercept plus an autoregressive residual returned $\kappa$ =
+`r f3(dan$homo_check$kappa[1])`, $\sigma_u$ =
+`r f2(dan$homo_check$sigma_u[1])` and $\rho_a$ =
+`r f2(dan$homo_check$rho_a[1])`, the true values. That DGP holds the
+placebo-response variance constant over visits.
+
+```{r tab-analytic}
+ta <- ak |>
+  filter(spec %in% c('E1', 'E2')) |>
+  mutate(DGP = ifelse(dgp == 'stored', 'Pre-correction', 'Extended'),
+         Mean = recode(mean_model, fitted = 'Fitted',
+                       expect = 'Fitted + expectancy',
+                       visit = 'Free per visit',
+                       correct = 'Correct')) |>
+  select(DGP, Spec = spec, Mean, model, kappa) |>
+  pivot_wider(names_from = model, values_from = kappa) |>
+  mutate(across(c(M0, M1, M2, M3), f3))
+kable(ta, booktabs = TRUE, escape = FALSE, longtable = TRUE,
+  caption = paste0('Population calibration ratio $\\kappa$ computed ',
+    'exactly from the DGP mean and covariance, by mean model and ',
+    'working covariance (M0 independence, M1 random intercept, M2 ',
+    'autoregressive residual, M3 both). Pre-correction: ',
+    '$c_\\times = 0.1$, original carryover rule. Extended: ',
+    '$c_\\times = 0.2$, carryover decaying from the last on-drug mean. ',
+    'E3 is within 0.01 of E1 throughout and is in the data file.'))
+```
+
+The mean misfit was large. The standard deviation of the true mean of
+the outcome over the eight visits of a path was
+`r f2(min(dan$misfit$sd_of_path_mean[dan$misfit$dgp == 'refined']))`
+to `r f2(max(dan$misfit$sd_of_path_mean[dan$misfit$dgp == 'refined']))`
+points. The fitted mean, a linear trend plus a drug term, left a
+root-mean-square misfit of
+`r fr(akr('M3', 'fitted', 'rms_misfit'), f2)` points under M3. The
+misfit is common to the participants of a path. REML absorbed it into
+the variance parameters: under M3 the pseudo-true residual standard
+deviation was `r f2(akv('refined','E1','M3','fitted','sigma_e'))` with
+the fitted mean and `r f2(akv('refined','E1','M3','correct','sigma_e'))`
+with the correct mean.
+
+Under the extended DGP, M3 had $\kappa$ = `r fr(akr('M3','fitted'))`
+with the fitted mean and `r fr(akr('M3','correct'))` with the correct
+mean, over E1 to E3. The covariance misspecification of M3 therefore
+contributes about one percent at most, and the mean misfit the rest.
+Under the pre-correction DGP the values were
+`r f3(min(ak$kappa[ak$dgp == 'stored' & ak$model == 'M3' & ak$mean_model == 'fitted']))`
+to `r f3(max(ak$kappa[ak$dgp == 'stored' & ak$model == 'M3' & ak$mean_model == 'fitted']))`
+and `r f3(min(ak$kappa[ak$dgp == 'stored' & ak$model == 'M3' & ak$mean_model == 'correct']))`
+to `r f3(max(ak$kappa[ak$dgp == 'stored' & ak$model == 'M3' & ak$mean_model == 'correct']))`.
+With a correct mean only the covariance differs between the two
+versions, so the larger covariance share there came from the
+mismatched cross-component constant. The remaining 0.006 under the
+extended DGP comes from the placebo-response variance, which changes
+with the design expectancy and so departs from a random intercept
+plus an autoregressive residual. With that variance held constant the
+computation returns $\kappa = 1$, as reported above. A free mean for each visit, common to all
+paths, removed nearly all of the excess: M3 gave
+`r fr(akr('M3','visit'))`. Adding the expectancy terms to the fitted
+mean did not: M3 gave `r fr(akr('M3','expect'))`. The expectancy
+covariate takes two values, so it cannot follow the curved
+natural-history and drug-response means.
+
+A paired simulation confirmed the analytic result. In
+`r format(nrow(dmm), big.mark = ',')` replicates of the null cell, with $c_\times = 0.1$ and carryover
+decaying from the last on-drug mean, M3 for E1 was fitted twice to
+each dataset: once to $Y_{it}$ and once to $Y_{it}$ minus its true
+path-by-visit mean. $\kappa$ fell from `r f3(mm_k_raw)` to
+`r f3(mm_k_c)`, a paired difference of `r f3(mm_k_raw - mm_k_c)` with
+bootstrap standard error `r f4(mm_k_se)`. The Type I error rose from
+`r f3(mm_raw$rate)` to `r f3(mm_c$rate)`, a paired difference of
+`r fs(mm_t1$est)` with MCSE `r f4(mm_t1$mcse)`. This check was run by
+the referee of an earlier draft (`diagnose-null-meanmisfit-referee.R`).
+`r if (has_oracle) sprintf('Under the extended DGP the same check on the 5,000 replicates of Table 2 gave $\\kappa$ = %s with the fitted mean and %s with the true mean removed, a paired difference of %s (bootstrap SE %s). The Type I error changed by %s (MCSE %s).', f3(or_k_f), f3(or_k_o), f3(or_k_f - or_k_o), f4(or_k_se), fs(or_t1$est), f4(or_t1$mcse)) else ''`
+
+```{r pending-oracle, results = 'asis'}
+if (!has_oracle) cat(
+  '\n\\begin{quote}\\small\\textbf{RESULTS-PENDING.} The correct-mean',
+  '(oracle) arm under the extended DGP is in',
+  '\\texttt{diagnose-null-type1.R} and has not been run. Command, from',
+  'the repository root, with thread variables set to 1:',
+  '\\texttt{bash analysis/scripts/carryover-sensitivity/run-paper10-refined.sh}.',
+  'This driver alone costs about 0.7 CPU-hour (about 6 minutes on',
+  'seven idle workers). The full set of drivers costs about 10',
+  'CPU-hours.\\end{quote}\n')
+```
+
+The ladder explains the random-intercept-only model (Table
+\@ref(tab:tab-ladder)). With the fitted mean, M1 was close to
+calibrated. Its population $\kappa$ was `r fr(akr('M1','fitted'))`,
+and in simulation M1 rejected at `r f3(lv('E1','M1','t1'))` for E1
+and `r f3(lv('E2','M1','t1'))` for E2. With a correct mean its
+population $\kappa$ was `r fr(akr('M1','correct'))`. M1 would then be
+anti-conservative, because it ignores the serial correlation. The
+absorbed mean misfit raises its $\kappa$ by a similar amount, and the
+two errors cancel. The paired difference in Type I error between M1
+and M3 for E1 was `r fs(pd_m1m3$est)` (MCSE `r f4(pd_m1m3$mcse)`).
+Removing the residual correlation from M3 does not repair the test. It
+trades one error for another.
 
 ```{r tab-ladder}
-lab <- c(M0 = 'OLS, no within-cluster correlation',
-         M1 = 'Random intercept only',
-         M2 = 'corCAR1 residual only',
-         M3 = 'Random intercept + corCAR1 (production)')
-t2 <- d4$summary |>
-  select(spec, model, se_ratio, type1_05) |>
-  pivot_wider(names_from = spec,
-              values_from = c(se_ratio, type1_05)) |>
-  arrange(model) |>
-  transmute(
-    Model = as.character(model),
-    Structure = lab[as.character(model)],
-    `$\\kappa$ (E1)` = sprintf('%.3f', se_ratio_E1),
-    `$\\kappa$ (E2)` = sprintf('%.3f', se_ratio_E2),
-    `Type I (E1)` = sprintf('%.3f', type1_05_E1),
-    `Type I (E2)` = sprintf('%.3f', type1_05_E2))
+lab_mod <- c(M0 = 'OLS', M1 = 'Random intercept',
+             M2 = 'Autoregressive residual', M3 = 'Both (production)')
+t2 <- lad |>
+  filter(spec %in% c('E1', 'E2')) |>
+  mutate(Mean = recode(mean_model, fitted = 'Fitted',
+                       expect = 'Fitted + expectancy',
+                       visit = 'Free per visit',
+                       satur = 'Free per path and visit'),
+         cell = sprintf('%.3f / %.4f (%.4f)', kappa, t1, mcse)) |>
+  select(Mean, model, spec, cell) |>
+  pivot_wider(names_from = spec, values_from = cell) |>
+  mutate(Covariance = lab_mod[model]) |>
+  arrange(Mean, model) |>
+  select(Mean, Model = model, Covariance, E1, E2)
 kable(t2, booktabs = TRUE, escape = FALSE,
-  caption = 'Working-covariance model ladder at the primary null
-    cell (5000 replicates), for specifications E1 and E2. The same
-    datasets are refitted under each structure. M1, a random
-    intercept alone, is well calibrated; M3, the production model,
-    adds a corCAR1 residual and is conservative.')
+  col.names = c('Mean', 'Model', 'Covariance',
+                'E1: $\\kappa$ / Type I (MCSE)',
+                'E2: $\\kappa$ / Type I (MCSE)'),
+  caption = paste0('Simulated ladder at the primary null cell. ',
+    run_lab(d4), '. The same datasets are refitted under each row. ',
+    if (d4$refined) 'M2 is fitted with \\texttt{gls} under the nlminb optimizer and tight tolerances.'
+    else 'The pre-correction run fitted only the fitted mean. Its M2 rung used \\texttt{gls} with the optim optimizer and default tolerances, which did not reach the REML optimum (Section 5.2).')) |>
+  kableExtra::kable_styling(latex_options = 'scale_down')
 ```
 
-The decomposition tells us that the standard error is over-estimated.
-The model ladder, Table \@ref(tab:tab-ladder), tells us which part of
-the model does the over-estimating. We fitted four working covariances
-to the identical null datasets: ordinary least squares with no
-within-cluster term (M0), a random intercept alone (M1), a corCAR1
-residual alone (M2), and the production combination of a random
-intercept with a corCAR1 residual (M3).
+```{r pending-ladder, results = 'asis'}
+if (!d4$refined) cat(
+  '\n\\begin{quote}\\small\\textbf{RESULTS-PENDING.} The simulated',
+  'mean-model rungs (fitted mean plus expectancy, free mean per visit,',
+  'free mean per path and visit) are in',
+  '\\texttt{diagnose-null-type1-stages46.R --stage 4} and have not been',
+  'run. Table 3 gives their exact population values. Cost about 2.5',
+  'CPU-hours (about 20 minutes on seven idle workers). Command: as',
+  'above.\\end{quote}\n')
+```
 
-The result is unambiguous. M1, the random intercept with no residual
-correlation, is well calibrated: its standard-error ratio sits
-between 0.97 and 0.99 and its Type I error between 0.049 and 0.055.
-M3, which adds the corCAR1 residual on top of that random intercept,
-is conservative: the ratio rises to between 1.07 and 1.10 and the
-Type I error falls to between 0.029 and 0.033. The corCAR1
-residual-correlation layer is therefore the proximate cause of the
-conservatism. It is worth being precise about what this does and does
-not say. It does not say that the corCAR1 residual is wrong in any
-absolute sense; the simulated factors are genuinely autocorrelated,
-so a residual correlation term is capturing a real feature of the
-data. What it says is that adding that term to a model which already
-carries a random intercept degrades the calibration of the
-fixed-effect interaction test.
-
-```{r fig-ladder, fig.width = 7, fig.height = 3.5, out.width = "100%", fig.cap = "Interaction standard-error calibration across the model ladder. Left, the ratio of model-reported to empirical standard error; right, the realized Type I error. The dashed lines mark perfect calibration. The random intercept alone (M1) sits on both reference lines; the production model (M3) does not."}
-ref <- tibble(metric = c('se_ratio', 'type1_05'),
-              yint = c(1.0, 0.05))
-d4$summary |>
-  select(spec, model, se_ratio, type1_05) |>
-  pivot_longer(c(se_ratio, type1_05), names_to = 'metric',
-               values_to = 'value') |>
-  ggplot(aes(model, value, colour = spec, group = spec)) +
-  geom_hline(data = ref, aes(yintercept = yint),
-             linetype = 'dashed', colour = 'grey50') +
+```{r fig-ladder, fig.width = 7, fig.height = 3.3, out.width = "100%", fig.cap = "Population calibration ratio by working covariance and mean model, extended DGP, computed exactly. The dashed line marks calibration. With the fitted mean, M3 is conservative and M1 appears calibrated. With a correct or a per-visit mean, M3 is calibrated and M1 is anti-conservative."}
+ak |>
+  filter(dgp == 'refined', spec %in% c('E1', 'E2')) |>
+  mutate(mean_model = factor(recode(mean_model, fitted = 'Fitted',
+                                    expect = 'Fitted + expectancy',
+                                    visit = 'Free per visit',
+                                    correct = 'Correct'),
+                             levels = c('Fitted', 'Fitted + expectancy',
+                                        'Free per visit', 'Correct'))) |>
+  ggplot(aes(model, kappa, colour = mean_model, group = mean_model)) +
+  geom_hline(yintercept = 1, linetype = 'dashed', colour = 'grey50') +
   geom_line(linewidth = 0.6) + geom_point(size = 2) +
-  facet_wrap(~ metric, scales = 'free_y') +
-  scale_colour_manual(values = spec_cols) +
-  labs(x = 'Working covariance', y = NULL, colour = 'Spec') +
+  facet_wrap(~ spec) +
+  labs(x = 'Working covariance', y = expression(kappa), colour = 'Mean') +
   theme_paper
 ```
 
-Two further features of the ladder, visible in
-Figure \@ref(fig:fig-ladder), are worth recording. The first is that
-M0, ordinary least squares, is not anti-conservative, as the familiar
-warning that ignoring positive within-cluster correlation under-states
-standard errors would suggest. It is instead strongly conservative,
-with a standard-error ratio near 1.3. The reason is instructive: the
-interaction here is a within-participant contrast, and ordinary least
-squares charges it the full residual variance, between-participant
-and within-participant combined, when the error relevant to a
-within-participant contrast is only the within-participant part. In
-the idealised case of a pure within-participant contrast with
-exchangeable errors the inflation is the variance ratio
-$\kappa_{\mathrm{OLS}}^2 \approx (\sigma_b^2 + \sigma_\varepsilon^2) /
-\sigma_\varepsilon^2$, the total residual variance over its
-within-participant component, exceeding one by the random-intercept
-variance $\sigma_b^2$. The familiar warning, the Moulton pitfall,
-concerns between-cluster effects [@moulton1990]; for a within-cluster
-effect the sign of the OLS error is reversed. The distinction between
-within- and between-cluster covariate effects that governs this sign
-is the one drawn by Neuhaus and Kalbfleisch [-@neuhaus1998], and the
-inflation of the ordinary-least-squares variance under intra-cluster
-correlation is the two-stage-sampling result of Scott and Holt
-[-@scott1982]. The second feature is that the corCAR1 residual without
-a random intercept (M2) is intermediate. Taken together, the ladder
-shows that calibration is recovered by the random intercept alone and
-removed by the corCAR1 addition, and that the magnitude and even the
-sign of the miscalibration is a property of the working covariance,
-not a universal constant.
+M0 had $\kappa$ near `r f2(lv('E1','M0','kappa'))`. Ordinary least
+squares charges a within-participant contrast with the
+between-participant variance as well
+[@neuhaus1998; @scott1982; @moulton1990]. The contrast is not purely
+within participant, because the on-drug fraction differs by path, five
+of eight visits on some paths and four of eight on others.
 
-## The conservatism is asymptotic, not a small-sample artifact
+## The excess does not shrink with the number of participants
+
+Table \@ref(tab:tab-grad) reports M3 at $N$ = 35, 70, 140 and 280. The
+weighted slope of $\kappa$ on $\log_2 N$ was `r f3(sl('E1','slope'))`
+(95 percent interval `r f3(sl('E1','lo'))` to `r f3(sl('E1','hi'))`)
+for E1, `r f3(sl('E2','slope'))` (`r f3(sl('E2','lo'))` to
+`r f3(sl('E2','hi'))`) for E2 and `r f3(sl('E3','slope'))`
+(`r f3(sl('E3','lo'))` to `r f3(sl('E3','hi'))`) for E3. The
+intervals include zero. They are also wide enough to include a change
+of 0.01 per doubling. The gradient therefore shows only that no large
+finite-sample REML term is present. At $N = 70$ the E1 and E3 sizes,
+`r f3(g70('E1')$t1)` and `r f3(g70('E3')$t1)`, were within
+`r sprintf('%.1f', max(abs(c(g70('E1')$t1, g70('E3')$t1) - 0.05) / sqrt(0.05 * 0.95 / g70('E1')$n)))`
+MCSE of 0.05 at 1,500 replicates. The evidence that the excess is
+asymptotic is the analytic computation of Section 4.2, which does not
+depend on $N$.
 
 ```{r tab-grad}
-t3 <- d6$summary |>
-  select(N, spec, se_ratio, type1_05) |>
-  pivot_wider(names_from = spec,
-              values_from = c(se_ratio, type1_05)) |>
-  arrange(N) |>
-  transmute(
-    `$N$` = N,
-    `$\\kappa$ E1` = sprintf('%.3f', se_ratio_E1),
-    `$\\kappa$ E2` = sprintf('%.3f', se_ratio_E2),
-    `$\\kappa$ E3` = sprintf('%.3f', se_ratio_E3),
-    `T1 E1` = sprintf('%.3f', type1_05_E1),
-    `T1 E2` = sprintf('%.3f', type1_05_E2),
-    `T1 E3` = sprintf('%.3f', type1_05_E3))
+t3 <- grad |>
+  mutate(cell = sprintf('%.3f / %.3f (%.3f)', kappa, t1, mcse)) |>
+  select(N, spec, cell) |>
+  pivot_wider(names_from = spec, values_from = cell)
 kable(t3, booktabs = TRUE, escape = FALSE,
-  caption = 'Sample-size gradient under the production model M3
-    (1500 replicates per point). The standard-error ratio $\\kappa$ and
-    the Type I error (T1) are shown for each specification. Neither
-    trends toward its nominal value as $N$ increases.')
+  col.names = c('$N$', 'E1: $\\kappa$ / Type I (MCSE)',
+                'E2: $\\kappa$ / Type I (MCSE)',
+                'E3: $\\kappa$ / Type I (MCSE)'),
+  caption = paste0('Sample-size gradient, production model M3 with the ',
+    'fitted mean, 1,500 replicates per point. ', run_lab(d6), '. The ',
+    'MCSE of each $\\kappa$ is about 0.02.')) |>
+  kableExtra::kable_styling(latex_options = 'scale_down')
 ```
 
-If the conservatism were a finite-sample artifact, it would diminish
-as the sample grew and the working-covariance parameters were
-estimated more precisely. Table \@ref(tab:tab-grad) and
-Figure \@ref(fig:fig-grad) show that it does not. Across an eightfold
-range of sample size, from $N = 35$ to $N = 280$ participants, the
-standard-error ratio holds between 1.05 and 1.10 with no trend toward
-one, and the Type I error holds between 0.028 and 0.045 with no trend
-toward 0.05. At the largest sample size the production specification
-still rejects the true null at 0.028. This is what the construction
-of Section 2.3 predicts: the scale $\kappa$ is a per-cluster
-functional and cannot trend with the cluster count, so the flat
-profile's work is to confirm that no finite-sample trend of the
-Kenward-Roger kind is present either. The conservatism is asymptotic.
-It appears to be a property of the M3 working covariance and will not
-be outgrown.
+## A cluster-robust standard error restores the size
 
-```{r fig-grad, fig.width = 7, fig.height = 3.5, out.width = "100%", fig.cap = "Type I error and standard-error ratio against sample size under the production model M3. Neither panel trends toward its dashed reference line as the number of participants increases from 35 to 280."}
-ref2 <- tibble(metric = c('se_ratio', 'type1_05'),
-               yint = c(1.0, 0.05))
-d6$summary |>
-  select(N, spec, se_ratio, type1_05) |>
-  pivot_longer(c(se_ratio, type1_05), names_to = 'metric',
-               values_to = 'value') |>
-  ggplot(aes(N, value, colour = spec, group = spec)) +
-  geom_hline(data = ref2, aes(yintercept = yint),
-             linetype = 'dashed', colour = 'grey50') +
-  geom_line(linewidth = 0.6) + geom_point(size = 2) +
-  facet_wrap(~ metric, scales = 'free_y') +
-  scale_x_continuous(breaks = c(35, 70, 140, 280)) +
-  scale_colour_manual(values = spec_cols) +
-  labs(x = 'Sample size N', y = NULL, colour = 'Spec') +
-  theme_paper
-```
-
-The explanation consistent with all three results is a
-working-covariance mismatch rather than a small-sample effect. The
-simulated symptom score is a mixture of autoregressive factors with
-unequal, timepoint-dependent variances, plus a participant baseline
-term. The M3 working covariance, a single random intercept and a
-single-parameter corCAR1 residual, cannot match a mixture of
-autoregressive processes exactly. Increasing the number of
-participants estimates the parameters of that working covariance ever
-more sharply, but it does not change the fact that the covariance
-being estimated is, in a sense, the wrong one, and so the model-based
-standard error converges to a biased target. The bias persists
-because it is a bias of the model, not of the estimate of the model's
-parameters.
-
-## A cluster-robust standard error restores calibration
-
-```{r tab-cr2}
-t4 <- dcr$summary |>
-  transmute(
-    Spec = spec,
-    `$\\kappa$ model-based` = sprintf('%.3f', mod_se_ratio),
-    `$\\kappa$ CR2`         = sprintf('%.3f', cr2_se_ratio),
-    `Type I model`    = sprintf('%.3f', type1_mod),
-    `Type I CR2`      = sprintf('%.3f', type1_cr2),
-    `CR2 df`          = sprintf('%.1f', cr2_df))
-kable(t4, booktabs = TRUE, escape = FALSE,
-  caption = 'Cluster-robust remedy at the primary null cell (3000
-    replicates). The model-based standard error of the production
-    model is replaced by a CR2 bias-reduced cluster-robust standard
-    error clustered on participant, with Satterthwaite degrees of
-    freedom. The CR2 standard-error ratio is approximately one and
-    the Type I error approximately 0.05.')
-```
-
-The diagnosis points to a remedy that does not require abandoning the
-corCAR1 model. If the model-based standard error is biased because
-the working covariance is wrong, the natural replacement is a
-standard error that is consistent whatever the working covariance
-happens to be [@white1980; @liang1986; @royall1986]. We replace the
-model-based standard error of the interaction with a cluster-robust
-standard error, clustered on participant, in the bias-reduced CR2
-form of Bell and McCaffrey [-@bell2002], with the Satterthwaite
-degrees of freedom of Pustejovsky and Tipton
-[-@pustejovsky2018; @satterthwaite1946]. The CR2 adjustment and its
-associated small-sample test were designed for precisely the regime
-we face here, a moderate number of clusters, and are implemented for
-\texttt{lme} objects in the \texttt{clubSandwich} package
-[@tipton2015; @tipton2015moderators].
-
-It is worth setting down the construction. Let $\tilde e_i$ collect
-the residuals of cluster $i$ from the fitted model and let $H_{ii}$ be
-the corresponding block of the hat matrix, both taken in the metric
-defined below. A cluster-robust variance replaces the model-based
-variance of $\hat\theta$ by a quadratic form in the empirical cluster
-cross-products,
+We replaced the model-based standard error of M3 by the CR2
+bias-reduced cluster-robust standard error, clustered on participant,
+with Satterthwaite degrees of freedom
+[@bell2002; @pustejovsky2018; @satterthwaite1946], computed with
+`clubSandwich` [@clubsandwich070]. Let $\tilde e_i$ and $\tilde X_i$
+be the residuals and design of participant $i$ after the
+generalized-least-squares transformation $\hat V_0^{-1/2}$, and
+$H_{ii}$ the corresponding block of the hat matrix. A cluster-robust
+variance is
 \begin{equation}
-\hat V_{\mathrm{CR}} \;=\; \bigl(\tilde X' \tilde X\bigr)^{-1}
-  \Bigl(\textstyle\sum_i \tilde X_i' A_i\,\tilde e_i \tilde e_i'\,A_i
-  \tilde X_i\Bigr)
-  \bigl(\tilde X' \tilde X\bigr)^{-1},
+\hat V_{\mathrm{CR}} = \bigl(\tilde X^\top \tilde X\bigr)^{-1}
+  \Bigl(\textstyle\sum_i \tilde X_i^\top A_i\,\tilde e_i \tilde e_i^\top
+  A_i \tilde X_i\Bigr)
+  \bigl(\tilde X^\top \tilde X\bigr)^{-1}.
 (\#eq:vcr)
 \end{equation}
-where $\tilde X$ and $\tilde e$ denote the design and residuals in
-the metric of the working covariance, that is, after the
-generalized-least-squares transformation $\hat V_0^{-1/2}$. For
-ordinary least squares the transformation is the identity and the
-familiar form is recovered, and the family CR0, CR1, CR2, CR3 is
-indexed by the adjustment matrices $A_i$
-[@cameron2015; @pustejovsky2018]. The unadjusted choice $A_i = I$ is
-consistent as the number of clusters grows but biased downward at
-moderate cluster counts, and its own sampling variability is
-substantial in that regime [@kauermann2001; @fay2001]. The jackknife
-choice $A_i = (I - H_{ii})^{-1}$ over-corrects and is, in the marginal
-setting, the estimator of Mancl and DeRouen [-@mancl2001covariance].
-The CR2 choice sets $A_i = (I - H_{ii})^{-1/2}$, the symmetric square
-root that renders $\hat V_{\mathrm{CR}}$ exactly unbiased for the
-true variance when the working covariance is in fact correct. It is
-the cluster generalization of the HC2 estimator of MacKinnon and
-White [-@mackinnon1985]. The working-covariance metric for mixed
-models follows Pustejovsky and Tipton [-@pustejovsky2018], and the
-pairing with a matching small-sample reference is recommended by
-Imbens and Kolesar [-@imbens2016]. Because $\hat V_{\mathrm{CR}}$ is
-itself a quadratic form in approximately normal residuals, its null
-distribution is approximated by a scaled $\chi^2$, and the
-Satterthwaite degrees of freedom are recovered by matching its first
-two moments, $\nu = (\sum_g \lambda_g)^2 / \sum_g \lambda_g^2$ in the
-eigenvalues $\lambda_g$ of the matrix defining that form
-[@satterthwaite1946; @pustejovsky2018].
+CR2 sets $A_i = (I - H_{ii})^{-1/2}$, which makes
+$\hat V_{\mathrm{CR}}$ unbiased when the working model is correct
+[@mackinnon1985; @pustejovsky2018]. The jackknife choice
+$A_i = (I - H_{ii})^{-1}$ is the estimator of Mancl and DeRouen
+[-@mancl2001covariance] in the marginal setting. The Satterthwaite
+degrees of freedom are $\nu = (\sum_g \ell_g)^2 / \sum_g \ell_g^2$ in
+the eigenvalues $\ell_g$ of the matrix that defines the quadratic form
+[@pustejovsky2018]. The point estimate and the model are unchanged.
 
-Table \@ref(tab:tab-cr2) reports the verification. The model-based
-standard-error ratio reproduces the conservatism, between 1.05 and
-1.10. The CR2 cluster-robust ratio is close to one, between 0.97 and
-1.00, and the realized Type I error rises from approximately 0.03
-under the model-based test to between 0.045 and 0.049 under the CR2
-test, within Monte Carlo error of the nominal 0.05. The Satterthwaite
-degrees of freedom for the cluster-robust test are approximately 24,
-far below the model-based 487 and well below the participant count of
-70, since they measure the heterogeneity of cluster leverage on the
-interaction contrast rather than a count of clusters, the effective
-number of clusters in the sense of Carter, Schnepel, and Steigerwald
-[-@carter2017; @imbens2016]. The small-sample reference is doing real
-work, and a naive normal reference for the sandwich statistic would
-itself be mildly anti-conservative [@cameron2015; @long2000].
+```{r tab-cr2}
+t4 <- crs |>
+  filter(spec %in% c('E1', 'E2', 'E3')) |>
+  left_join(cr_fail |> select(spec, fail), by = 'spec') |>
+  transmute(
+    Spec = spec, n = n, Failed = fail,
+    `$\\kappa$ model` = f3(k_mod), `$\\kappa$ CR2` = f3(k_cr2),
+    `CV(SE) CR2` = f3(cv_cr2),
+    `Type I model (MCSE)` = sprintf('%.4f (%.4f)', t1_mod, mcse_mod),
+    `Type I CR2 (MCSE)` = sprintf('%.4f (%.4f)', t1_cr2, mcse_cr2),
+    `Binom. $p$ CR2` = fp(bp_cr2),
+    `CR2 $-$ model (paired MCSE)` = sprintf('%+.4f (%.4f)', d_est, d_mcse),
+    `CR2 df (5th to 95th)` = sprintf('%.1f (%.1f to %.1f)', df, df_q05,
+                                     df_q95))
+kable(t4, booktabs = TRUE, escape = FALSE,
+  caption = paste0('CR2 remedy at the primary null cell, M3 with the ',
+    'fitted mean. ', run_lab(dcr), '. Failed counts replicates in ',
+    'which the fit or the CR2 computation failed. They are excluded.')) |>
+  kableExtra::kable_styling(latex_options = 'scale_down')
+```
 
-```{r fig-cr2, fig.width = 7.5, fig.height = 3.4, out.width = "100%", fig.cap = "Null p-value distribution functions under the model-based and CR2 cluster-robust tests, by specification. The model-based curves bow below the diagonal; the CR2 curves lie on it."}
-dcr$results |>
-  filter(converged, !is.na(cr2_p)) |>
+Table \@ref(tab:tab-cr2) reports the result. The CR2 $\kappa$ was
+`r f3(min(crs$k_cr2[crs$spec %in% c('E1','E2','E3')]))` to
+`r f3(max(crs$k_cr2[crs$spec %in% c('E1','E2','E3')]))`. The CR2 Type
+I error was `r f4(cv('E1','t1_cr2'))`, `r f4(cv('E2','t1_cr2'))` and
+`r f4(cv('E3','t1_cr2'))`, at $z$ = `r sprintf('%+.2f', cv('E1','z_cr2'))`,
+`r sprintf('%+.2f', cv('E2','z_cr2'))` and
+`r sprintf('%+.2f', cv('E3','z_cr2'))` from 0.05. The paired increase
+over the model-based test was `r fs(cv('E1','d_est'))`,
+`r fs(cv('E2','d_est'))` and `r fs(cv('E3','d_est'))`, with paired
+MCSE `r f4(cv('E1','d_mcse'))`, `r f4(cv('E2','d_mcse'))` and
+`r f4(cv('E3','d_mcse'))`. The CR2 computation failed in
+`r crf('E1')`, `r crf('E2')` and `r crf('E3')` of the
+`r format(dcr$n_reps, big.mark = ',')` replicates. These are excluded.
+
+The closed form \@ref(eq:closed) does not hold for CR2. At the
+observed CR2 $\kappa$ and mean degrees of freedom it predicts
+`r f3(min(cr_pred$pred[cr_pred$spec %in% c('E1','E2','E3')]))` to
+`r f3(max(cr_pred$pred[cr_pred$spec %in% c('E1','E2','E3')]))`. The
+coefficient of variation of the CR2 standard error was
+`r fr(range(crs$cv_cr2), f2)`, against `r fr(range(dec$cv_se), f2)`
+for the model-based one. The Satterthwaite reference absorbs that variability with
+`r sprintf('%.0f', mean(crs$df))` degrees of freedom, 5th to 95th
+percentile `r sprintf('%.0f', min(crs$df_q05))` to
+`r sprintf('%.0f', max(crs$df_q95))`, far below the model-based
+`r sprintf('%.0f', mean(dec$df))`. The degrees of freedom reflect the
+uneven leverage of participants on the interaction contrast. The paths
+differ in their on-drug fraction, which is the likely source
+[@carter2017; @imbens2016].
+
+```{r tab-g9, results = 'asis'}
+if (has_g9) {
+  tg <- crs |> filter(spec %in% c('G9', 'F1')) |>
+    left_join(cr_fail |> select(spec, fail), by = 'spec') |>
+    transmute(Procedure = spec, n = n, Failed = fail,
+              `$\\kappa$ CR2` = f3(k_cr2),
+              `Type I CR2 (MCSE)` = sprintf('%.4f (%.4f)', t1_cr2, mcse_cr2),
+              `Binom. $p$` = fp(bp_cr2))
+  print(kable(tg, booktabs = TRUE, escape = FALSE,
+    caption = paste0('G9 and F1 at the primary null cell, CR2 ',
+      'inference. ', run_lab(dcr), '.')))
+} else {
+  cat('\n\\begin{quote}\\small\\textbf{RESULTS-PENDING.} G9 (AIC',
+      'half-life selection, REML refit, CR2) and F1 (expectancy terms,',
+      'half-life 0.2 week, CR2) at the null cell are in',
+      '\\texttt{diagnose-null-type1-cr2.R} and have not been run. Cost',
+      'with the CR2 arms about 1.5 CPU-hours (about 13 minutes on seven',
+      'idle workers). Paper 02 reports G9 under its own',
+      'grid.\\end{quote}\n')
+}
+```
+
+```{r fig-cr2, fig.width = 7.5, fig.height = 3.4, out.width = "100%", fig.cap = "Null p-value distribution functions under the model-based and CR2 tests of M3, by specification. The model-based curves lie below the diagonal. The CR2 curves lie close to it."}
+rcr |>
+  filter(fit_ok, cr2_ok, spec %in% c('E1', 'E2', 'E3')) |>
   select(spec, mod_p, cr2_p) |>
-  pivot_longer(c(mod_p, cr2_p), names_to = 'source',
-               values_to = 'p') |>
-  mutate(source = recode(source,
-    mod_p = 'Model-based Wald', cr2_p = 'CR2 cluster-robust')) |>
+  pivot_longer(c(mod_p, cr2_p), names_to = 'source', values_to = 'p') |>
+  mutate(source = recode(source, mod_p = 'Model-based Wald',
+                         cr2_p = 'CR2 cluster-robust')) |>
   ggplot(aes(p, colour = source)) +
   stat_ecdf(geom = 'step', linewidth = 0.6) +
   geom_abline(slope = 1, intercept = 0, linetype = 'dashed',
               colour = 'grey50') +
   facet_wrap(~ spec) +
   coord_equal(xlim = c(0, 1), ylim = c(0, 1)) +
-  scale_colour_manual(values = c(
-    'Model-based Wald' = '#e31a1c',
-    'CR2 cluster-robust' = '#1f78b4')) +
+  scale_colour_manual(values = c('Model-based Wald' = '#e31a1c',
+                                 'CR2 cluster-robust' = '#1f78b4')) +
   labs(x = 'Null p-value', y = 'Empirical CDF', colour = NULL) +
   theme_paper
 ```
 
-Figure \@ref(fig:fig-cr2) shows the same result as a distribution
-function. The model-based p-values bow below the diagonal, as in
-Figure \@ref(fig:fig-ecdf); the cluster-robust p-values lie on it.
-The point estimate and the corCAR1 model are unchanged. Only the
-standard error of the interaction, and the reference against which
-it is tested, are replaced.
-
 ## The remedy at an alternative cell
 
-The diagnosis to this point has been conducted under the null, where
-calibration is defined. A reader of a comparative study will,
-however, press a further question. The purpose of the parent study is
-to rank analysis specifications by power, and if a recalibration of
-the standard error raises the power of every specification, does it
-also disturb their order? We checked this directly at one alternative
-cell, the parent study's reference configuration with a non-null
-biomarker moderation, $c_{bm} = 0.45$, retaining the Architecture-B
-Hybrid design at $N = 70$.
+We repeated the comparison at $c_{bm} = 0.45$ under the
+covariance-moderation architecture, with the same design and $N = 70$
+(Table \@ref(tab:tab-alt)). The model-based $\kappa$ was
+`r f3(min(als$k_mod[als$spec %in% c('E1','E2','E3')]))` to
+`r f3(max(als$k_mod[als$spec %in% c('E1','E2','E3')]))` and the CR2
+$\kappa$ `r f3(min(als$k_cr2[als$spec %in% c('E1','E2','E3')]))` to
+`r f3(max(als$k_cr2[als$spec %in% c('E1','E2','E3')]))`. CR2 raised
+power by `r fs(av('E1','d_est'))`, `r fs(av('E2','d_est'))` and
+`r fs(av('E3','d_est'))` for E1, E2 and E3 (paired MCSE
+`r f4(av('E1','d_mcse'))`, `r f4(av('E2','d_mcse'))` and
+`r f4(av('E3','d_mcse'))`).
+
+On the `r format(a21m$n, big.mark = ',')` replicates in which all three
+specifications succeeded, the paired power advantage of E2 over E1
+was `r fs(a21m$est)` (MCSE `r f4(a21m$mcse)`) under the model-based
+test and `r fs(a21c$est)` (MCSE `r f4(a21c$mcse)`) under CR2. The
+difference of these differences was `r fs(did_est)` (MCSE
+`r f4(did_mcse)`). The advantage of E2 over E3 was `r fs(a23m$est)`
+(MCSE `r f4(a23m$mcse)`) and `r fs(a23c$est)` (MCSE `r f4(a23c$mcse)`).
+At this cell the recalibration raised power by a similar amount for
+every specification and left their order unchanged. This is one cell.
 
 ```{r tab-alt}
-t5 <- dalt$summary |>
+t5 <- als |>
+  filter(spec %in% c('E1', 'E2', 'E3')) |>
   transmute(
-    Spec = spec,
-    `$\\kappa$ model-based` = sprintf('%.3f', mod_se_ratio),
-    `$\\kappa$ CR2`         = sprintf('%.3f', cr2_se_ratio),
-    `Power model`     = sprintf('%.3f', power_mod),
-    `Power CR2`       = sprintf('%.3f', power_cr2))
+    Spec = spec, n = n,
+    `$\\kappa$ model` = f3(k_mod), `$\\kappa$ CR2` = f3(k_cr2),
+    `Power model (MCSE)` = sprintf('%.3f (%.4f)', t1_mod, mcse_mod),
+    `Power CR2 (MCSE)` = sprintf('%.3f (%.4f)', t1_cr2, mcse_cr2),
+    `CR2 $-$ model (paired MCSE)` = sprintf('%+.3f (%.4f)', d_est, d_mcse))
 kable(t5, booktabs = TRUE, escape = FALSE,
-  caption = 'The cluster-robust remedy at an alternative cell
-    (the covariance-moderation architecture, Hybrid design, $N = 70$, $c_{bm} = 0.45$,
-    exponential DGP, 3000 replicates). Power is the rejection rate
-    of the interaction test; the standard-error ratio $\\kappa$ is as
-    defined for the null. The model-based test is conservative
-    here too, and the CR2 test recalibrates it.')
+  caption = paste0('Alternative cell: covariance-moderation ',
+    'architecture, Hybrid, $N = 70$, $c_{bm} = 0.45$, half-life 1 week. ',
+    run_lab(dalt), '. Power is the rejection rate of M3 with the ',
+    'fitted mean.')) |>
+  kableExtra::kable_styling(latex_options = 'scale_down')
 ```
-
-Three things follow from Table \@ref(tab:tab-alt). First, the
-standard-error over-estimation is not confined to the null: at the
-alternative cell the model-based ratio is 1.12 to 1.15, if anything
-slightly larger than the 1.06 to 1.10 seen under the null. Second,
-the CR2 cluster-robust standard error recalibrates the alternative
-cell as it did the null, bringing the ratio to 0.99 for all three
-specifications. Third, and most consequential for a comparative
-study, the recalibration is close to a uniform level shift. It raises
-the power of every specification by roughly three to four percentage
-points, and the gaps between specifications are left intact: the
-advantage of the leading specification E2 over E1 is $+0.086$ under
-the model-based test and $+0.082$ under the cluster-robust test, and
-over E3 it is $+0.088$ and $+0.089$. The ranking, and the magnitude
-of the leading specification's advantage, survive the recalibration
-unchanged.
-
-```{r fig-alt, fig.width = 6, fig.height = 3.6, out.width = "75%", fig.cap = "Power of the three analysis specifications at the alternative cell, under the model-based and CR2 cluster-robust tests. The recalibration raises every specification by a near-uniform increment and preserves their order."}
-dalt$summary |>
-  select(spec, power_mod, power_cr2) |>
-  pivot_longer(c(power_mod, power_cr2), names_to = 'method',
-               values_to = 'power') |>
-  mutate(method = recode(method,
-    power_mod = 'Model-based Wald',
-    power_cr2 = 'CR2 cluster-robust')) |>
-  ggplot(aes(spec, power, fill = method)) +
-  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
-  geom_text(aes(label = sprintf('%.3f', power)),
-            position = position_dodge(width = 0.7),
-            vjust = -0.4, size = 3) +
-  scale_fill_manual(values = c(
-    'Model-based Wald' = '#e31a1c',
-    'CR2 cluster-robust' = '#1f78b4')) +
-  scale_y_continuous(limits = c(0, 1)) +
-  labs(x = 'Analysis specification', y = 'Power', fill = NULL) +
-  theme_paper
-```
-
-The lesson generalizes beyond the example. A cluster-robust standard
-error corrects the absolute error rate, the Type I error under the
-null and the power under the alternative alike, but because the
-correction acts on the standard error and not on the point estimate,
-and because the standard-error miscalibration here is relatively
-similar across the specifications being compared, it shifts the level
-without reordering the contrast. A comparative study whose claim is a
-ranking is therefore robust to the recalibration, even where its
-absolute power figures, as reported under the model-based test, are
-mildly pessimistic.
 
 # Discussion
 
-## The result is not about autoregressive correlation
+## What the example shows
 
-It would be a mistake to read this paper as a caution against the
-continuous-time autoregressive residual in particular. The corCAR1
-term is the component the model ladder happened to implicate in this
-example, but the mechanism is general. The model ladder is itself the
-evidence: it fitted four working covariances and obtained four
-different standard-error ratios, from 1.3 under ordinary least
-squares to 1.0 under a random intercept to near 1.1 under the
-production model. The miscalibration is a property of the match
-between the working covariance and the truth. Any parametric residual
-or random-effects structure, whether compound symmetry, an
-unstructured form, a random slope, or a spatial correlation, is
-capable of producing it. The effect of a serial-correlation structure
-on the variance of a least-squares contrast was examined classically
-by Watson [-@watson1955]. The robustness of mixed-model fixed-effect
-inference to a misspecified covariance was examined by Verbeke and
-Lesaffre [-@verbeke1997]. That a misspecified working covariance
-leaves the model-based fixed-effect standard error inconsistent is,
-moreover, not a new claim. It is the Eicker-Huber-White result
-carried into the mixed-model setting, and for a likelihood fit the
-misspecified-maximum-likelihood result of White
-[@eicker1967; @huber1967; @white1980; @white1982; @freedman2006].
-What the worked example contributes is a quantified, decomposed
-instance in a realistic longitudinal interaction test, with two
-features that are not obvious in advance.
+In this example the model-based interaction test of the production
+model was conservative. The main cause was the mean model. The fitted
+mean, a linear trend plus a drug term, could not follow the curved
+mean trajectories of the three components. REML treated the common
+misfit as covariance, and the variance parameters grew. The
+model-based standard error of the interaction grew with them. Under
+the extended DGP the misspecified residual covariance contributed
+about one percent of $\kappa$. This revises the reading of an earlier
+draft, which attributed the conservatism to the autoregressive
+residual layer.
 
-## Two features that are not obvious in advance
+The revision changes the practical lesson. Removing the residual
+correlation does not repair the test. It produces a model whose two
+errors offset. A mean model that follows the visits does repair it.
+In this design a free mean per visit brought the population $\kappa$
+of M3 to `r fr(akr('M3','visit'))`. Expectancy terms alone did not.
+The CR2 standard error repairs the size without changing the model.
+It does not repair the cause. The two remedies can be combined. These
+statements are confined to one DGP, one design and one estimand. That
+a mean misfit absorbed by REML can make a mixed-model interaction test
+conservative in other designs is a hypothesis, supported by the
+$V + rr^\top$ argument of Section 2.2 but not tested here.
 
-The first is the direction. The sandwich literature is usually
-motivated by anti-conservative tests: ignored positive correlation
-under-states standard errors, and the robust estimator corrects an
-inflated rejection rate downward. Here the model-based test is
-conservative, and the cluster-robust estimator corrects the rejection
-rate upward. The ladder explains why the intuition can mislead. The
-effect under test is a within-cluster contrast, and for a
-within-cluster contrast the relationship between a misspecified
-covariance and the standard-error bias need not have the sign that
-the between-cluster intuition supplies. An analyst who reasons that
-'my standard errors are conservative because I have modeled the
-correlation' has the logic backward in this case: modeling the
-correlation, through the corCAR1 term, is what introduced the
-conservatism, and the less elaborate model was the calibrated one.
+The direction of the error depends on the model. M3 with the fitted
+mean was conservative. M1 with a correct mean was anti-conservative.
+The generalized estimating equations sandwich of Section 5.3 was
+anti-conservative. Gurka, Edwards and Muller [-@gurka2011] showed that
+an underspecified covariance can inflate the Type I error, and that
+the bias does not shrink with the sample size. Our result is
+compatible with theirs. Here the conservative direction arises
+because the absorbed misfit inflates the variance parameters.
 
-The second feature is that the bias is asymptotic. It would have been
-straightforward to attribute the conservatism to moderate sample
-size, and an earlier informal reading of the parent study did so. The
-sample-size gradient refutes that reading directly. This matters for
-how the problem is classified. The small-sample corrections of
-Kenward and Roger [-@kenward1997small; -@kenward2009] adjust the
-fixed-effect standard error and its degrees of freedom for the
-finite-sample uncertainty in the estimated variance parameters,
-operationalizing the variance-underestimation result of Kackar and
-Harville [-@kackar1984]. They are the right instrument for a
-finite-sample artifact. They are not the right instrument here,
-because the bias is not a finite-sample artifact: it does not vanish
-as the variance parameters are estimated with unlimited precision. A
-Kenward-Roger correction applied to a misspecified working covariance
-corrects the finite-sample term and leaves the asymptotic mismatch
-untouched.
+## Agreement with the companion test-procedure paper and Kenward-Roger
 
-We confirmed this directly. The Kenward-Roger correction is not
-implemented for the production corCAR1 mixed model in standard
-software. We therefore applied it, through the \texttt{mmrm}
-package [@mmrm2026], to the marginal counterpart of the implicated
-autoregressive layer, a continuous-time spatial-exponential working
-covariance, and we fit an unstructured covariance alongside for
-contrast (Table \@ref(tab:tab-kr)). The marginal autoregressive fit
-reproduces a conservatism of magnitude comparable to the production
-model's, with some variation across specifications. That is, the
-comparison across fitting engines is qualitative rather than exact.
-On the autoregressive covariance the correction was numerically
-inert. It altered the interaction standard error by about one
-tenth of one percent, holding the standard-error ratio at
-$\kappa \approx 1.08$ and the Type I error near 0.036. We attribute
-this to a covariance carrying a single correlation parameter beyond
-its variance, which offers almost no finite-sample uncertainty for
-the correction to absorb. On the thirty-six-parameter unstructured
-covariance, the same correction was far from inert. It lifted the
-standard-error ratio from 0.89 to 0.96 and the Type I error from
-0.076 toward 0.059. The magnitude of the Kenward-Roger adjustment
-therefore tracks the number of covariance parameters, and for a
-parsimonious autoregressive working covariance it is too small to
-offset a six-to-ten percent bias. The cluster-robust standard error
-addresses the asymptotic mismatch directly, which is why we regard
-it as the appropriate remedy.
+The companion test-procedure paper [@pmsimstats-paper08] reports a
+model-based mixed model of the same class with $\kappa$ of 1.10 to
+1.16 and a size of 0.02 to 0.03, in a different design and DGP. It
+classifies the conservatism as a calibration defect of the working
+covariance, not of the degrees of freedom. It notes that Kenward-Roger
+or Satterthwaite adjustments cannot repair a conservative test,
+because they inflate the variance or lower the degrees of freedom. It
+recommends CR2 inference. The present results agree on each point.
+They refine the cause. The estimated working covariance is inflated,
+and in this example the inflation comes from the mean misfit that
+REML absorbs. We did not decompose the conservatism of that paper,
+whose mean model includes expectancy terms but not a free mean per
+visit.
+
+Our empirical Kenward-Roger check is of the M2 rung, not of M3.
+Kenward-Roger is available in R for marginal models through the
+`mmrm` package [@mmrm2026], which does not fit a random intercept. SAS
+PROC MIXED supports Kenward-Roger with a random intercept and a
+spatial power residual. We did not run it. On the continuous-time
+exponential covariance, Kenward-Roger changed the interaction standard
+error by `r f2(krc('sp_exp'))` percent on average (Table
+\@ref(tab:tab-kr)). On the unstructured covariance it changed it by
+`r f2(krc('us'))` percent. With Kenward-Roger the unstructured
+covariance still rejected at `r f4(kv('us','Kenward-Roger','E1','t1'))`
+and `r f4(kv('us','Kenward-Roger','E3','t1'))` for E1 and E3,
+`r f2(kv('us','Kenward-Roger','E1','z'))` and
+`r f2(kv('us','Kenward-Roger','E3','z'))` MCSE above 0.05. The
+residual anti-conservatism agrees with Gosho et al. [-@gosho2017],
+who found Kenward-Roger with an unstructured covariance close to
+nominal only when the number of completers is large relative to the
+number of visits.
 
 ```{r tab-kr}
-tkr <- dkr$summary |>
-  mutate(method = factor(method,
-           levels = c('Satterthwaite', 'Kenward-Roger'))) |>
-  group_by(cov, method) |>
-  summarise(se_ratio = mean(se_ratio), df = mean(mean_df),
-            type1 = mean(type1), .groups = 'drop') |>
-  mutate(Covariance = recode(cov,
-           sp_exp = 'AR(1), 1 parameter',
-           us     = 'Unstructured, 36 parameters')) |>
-  arrange(desc(cov == 'sp_exp'), method) |>
-  transmute(Covariance, Method = as.character(method),
-            `$\\kappa$`  = sprintf('%.3f', se_ratio),
-            `Mean df`    = sprintf('%.0f', df),
-            `Type I`     = sprintf('%.3f', type1))
-kable(tkr, booktabs = TRUE, escape = FALSE,
-  caption = 'Kenward-Roger versus Satterthwaite degrees of freedom at
-    the primary null cell (2000 replicates), applied through the
-    \\texttt{mmrm} package to two marginal working covariances: a
-    continuous-time autoregressive (spatial-exponential) covariance,
-    the marginal counterpart of the corCAR1 residual layer, and an
-    unstructured covariance. Values are averaged over the three
-    specifications. $\\kappa$ is the mean model standard error over the
-    empirical standard deviation of the estimate. On the one-parameter
-    autoregressive covariance the Kenward-Roger correction is inert; on
-    the thirty-six-parameter unstructured covariance it corrects a
-    genuine finite-sample anti-conservatism. Computed with the mmrm
-    package (version 0.3.17).')
+tkr <- krs |>
+  mutate(Covariance = recode(cov, sp_exp = 'Exponential (M2)',
+                             us = 'Unstructured')) |>
+  arrange(desc(cov == 'sp_exp'), method, spec) |>
+  transmute(Covariance, Method = method, Spec = spec,
+            `$\\kappa$` = f3(kappa), df = sprintf('%.0f', df),
+            `Type I (MCSE)` = sprintf('%.4f (%.4f)', t1, mcse))
+kable(tkr, booktabs = TRUE, escape = FALSE, longtable = TRUE,
+  caption = paste0('Kenward-Roger against Satterthwaite in \\texttt{mmrm} ',
+    'at the primary null cell. ', run_lab(dkr), '. The exponential fit ',
+    'has no random intercept: it is the M2 rung, not the production ',
+    'model M3. The Satterthwaite fit keeps the model-based covariance.'))
 ```
 
-## When the problem should be expected
-
-The conditions for the problem are not exotic. They are a
-fixed-effect interaction tested in a mixed model; a parametric
-working covariance that is plausible but not known to be exactly
-correct, which is to say almost every parametric working covariance
-in applied use; and an interaction that is partly or wholly a
-within-cluster contrast. Wherever those conditions hold, the
-calibration of the model-based Wald test is an open question, and the
-staged protocol of Section 2 answers it at the cost of a simulation.
-We would suggest, as a matter of routine practice, that an
-interaction test reported from a mixed model with a non-trivial
-working covariance be accompanied either by a calibration check of
-this kind or by a cluster-robust standard error, which removes the
-question by being agnostic to the working covariance. This accords
-with a broader case for giving robust and marginal methods more
-routine consideration alongside the conditional mixed model
-[@mcneish2017].
+In the pre-correction run the `gls` fit of the M2 rung and the `mmrm`
+exponential fit of nominally the same model disagreed, with a ratio of
+mean standard errors of `r f3(gmv('E1'))` for E1 and
+`r f3(gmv('E2'))` for E2. The `gls` fit had used the `optim`
+optimizer with default tolerances. With the `nlminb` optimizer and
+tight tolerances, a check on 21 replicates of the extended DGP gave
+standard errors that matched `mmrm` within a relative difference of
+`r format(signif(sm_maxdiff, 2), scientific = TRUE)` in every one of
+`r nrow(sm_j)` fits. The earlier M2 rung had not reached the REML
+optimum. The corrected drivers use the tight settings.
 
 ## The marginal-model alternative
 
-The remedy adopted above keeps the conditional mixed model and adds a
-cluster-robust standard error after the fact. A reader may reasonably
-ask whether the marginal route, generalized estimating equations,
-would not be more natural, since the method carries the sandwich
-variance from the outset rather than bolting it on
-[@liang1986; @zeger1988]. It would. For a linear model with an
-identity link the marginal and conditional fixed-effect coefficients
-coincide [@neuhaus1991], so a generalized estimating equations
-analysis estimates the same interaction and answers the same
-question. The working correlation, exchangeable or autoregressive,
-governs only the efficiency of the point estimate and not the
-validity of the inference.
+We fitted the generalized estimating equations counterpart of the
+analysis model with `geepack` [@halekoh2006], Gaussian family and an
+AR(1) working correlation (Table \@ref(tab:tab-gee)). Two features
+limit the comparison. First, `geepack` indexes the AR(1) lag by visit
+order and ignores the irregular spacing of the Hybrid visits. We
+checked that the reported standard error equals an inline sandwich
+with order lags. A calendar-time working correlation is not available
+in that package and was not evaluated. Second, in the pre-correction
+run the Mancl-DeRouen standard error came from a separate refit with
+`geesmv` [@wang2016]. The corrected driver computes both standard errors from one
+fit. In every case we report both standard errors against both
+references, a normal one and $t$ on $K - p$ degrees of freedom, with
+$K$ participants and $p$ fixed effects [@li2015].
 
 ```{r tab-gee}
-t6 <- dgee$summary |>
+t6 <- gs |>
   transmute(
-    Spec = spec,
-    `$\\kappa$ naive` = sprintf('%.3f', naive_se_ratio),
-    `$\\kappa$ MD`    = sprintf('%.3f', md_se_ratio),
-    `Type I naive`   = sprintf('%.3f', type1_naive),
-    `Type I MD`      = sprintf('%.3f', type1_md))
+    Spec = spec, n = n,
+    `$\\kappa$ LZ` = f3(k_lz), `$\\kappa$ MD` = f3(k_md),
+    `LZ, $z$` = sprintf('%.4f (%.4f)', lz_z, mcse_lz_z),
+    `LZ, $t$` = sprintf('%.4f (%.4f)', lz_t, mcse_lz_t),
+    `MD, $z$` = sprintf('%.4f (%.4f)', md_z, mcse_md_z),
+    `MD, $t$` = sprintf('%.4f (%.4f)', md_t, mcse_md_t)) |>
+  left_join(eff |> transmute(Spec = spec,
+                             `Rel. eff.` = f2(rel_eff)), by = 'Spec')
 kable(t6, booktabs = TRUE, escape = FALSE,
-  caption = 'Marginal (GEE) check at the primary null cell, with an
-    AR(1) working correlation (5000 replicates). The naive sandwich
-    standard-error ratio $\\kappa$ and Type I error are shown beside
-    the Mancl-DeRouen (MD) bias-corrected versions. The naive sandwich
-    is mildly anti-conservative; the bias correction restores
-    approximate calibration.')
+  caption = paste0('Generalized estimating equations at the primary ',
+    'null cell, AR(1) working correlation in visit order. ',
+    run_lab(dgee), '. LZ is the Liang-Zeger sandwich and MD the ',
+    'Mancl-DeRouen sandwich. ',
+    'Entries in the four rightmost rate columns are Type I error ',
+    '(MCSE). Relative efficiency is the variance of the M3 estimate ',
+    'over that of the GEE estimate on the same datasets.')) |>
+  kableExtra::kable_styling(latex_options = 'scale_down')
 ```
 
-We checked the marginal route at the primary null cell, fitting the
-generalized estimating equations counterpart of the analysis model
-with an AR(1) working correlation; Table \@ref(tab:tab-gee) reports
-the result. The naive sandwich standard error proved mildly
-anti-conservative, the small-sample behavior the literature describes
-for a moderate number of clusters [@fay2001; @panwall2002]: across
-the three specifications it under-estimated the sampling standard
-deviation by roughly four percent, and the realized Type I error was
-0.067 to 0.069. A bias-corrected sandwich of the kind introduced by
-Mancl and DeRouen [-@mancl2001covariance] removed most of the
-discrepancy, bringing the standard-error ratio to within one percent
-of one and the Type I error to 0.055 to 0.058. The marginal route is
-therefore viable, but it carries the same lesson as the conditional
-one: at the cluster counts typical of aggregated N-of-1 work the
-sandwich variance itself needs a small-sample correction
-[@kauermann2001]. The two corrected tests err in opposite and
-relatively modest directions, the conditional CR2 test slightly
-conservative and the marginal Mancl-DeRouen test slightly
-anti-conservative, and either is a defensible calibrated analysis.
-The choice between them is practical rather than principled: the
-conditional route preserves an existing mixed-model pipeline and
-changes only the standard error, while the marginal route is
-conceptually cleaner but a more thoroughgoing change of model.
+The Liang-Zeger sandwich gave $\kappa$ of
+`r f3(min(gs$k_lz))` to `r f3(max(gs$k_lz))` and rejected at
+`r f3(min(gs$lz_z))` to `r f3(max(gs$lz_z))` with a normal reference.
+The closed form \@ref(eq:closed) predicts `r f3(min(gs$pred_lz))` to
+`r f3(max(gs$pred_lz))` at those $\kappa$, below the observed rates.
+This is the second case where the first-order decomposition fails.
+The sandwich standard error is variable and correlated with the
+estimate [@kauermann2001; @fay2001; @panwall2002]. The Mancl-DeRouen
+correction with a $t$ reference rejected at `r f4(gv('E1','md_t'))`,
+`r f4(gv('E2','md_t'))` and `r f4(gv('E3','md_t'))`. For E2 this is
+`r sprintf('%.1f', gv('E2','z_md_t'))` MCSE above 0.05 (binomial
+$p$ = `r fp(gv('E2','bp_md_t'))`). It is not calibrated at this
+cluster count.
+
+The GEE estimate was less efficient than the M3 estimate on the same
+data. Its empirical standard deviation for E1 was
+`r f3(ev('E1','sd_gee'))` against `r f3(ev('E1','sd_lme'))`, a relative
+efficiency of `r f2(ev('E1','rel_eff'))`. About
+`r sprintf('%.0f', 100 * (1 - ev('E1','rel_eff')))` percent of the
+information is lost. The marginal route is therefore not equivalent
+to the conditional route with CR2 in this design. The CR2 test of M3
+keeps the efficiency of the mixed-model estimate and comes closer to
+the nominal size.
+
+## Relation to the recommended analysis
+
+The CR2 tests evaluated here are G6 (E1) and G8 (E2) in the codes of
+the companion carryover paper [@pmsimstats-paper02]. That paper
+recommends G9, which adds an AIC choice of the analysis half-life and
+reports a measurable size increment from the selection step. The
+present paper explains why the CR2 step is needed: the model-based
+standard error of the historical analysis is inflated by the mean
+misfit. The mean-model results suggest a further option, a free mean
+per visit, which G9 does not use. Its power cost was not evaluated
+here.
 
 ## Limitations
 
-Several limitations bound the scope of the evidence, and we endeavor
-to state them plainly. We carried out the diagnosis for one
-data-generating family, one estimand, and one production working
-covariance. The asymptotic conservatism is demonstrated for the
-corCAR1-plus-random-intercept model, and the generality beyond that
-rests on the model ladder and on established theory rather than on a
-sweep of every covariance structure. A broader empirical base,
-fitting an unstructured or compound-symmetry analysis to the same
-data, would strengthen the general claim, and is a natural extension.
-In the same spirit, the sample-size gradient varied the number of
-participants while holding the within-participant design fixed. The
-number of timepoints per cluster, the axis along which the
-per-cluster working-covariance mismatch could itself grow or shrink,
-was not varied, and a gradient in cluster size is a further natural
-extension. The cluster-robust remedy is not without cost: the
-Satterthwaite degrees of freedom for the CR2 test are approximately
-24 against a model-based 487, so the robust test spends precision to
-buy validity, and at a genuinely small number of clusters that price
-would rise. We conducted the principal diagnosis at the null, where
-calibration is defined; we checked the consequence for power at a
-single alternative cell (Section 4.5), where the recalibration proved
-a near-uniform level shift that preserved the ranking of
-specifications. Whether that uniformity holds across the whole
-factorial, rather than at the one cell examined, was not established,
-and that question warrants further investigation. Downstream studies
-should therefore not extend the cluster-robust ranking-invariance or
-the conservative-lower-bound interpretation beyond the
-covariance-moderation architecture, Hybrid, $N = 70$ cells validated
-here, in particular not to crossover designs or to the
-mean-moderation architecture. Finally, the small positive
-point-estimate bias noted in Section 4.1, while negligible in
-magnitude and irrelevant to the conservatism, is a genuine
-finite-sample feature of the estimator that a separate examination
-might characterize.
+The study has one DGP, one design, one estimand and one alternative
+cell. The analytic $\kappa$ assumes equal allocation to paths,
+whereas the simulation allocates 18, 18, 17 and 17, and it excludes
+finite-sample terms by construction. The simulation tables come from
+the `r if (all_refined) 'extended DGP' else 'pre-correction run unless a caption says otherwise'`.
+`r if (!all_refined) 'Their magnitudes differ from the extended DGP by the amounts shown in Table 3: the population $\\kappa$ of M3 falls by about 0.01 to 0.02.' else ''`
+The parametric-bootstrap reference and the design-dependence analyses
+of the examination plan (stages 4b and 5) were not run. The
+examination plan expected M3 to be the well-specified member of the
+ladder. The results show otherwise. Kenward-Roger was evaluated on M2
+only. The power cost of a free mean per visit, and its behavior under
+the alternative, were not evaluated. The ranking result at the
+alternative rests on one cell. It should not be extended to
+crossover designs or to the mean-moderation architecture without
+evidence.
 
 # Conclusions
 
-In conclusion, six points are to be emphasized. First, the model-based
-Wald test of a fixed-effect interaction in a linear mixed model can be
-materially miscalibrated when the parametric working covariance does
-not match the data-generating covariance. In the worked example the
-miscalibration is a conservative one: the model-based standard error of
-the interaction is over-estimated by 6 to 10 percent and the realized
-Type I error is approximately 0.03 against a nominal 0.05.
+First, in this example the model-based Wald test of the interaction
+in the production mixed model was conservative. Its standard error was
+`r pct(min(dec$kappa) - 1)` to `r pct(max(dec$kappa) - 1)` percent too
+large and its size was `r f3(min(dec$t1))` to `r f3(max(dec$t1))`.
 
-Second, the four-channel decomposition localizes the discrepancy to the
-standard-error channel and excludes point-estimate bias, the
-degrees-of-freedom rule, and the positive-definiteness correction.
+Second, the main cause was the mean model. REML absorbed the misfit
+of a linear trend plus a drug term into the variance parameters. With
+a correct mean the population $\kappa$ of M3 was
+`r fr(akr('M3','correct'))`.
 
-Third, the working-covariance model ladder localizes the cause to the
-corCAR1 residual layer. A random intercept alone is well calibrated;
-adding the corCAR1 residual removes the calibration.
+Third, the apparent calibration of the random-intercept-only model
+was a cancellation of two errors. It is not evidence that the
+residual correlation should be dropped.
 
-Fourth, the sample-size gradient shows the miscalibration is
-asymptotic. It does not attenuate from $N = 35$ to $N = 280$, and so it
-is a property of the working covariance and not a small-sample artifact
-amenable to a Kenward-Roger correction; applied empirically, the
-Kenward-Roger adjustment proved numerically inert on the parsimonious
-autoregressive covariance while correcting a genuine finite-sample
-anti-conservatism on an unstructured one.
+Fourth, the excess is asymptotic. The analytic $\kappa$ does not depend
+on the number of participants. Kenward-Roger changed the standard
+error of the autoregressive M2 fit by about
+`r f2(krc('sp_exp'))` percent. A degrees-of-freedom correction cannot
+repair a conservative test.
 
-Fifth, a CR2 bias-reduced cluster-robust standard error, clustered on
-participant and referred to a Satterthwaite distribution, restores the
-standard-error ratio to approximately one and the Type I error to
-approximately 0.05, without altering the point estimate or the analysis
-model. At an alternative cell the same recalibration is a near-uniform
-level shift in power that preserves the comparative ranking of
-specifications.
-
-Sixth, and in our view most consequential for routine practice, the
-staged protocol, comprising the four-channel decomposition, the model
-ladder, and the sample-size gradient, is a reusable instrument for any
-mixed-model interaction test whose calibration is in doubt. We recommend
-that interaction tests reported from mixed models with a non-trivial
-working covariance be accompanied by a calibration check of this kind,
-or by a cluster-robust standard error that is agnostic to the working
-covariance.
+Fifth, a CR2 cluster-robust standard error with Satterthwaite degrees
+of freedom restored the size to within Monte Carlo error of 0.05 and
+raised power at the alternative cell by a similar amount for each
+specification. A free mean per visit removed most of the cause.
 
 # Reproducibility
 
-Seven scripts under \texttt{analysis/scripts/carryover-sensitivity/}
-drive the diagnosis: \texttt{diagnose-null-type1.R} for the
-four-channel decomposition, \texttt{diagnose-null-type1-stages46.R}
-for the model ladder and the sample-size gradient,
-\texttt{diagnose-null-type1-cr2.R} for the cluster-robust verification
-at the null, \texttt{diagnose-alt-cell-cr2.R} for the alternative-cell
-check, \texttt{diagnose-null-type1-gee.R} for the GEE marginal-model
-check, and \texttt{diagnose-null-type1-kr.R} for the Kenward-Roger
-check, with \texttt{check-null-architecture-equivalence.R}
-establishing the architecture-invariance of the null. Each writes a
-replicate-level \texttt{.rds} file into the \texttt{output/}
-subdirectory, and this manuscript reads those files and regenerates
-every table and figure inline. The cluster-robust standard errors use
-the \texttt{clubSandwich} package, and the Kenward-Roger and
-Satterthwaite checks use the \texttt{mmrm} package [@mmrm2026]. The
-examination plan that preceded the manuscript is retained alongside
-it as \texttt{type1-examination-plan.md}.
+The drivers are in `analysis/scripts/carryover-sensitivity/`.
+`paper10-common.R` holds the DGP settings of the corrected drivers:
+$c_1 = c_\times = 0.2$, carryover decaying from the last on-drug mean,
+and a stop on a covariance matrix that is not positive definite. Each
+run records the git commit and date in its output. The drivers are
+`diagnose-kappa-analytic.R` (the population $\kappa$),
+`diagnose-null-type1.R` (decomposition and correct-mean check),
+`diagnose-null-type1-stages46.R` (ladder and gradient),
+`diagnose-null-type1-cr2.R` (CR2, G9 and F1),
+`diagnose-alt-cell-cr2.R` (alternative cell),
+`diagnose-null-type1-gee.R` (generalized estimating equations),
+`diagnose-null-type1-kr.R` (Kenward-Roger) and
+`check-null-architecture-equivalence.R`. The script
+`run-paper10-refined.sh` runs all of them with single-threaded linear
+algebra and writes to `output/paper10-refined/`. The pre-correction
+outputs of 2026-05-20 remain in `output/` for comparison. The
+software versions were R
+`r paste(R.version$major, R.version$minor, sep = '.')`, `nlme`
+3.1-169, `clubSandwich` 0.7.0, `geepack` 1.3.13 and `mmrm` 0.3.17,
+cited in Sections 3 to 5. The
+examination plan that preceded the manuscript is retained as
+`type1-examination-plan.md`.
+
+```{r pending-all, results = 'asis'}
+if (!all_refined) cat(
+  '\n\\begin{quote}\\small\\textbf{RESULTS-PENDING.} The simulation',
+  'tables of this draft come from the pre-correction run unless a',
+  'caption says otherwise. The rerun under the extended DGP is',
+  'prepared but not executed. Command, from the repository root:',
+  '\\texttt{bash analysis/scripts/carryover-sensitivity/run-paper10-refined.sh}.',
+  'Estimated cost about 10 CPU-hours, 1.5 to 2 hours on seven idle',
+  'workers. The manuscript switches each table automatically when the',
+  'corresponding file holds its full replicate count. After the rerun,',
+  're-read the prose for qualitative statements that depend on the',
+  'numbers.\\end{quote}\n')
+```
+
+# Glossary {-}
+
+**$\kappa$.** The calibration ratio: the mean model-based standard
+error divided by the empirical standard deviation of the estimates.
+Above 1 the test is conservative.
+
+**Population (pseudo-true) $\kappa$.** $\kappa$ computed exactly from
+the DGP mean and covariance, with the working variance parameters at
+the values REML converges to as the number of participants grows.
+
+**Mean misfit.** The true mean of the outcome at a path and visit
+minus the best-fitting mean of the analysis model.
+
+**M0 to M3.** Working covariances: independence (ordinary least
+squares), random intercept, continuous-time autoregressive residual
+alone, and both. M3 is the production model.
+
+**E1, E2, E3.** Drug terms of the analysis model. E1 is the binary
+drug state. E2 is the exposure-decayed indicator at the true
+half-life. E3 is the binary drug state plus a lagged just-off-drug
+indicator.
+
+**G1, G3, G6, G8, G9, F1.** Analysis codes of the companion carryover
+paper. G1 and G3 are E1 and E2 with model-based inference. G6 and G8
+are the same with CR2. G9 adds an AIC choice of the analysis
+half-life. F1 adds the design expectancy and its interaction with the
+biomarker at a fixed half-life of 0.2 week.
+
+**Hybrid design.** Open-label titration, blinded discontinuation,
+then a brief crossover, with four randomization paths.
+
+**corCAR1.** The continuous-time first-order autoregressive residual
+correlation of `nlme`, $\rho_a^{|w_t - w_s|}$.
+
+**$c_{bm}$.** The correlation between the biomarker and the drug
+response on drug, which carries the interaction in the
+covariance-moderation architecture.
+
+**$c_1$, $c_\times$.** Cross-component correlations at the same visit
+and at different visits. The extended DGP sets both to 0.2. The
+pre-correction run used $c_\times = 0.1$. Code names `c.cf1t` and
+`c.cfct`.
+
+**Extended DGP.** The recommended data-generating process of the
+companion DGP paper: separable AR(1) with $\rho = 0.7$ and
+$c_1 = 0.2$, a biomarker-response correlation that decays after
+discontinuation, carryover that decays from the last on-drug mean,
+and a stop on matrices that are not positive definite. Code label
+`refined`.
+
+**Original carryover rule.** The carryover rule of the original DGP,
+which applies the decay to the already-carried mean of the previous
+visit and so compounds it.
+
+**Pre-correction run.** The simulation outputs of 2026-05-20, made
+with $c_\times = 0.1$ and the original carryover rule.
+
+**CV(SE).** The coefficient of variation of a standard error across
+replicates.
+
+**Paired MCSE.** The Monte Carlo standard error of a difference
+between two procedures applied to the same datasets.
+
+# Abbreviations {-}
+
+AIC, Akaike information criterion. CR2, bias-reduced cluster-robust
+variance estimator of Bell and McCaffrey. DGP, data-generating
+process. GEE, generalized estimating equations. KR, Kenward-Roger.
+LZ, Liang-Zeger. MCSE, Monte Carlo standard error. MD, Mancl-DeRouen.
+MMRM, mixed model for repeated measures. OLS, ordinary least squares.
+REML, restricted maximum likelihood.
 
 # References
 

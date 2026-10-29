@@ -28,6 +28,10 @@
 ## emit bit-identical participant data when c_bm = 0, and should
 ## diverge when c_bm > 0. This script confirms both directions.
 ##
+## 2026-10-29: c.cfct set to 0.2 = c.cf1t (the refined process's
+## single cross-component constant; docs/61); covariance builds use
+## stop_on_nonpd = TRUE. Paper 10 cites this check.
+##
 ## Usage:
 ##   Rscript analysis/scripts/carryover-sensitivity/check-null-architecture-equivalence.R
 
@@ -52,7 +56,7 @@ make_model_param <- function(c_bm, t1half) {
     carryover_form   = 'exponential',
     weibull_shape    = 1,
     c.tv = 0.7, c.pb = 0.7, c.br = 0.7,
-    c.cf1t = 0.2, c.cfct = 0.1
+    c.cf1t = 0.2, c.cfct = 0.2
   )
 }
 

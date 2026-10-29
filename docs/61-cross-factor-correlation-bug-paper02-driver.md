@@ -432,6 +432,12 @@ found to feed the manuscript's reported tables or figures directly,
 and they were left unchanged in this pass; this was not exhaustively
 verified for every script in the directory, so a later sweep should
 confirm none of their output is cited before relying on that claim.
+Correction (2026-10-29): the `diagnose-null-type1*.R`,
+`diagnose-alt-cell-cr2.R` and `check-null-architecture-equivalence.R`
+scripts do feed paper 10
+(`analysis/report/10-interaction-test-calibration/`), whose tables
+were produced with `c.cfct = 0.1`, and they now take `c.cfct = 0.2`
+from `paper10-common.R`.
 
 ## 9. How to verify independently
 

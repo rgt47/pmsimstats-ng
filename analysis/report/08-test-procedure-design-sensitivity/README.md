@@ -1,114 +1,95 @@
 # 08-test-procedure-design-sensitivity
 
-*2026-05-07 15:30 PDT*
+*2026-10-28 18:30 PDT*
 
 ## Working title
 
-Test-procedure and trial-design choices for the
-biomarker-treatment interaction in aggregated N-of-1 trials:
-classical RM-ANOVA, mixed-effects, and the cycle-by-period
-protocol grid.
+Test-procedure choice for the biomarker-treatment interaction in
+aggregated N-of-1 trials: dichotomization, classical RM-ANOVA,
+mixed-effects, and generalized estimating equations.
 
 ## Origin
 
-This manuscript combines two complementary methodological
-threads documented separately in the project notes:
+The manuscript grew from two project notes:
 
-- `docs/26-rm-anova-interaction-test.md` derives the closed-form
-  strict repeated-measures ANOVA test of the
-  biomarker-treatment interaction in a balanced split-plot
-  design and relates it to the linear-mixed Wald test.
-- `docs/27-cycle-period-design-sweep-plan.md` specifies a
-  parameter grid that varies the protocol-level design
-  parameters (cycle count, on-drug / off-drug period length,
-  on/off symmetry, optional run-in / run-out) and quantifies how
-  the biomarker-treatment interaction test responds.
+- `docs/legacy/26-rm-anova-interaction-test.md` derives the
+  closed-form strict repeated-measures ANOVA test of the
+  biomarker-treatment interaction in a balanced split-plot design
+  and relates it to the linear-mixed Wald test.
+- A planned cycle-by-period design grid (Studies 2 and 3 of the
+  working protocol). The grid was not executed and the paper no
+  longer promises it; it is recorded as future work.
 
-The two threads address distinct but coupled choices the
-analyst makes (test procedure and trial-design parameters), and
-treating them jointly is the contribution of this manuscript.
+## Scope (as executed)
 
-## Scope
+1. Derive the strict RM-ANOVA $F$-statistic for the
+   biomarker-stratified treatment interaction and show that it is a
+   two-sample $t$-test on within-participant phase differences,
+   exact for any within-participant covariance once each phase is
+   averaged.
+2. Separate the power cost of dichotomizing the biomarker from the
+   cost of the test procedure, using a continuous-biomarker
+   within-participant contrast that differs from strict RM-ANOVA
+   only in keeping the biomarker continuous.
+3. Tabulate size, power, coverage and the calibration ratio
+   $\kappa$ for the continuous-biomarker procedures.
 
-1. Derive the closed-form strict RM-ANOVA $F$-statistic for the
-   biomarker-stratified treatment-by-time interaction in a
-   balanced split-plot design with categorical predictors and
-   the sphericity assumption.
-2. Relate the strict RM-ANOVA test to the Wald $t$-test on the
-   biomarker-by-treatment fixed-effects coefficient in a linear
-   mixed model with continuous-time AR(1) residual correlation,
-   identifying the conditions on residual covariance under which
-   the two tests agree and the regimes in which they diverge.
-3. Conduct a Monte Carlo simulation study that crosses three
-   test procedures (strict RM-ANOVA, the standard pmsimstats
-   linear-mixed analysis, and a generalised-estimating-equations
-   comparator) against a grid of design parameters: cycle count,
-   on-drug period length, off-drug period length, on/off
-   symmetry.
-4. Synthesise a design-and-test recommendation table for typical
-   chronic-condition N-of-1 trial scenarios.
+## Study as executed
 
-## Simulation substrate
-
-The simulation study uses the **`implementations/simple/`**
-codebase as its substrate, rather than the full pmsimstats
-package stack. The simple implementation is a single-file R
-script that already implements the four Hendrickson-relevant
-designs (OL, CO, N-of-1, OL+BDC) with an exposed parameter grid
-covering sample size, biomarker moderation, carryover half-life,
-carryover-adjustment toggle, and dropout probability. Three
-features make it the appropriate substrate for this paper's
-sweeps:
-
-- The design-parameter grid is already first-class in the
-  driver, which makes adding the cycle-count, period-length,
-  and on/off-symmetry axes a small extension rather than a
-  refactor of the full pipeline.
-- The reduced-complexity DGP (mean-moderation Architecture A
-  only, ANCOVA-on-phase-means analysis) isolates the design-
-  parameter and test-procedure axes from the response-curve-
-  family and covariance-structure axes that the full package
-  exposes; these other axes are out of scope for the present
-  paper.
-- Pedagogical clarity: the cycle-by-period sensitivity result is
-  more transparent when the substrate is simple enough that an
-  external reviewer can read the simulation script end to end.
-
-The driver scripts at `analysis/scripts/08-test-procedure-design-
-sensitivity/` will be created when the simulation study is
-implemented and will source `implementations/simple/simulation.R`
-and extend its parameter grid with the cycle-by-period axes.
+- **Procedures (stored run, 2026-10-08).** Strict RM-ANOVA on a
+  median-split biomarker (pre-averaged $2 \times 2$); the
+  continuous-biomarker contrast (E9b); LME with `corCAR1` and
+  model-based inference (`lme_analysis()`, G1 formula plus `De`);
+  GEE with the Liang-Zeger sandwich (`geepack`, `corstr = 'ar1'`);
+  GEE with the inline Mancl-DeRouen sandwich. The Mancl-DeRouen
+  arm's $t_{K-5}$ reference was recomputed from the stored
+  estimates (`02-mancl-t-reference.R`).
+- **Pending arm.** LME plus CR2 (clubSandwich, Satterthwaite df),
+  implemented in the driver as `lme_cr2` and smoke-tested; needs a
+  rerun (about 11 minutes on 7 local cores).
+- **Grid.** $\beta_{bm} \in \{0, 0.45\}$, $N \in \{25, 35, 70,
+  100\}$ (total, split across two paths); 2000 replicates per null
+  cell and 1000 per power cell.
+- **Design.** Two-path OL+BDC: open-label visits at weeks 4, 8, 12,
+  16; blinded weekly visits at weeks 17 to 20; discontinuation after
+  week 18 (path A) or week 17 (path B). Not the four-path Hybrid
+  design.
+- **Substrate.** The pmsimstats package (`generateData()` under
+  `dgp_architecture = 'mean_moderation'`, `lme_analysis()`), with
+  AR(1) $\rho = 0.7$ within components, cross-component correlations
+  0.1 and 0.05, no carryover, no dropout. This is neither the
+  original DGP nor the extended DGP ($c_1 = 0.2$) of NOTATION.md.
+  The `implementations/simple` substrate named in the working
+  protocol was not used.
 
 ## Relationship to other papers in the series
 
-- `01-dgp-mean-moderation-vs-mvn`: shares the
-  mean-moderation DGP. The present paper's
-  cycle-by-period grid uses Architecture A throughout; the
-  Architecture-B comparison is held out as future work.
-- `02-carryover-sensitivity`: the present paper's carryover
-  axis is held at the prazosin-PTSD reference value
-  ($t_{1/2} = 1$ week). Cross-paper sensitivity to varying
-  carryover is reported in `02-`.
-- `04-treatment-main-effect`: clinical companion that uses a
-  similar simulation substrate but targets the main treatment
-  effect; the present paper targets the biomarker-treatment
-  interaction.
-- `05-nof1-design-sensitivity`: methodologically adjacent (also
-  a design-parameter sensitivity study) but focused on the main
-  treatment effect rather than the interaction.
+- `01-dgp-mean-moderation-vs-mvn`: shares the mean-shift encoding of
+  the interaction.
+- `02-carryover-sensitivity`: defines the G1 to G9 analysis codes
+  and recommends G9 (CR2 inference) for a trial with carryover. The
+  present paper's LME arm is G1's formula with model-based
+  inference; the pending CR2 arm is G6's inference.
+- `10-interaction-test-calibration`: diagnoses the model-based LME's
+  conservatism as working-covariance misspecification and remedies
+  it with CR2; the present paper's $\kappa$ table shows the same
+  defect.
+- `05-nof1-design-sensitivity`: design-parameter sensitivity for the
+  main effect rather than the interaction.
 
-## Driver scripts
+## Files
 
-The driver directory at `analysis/scripts/08-test-procedure-
-design-sensitivity/` is to be created. The simulation will
-source the simple-implementation driver at
-`implementations/simple/simulation.R` and extend it with:
-
-- Cycle-count, period-length, and on/off-symmetry axes added to
-  the design grid.
-- Three test-procedure variants applied to each cell.
-- ADEMP-formatted output following Morris, White and Crowther
-  (2019).
+- `report.Rmd`: the manuscript. Render with
+  `bash tools/render.sh analysis/report/08-test-procedure-design-sensitivity/report.Rmd`.
+- `references.bib`, `statistics-in-medicine.csl`.
+- `cover-letter.md`, `title-page.md`.
+- `referee-report-2026-06-17.md`, `referee-report-2026-10-28.md`.
+- `report-slim.Rmd`, `report-mini.Rmd`, `bullets.Rmd`: earlier
+  condensed variants, not maintained with the main manuscript.
+- Driver: `analysis/scripts/test-procedure-design-sensitivity/`
+  (`00-ademp-protocol.md`, `01-study1-test-procedure.R`,
+  `02-mancl-t-reference.R`).
+- Data: `analysis/data/quick-sim/08-test-*.txt|rds`.
 
 ## Author
 

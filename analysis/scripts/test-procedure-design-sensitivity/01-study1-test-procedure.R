@@ -14,25 +14,59 @@
 ##   Suggestion 4: benchmark the inline Mancl-DeRouen SE against
 ##       geesmv::GEE.var.md on a probe cell.
 ##
-## Five procedures per replicate:
-##   1. rmanova       strict split-plot F, median-dichotomised bm,
-##                    within-phase pre-averaged (dichotomised estimand).
-##   2. contrast_cont within-subject (on - off) contrast regressed on the
-##                    CONTINUOUS bm; isolates the test from dichotomisation.
-##   3. lme           nlme::lme with corCAR1 (lme_analysis()).
-##   4. gee           geepack AR(1), naive sandwich.
-##   5. gee_mancl     GEE AR(1) with inline Mancl-DeRouen (2001) sandwich.
+## Changes addressing the 2026-10-28 referee report:
+##   M1/M3 add an lme + CR2 arm (clubSandwich CR2 cluster-robust SE with
+##       Satterthwaite df on the same lme fit as the lme arm, as in
+##       analysis/scripts/carryover-sensitivity/simulation-core.R).
+##   M2  the Mancl-DeRouen arm now uses a t reference on K - p df
+##       (K clusters, p = 5 fixed effects); the normal-reference version
+##       is kept as gee_mancl_z for comparison with the 2026-10-08 run.
+##   M7  drop the obsolete makePositiveDefinite argument and pass
+##       stopOnNonPD = TRUE explicitly (the package default since
+##       2026-10-26; the stored run did not rely on repair).
 ##
-## Arms 2-5 share the interaction estimand on the Sx scale
-## (true bm:Dbc ~= c.bm * sd_br); arm 1 targets a dichotomised estimand
+## Seven procedures per replicate:
+##   1. rmanova       strict split-plot F, median-dichotomized bm,
+##                    within-phase pre-averaged (dichotomized estimand).
+##   2. contrast_cont within-subject (on - off) contrast regressed on the
+##                    CONTINUOUS bm; isolates the test from dichotomization.
+##   3. lme           nlme::lme with corCAR1 (lme_analysis()), model-based
+##                    SE and the nlme Wald t (paper 02's G1 at t1/2 = 0,
+##                    plus the De expectancy term).
+##   4. lme_cr2       the same fit with the CR2 cluster-robust SE and
+##                    Satterthwaite df (paper 02's G6 inference).
+##   5. gee           geepack AR(1), Liang-Zeger robust sandwich, Wald z.
+##   6. gee_mancl     GEE AR(1) with inline Mancl-DeRouen (2001) sandwich,
+##                    t reference on K - p df.
+##   7. gee_mancl_z   as 6 with a normal reference (the 2026-10-08 form).
+##
+## Arms 2-7 share the interaction estimand on the Sx scale
+## (true bm:Dbc ~= c.bm * sd_br); arm 1 targets a dichotomized estimand
 ## and is excluded from bias/coverage.
 ##
+## Reproduction. The RNG is L'Ecuyer-CMRG with set.seed(20260507);
+## mclapply(mc.set.seed = TRUE, mc.preschedule = TRUE) gives each forked
+## worker one stream and a prescheduled block of jobs, so the draws are
+## reproduced only with the same worker count (7 for the stored run)
+## and the same job list. The analysis arms consume no random numbers,
+## so adding an arm leaves the draws unchanged.
+##
+## Environment overrides:
+##   REPS_NULL, REPS_POWER, N_CORES, N_LEVELS, CBM_LEVELS   as before
+##   PROCS           comma-separated subset of the procedure names
+##   OUT_PREFIX      output path prefix (default
+##                   analysis/data/quick-sim/08-test); a smoke test
+##                   should set this to a scratch location
+##   FIG_PATH        figure path (default
+##                   analysis/figures/quick-sim/08-test-power.pdf)
+##   BETATRUE_N, BETATRUE_DRAWS   reference-run size (default 2000, 6)
+##
 ## Outputs (overwrite):
-##   analysis/data/quick-sim/08-test-replicates.rds
-##   analysis/data/quick-sim/08-test-summary.txt
-##   analysis/data/quick-sim/08-test-betatrue.txt
-##   analysis/data/quick-sim/08-test-mancl-benchmark.txt
-##   analysis/figures/quick-sim/08-test-power.pdf
+##   <OUT_PREFIX>-replicates.rds
+##   <OUT_PREFIX>-summary.txt
+##   <OUT_PREFIX>-betatrue.txt
+##   <OUT_PREFIX>-mancl-benchmark.txt
+##   <FIG_PATH>
 
 suppressPackageStartupMessages({
   library(devtools)
@@ -46,8 +80,10 @@ suppressPackageStartupMessages({
 have_geepack <- requireNamespace('geepack', quietly = TRUE)
 if (have_geepack) suppressPackageStartupMessages(library(geepack))
 have_geesmv <- requireNamespace('geesmv', quietly = TRUE)
+have_clubsandwich <- requireNamespace('clubSandwich', quietly = TRUE)
 cat('geepack available:', have_geepack, '\n')
 cat('geesmv available:', have_geesmv, '\n')
+cat('clubSandwich available:', have_clubsandwich, '\n')
 
 ## --------------------------------------------------------------
 ## Run configuration (env-overridable for probe vs production).
@@ -62,6 +98,12 @@ N_levels   <- as.integer(strsplit(Sys.getenv('N_LEVELS', '25,35,70,100'),
 c_bm_levels <- as.numeric(strsplit(Sys.getenv('CBM_LEVELS', '0,0.45'),
                                     ',')[[1]])
 master_seed <- 20260507L
+out_prefix <- Sys.getenv('OUT_PREFIX', 'analysis/data/quick-sim/08-test')
+fig_path   <- Sys.getenv('FIG_PATH',
+                         'analysis/figures/quick-sim/08-test-power.pdf')
+betatrue_n     <- as.integer(Sys.getenv('BETATRUE_N', '2000'))
+betatrue_draws <- as.integer(Sys.getenv('BETATRUE_DRAWS', '6'))
+procs_env <- Sys.getenv('PROCS', '')
 
 RNGkind("L'Ecuyer-CMRG")
 set.seed(master_seed)
@@ -114,14 +156,17 @@ simulate_one_dataset <- function(c_bm, N_total, t1half = 0) {
                     carryover_t1half = t1half,
                     c.tv = 0.7, c.pb = 0.7, c.br = 0.7,
                     c.cf1t = 0.1, c.cfct = 0.05)
+  ## stopOnNonPD = TRUE: a non-PD matrix is refused, never repaired.
+  ## Both paths' matrices are PD at these parameters (min eigenvalue
+  ## 0.168), so the refusal never triggers.
   d1 <- generateData(mp1, resp_param, baseline_param,
                      td$trialpaths[[1]], empirical = FALSE,
-                     makePositiveDefinite = TRUE,
+                     makePositiveDefinite = FALSE, stopOnNonPD = TRUE,
                      dgp_architecture = 'mean_moderation')
   d1[, path := 1]
   d2 <- generateData(mp2, resp_param, baseline_param,
                      td$trialpaths[[2]], empirical = FALSE,
-                     makePositiveDefinite = TRUE,
+                     makePositiveDefinite = FALSE, stopOnNonPD = TRUE,
                      dgp_architecture = 'mean_moderation')
   d2[, path := 2]
   d2[, ptID := ptID + max(d1$ptID)]
@@ -216,26 +261,73 @@ fit_contrast <- function(long) {
 }
 
 ## --------------------------------------------------------------
-## Procedure 3: linear mixed-effects with corCAR1.
+## Procedures 3 and 4: linear mixed-effects with corCAR1.
+## One nlme::lme fit (lme_analysis(), full_model_out = TRUE) serves
+## both arms. Arm 3 reports the model-based SE and the nlme Wald t
+## (inner-level df). Arm 4 keeps the point estimate and replaces the
+## SE by the CR2 cluster-robust sandwich with Satterthwaite df
+## (clubSandwich::coef_test, cluster = ptID), the inference of paper
+## 02's G6/G8/G9 rungs.
 ## --------------------------------------------------------------
 
-fit_lme <- function(dat) {
+fit_lme_both <- function(dat) {
   op <- list(useDE = TRUE, t_random_slope = FALSE,
-             full_model_out = FALSE, carryover_t1half = 0,
+             full_model_out = TRUE, carryover_t1half = 0,
              simplecarryover = FALSE, carryover_scalefactor = 1)
   res <- tryCatch(lme_analysis(td$trialpaths, dat, op),
                   error = function(e) NULL)
-  if (is.null(res) || is.na(res$p) || is.na(res$beta)) return(na_arm())
-  se <- as.numeric(res$betaSE)
-  beta <- as.numeric(res$beta)
+  if (is.null(res) || is.null(res$fit)) {
+    return(list(lme = na_arm(), lme_cr2 = na_arm()))
+  }
+  std <- res$stdout
+  if (is.na(std$p) || is.na(std$beta)) {
+    return(list(lme = na_arm(), lme_cr2 = na_arm()))
+  }
+  se <- as.numeric(std$betaSE)
+  beta <- as.numeric(std$beta)
   ci_lo <- if (is.finite(se)) beta - 1.96 * se else NA_real_
   ci_hi <- if (is.finite(se)) beta + 1.96 * se else NA_real_
-  list(p = as.numeric(res$p), beta = beta, se = se,
-       ci_lo = ci_lo, ci_hi = ci_hi, converged = TRUE)
+  lme_arm <- list(p = as.numeric(std$p), beta = beta, se = se,
+                  ci_lo = ci_lo, ci_hi = ci_hi, converged = TRUE)
+  cr2_arm <- na_arm()
+  if (have_clubsandwich) {
+    cr2_arm <- tryCatch({
+      dm <- res$datamerged
+      ct <- clubSandwich::coef_test(res$fit, vcov = 'CR2',
+                                    cluster = dm$ptID,
+                                    test = 'Satterthwaite')
+      cf <- if (!is.null(ct$Coef)) as.character(ct$Coef) else rownames(ct)
+      idx <- which(cf %in% c('bm:Dbc', 'Dbc:bm'))[1]
+      if (is.na(idx)) stop('target coefficient missing')
+      row <- ct[idx, , drop = FALSE]
+      grab <- function(patterns) {
+        for (pt in patterns) {
+          hit <- grep(pt, names(row), value = TRUE, ignore.case = TRUE)
+          if (length(hit)) return(as.numeric(row[[hit[1]]]))
+        }
+        NA_real_
+      }
+      se_cr2 <- grab('^SE$')
+      df_cr2 <- grab(c('^df_Satt', '^df$', '^df'))
+      p_cr2  <- grab(c('^p_Satt', '^p_val', '^p\\.', '^p$', '^p'))
+      if (!is.finite(se_cr2) || !is.finite(df_cr2) || !is.finite(p_cr2)) {
+        stop('CR2 extraction failed')
+      }
+      tc <- qt(0.975, df_cr2)
+      list(p = p_cr2, beta = beta, se = se_cr2,
+           ci_lo = beta - tc * se_cr2, ci_hi = beta + tc * se_cr2,
+           converged = TRUE)
+    }, error = function(e) na_arm())
+  }
+  list(lme = lme_arm, lme_cr2 = cr2_arm)
 }
 
 ## --------------------------------------------------------------
-## Procedure 4: GEE with naive sandwich variance, AR(1).
+## Procedure 5: GEE with the Liang-Zeger robust sandwich, AR(1).
+## geepack's corstr = 'ar1' is a discrete-lag AR(1) on observation
+## order within participant (visits at weeks 0, 4, 8, 12, 16, 17,
+## 18, 19, 20 are treated as equally spaced); the lme arms use the
+## continuous-time corCAR1 on calendar weeks.
 ## --------------------------------------------------------------
 
 fit_gee <- function(long) {
@@ -260,7 +352,10 @@ fit_gee <- function(long) {
 }
 
 ## --------------------------------------------------------------
-## Procedure 5: Mancl-DeRouen (2001) small-sample sandwich.
+## Procedures 6 and 7: Mancl-DeRouen (2001) small-sample sandwich.
+## Arm 6 refers the Wald statistic to t on K - p df (K clusters,
+## p fixed effects), the pairing Li and Redden (2015) recommend;
+## arm 7 uses the normal reference of the 2026-10-08 run.
 ## --------------------------------------------------------------
 
 mancl_derouen_se <- function(gee_fit, dat_long) {
@@ -315,27 +410,45 @@ mancl_derouen_se <- function(gee_fit, dat_long) {
   if (length(hit_name) == 0L) return(list(se = NA_real_, p = NA_real_,
                                           beta = NA_real_))
   z <- as.numeric(beta[hit_name[1]] / se[hit_name[1]])
-  list(se = as.numeric(se[hit_name[1]]), p = 2 * pnorm(-abs(z)),
+  list(se = as.numeric(se[hit_name[1]]), p_z = 2 * pnorm(-abs(z)),
+       p_t = 2 * pt(-abs(z), df = K - p), df = K - p,
        beta = as.numeric(beta[hit_name[1]]))
 }
 
-fit_gee_mancl <- function(gee_res) {
-  if (is.null(gee_res$fit) || !gee_res$converged) return(na_arm())
+fit_gee_mancl_both <- function(gee_res) {
+  if (is.null(gee_res$fit) || !gee_res$converged) {
+    return(list(gee_mancl = na_arm(), gee_mancl_z = na_arm()))
+  }
   out <- tryCatch(mancl_derouen_se(gee_res$fit, gee_res$long2),
                   error = function(e) NULL, warning = function(w) NULL)
-  if (is.null(out) || is.na(out$p)) return(na_arm())
+  if (is.null(out) || is.na(out$p_z)) {
+    return(list(gee_mancl = na_arm(), gee_mancl_z = na_arm()))
+  }
   est <- as.numeric(out$beta); se <- as.numeric(out$se)
-  list(p = as.numeric(out$p), beta = est, se = se,
-       ci_lo = est - 1.96 * se, ci_hi = est + 1.96 * se,
-       converged = TRUE)
+  tc <- qt(0.975, out$df)
+  list(gee_mancl = list(p = as.numeric(out$p_t), beta = est, se = se,
+                        ci_lo = est - tc * se, ci_hi = est + tc * se,
+                        converged = TRUE),
+       gee_mancl_z = list(p = as.numeric(out$p_z), beta = est, se = se,
+                          ci_lo = est - 1.96 * se, ci_hi = est + 1.96 * se,
+                          converged = TRUE))
 }
 
 ## --------------------------------------------------------------
 ## One replicate across all procedures.
 ## --------------------------------------------------------------
 
-proc_levels <- c('rmanova', 'contrast_cont', 'lme', 'gee', 'gee_mancl')
-if (!have_geepack) proc_levels <- c('rmanova', 'contrast_cont', 'lme')
+all_procs <- c('rmanova', 'contrast_cont', 'lme', 'lme_cr2',
+               'gee', 'gee_mancl', 'gee_mancl_z')
+proc_levels <- all_procs
+if (!have_geepack) proc_levels <- setdiff(proc_levels,
+                                          c('gee', 'gee_mancl', 'gee_mancl_z'))
+if (!have_clubsandwich) proc_levels <- setdiff(proc_levels, 'lme_cr2')
+if (nzchar(procs_env)) {
+  proc_levels <- intersect(proc_levels,
+                           trimws(strsplit(procs_env, ',')[[1]]))
+}
+stopifnot(length(proc_levels) > 0L)
 
 run_one_rep <- function(c_bm, N_total) {
   dat <- tryCatch(simulate_one_dataset(c_bm, N_total),
@@ -346,17 +459,26 @@ run_one_rep <- function(c_bm, N_total) {
                     proc_levels))
   }
   long <- build_long_data(dat)
-  out <- list(rmanova = fit_rmanova(long),
-              contrast_cont = fit_contrast(long),
-              lme = fit_lme(dat))
-  if (have_geepack) {
+  out <- list()
+  if ('rmanova' %in% proc_levels) out$rmanova <- fit_rmanova(long)
+  if ('contrast_cont' %in% proc_levels) {
+    out$contrast_cont <- fit_contrast(long)
+  }
+  if (any(c('lme', 'lme_cr2') %in% proc_levels)) {
+    lb <- fit_lme_both(dat)
+    out$lme <- lb$lme
+    out$lme_cr2 <- lb$lme_cr2
+  }
+  if (any(c('gee', 'gee_mancl', 'gee_mancl_z') %in% proc_levels)) {
     gee_res <- fit_gee(long)
     out$gee <- list(p = gee_res$p, beta = gee_res$beta, se = gee_res$se,
                     ci_lo = gee_res$ci_lo, ci_hi = gee_res$ci_hi,
                     converged = gee_res$converged)
-    out$gee_mancl <- fit_gee_mancl(gee_res)
+    mb <- fit_gee_mancl_both(gee_res)
+    out$gee_mancl <- mb$gee_mancl
+    out$gee_mancl_z <- mb$gee_mancl_z
   }
-  out
+  out[proc_levels]
 }
 
 ## --------------------------------------------------------------
@@ -365,20 +487,24 @@ run_one_rep <- function(c_bm, N_total) {
 ## Analytic expectation: c.bm * sd_br = 0.45 * 5 = 2.25.
 ## --------------------------------------------------------------
 
-cat('\nEstimating beta_true (reference, N=2000 x 6 draws)...\n')
-bt_draws <- unlist(lapply(seq_len(6L), function(i) {
-  d <- tryCatch(simulate_one_dataset(0.45, 2000L), error = function(e) NULL)
+cat(sprintf('\nEstimating beta_true (reference, N=%d x %d draws)...\n',
+            betatrue_n, betatrue_draws))
+bt_draws <- unlist(lapply(seq_len(betatrue_draws), function(i) {
+  d <- tryCatch(simulate_one_dataset(0.45, betatrue_n),
+                error = function(e) NULL)
   if (is.null(d)) return(NA_real_)
-  fit_lme(d)$beta
+  fit_lme_both(d)$lme$beta
 }))
 beta_true <- mean(bt_draws, na.rm = TRUE)
 cat(sprintf('beta_true = %.4f (analytic c.bm*sd_br = %.2f); draws: %s\n',
             beta_true, 0.45 * sd_br,
             paste(sprintf('%.3f', bt_draws), collapse = ', ')))
+dir.create(dirname(out_prefix), showWarnings = FALSE, recursive = TRUE)
+dir.create(dirname(fig_path), showWarnings = FALSE, recursive = TRUE)
 writeLines(c(sprintf('beta_true_mc\t%.6f', beta_true),
              sprintf('beta_true_analytic\t%.6f', 0.45 * sd_br),
              sprintf('n_draws\t%d', sum(is.finite(bt_draws)))),
-           'analysis/data/quick-sim/08-test-betatrue.txt')
+           paste0(out_prefix, '-betatrue.txt'))
 
 ## --------------------------------------------------------------
 ## Build the job list (cell x rep) and run in parallel.
@@ -421,9 +547,7 @@ elapsed_total <- as.numeric(difftime(Sys.time(), t_start, units = 'secs'))
 cat(sprintf('\nDone in %.1f s. Total fits: %d.\n',
             elapsed_total, nrow(replicates)))
 
-dir.create('analysis/data/quick-sim', showWarnings = FALSE, recursive = TRUE)
-dir.create('analysis/figures/quick-sim', showWarnings = FALSE, recursive = TRUE)
-saveRDS(replicates, 'analysis/data/quick-sim/08-test-replicates.rds')
+saveRDS(replicates, paste0(out_prefix, '-replicates.rds'))
 
 ## --------------------------------------------------------------
 ## Extended ADEMP summary: rejection rate + bias/SE/coverage.
@@ -455,7 +579,7 @@ summary_dt <- replicates[, {
 }, by = .(procedure, c.bm, N)]
 
 setorder(summary_dt, procedure, c.bm, N)
-write.table(summary_dt, file = 'analysis/data/quick-sim/08-test-summary.txt',
+write.table(summary_dt, file = paste0(out_prefix, '-summary.txt'),
             sep = '\t', row.names = FALSE, quote = FALSE)
 cat('\nExtended Morris summary:\n'); print(summary_dt)
 
@@ -463,7 +587,7 @@ cat('\nExtended Morris summary:\n'); print(summary_dt)
 ## geesmv benchmark for the inline Mancl-DeRouen SE (probe cell).
 ## --------------------------------------------------------------
 
-if (have_geepack && have_geesmv) {
+if (have_geepack && have_geesmv && 'gee_mancl' %in% proc_levels) {
   cat('\nBenchmarking inline Mancl-DeRouen vs geesmv::GEE.var.md ...\n')
   bench <- vector('list', 0); set.seed(master_seed + 99L)
   for (b in seq_len(25L)) {
@@ -493,10 +617,11 @@ if (have_geepack && have_geesmv) {
   }
   if (length(bench) > 0L) {
     bench_dt <- rbindlist(bench)
-    cat(sprintf('  n=%d; mean inline/geesmv SE ratio = %.4f (sd %.4f)\n',
-                nrow(bench_dt), mean(bench_dt$ratio), sd(bench_dt$ratio)))
-    write.table(bench_dt,
-                'analysis/data/quick-sim/08-test-mancl-benchmark.txt',
+    cat(sprintf(
+      '  n=%d; inline/geesmv SE ratio: mean %.4f (sd %.4f), range %.3f to %.3f\n',
+      nrow(bench_dt), mean(bench_dt$ratio), sd(bench_dt$ratio),
+      min(bench_dt$ratio), max(bench_dt$ratio)))
+    write.table(bench_dt, paste0(out_prefix, '-mancl-benchmark.txt'),
                 sep = '\t', row.names = FALSE, quote = FALSE)
   } else {
     cat('  benchmark produced no usable pairs.\n')
@@ -511,11 +636,15 @@ plot_dt <- copy(summary_dt)
 plot_dt[, role := ifelse(c.bm == 0, 'Type-I (c.bm = 0)', 'Power (c.bm = 0.45)')]
 plot_dt[, lo := pmax(0, rejection_rate - 1.96 * mcse_rate)]
 plot_dt[, hi := pmin(1, rejection_rate + 1.96 * mcse_rate)]
-proc_factor_levels <- c('rmanova', 'contrast_cont', 'lme', 'gee', 'gee_mancl')
-proc_factor_labels <- c('RM-ANOVA (dich.)', 'Contrast (cont. bm)',
-                        'LME (corCAR1)', 'GEE (AR1)', 'GEE Mancl-DeRouen')
-plot_dt[, proc_lbl := factor(procedure, levels = proc_factor_levels,
-                             labels = proc_factor_labels)]
+proc_factor_labels <- c(rmanova = 'RM-ANOVA (dich.)',
+                        contrast_cont = 'Contrast (cont. bm)',
+                        lme = 'LME (corCAR1)',
+                        lme_cr2 = 'LME + CR2',
+                        gee = 'GEE (Liang-Zeger)',
+                        gee_mancl = 'GEE Mancl-DeRouen, t',
+                        gee_mancl_z = 'GEE Mancl-DeRouen, z')
+plot_dt[, proc_lbl := factor(procedure, levels = all_procs,
+                             labels = proc_factor_labels[all_procs])]
 plot_dt[, N_lbl := factor(sprintf('N = %d', N),
                           levels = sprintf('N = %d', sort(N_levels)))]
 
@@ -531,15 +660,14 @@ p_fig <- ggplot(plot_dt, aes(x = proc_lbl, y = rejection_rate,
                      expand = c(0, 0)) +
   labs(x = 'Test procedure', y = 'Rejection rate (p < 0.05)',
        title = 'Test-procedure comparison for the biomarker x treatment interaction',
-       subtitle = sprintf('OL+BDC, Architecture A; null reps=%d, power reps=%d',
+       subtitle = sprintf('OL+BDC, mean-moderation DGP; null reps=%d, power reps=%d',
                           reps_null, reps_power),
        caption = 'Error bars: 1.96 x MCSE (binomial); dashed line at 0.05.') +
   theme_bw(base_size = 11) +
   theme(panel.grid.minor = element_blank(),
         axis.text.x = element_text(angle = 25, hjust = 1))
 
-ggsave('analysis/figures/quick-sim/08-test-power.pdf', p_fig,
-       width = 11.0, height = 6.5)
+ggsave(fig_path, p_fig, width = 12.0, height = 6.5)
 
 cat('\nWrote replicates, summary, beta_true, benchmark, figure.\n')
 invisible(NULL)

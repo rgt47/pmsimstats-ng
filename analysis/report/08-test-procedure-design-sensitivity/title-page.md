@@ -7,7 +7,7 @@ fontsize: 11pt
 geometry: "left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm"
 ---
 
-# Test-Procedure Choices for the Biomarker-Treatment Interaction in Aggregated N-of-1 Trials: Strict RM-ANOVA, Linear-Mixed, and GEE Comparators
+# Test-procedure choice for the biomarker-treatment interaction in aggregated N-of-1 trials: dichotomization, classical RM-ANOVA, mixed-effects, and generalized estimating equations
 
 **Authors.** Temperance Persons, on behalf of the pmsimstats team.
 
@@ -33,24 +33,19 @@ recorded prior to submission.
 \bigskip
 
 **Keywords.** N-of-1 trials; biomarker-treatment interaction;
-repeated-measures ANOVA; linear mixed-effects model;
-generalised estimating equations; Mancl-DeRouen sandwich
-correction; sphericity; clinical trial simulation.
+dichotomization; repeated-measures ANOVA; linear mixed-effects
+model; generalized estimating equations; Mancl-DeRouen sandwich
+correction; cluster-robust variance; clinical trial simulation.
 
 \bigskip
 
-**Word count.** 8,153 (as of 2026-05-08; PDF total including
-references and reproducibility appendix). Manuscript body
-estimated 6,500-7,000 words. Within SIM's encouraged range,
-borderline. Note: §3 Cycle-by-period grid is scoped down with
-a deferral note; the joint design-by-test sensitivity
-recommendation that the original abstract anticipated is
-narrowed to the test-procedure axis only. The follow-up
-cycle-by-period sweep is recorded as a portfolio item.
+**Word count.** To be recomputed from the rendered PDF at
+submission (the 2026-10-28 revision restructured the Introduction
+and removed the design-grid section).
 
 \bigskip
 
-**Running title.** Test-procedure choice for biomarker-treatment
+**Running title.** Test-procedure choice for the biomarker-treatment
 interaction.
 
 \bigskip
@@ -59,22 +54,29 @@ interaction.
 
 \bigskip
 
-**Conflict of interest.** The pmsimstats team declares no conflicts of interest.
+**Conflict of interest.** The pmsimstats team declares no conflicts
+of interest.
 
 \bigskip
 
 **Data availability statement.** Per-replicate Monte Carlo outputs
-(800 reps × 16 cells), ADEMP cell-level summaries, the ADEMP
-working protocol, and driver scripts (including the hand-rolled
-Mancl-DeRouen sandwich correction) are openly available in the
-pmsimstats-ng project repository at https://github.com/[organisation]/pmsimstats-ng (public-release organisation pending).
-Specific paths are documented in the Reproducibility section of
-the manuscript.
+(40 cells: 5 procedures by 2 effect sizes by 4 sample sizes; 1000
+replicates per power cell and 2000 per null cell; 60,000 fits),
+cell-level summaries, the recomputed Mancl-DeRouen $t$-reference
+summary, the working protocol, and the driver scripts (including the
+inline Mancl-DeRouen sandwich and the LME plus CR2 arm) are available
+in the pmsimstats-ng project repository at
+https://github.com/[organization]/pmsimstats-ng (public-release
+organization pending). Specific paths are documented in the
+Reproducibility section of the manuscript.
 
 \bigskip
 
-**Author contributions.** Author contributions will be recorded with the final author roster.
+**Author contributions.** Author contributions will be recorded with
+the final author roster.
 
 \bigskip
 
-**Acknowledgements.** Acknowledgements are deferred; collaborators with substantive contributions will be named in the final submission version.
+**Acknowledgments.** Acknowledgments are deferred; collaborators
+with substantive contributions will be named in the final submission
+version.

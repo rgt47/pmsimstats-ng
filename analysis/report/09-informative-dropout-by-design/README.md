@@ -1,83 +1,76 @@
 # 09-informative-dropout-by-design
 
-*2026-05-07 16:30 PDT*
+*2026-05-07 16:30 PDT; revised 2026-10-29 09:49 PDT*
 
 ## Working title
 
 Informative dropout and trial-design choice in aggregated N-of-1
-biomarker-validation trials.
+biomarker-validation trials: a paired simulation at one parameter
+point.
 
-## Origin
+## Status (2026-10-29)
 
-This manuscript directly addresses an unaddressed gap identified
-during the deep read of @hendrickson2020. Hendrickson's Figure 4A
-heatmap and §3.4 bias quantification analysis demonstrate that
-the four candidate trial designs (open-label, open-label plus
-blinded discontinuation, traditional crossover, and the proposed
-hybrid N-of-1 design) differ substantially in their robustness
-to informative dropout. The published methodological N-of-1
-literature has not engaged this design-by-dropout coupling as a
-central question, and none of the eight other manuscripts in the
-pmsimstats-ng programme makes informative dropout its primary
-focus. The present paper fills the gap.
+The manuscript was revised in response to the internal referee report
+`referee-report-2026-10-28.md`. It now reports a paired
+(common-random-numbers) simulation in which every dropout condition is
+applied to the same complete datasets. The earlier unpaired prototype
+is kept only as a point of comparison.
 
-## Scope
+What the manuscript reports:
 
-1. Formalise the informative-dropout model used in
-   @hendrickson2020 (hazard depending on symptom worsening since
-   baseline) and place it within the missing-data taxonomy
-   (MCAR, MAR, MNAR).
-2. Reproduce Hendrickson's Figure 4A finding that the four
-   candidate designs differ in dropout-robustness, extending the
-   analysis to (a) wider parameter ranges (longer carryover
-   half-lives, higher effect sizes), (b) sensitivity to
-   dropout-pattern misspecification at the analysis stage, and
-   (c) the bias-quantification mode comparing the dropout-
-   conditioned coefficient estimate to a gold-standard
-   uncensored estimate.
-3. Quantify the 'happy accident' randomization-path selection
-   effect that Hendrickson identifies in OL+BDC and N-of-1
-   designs: biased dropout preferentially preserves the most-
-   informative crossover blocks because patients with
-   inconclusive open-label response are more likely to continue
-   to the later blocks.
-4. Provide a design-by-dropout robustness recommendation table
-   indexed by the trial-design family, the anticipated dropout
-   rate, and the suspected dropout-pattern mechanism (balanced
-   vs symptom-worsening-driven vs symptom-improvement-driven).
+- One parameter point: total $N = 70$ per design, mean-shift encoding
+  with $\beta_{bm} = 0.45$, carryover half-life 0.5 week.
+- Three designs: OL+BDC, CO and Hybrid. The OL design is excluded
+  because it has no off-drug contrast and the package analysis tests
+  `bm:t` for it, not the interaction.
+- Seven dropout conditions: none, MCAR 25 percent,
+  magnitude-of-change 25 and 40 percent (the former 'biased'
+  hazard), worsening-driven, improvement-driven and symptom-return
+  25 percent.
+- Two analysis half-lives (0.5 week, the historical choice, and 0,
+  which matches the generating interaction) with model-based and CR2
+  inference.
+- A null regime ($\beta_{bm} = 0$) for test size.
 
-## Relationship to other papers in the series
+What was not run: the four-study protocol grid (sample size,
+effect size and carryover sweeps), a path-stratified decomposition
+of the 'happy accident', analysis-stage sensitivity analyses
+(pattern-mixture, delta-adjusted or reference-based multiple
+imputation), and shared-parameter dropout.
 
-- `01-dgp-mean-moderation-vs-mvn`: shares the MVN-covariance DGP.
-  The present paper uses the same generative substrate and adds
-  the informative-dropout layer.
-- `02-carryover-sensitivity`: complementary; the present paper
-  holds carryover at the prazosin-PTSD reference value and
-  varies the dropout layer instead.
-- `04-treatment-main-effect`: clinical companion that compares
-  N-of-1 to parallel-group RCT for the main effect; mentions
-  dropout but does not centre it.
-- `05-nof1-design-sensitivity`: covers twelve parameter sweeps
-  but does not include a dropout sweep; the present paper
-  supplies that complementary axis.
-- `08-test-procedure-design-sensitivity`: covers cycle-by-period
-  design parameters within one design family. The present paper
-  is design-family-comparative rather than within-family.
+## Files
 
-## Simulation substrate
+- `report.Rmd`: the manuscript. Numbers in it are read from the
+  summary files below by inline R.
+- `references.bib`, `statistics-in-medicine.csl`: bibliography and
+  style.
+- `cover-letter.md`, `title-page.md`: submission front matter.
+- `referee-report-2026-10-28.md`: the internal referee report.
+- `bullets.Rmd`: an outline file, not maintained with the
+  manuscript.
 
-The simulation programme uses the existing pmsimstats `R/censordata.R`
-infrastructure (which implements the hazard-based dropout model
-of @hendrickson2020) extended with explicit dropout-pattern
-sweeps. The four design families (OL, OL+BDC, CO, hybrid N-of-1)
-are taken directly from the @hendrickson2020 Figure 2
-specification.
+## Drivers and data
 
-## Driver scripts
+- Paired driver:
+  `analysis/scripts/informative-dropout-by-design/20-paired-dropout.R`,
+  run through `20-run-paired.sh` (single-threaded BLAS).
+- Summaries:
+  `analysis/scripts/informative-dropout-by-design/21-summarise-paired.R`.
+- Output: `analysis/data/informative-dropout-by-design/paired-*`.
+- Superseded unpaired prototype:
+  `analysis/scripts/quick-sim/09-dropout-prototype-10min.R`, output
+  `analysis/data/quick-sim/09-dropout-*`.
+- Working protocol (not executed as planned):
+  `analysis/scripts/informative-dropout-by-design/00-ademp-protocol.md`
+  and the unrun scaffolds `00-common.R`, `01-study1.R` to
+  `04-study4.R`, `run-all.R`.
 
-A driver directory at `analysis/scripts/09-informative-dropout-by-
-design/` will be created when the simulation study is
-implemented. It does not yet exist.
+## Rendering
+
+```bash
+bash tools/render.sh \
+  analysis/report/09-informative-dropout-by-design/report.Rmd
+```
 
 ## Author
 

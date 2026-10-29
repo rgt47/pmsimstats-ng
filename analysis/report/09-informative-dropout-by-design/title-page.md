@@ -7,14 +7,14 @@ fontsize: 11pt
 geometry: "left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm"
 ---
 
-# Informative Dropout and Trial-Design Choice in Aggregated N-of-1 Biomarker-Validation Trials
+# Informative Dropout and Trial-Design Choice in Aggregated N-of-1 Biomarker-Validation Trials: A Paired Simulation at One Parameter Point
 
 **Authors.** Temperance Persons, on behalf of the pmsimstats team.
 
 \bigskip
 
 Temperance Persons (corresponding author). The pmsimstats team
-is a collaborative project; the full author roster, ORCIDs, and
+is a collaborative project. The full author roster, ORCIDs and
 affiliations will be recorded prior to submission.
 
 \bigskip
@@ -33,19 +33,17 @@ recorded prior to submission.
 \bigskip
 
 **Keywords.** N-of-1 trials; informative dropout; missing data;
-MCAR; MAR; MNAR; biomarker-treatment interaction; design-by-
-dropout coupling; Hendrickson hybrid; clinical trial simulation.
+MCAR; MAR; MNAR; biomarker-treatment interaction; crossover design;
+Hybrid design; common random numbers; clinical trial simulation.
 
 \bigskip
 
-**Word count.** 5,273 (as of 2026-05-08; PDF total including
-references and reproducibility appendix). Manuscript body
-estimated 4,200-4,500 words. Comfortably within SIM's encouraged
-range.
+**Word count.** To be recomputed from the rendered manuscript
+before submission (the 2026-05-08 count no longer applies).
 
 \bigskip
 
-**Running title.** Design-by-dropout coupling in N-of-1 trials.
+**Running title.** Informative dropout and N-of-1 design choice.
 
 \bigskip
 
@@ -58,12 +56,16 @@ range.
 \bigskip
 
 **Data availability statement.** Per-replicate Monte Carlo outputs
-(500 reps × 16 cells covering 4 designs × 4 dropout patterns),
-ADEMP cell-level summaries, the working ADEMP protocol, and
-driver scripts are openly available in the pmsimstats-ng project
-repository at https://github.com/[organisation]/pmsimstats-ng (public-release organisation pending). The R/censordata.R
-hazard-based dropout module is also archived. Specific paths are
-documented in the Reproducibility section of the manuscript.
+of the paired study (three designs, seven dropout conditions, two
+analysis half-lives, model-based and CR2 inference, 1,000
+replicates per design under the alternative and 500 under the
+null), the summary files, the working ADEMP protocol and the driver
+scripts are in the pmsimstats-ng project repository
+(public location to be recorded before submission). The dropout
+mechanisms are implemented in the driver
+`analysis/scripts/informative-dropout-by-design/20-paired-dropout.R`,
+not in the package function `censordata()`. Specific paths are given
+in the Reproducibility section of the manuscript.
 
 \bigskip
 
@@ -71,4 +73,4 @@ documented in the Reproducibility section of the manuscript.
 
 \bigskip
 
-**Acknowledgements.** Acknowledgements are deferred; collaborators with substantive contributions will be named in the final submission version.
+**Acknowledgments.** Acknowledgments are deferred. Collaborators with substantive contributions will be named in the final submission version.

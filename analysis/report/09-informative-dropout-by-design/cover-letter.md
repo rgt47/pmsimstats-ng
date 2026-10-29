@@ -1,73 +1,58 @@
 # Cover letter
-*2026-05-09 09:55 PDT*
+*2026-05-09 09:55 PDT; revised 2026-10-29 11:35 PDT*
 
 To the Editor,
 Statistics in Medicine
 
 Dear Editor:
 
-We are pleased to submit our manuscript titled 'Informative
-Dropout and Trial-Design Choice in Aggregated N-of-1
-Biomarker-Validation Trials' for consideration as a research
-article in Statistics in Medicine.
+We submit the manuscript 'Informative Dropout and Trial-Design Choice
+in Aggregated N-of-1 Biomarker-Validation Trials: A Paired Simulation
+at One Parameter Point' for consideration as a research article in
+Statistics in Medicine.
 
-Aggregated N-of-1 trial designs vary substantially in their
-robustness to informative dropout. The published methodological
-literature on N-of-1 trials documents dropout as a generic
-problem but has not engaged the coupling between the
-trial-design family (open-label, open-label plus blinded
-discontinuation, traditional crossover, hybrid) and the
-inferential consequences of biased dropout for the
-biomarker-treatment interaction estimand. The unaddressed
-coupling is methodologically consequential: the bias and power
-consequences of dropout differ by an order of magnitude across
-design families even at a fixed overall dropout rate, and the
-most powerful design under no dropout is not the most powerful
-design under informative dropout.
+The manuscript asks how participant dropout affects the test of a
+biomarker-by-treatment interaction in three aggregated N-of-1 designs:
+open-label titration with blinded discontinuation (OL+BDC), the
+two-period crossover (CO) and the Hybrid design of Hendrickson et al.
+(2020). Seven dropout conditions, from none to 40 percent, were
+applied to the same 1,000 complete datasets per design. Losses and
+coefficient shifts are therefore paired differences with small Monte
+Carlo standard errors. The dropout mechanisms are defined exactly and
+include worsening-driven, improvement-driven and symptom-return
+hazards. Reporting follows the ADEMP framework of Morris, White and
+Crowther (2019).
 
-This manuscript reports an ADEMP-compliant simulation study
-(Morris, White, and Crowther 2019) on a 16-cell design-by-
-dropout-pattern grid (4 designs × 4 dropout patterns), at 500
-replicates per cell, calibrated to the prazosin/PTSD reference
-application. Performance measures are reported with Monte Carlo
-standard errors. The principal findings are that (i) the
-hybrid Hendrickson design is the most dropout-robust of the four
-candidates, losing less than half a percentage point of power
-under 40% biased dropout, (ii) the OL+BDC design loses
-approximately 5.6 percentage points and the traditional
-crossover approximately 8.6 percentage points under the same
-conditions, and (iii) the dominant determinant of the power loss
-is the dropout *rate* rather than the dropout *mechanism*: the
-biased-versus-MCAR contrast at fixed 25% dropout produces
-within-design differences below the resolution of the present
-simulation, while moving to 40% biased dropout produces clear
-power losses in every design. The mean estimated coefficient
-$\hat\beta_{bm:D_{bc}}$ is stable across dropout cells, so the
-power degradation traces to standard-error inflation rather
-than systematic estimand drift.
+The principal findings, at one parameter point with N = 70, are as
+follows. (i) The Hybrid and OL+BDC designs estimated the interaction
+with the same precision. CO needed about 1.9 times the sample for the
+same precision. (ii) Dropout of a given rate inflated the standard
+error by nearly the same factor in all three designs (1.08 to 1.09 at
+25 percent completely random dropout, 1.13 to 1.16 at 40 percent
+magnitude-driven dropout). CO's larger absolute power loss followed
+mainly from its lower starting power. (iii) Improvement-driven dropout
+attenuated the estimate by up to 7 percent of its true value, most in
+CO. Dropout did not change test size. (iv) An analysis half-life of
+0.5 week biased the OL+BDC and Hybrid estimates by about 11 and 8
+percent, because the generating interaction had no carryover. A
+binary exposure indicator removed the bias.
 
-The paper aligns with Statistics in Medicine's editorial focus
-on methodological developments for clinical trials. The
-recommendation table in §6 maps three classes of dropout
-mechanism to preferred N-of-1 design choices and is intended for
-direct use by trial designers. The paper complements companion
-submissions on the data-generating-process architecture, the
-carryover-mitigation analysis strategies, and the hybrid
-Hendrickson design's parameter sensitivity; we anticipate
-submitting those papers separately.
+The study is exploratory. No analysis plan was registered in advance,
+and its findings should be confirmed in an independent study. It
+covers one parameter point and one encoding of the interaction. It
+does not include shared-parameter dropout or analysis-stage
+sensitivity analyses. These limits are stated in the manuscript.
 
-This manuscript is original, has not been published elsewhere,
-and is not under consideration by another journal. All authors
-have approved the submission.
+This manuscript is original, has not been published elsewhere, and is
+not under consideration by another journal. All authors have approved
+the submission.
 
-We confirm that the work received no specific funding and that
-the pmsimstats team declares no conflicts of interest. The data
-and code that support the findings are openly available; the
-study's working ADEMP protocol is at
+The work received no specific funding, and the pmsimstats team
+declares no conflicts of interest. The data and code that support the
+findings are in the project repository. The driver is
+`analysis/scripts/informative-dropout-by-design/20-paired-dropout.R`,
+and the working ADEMP protocol is
 `analysis/scripts/informative-dropout-by-design/00-ademp-protocol.md`.
-The study is exploratory; no analysis plan was registered in
-advance, and its findings should be confirmed in an independent
-study.
 
 **Suggested reviewers** (to be confirmed by the corresponding
 author):

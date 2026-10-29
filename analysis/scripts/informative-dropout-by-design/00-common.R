@@ -47,7 +47,7 @@ if (!dir.exists(P9_FIG_DIR))  dir.create(P9_FIG_DIR,  recursive = TRUE)
 #=====================================================================
 #
 # Per protocol: OL (20w on); OL+BDC (16w OL + 4w BDC); CO (10w P1 +
-# 10w P2 with within-participant randomisation); hybrid (8w OL + 4w
+# 10w P2 with within-participant randomization); hybrid (8w OL + 4w
 # BDC + 4w XO1 + 4w XO2 = Hendrickson 2020 primary).
 
 design_OL <- function() {
@@ -130,7 +130,7 @@ DROPOUT_PATTERNS <- list(
 #=====================================================================
 #
 # Per-visit hazard h(t) = beta0 + beta1 · (Δ_Sx_z(t))^2 where
-# Δ_Sx(t) = Sx(t) − BL is standardised across participants by the
+# Δ_Sx(t) = Sx(t) − BL is standardized across participants by the
 # per-visit SD. Once a participant drops, all subsequent
 # measurements become NA. No alpha-rescaling: the patterns'
 # (β0, β1) values determine the natural dropout rate.

@@ -1,7 +1,7 @@
 #' run-all.R
 #'
 #' Orchestrator for the paper 09 (informative-dropout-by-design)
-#' production simulation programme. Sources each study script in its
+#' production simulation program. Sources each study script in its
 #' own local() environment so state does not leak between studies.
 #'
 #' Order: smoke test, Study 1 (largest), Study 2 (two-mode bias),
@@ -39,5 +39,5 @@ for (script in order) {
 }
 
 total_elapsed <- difftime(Sys.time(), total_start, units = 'mins')
-cat(sprintf('\n== Paper 09 production programme: %.2f min total ==\n',
+cat(sprintf('\n== Paper 09 production program: %.2f min total ==\n',
             as.numeric(total_elapsed)))

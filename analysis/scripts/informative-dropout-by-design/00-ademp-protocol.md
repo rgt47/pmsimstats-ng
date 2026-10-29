@@ -2,6 +2,17 @@
 
 *2026-05-07 17:00 PDT*
 
+**Status (2026-10-29).** Studies 1 to 4 below were planned and
+scaffolded (`00-common.R`, `01-study1.R` to `04-study4.R`) but have
+not been run. The manuscript reports instead a paired single-scenario
+study (`20-paired-dropout.R`, summarized by `21-summarise-paired.R`).
+Its dropout hazards are those of that driver, not the five
+$(\beta_0, \beta_1)$ patterns below, and its seeds are set as the
+driver header states. The cell-descriptor hash and
+`01-base-seed.txt` named under "Random-number control" were never
+created. The "working prediction" of Study 1 is this protocol's own
+hypothesis, not a published result.
+
 This document is the working protocol for the exploratory
 simulation study that underlies
 `analysis/report/09-informative-dropout-by-design/`. The study
@@ -17,7 +28,7 @@ Crowther (2019).
 2. *Open-label plus blinded discontinuation* (OL+BDC): 16 weeks
    of OL active + 4 weeks of blinded discontinuation.
 3. *Traditional crossover* (CO): 10 weeks period 1 + 10 weeks
-   period 2, with within-participant randomisation.
+   period 2, with within-participant randomization.
 4. *Hybrid N-of-1*: 8 weeks OL + 4 weeks BDC + 4 weeks
    crossover-1 + 4 weeks crossover-2 (the Hendrickson 2020
    primary design).
@@ -25,7 +36,8 @@ Crowther (2019).
 All four designs at 20 weeks total to match Hendrickson 2020
 Figure 2.
 
-**Sample sizes.** $N \in \{35, 70, 100\}$ per design.
+**Sample sizes.** $N \in \{35, 70, 100\}$, the total across
+randomization paths (NOTATION.md rule 4).
 
 **Drug context.** Prazosin for PTSD nightmares, calibrated to
 the Hendrickson 2020 reference parameters.

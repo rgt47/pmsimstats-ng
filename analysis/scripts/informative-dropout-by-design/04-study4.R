@@ -14,7 +14,7 @@
 #' NOTE on MI-MNAR. The protocol's third analysis requires a
 #' multiple-imputation procedure that knows the true dropout
 #' mechanism. A defensible implementation uses pattern-mixture
-#' modelling with the dropout indicator as a covariate (see
+#' modeling with the dropout indicator as a covariate (see
 #' Carpenter & Kenward 2013). Implementing this in `mice` requires a
 #' custom imputation method that conditions on the dropout-pattern
 #' indicator. Until that is implemented, the third analysis is a

@@ -37,10 +37,19 @@
 #
 # Cells (16): family {gompertz, logistic, hyperbolic_tangent,
 #   piecewise_linear_breakpoint} x architecture {mvn, mean_moderation}
-#   x c.bm {0, 0.45}. OL+BDC, N=35, t1/2=0. 1000 reps/cell.
+#   x c.bm {0, 0.45}. Two-path OL+BDC, N=70 total (35 per path),
+#   t1/2=0. 1000 reps/cell.
+#
+# SUPERSEDED (2026-10-28). Each cell here has its own seed stream, so
+# between-family contrasts are unpaired (SE about 0.019). The
+# 2026-10-28 referee report showed the 0.039 spread this driver
+# produced was Monte Carlo noise. The production driver is now
+# 03-common-random-numbers-sweep.R. This file and its outputs
+# (07-gompertz-faithful-*) are kept only for the comparison in the
+# manuscript's Section 5.1.
 #
 # Author: pmsimstats team
-# Last updated: 2026-06-17
+# Last updated: 2026-10-28
 
 suppressMessages({
   devtools::load_all('.', quiet = TRUE)

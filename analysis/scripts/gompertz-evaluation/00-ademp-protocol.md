@@ -11,9 +11,11 @@ Crowther (2019).
 
 ## Common infrastructure
 
-**Trial design.** Hendrickson hybrid OL+BDC design, 16-week
-total trial duration, 8-week open-label active drug + 4-week
-blinded discontinuation + 4-week crossover.
+**Trial design.** As originally written, a 16-week design with
+open label, blinded discontinuation and a crossover block. The
+executed study (see `02-deviations-log.md`) uses the two-path
+OL+BDC design of the drivers: visits at weeks 4, 8, 12, 16, 17,
+18, 19 and 20, discontinuation at week 18 or 19, no crossover.
 
 **Sample sizes.** $N \in \{35, 70, 100\}$.
 
@@ -144,4 +146,4 @@ working protocol.
 
 ---
 
-*Source:* `~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/gompertz-evaluation/00-ademp-protocol.md`
+*Source:* `~/prj/res/36-pmsimstats-ng/pmsimstats-ng/analysis/scripts/gompertz-evaluation/00-ademp-protocol.md`

@@ -233,9 +233,11 @@ default_simparam <- function(n_reps = 500,
   )
 }
 
-#' Number of workers: all but one logical core.
+#' Number of workers: all but one available core. availableCores()
+#' respects the cgroup limit on the simulation host, where detectCores()
+#' reports every physical core of the machine.
 sweep_cores <- function() {
-  max(1, parallel::detectCores() - 1)
+  max(1, parallelly::availableCores() - 1)
 }
 
 #=====================================================================

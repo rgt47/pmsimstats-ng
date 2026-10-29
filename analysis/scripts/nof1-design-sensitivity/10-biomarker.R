@@ -1,81 +1,69 @@
-#' S10. Biomarker interaction and DGP-architecture sweep.
+#' S10. Biomarker-response correlation crossed with the DGP
+#' architecture, for the main-effect target.
 #'
-#' Precedent: Hendrickson 2020; Section 9 gap of the lit review.
-#' Varies c.bm (biomarker-treatment interaction strength) across
-#' four levels and dgp_architecture across the two supported modes.
-#' Three designs are compared: parallel RCT, aggregated N-of-1,
-#' hybrid OL+BDC+crossover. Crossed with two carryover settings
-#' (0 and 3 days). Highest-cost sweep; run last.
+#' The sweep stores the main-effect coefficient (`Dbc`), not the
+#' biomarker-by-drug interaction. Four values of c_bm, two carryover
+#' settings and the two encodings of the interaction (the correlation
+#' encoding `mvn` and the mean-shift encoding `mean_moderation`).
+#' Cells whose covariance matrix is not positive definite are dropped,
+#' never repaired, and listed in `infeasible` with the smallest
+#' eigenvalue. The drug-response ceiling is set per design to the
+#' common `delta_on`.
 
 source(here::here(
-  "analysis", "scripts", "nof1-design-sensitivity", "00-common.R"
+  'analysis', 'scripts', 'nof1-design-sensitivity', '00-common.R'
 ))
 
-set.seed(42 + 10)
-
 SWEEP_ID <- 10L
-SWEEP_NAME <- "biomarker"
+SWEEP_NAME <- 'biomarker'
+N_REPS <- sens_reps(500L)
+set.seed(42 + SWEEP_ID)
 
 c_bm_grid <- c(0, 0.2, 0.4, 0.6)
-halflife_grid_days <- c(0, 3)
-arch_grid <- c("mvn", "mean_moderation")
+halflife_days_grid <- c(0, 3)
+arch_grid <- c('mvn', 'mean_moderation')
 
-designs <- list(design_rct(),
-                design_nof1_alternating(),
-                design_hybrid())
-rp <- baseline_resp_param()
-bp <- baseline_bl_param()
+designs <- list(design_rct(), design_nof1_alternating(), design_hybrid())
+design_names <- c('RCT', 'Alt', 'Hybrid')
 
-results_all <- list()
-
-for (arch in arch_grid) {
-  message("S10: dgp_architecture = ", arch)
-
-  model_params <- do.call(rbind, lapply(c_bm_grid, function(cb) {
-    do.call(rbind, lapply(halflife_grid_days, function(hd) {
-      baseline_model_param(
-        c.bm = cb, carryover_t1half = hd / 7
-      )
-    }))
+model_params <- do.call(rbind, lapply(c_bm_grid, function(cb) {
+  do.call(rbind, lapply(halflife_days_grid, function(hd) {
+    baseline_model_param(
+      N = BASE_N, c.bm = cb, carryover_t1half = hd / 7
+    )
   }))
+}))
 
-  res <- generate_simulated_results(
-    trialdesigns = designs,
-    respparamsets = wrap_param_set(rp, "resp_default"),
-    blparamsets = wrap_param_set(bp, "bl_default"),
-    censorparams = NA,
+parts <- lapply(arch_grid, function(arch) {
+  message('S10: dgp_architecture = ', arch)
+  sweep_call(
+    designs, design_names,
+    respparamsets = list(resp_set()),
+    blparamsets = wrap_param_set(baseline_bl_param(), 'bl_default'),
     modelparams = model_params,
-    simparam = default_simparam(n_reps = 500),
-    analysisparams = default_analysisparams(),
-    rawdataout = FALSE,
-    dgp_architecture = arch,
-    n_cores = max(1, parallel::detectCores() - 1)
+    n_reps = N_REPS,
+    dgp_architecture = arch
   )
+})
+res <- combine_sweeps(parts)
 
-  res$results$dgp_architecture <- arch
-  res$results$c_bm <- rep(c_bm_grid,
-                           each = length(halflife_grid_days))[
-    res$results$modelparamset
-  ]
-  res$results$halflife_days <- rep(halflife_grid_days,
-                                    length(c_bm_grid))[
-    res$results$modelparamset
-  ]
-  res$results$design_name <- c("RCT", "Nof1-alt", "Hybrid")[
-    res$results$trialdesign
-  ]
+res$results$c_bm <- res$results$c.bm
+res$results$halflife_days <- round(res$results$carryover_t1half * 7, 6)
 
-  results_all[[arch]] <- res$results
+checks <- function(res) {
+  run_cbm <- unique(res$results$c.bm)
+  drop_cbm <- model_params$c.bm[res$infeasible$modelparamset]
+  assert_stored_grid(data.frame(c_bm = c(run_cbm, drop_cbm)), 'c_bm',
+                     c_bm_grid)
+  assert_stored_grid(res$results, 'carryover_t1half',
+                     halflife_days_grid / 7)
+  assert_stored_grid(res$results, 'dgp_architecture', arch_grid)
+  stopifnot(!any(res$results$pd_repaired))
+  n_run <- nrow(dplyr::distinct(
+    res$results, trialdesign, modelparamset, dgp_architecture))
+  stopifnot(n_run + nrow(res$infeasible) ==
+              nrow(model_params) * length(designs) * length(arch_grid))
 }
 
-combined <- do.call(rbind, results_all)
-
-save_sweep(
-  list(results = combined,
-       parameterselections = list(
-         c_bm_grid = c_bm_grid,
-         halflife_grid_days = halflife_grid_days,
-         arch_grid = arch_grid
-       )),
-  SWEEP_ID, SWEEP_NAME
-)
+save_sweep(res, SWEEP_ID, SWEEP_NAME, n_reps = N_REPS,
+           checks = checks)

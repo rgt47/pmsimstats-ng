@@ -103,50 +103,6 @@
 \setlength{\emergencystretch}{3em} % prevent overfull lines
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
-% Paragraph scaffolding for manuscript revision.
-%
-% Two environments, presented in this order per paragraph:
-%
-%   rgt   -- author's rewrite (initially a placeholder)
-%            small, italic, dark blue
-%   orig  -- original Claude-authored draft, and until the rewrite
-%            replaces it, the body text of the manuscript
-%            normal size, gray
-%
-% The `bullets' environment (a boiled-down topic sentence plus bullet
-% points, one per paragraph) is no longer used inside manuscripts:
-% those blocks now live in a companion bullets.Rmd supplement in the
-% same report directory, which typesets them as plain \textbf{} +
-% itemize and needs no part of this file. The definition is retained
-% only so that a stray block left in a document still compiles.
-%
-% This file is identical across every manuscript that includes it.
-% It previously existed in two variants that swapped the sizes of
-% rgt and orig, so the same markup rendered differently depending on
-% which repository the manuscript lived in. The variant retained here
-% keeps orig at full size because orig, not rgt, currently carries
-% the prose in every manuscript in the pool.
-
-\usepackage{xcolor}
-
-\newcounter{pgraph}
-
-\newenvironment{bullets}{%
-  \stepcounter{pgraph}%
-  \begin{quote}\small\sffamily\color[gray]{0.30}%
-  {\normalfont\scriptsize\color[gray]{0.58}[\thepgraph]\enspace}}{%
-  \end{quote}}
-
-\newenvironment{rgt}{%
-  \begin{quote}\small\itshape\color[RGB]{20,60,160}}{%
-  \end{quote}}
-
-\newenvironment{orig}{%
-  \begin{quote}\normalsize\color[gray]{0.55}}{%
-  \end{quote}}
-
-% backward compat alias
-\newenvironment{claudecode}{\begin{orig}}{\end{orig}}
 %% tools/stamp.tex
 %% Provenance footer for PDFs rendered from this project.
 %% Vendored by zzcollab; this file is not project-specific. The
@@ -183,15 +139,27 @@
   \renewcommand{\headrulewidth}{0pt}%
   \renewcommand{\footrulewidth}{0.4pt}}
 \renewcommand{\stampsource}{\textasciitilde{}/\allowbreak{}prj/\allowbreak{}res/\allowbreak{}36-pmsimstats-ng/\allowbreak{}pmsimstats-ng/\allowbreak{}analysis/\allowbreak{}report/\allowbreak{}05-nof1-design-sensitivity/\allowbreak{}report.Rmd}
-\renewcommand{\stamptime}{2026-10-08 09:24 PDT}
-\renewcommand{\stampversion}{\detokenize{3238916-wip}}
+\renewcommand{\stamptime}{2026-10-28 17:42 PDT}
+\renewcommand{\stampversion}{\detokenize{whitepapers-pre-series-109-g270a729d8-wip}}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{booktabs}
 \usepackage{longtable}
 \usepackage{float}
-\usepackage[mathlines]{lineno}
-\linenumbers
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+\usepackage{threeparttablex}
+\usepackage[normalem]{ulem}
+\usepackage{makecell}
+\usepackage{xcolor}
 \usepackage{bookmark}
 \IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
 \urlstyle{same}
@@ -200,14 +168,14 @@
 \@ifundefined{xmpquote}{\newcommand{\xmpquote}[1]{#1}}{}
 \makeatother
 \hypersetup{
-  pdftitle={Power sensitivity of a hybrid open-label-plus-blinded- discontinuation N-of-1 design under carryover{,} serial correlation{,} and variance-component variation},
+  pdftitle={Power of the Hybrid N-of-1 design under carryover{,} serial correlation and variance components},
   pdfauthor={pmsimstats team},
   hidelinks,
   pdfcreator={LaTeX via pandoc}}
 
-\title{Power sensitivity of a hybrid open-label-plus-blinded- discontinuation N-of-1 design under carryover, serial correlation, and variance-component variation}
+\title{Power of the Hybrid N-of-1 design under carryover, serial correlation and variance components}
 \author{pmsimstats team}
-\date{October 08, 2026}
+\date{October 28, 2026}
 
 \begin{document}
 \maketitle
@@ -219,976 +187,393 @@
 \setstretch{1.1}
 \section{Abstract}\label{abstract}
 
-\textbf{Background.} Aggregated N-of-1 trial designs offer potential
-efficiency gains over parallel-group randomized controlled trials
-(RCTs) for detecting moderate treatment main effects. However,
-their power profiles depend on a substantial set of parameters
-typically held fixed in published simulation studies:
-between-patient heterogeneity, within-patient variance, carryover
-half-life, serial correlation, period length, cycles per patient,
-and the specification of the carryover decay family.
+\textbf{Background.} Aggregated N-of-1 designs can detect a treatment effect with fewer participants than a parallel-group trial. A fair comparison needs designs that estimate the same quantity and analyses whose behavior under the null has been checked.
 
-\textbf{Methods.} We conducted twelve parameter-sensitivity sweeps (S1
-through S12) against the pmsimstats-ng tidyverse pipeline. We used
-the Hendrickson 2020 hybrid (open-label titration plus blinded
-discontinuation plus brief crossover) as the primary aggregated
-N-of-1 design and the alternating A/B/A/B variant as a sensitivity
-comparator at sweeps that vary cycle count or period length. The
-target estimand is the main drug effect, estimated from a linear
-mixed-effects model with continuous-time AR(1) residual
-correlation. Each sweep records per-replicate results, so that we
-can compute Monte Carlo standard errors (MCSE) at render time per
-Morris et al.\textsuperscript{\citeproc{ref-morris2019simulation}{1}}.
+\textbf{Methods.} We simulated the Hybrid design of Hendrickson et al.\textsuperscript{\citeproc{ref-hendricksonOptimizing2020}{1}}, an alternating design, a two-period crossover and a parallel-group trial. All designs share a calendar of eight visits over 20 weeks. The drug-response asymptote was set for each design so that all designs estimate the same mean drug response on drug. We ran twelve one-axis sweeps. They cover effect size, carryover half-life, decay form, treatment heterogeneity, within-participant variability, number of periods, sample size, serial correlation, period length, biomarker correlation and misspecification. Each within-subject dataset was analyzed with a mixed model that built the exposure indicator at two or three assumed half-lives. The parallel group was analyzed by baseline-adjusted ANCOVA. Covariance matrices that were not positive definite were dropped, not repaired. We report bias, empirical and model standard errors, coverage and Monte Carlo standard errors for every cell.
 
-\textbf{Results.} At a baseline of \(N = 35\) participants per design, the
-hybrid achieves comparable or higher power than the parallel RCT
-under within-patient and between-patient variance perturbations. It
-is robust to AR(1) serial correlation that inflates RCT Type I
-error, and it tolerates carryover up to the within-subject period
-length before power erodes. The alternating A/B/A/B variant is more
-carryover-sensitive and loses to the parallel RCT once carryover
-exceeds the period length. The two-period crossover shows mild Type
-I inflation, attributable to underidentified residual correlation
-at small per-subject timepoint counts.
+\textbf{Results.} The results of the corrected sweeps are pending. They are generated from the stored artifacts when the sweeps have been rerun.
 
-\textbf{Conclusions.} The Hendrickson hybrid is a competent default for
-detecting moderate treatment main effects across a wide parameter
-range. Design ordering favors the parallel RCT only when carryover
-exceeds the within-subject period length. That ordering is
-directionally different for biomarker-treatment interaction
-targets, which favor N-of-1 designs more strongly.
+\textbf{Conclusions.} The study separates the cost of unmodeled carryover from the cost of carryover itself, and it compares designs on one estimand. The study is exploratory. Its conclusions about design ordering apply to the parameter values simulated and need confirmation in an independent study.
 
-\textbf{Keywords.} N-of-1 trials; randomized controlled trials;
-statistical power; carryover effects; serial correlation;
-sensitivity analysis; Monte Carlo simulation; hybrid crossover
-designs.
+\textbf{Keywords.} N-of-1 trials; statistical power; carryover; serial correlation; sensitivity analysis; Monte Carlo simulation; crossover designs.
 
 \section{Introduction}\label{introduction}
 
-Aggregated N-of-1 trial designs evaluate treatment effects within
-individual patients across repeated crossover periods.
-Patient-level estimates are then combined through meta-analytic or
-mixed-effects machinery to support population-level inference\textsuperscript{\citeproc{ref-lillie2011}{2},\citeproc{ref-kravitzSinglepatientNof1Trials2014}{3}}. Several recent
-simulation studies report that aggregated N-of-1 procedures can
-match or exceed the statistical power of parallel-group randomized
-controlled trials (RCTs) at substantially smaller participant
-counts\textsuperscript{\citeproc{ref-blackstonComparisonAggregatedNof12019}{4}--\citeproc{ref-carrozzoTwoArm2025}{6}}. The reported
-magnitude of this efficiency advantage varies across studies,
-however, and the conditions under which it holds or reverses remain
-incompletely characterized. That is, the published literature
-offers encouraging headline comparisons but relatively sparse
-guidance on the parameter axes that actually govern the ordering of
-designs.
+Aggregated N-of-1 trials observe each participant on and off treatment and pool the participants in one model\textsuperscript{\citeproc{ref-lillie2011}{2},\citeproc{ref-duanSinglepatientNof1Trials2013}{3}}. Several simulation studies compare them with parallel-group and crossover trials. Blackston et al.\textsuperscript{\citeproc{ref-blackstonComparisonAggregatedNof12019}{4}} simulated three cycles, four variance structures and constant additive carryover. Their parallel-group comparator used one observation per participant. Wang and Schork\textsuperscript{\citeproc{ref-wang2019}{5}} derived the power of a single participant under AR(1) correlation, period stacking, heteroscedasticity and washout. They had no parallel group. Percha et al.\textsuperscript{\citeproc{ref-perchaDesigningRobustNof12019}{6}} varied the number of blocks, their order, the treatment duration and the sampling frequency under carryover and wash-in. Chen and Chen\textsuperscript{\citeproc{ref-chenComparisonFourMethods2014}{7}} compared compound-symmetry and AR(1) error structures and paired and mixed-model analyses. Araujo et al.\textsuperscript{\citeproc{ref-araujoUnderstandingVariation2016}{8}} noted that such models omit the participant-by-treatment interaction. Senn\textsuperscript{\citeproc{ref-sennSampleSizeConsiderations2019}{9}} set out the variance components that determine the sample size of an N-of-1 series. Gärtner et al.\textsuperscript{\citeproc{ref-gaertnerCarryover2023}{10}} compared analysis methods under carryover. Carrozzo et al.\textsuperscript{\citeproc{ref-carrozzoTwoArm2025}{11}} compared a two-arm crossover trial with a meta-analysis of N-of-1 trials. Lin et al.\textsuperscript{\citeproc{ref-lin2016}{12}} studied bootstrap tests for AB and ABAB series under autocorrelation. Tang and Landes\textsuperscript{\citeproc{ref-tangTtestsNof1Trials2020}{13}} studied t-tests under serial correlation. Shi and Ye\textsuperscript{\citeproc{ref-shiBehavioralCarryoverEffect2024}{14}} studied the power trade-off between crossover and parallel designs under behavioral carryover.
 
-We report here a systematic parameter-sensitivity study of a
-specific hybrid aggregated-N-of-1 design. The design combines an
-open-label titration phase, a blinded discontinuation phase, and a
-brief crossover phase, following the proposal of Hendrickson and
-colleagues\textsuperscript{\citeproc{ref-hendricksonOptimizing2020}{5}} for predictive-biomarker
-validation in chronic neurobehavioral conditions. The sensitivity
-sweeps are conducted against the pmsimstats-ng tidyverse pipeline
-that operationalizes this design in R. Three parallel comparators
-are included: an alternating A/B/A/B aggregated N-of-1 variant, a
-two-period crossover, and a parallel-group RCT. The target estimand
-throughout is the main drug effect, which we distinguish from the
-biomarker-treatment interaction examined in the original
-Hendrickson study and in a separate companion paper.
+Hendrickson et al.\textsuperscript{\citeproc{ref-hendricksonOptimizing2020}{1}} proposed the Hybrid design for validating a predictive biomarker. It combines open-label titration, blinded discontinuation and a brief crossover. We did not find a study of its power for the treatment main effect in a data-generating process (DGP) that includes a placebo-response component, carryover and serial correlation, with the factors varied in turn. This paper reports one.
 
-The motivation for a sensitivity study at this granularity is
-straightforward. Published simulation comparisons typically vary
-one or two parameters at a time while holding the remainder fixed
-at calibration defaults. This leaves open the question of which
-axes actually drive the N-of-1-versus-RCT power difference. We have
-endeavored to address this gap by reporting twelve sensitivity
-sweeps along axes drawn from the published comparison literature:
-effect size\textsuperscript{\citeproc{ref-blackstonComparisonAggregatedNof12019}{4}}, carryover
-half-life\textsuperscript{\citeproc{ref-blackstonComparisonAggregatedNof12019}{4},\citeproc{ref-hendricksonOptimizing2020}{5}}, decay-form
-misspecification\textsuperscript{\citeproc{ref-gaertnerCarryover2023}{7}}, between-patient
-heterogeneity\textsuperscript{\citeproc{ref-sennSampleSizeConsiderations2019}{8},\citeproc{ref-zucker2010}{9}}, within-patient variance\textsuperscript{\citeproc{ref-wang2019}{10}}, cycles per patient\textsuperscript{\citeproc{ref-sennSampleSizeConsiderations2019}{8}}, total participant count\textsuperscript{\citeproc{ref-blackstonComparisonAggregatedNof12019}{4},\citeproc{ref-sennSampleSizeConsiderations2019}{8}}, AR(1) serial correlation\textsuperscript{\citeproc{ref-wang2019}{10}}, period length\textsuperscript{\citeproc{ref-wang2019}{10}}, biomarker interaction strength
-crossed with data-generating process architecture\textsuperscript{\citeproc{ref-hendricksonOptimizing2020}{5}}, a carryover-by-AR(1) misspecification
-factorial\textsuperscript{\citeproc{ref-gaertnerCarryover2023}{7}}, and a high-replicate null
-calibration\textsuperscript{\citeproc{ref-morris2019simulation}{1}}.
+The paper makes four methodological choices that the 2026-05 version of this study lacked. First, the Hybrid is the published schedule, not a shorter two-path schedule. Second, all designs are put on one estimand, the mean drug response on drug, so that a difference in power is a difference between designs. Third, the analysis half-life is crossed with the data-generating half-life, so that the cost of unmodeled carryover is separate from the cost of carryover. Fourth, the parallel group is analyzed with a standard arm contrast whose null behavior we check before any comparison.
 
-The clinical companion to this paper (in preparation) reports a
-primary head-to-head simulation comparison at the
-prazosin-calibrated baseline. The present paper extends that
-comparison along twelve parameter axes, specifically for the hybrid
-design family.
-
-\section{Simulation design}\label{simulation-design}
+\section{Methods}\label{methods}
 
 \subsection{Aims}\label{aims}
 
-We follow the ADEMP framework of Morris, White, and Crowther
-(2019)\textsuperscript{\citeproc{ref-morris2019simulation}{1}}: Aims, Data-generating mechanisms,
-Estimands, Methods, Performance measures. The subsections of this
-Simulation design section map to these five components, although
-the section headers are organized by topic rather than relabeled
-to the ADEMP acronym.
+We follow the ADEMP structure of Morris et al.\textsuperscript{\citeproc{ref-morris2019simulation}{15}}. The study has three aims. The first is to describe the power of the Hybrid design for the treatment main effect as one factor at a time departs from a baseline. The second is to find the regimes in which the Hybrid has more or less power than the comparators on the same estimand. The third is to report Type I error, bias and standard-error calibration for every design. The study is exploratory. No analysis plan was fixed in advance, and the protocol (\texttt{00-ademp-protocol.md}) is a working document.
 
-The simulation study has three aims. First, we aim to characterize
-the power profile of the Hendrickson 2020 hybrid aggregated-N-of-1
-design\textsuperscript{\citeproc{ref-hendricksonOptimizing2020}{5}} under systematic perturbation
-of the parameter axes implicated in the published
-simulation-comparison literature. Second, we aim to identify the
-parameter regimes in which the hybrid is preferred over a
-parallel-group RCT, and the regimes in which that ordering
-reverses. Third, we aim to verify Type I error control under null
-and near-null conditions, with sufficient replication to hold MCSE
-below 1\% per Morris et al.\textsuperscript{\citeproc{ref-morris2019simulation}{1}}.
+\subsection{Designs}\label{designs}
 
-\subsection{Pipeline}\label{pipeline}
+All designs have eight follow-up visits on the calendar of the Hybrid, at weeks 4, 8, 9, 10, 11, 12, 16 and 20, except where a sweep changes it. A baseline score is observed before treatment. Table \ref{tab:design-summary} lists the designs. Table \ref{tab:hybrid-paths} gives the drug state of the Hybrid at each visit.
 
-The simulation framework is implemented in the \texttt{nof1power} R
-package\textsuperscript{\citeproc{ref-hendricksonOptimizing2020}{5}}, developed alongside the
-pmsimstats-ng tidyverse re-implementation of the Hendrickson 2020
-reference pipeline. All sweeps use a baseline of \(N = 35\)
-participants per design (the Hendrickson 2020 minimum) and 8 weekly
-timepoints, unless explicitly varied by the sweep in question.
-Per-replicate sample size is \(N\) participants for each design under
-comparison. We note that participants are matched on the per-design
-count rather than on observation total, following the convention
-adopted by Blackston\textsuperscript{\citeproc{ref-blackstonComparisonAggregatedNof12019}{4}},
-Hendrickson\textsuperscript{\citeproc{ref-hendricksonOptimizing2020}{5}}, and the majority of
-the N-of-1 simulation-comparison literature.
+The Hybrid has an open-label phase (weeks 4 and 8, expectancy \(\eta_t = 1\)), a blinded discontinuation phase (weeks 9 to 12) and a blinded crossover (weeks 16 and 20), with \(\eta_t = 0.5\) after week 8. Every path is on drug at week 9. The drug stops after week 9 in two paths and after week 10 in the other two. The crossover is drug first in two paths and placebo first in the other two. The schedule and paths are those of \texttt{docs/40}, Section 2, which were checked against the original code at commit 58b32a9.
 
-\subsection{Dual data-generating architectures}\label{dual-data-generating-architectures}
+The comparators are blinded throughout (\(\eta_t = 0.5\)). The alternating design switches the drug state at every visit and has two paths. The two-period crossover has one assessment at the end of each of two periods, at weeks 10 and 20. The parallel group has two arms, drug at every visit or never. The design \texttt{RCT-OL} is the parallel group with \(\eta_t = 1\) at every visit. It is the assumption of the 2026-05 version of this study, and it quantifies the effect of the comparator's blinding assumption. The design \texttt{Compact2} is the two-path schedule of eight weekly visits used in that version. It is not the published Hybrid and is kept only for S1.
 
-The pipeline supports two data-generating processes (DGP) for the
-biomarker-treatment interaction:
+\begin{table}
 
-\begin{itemize}
-\tightlist
-\item
-  \textbf{the covariance-moderation architecture (\texttt{dgp\_architecture\ =\ "mvn"}).} The
-  biomarker-bio-response interaction is encoded in the covariance
-  structure of a multivariate normal (MVN) draw. On-drug timepoints
-  carry correlation \texttt{c.bm} between the biomarker and the
-  bio-response factor; off-drug timepoints carry \texttt{c.bm\ *\ phi(tsd)}
-  with \texttt{phi} the carryover decay multiplier.
-\item
-  \textbf{the mean-moderation architecture (\texttt{dgp\_architecture\ =\ "mean\_moderation"}).}
-  After the multivariate normal draw, bio-response values at
-  on-drug timepoints are shifted by \texttt{c.bm\ *\ bm\_z\ *\ br\_sd}, where
-  \texttt{bm\_z} is the standardized biomarker. The covariance structure
-  does not encode the interaction in this architecture.
-\end{itemize}
+\caption{\label{tab:design-summary}Designs. The realized estimand is the mean drug response on drug at the baseline asymptote of 2 units (Section \\ref{estimand}).}
+\centering
+\begin{tabular}[t]{lrrllr}
+\toprule
+Design & Paths & Visits & Weeks & Expectancy & Realized estimand\\
+\midrule
+Hybrid & 4 & 8 & 4, 8, 9, 10, 11, 12, 16, 20 & 1, 1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5 & -1.511\\
+Compact2 & 2 & 8 & 1, 2, 3, 4, 5, 6, 7, 8 & 1, 1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5 & -0.846\\
+Alt & 2 & 8 & 4, 8, 9, 10, 11, 12, 16, 20 & 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5 & -0.761\\
+XO & 2 & 2 & 10, 20 & 0.5, 0.5 & -1.846\\
+RCT & 2 & 8 & 4, 8, 9, 10, 11, 12, 16, 20 & 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5 & -1.789\\
+\addlinespace
+RCT-OL & 2 & 8 & 4, 8, 9, 10, 11, 12, 16, 20 & 1, 1, 1, 1, 1, 1, 1, 1 & -1.789\\
+\bottomrule
+\end{tabular}
+\end{table}
 
-These two architectures produce substantively different power
-profiles under carryover, as documented in\textsuperscript{\citeproc{ref-hendricksonOptimizing2020}{5}}. We cross the two architectures in
-sweep S10 below; the remaining eleven sweeps use the
-covariance-moderation architecture as the default.
+\begin{table}
 
-\subsection{Response curves and carryover}\label{response-curves-and-carryover}
+\caption{\label{tab:hybrid-paths}Drug state of the Hybrid by path and week. Expectancy is 1 at weeks 4 and 8 and 0.5 afterward.}
+\centering
+\begin{tabular}[t]{rllllllll}
+\toprule
+path & 4 & 8 & 9 & 10 & 11 & 12 & 16 & 20\\
+\midrule
+1 & on & on & on & on & off & off & on & off\\
+2 & on & on & on & on & off & off & off & on\\
+3 & on & on & on & off & off & off & on & off\\
+4 & on & on & on & off & off & off & off & on\\
+\bottomrule
+\end{tabular}
+\end{table}
 
-Each of the three latent factors (time-variant, pharm-biomarker,
-bio-response) is parameterized by a modified Gompertz curve
+The sample size \(N\) is the total across paths. With \(N = 35\) and four paths, the paths receive 9, 9, 9 and 8 participants. The alternating design receives 18 and 17. The parallel group receives 18 and 17. A parallel group of 17 participants per arm is small, and all conclusions refer to that size unless a sweep changes \(N\).
 
-\[y(t) = \mathrm{maxr} \cdot
-  \frac{\exp(-\mathrm{disp} \cdot \exp(-\mathrm{rate} \cdot t)) -
-        \exp(-\mathrm{disp})}{1 - \exp(-\mathrm{disp})}\]
+\subsection{Data-generating process}\label{dgp}
 
-The curve is evaluated at the appropriate cumulative time index,
-passes through the origin at \(t = 0\), and asymptotes to \texttt{maxr}.
-Carryover of the bio-response component during off-drug periods
-is applied recursively as \(\mu[t] = \mathrm{base}[t] +
-\mu[t-1] \cdot \phi(\mathrm{tsd})\), with \(\phi\) drawn from an
-extensible decay family: exponential
-\(\exp(-\ln 2 \cdot t / t_{1/2})\), linear
-\(\max(0, 1 - t / (2 t_{1/2}))\), Weibull
-\(\exp(-(\lambda_w t)^k)\) with
-\(\lambda_w = (\ln 2)^{1/k} / t_{1/2}\), or power
-\(\max(0, (1 - t / (3 t_{1/2}))^p)\). The decay family chosen on the
-data-generating side need not match the one assumed on the analysis
-side; sweep S3 quantifies the cost of that mismatch.
+The outcome is \(Y_{it} = \mathrm{BL}_i - (TV_{it} + PB_{it} + BR_{it})\). The baseline score \(\mathrm{BL}_i\) has mean 8 and SD 1.5. The three components are the natural-history component \(TV\), the placebo-response component \(PB\) and the drug-response component \(BR\). They are reductions in symptoms, so a drug effect is negative. Each component has a modified Gompertz mean
+\[G(t; m, d, r) = m\,\frac{\exp(-d\,e^{-r t}) - e^{-d}}{1 - e^{-d}},\]
+with asymptote \(m\), displacement \(d = 1\) and rate \(r = 0.3\) per week. The asymptotes are \(m = 0.5\) for \(TV\), \(1\) for \(PB\) and a design-specific value for \(BR\) (next section). The component SDs are 0.5, 0.5 and 1. The \(TV\) mean runs on calendar weeks, the \(PB\) mean on the time under positive expectancy scaled by \(\eta_t\), and the \(BR\) mean on the time on drug in the current run. The \(PB\) SD is also scaled by \(\eta_t\). A participant who is re-exposed starts the \(BR\) curve again from zero. Within each component, the correlation between visits \(s\) and \(t\) is \(\rho^{|w_s - w_t|}\) with \(\rho = 0.3\) per week. The correlation between components is 0.1 at the same visit and \(0.05\,\rho^{|w_s - w_t|}\) at different visits. The biomarker \(B_i\) has mean 120 and SD 15. Its correlation with \(BR\) at on-drug visits is \(c_{bm} = 0.3\) (the correlation encoding). The mean-shift encoding shifts \(BR\) at on-drug visits by \(c_{bm}\,b_i\,\sigma_{BR}\), with \(b_i\) the standardized biomarker. S10 compares the two encodings.
 
-\textbf{Units.} We quote carryover half-lives \(t_{1/2}\) in \textbf{days}
-throughout this paper, matching the pharmacokinetic scale of the
-prazosin reference application and the day-denominated axes of the
-sensitivity figures. Companion papers in this series that study the
-biomarker-treatment interaction, in particular the
-DGP-architecture and carryover-specification manuscripts, quote
-\(t_{1/2}\) in \textbf{weeks} on the canonical grid \(\{0, 0.5, 1.0\}\).
-The conversion is one week to seven days, so those papers' grid
-corresponds to \(\{0, 3.5, 7\}\) days here, and this paper's 3-day
-baseline corresponds to roughly 0.43 weeks. Timepoints \(t\) are
-weekly under both conventions.
+Carryover acts on the \(BR\) mean. At an off-drug visit after exposure, the mean is the previous visit's mean multiplied by \(\phi(t_{sd})\). The decay family \(\phi\) is exponential, \(e^{-\lambda t}\) with \(\lambda = \ln 2 / t_{1/2}\), linear, Weibull or power (Section \ref{sweeps}). The baseline half-life is 3 days. This rule adds the decayed mean of the previous visit, which already contains earlier carryover. Across consecutive off-drug visits it compounds, so the realized decay is faster than the nominal half-life implies (\texttt{docs/53}). The half-life axes are therefore nominal.
 
-\subsection{Covariance structure and analysis}\label{covariance-structure-and-analysis}
+Treatment heterogeneity enters through \(\tau\). Each participant draws \(v_i \sim \mathcal N(0, \tau^2)\) once and the drug response at visit \(t\) is shifted by \(v_i \Psi_{it}\), with \(\Psi_{it}\) the mean drug response divided by its asymptote. The mean effect is unchanged. The baseline has \(\tau = 0\).
 
-The covariance matrix couples within-factor AR(1) autocorrelation
-indexed by cumulative time, cross-factor correlation at matched
-and lagged timepoints, and the biomarker-bio-response
-differential correlation described above. Non-positive-definite
-matrices are corrected via
-\texttt{corpcor::make.positive.definite(tol = 1e-3)}, with a per-cell flag
-returned. The analysis model fits the \texttt{nlme::lme} linear
-mixed-effects formula\textsuperscript{\citeproc{ref-pinheirobates2000}{11},\citeproc{ref-verbekemolenberghs2000}{12}}
-with fixed effects
-\texttt{Sx \textasciitilde{} bm + t + Dbc + bm:Dbc} (or the fallback \texttt{bm + t + bm:t}
-when the drug indicator does not vary within participant), a
-random intercept per participant, and \texttt{corCAR1(form = \textasciitilde{}t | ptID)}
-continuous-time AR(1) residual correlation. The target of
-inference is the main drug effect, that is, the \texttt{Dbc} coefficient,
-extracted by matching against the row-name set \(\{\)\texttt{Dbc}\(\}\) of
-the lme summary table. Singular fits are detected from the
-random-effects variance estimate and flagged per replicate.
+\textbf{Units.} We quote the carryover half-life in days, because the 3-day baseline matches the pharmacokinetic scale of the prazosin application. The companion papers on the biomarker interaction quote it in weeks on the grid \(\{0, 0.5, 1\}\). One week is seven days, so that grid is \(\{0, 3.5, 7\}\) days here. The 3-day baseline is \(3/7 \approx 0.43\) week. Visits are weekly in both conventions. Whether paper 05 should move to weeks is an open decision (Section \ref{openitems}).
 
-\subsection{Twelve sensitivity sweeps}\label{twelve-sensitivity-sweeps}
+\subsection{Estimand}\label{estimand}
 
-The twelve sweeps (S1 through S12) are specified in
-\texttt{docs/sensitivity-sweep-plan-2026-04-17.md} and each maps to a
-specific precedent in the simulation-comparison literature:
+The designs expose participants to the drug for different times, and the Gompertz response restarts at each re-exposure. A fixed asymptote \(m\) therefore gives a different mean effect in each design. The 2026-05 version compared designs at one asymptote. We define the realized estimand
+\[\Delta_{\mathrm{on}} = -\frac{1}{n_{\mathrm{on}}}\sum_{q=1}^{P}\sum_{t:\,D_{qt}=1}\mu_{BR,qt},\]
+the mean of the drug-response mean \(\mu_{BR,qt}\) over the \(n_{\mathrm{on}}\) on-drug follow-up visits of the \(P\) paths. It depends on the design and on \(m\) only, because the carryover rule acts only at off-drug visits. It is linear in \(m\). In every sweep except S1 the asymptote \(m\) is set for each design so that \(\Delta_{\mathrm{on}}\) equals -0.5 outcome units. In S1, \(\Delta_{\mathrm{on}}\) is the swept axis. The stored value of \(\Delta_{\mathrm{on}}\) is in column \texttt{delta\_on} of every artifact.
 
-\begin{itemize}
-\tightlist
-\item
-  \textbf{S1} varies the effect size by scaling the bio-response
-  maximum; precedent Blackston 2019\textsuperscript{\citeproc{ref-blackstonComparisonAggregatedNof12019}{4}}.
-\item
-  \textbf{S2} varies the carryover half-life across nine values from
-  0 to 14 days across four designs (parallel RCT, two-period
-  crossover, aggregated N-of-1, hybrid); precedents Blackston
-  2019 and Hendrickson 2020\textsuperscript{\citeproc{ref-hendricksonOptimizing2020}{5}}.
-\item
-  \textbf{S3} varies the DGP carryover decay form (exponential,
-  linear, Weibull, power) while the analysis assumes
-  exponential, quantifying misspecification bias; precedent
-  Gärtner 2023\textsuperscript{\citeproc{ref-gaertnerCarryover2023}{7}}.
-\item
-  \textbf{S4} varies between-patient heterogeneity via the
-  baseline-symptom SD; precedents Senn 2018\textsuperscript{\citeproc{ref-sennSampleSizeConsiderations2019}{8}} and Zucker 2010\textsuperscript{\citeproc{ref-zucker2010}{9}}.
-\item
-  \textbf{S5} varies the within-patient bio-response SD; precedent
-  Wang and Schork 2019\textsuperscript{\citeproc{ref-wang2019}{10}}.
-\item
-  \textbf{S6} varies the number of cycles per patient \(k\) in the
-  Senn decomposition; precedent Senn 2018\textsuperscript{\citeproc{ref-sennSampleSizeConsiderations2019}{8}}.
-\item
-  \textbf{S7} varies the total number of participants for fixed
-  cycles; precedent Senn 2018 and Blackston 2019.
-\item
-  \textbf{S8} varies the AR(1) correlation parameter \(\rho\) across
-  within-factor autocorrelations; precedent Wang and Schork
-  2019\textsuperscript{\citeproc{ref-wang2019}{10}}.
-\item
-  \textbf{S9} crosses period length with carryover half-life,
-  probing the ratio \(t_{1/2} / \mathrm{period}\); precedent Wang
-  and Schork 2019\textsuperscript{\citeproc{ref-wang2019}{10}}.
-\item
-  \textbf{S10} varies the biomarker interaction strength \texttt{c.bm}
-  across four levels crossed with both DGP architectures (mvn,
-  mean\_moderation); precedent Hendrickson 2020\textsuperscript{\citeproc{ref-hendricksonOptimizing2020}{5}}.
-\item
-  \textbf{S11} crosses carryover presence with AR(1) presence under
-  null and alternative, to test Type I error control and power
-  under DGP-analysis mismatch; precedent Gärtner 2023 and
-  Blackston 2019.
-\item
-  \textbf{S12} is a null-effect calibration (\(c_{bm} = 0\)) at four
-  \((\tau, \sigma, t_{1/2})\) configurations with 2,000
-  replicates per cell for MCSE near 0.5\%; precedent Morris
-  2019\textsuperscript{\citeproc{ref-morris2019simulation}{1}}.
-\end{itemize}
+The coefficient \(\beta_D\) that an analysis estimates need not equal \(\Delta_{\mathrm{on}}\). For the parallel group with the ANCOVA contrast it does. For the within-subject designs the model includes linear time and, in the Hybrid, expectancy, so \(\beta_D\) differs from \(\Delta_{\mathrm{on}}\) by an amount that depends on the design. We take as the target of bias and coverage the large-sample value of \(\beta_D\) for each analysis, the pooled fit to all simulated participants of a cell (column \texttt{ETbeta}). We report both the bias against this value and the difference from \(\Delta_{\mathrm{on}}\).
 
-\subsection{Reproducibility and execution}\label{reproducibility-and-execution}
+\subsection{Analysis models}\label{analysis-models}
 
-Each sweep sources \texttt{00-common.R} for fixtures, sets a seed via
-\texttt{set.seed(42 + sweep\_id)}, and constructs its parameter grid. It
-then calls \texttt{generate\_simulated\_results()} with furrr-based
-multisession parallelism over \texttt{parallel::detectCores() - 1}
-workers, and writes an RDS artifact to
-\texttt{analysis/data/derived\_data/sensitivity/}. The orchestrator
-\texttt{run-all.R} runs all twelve sweeps in the order specified in the
-plan. We write per-replicate rows rather than pre-aggregated
-summaries, so that power, bias, MSE, empirical SE, and Type I
-error can all be computed at render time with Morris MCSE.
-Sweep scripts are in
-\texttt{analysis/scripts/nof1-design-sensitivity/}.
+The within-subject designs are fitted with \texttt{nlme::lme}\textsuperscript{\citeproc{ref-pinheirobates2000}{16},\citeproc{ref-verbekemolenberghs2000}{17}}. The model has a random intercept for the participant and a continuous-time AR(1) residual correlation, \texttt{corCAR1(form\ =\ \textasciitilde{}t\ \textbar{}\ ptID)}. The fixed part is
+\[Y_{it} = \beta_0 + \beta_B B_i + \beta_T w_t + \beta_D D_{bc,it} + \beta_\eta \eta_t + u_i + \varepsilon_{it}.\]
+The term in \(\eta_t\) enters only when the design has more than one value of expectancy, which is the Hybrid. The baseline row (\(w = 0\), \(D = 0\), \(\eta = 0\)) is included. The exposure indicator is \(D_{bc,it} = 1\) on drug, \(2^{-t_{sd}/t^a_{1/2}}\) off drug after exposure and 0 before it. The assumed half-life \(t^a_{1/2}\) is a property of the analysis. It is 0 (binary indicator), 0.2 week (the project policy value when the half-life is fixed), or 3/7 week (the data-generating half-life). Which values a sweep uses is listed with the sweep. The target is \(\beta_D\). The stored column \texttt{fit\_formula} records the model actually fitted in every replicate. Table \ref{tab:formulas} lists the formulas.
+
+\begin{table}
+
+\caption{\label{tab:formulas}Models fitted. The table lists the formulas stored in the S1 artifact when it is available and otherwise the formulas the code builds.}
+\centering
+\begin{tabular}[t]{ll}
+\toprule
+Design & Model fitted\\
+\midrule
+Hybrid & Sx \textasciitilde{} bm + t + Dbc + De [random = \textasciitilde{}1|ptID; corCAR1(\textasciitilde{}t|ptID)]\\
+Alt, XO & Sx \textasciitilde{} bm + t + Dbc [random = \textasciitilde{}1|ptID; corCAR1(\textasciitilde{}t|ptID)]\\
+RCT, RCT-OL & y\_bar \textasciitilde{} arm + BL [OLS; y\_bar = follow-up mean]\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The parallel group is analyzed by ANCOVA. Each participant's follow-up observations are averaged and the mean is regressed on the arm indicator and the baseline score by ordinary least squares. The arm coefficient is \(\beta_D\). The 2026-05 version fitted the mixed model above, with a baseline row in which \(D = 0\) for both arms. That model has one shared linear time term. The engine keeps it as \texttt{parallel\_analysis\ =\ \textquotesingle{}legacy\textquotesingle{}} only to reproduce stored runs. Section \ref{rctcheck} reports the check of both analyses.
+
+\subsection{Performance measures}\label{performance-measures}
+
+For each cell we report, with Monte Carlo standard errors (MCSE) after Morris et al.\textsuperscript{\citeproc{ref-morris2019simulation}{15}}, the rejection rate at \(\alpha = 0.05\) (power, or Type I error when the effect is zero), the bias \(\overline{\hat\beta_D} - \beta_D^{\infty}\) with \(\beta_D^{\infty}\) the large-sample value, the empirical SD of \(\hat\beta_D\), the mean model SE, the ratio \(\kappa\) of the two, the coverage of the 95\% interval around \(\beta_D^{\infty}\) and the share of fits that failed. A Type I error is called nominal when it lies within two MCSE of 0.05, with the MCSE computed at 0.05. The band is \(0.05 \pm 0.019\) at 500 replicates, \(\pm 0.014\) at 1,000 and \(\pm 0.010\) at 2,000. The MCSE of a power near 0.5 is 0.022 at 500 replicates and 0.011 at 2,000. Bias, SEs, \(\kappa\) and coverage for every cell are in \texttt{analysis/data/derived\_data/sensitivity/cell-summaries.csv}, written by \texttt{16-summarize-all.R}.
+
+\subsection{Feasibility of the covariance matrix}\label{feasibility-of-the-covariance-matrix}
+
+A cell is feasible when its covariance matrix is positive definite. The engine checks this for every path of every cell before the cell runs. It does not repair a matrix that fails the check. It drops the cell, and the artifact records the cell, the smallest eigenvalue of the correlation matrix and the reason. The column \texttt{pd\_repaired} is stored in every replicate row and is \texttt{FALSE} throughout. The 2026-05 version repaired such matrices silently. In S8 and S10, the cells that fail are therefore absent. Script \texttt{17-feasibility.R} computes the smallest eigenvalue for these two grids without simulation.
+
+In S8, 2 of 15 design and correlation cells are infeasible: Hybrid at \(\rho\) = 0.9 (smallest eigenvalue -0.002) and Alt at \(\rho\) = 0.9 (smallest eigenvalue -0.068). In S10 under the correlation encoding, 6 of 24 cells are infeasible: \(c_{bm}\) = 0.6 for Hybrid, Alt, and RCT. The smallest eigenvalue of the feasible cells is 0.004. The same check runs inside every sweep, and the artifacts list the dropped cells.
+
+\begin{table}
+
+\caption{\label{tab:feas-tab-s8}S8. Smallest eigenvalue of the correlation matrix by AR(1) correlation (rows) and design (columns). A negative value is infeasible.}
+\centering
+\begin{tabular}[t]{rrrr}
+\toprule
+rho & Hybrid & Alt & RCT\\
+\midrule
+0.0 & 0.3136 & 0.3801 & 0.1410\\
+0.3 & 0.3953 & 0.3218 & 0.2718\\
+0.5 & 0.2803 & 0.1917 & 0.2909\\
+0.7 & 0.1273 & 0.0566 & 0.1332\\
+0.9 & -0.0020 & -0.0676 & 0.0049\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\centering
+\caption{\label{tab:feas-tab-s10}S10. Smallest eigenvalue by biomarker correlation (rows) and design with half-life in days (columns), correlation encoding. A negative value is infeasible.}
+\centering
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
+\begin{tabular}[t]{rrrrrrr}
+\toprule
+c\_bm & Hybrid, 0 d & Alt, 0 d & RCT, 0 d & Hybrid, 3 d & Alt, 3 d & RCT, 3 d\\
+\midrule
+0.0 & 0.4915 & 0.4915 & 0.4915 & 0.4915 & 0.4915 & 0.4915\\
+0.2 & 0.4778 & 0.4082 & 0.4886 & 0.4839 & 0.4312 & 0.4886\\
+0.4 & 0.1819 & 0.1242 & 0.0043 & 0.1948 & 0.1604 & 0.0043\\
+0.6 & -0.2453 & -0.2400 & -0.5441 & -0.2351 & -0.2087 & -0.5441\\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\subsection{The twelve sweeps}\label{sweeps}
+
+Each sweep varies one factor (S4 and S11 vary two blocks) from the baseline of Table \ref{tab:baseline}. Table \ref{tab:sweep-table} lists the grids.
+
+\begin{table}
+
+\caption{\label{tab:baseline}Baseline of the sweeps.}
+\centering
+\begin{tabular}[t]{ll}
+\toprule
+Quantity & Baseline\\
+\midrule
+N (total) & 35\\
+Visits & 8, weeks 4 to 20\\
+Mean drug response on drug & -0.5\\
+Carryover half-life & 3 days\\
+Decay form & exponential\\
+\addlinespace
+AR(1) correlation per week & 0.3\\
+Heterogeneity SD & 0\\
+Biomarker correlation & 0.3 (correlation encoding)\\
+Assumed half-life & 0.2 week\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\centering
+\caption{\label{tab:sweep-table}Sweeps. The number of cells is the planned number before infeasible cells are dropped.}
+\centering
+\fontsize{8}{10}\selectfont
+\begin{tabular}[t]{l>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{4.2cm}lrr}
+\toprule
+Sweep & Axis & Grid & Designs & Replicates & Cells\\
+\midrule
+S1 & Mean drug response on drug & 0, -0.25, -0.5, -0.75, -1, -1.5, -2 & Hybrid, Compact2, Alt, XO, RCT, RCT-OL & 1,000 & 42\\
+S2 & Carryover half-life, by assumed half-life & 0, 0.5, 1, 2, 3, 5, 7, 10, 14 days; assumed 0, 0.2 week & Hybrid, Alt, XO, RCT & 500 & 36\\
+S3 & Decay form, by assumed half-life & exponential, linear, Weibull k = 0.8 and 1.5, power; assumed 0, 0.2, 3/7 week & Hybrid, Alt, RCT & 500 & 15\\
+S4 & Heterogeneity SD $\tau$; baseline SD & $\tau$: 0, 0.25, 0.5, 0.75, 1; baseline SD: 0.5, 1, 1.5, 2, 3 & Hybrid, Alt, RCT & 500 & 30\\
+S5 & Common multiplier on the three component SDs & 0.5, 0.75, 1, 1.25, 1.5 & Hybrid, Alt, RCT & 500 & 15\\
+\addlinespace
+S6 & Periods in 16 weekly visits & 2, 4, 8, 16 periods; parallel group & Alt with 2 to 16 periods, RCT & 500 & 5\\
+S7 & Total N & 16, 24, 35, 60, 80, 120 & Hybrid, Alt, RCT & 500 & 18\\
+S8 & AR(1) correlation per week & 0, 0.3, 0.5, 0.7, 0.9 & Hybrid, Alt, RCT & 500 & 15\\
+S9 & Period length by half-life & 3, 5, 7, 10, 14 days by half-life 0.5, 3, 7 days & Alt & 500 & 15\\
+S10 & Biomarker correlation by encoding and half-life & $c_{bm}$ 0, 0.2, 0.4, 0.6; half-life 0, 3 days & Hybrid, Alt, RCT & 500 & 48\\
+\addlinespace
+S11 & DGP carryover by DGP AR(1), by assumed half-life & off or 3 days by off or $\rho = 0.7$; null and baseline effect & Hybrid, Alt, RCT & 500 & 24\\
+S12 & Null effect, four configurations & baseline SD 1.5, 1.5, 0.75, 2; drug-response SD 1, 1, 1.5, 0.5; half-life 0, 3, 3, 3 days & Hybrid, Alt, XO, RCT & 2,000 & 16\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The precedents are as follows. S1 follows Blackston et al.\textsuperscript{\citeproc{ref-blackstonComparisonAggregatedNof12019}{4}}. S2 and S9 follow Blackston et al., Wang and Schork\textsuperscript{\citeproc{ref-wang2019}{5}} and Percha et al.\textsuperscript{\citeproc{ref-perchaDesigningRobustNof12019}{6}}. S3 extends the carryover forms of the engine, and Gärtner et al.\textsuperscript{\citeproc{ref-gaertnerCarryover2023}{10}} compared analysis methods under carryover but not decay forms. S4 and S5 follow the variance components of Senn\textsuperscript{\citeproc{ref-sennSampleSizeConsiderations2019}{9}} and Zucker et al.\textsuperscript{\citeproc{ref-zucker2010}{18}}. S6 follows Percha et al.~S8 follows Wang and Schork and Lin et al.\textsuperscript{\citeproc{ref-lin2016}{12}}. S12 follows Morris et al.
+
+S3 uses the following decay families. Linear is \(\max(0, 1 - t/(2t_{1/2}))\). Weibull is \(\exp(-(\lambda_w t)^k)\) with \(\lambda_w = (\ln 2)^{1/k}/t_{1/2}\). Power is \(\max(0, 1 - t/(3t_{1/2}))^p\) with \(p = 1.5\). The multiplier equals 0.5 at \(t = t_{1/2}\) for the exponential, linear and Weibull forms. For the power form it equals \((2/3)^{1.5} = 0.544\).
+
+S4 has two blocks. The first varies \(\tau\) at the baseline SD of the baseline score. The second varies that SD at \(\tau = 0\). The baseline SD is a random intercept that enters every visit equally, so it is not treatment heterogeneity. S5 multiplies the SDs of all three components, so the within-participant SD of the outcome scales with the multiplier. S6 fixes the trial at 16 weekly visits and varies the number of equal periods. The number of switches is the number of periods minus one. The \(BR\) response restarts in each period, and the asymptote is set so that \(\Delta_{\mathrm{on}}\) is the same in every design.
+
+The sample-size sweep S7 keeps the allocation rule of the engine. The null calibration S12 sets the drug-response asymptote to zero and keeps \(c_{bm} = 0.3\). S12b refits the null data of the crossover and the alternating design without the serial-correlation structure. S14 is the check of the parallel-group analyses (Section \ref{rctcheck}).
+
+\subsection{Software and seeds}\label{software-and-seeds}
+
+The simulation engine is the R package \texttt{nof1power} (version 0.1.0), which is part of this project. It is not an external package of Hendrickson et al.~The drivers are in \texttt{analysis/scripts/nof1-design-sensitivity/}. Each driver calls \texttt{set.seed(42\ +\ id)} once, where \texttt{id} is the sweep number. The cells then run in parallel with \texttt{furrr} and \texttt{seed\ =\ TRUE}, which gives each cell its own random-number stream derived from the master seed. Results from the container and from a local session are not draw-for-draw identical, because the linear-algebra libraries differ. Each artifact stores the engine version, the repository revision, the seed, the replicate count and the date.
 
 \section{Results}\label{results}
 
+All numbers in this section are generated from the stored artifacts in \texttt{analysis/data/derived\_data/sensitivity/}. A sweep whose artifact is absent or predates the corrected drivers shows a RESULTS-PENDING note with the rerun command. The README of this directory lists the commands and the expected host time.
+
+\subsection{Parallel-group analyses under the null}\label{rctcheck}
+
+We checked the two analyses of the parallel group before comparing designs. The check used the blinded and the open-label parallel group, three AR(1) correlations and two effects (the null and the baseline effect).
+
+Under the null, the mean estimate of the mixed-model analysis of the parallel group ranged from -0.544 to -0.358, and its Type I error from 0.169 to 0.404. The largest \(|\)mean\(|\)/MCSE was 76.0 and \(\kappa\) ranged from 1.185 to 1.393. The ANCOVA arm contrast had mean estimates from -0.006 to 0.008 (largest \(|\)mean\(|\)/MCSE 1.7), \(\kappa\) from 0.974 to 1.020, and Type I error from 0.046 to 0.065. Each cell has 1,000 replicates.
+
+\begin{table}
+\centering
+\caption{\label{tab:rct-check-table}Parallel-group analyses. The mean estimate at the null should be zero. The bias is the mean estimate minus the realized estimand. kappa is the mean model SE divided by the empirical SD.}
+\centering
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
+\begin{tabular}[t]{lllrlllllll}
+\toprule
+Design & Analysis & Effect & rho & Mean estimate & Bias vs estimand & Bias/MCSE & Empirical SE & Model SE & kappa & Rejection rate\\
+\midrule
+RCT & ancova & -0.50 & 0.0 & -0.500 & 0.000 & 0.0 & 0.150 & 0.147 & 0.980 & 0.906\\
+RCT & ancova & -0.50 & 0.3 & -0.504 & -0.004 & -0.8 & 0.176 & 0.172 & 0.972 & 0.800\\
+RCT & ancova & -0.50 & 0.7 & -0.494 & 0.006 & 0.8 & 0.248 & 0.238 & 0.956 & 0.525\\
+RCT & ancova & 0.00 & 0.0 & 0.008 & 0.008 & 1.7 & 0.150 & 0.147 & 0.977 & 0.050\\
+RCT & ancova & 0.00 & 0.3 & 0.001 & 0.001 & 0.1 & 0.173 & 0.171 & 0.990 & 0.050\\
+\addlinespace
+RCT & ancova & 0.00 & 0.7 & -0.002 & -0.002 & -0.2 & 0.237 & 0.238 & 1.003 & 0.049\\
+RCT & legacy & -0.50 & 0.0 & -0.827 & -0.327 & -52.2 & 0.198 & 0.285 & 1.438 & 0.902\\
+RCT & legacy & -0.50 & 0.3 & -0.830 & -0.330 & -48.6 & 0.215 & 0.288 & 1.340 & 0.895\\
+RCT & legacy & -0.50 & 0.7 & -0.779 & -0.279 & -36.8 & 0.240 & 0.284 & 1.184 & 0.817\\
+RCT & legacy & 0.00 & 0.0 & -0.367 & -0.367 & -56.6 & 0.205 & 0.285 & 1.393 & 0.169\\
+\addlinespace
+RCT & legacy & 0.00 & 0.3 & -0.369 & -0.369 & -55.0 & 0.212 & 0.288 & 1.357 & 0.176\\
+RCT & legacy & 0.00 & 0.7 & -0.358 & -0.358 & -48.5 & 0.234 & 0.284 & 1.217 & 0.196\\
+RCT-OL & ancova & -0.50 & 0.0 & -0.498 & 0.002 & 0.3 & 0.167 & 0.159 & 0.949 & 0.840\\
+RCT-OL & ancova & -0.50 & 0.3 & -0.503 & -0.003 & -0.4 & 0.187 & 0.186 & 0.992 & 0.746\\
+RCT-OL & ancova & -0.50 & 0.7 & -0.504 & -0.004 & -0.5 & 0.267 & 0.258 & 0.965 & 0.488\\
+\addlinespace
+RCT-OL & ancova & 0.00 & 0.0 & -0.006 & -0.006 & -1.2 & 0.164 & 0.160 & 0.974 & 0.065\\
+RCT-OL & ancova & 0.00 & 0.3 & 0.002 & 0.002 & 0.3 & 0.182 & 0.186 & 1.020 & 0.046\\
+RCT-OL & ancova & 0.00 & 0.7 & 0.002 & 0.002 & 0.2 & 0.264 & 0.257 & 0.976 & 0.048\\
+RCT-OL & legacy & -0.50 & 0.0 & -0.998 & -0.498 & -70.8 & 0.222 & 0.306 & 1.377 & 0.967\\
+RCT-OL & legacy & -0.50 & 0.3 & -0.994 & -0.494 & -66.7 & 0.234 & 0.309 & 1.321 & 0.947\\
+\addlinespace
+RCT-OL & legacy & -0.50 & 0.7 & -0.951 & -0.451 & -54.0 & 0.264 & 0.307 & 1.160 & 0.905\\
+RCT-OL & legacy & 0.00 & 0.0 & -0.544 & -0.544 & -76.0 & 0.226 & 0.306 & 1.354 & 0.404\\
+RCT-OL & legacy & 0.00 & 0.3 & -0.531 & -0.531 & -73.1 & 0.230 & 0.309 & 1.346 & 0.373\\
+RCT-OL & legacy & 0.00 & 0.7 & -0.513 & -0.513 & -62.4 & 0.260 & 0.308 & 1.185 & 0.362\\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\subsection{S1. Effect size}\label{s1.-effect-size}
+
 \begin{quote}
-\textbf{TODO (blocks acceptance): stale Results baseline.} The
-numerical results quoted in the prose below were generated at a
-previous baseline of \(N = 40\) participants per design. The
-driver code in \texttt{00-common.R} (\texttt{baseline\_model\_param(N\ =\ 35,\ ...)})
-already defaults to the manuscript's stated \(N = 35\) baseline, and
-a 2026-08-16 smoke-test run
-(\texttt{analysis/scripts/nof1-design-sensitivity/00-smoke-test.R})
-confirms the current pipeline produces valid, non-NA output; the
-discrepancy is therefore that the twelve \texttt{.rds} sweep artifacts
-under \texttt{analysis/data/derived\_data/sensitivity/} have not yet been
-regenerated since the baseline was changed, not a code defect. A
-full rerun (twelve sweeps, approximately 32 minutes wall-clock on
-an 8-core machine per the Simulation Execution section below) was
-out of scope for this remediation pass and was not performed. To
-complete this item, run:
-\texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/run-all.R}
-from the repository root, then re-render this document so every
-inline value below is read from the regenerated artifacts. Do
-not treat any power/bias/coverage figure below as final until
-that rerun completes. The qualitative direction of every finding
-below is expected to be preserved by the rebaseline, but this has
-not been confirmed.
+\textbf{RESULTS-PENDING (S1).} The stored artifact is absent or predates the corrected drivers, so no number is reported for this sweep. Rerun \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/01-effect-size.R} (1,000 replicates per cell, 42 cells), then \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/plot-all.R}, then re-render.
 \end{quote}
 
-All twelve sweeps completed in approximately 32 minutes of
-wall-clock time on an 8-core machine, using the furrr multisession
-backend. Per-cell summary metrics are computed from the RDS
-artifacts at render time; the numerical values quoted below are read
-directly from \texttt{analysis/data/derived\_data/sensitivity/}. The
-target coefficient throughout is the main drug effect, that is, the
-\texttt{Dbc} coefficient in the \texttt{nlme::lme} fixed-effects formula.
+\subsection{S2. Carryover half-life}\label{s2.-carryover-half-life}
 
-The primary N-of-1 design is the Hendrickson 2020\textsuperscript{\citeproc{ref-hendricksonOptimizing2020}{5}} hybrid, that is, open-label titration
-followed by blinded discontinuation and a brief crossover, labeled
-`Nof1' in the sweep artifacts and figures below. We retain the
-alternating A/B/A/B aggregated N-of-1 (labeled `Nof1-alt') as a
-sensitivity comparison at sweeps that vary the cycle count (S6) and
-period length (S9), where the hybrid's fixed eight-timepoint
-structure does not naturally scale.
+\begin{quote}
+\textbf{RESULTS-PENDING (S2).} The stored artifact is absent or predates the corrected drivers, so no number is reported for this sweep. Rerun \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/02-carryover-halflife.R} (500 replicates per cell, 36 cells), then \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/plot-all.R}, then re-render.
+\end{quote}
 
-We begin with a cross-sweep summary. At the prazosin-like
-baseline (effect size approximately \(-2\) nightmares per week,
-carryover half-life 3 days, 35 participants, 8 weekly
-timepoints), the hybrid N-of-1 and the parallel RCT both perform
-competently. The hybrid reaches 80\% power at a smaller sample size,
-under larger within-patient variance, and under higher serial
-correlation than the parallel RCT. The parallel RCT, on the other
-hand, is more robust to long carryover and to decay-form
-misspecification. Type I error is controlled near nominal under the
-null for the hybrid, the alternating variant, and the parallel RCT,
-with modest conservatism at small \(n\). The two-period crossover,
-however, shows mild Type I inflation of approximately 0.10 to 0.13,
-a finding that warrants caution when that design is used at small
-per-subject timepoint counts.
+\subsection{S3. Decay form}\label{s3.-decay-form}
 
-\subsection{S1. Effect-size sweep}\label{s1.-effect-size-sweep}
+\begin{quote}
+\textbf{RESULTS-PENDING (S3).} The stored artifact is absent or predates the corrected drivers, so no number is reported for this sweep. Rerun \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/03-decay-form.R} (500 replicates per cell, 15 cells), then \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/plot-all.R}, then re-render.
+\end{quote}
 
-\begin{figure}
-\includegraphics[width=0.8\linewidth]{../../figures/sensitivity/sens-01-effect-size} \caption{Sensitivity S1: power versus effect-size axis for N-of-1 and parallel RCT.}\label{fig:sens-fig-01}
-\end{figure}
+\subsection{S4. Treatment heterogeneity and baseline SD}\label{s4.-treatment-heterogeneity-and-baseline-sd}
 
-The effect-size sweep varies the bio-response maximum \texttt{max[br]}
-across a seven-point grid \(\{0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0\}\)
-at \(N = 35\), \(c_{bm} = 0.3\), and a carryover half-life of 3 days.
-Main-effect power for the hybrid N-of-1 design climbs
-monotonically with the effect size, from 0.066 (MCSE 0.008) at
-\(\delta = 0\) (Type I) to 0.350 at \(\delta = -0.5\), 0.859 at
-\(\delta = -1\), and 0.996 at \(\delta = -1.5\), saturating at 1.000
-for \(|\delta| \geq 2\). The parallel RCT tracks the same shape at
-a lower level: 0.034 (MCSE 0.006) at the null, 0.177 at
-\(\delta = -0.5\), 0.470 at \(\delta = -1\), 0.793 at
-\(\delta = -1.5\), and 0.941 at \(\delta = -2\). The hybrid reaches
-the 80\% power target at approximately \(\delta = -1\), while the
-parallel RCT reaches the same target only at approximately
-\(\delta = -1.5\), a half-unit shift.
+\begin{quote}
+\textbf{RESULTS-PENDING (S4).} The stored artifact is absent or predates the corrected drivers, so no number is reported for this sweep. Rerun \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/04-tau2.R} (500 replicates per cell, 30 cells), then \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/plot-all.R}, then re-render.
+\end{quote}
 
-The direction and magnitude of the hybrid's advantage match
-those reported by Blackston 2019\textsuperscript{\citeproc{ref-blackstonComparisonAggregatedNof12019}{4}}, whose simulation shows
-aggregated N-of-1 reaching adequate power at a smaller effect
-size than a matched-\(n\) parallel RCT under the same variance
-structures. Type I error at \(\delta = 0\) is 0.066 for the hybrid
-(MCSE 0.008, 95\% Wald CI {[}0.050, 0.082{]}) and 0.034 for the
-parallel RCT (MCSE 0.006, {[}0.022, 0.046{]}). The hybrid runs
-slightly above nominal and the parallel RCT slightly below,
-with both confidence intervals covering 0.05 at the margin. It
-appears that neither design is grossly miscalibrated, though the
-hybrid's modest upward departure from nominal merits attention
-when a study is powered near the 5\% boundary.
+\subsection{S5. Within-participant variability}\label{s5.-within-participant-variability}
 
-\subsection{S2. Carryover half-life sweep}\label{s2.-carryover-half-life-sweep}
+\begin{quote}
+\textbf{RESULTS-PENDING (S5).} The stored artifact is absent or predates the corrected drivers, so no number is reported for this sweep. Rerun \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/05-sigma2.R} (500 replicates per cell, 15 cells), then \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/plot-all.R}, then re-render.
+\end{quote}
 
-\begin{figure}
-\includegraphics[width=0.8\linewidth]{../../figures/sensitivity/sens-02-carryover-halflife} \caption{Sensitivity S2: power versus carryover half-life across four designs.}\label{fig:sens-fig-02}
-\end{figure}
+\subsection{S6. Number of periods at fixed trial length}\label{s6.-number-of-periods-at-fixed-trial-length}
 
-The carryover half-life sweep varies \(t_{1/2} \in \{0, 0.5, 1,
-2, 3, 5, 7, 10, 14\}\) days across the four designs at the
-prazosin-like baseline. Main-effect power for the hybrid N-of-1
-design saturates at 1.000 from \(t_{1/2} = 0\) through
-\(t_{1/2} = 5\) days, then declines: 0.976 at 7 days, 0.900 at
-10 days, and 0.736 at 14 days (7-day periods). The alternating
-A/B/A/B variant is more carryover-sensitive, with power dropping
-from 0.896 at \(t_{1/2} = 0\) to 0.778 at \(t_{1/2} = 3\) to 0.304
-at \(t_{1/2} = 14\). The parallel RCT is essentially immune to
-carryover at the scale examined here, with power flat at 0.92 to
-0.96 across the grid. The two-period crossover is likewise
-near-saturated, at 0.98 to 1.00.
+\begin{quote}
+\textbf{RESULTS-PENDING (S6).} The stored artifact is absent or predates the corrected drivers, so no number is reported for this sweep. Rerun \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/06-cycles.R} (500 replicates per cell, 5 cells), then \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/plot-all.R}, then re-render.
+\end{quote}
 
-The hybrid's carryover robustness relative to the alternating
-variant reflects its operational structure. That is, the
-four-week open-label titration phase contributes substantial
-treatment-accumulated signal that is not erased by the
-post-discontinuation off-drug period. The alternating design, by
-contrast, relies on repeated within-subject transitions, each of
-which sheds signal in proportion to the unwashed residual. The flat
-parallel-RCT and crossover curves confirm Blackston 2019's\textsuperscript{\citeproc{ref-blackstonComparisonAggregatedNof12019}{4}} observation that
-between-subject comparisons are largely immaterial to carryover
-at the within-period scale. We note that the loss of effective
-sample size in within-subject designs, once \(t_{1/2}\) exceeds
-the period length, is the primary mechanism behind the
-hybrid-versus-RCT power-ordering crossover that begins at
-approximately \(t_{1/2} = 10\) days.
+\subsection{S7. Sample size}\label{s7.-sample-size}
 
-\subsection{S3. Decay-form misspecification sweep}\label{s3.-decay-form-misspecification-sweep}
+\begin{quote}
+\textbf{RESULTS-PENDING (S7).} The stored artifact is absent or predates the corrected drivers, so no number is reported for this sweep. Rerun \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/07-patients.R} (500 replicates per cell, 18 cells), then \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/plot-all.R}, then re-render.
+\end{quote}
 
-\begin{figure}
-\includegraphics[width=0.8\linewidth]{../../figures/sensitivity/sens-03-decay-form} \caption{Sensitivity S3: power by DGP decay form when analysis assumes exponential.}\label{fig:sens-fig-03}
-\end{figure}
+\subsection{S8. Serial correlation}\label{s8.-serial-correlation}
 
-The decay-form sweep varies the DGP carryover form across
-\(\{\)exponential, linear, Weibull (\(k=0.8\)), Weibull (\(k=1.5\)),
-power\(\}\), while the analysis model always assumes exponential
-decay in constructing the continuous drug indicator
-\texttt{Dbc}. We use the alternating A/B/A/B N-of-1 variant for this
-sweep because the hybrid's specific multi-phase \texttt{tsd} pattern
-interacts poorly with the `power' form, producing
-non-positive-definite covariance matrices at certain cells. The
-hybrid is, in any case, less informative for decay-form
-misspecification testing.
+\begin{quote}
+\textbf{RESULTS-PENDING (S8).} The stored artifact is absent or predates the corrected drivers, so no number is reported for this sweep. Rerun \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/08-ar1.R} (500 replicates per cell, 15 cells), then \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/plot-all.R}, then re-render.
+\end{quote}
 
-Under the alternating N-of-1 design, main-effect power ranges
-from 0.754 (Weibull \(k=0.8\)) to 0.904 (linear), with the
-baseline exponential case at 0.816 and the power form at 0.870.
-The Weibull \(k=1.5\) form yields 0.852. This 15-percentage-point
-range across decay forms is smaller than the range observed under
-the interaction target examined in earlier work, which suggests
-that main-effect estimation is relatively less sensitive to
-decay-form misspecification than interaction estimation. The
-parallel RCT is essentially flat, at 0.93 to 0.95 across all
-forms, consistent with the finding of Gärtner 2023\textsuperscript{\citeproc{ref-gaertnerCarryover2023}{7}} that misspecification of the carryover
-decay form carries a design-specific cost affecting only
-within-subject designs.
+\subsection{S9. Period length and half-life}\label{s9.-period-length-and-half-life}
 
-\subsection{S4. Between-patient heterogeneity sweep}\label{s4.-between-patient-heterogeneity-sweep}
+\begin{quote}
+\textbf{RESULTS-PENDING (S9).} The stored artifact is absent or predates the corrected drivers, so no number is reported for this sweep. Rerun \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/09-period.R} (500 replicates per cell, 15 cells), then \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/plot-all.R}, then re-render.
+\end{quote}
 
-\begin{figure}
-\includegraphics[width=0.8\linewidth]{../../figures/sensitivity/sens-04-tau2} \caption{Sensitivity S4: power versus between-patient baseline SD.}\label{fig:sens-fig-04}
-\end{figure}
+\subsection{S10. Biomarker correlation and encoding}\label{s10.-biomarker-correlation-and-encoding}
 
-The between-patient heterogeneity sweep varies the
-baseline-symptom SD, that is, the \texttt{BL} factor standard deviation,
-the \(\tau\) component in the Senn 2018 decomposition, across
-\(\{0.5, 0.75, 1.0, 1.25, 1.5, 2.0\}\). Under the hybrid N-of-1,
-main-effect power is saturated at 1.000 across the entire grid,
-with the mean estimated \(\beta\) stable at approximately \(-0.94\)
-across the six levels. The parallel RCT, on the other hand,
-degrades substantially with \(\tau\): from 0.998 at \(\tau = 0.5\) to
-0.994 at 0.75, 0.978 at 1.0, 0.958 at 1.25, 0.946 at 1.5, and
-0.874 at 2.0 (the last with MCSE 0.015). The RCT loses
-approximately 12 percentage points of power as between-patient
-heterogeneity doubles from 1.0 to 2.0.
-
-These results reproduce the Senn 2018\textsuperscript{\citeproc{ref-sennSampleSizeConsiderations2019}{8}} variance-decomposition
-argument: between-patient heterogeneity enters the
-parallel-RCT variance, since \(\tau^2\) is part of
-\(\mathrm{Var}(\hat \Delta)\), but is absorbed by the
-within-subject contrast in aggregated N-of-1 designs. The
-hybrid's saturation reflects the specific prazosin-calibrated
-baseline, where the effect size is large relative to the
-within-patient variance. At a smaller effect size, or a larger
-\(\sigma\) (see S5), we would expect the N-of-1 advantage over the
-RCT to widen rather than flatten as \(\tau\) increases.
-
-\subsection{S5. Within-patient variance sweep}\label{s5.-within-patient-variance-sweep}
-
-\begin{figure}
-\includegraphics[width=0.8\linewidth]{../../figures/sensitivity/sens-05-sigma2} \caption{Sensitivity S5: power versus within-patient bio-response SD.}\label{fig:sens-fig-05}
-\end{figure}
-
-The within-patient variance sweep varies the bio-response SD
-across \(\{0.5, 0.75, 1.0, 1.25, 1.5\}\). Under the hybrid
-N-of-1, main-effect power is 1.000 at
-\(\sigma \in \{0.5, 0.75, 1.0\}\), 0.996 at \(\sigma = 1.25\), and
-0.986 at \(\sigma = 1.5\), essentially saturated across the
-range. The parallel RCT declines more visibly: 0.996 at
-\(\sigma = 0.5\), 0.982 at 0.75, 0.942 at 1.0, 0.868 at 1.25,
-and 0.814 at 1.5. Over the examined range, the RCT loses
-approximately 18 percentage points of power, while the hybrid
-loses only about one.
-
-This reproduces the Senn 2018 prediction that increasing
-within-patient variance reduces the power of both designs, with
-the N-of-1 design absorbing that variance more efficiently
-because it sums over \(k\) paired contrasts per patient. The
-hybrid's quasi-saturation indicates that the eight-timepoint
-structure, together with the open-label titration phase, provides
-enough signal accumulation to tolerate substantial within-patient
-noise. At smaller effect sizes the \(\sigma\) dependence would be
-steeper, and this saturation should not be extrapolated beyond
-the prazosin-calibrated regime.
-
-\subsection{S6. Cycles-per-patient sweep}\label{s6.-cycles-per-patient-sweep}
-
-\begin{figure}
-\includegraphics[width=0.8\linewidth]{../../figures/sensitivity/sens-06-cycles} \caption{Sensitivity S6: power versus timepoints per patient k.}\label{fig:sens-fig-06}
-\end{figure}
-
-The cycles-per-patient sweep varies the number of timepoints
-per patient \(k\) across \(\{2, 4, 6, 8, 12, 16\}\). We use the
-alternating A/B/A/B N-of-1 variant for this sweep because the
-hybrid's eight-timepoint structure does not naturally scale with
-\(k\). Under the alternating N-of-1 design, main-effect power
-increases from 0.294 at \(k = 2\) to 0.486 at \(k = 4\), 0.658 at
-\(k = 6\), 0.804 at \(k = 8\) (the baseline), 0.910 at \(k = 12\),
-and 0.980 at \(k = 16\). The curve is concave, as predicted by
-the Senn 2018\textsuperscript{\citeproc{ref-sennSampleSizeConsiderations2019}{8}}
-decomposition.
-
-The parallel RCT tracks a similar shape: 0.292 at \(k = 2\),
-0.502 at \(k = 4\), 0.772 at \(k = 6\), 0.940 at \(k = 8\), 0.998 at
-\(k = 12\), and 1.000 at \(k = 16\). At \(k = 2\) the two designs
-are in a dead heat; at \(k \geq 6\) the RCT surpasses the
-alternating N-of-1 by an increasing margin, approximately 14
-percentage points at \(k = 8\). For the main-effect target,
-increasing \(k\) benefits both designs and slightly favors the
-RCT, since each additional timepoint contributes one more
-between-subject observation, whereas the alternating-N-of-1
-paired contrasts are already largely averaged in by \(k = 8\).
-This result highlights that the hybrid design's primary power
-advantage over the alternating variant comes from the open-label
-titration phase, rather than from the number of cycles per se.
-
-\subsection{S7. Patient-count sweep}\label{s7.-patient-count-sweep}
-
-\begin{figure}
-\includegraphics[width=0.8\linewidth]{../../figures/sensitivity/sens-07-patients} \caption{Sensitivity S7: power versus total participant count.}\label{fig:sens-fig-07}
-\end{figure}
-
-The patient-count sweep varies the total number of participants
-across \(\{16, 24, 35, 60, 80, 120\}\) for the hybrid N-of-1 and
-the parallel RCT. The grid includes the project-standard minimum
-of 35, which anchors the cross-paper comparison with the
-companion clinical manuscript. Under the hybrid design,
-main-effect power is high even at modest sample sizes and
-saturates quickly as \(N\) grows; the parallel RCT follows a
-similar but offset trajectory.
-
-The hybrid reaches 80\% power at \(N = 16\) or fewer participants;
-the parallel RCT reaches the same threshold only somewhere between
-\(N = 24\) and \(N = 35\). In the framing of Blackston 2019\textsuperscript{\citeproc{ref-blackstonComparisonAggregatedNof12019}{4}}, the hybrid achieves
-an equivalent power target at approximately one-third to
-one-half the sample size of the parallel RCT. This is
-consistent with the Carrozzo 2025\textsuperscript{\citeproc{ref-carrozzoTwoArm2025}{6}} result
-that the meta-analytic N-of-1 procedure reached 80\% power with
-fewer participants than the two-arm RCT across most
-heterogeneity and carryover settings.
-
-\subsection{S8. AR(1) serial-correlation sweep}\label{s8.-ar1-serial-correlation-sweep}
-
-\begin{figure}
-\includegraphics[width=0.8\linewidth]{../../figures/sensitivity/sens-08-ar1} \caption{Sensitivity S8: power versus AR(1) within-factor correlation rho.}\label{fig:sens-fig-08}
-\end{figure}
-
-The AR(1) sweep varies the within-factor autocorrelation
-\(\rho \in \{0, 0.3, 0.5, 0.7, 0.9\}\). Under the hybrid N-of-1
-design, main-effect power is saturated at 1.000 across the
-entire range of \(\rho\). Under the parallel RCT, power decreases
-monotonically with \(\rho\): 0.984 at \(\rho = 0\), 0.934 at 0.3,
-0.872 at 0.5, 0.772 at 0.7, and 0.746 at 0.9. The mean
-estimated \(\beta\) shrinks for the RCT as well, from \(-1.01\) at
-\(\rho = 0\) to \(-0.57\) at \(\rho = 0.9\).
-
-The direction of the AR(1) effect is opposite for the two
-designs, and this asymmetry warrants a closer look. For the
-hybrid, strong AR(1) produces more coherent within-subject
-trajectories, and the \texttt{corCAR1} residual structure absorbs the
-correlation; the net effect on main-effect power is negligible.
-For the parallel RCT, strong AR(1) inflates the variance of the
-between-subject mean contrast through the effective-sample-size
-shrinkage \(1 / (1 + (k - 1) \rho)\), even when \texttt{corCAR1} is
-fitted, because the fit cannot manufacture the missing
-within-subject contrasts. This is consistent with the finding of
-Wang and Schork 2019\textsuperscript{\citeproc{ref-wang2019}{10}} that, under
-correct modeling, the N-of-1 design benefits from strong serial
-correlation, or is at least insensitive to it, while the
-parallel-group design remains relatively sensitive.
-
-\subsection{S9. Period-length sweep}\label{s9.-period-length-sweep}
-
-\begin{figure}
-\includegraphics[width=0.8\linewidth]{../../figures/sensitivity/sens-09-period} \caption{Sensitivity S9: heatmap of N-of-1 power over period length and carryover half-life.}\label{fig:sens-fig-09}
-\end{figure}
-
-The period-length sweep varies the N-of-1 period across
-\(\{3, 5, 7, 10, 14\}\) days, crossed with carryover half-life in
-\(\{0.5, 3, 7\}\) days. We use the alternating A/B/A/B variant for
-this sweep. Under the alternating N-of-1 design, main-effect power
-increases monotonically with period length: at a period of 3
-days, power is 0.40 to 0.44 across the three half-lives; at 5
-days, 0.72 to 0.76; at 7 days, 0.88 to 0.91; at 10 days, 0.993
-to 0.997; and at 14 days, 0.997 to 1.00. At fixed period length,
-the carryover half-life has only a modest effect.
-
-Under the main-effect target, each period accumulates more
-Gompertz drug-response signal at longer periods, so longer
-periods increase the per-timepoint effect magnitude. The
-pragmatic guideline for the main-effect target is therefore the
-reverse of the interaction-target recommendation: longer periods
-are preferred when the primary goal is to detect the main drug
-effect, subject to carryover not exceeding the period length by
-more than roughly 50\%. Wang and Schork 2019\textsuperscript{\citeproc{ref-wang2019}{10}} note this tradeoff explicitly,
-observing that more frequent alternation benefits
-correlation-modeled analyses but is problematic for
-absolute-effect inference.
-
-\subsection{S10. Biomarker interaction strength crossed with DGP architecture}\label{s10.-biomarker-interaction-strength-crossed-with-dgp-architecture}
-
-\begin{figure}
-\includegraphics[width=0.85\linewidth]{../../figures/sensitivity/sens-10-biomarker} \caption{Sensitivity S10: biomarker-interaction power for three designs under both DGP architectures and two carryover settings.}\label{fig:sens-fig-10}
-\end{figure}
-
-The biomarker-interaction sweep varies
-\(c_{bm} \in \{0, 0.2, 0.4, 0.6\}\), crossed with
-\(\mathrm{dgp\_architecture} \in \{\)mvn, mean\_moderation\(\}\) and
-\(\mathrm{halflife\_days} \in \{0, 3\}\), across three designs:
-hybrid, alternating N-of-1, and parallel RCT. Under the
-main-effect target, hybrid main-effect power is saturated at
-1.000 across all 16 combinations, with the mean estimated
-\(\beta\) stable at \(-0.92\) to \(-1.08\). Alternating N-of-1 power
-varies from 0.682 to 0.916 across the 16 cells, and parallel
-RCT power ranges from 0.914 to 0.958.
-
-The invariance of main-effect power to \(c_{bm}\) and architecture
-is expected, and it is reassuring rather than surprising. The
-main drug effect is determined by the Gompertz
-\(\mathrm{max}[\mathrm{br}]\) and the trial's on-drug
-accumulation, not by the biomarker coupling. This finding
-provides a robustness check on the DGP implementation: when the
-primary-analysis target is the main effect, the \(c_{bm}\) sweep
-should produce approximately flat power curves for all designs,
-and we observe precisely that pattern here.
+\begin{quote}
+\textbf{RESULTS-PENDING (S10).} The stored artifact is absent or predates the corrected drivers, so no number is reported for this sweep. Rerun \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/10-biomarker.R} (500 replicates per cell, 48 cells), then \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/plot-all.R}, then re-render.
+\end{quote}
 
 \subsection{S11. Misspecification factorial}\label{s11.-misspecification-factorial}
 
-\begin{figure}
-\includegraphics[width=0.85\linewidth]{../../figures/sensitivity/sens-11-misspec} \caption{Sensitivity S11: Type I (null) and power (alternative) under the carryover-by-AR(1) misspecification factorial.}\label{fig:sens-fig-11}
-\end{figure}
+\begin{quote}
+\textbf{RESULTS-PENDING (S11).} The stored artifact is absent or predates the corrected drivers, so no number is reported for this sweep. Rerun \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/11-misspec.R} (500 replicates per cell, 24 cells), then \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/plot-all.R}, then re-render.
+\end{quote}
 
-The misspecification sweep crosses DGP carryover
-\(\{\)off, on\(\}\) with DGP AR(1) \(\{\)off, \(\rho = 0.7\}\) at null
-(\(\mathrm{br\_max} = 0\)) and alternative
-(\(\mathrm{br\_max} = 1\)) levels. Under the null, Type I error
-for the hybrid N-of-1 falls within 2 MCSE of the nominal 0.05
-(0.036 to 0.056 across the four cells). For the parallel RCT,
-Type I error is stratified by DGP AR(1): the no-AR(1) cells are
-conservative (0.018 to 0.024), while the high-AR(1) cells are
-inflated above nominal (0.112 to 0.126), with MCSE 0.014 to
-0.015, so this inflation is statistically robust. Under the
-alternative, the hybrid is saturated at 1.000 in all four cells;
-parallel RCT power runs 0.986 to 0.990 when no AR(1) is present,
-and drops to 0.766 to 0.772 when AR(1) \(\rho = 0.7\) is present.
+\subsection{S12. Null calibration}\label{s12.-null-calibration}
 
-The inflated RCT Type I error under high DGP AR(1) is an
-important caveat that merits comment. When the DGP carries
-strong serial correlation and the parallel-group analysis fits
-\texttt{corCAR1}, the variance estimator still treats each participant
-as providing approximately independent observations at the
-between-subject level, which understates the true standard error
-of the group contrast. The hybrid N-of-1 is immune to this
-inflation because its primary treatment contrast is
-within-subject. We note that Blackston 2019's\textsuperscript{\citeproc{ref-blackstonComparisonAggregatedNof12019}{4}} observation, that
-moderate-to-strong carryover inflates Type I error when not
-modeled, is not reproduced here for the hybrid, since the
-decaying \texttt{Dbc} in the analysis absorbs carryover correctly. It
-is, however, analogous in mechanism to the AR(1) inflation we
-observe here for the parallel RCT.
+\begin{quote}
+\textbf{RESULTS-PENDING (S12).} The stored artifact is absent or predates the corrected drivers, so no number is reported for this sweep. Rerun \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/12-morris-null.R} (2,000 replicates per cell, 16 cells), then \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/plot-all.R}, then re-render.
+\end{quote}
 
-\subsection{S12. Null-effect calibration}\label{s12.-null-effect-calibration}
-
-\begin{figure}
-\includegraphics[width=0.8\linewidth]{../../figures/sensitivity/sens-12-morris-null} \caption{Sensitivity S12: empirical Type I error with 95 percent Wald CIs at four configurations.}\label{fig:sens-fig-12}
-\end{figure}
-
-The null-effect calibration uses
-\(\mathrm{max}[\mathrm{br}] = 0\) at four
-\((\tau, \sigma, \mathrm{halflife})\) configurations, each with
-2,000 replicates per design, for an MCSE near 0.005. Across the
-sixteen design-configuration cells, empirical Type I error
-rates are as follows: hybrid N-of-1 in {[}0.056, 0.062{]} (four
-cells, all within 2 MCSE of nominal); alternating N-of-1 in
-{[}0.057, 0.064{]} (four cells, all within 2 MCSE of nominal);
-parallel RCT in {[}0.029, 0.060{]} (four cells, three conservative
-and one nominal); and two-period crossover in {[}0.100, 0.130{]}
-(four cells, all modestly inflated, with MCSEs of 0.006 to
-0.007, so the inflation is statistically robust at 2,000
-replicates).
-
-The two-period crossover's modest inflation appears attributable
-to the small number of timepoints, two per subject, which
-produces an underidentified \texttt{corCAR1} residual correlation.
-Two-period crossovers should be analyzed without a
-serial-correlation structure, either via a paired \(t\)-test on
-change scores or via an lme with an unstructured residual.
-Fitting \texttt{corCAR1} at only two within-subject timepoints is
-problematic and, as we see here, inflates the rejection rate by
-a practically meaningful amount.
+\begin{quote}
+\textbf{RESULTS-PENDING (S12b).} Rerun \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/15-xo-corcar1.R} (2,000 replicates, 2 designs, 2 analyses).
+\end{quote}
 
 \section{Discussion}\label{discussion}
 
-\subsection{Synthesis}\label{synthesis}
+\subsection{Summary of the stored results}\label{summary-of-the-stored-results}
 
-We may organize the twelve sensitivity sweeps under the
-main-effect target and the Hendrickson hybrid around five
-substantive findings.
+\begin{quote}
+\textbf{RESULTS-PENDING (S1).} The stored artifact is absent or predates the corrected drivers, so no number is reported for this sweep. Rerun \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/01-effect-size.R} (1,000 replicates per cell, 42 cells), then \texttt{Rscript\ analysis/scripts/nof1-design-sensitivity/plot-all.R}, then re-render.
+\end{quote}
 
-First, the hybrid achieves a sample-size advantage over the
-parallel RCT. At the prazosin-calibrated baseline, the hybrid
-reaches the 80\% power target at \(N = 16\) or fewer participants,
-whereas the parallel RCT reaches the same target only somewhere
-between \(N = 24\) and \(N = 35\) (S7). This sample-size ratio of
-roughly one-third to one-half matches the N-of-1 efficiency
-advantage reported by Blackston 2019\textsuperscript{\citeproc{ref-blackstonComparisonAggregatedNof12019}{4}} and Carrozzo 2025\textsuperscript{\citeproc{ref-carrozzoTwoArm2025}{6}}.
+\subsection{Relation to earlier work}\label{relation-to-earlier-work}
 
-Second, the hybrid is robust to within-patient variance and
-between-patient heterogeneity. The hybrid is essentially
-saturated across the sweeps of \(\sigma\) (S5) and \(\tau\) (S4),
-while the parallel RCT degrades by 18 percentage points across
-the \(\sigma\) range and 12 percentage points across the \(\tau\)
-range, reproducing the Senn 2018\textsuperscript{\citeproc{ref-sennSampleSizeConsiderations2019}{8}} variance-decomposition
-prediction.
+The sample-size comparison of Blackston et al.\textsuperscript{\citeproc{ref-blackstonComparisonAggregatedNof12019}{4}} used a parallel group with one observation per participant. That comparator is unaffected by carryover by construction, and our parallel group has eight observations per participant, so the two are not the same comparison. Wang and Schork\textsuperscript{\citeproc{ref-wang2019}{5}} studied one participant with 400 observations and no parallel group. They found that serial correlation lowers the power of the within-subject design and that stacking periods mitigates the loss. Our S8 and S9 vary the correlation and the period length in a series of participants, with the effect held fixed across designs. Percha et al.\textsuperscript{\citeproc{ref-perchaDesigningRobustNof12019}{6}} studied the number of blocks and the sampling frequency under carryover. S6 and S9 are closest to their work, and our designs differ in that the effect is matched across designs. Chen and Chen\textsuperscript{\citeproc{ref-chenComparisonFourMethods2014}{7}} and Araujo et al.\textsuperscript{\citeproc{ref-araujoUnderstandingVariation2016}{8}} concern the error structure and the participant-by-treatment interaction. S4 adds that interaction to the DGP as \(\tau\). Gärtner et al.\textsuperscript{\citeproc{ref-gaertnerCarryover2023}{10}} compared analysis methods under carryover. S2, S3 and S11 compare analysis half-lives under carryover and under a wrong decay form, which is a different question. Carrozzo et al.\textsuperscript{\citeproc{ref-carrozzoTwoArm2025}{11}} compared a two-arm crossover trial, not a parallel-group trial, with a meta-analysis of N-of-1 trials.
 
-Third, sensitivity to carryover depends on the design variant.
-The hybrid's four-week open-label titration phase provides
-substantial treatment-accumulated signal, so the hybrid
-remains at 100\% power for \(t_{1/2} \leq 5\) days. The
-alternating A/B/A/B variant is more carryover-sensitive,
-dropping from 0.90 to 0.30 across the \(t_{1/2} = 0\) to
-\(t_{1/2} = 14\) range. The parallel RCT, by contrast, is
-essentially immune to carryover at the within-period scale.
+The original DGP of Hendrickson et al.~holds the biomarker-response correlation constant after first exposure. The interaction estimand is then zero at a positive half-life (\texttt{docs/36}, \texttt{docs/40}). Interaction power at short half-lives in that setting is therefore a property of the original rule. It is not a result about the main effect, and this paper does not compare with it. The comparison of the two encodings of the interaction belongs to paper 01 of this series.
 
-Fourth, AR(1) serial correlation affects the two designs
-differently. The hybrid saturates across \(\rho = 0\) to
-0.9 (S8), while the parallel RCT power drops from 0.98 to
-0.75 across the same range, and Type I error inflates from
-0.018 to 0.126 under a high-\(\rho\) DGP (S11). This is consistent
-with the prediction of Wang and Schork 2019\textsuperscript{\citeproc{ref-wang2019}{10}} that within-subject designs with
-\texttt{corCAR1} fitted absorb serial correlation efficiently, while
-between-subject designs do not.
-
-Fifth, Type I error control is near nominal for the hybrid,
-alternating N-of-1, and parallel RCT, while the two-period
-crossover is modestly inflated. Specifically, hybrid Type I
-falls in {[}0.056, 0.062{]}, alternating N-of-1 in {[}0.057, 0.064{]},
-parallel RCT in {[}0.029, 0.060{]}, and two-period crossover in
-{[}0.100, 0.130{]}.
-
-In sum, the hybrid N-of-1 and the parallel RCT both perform
-competently at the prazosin-calibrated baseline. The hybrid is
-preferable when sample-size minimization is paramount, or when
-within-patient or between-patient variance is large. The
-parallel RCT is preferable when the carryover half-life exceeds
-the within-subject period length, or when serial correlation is
-negligible.
-
-\subsection{Comparison with prior simulation studies}\label{comparison-with-prior-simulation-studies}
-
-\subsubsection{Hendrickson et al.~(2020): predictive biomarker validation}\label{hendrickson-et-al.-2020-predictive-biomarker-validation}
-
-Hendrickson and colleagues\textsuperscript{\citeproc{ref-hendricksonOptimizing2020}{5}} compared
-four designs at \(N \in \{35, 70\}\) with 1,000 replicates, for
-detecting a continuous biomarker-treatment interaction. At
-\(N = 35\), with biomarker coupling \(c_{bm} = 0.6\) and no
-carryover, power was 0.25 (OL), 0.94 (OL+BDC), 0.96 (CO), and
-0.95 (hybrid). The hybrid approaches CO power while still
-permitting an 8-week open-label titration phase. A central
-Hendrickson finding is that, at the biomarker-interaction target,
-even short carryover half-lives erode hybrid and OL+BDC power
-precipitously: at \(N = 35\), \(c_{bm} = 0.6\), and carryover
-half-life \(t_{1/2} = 0.1\) weeks (0.7 days), hybrid power fell
-from 0.95 to 0.18.
-
-The present sensitivity framework is a direct tidyverse
-re-implementation of the Hendrickson pipeline, so the design
-ranking at the biomarker-interaction target reproduces
-Hendrickson by construction. Where the present study extends
-Hendrickson is, first, in its Morris\textsuperscript{\citeproc{ref-morris2019simulation}{1}}
-MCSE reporting for every performance measure; second, in
-sensitivity S3, which crosses DGP decay form with the
-analysis-model assumption of exponential decay; and third, in
-sensitivities S2, S6, and S9, which quantify carryover and
-period-length effects for the main drug effect. A key
-substantive divergence is that our main-effect findings show the
-hybrid saturated for carryover half-lives up to five days, while
-Hendrickson's biomarker-interaction findings show hybrid power
-collapsing within a fraction of a week. Both findings are
-correct. They simply describe different estimands, and the
-reader should be careful not to conflate the two.
-
-\subsubsection{Wang and Schork (2019): AR(1), heteroscedasticity, and period stacking}\label{wang-and-schork-2019-ar1-heteroscedasticity-and-period-stacking}
-
-Wang and Schork\textsuperscript{\citeproc{ref-wang2019}{10}} provide analytical
-power formulas under a standard linear model with AR(1)
-residual correlation. Their Table 1 shows that for \(1p \times
-2i\) with no washout, power is 0.851 at \(\rho = 0\), 0.617 at
-\(\rho = 0.25\), 0.330 at \(\rho = 0.5\), and 0.126 at
-\(\rho = 0.75\), a roughly linear erosion as serial correlation
-increases. For \(40p \times 2i\), power runs 0.851, 0.745, 0.674,
-and 0.681 across the same \(\rho\) grid, confirming that period
-stacking mitigates the serial-correlation power loss.
-
-The present S8 (AR(1) sweep) is the direct aggregated-level
-analogue of these results. Our S8 reports hybrid N-of-1 power
-saturated at 1.00 across \(\rho \in \{0, 0.3, 0.5, 0.7, 0.9\}\),
-because the 35-participant hybrid analysis absorbs residual
-correlation via \texttt{corCAR1} at the aggregated level. Our parallel
-RCT power drops from 0.98 at \(\rho = 0\) to 0.75 at \(\rho = 0.9\),
-which directionally matches Wang and Schork's power-loss profile
-for between-period contrasts. The S11 misspecification finding,
-in which parallel-RCT Type I error inflates to 0.11 to 0.13 under
-\(\rho = 0.7\), is consistent in mechanism with Wang and Schork's
-prediction, though the specific inflation magnitudes depend on
-the small-sample instability of the \texttt{corCAR1} estimate at
-\(N = 35\), a caveat we take up below under Limitations.
+The standard texts on the analysis of two-period crossover trials are Jones and Kenward\textsuperscript{\citeproc{ref-jonesKenward2014}{19}} and Senn\textsuperscript{\citeproc{ref-senn2002}{20}}. A crossover with one assessment per period gives two follow-up observations per participant, and the baseline row makes three. S12b tests whether fitting \texttt{corCAR1} to these data changes the Type I error, by refitting without it.
 
 \subsection{Limitations}\label{limitations}
 
-Four limitations should be noted before extending these results
-to trial planning. We begin with the most consequential.
+The study is a simulation at one baseline. Its conclusions apply to the parameter values simulated.
 
-The hybrid N-of-1 saturates in many sweeps. It reaches 100\%
-power in S4 (all \(\tau\) values), much of S5 (\(\sigma\)), S8
-(all \(\rho\)), S10 (all biomarker-by-architecture cells), S11
-(all alternative cells), and most of S2 (half-lives \(\leq 5\)
-days). Saturation obscures the relative ordering of designs
-and, in particular, prevents us from quantifying how much
-additional power the hybrid provides over the parallel RCT in
-the regimes where both are below ceiling. To resolve saturation,
-the sweeps would need to be repeated at a smaller effect size,
-dropping baseline power into the 0.50 to 0.80 range, where
-design differences are most clearly discriminated. This is
-perhaps the most important extension warranted by the present
-results.
+The effect is the mean drug response on drug, matched across designs. A trial planner may instead hold the drug and dose fixed, in which case the designs differ in exposure and the comparison here does not apply.
 
-Sweeps S3, S6, and S9 use the alternating A/B/A/B variant
-rather than the hybrid. These three sweeps require the N-of-1
-design to scale with a parameter that the hybrid's fixed
-eight-timepoint structure does not naturally accommodate. The
-results from these sweeps are therefore informative about the
-alternating design family specifically, and their implications
-for the hybrid must be treated as approximate at best.
+The \texttt{lme} Wald tests at \(N = 35\) use containment degrees of freedom. A small-sample correction such as Kenward and Roger\textsuperscript{\citeproc{ref-kenwardRoger1997}{21}} or cluster-robust standard errors with Satterthwaite degrees of freedom may be needed. The cells report \(\kappa\) and coverage, which show where the model-based SE is miscalibrated. The corrections are not applied.
 
-Sweep S8 was conducted with the analysis-side \texttt{corCAR1} always
-enabled. A complementary with-versus-without-\texttt{corCAR1}
-factorial would be informative, and would require adding an
-\texttt{op\$use\_corCAR1} option to \texttt{lme\_analysis}, followed by rerunning
-the sweep.
+The parallel group has 17 or 18 participants per arm. Its ANCOVA uses the baseline score and the arm only.
 
-Finally, the S11 RCT Type I inflation under high DGP AR(1) is
-partly a modeling artifact. The 0.11 to 0.13 Type I error
-rates for the parallel RCT under \(\rho = 0.7\) reflect a
-between-subject analysis that fits \texttt{corCAR1} on a small sample,
-yielding an unstable correlation-parameter estimate. A
-better-specified parallel-RCT analysis, for example with a
-subject-specific random slope on time or with a fixed
-within-subject \(\rho\) of known magnitude, would likely restore
-nominal Type I error. We note also that the S11 RCT Type I range
-(0.112 to 0.126) and the S12 RCT Type I range (0.029 to 0.060)
-are not in contradiction. S11 crosses carryover presence with
-high DGP AR(1) under analysis-side \texttt{corCAR1} misspecification,
-whereas S12 is a pure null calibration with no carryover and a
-more benign correlation regime. The two ranges reflect different
-data-generating-mechanism regimes, not inconsistent estimates of
-a common quantity.
+The Hybrid is the only design with open-label visits. The comparators are blinded throughout, and the contrast of \texttt{RCT} with \texttt{RCT-OL} in S1 measures the effect of that choice for the parallel group only. The effect of an open-label phase on the alternating design is not measured.
 
-\subsection{N-of-1 design variants not evaluated}\label{n-of-1-design-variants-not-evaluated}
+S6 and S9 use the alternating design, because the Hybrid has a fixed schedule. Their implications for the Hybrid are inferences.
 
-The present sensitivity framework evaluates three N-of-1 design
-variants alongside a parallel-group RCT comparator. Several
-N-of-1 design variants are not evaluated here: the single-subject
-N-of-1\textsuperscript{\citeproc{ref-zucker2010}{9}}, the open-label-only
-and OL-plus-BDC variants from Hendrickson 2020\textsuperscript{\citeproc{ref-hendricksonOptimizing2020}{5}}, full multi-cycle crossover with
-more than two periods (Blackston 2019 used three cycles\textsuperscript{\citeproc{ref-blackstonComparisonAggregatedNof12019}{4}}), Williams-square and
-Latin-square complete N-of-1 designs, sequential-monitoring
-variants with adaptive stopping\textsuperscript{\citeproc{ref-jiangDesignAnalysis2025}{13},\citeproc{ref-selukarFrameworkSequential2025}{14}}, and randomized-block N-of-1.
+The carryover rule compounds across consecutive off-drug visits, so the half-life axes are nominal. A DGP in which the response does not restart from zero at re-exposure (\texttt{docs/38}) is not simulated. The study has no dropout and no missing data. The designs not evaluated are the single-participant N-of-1, the open-label-only design, multi-cycle designs with more than two periods per sequence, Latin-square designs and sequential designs\textsuperscript{\citeproc{ref-jiangDesignAnalysis2025}{22},\citeproc{ref-selukarFrameworkSequential2025}{23}}. The project whitepapers \texttt{docs/39} and \texttt{docs/40} report that more switches can lower the power of the interaction test under compound-symmetry correlation with carryover. This paper does not extend that result to the main effect, and it makes no claim of a bound for the unevaluated designs.
 
-These unevaluated design variants fall into two classes. The
-single-subject, open-label-only, OL+BDC-only, and two-cycle
-crossover designs are expected to produce power at or below the
-numbers reported here, so our results serve as an upper bound
-on those designs under matched parameters. The full multi-cycle
-crossover, complete-design crossover, sequential-monitoring
-variants, and randomized-block designs are expected to produce
-power at or above the numbers reported here, so our results
-serve as a lower bound on those designs under matched
-parameters. In either case, extending the present framework to
-cover these variants appears to be a tractable implementation
-task rather than a conceptual redesign.
+\subsection{Open items}\label{openitems}
 
-\subsection{Prototype Monte Carlo confirmation}\label{prototype-monte-carlo-confirmation}
-
-A 500-replicate-per-cell prototype run on the 15-cell
-\(c_{br} \times N\) grid (\(c_{br} \in \{0, 0.15, 0.30, 0.45,
-0.60\} \times N \in \{25, 35, 50\}\)) was executed with 9-core
-\texttt{parallel::mclapply} in 191 seconds, well inside the 30-minute
-wall-time budget. Convergence was 100\% across all 7,500 fits.
-Per-replicate output is at
-\texttt{analysis/data/quick-sim/05-design-replicates.rds}, with the
-Morris ADEMP summary at \texttt{05-design-summary.txt}. With 500
-replicates per cell, the MCSE on a power
-estimate near \(0.3\) is approximately \(0.020\).
-
-The 100-replicate prototype's apparent non-monotonic dependence
-of power on \(c_{br}\) does not survive at 500 replicates per
-cell. At \(N = 25\), the rejection rate across the five \(c_{br}\)
-levels falls in {[}0.168, 0.192{]}, a swing of 0.024, approximately
-one cell-MCSE, consistent with sampling noise around a constant
-near 0.18. At \(N = 35\), the swing widens to 0.066 (range 0.220
-to 0.286, peak at \(c_{br} = 0.30\)); each cell MCSE is
-approximately 0.019, so the peak-to-trough difference is
-roughly three MCSE, suggestive but not decisive. At
-\(N = 50\), the swing is 0.072 (range 0.266 to 0.338, peak at
-\(c_{br} = 0.45\)). The peaks at \(N = 35\) and \(N = 50\) do not
-coincide on \(c_{br}\), which is the pattern we would expect if the
-apparent non-monotonicity is largely sampling-driven shape noise
-rather than a structural inflection. The 100-replicate run's
-reported dip at \(c_{br} = 0.15\) has disappeared.
-
-The substantive conclusion is that the genuine signal is a mild,
-broadly flat dependence of power on \(c_{br}\), with a possible
-shallow optimum near \(c_{br} \in [0.30, 0.45]\) at moderate \(N\).
-The dominant axis is sample size: mean power across \(c_{br}\)
-rises from 0.18 at \(N = 25\) to 0.25 at \(N = 35\) to 0.31 at
-\(N = 50\). No \((c_{br}, N)\) cell in the prototype grid attains
-80\% power; reaching that target requires a substantially larger
-\(N\) than 50, a larger \(br_{\max}\), or both. Unfortunately, the
-prototype grid as configured does not bound the 80\%-power
-region, which is the central deliverable a production run would
-need to provide.
+Three decisions are open. The first is whether paper 05 should quote half-lives in weeks, to match papers 01 to 04. The second is the baseline effect of -0.5 outcome units, chosen because a local test with 200 replicates gave the Hybrid a power below 1.000 at this value, which the earlier baseline did not. The third is the author list on the title page.
 
 \section{Conclusions}\label{conclusions}
 
-In conclusion, three points are to be emphasized. First, the
-Hendrickson hybrid, that is, open-label titration plus blinded
-discontinuation plus a brief crossover, is a competent default for
-detecting moderate treatment main effects across a wide range of
-parameter perturbations. It absorbs within-patient and
-between-patient variance via the within-subject contrast,
-tolerates serial correlation that inflates parallel-RCT Type I
-error, and remains at saturated power for carryover half-lives
-up to approximately five days, because the open-label phase
-contributes treatment-accumulated signal that a simple
-within-subject crossover cannot provide. Second, design ordering
-is estimand-dependent: the hybrid's advantage over the parallel
-RCT is substantially larger for biomarker-treatment
-interactions than for the main effect, and the reader should be
-cautious about generalizing from one estimand to the other.
-Third, the two-period crossover should not be analyzed with
-\texttt{corCAR1} at small per-subject timepoint counts. The modest but
-robust Type I inflation observed in S12 warrants a change to
-standard analytic practice for that design.
-
-The companion clinical paper provides a direct head-to-head
-comparison at the prazosin-calibrated baseline; the present paper
-documents how that comparison generalizes along twelve parameter
-axes for the hybrid design family. Taken together, the hybrid's
-robustness across most axes, with the two specific exceptions
-noted above, supports its use as a default candidate in trial
-planning for chronic neurobehavioral conditions where moderate
-treatment heterogeneity and short-to-moderate carryover are
-expected.
+The conclusions that do not depend on the rerun are methodological. A comparison of N-of-1 and parallel designs needs a common estimand, because a fixed response asymptote gives each design a different mean effect. The cost of unmodeled carryover needs the analysis half-life crossed with the data-generating half-life. A parallel-group comparator needs an analysis whose null behavior has been checked. Cells with a covariance matrix that is not positive definite need to be dropped or reported, not repaired. The conclusions about the ordering of designs are given in the Results once the corrected sweeps have been run.
 
 \section{Conflict of interest}\label{conflict-of-interest}
 
@@ -1200,107 +585,159 @@ This work received no specific funding.
 
 \section{Data availability statement}\label{data-availability-statement}
 
-The data and code that support the findings of this study are
-openly available in the pmsimstats-ng project repository.
-Per-replicate Monte Carlo outputs and ADEMP-compliant cell-level
-summaries are versioned under \texttt{analysis/data/}; simulation
-drivers are at \texttt{analysis/scripts/}. Exact paths for this
-manuscript are listed in the Reproducibility section below.
+The drivers, the engine and the stored artifacts are in the pmsimstats-ng project repository, under \texttt{analysis/scripts/nof1-design-sensitivity/}, \texttt{implementations/nof1power/} and \texttt{analysis/data/derived\_data/sensitivity/}. A public repository address has not been assigned. It will be added at submission.
 
 \section{Reproducibility}\label{reproducibility}
 
-This manuscript was rendered with R 4.4.x inside the project's
-zzcollab Docker container, with the image hash recorded in
-\texttt{Dockerfile} and the package set captured in \texttt{renv.lock}. The
-principal packages used by the simulation pipeline are
-\texttt{nlme} (continuous-time
-linear-mixed analysis with \texttt{corCAR1} residual correlation),
-\texttt{parallel} (9-core \texttt{mclapply} for parameter-grid sweeps),
-\texttt{data.table} (the \texttt{original-extended} simulation collection),
-\texttt{furrr} and \texttt{purrr} (the \texttt{tidyverse} simulation collection), and
-\texttt{rmarkdown} plus \texttt{bookdown} for the manuscript build.
+The manuscript is rendered with \texttt{bash\ tools/render.sh\ analysis/report/05-nof1-design-sensitivity/report.Rmd}. The sweeps are run with the commands in \texttt{README.md} of this directory after \texttt{devtools::install\_local(\textquotesingle{}implementations/nof1power\textquotesingle{})}. Each driver sets its seed with \texttt{set.seed(42\ +\ id)}, checks that the parameter values stored in the artifact equal the grid, and saves an artifact with the engine version, the repository revision and the replicate count. If a check fails the artifact is saved under a name ending in \texttt{-UNCHECKED.rds}, and this document ignores it. Rendering this document does not run any simulation.
 
-Seeding operates at two levels. At the driver level, each sweep
-calls \texttt{set.seed(42 + sweep\_id)} before constructing its
-parameter grid, so the parameter grid and any pre-loop draws
-are reproducible per sweep. At the replicate level, each driver
-sets \texttt{set.seed(20260507)} at the top of the replicate loop and
-uses \texttt{parallel::mc.set.seed} inside \texttt{mclapply}; per-replicate
-seeds derive from this master seed by adding the replicate
-index. We note that these two seedings operate at distinct stages
-of the pipeline and do not collide.
+The principal packages are \texttt{nlme} for the analysis, \texttt{corpcor} for the positive-definiteness check, \texttt{furrr} and \texttt{future} for parallel execution, and \texttt{dplyr} and \texttt{tidyr} for summaries. The package set is recorded in \texttt{renv.lock}. The R version used for this render is R version 4.6.1 (2026-06-24).
 
-Per-replicate simulation outputs are checkpointed at
-\texttt{analysis/data/quick-sim/05-design-replicates.rds}; Morris ADEMP
-cell-level summaries are at the companion \texttt{05-design-summary.txt}.
-Driver scripts are under
-\texttt{analysis/scripts/nof1-design-sensitivity/} and
-\texttt{analysis/scripts/quick-sim/05-design-prototype.R}. The
-working ADEMP protocol is at
-\texttt{analysis/scripts/nof1-design-sensitivity/00-ademp-protocol.md}.
-The manuscript source, paper-specific bibliography
-(\texttt{references.bib}), and SIM CSL file are at
-\texttt{analysis/report/05-nof1-design-sensitivity/}.
+\section{Glossary}\label{glossary}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Alt.} The alternating design: two paths that switch drug state at every visit.
+\item
+  \textbf{Analysis half-life.} The half-life \(t^a_{1/2}\) used to build the exposure indicator \(D_{bc}\) in the analysis. It need not equal the data-generating half-life.
+\item
+  \textbf{ANCOVA arm contrast.} The analysis of the parallel group: follow-up mean regressed on arm and baseline score.
+\item
+  \textbf{\texttt{br\_max}, \texttt{br\_sd}, \texttt{bl\_sd}, \texttt{pb\_max}, \texttt{tv\_max}.} Stored values of the drug-response asymptote and SD, the baseline-score SD, and the placebo-response and natural-history asymptotes.
+\item
+  \textbf{\texttt{c.bm}, \(c_{bm}\).} The correlation between the biomarker and the drug response at on-drug visits in the correlation encoding.
+\item
+  \textbf{Compact2.} The two-path schedule of eight weekly visits used in the 2026-05 version. It is not the published Hybrid.
+\item
+  \textbf{\texttt{delta\_on}, \(\Delta_{\mathrm{on}}\).} The realized estimand: the mean drug response over the on-drug follow-up visits of a design.
+\item
+  \textbf{\texttt{Dbc}, \(D_{bc}\).} The exposure indicator of the analysis: 1 on drug, decaying off drug after exposure, 0 before exposure.
+\item
+  \textbf{\texttt{ETbeta}.} The large-sample value of the estimated coefficient: the coefficient of a fit to all simulated participants of a cell.
+\item
+  \textbf{Feasibility.} A cell is feasible when its covariance matrix is positive definite. The engine drops a cell that is not.
+\item
+  \textbf{Hybrid.} The design of Hendrickson et al.: open-label titration, blinded discontinuation, then a brief blinded crossover. Four paths, eight visits at weeks 4, 8, 9, 10, 11, 12, 16 and 20.
+\item
+  \textbf{\(\kappa\).} The mean model-based standard error divided by the empirical SD of the estimates. A value of 1 means calibrated.
+\item
+  \textbf{\texttt{legacy}.} The mixed-model analysis of the parallel group used in the 2026-05 version.
+\item
+  \textbf{\texttt{mean\_moderation}.} The mean-shift encoding of the biomarker-by-drug interaction.
+\item
+  \textbf{\texttt{mvn}.} The correlation encoding of the interaction: the interaction is a correlation between the biomarker and the drug response that is present on drug and absent off drug.
+\item
+  \textbf{MCSE.} Monte Carlo standard error.
+\item
+  \textbf{\texttt{pd\_repaired}.} Stored flag, \texttt{TRUE} if a covariance matrix was repaired. It is \texttt{FALSE} for every stored replicate.
+\item
+  \textbf{RCT, RCT-OL.} The parallel group with blinded expectancy 0.5, and with open-label expectancy 1.
+\item
+  \textbf{\(\tau\).} The SD of participant-level heterogeneity of the drug effect.
+\item
+  \textbf{XO.} The two-period crossover with one assessment per period.
+\end{itemize}
+
+\section{Abbreviations}\label{abbreviations}
+
+ADEMP, aims, data-generating mechanisms, estimands, methods and performance measures; ANCOVA, analysis of covariance; AR(1), first-order autoregressive; BR, drug-response component; DGP, data-generating process; MCSE, Monte Carlo standard error; PB, placebo-response component; RCT, randomized controlled trial; SD, standard deviation; SE, standard error; TV, natural-history component.
 
 \section{References}\label{references}
 
 \protect\phantomsection\label{refs}
 \begin{CSLReferences}{0}{1}
-\bibitem[\citeproctext]{ref-morris2019simulation}
+\bibitem[\citeproctext]{ref-hendricksonOptimizing2020}
 \CSLLeftMargin{1. }%
-\CSLRightInline{Morris TP, White IR, Crowther MJ. Using simulation studies to evaluate statistical methods. \emph{Statistics in Medicine}. 2019;38(11):2074-2102. doi:\href{https://doi.org/10.1002/sim.8086}{10.1002/sim.8086}}
+\CSLRightInline{Hendrickson RC, Thomas RG, Schork NJ, Raskind MA. Optimizing aggregated {N}-of-1 trial designs for predictive biomarker validation: Statistical methods and theoretical findings. \emph{Frontiers in Digital Health}. 2020;2:13. doi:\href{https://doi.org/10.3389/fdgth.2020.00013}{10.3389/fdgth.2020.00013}}
 
 \bibitem[\citeproctext]{ref-lillie2011}
 \CSLLeftMargin{2. }%
 \CSLRightInline{Lillie EO, Patay B, Diamant J, Issell B, Topol EJ, Schork NJ. The n-of-1 clinical trial: The ultimate strategy for individualizing medicine? \emph{Personalized Medicine}. 2011;8(2):161-173. doi:\href{https://doi.org/10.2217/pme.11.7}{10.2217/pme.11.7}}
 
-\bibitem[\citeproctext]{ref-kravitzSinglepatientNof1Trials2014}
+\bibitem[\citeproctext]{ref-duanSinglepatientNof1Trials2013}
 \CSLLeftMargin{3. }%
 \CSLRightInline{Duan N, Kravitz RL, Schmid CH. Single-patient (n-of-1) trials: A pragmatic clinical decision methodology for patient-centered comparative effectiveness research. \emph{Journal of Clinical Epidemiology}. 2013;66(8):S21-S28. doi:\href{https://doi.org/10.1016/j.jclinepi.2013.04.006}{10.1016/j.jclinepi.2013.04.006}}
 
 \bibitem[\citeproctext]{ref-blackstonComparisonAggregatedNof12019}
 \CSLLeftMargin{4. }%
-\CSLRightInline{Blackston JW, Chapple AG, McGree JM, McDonald S, Nikles J. Comparison of {Aggregated N-of-1 Trials} with {Parallel} and {Crossover Randomized Controlled Trials Using Simulation Studies}. \emph{Healthcare}. 2019;7(4):137. doi:\href{https://doi.org/10.3390/healthcare7040137}{10.3390/healthcare7040137}}
-
-\bibitem[\citeproctext]{ref-hendricksonOptimizing2020}
-\CSLLeftMargin{5. }%
-\CSLRightInline{Hendrickson RC, Thomas RG, Schork NJ, Raskind MA. Optimizing aggregated {N}-of-1 trial designs for predictive biomarker validation: Statistical methods and theoretical findings. \emph{Frontiers in Digital Health}. 2020;2:13. doi:\href{https://doi.org/10.3389/fdgth.2020.00013}{10.3389/fdgth.2020.00013}}
-
-\bibitem[\citeproctext]{ref-carrozzoTwoArm2025}
-\CSLLeftMargin{6. }%
-\CSLRightInline{Carrozzo AE, Zimmermann G, Bathke AC, Neunhaeuserer D, Niebauer J, Kulnik ST. Two-arm crossover randomized controlled trial versus meta-analysis of n-of-1 studies: Comparison of statistical efficiency in determining an intervention effect. \emph{Biometrical Journal}. 2025;67(2):e70045. doi:\href{https://doi.org/10.1002/bimj.70045}{10.1002/bimj.70045}}
-
-\bibitem[\citeproctext]{ref-gaertnerCarryover2023}
-\CSLLeftMargin{7. }%
-\CSLRightInline{Gärtner T, Schneider J, Arnrich B, Konigorski S. Comparison of bayesian networks, g-estimation and linear models to estimate causal treatment effects in aggregated n-of-1 trials with carry-over effects. \emph{BMC Medical Research Methodology}. 2023;23(1):191. doi:\href{https://doi.org/10.1186/s12874-023-02012-5}{10.1186/s12874-023-02012-5}}
-
-\bibitem[\citeproctext]{ref-sennSampleSizeConsiderations2019}
-\CSLLeftMargin{8. }%
-\CSLRightInline{Senn S. Sample size considerations for n-of-1 trials. \emph{Statistical Methods in Medical Research}. 2019;28(2):372-383. doi:\href{https://doi.org/10.1177/0962280217726801}{10.1177/0962280217726801}}
-
-\bibitem[\citeproctext]{ref-zucker2010}
-\CSLLeftMargin{9. }%
-\CSLRightInline{Zucker DR, Ruthazer R, Schmid CH. Individual ({N-of-1}) trials can be combined to give population comparative treatment effect estimates: Methodologic considerations. \emph{Journal of Clinical Epidemiology}. 2010;63(12):1312-1323. doi:\href{https://doi.org/10.1016/j.jclinepi.2010.04.020}{10.1016/j.jclinepi.2010.04.020}}
+\CSLRightInline{Blackston JW, Chapple AG, McGree JM, McDonald S, Nikles J. Comparison of aggregated {N}-of-1 trials with parallel and crossover randomized controlled trials using simulation studies. \emph{Healthcare}. 2019;7(4):137. doi:\href{https://doi.org/10.3390/healthcare7040137}{10.3390/healthcare7040137}}
 
 \bibitem[\citeproctext]{ref-wang2019}
+\CSLLeftMargin{5. }%
+\CSLRightInline{Wang Y, Schork NJ. Power and design issues in crossover-based {N}-of-1 clinical trials with fixed data collection periods. \emph{Healthcare}. 2019;7(3):84. doi:\href{https://doi.org/10.3390/healthcare7030084}{10.3390/healthcare7030084}}
+
+\bibitem[\citeproctext]{ref-perchaDesigningRobustNof12019}
+\CSLLeftMargin{6. }%
+\CSLRightInline{Percha B, Baskerville EB, Johnson M, Dudley JT, Zimmerman N. Designing robust {N}-of-1 studies for precision medicine: Simulation study and design recommendations. \emph{Journal of Medical Internet Research}. 2019;21(4):e12641. doi:\href{https://doi.org/10.2196/12641}{10.2196/12641}}
+
+\bibitem[\citeproctext]{ref-chenComparisonFourMethods2014}
+\CSLLeftMargin{7. }%
+\CSLRightInline{Chen X, Chen P. A comparison of four methods for the analysis of {N}-of-1 trials. \emph{PLoS ONE}. 2014;9(2):e87752. doi:\href{https://doi.org/10.1371/journal.pone.0087752}{10.1371/journal.pone.0087752}}
+
+\bibitem[\citeproctext]{ref-araujoUnderstandingVariation2016}
+\CSLLeftMargin{8. }%
+\CSLRightInline{Araujo A, Julious S, Senn S. Understanding variation in sets of {N}-of-1 trials. \emph{PLoS ONE}. 2016;11(12):e0167167. doi:\href{https://doi.org/10.1371/journal.pone.0167167}{10.1371/journal.pone.0167167}}
+
+\bibitem[\citeproctext]{ref-sennSampleSizeConsiderations2019}
+\CSLLeftMargin{9. }%
+\CSLRightInline{Senn S. Sample size considerations for n-of-1 trials. \emph{Statistical Methods in Medical Research}. 2019;28(2):372-383. doi:\href{https://doi.org/10.1177/0962280217726801}{10.1177/0962280217726801}}
+
+\bibitem[\citeproctext]{ref-gaertnerCarryover2023}
 \CSLLeftMargin{10. }%
-\CSLRightInline{Wang Y, Schork NJ. Power and {Design Issues} in {Crossover-Based N-Of-1 Clinical Trials} with {Fixed Data Collection Periods}. \emph{Healthcare}. 2019;7(3):84. doi:\href{https://doi.org/10.3390/healthcare7030084}{10.3390/healthcare7030084}}
+\CSLRightInline{Gärtner T, Schneider J, Arnrich B, Konigorski S. Comparison of {B}ayesian networks, {G}-estimation and linear models to estimate causal treatment effects in aggregated {N}-of-1 trials with carry-over effects. \emph{BMC Medical Research Methodology}. 2023;23:191. doi:\href{https://doi.org/10.1186/s12874-023-02012-5}{10.1186/s12874-023-02012-5}}
+
+\bibitem[\citeproctext]{ref-carrozzoTwoArm2025}
+\CSLLeftMargin{11. }%
+\CSLRightInline{Carrozzo AE, Zimmermann G, Bathke AC, Neunhaeuserer D, Niebauer J, Kulnik ST. Two-arm crossover randomized controlled trial versus meta-analysis of {N}-of-1 studies: Comparison of statistical efficiency in determining an intervention effect. \emph{Biometrical Journal}. 2025;67(2):e70045. doi:\href{https://doi.org/10.1002/bimj.70045}{10.1002/bimj.70045}}
+
+\bibitem[\citeproctext]{ref-lin2016}
+\CSLLeftMargin{12. }%
+\CSLRightInline{Lin SX, Morrison L, Smith PWF, Hargood C, Weal M, Yardley L. Properties of bootstrap tests for {N}-of-1 studies. \emph{British Journal of Mathematical and Statistical Psychology}. 2016;69(3):276-290. doi:\href{https://doi.org/10.1111/bmsp.12071}{10.1111/bmsp.12071}}
+
+\bibitem[\citeproctext]{ref-tangTtestsNof1Trials2020}
+\CSLLeftMargin{13. }%
+\CSLRightInline{Tang J, Landes RD. Some t-tests for {N}-of-1 trials with serial correlation. \emph{PLoS ONE}. 2020;15(2):e0228077. doi:\href{https://doi.org/10.1371/journal.pone.0228077}{10.1371/journal.pone.0228077}}
+
+\bibitem[\citeproctext]{ref-shiBehavioralCarryoverEffect2024}
+\CSLLeftMargin{14. }%
+\CSLRightInline{Shi D, Ye T. Behavioral carry-over effect and power consideration in crossover trials. \emph{Biometrics}. 2024;80(2):ujae023. doi:\href{https://doi.org/10.1093/biomtc/ujae023}{10.1093/biomtc/ujae023}}
+
+\bibitem[\citeproctext]{ref-morris2019simulation}
+\CSLLeftMargin{15. }%
+\CSLRightInline{Morris TP, White IR, Crowther MJ. Using simulation studies to evaluate statistical methods. \emph{Statistics in Medicine}. 2019;38(11):2074-2102. doi:\href{https://doi.org/10.1002/sim.8086}{10.1002/sim.8086}}
 
 \bibitem[\citeproctext]{ref-pinheirobates2000}
-\CSLLeftMargin{11. }%
-\CSLRightInline{Pinheiro JC, Bates DM. \emph{Mixed-Effects Models in s and {S-PLUS}}. Springer; 2000. doi:\href{https://doi.org/10.1007/b98882}{10.1007/b98882}}
+\CSLLeftMargin{16. }%
+\CSLRightInline{Pinheiro JC, Bates DM. \emph{Mixed-Effects Models in {S} and {S-PLUS}}. Springer; 2000. doi:\href{https://doi.org/10.1007/b98882}{10.1007/b98882}}
 
 \bibitem[\citeproctext]{ref-verbekemolenberghs2000}
-\CSLLeftMargin{12. }%
+\CSLLeftMargin{17. }%
 \CSLRightInline{Verbeke G, Molenberghs G. \emph{Linear Mixed Models for Longitudinal Data}. Springer; 2000.}
 
+\bibitem[\citeproctext]{ref-zucker2010}
+\CSLLeftMargin{18. }%
+\CSLRightInline{Zucker DR, Ruthazer R, Schmid CH. Individual ({N}-of-1) trials can be combined to give population comparative treatment effect estimates: Methodologic considerations. \emph{Journal of Clinical Epidemiology}. 2010;63(12):1312-1323. doi:\href{https://doi.org/10.1016/j.jclinepi.2010.04.020}{10.1016/j.jclinepi.2010.04.020}}
+
+\bibitem[\citeproctext]{ref-jonesKenward2014}
+\CSLLeftMargin{19. }%
+\CSLRightInline{Jones B, Kenward MG. \emph{Design and Analysis of Cross-over Trials}. 3rd ed. Chapman; Hall/CRC; 2014.}
+
+\bibitem[\citeproctext]{ref-senn2002}
+\CSLLeftMargin{20. }%
+\CSLRightInline{Senn S. \emph{Cross-over Trials in Clinical Research}. 2nd ed. Wiley; 2002.}
+
+\bibitem[\citeproctext]{ref-kenwardRoger1997}
+\CSLLeftMargin{21. }%
+\CSLRightInline{Kenward MG, Roger JH. Small sample inference for fixed effects from restricted maximum likelihood. \emph{Biometrics}. 1997;53(3):983-997.}
+
 \bibitem[\citeproctext]{ref-jiangDesignAnalysis2025}
-\CSLLeftMargin{13. }%
-\CSLRightInline{Jiang S, Arnold SE, Betensky RA. Design and analysis of n-of-1 trials that incorporate sequential monitoring. \emph{Statistics in Medicine}. 2025;44(15-17):e70177. doi:\href{https://doi.org/10.1002/sim.70177}{10.1002/sim.70177}}
+\CSLLeftMargin{22. }%
+\CSLRightInline{Jiang S, Arnold SE, Betensky RA. Design and analysis of {N}-of-1 trials that incorporate sequential monitoring. \emph{Statistics in Medicine}. 2025;44(15--17):e70177. doi:\href{https://doi.org/10.1002/sim.70177}{10.1002/sim.70177}}
 
 \bibitem[\citeproctext]{ref-selukarFrameworkSequential2025}
-\CSLLeftMargin{14. }%
-\CSLRightInline{Selukar S, Prince DK, May S. A framework for sequential monitoring of individual n-of-1 trials and combining results across a series of sequentially monitored n-of-1 trials. \emph{Clinical Trials}. 2025;22(3):257-266. doi:\href{https://doi.org/10.1177/17407745241304284}{10.1177/17407745241304284}}
+\CSLLeftMargin{23. }%
+\CSLRightInline{Selukar S, Prince DK, May S. A framework for sequential monitoring of individual {N}-of-1 trials and combining results across a series of sequentially monitored {N}-of-1 trials. \emph{Clinical Trials}. 2025;22(3):257-266. doi:\href{https://doi.org/10.1177/17407745241304284}{10.1177/17407745241304284}}
 
 \end{CSLReferences}
 

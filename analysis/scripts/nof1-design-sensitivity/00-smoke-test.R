@@ -1,9 +1,9 @@
 #' 00-smoke-test.R
 #'
-#' Single-cell end-to-end check of the pipeline swapped in from
-#' pmsimstats-ng tidyverse (see review-pmsimstats-sync-2026-04-17-post.md
-#' item R3). Runs before any of the sweep scripts. A pass here is
-#' the minimum green light for S1-S12.
+#' Single-cell end-to-end check of the engine and the shared helpers.
+#' Runs before any of the sweep scripts. A pass here is the minimum
+#' green light for S1-S12. It is a structural check, not a test of
+#' the statistical properties (see 14-rct-null-check.R for those).
 #'
 #' On success: prints timing, dimensions of the results tibble, and
 #' a one-line summary of the beta/p from a handful of replicates.
@@ -33,7 +33,7 @@ dat_single <- generate_data(
 stopifnot(is.data.frame(dat_single))
 stopifnot("ptID" %in% names(dat_single))
 stopifnot("bm" %in% names(dat_single))
-stopifnot("V1.br" %in% names(dat_single))
+stopifnot("OL1.br" %in% names(dat_single))
 
 message(sprintf(
   "  dim(dat_single) = %d x %d; elapsed %.2fs",
@@ -41,19 +41,19 @@ message(sprintf(
   as.numeric(difftime(Sys.time(), t0, units = "secs"))
 ))
 
-message("Smoke test: lme_analysis on two-path data...")
-dat <- dplyr::bind_rows(
-  dat_single |> dplyr::mutate(path = 1),
-  generate_data(mp, rp, bp, td$trialpaths[[2]],
+message("Smoke test: lme_analysis on four-path data...")
+dat <- dplyr::bind_rows(lapply(seq_along(td$trialpaths), function(i) {
+  generate_data(mp, rp, bp, td$trialpaths[[i]],
                 empirical = FALSE, make_positive_definite = TRUE,
-                seed = 43, dgp_architecture = "mvn") |>
-    dplyr::mutate(path = 2)
-)
+                seed = 42 + i, dgp_architecture = "mvn") |>
+    dplyr::mutate(path = i)
+}))
 
 out <- lme_analysis(td$trialpaths, dat,
-                    op = list(useDE = TRUE))
+                    op = list(useDE = TRUE, target_coef = "main"))
 stopifnot(is.data.frame(out))
 stopifnot(all(c("beta", "betaSE", "p") %in% names(out)))
+stopifnot(!is.na(out$beta))
 
 message(sprintf(
   "  beta = %.3f; betaSE = %.3f; p = %.4g",
@@ -83,5 +83,9 @@ message(sprintf(
   nrow(res$results),
   as.numeric(difftime(Sys.time(), t0, units = "secs"))
 ))
+
+stopifnot(all(c("fit_formula", "delta_on", "min_eig", "pd_repaired",
+                "analysis_t1half") %in% names(res$results)))
+stopifnot(!any(res$results$pd_repaired))
 
 message("Smoke test PASSED.")

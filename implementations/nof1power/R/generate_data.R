@@ -373,7 +373,15 @@ process_participant_data <- function(participant_data, timepoint_names,
 #'
 #' @param model_param Model-parameter tibble (single row) with
 #'   elements including `N`, `c.bm`, `c.tv`, `c.pb`, `c.br`,
-#'   `c.cf1t`, `c.cfct`, `carryover_t1half`.
+#'   `c.cf1t`, `c.cfct`, `carryover_t1half`. An optional element
+#'   `tau` (default 0) is the standard deviation of a
+#'   participant-level treatment-effect heterogeneity: each
+#'   participant draws `v_i ~ N(0, tau^2)` once, and the drug-response
+#'   component at visit `t` is shifted by `v_i * psi_t`, where
+#'   `psi_t` is the mean drug-response component at that visit
+#'   divided by its ceiling (so `psi_t` is the unit response curve,
+#'   including carryover). The mean effect is unchanged. With
+#'   `tau = 0` no random number is drawn.
 #' @param resp_param Response-parameter tibble with columns `cat`
 #'   (in `{"tv","pb","br"}`), `max`, `disp`, `rate`, `sd`.
 #' @param baseline_param Baseline-parameter tibble with columns `cat`
@@ -468,6 +476,21 @@ generate_data <- function(
   participant_data <- tibble::as_tibble(participant_matrix,
                                        .name_repair = "minimal")
   colnames(participant_data) <- labels
+
+  tau <- model_param$tau
+  if (!is.null(tau) && !is.na(tau) && tau > 0) {
+    m_br <- resp_param$max[resp_param$cat == "br"]
+    if (m_br > 0) {
+      v_i <- stats::rnorm(n, 0, tau)
+      br_means <- utils::tail(means, nrow(trial_design))
+      for (tp in seq_len(nrow(trial_design))) {
+        br_col <- paste(trial_design$timepoint_name[tp],
+                        "br", sep = ".")
+        participant_data[[br_col]] <- participant_data[[br_col]] +
+          v_i * br_means[tp] / m_br
+      }
+    }
+  }
 
   if (dgp_architecture == "mean_moderation") {
     beta_bm <- model_param$c.bm

@@ -1,10 +1,16 @@
 #' run-all.R
 #'
-#' Orchestrator for the sensitivity plan
-#' (docs/sensitivity-sweep-plan-2026-04-17.md).
+#' Orchestrator for the sensitivity sweeps (protocol:
+#' 00-ademp-protocol.md).
 #'
-#' Execution order matches plan Section 5: smoke test first, then
-#' S1, S12, S2, S6, S7, S4, S5, S8, S9, S3, S10, S11.
+#' Run from the repository root with the corrected engine installed
+#' (devtools::install_local('implementations/nof1power')). Execution
+#' order: smoke test, the parallel-group check (14), the feasibility
+#' table (17, no simulation), then S1, S12,
+#' S12b (15), S2, S6, S7, S4, S5, S8, S9, S3, S10, S11, and last the
+#' table of cell summaries (16). The commands, the expected host time
+#' and the check list are in analysis/report/05-nof1-design-
+#' sensitivity/README.md.
 #'
 #' Each sweep is sourced in its own R environment (via local()) so
 #' that state does not leak between sweeps. Elapsed time is printed
@@ -14,8 +20,11 @@ script_dir <- file.path("analysis", "scripts", "nof1-design-sensitivity")
 
 order <- c(
   "00-smoke-test.R",
+  "14-rct-null-check.R",
+  "17-feasibility.R",
   "01-effect-size.R",
   "12-morris-null.R",
+  "15-xo-corcar1.R",
   "02-carryover-halflife.R",
   "06-cycles.R",
   "07-patients.R",
@@ -25,7 +34,8 @@ order <- c(
   "09-period.R",
   "03-decay-form.R",
   "10-biomarker.R",
-  "11-misspec.R"
+  "11-misspec.R",
+  "16-summarize-all.R"
 )
 
 total_start <- Sys.time()

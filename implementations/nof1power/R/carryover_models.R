@@ -3,7 +3,8 @@
 #' Returns the fraction of residual drug effect present at
 #' time-since-discontinuation `tsd` for a carryover with given
 #' `halflife` and functional form. The multiplier equals 1 at
-#' `tsd = 0` and 0.5 at `tsd = halflife` for all supported forms.
+#' `tsd = 0` and 0.5 at `tsd = halflife` for the exponential, linear
+#' and Weibull forms (see Details for the power form).
 #'
 #' @param tsd Time since drug discontinuation (same time units as
 #'   `halflife`). May be a vector.
@@ -24,8 +25,13 @@
 #' - Linear: `phi(t) = max(0, 1 - t / (2 * halflife))`.
 #' - Weibull: `phi(t) = exp(-(lambda_w t)^k)` with
 #'   `lambda_w = (ln 2)^{1/k} / halflife`.
-#' - Power: `phi(t) = max(0, (1 - t / max_time)^power)` with
+#' - Power: `phi(t) = max(0, 1 - t / max_time)^power` with
 #'   `max_time = 3 * halflife`; supplied as a nof1_power extension.
+#'   The base is truncated at zero before the exponent is applied,
+#'   so a non-integer `power` returns 0, not `NaN`, for
+#'   `t > max_time`. The multiplier equals 0.5 at `t = halflife`
+#'   only for `power = log(0.5) / log(2/3)`; other powers give a
+#'   different value at the nominal half-life.
 #'
 #' @examples
 #' carryover_decay(c(0, 0.5, 1, 2), halflife = 1)
@@ -56,7 +62,7 @@ carryover_decay <- function(tsd, halflife,
         stop("Power exponent must be a positive number.")
       }
       max_time <- 3 * halflife
-      pmax(0, (1 - tsd / max_time)^power)
+      pmax(0, 1 - tsd / max_time)^power
     }
   )
 }

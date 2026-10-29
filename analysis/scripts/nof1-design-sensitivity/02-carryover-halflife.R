@@ -1,56 +1,53 @@
-#' S2. Carryover half-life sweep.
+#' S2. Carryover half-life sweep, crossed with the analysis half-life.
 #'
-#' Precedent: Blackston 2019; Hendrickson 2020.
-#' Varies carryover half-life across nine values including
-#' beyond-period half-lives (10 and 14 days; 8-week periods are 1
-#' week each). Four designs are compared.
+#' Varies the data-generating half-life over nine values from 0 to 14
+#' days. Each design is analyzed twice: with the binary on/off
+#' indicator (analysis half-life 0) and with the decaying indicator
+#' at the policy value of 0.2 week. The drug-response ceiling is set
+#' per design to the common `delta_on`.
 
 source(here::here(
-  "analysis", "scripts", "nof1-design-sensitivity", "00-common.R"
+  'analysis', 'scripts', 'nof1-design-sensitivity', '00-common.R'
 ))
-
-set.seed(42 + 2)
 
 SWEEP_ID <- 2L
-SWEEP_NAME <- "carryover-halflife"
+SWEEP_NAME <- 'carryover-halflife'
+N_REPS <- sens_reps(500L)
+set.seed(42 + SWEEP_ID)
 
-halflife_grid_days <- c(0, 0.5, 1, 2, 3, 5, 7, 10, 14)
-halflife_grid_weeks <- halflife_grid_days / 7
+halflife_days <- c(0, 0.5, 1, 2, 3, 5, 7, 10, 14)
+analysis_t1half <- c(0, 0.2)
 
 designs <- list(
-  design_rct(),
-  design_crossover(),
-  design_nof1_alternating(),
-  design_hybrid()
+  design_rct(), design_crossover(),
+  design_nof1_alternating(), design_hybrid()
 )
-
-rp <- baseline_resp_param()
-bp <- baseline_bl_param()
+design_names <- c('RCT', 'XO', 'Alt', 'Hybrid')
 
 model_params <- do.call(rbind, lapply(
-  halflife_grid_weeks,
-  function(h) baseline_model_param(carryover_t1half = h)
+  halflife_days / 7,
+  function(h) baseline_model_param(N = BASE_N, carryover_t1half = h)
 ))
 
-message("S2: running ", nrow(model_params) * length(designs),
-        " cells across 4 designs...")
+message('S2: ', nrow(model_params) * length(designs), ' cells')
 
-res <- generate_simulated_results(
-  trialdesigns = designs,
-  respparamsets = wrap_param_set(rp, "resp_default"),
-  blparamsets = wrap_param_set(bp, "bl_default"),
-  censorparams = NA,
+res <- sweep_call(
+  designs, design_names,
+  respparamsets = list(resp_set()),
+  blparamsets = wrap_param_set(baseline_bl_param(), 'bl_default'),
   modelparams = model_params,
-  simparam = default_simparam(n_reps = 500),
-  analysisparams = default_analysisparams(),
-  rawdataout = FALSE,
-  dgp_architecture = "mvn",
-  n_cores = max(1, parallel::detectCores() - 1)
+  n_reps = N_REPS,
+  analysisparams = default_analysisparams(
+    analysis_t1half = analysis_t1half)
 )
 
-res$results$halflife_days <-
-  halflife_grid_days[res$results$modelparamset]
-res$results$design_name <-
-  c("RCT", "XO", "Nof1-alt", "Hybrid")[res$results$trialdesign]
+res$results$halflife_days <- round(res$results$carryover_t1half * 7, 6)
 
-save_sweep(res, SWEEP_ID, SWEEP_NAME)
+checks <- function(res) {
+  assert_stored_grid(res$results, 'carryover_t1half', halflife_days / 7)
+  assert_stored_grid(res$results, 'analysis_t1half', analysis_t1half)
+  assert_cell_count(res, nrow(model_params) * length(designs))
+}
+
+save_sweep(res, SWEEP_ID, SWEEP_NAME, n_reps = N_REPS,
+           checks = checks)

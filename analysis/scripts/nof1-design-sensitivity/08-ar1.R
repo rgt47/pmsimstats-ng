@@ -1,57 +1,50 @@
-#' S8. AR(1) serial-correlation sweep (with/without corCAR1).
+#' S8. AR(1) serial-correlation sweep.
 #'
-#' Precedent: Wang-Schork 2019.
-#' Varies the within-factor AR(1) correlations rho = c.tv = c.pb =
-#' c.br. Crossed with the analysis-model switch: fit with vs
-#' without corCAR1(form = ~t | ptID). Quantifies the cost of
-#' ignoring serial correlation.
-#'
-#' Note: in the current lme_analysis implementation, corCAR1 is
-#' enabled by default. Fitting without corCAR1 requires a small
-#' analysis-level hook that is not yet exposed. This script runs
-#' the DGP side of the sweep and leaves analysis toggling for
-#' a follow-up once the `op$use_corCAR1` option is added.
+#' Varies rho = c.tv = c.pb = c.br. The analysis always fits
+#' corCAR1 (no with-versus-without comparison; see the Limitations).
+#' Cells whose covariance matrix is not positive definite are
+#' dropped, never repaired, and listed in the `infeasible` element
+#' of the artifact with the smallest eigenvalue. The drug-response
+#' ceiling is set per design to the common `delta_on`.
 
 source(here::here(
-  "analysis", "scripts", "nof1-design-sensitivity", "00-common.R"
+  'analysis', 'scripts', 'nof1-design-sensitivity', '00-common.R'
 ))
 
-set.seed(42 + 8)
-
 SWEEP_ID <- 8L
-SWEEP_NAME <- "ar1"
+SWEEP_NAME <- 'ar1'
+N_REPS <- sens_reps(500L)
+set.seed(42 + SWEEP_ID)
 
 rho_grid <- c(0, 0.3, 0.5, 0.7, 0.9)
 
-designs <- list(design_nof1(), design_rct())
-rp <- baseline_resp_param()
-bp <- baseline_bl_param()
+designs <- list(design_hybrid(), design_nof1_alternating(), design_rct())
+design_names <- c('Hybrid', 'Alt', 'RCT')
 
 model_params <- do.call(rbind, lapply(rho_grid, function(rho) {
-  mp <- baseline_model_param()
-  mp$c.tv <- rho
-  mp$c.pb <- rho
-  mp$c.br <- rho
-  mp
+  baseline_model_param(N = BASE_N, c.tv = rho, c.pb = rho, c.br = rho)
 }))
 
-message("S8: running ", nrow(model_params) * length(designs),
-        " AR(1) cells...")
+message('S8: ', nrow(model_params) * length(designs), ' cells')
 
-res <- generate_simulated_results(
-  trialdesigns = designs,
-  respparamsets = wrap_param_set(rp, "resp_default"),
-  blparamsets = wrap_param_set(bp, "bl_default"),
-  censorparams = NA,
+res <- sweep_call(
+  designs, design_names,
+  respparamsets = list(resp_set()),
+  blparamsets = wrap_param_set(baseline_bl_param(), 'bl_default'),
   modelparams = model_params,
-  simparam = default_simparam(n_reps = 500),
-  analysisparams = default_analysisparams(),
-  rawdataout = FALSE,
-  dgp_architecture = "mvn",
-  n_cores = max(1, parallel::detectCores() - 1)
+  n_reps = N_REPS
 )
 
-res$results$rho <- rho_grid[res$results$modelparamset]
-res$results$design_name <- c("Nof1", "RCT")[res$results$trialdesign]
+res$results$rho <- res$results$c.br
 
-save_sweep(res, SWEEP_ID, SWEEP_NAME)
+checks <- function(res) {
+  run_rho <- unique(res$results$c.br)
+  drop_rho <- rho_grid[res$infeasible$modelparamset]
+  assert_stored_grid(data.frame(rho = c(run_rho, drop_rho)), 'rho',
+                     rho_grid)
+  assert_cell_count(res, nrow(model_params) * length(designs))
+  stopifnot(!any(res$results$pd_repaired))
+}
+
+save_sweep(res, SWEEP_ID, SWEEP_NAME, n_reps = N_REPS,
+           checks = checks)

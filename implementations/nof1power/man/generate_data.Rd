@@ -23,7 +23,15 @@ generate_data(
 \arguments{
 \item{model_param}{Model-parameter tibble (single row) with
 elements including \code{N}, \code{c.bm}, \code{c.tv}, \code{c.pb}, \code{c.br},
-\code{c.cf1t}, \code{c.cfct}, \code{carryover_t1half}.}
+\code{c.cf1t}, \code{c.cfct}, \code{carryover_t1half}. An optional element
+\code{tau} (default 0) is the standard deviation of a
+participant-level treatment-effect heterogeneity: each
+participant draws \code{v_i ~ N(0, tau^2)} once, and the drug-response
+component at visit \code{t} is shifted by \code{v_i * psi_t}, where
+\code{psi_t} is the mean drug-response component at that visit
+divided by its ceiling (so \code{psi_t} is the unit response curve,
+including carryover). The mean effect is unchanged. With
+\code{tau = 0} no random number is drawn.}
 
 \item{resp_param}{Response-parameter tibble with columns \code{cat}
 (in \verb{\{"tv","pb","br"\}}), \code{max}, \code{disp}, \code{rate}, \code{sd}.}

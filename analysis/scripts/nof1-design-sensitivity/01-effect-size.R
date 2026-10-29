@@ -1,57 +1,45 @@
-#' S1. Effect-size sweep.
+#' S1. Effect-size sweep on the common estimand.
 #'
-#' Precedent: Blackston et al. 2019 (DOI 10.3390/healthcare7040137);
-#' replicated in the current prazosin-for-PTSD report at a single
-#' effect size.
-#'
-#' Varies the true effect size Delta over a seven-point grid while
-#' holding carryover, variance components, and design geometry fixed
-#' at the baseline. Two designs are compared: aggregated N-of-1 and
-#' parallel RCT at matched observation totals.
+#' Varies the mean drug response on drug (`delta_on`, outcome units)
+#' over a seven-point grid. The drug-response ceiling is set per
+#' design so that every design has the same `delta_on`; the grid is
+#' therefore a grid of one estimand, not of design-specific ceilings.
+#' The null cell (delta_on = 0) gives Type I error, bias and
+#' calibration for every design. RCT-OL is the parallel group with
+#' open-label expectancy (the assumption of the 2026-05 runs).
 
 source(here::here(
-  "analysis", "scripts", "nof1-design-sensitivity", "00-common.R"
+  'analysis', 'scripts', 'nof1-design-sensitivity', '00-common.R'
 ))
 
-set.seed(42 + 1)
-
 SWEEP_ID <- 1L
-SWEEP_NAME <- "effect-size"
+SWEEP_NAME <- 'effect-size'
+N_REPS <- sens_reps(1000L)
+set.seed(42 + SWEEP_ID)
 
-delta_grid <- c(-3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0)
+delta_grid <- c(0, -0.25, -0.5, -0.75, -1, -1.5, -2)
+designs <- list(
+  design_hybrid(), design_compact2(), design_nof1_alternating(),
+  design_crossover(), design_rct(), design_rct_openlabel()
+)
+design_names <- c('Hybrid', 'Compact2', 'Alt', 'XO', 'RCT', 'RCT-OL')
 
-td_nof1 <- design_nof1()
-td_rct <- design_rct()
-rp <- baseline_resp_param()
-bp <- baseline_bl_param()
+message('S1: ', length(delta_grid) * length(designs), ' cells')
 
-model_params <- baseline_model_param(
-  N = 40, c.bm = 0.3, carryover_t1half = 3 / 7
+res <- sweep_call(
+  designs, design_names,
+  respparamsets = lapply(delta_grid, function(d) resp_set(
+    target_delta = d)),
+  blparamsets = wrap_param_set(baseline_bl_param(), 'bl_default'),
+  modelparams = baseline_model_param(N = BASE_N),
+  n_reps = N_REPS
 )
 
-rp_by_delta <- lapply(delta_grid, function(d) {
-  rp_d <- rp
-  rp_d$max[rp_d$cat == "br"] <- abs(d)
-  list(name = sprintf("delta=%s", d), param = rp_d)
-})
+checks <- function(res) {
+  assert_stored_grid(res$results, 'delta_on', delta_grid)
+  assert_stored_grid(res$results, 'N', BASE_N)
+  assert_cell_count(res, length(delta_grid) * length(designs))
+}
 
-message("S1: running ", length(rp_by_delta) * 2,
-        " effect-size cells across 2 designs...")
-
-res <- generate_simulated_results(
-  trialdesigns = list(td_nof1, td_rct),
-  respparamsets = rp_by_delta,
-  blparamsets = wrap_param_set(bp, "bl_default"),
-  censorparams = NA,
-  modelparams = model_params,
-  simparam = default_simparam(n_reps = 1000),
-  analysisparams = default_analysisparams(),
-  rawdataout = FALSE,
-  dgp_architecture = "mvn",
-  n_cores = max(1, parallel::detectCores() - 1)
-)
-
-res$results$delta <- delta_grid[res$results$respparamset]
-res$results$design_name <- c("Nof1", "RCT")[res$results$trialdesign]
-
-save_sweep(res, SWEEP_ID, SWEEP_NAME)
+save_sweep(res, SWEEP_ID, SWEEP_NAME, n_reps = N_REPS,
+           checks = checks)

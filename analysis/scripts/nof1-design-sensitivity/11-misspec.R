@@ -1,81 +1,69 @@
-#' S11. Carryover and AR(1) misspecification factorial.
+#' S11. Misspecification factorial: data-generating carryover and
+#' AR(1), crossed with the analysis half-life.
 #'
-#' Precedent: Gaertner 2023; Blackston 2019 Section 7.3.
-#' Factorial across DGP carryover on/off and DGP AR(1) high/off,
-#' with analysis model always fitting corCAR1 and never-carryover
-#' Dbc. Quantifies the Type I error inflation reported in
-#' Blackston 2019 when moderate-to-strong carryover is ignored.
+#' DGP carryover (off, 3 days) by DGP AR(1) (off, rho = 0.7), at the
+#' null and at the common baseline effect, for three designs. Each
+#' dataset is analyzed with the analysis half-life 0 (binary
+#' indicator), 0.2 week (policy value) and 3/7 week (the
+#' data-generating half-life of the carryover cells).
 
 source(here::here(
-  "analysis", "scripts", "nof1-design-sensitivity", "00-common.R"
+  'analysis', 'scripts', 'nof1-design-sensitivity', '00-common.R'
 ))
 
-set.seed(42 + 11)
-
 SWEEP_ID <- 11L
-SWEEP_NAME <- "misspec"
+SWEEP_NAME <- 'misspec'
+N_REPS <- sens_reps(500L)
+set.seed(42 + SWEEP_ID)
 
 grid <- expand.grid(
-  carryover = c("off", "on"),
-  ar1 = c("off", "high"),
+  carryover = c('off', 'on'),
+  ar1 = c('off', 'high'),
   stringsAsFactors = FALSE
 )
+analysis_t1half <- c(0, 0.2, 3 / 7)
 
-designs <- list(design_nof1(), design_rct())
-rp <- baseline_resp_param()
-bp <- baseline_bl_param()
+designs <- list(design_hybrid(), design_nof1_alternating(), design_rct())
+design_names <- c('Hybrid', 'Alt', 'RCT')
 
-build_model_params <- function() {
-  do.call(rbind, lapply(seq_len(nrow(grid)), function(i) {
-    t_half <- if (grid$carryover[i] == "on") 3 / 7 else 0
-    rho <- if (grid$ar1[i] == "high") 0.7 else 0
-    mp <- baseline_model_param(carryover_t1half = t_half)
-    mp$c.tv <- rho
-    mp$c.pb <- rho
-    mp$c.br <- rho
-    mp
-  }))
-}
-
-message("S11: running ", nrow(grid) * length(designs),
-        " misspecification cells (null + non-null)...")
-
-results_all <- list()
-
-for (delta_label in c("null", "alt")) {
-  rp_label <- rp
-  if (delta_label == "null") {
-    rp_label$max[rp_label$cat == "br"] <- 0
-  }
-  model_params <- build_model_params()
-
-  res <- generate_simulated_results(
-    trialdesigns = designs,
-    respparamsets = wrap_param_set(
-      rp_label, sprintf("resp_%s", delta_label)
-    ),
-    blparamsets = wrap_param_set(bp, "bl_default"),
-    censorparams = NA,
-    modelparams = model_params,
-    simparam = default_simparam(n_reps = 500),
-    analysisparams = default_analysisparams(),
-    rawdataout = FALSE,
-    dgp_architecture = "mvn",
-    n_cores = max(1, parallel::detectCores() - 1)
+model_params <- do.call(rbind, lapply(seq_len(nrow(grid)), function(i) {
+  t_half <- if (grid$carryover[i] == 'on') 3 / 7 else 0
+  rho <- if (grid$ar1[i] == 'high') 0.7 else 0
+  baseline_model_param(
+    N = BASE_N, carryover_t1half = t_half,
+    c.tv = rho, c.pb = rho, c.br = rho
   )
+}))
 
-  res$results$delta_label <- delta_label
-  res$results$carryover <- grid$carryover[res$results$modelparamset]
-  res$results$ar1 <- grid$ar1[res$results$modelparamset]
-  res$results$design_name <- c("Nof1", "RCT")[res$results$trialdesign]
+message('S11: ', nrow(grid) * length(designs) * 2, ' cells')
 
-  results_all[[delta_label]] <- res$results
+parts <- lapply(c(null = 0, alt = BASE_DELTA), function(delta) {
+  sweep_call(
+    designs, design_names,
+    respparamsets = list(resp_set(target_delta = delta)),
+    blparamsets = wrap_param_set(baseline_bl_param(), 'bl_default'),
+    modelparams = model_params,
+    n_reps = N_REPS,
+    analysisparams = default_analysisparams(
+      analysis_t1half = analysis_t1half)
+  )
+})
+res <- combine_sweeps(parts, tag = 'delta_label')
+
+res$results$carryover <- grid$carryover[res$results$modelparamset]
+res$results$ar1 <- grid$ar1[res$results$modelparamset]
+
+checks <- function(res) {
+  assert_stored_grid(res$results, 'carryover_t1half', c(0, 3 / 7))
+  assert_stored_grid(res$results, 'c.br', c(0, 0.7))
+  assert_stored_grid(res$results, 'analysis_t1half', analysis_t1half)
+  assert_stored_grid(res$results, 'delta_on', c(0, BASE_DELTA))
+  stopifnot(!any(res$results$pd_repaired))
+  n_run <- nrow(dplyr::distinct(
+    res$results, delta_label, trialdesign, modelparamset))
+  stopifnot(n_run + nrow(res$infeasible) ==
+              nrow(grid) * length(designs) * 2)
 }
 
-combined <- do.call(rbind, results_all)
-
-save_sweep(
-  list(results = combined,
-       parameterselections = list(grid = grid)),
-  SWEEP_ID, SWEEP_NAME
-)
+save_sweep(res, SWEEP_ID, SWEEP_NAME, n_reps = N_REPS,
+           checks = checks)

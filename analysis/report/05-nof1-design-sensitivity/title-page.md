@@ -7,7 +7,7 @@ fontsize: 11pt
 geometry: "left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm"
 ---
 
-# Power Sensitivity of a Hybrid N-of-1 Design Under Carryover, Serial Correlation, and Variance-Component Variation
+# Power of the Hybrid N-of-1 design under carryover, serial correlation and variance components
 
 **Authors.** Temperance Persons, on behalf of the pmsimstats team.
 
@@ -32,20 +32,18 @@ recorded prior to submission.
 
 \bigskip
 
-**Keywords.** N-of-1 trials; Hendrickson hybrid design; statistical
-power; carryover effects; AR(1) serial correlation; variance
-components; sensitivity analysis; clinical trial simulation;
-ADEMP.
+**Keywords.** N-of-1 trials; Hybrid design; statistical power;
+carryover; AR(1) serial correlation; variance components;
+sensitivity analysis; clinical trial simulation.
 
 \bigskip
 
-**Word count.** 8,471 (as of 2026-05-08; PDF total including
-references and reproducibility appendix). Manuscript body
-estimated 6,800-7,200 words. Within SIM's encouraged range.
+**Word count.** To be recorded after the corrected sweeps have been
+rerun and the Results text has been generated.
 
 \bigskip
 
-**Running title.** Hybrid N-of-1 design sensitivity.
+**Running title.** Hybrid N-of-1 design power.
 
 \bigskip
 
@@ -57,12 +55,11 @@ estimated 6,800-7,200 words. Within SIM's encouraged range.
 
 \bigskip
 
-**Data availability statement.** Per-replicate Monte Carlo outputs
-across 12 sensitivity sweeps, ADEMP cell-level summaries, the
-working ADEMP protocol, and driver scripts are openly available
-in the pmsimstats-ng project repository at https://github.com/[organisation]/pmsimstats-ng (public-release organisation pending).
-Specific paths are documented in the Reproducibility section of
-the manuscript.
+**Data availability statement.** Per-replicate Monte Carlo outputs,
+cell-level summaries, the working protocol and the driver scripts are
+in the pmsimstats-ng project repository. A public repository address
+has not been assigned and will be added at submission. Paths are
+given in the Reproducibility section of the manuscript.
 
 \bigskip
 
@@ -70,4 +67,4 @@ the manuscript.
 
 \bigskip
 
-**Acknowledgements.** Acknowledgements are deferred; collaborators with substantive contributions will be named in the final submission version.
+**Acknowledgments.** Acknowledgments are deferred; collaborators with substantive contributions will be named in the final submission version.

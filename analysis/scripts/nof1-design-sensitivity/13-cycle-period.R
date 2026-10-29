@@ -126,6 +126,7 @@ rp <- baseline_resp_param()
 bp <- baseline_bl_param()
 
 results_per_arch <- list()
+infeasible_per_arch <- list()
 for (arch in arch_levels) {
   message(sprintf("S13 arch=%s: running %d designs x %d mp rows = %d cells, %d reps each",
     arch, length(designs), nrow(mp),
@@ -140,10 +141,12 @@ for (arch in arch_levels) {
     simparam       = default_simparam(n_reps = n_reps,
                                        basesavename = sprintf(
                                          "s13-%s", arch)),
-    analysisparams = default_analysisparams(target_coef = "interaction"),
+    analysisparams = default_analysisparams(
+      target_coef = "interaction", analysis_t1half = 0),
     rawdataout     = FALSE,
     dgp_architecture = arch,
-    n_cores        = max(1, parallel::detectCores() - 1)
+    n_cores        = max(1, parallel::detectCores() - 1),
+    skip_infeasible = TRUE
   )
 
   ## Annotate results with the cycle-design axes and mp axes.
@@ -159,9 +162,20 @@ for (arch in arch_levels) {
     )
 
   results_per_arch[[arch]] <- res_arch$results
+  infeasible_per_arch[[arch]] <- res_arch$infeasible
 }
 
 results_combined <- dplyr::bind_rows(results_per_arch)
+
+grid_ok <- setequal(round(unique(results_combined$carryover_t1half), 8),
+                    round(t_half_levels, 8)) &&
+  setequal(round(unique(results_combined$c.bm), 8),
+           round(c_bm_levels, 8)) &&
+  setequal(unique(results_combined$arch), arch_levels)
+if (!grid_ok) {
+  warning("Stored parameter values differ from the S13 grid; ",
+          "infeasible cells were dropped (see $infeasible).")
+}
 
 #=====================================================================
 # Save
@@ -169,6 +183,7 @@ results_combined <- dplyr::bind_rows(results_per_arch)
 
 out <- list(
   results = results_combined,
+  infeasible = dplyr::bind_rows(infeasible_per_arch, .id = "arch"),
   design_grid = design_grid,
   mp_grid = mp_grid,
   meta = list(

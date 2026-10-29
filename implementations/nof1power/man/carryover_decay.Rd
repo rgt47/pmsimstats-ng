@@ -36,7 +36,8 @@ in \verb{[0, 1]}.
 Returns the fraction of residual drug effect present at
 time-since-discontinuation \code{tsd} for a carryover with given
 \code{halflife} and functional form. The multiplier equals 1 at
-\code{tsd = 0} and 0.5 at \code{tsd = halflife} for all supported forms.
+\code{tsd = 0} and 0.5 at \code{tsd = halflife} for the exponential, linear
+and Weibull forms (see Details for the power form).
 }
 \details{
 \itemize{
@@ -45,8 +46,13 @@ time-since-discontinuation \code{tsd} for a carryover with given
 \item Linear: \code{phi(t) = max(0, 1 - t / (2 * halflife))}.
 \item Weibull: \verb{phi(t) = exp(-(lambda_w t)^k)} with
 \verb{lambda_w = (ln 2)^\{1/k\} / halflife}.
-\item Power: \code{phi(t) = max(0, (1 - t / max_time)^power)} with
+\item Power: \code{phi(t) = max(0, 1 - t / max_time)^power} with
 \code{max_time = 3 * halflife}; supplied as a nof1_power extension.
+The base is truncated at zero before the exponent is applied,
+so a non-integer \code{power} returns 0, not \code{NaN}, for
+\code{t > max_time}. The multiplier equals 0.5 at \code{t = halflife}
+only for \code{power = log(0.5) / log(2/3)}; other powers give a
+different value at the nominal half-life.
 }
 }
 \examples{

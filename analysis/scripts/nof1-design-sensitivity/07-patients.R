@@ -1,46 +1,42 @@
-#' S7. Patient-count (n) sweep.
+#' S7. Total participant count.
 #'
-#' Precedent: Senn 2018; Blackston 2019.
-#' Varies N-of-1 patient count and RCT participant count
-#' concurrently so that the total number of observations per cell
-#' is matched between designs.
+#' Varies N over six values. The drug-response ceiling is set per
+#' design to the common `delta_on`.
 
 source(here::here(
-  "analysis", "scripts", "nof1-design-sensitivity", "00-common.R"
+  'analysis', 'scripts', 'nof1-design-sensitivity', '00-common.R'
 ))
 
-set.seed(42 + 7)
-
 SWEEP_ID <- 7L
-SWEEP_NAME <- "patients"
+SWEEP_NAME <- 'patients'
+N_REPS <- sens_reps(500L)
+set.seed(42 + SWEEP_ID)
 
 N_grid <- c(16, 24, 35, 60, 80, 120)
 
-td_nof1 <- design_nof1()
-td_rct <- design_rct()
-rp <- baseline_resp_param()
-bp <- baseline_bl_param()
+designs <- list(design_hybrid(), design_nof1_alternating(), design_rct())
+design_names <- c('Hybrid', 'Alt', 'RCT')
 
-model_params <- do.call(rbind, lapply(N_grid, function(N) {
-  baseline_model_param(N = N)
+model_params <- do.call(rbind, lapply(N_grid, function(n) {
+  baseline_model_param(N = n)
 }))
 
-message("S7: running ", nrow(model_params) * 2, " cells...")
+message('S7: ', nrow(model_params) * length(designs), ' cells')
 
-res <- generate_simulated_results(
-  trialdesigns = list(td_nof1, td_rct),
-  respparamsets = wrap_param_set(rp, "resp_default"),
-  blparamsets = wrap_param_set(bp, "bl_default"),
-  censorparams = NA,
+res <- sweep_call(
+  designs, design_names,
+  respparamsets = list(resp_set()),
+  blparamsets = wrap_param_set(baseline_bl_param(), 'bl_default'),
   modelparams = model_params,
-  simparam = default_simparam(n_reps = 500),
-  analysisparams = default_analysisparams(),
-  rawdataout = FALSE,
-  dgp_architecture = "mvn",
-  n_cores = max(1, parallel::detectCores() - 1)
+  n_reps = N_REPS
 )
 
 res$results$n_total <- res$results$N
-res$results$design_name <- c("Nof1", "RCT")[res$results$trialdesign]
 
-save_sweep(res, SWEEP_ID, SWEEP_NAME)
+checks <- function(res) {
+  assert_stored_grid(res$results, 'N', N_grid)
+  assert_cell_count(res, nrow(model_params) * length(designs))
+}
+
+save_sweep(res, SWEEP_ID, SWEEP_NAME, n_reps = N_REPS,
+           checks = checks)

@@ -1,9 +1,9 @@
 #' 00-common.R
 #'
-#' Shared fixtures and helpers for the sensitivity sweeps described
-#' in docs/sensitivity-sweep-plan-2026-04-17.md. Sourced by each of
-#' the 01-effect-size.R through 12-morris-null.R scripts and by
-#' run-all.R.
+#' Shared helpers for the sensitivity sweeps (protocol:
+#' 00-ademp-protocol.md). Sourced by each of the 01-effect-size.R
+#' through 12-morris-null.R scripts and by run-all.R. Designs and
+#' baseline parameters are in 00-designs.R.
 #'
 #' All baseline parameters are calibrated to the prazosin-for-PTSD
 #' context that motivates the primary simulation; parameter sweeps
@@ -16,20 +16,40 @@
 #'   - Every script sets its own RNG seed via `set.seed(42 + id)`.
 
 suppressPackageStartupMessages({
-  library(nof1power)
   library(tibble)
   library(dplyr)
 })
+
+#' Engine: the installed nof1power must contain the 0.1.0 changes
+#' (feasibility skipping, ANCOVA arm contrast, fitted-formula column).
+#' Set NOF1POWER_DEV=1 to load the working tree instead.
+if (nzchar(Sys.getenv('NOF1POWER_DEV'))) {
+  pkgload::load_all(
+    here::here('implementations', 'nof1power'),
+    quiet = TRUE
+  )
+} else {
+  library(nof1power)
+  if (utils::packageVersion('nof1power') < '0.1.0') {
+    stop('nof1power >= 0.1.0 is required. Run ',
+         'devtools::install_local(\'implementations/nof1power\').')
+  }
+}
+
+source(here::here(
+  'analysis', 'scripts', 'nof1-design-sensitivity', '00-designs.R'
+))
 
 #=====================================================================
 # Paths
 #=====================================================================
 
-SENS_DATA_DIR <- file.path(
-  "analysis", "data", "derived_data", "sensitivity"
+SENS_DATA_DIR <- Sys.getenv(
+  'SENS_OUT_DIR',
+  file.path('analysis', 'data', 'derived_data', 'sensitivity')
 )
 SENS_FIG_DIR <- file.path(
-  "analysis", "figures", "sensitivity"
+  'analysis', 'figures', 'sensitivity'
 )
 if (!dir.exists(SENS_DATA_DIR)) {
   dir.create(SENS_DATA_DIR, recursive = TRUE)
@@ -38,135 +58,12 @@ if (!dir.exists(SENS_FIG_DIR)) {
   dir.create(SENS_FIG_DIR, recursive = TRUE)
 }
 
-#=====================================================================
-# Baseline parameters (prazosin-for-PTSD calibration)
-#=====================================================================
-
-#' Baseline response-parameter tibble
-#'
-#' Three latent factors (time-variant, pharm-biomarker, bio-response)
-#' parameterized with modified-Gompertz trajectories plus an
-#' independent Normal error SD.
-baseline_resp_param <- function() {
-  tibble(
-    cat = c("tv", "pb", "br"),
-    max = c(0.5, 1.0, 2.0),
-    disp = c(1.0, 1.0, 1.0),
-    rate = c(0.3, 0.3, 0.3),
-    sd = c(0.5, 0.5, 1.0)
-  )
-}
-
-#' Baseline baseline-parameter tibble
-#'
-#' Biomarker and baseline-symptom means and SDs.
-baseline_bl_param <- function() {
-  tibble(
-    cat = c("bm", "BL"),
-    m = c(120, 8.0),
-    sd = c(15, 1.5)
-  )
-}
-
-#' Baseline model-parameter data.frame (single-row)
-#'
-#' Correlation coefficients follow pmsimstats short-form:
-#'   c.tv, c.pb, c.br: within-factor AR(1) over timepoints.
-#'   c.cf1t: cross-factor correlation at matched timepoints.
-#'   c.cfct: cross-factor correlation at lagged timepoints.
-#'   c.bm: biomarker-bio-response correlation (Architecture B)
-#'         or regression coefficient (Architecture A).
-#'   carryover_t1half: carryover half-life in the same time units
-#'         as the trial design (weeks in the prazosin baseline).
-baseline_model_param <- function(N = 35, c.bm = 0.3,
-                                  carryover_t1half = 3 / 7,
-                                  c.tv = 0.3, c.pb = 0.3,
-                                  c.br = 0.3,
-                                  c.cf1t = 0.1, c.cfct = 0.05,
-                                  carryover_form = "exponential",
-                                  weibull_shape = 1) {
-  data.frame(
-    N = N, c.bm = c.bm,
-    carryover_t1half = carryover_t1half,
-    c.tv = c.tv, c.pb = c.pb, c.br = c.br,
-    c.cf1t = c.cf1t, c.cfct = c.cfct,
-    carryover_form = carryover_form,
-    weibull_shape = weibull_shape,
-    stringsAsFactors = FALSE
-  )
-}
-
-#=====================================================================
-# Trial designs
-#=====================================================================
-
-#' Parallel RCT represented as two always-on / always-off paths
-design_rct <- function(weeks = seq(1, 8, 1)) {
-  build_trial_design(
-    name_longform = "Parallel RCT",
-    name_shortform = "RCT",
-    timepoints = weeks,
-    expectancies = rep(1, length(weeks)),
-    ondrug = list(
-      rep(1, length(weeks)),
-      rep(0, length(weeks))
-    )
-  )
-}
-
-#' Aggregated N-of-1, alternating A/B/A/B variant
-#'
-#' Kept as a sensitivity comparator; the Hendrickson 2020 hybrid
-#' is the primary aggregated-N-of-1 design (see `design_nof1`).
-design_nof1_alternating <- function(weeks = seq(1, 8, 1)) {
-  n <- length(weeks)
-  seq1 <- rep(c(1, 0), length.out = n)
-  seq2 <- rep(c(0, 1), length.out = n)
-  build_trial_design(
-    name_longform = "Aggregated N-of-1 (alternating)",
-    name_shortform = "Nof1-alt",
-    timepoints = weeks,
-    expectancies = rep(1, n),
-    ondrug = list(seq1, seq2)
-  )
-}
-
-#' Primary aggregated N-of-1 design (Hendrickson 2020 hybrid)
-#'
-#' The default aggregated-N-of-1 design used throughout the
-#' sensitivity sweeps is the Hendrickson 2020 hybrid
-#' (open-label titration + blinded discontinuation + brief
-#' crossover). See `design_hybrid()` for the explicit
-#' construction. The older alternating A/B/A/B variant is
-#' available as `design_nof1_alternating()`.
-design_nof1 <- function() {
-  design_hybrid()
-}
-
-#' Two-period crossover
-design_crossover <- function() {
-  build_trial_design(
-    name_longform = "Two-period crossover",
-    name_shortform = "XO",
-    timepoints = c(4, 8),
-    expectancies = c(1, 1),
-    ondrug = list(c(1, 0), c(0, 1))
-  )
-}
-
-#' Hybrid OL + blinded-discontinuation + brief crossover
-#' (Hendrickson 2020 design 4)
-design_hybrid <- function() {
-  build_trial_design(
-    name_longform = "OL + BDC + crossover",
-    name_shortform = "Hybrid",
-    timepoints = seq(1, 8, 1),
-    expectancies = c(1, 1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5),
-    ondrug = list(
-      c(1, 1, 1, 1, 0, 0, 1, 1),
-      c(1, 1, 1, 1, 1, 1, 0, 0)
-    )
-  )
+#' Replicates per cell: the driver default, or the value of the
+#' environment variable SENS_NREPS (used only for smoke tests, with
+#' SENS_OUT_DIR pointing away from the artifact directory).
+sens_reps <- function(default) {
+  v <- Sys.getenv('SENS_NREPS')
+  if (nzchar(v)) as.integer(v) else as.integer(default)
 }
 
 #=====================================================================
@@ -296,36 +193,36 @@ build_cycle_design <- function(T_runin = 0,
 #' Wrap a response-parameter tibble and a baseline-parameter tibble
 #' in the list-of-lists shape expected by
 #' `generate_simulated_results()`.
-wrap_param_set <- function(param_tbl, name = "default") {
+wrap_param_set <- function(param_tbl, name = 'default') {
   list(list(name = name, param = param_tbl))
 }
 
-#' Build an `analysisparams` data.frame with sensible defaults.
+#' Analysis-parameter rows, one per analysis half-life.
 #'
-#' @param target_coef Either `"main"` (default; extract Dbc main-effect
-#'   coefficient) or `"interaction"` (extract bm:Dbc biomarker-by-
-#'   treatment interaction coefficient). The nof1_power sensitivity
-#'   sweeps target the main treatment effect by default to align
-#'   with the majority of the N-of-1 simulation-comparison
-#'   literature; interaction-targeted sweeps are archived under
-#'   `analysis/archive/interaction-2026-04-18/`.
-default_analysisparams <- function(target_coef = "main") {
+#' @param target_coef `'main'` (the `Dbc` coefficient; for a parallel
+#'   design, the ANCOVA arm contrast) or `'interaction'`.
+#' @param analysis_t1half Analysis half-lives in weeks used to build
+#'   `Dbc`. The project policy value when the half-life is fixed is
+#'   0.2 week. 0 gives the binary on/off indicator.
+default_analysisparams <- function(target_coef = 'main',
+                                   analysis_t1half = 0.2) {
   data.frame(
     useDE = TRUE,
     t_random_slope = FALSE,
     full_model_out = FALSE,
-    carryover_t1half = 0,
+    carryover_t1half = analysis_t1half,
     simplecarryover = FALSE,
     carryover_scalefactor = 1,
     target_coef = target_coef,
+    parallel_analysis = 'ancova',
     stringsAsFactors = FALSE
   )
 }
 
 #' Build a `simparam` list with progressive save disabled.
 default_simparam <- function(n_reps = 500,
-                              basesavename = "sensitivity",
-                              savedir = tempdir()) {
+                             basesavename = 'sensitivity',
+                             savedir = tempdir()) {
   list(
     Nreps = n_reps,
     progressiveSave = FALSE,
@@ -336,13 +233,176 @@ default_simparam <- function(n_reps = 500,
   )
 }
 
-#' Save a sweep result to the sensitivity directory.
-save_sweep <- function(result, id, name) {
+#' Number of workers: all but one logical core.
+sweep_cores <- function() {
+  max(1, parallel::detectCores() - 1)
+}
+
+#=====================================================================
+# Running a sweep
+#=====================================================================
+
+#' One call to the engine with infeasible cells skipped (never
+#' repaired) and design labels attached.
+#'
+#' @param design_names Labels in the order of `designs`.
+#' @param design_ids Integer identifiers written to `trialdesign`
+#'   so that results of several calls can be combined.
+sweep_call <- function(designs, design_names, respparamsets,
+                       blparamsets, modelparams, n_reps,
+                       analysisparams = default_analysisparams(),
+                       dgp_architecture = 'mvn',
+                       design_ids = seq_along(designs)) {
+  res <- generate_simulated_results(
+    trialdesigns = designs,
+    respparamsets = respparamsets,
+    blparamsets = blparamsets,
+    censorparams = NA,
+    modelparams = modelparams,
+    simparam = default_simparam(n_reps = n_reps),
+    analysisparams = analysisparams,
+    rawdataout = FALSE,
+    dgp_architecture = dgp_architecture,
+    n_cores = sweep_cores(),
+    skip_infeasible = TRUE
+  )
+  local_td <- res$results$trialdesign
+  res$results$design_name <- design_names[local_td]
+  res$results$trialdesign <- design_ids[local_td]
+  res$results$dgp_architecture <- dgp_architecture
+  res$cells$design_name <- design_names[res$cells$trialdesign]
+  res$cells$trialdesign <- design_ids[res$cells$trialdesign]
+  res$infeasible <- res$cells[!res$cells$feasible, , drop = FALSE]
+  res$cells$dgp_architecture <- dgp_architecture
+  res$infeasible$dgp_architecture <- dgp_architecture
+  res
+}
+
+#' Combine the results of several `sweep_call()`s.
+combine_sweeps <- function(parts, tag = NULL) {
+  bind <- function(el) {
+    dplyr::bind_rows(lapply(parts, `[[`, el), .id = tag)
+  }
+  list(results = bind('results'), cells = bind('cells'),
+       infeasible = bind('infeasible'))
+}
+
+#' Stop unless the stored values of a column equal the grid.
+#'
+#' Guards against the S9 defect, where a driver built a grid but
+#' passed only its first row, so every cell was run (and then
+#' labeled) at one value.
+#'
+#' @param df Stored per-replicate results.
+#' @param column Column that must hold the swept parameter as the
+#'   engine stored it (not a label attached afterwards).
+#' @param expected The grid, as intended.
+#' @param among Optional logical vector selecting the rows to check.
+assert_stored_grid <- function(df, column, expected, among = NULL) {
+  if (!is.null(among)) df <- df[among, , drop = FALSE]
+  if (is.character(expected)) {
+    stored <- sort(unique(df[[column]]))
+    want <- sort(unique(expected))
+    if (!identical(stored, want)) {
+      stop(sprintf(
+        'Stored values of `%s` (%s) differ from the grid (%s).',
+        column, paste(stored, collapse = ', '),
+        paste(want, collapse = ', ')
+      ), call. = FALSE)
+    }
+    return(invisible(TRUE))
+  }
+  stored <- sort(unique(round(df[[column]], 8)))
+  want <- sort(unique(round(expected, 8)))
+  if (length(stored) != length(want) ||
+      any(abs(stored - want) > 1e-7)) {
+    stop(sprintf(
+      paste0('Stored values of `%s` (%s) differ from the grid ',
+             '(%s): %d distinct stored, %d in the grid.'),
+      column, paste(stored, collapse = ', '),
+      paste(want, collapse = ', '),
+      length(stored), length(want)
+    ), call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+#' Stop unless run cells plus dropped cells equal the intended grid.
+assert_cell_count <- function(res, expected_cells) {
+  n_run <- nrow(dplyr::distinct(
+    res$results, trialdesign, respparamset, blparamset,
+    modelparamset, dgp_architecture
+  ))
+  n_drop <- nrow(res$infeasible)
+  if (n_run + n_drop != expected_cells) {
+    stop(sprintf(
+      'Ran %d cells and dropped %d; the grid has %d.',
+      n_run, n_drop, expected_cells
+    ), call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+#' Save a sweep result with run metadata.
+#'
+#' The metadata record is what report.Rmd checks before it reads the
+#' artifact (schema, replicate count, seed, engine version).
+#'
+#' @param checks Optional function of the result that stops on a
+#'   failed grid assertion (see `assert_stored_grid()`).
+save_sweep <- function(result, id, name, n_reps = NA, seed = 42 + id,
+                       notes = NULL, checks = NULL) {
+  rev <- tryCatch(
+    system2('git', c('rev-parse', '--short', 'HEAD'),
+            stdout = TRUE, stderr = FALSE),
+    error = function(e) NA_character_, warning = function(w) NA_character_
+  )
+  result$run_meta <- list(
+    schema = 2L,
+    sweep_id = id,
+    sweep_name = name,
+    n_reps = n_reps,
+    seed = seed,
+    base_N = BASE_N,
+    engine_version = as.character(utils::packageVersion('nof1power')),
+    git_rev = if (length(rev)) rev[1] else NA_character_,
+    r_version = R.version.string,
+    date = format(Sys.time(), '%Y-%m-%d %H:%M %Z'),
+    notes = notes
+  )
   out_path <- file.path(
     SENS_DATA_DIR,
-    sprintf("sensitivity-%02d-%s.rds", id, name)
+    sprintf('sensitivity-%02d-%s.rds', id, name)
   )
+  if (!is.null(checks)) {
+    # A failed assertion must not discard hours of simulation: the
+    # unchecked artifact is kept under a name report.Rmd ignores.
+    ok <- tryCatch({ checks(result); TRUE }, error = function(e) e)
+    if (inherits(ok, 'error')) {
+      bad <- sub('\\.rds$', '-UNCHECKED.rds', out_path)
+      saveRDS(result, bad)
+      stop('Grid assertion failed (', conditionMessage(ok),
+           '). Results kept in ', bad, call. = FALSE)
+    }
+  }
   saveRDS(result, out_path)
-  message("Saved: ", out_path)
+  message('Saved: ', out_path)
+  if (!is.null(result$infeasible) && nrow(result$infeasible) > 0) {
+    message('Infeasible cells dropped: ', nrow(result$infeasible),
+            ' (see $infeasible in the artifact)')
+  }
   invisible(out_path)
+}
+
+#' Response-parameter wrapper matched on the realized estimand.
+#'
+#' The engine sets the drug-response ceiling per design so that
+#' `delta_on` equals `target_delta` (see `generate_simulated_results`).
+#'
+#' @param target_delta Mean drug response on drug, in outcome units
+#'   (negative lowers symptoms; 0 is the null).
+resp_set <- function(rp = baseline_resp_param(),
+                     target_delta = BASE_DELTA,
+                     name = sprintf('delta=%g', target_delta)) {
+  list(name = name, param = rp, target_delta = target_delta)
 }

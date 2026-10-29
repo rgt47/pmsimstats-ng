@@ -1,65 +1,56 @@
-#' S9. Period-length sweep (crossed with carryover half-life).
+#' S9. Period length crossed with carryover half-life.
 #'
-#' Precedent: Wang-Schork 2019.
-#' Varies the N-of-1 period length (days between measurements) and
-#' the carryover half-life jointly; the key quantity is the ratio
-#' t_half / period.
+#' Five period lengths (alternating N-of-1, eight visits, one per
+#' period) crossed with three half-lives: 15 cells, each run at its
+#' own half-life. The 2026-05 version built 15 designs but passed
+#' only the first model-parameter row, so every cell ran at the
+#' first half-life. The drug-response ceiling is set per design to
+#' the common `delta_on`.
 
 source(here::here(
-  "analysis", "scripts", "nof1-design-sensitivity", "00-common.R"
+  'analysis', 'scripts', 'nof1-design-sensitivity', '00-common.R'
 ))
 
-set.seed(42 + 9)
-
 SWEEP_ID <- 9L
-SWEEP_NAME <- "period"
+SWEEP_NAME <- 'period'
+N_REPS <- sens_reps(500L)
+set.seed(42 + SWEEP_ID)
 
 period_days_grid <- c(3, 5, 7, 10, 14)
 halflife_days_grid <- c(0.5, 3, 7)
 
-grid <- expand.grid(
-  period_days = period_days_grid,
-  halflife_days = halflife_days_grid
-)
-
-td_list <- lapply(seq_len(nrow(grid)), function(i) {
-  p <- grid$period_days[i]
+designs <- lapply(period_days_grid, function(p) {
   weeks <- seq(p / 7, 8 * p / 7, by = p / 7)
   design_nof1_alternating(weeks = weeks)
 })
+design_names <- sprintf('Alt-%dd', period_days_grid)
 
-rp <- baseline_resp_param()
-bp <- baseline_bl_param()
+model_params <- do.call(rbind, lapply(halflife_days_grid / 7, function(h) {
+  baseline_model_param(N = BASE_N, carryover_t1half = h)
+}))
 
-model_params <- data.frame(
-  N = 40, c.bm = 0.3,
-  carryover_t1half = grid$halflife_days / 7,
-  c.tv = 0.3, c.pb = 0.3, c.br = 0.3,
-  c.cf1t = 0.1, c.cfct = 0.05,
-  carryover_form = "exponential",
-  weibull_shape = 1,
-  stringsAsFactors = FALSE
+message('S9: ', length(designs) * nrow(model_params), ' cells')
+
+res <- sweep_call(
+  designs, design_names,
+  respparamsets = list(resp_set()),
+  blparamsets = wrap_param_set(baseline_bl_param(), 'bl_default'),
+  modelparams = model_params,
+  n_reps = N_REPS
 )
 
-message("S9: running ", nrow(grid), " period-by-halflife cells...")
+res$results$period_days <-
+  period_days_grid[match(res$results$design_name, design_names)]
+res$results$halflife_days <- round(res$results$carryover_t1half * 7, 6)
+res$results$ratio <- res$results$halflife_days / res$results$period_days
 
-res <- generate_simulated_results(
-  trialdesigns = td_list,
-  respparamsets = wrap_param_set(rp, "resp_default"),
-  blparamsets = wrap_param_set(bp, "bl_default"),
-  censorparams = NA,
-  modelparams = model_params[1, , drop = FALSE],
-  simparam = default_simparam(n_reps = 300),
-  analysisparams = default_analysisparams(),
-  rawdataout = FALSE,
-  dgp_architecture = "mvn",
-  n_cores = max(1, parallel::detectCores() - 1)
-)
+checks <- function(res) {
+  assert_stored_grid(res$results, 'carryover_t1half',
+                     halflife_days_grid / 7)
+  assert_stored_grid(res$results, 'period_days', period_days_grid)
+  assert_stored_grid(res$results, 'N', BASE_N)
+  assert_cell_count(res, length(designs) * nrow(model_params))
+}
 
-res$results$period_days <- grid$period_days[res$results$trialdesign]
-res$results$halflife_days <-
-  grid$halflife_days[res$results$trialdesign]
-res$results$ratio <-
-  res$results$halflife_days / res$results$period_days
-
-save_sweep(res, SWEEP_ID, SWEEP_NAME)
+save_sweep(res, SWEEP_ID, SWEEP_NAME, n_reps = N_REPS,
+           checks = checks)

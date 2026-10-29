@@ -1,93 +1,176 @@
 # nof1-design-sensitivity
+*2026-10-28 17:50 PDT*
 
-*2026-05-06 18:28 PDT*
+**Author.** pmsimstats team
 
 ## Working title
 
-Power sensitivity of a hybrid open-label-plus-blinded-discontinuation
-N-of-1 design under carryover, serial correlation, and
-variance-component variation.
+Power of the Hybrid N-of-1 design under carryover, serial correlation
+and variance components.
 
-## Provenance
+## Status
 
-This directory holds the methodological companion to the clinical
-manuscript at `analysis/report/04-treatment-main-effect/`. The two
-manuscripts were originally drafted as a single document at
-`treatment-main-effect/report.Rmd`; the methodological sensitivity
-content was split off on 2026-05-06 because the combined draft
-exceeded the typical word budget of biostatistics journals
-(*Statistics in Medicine*, *Statistical Methods in Medical Research*,
-*Pharmaceutical Statistics*).
+The manuscript (`report.Rmd`) was rewritten on 2026-10-28 after the
+referee report of the same date (`referee-report-2026-10-28.md`). It
+reads every Results number from the stored artifacts through
+`results-helpers.R`. The sweep artifacts in
+`analysis/data/derived_data/sensitivity/` named `sensitivity-01-*.rds`
+to `sensitivity-13-*.rds` were written by the 2026-05 drivers and are
+ignored by the manuscript (no schema-2 metadata). Until the sweeps
+below are rerun, every Results section shows a RESULTS-PENDING note.
+The parallel-group check (script 14) has been run locally and its
+artifact is in place.
 
-The simulation engine consumed by this manuscript is the `nof1power`
-R package, originally developed in the standalone compendium at
-`~/prj/res/06-nof1-power/nof1_power/` and migrated alongside the
-clinical manuscript on 2026-05-06.
+Nothing has been submitted to the simulation host, and nothing is
+committed.
 
-## Scope
+## What changed from the 2026-05 version
 
-Twelve parameter-sensitivity sweeps (S1 through S12) executed against
-the pmsimstats-ng tidyverse pipeline with the Hendrickson 2020 hybrid
-N-of-1 design as the primary aggregated variant and the alternating
-A/B/A/B variant retained as a sensitivity comparator at sweeps that
-vary cycle count or period length. The target estimand is the main
-treatment effect (the `Dbc` coefficient in the `nlme::lme`
-fixed-effects formula `Sx ~ bm + t + Dbc + bm:Dbc`).
-
-## Baseline parameters
-
-- N = 35 participants per design (Hendrickson 2020 minimum,
-  per-participant parity with the parallel RCT comparator)
-- 8 weekly timepoints
-- Effect size approximately -2 nightmares/week (prazosin-calibrated)
-- Carryover half-life 3 days (exponential decay)
-- AR(1) within-factor autocorrelation 0.3
-- 500 replicates per cell for S1-S11; 2,000 replicates per cell for
-  S12 (null calibration)
-
-## Sweep index
-
-| Sweep | Axis | Precedent |
-|-------|------|-----------|
-| S1 | Effect size | Blackston 2019 |
-| S2 | Carryover half-life | Blackston 2019, Hendrickson 2020 |
-| S3 | Decay-form misspecification | Gärtner 2023 |
-| S4 | Between-patient heterogeneity | Senn 2018, Zucker 2010 |
-| S5 | Within-patient SD | Wang-Schork 2019 |
-| S6 | Cycles per patient k | Senn 2018 |
-| S7 | Total participant count N | Senn 2018, Blackston 2019 |
-| S8 | AR(1) correlation rho | Wang-Schork 2019 |
-| S9 | Period length crossed with carryover | Wang-Schork 2019 |
-| S10 | Biomarker interaction crossed with DGP architecture | Hendrickson 2020 |
-| S11 | Carryover-by-AR(1) misspecification factorial | Gärtner 2023 |
-| S12 | Null-effect calibration (Type I) | Morris 2019 |
+- The Hybrid is the published schedule (weeks 4, 8, 9, 10, 11, 12,
+  16, 20; four paths). The old two-path weekly schedule is kept as
+  `Compact2` for S1 only.
+- All designs share the visit calendar and the blinding assumption
+  (expectancy 0.5, except the open-label visits of the Hybrid).
+  `RCT-OL` keeps the old open-label assumption for comparison.
+- A common estimand, `delta_on` (mean drug response over on-drug
+  follow-up visits). The engine sets the drug-response asymptote per
+  design with `target_delta`. Baseline `delta_on = -0.5`.
+- The parallel group is analyzed by baseline-adjusted ANCOVA. The old
+  mixed-model analysis is `parallel_analysis = 'legacy'`.
+- The analysis half-life is crossed with the data-generating
+  half-life in S2, S3, S11 and S12.
+- S4 varies treatment heterogeneity `tau` (new in the DGP) and,
+  separately, the baseline SD. S5 scales all three component SDs. S6
+  fixes trial length and varies periods. S9 passes its whole grid.
+- Cells with a non-positive-definite covariance matrix are dropped
+  and listed in the artifact. The repair is never used.
+  `pd_repaired` is stored.
+- The power form of `carryover_decay()` no longer returns `NaN`.
+- Every driver asserts that the stored parameter values equal its
+  grid. A failed assertion saves `*-UNCHECKED.rds`.
 
 ## Directory contents
 
 | File | Role |
 |------|------|
-| `report.Rmd` | Canonical manuscript source |
-| `report.tex`, `report.pdf` | Last rendered LaTeX and PDF |
-| `references.bib` | Manuscript-specific bibliography |
+| `report.Rmd` | Manuscript source |
+| `results-helpers.R` | Reads artifacts, builds Results text and tables |
+| `references.bib` | Cited entries only |
 | `statistics-in-medicine.csl` | Citation style |
-| `README.md` | This file |
+| `referee-report-2026-10-28.md` | Referee report |
+| `title-page.md`, `cover-letter.md` | Submission material (drafts) |
+| `bullets.Rmd`, `claudecode.tex` | Inert scaffolding of the retired three-part paragraph layout |
 
-Driver scripts live at
-`analysis/scripts/nof1-design-sensitivity/`, with figures and
-RDS artifacts written to `analysis/figures/sensitivity/` and
-`analysis/data/derived_data/sensitivity/` respectively.
+Drivers: `analysis/scripts/nof1-design-sensitivity/`. Engine:
+`implementations/nof1power/` (version 0.1.0). Protocol:
+`analysis/scripts/nof1-design-sensitivity/00-ademp-protocol.md`.
 
-## Build
+## Rerun commands
+
+Run from the repository root. The engine must be installed from the
+working tree, because the parallel workers load the installed
+package.
+
+```bash
+Rscript -e "devtools::install_local(
+  'implementations/nof1power', force = TRUE)"
+export VECLIB_MAXIMUM_THREADS=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+Rscript -e "tinytest::run_test_dir('implementations/nof1power/inst/tinytest')"
+Rscript analysis/scripts/nof1-design-sensitivity/00-smoke-test.R
+```
+
+Then either all sweeps in sequence:
 
 ```bash
 Rscript analysis/scripts/nof1-design-sensitivity/run-all.R
-Rscript analysis/scripts/nof1-design-sensitivity/plot-all.R
-Rscript -e "rmarkdown::render('analysis/report/05-nof1-design-sensitivity/report.Rmd')"
 ```
 
-`run-all.R` takes approximately 32 minutes of wall-clock time on an
-eight-core machine using the furrr multisession backend.
+or each driver (the order in `run-all.R` is S14, S1, S12, S12b, S2,
+S6, S7, S4, S5, S8, S9, S3, S10, S11):
 
-## Author
+```bash
+Rscript analysis/scripts/nof1-design-sensitivity/14-rct-null-check.R
+Rscript analysis/scripts/nof1-design-sensitivity/17-feasibility.R
+Rscript analysis/scripts/nof1-design-sensitivity/01-effect-size.R
+Rscript analysis/scripts/nof1-design-sensitivity/02-carryover-halflife.R
+Rscript analysis/scripts/nof1-design-sensitivity/03-decay-form.R
+Rscript analysis/scripts/nof1-design-sensitivity/04-tau2.R
+Rscript analysis/scripts/nof1-design-sensitivity/05-sigma2.R
+Rscript analysis/scripts/nof1-design-sensitivity/06-cycles.R
+Rscript analysis/scripts/nof1-design-sensitivity/07-patients.R
+Rscript analysis/scripts/nof1-design-sensitivity/08-ar1.R
+Rscript analysis/scripts/nof1-design-sensitivity/09-period.R
+Rscript analysis/scripts/nof1-design-sensitivity/10-biomarker.R
+Rscript analysis/scripts/nof1-design-sensitivity/11-misspec.R
+Rscript analysis/scripts/nof1-design-sensitivity/12-morris-null.R
+Rscript analysis/scripts/nof1-design-sensitivity/15-xo-corcar1.R
+```
 
-pmsimstats team
+Finally:
+
+```bash
+Rscript analysis/scripts/nof1-design-sensitivity/16-summarize-all.R
+Rscript analysis/scripts/nof1-design-sensitivity/plot-all.R
+bash tools/render.sh analysis/report/05-nof1-design-sensitivity/report.Rmd
+perl tools/notation-lint.pl analysis/report/05-nof1-design-sensitivity/report.Rmd
+```
+
+Long runs go to the simulation host. See
+`analysis/scripts/quick-sim/carryover-closed-form/RERUN-anchored.md`
+for the `simrun` procedure. Results from the container and from a
+local session are not draw-for-draw identical, so run all sweeps on
+one platform.
+
+## Expected time
+
+Timings were measured on the development laptop, single core,
+200 replicates per cell and analysis, with the pooled large-sample fit
+included: Hybrid 18 s, Alt 14 s, RCT 5 s, XO 7 s, Alt with 16 visits
+32 s. The cost is linear in the replicates and in the number of
+analyses. The host speed has not been measured. The host column
+assumes 2.5 effective workers (2 physical cores, 4 threads) at 0.7
+times the speed of the laptop core. Treat it as an estimate within a
+factor of two.
+
+| Sweep | Replicates | Cells | Laptop core-hours | Host hours (est.) |
+|---|---|---|---|---|
+| S1 | 1,000 | 42 | 0.63 | 0.36 |
+| S2 | 500 | 36 | 0.56 | 0.32 |
+| S3 | 500 | 15 | 0.40 | 0.23 |
+| S4 | 500 | 30 | 0.26 | 0.15 |
+| S5 | 500 | 15 | 0.13 | 0.08 |
+| S6 | 500 | 5 | 0.10 | 0.06 |
+| S7 | 500 | 18 | 0.25 | 0.14 |
+| S8 | 500 | 15 (2 or 3 dropped) | 0.12 | 0.07 |
+| S9 | 500 | 15 | 0.15 | 0.09 |
+| S10 | 500 | 48 (6 dropped) | 0.37 | 0.21 |
+| S11 | 500 | 24 | 0.64 | 0.36 |
+| S12 | 2,000 | 16 | 1.00 | 0.57 |
+| S12b | 2,000 | 2 | 0.12 | 0.07 |
+| Total | | | 4.7 | 2.7 |
+
+S14 (1,000 replicates, 24 cells) took 7 minutes on 7 workers locally
+and has been run. Script 17 (feasibility table, no simulation) takes
+seconds and has been run. Rendering takes a few seconds.
+
+## Checks after the rerun
+
+1. No artifact is named `*-UNCHECKED.rds`.
+2. `pd_repaired` is `FALSE` in every artifact, and the dropped cells
+   in S8 and S10 are listed in the Results.
+3. In S1, the RCT and RCT-OL Type I error is within two MCSE of 0.05
+   and $\kappa$ is within 5% of 1, as in the S14 check.
+4. In S12, the pooled Type I error of every design is reported with
+   its distance from 0.05 in MCSE.
+5. The rendered PDF has no RESULTS-PENDING note and no `??`.
+
+## Open decisions
+
+- Units: the manuscript keeps days. NOTATION.md puts papers 01 to 04
+  on weeks.
+- The baseline effect `delta_on = -0.5` is a choice made so that the
+  Hybrid is off power 1.000. Change `BASE_DELTA` in `00-designs.R` to
+  move it.
+- The author list in `title-page.md` and `cover-letter.md`.
+- Small-sample corrections (Kenward-Roger, CR2) are named in the
+  Limitations and not implemented.

@@ -1,80 +1,68 @@
-#' S12. Morris null-effect calibration.
+#' S12. Null-effect calibration with 2,000 replicates per cell.
 #'
-#' Precedent: Morris 2019; nof1_power report Section 4.3.
-#' Higher-replicate Type I error check under delta = 0 across four
-#' representative (tau, sigma, halflife) settings for all four
-#' designs. Target MCSE ~0.5% at nominal 0.05.
+#' The drug-response ceiling is 0 (the biomarker-response correlation
+#' c_bm keeps its baseline value of 0.3). Four configurations of the
+#' baseline SD, the drug-response SD and the carryover half-life, four
+#' designs, and two analysis half-lives (0 and 0.2 week).
 
 source(here::here(
-  "analysis", "scripts", "nof1-design-sensitivity", "00-common.R"
+  'analysis', 'scripts', 'nof1-design-sensitivity', '00-common.R'
 ))
 
-set.seed(42 + 12)
-
 SWEEP_ID <- 12L
-SWEEP_NAME <- "morris-null"
+SWEEP_NAME <- 'morris-null'
+N_REPS <- sens_reps(2000L)
+set.seed(42 + SWEEP_ID)
 
 configs <- list(
-  list(tau = 1.5,  sigma = 1.0, halflife_days = 0),
-  list(tau = 1.5,  sigma = 1.0, halflife_days = 3),
-  list(tau = 0.75, sigma = 1.5, halflife_days = 3),
-  list(tau = 2.0,  sigma = 0.5, halflife_days = 3)
+  list(bl_sd = 1.5, br_sd = 1.0, halflife_days = 0),
+  list(bl_sd = 1.5, br_sd = 1.0, halflife_days = 3),
+  list(bl_sd = 0.75, br_sd = 1.5, halflife_days = 3),
+  list(bl_sd = 2.0, br_sd = 0.5, halflife_days = 3)
 )
+analysis_t1half <- c(0, 0.2)
 
 designs <- list(
   design_rct(), design_crossover(),
   design_nof1_alternating(), design_hybrid()
 )
-design_names <- c("RCT", "XO", "Nof1-alt", "Hybrid")
+design_names <- c('RCT', 'XO', 'Alt', 'Hybrid')
 
-rp_base <- baseline_resp_param()
-rp_base$max[rp_base$cat == "br"] <- 0  # main-effect null
-
-results_all <- list()
-
-for (i in seq_along(configs)) {
+parts <- lapply(seq_along(configs), function(i) {
   cfg <- configs[[i]]
   message(sprintf(
-    "S12 config %d/%d: tau=%g sigma=%g halflife_days=%g",
-    i, length(configs), cfg$tau, cfg$sigma, cfg$halflife_days
+    'S12 config %d/%d: bl_sd=%g br_sd=%g halflife_days=%g',
+    i, length(configs), cfg$bl_sd, cfg$br_sd, cfg$halflife_days
   ))
-
   bp <- baseline_bl_param()
-  bp$sd[bp$cat == "BL"] <- cfg$tau
-
-  rp <- rp_base
-  rp$sd[rp$cat == "br"] <- cfg$sigma
-
-  mp <- baseline_model_param(
-    carryover_t1half = cfg$halflife_days / 7
+  bp$sd[bp$cat == 'BL'] <- cfg$bl_sd
+  rp <- baseline_resp_param()
+  rp$sd[rp$cat == 'br'] <- cfg$br_sd
+  sweep_call(
+    designs, design_names,
+    respparamsets = list(resp_set(rp, target_delta = 0)),
+    blparamsets = wrap_param_set(bp, 'bl_config'),
+    modelparams = baseline_model_param(
+      N = BASE_N, carryover_t1half = cfg$halflife_days / 7),
+    n_reps = N_REPS,
+    analysisparams = default_analysisparams(
+      analysis_t1half = analysis_t1half)
   )
+})
+res <- combine_sweeps(parts, tag = 'config')
+res$results$config <- as.integer(res$results$config)
 
-  res <- generate_simulated_results(
-    trialdesigns = designs,
-    respparamsets = wrap_param_set(rp, "resp_brmax0"),
-    blparamsets = wrap_param_set(bp, "bl_config"),
-    censorparams = NA,
-    modelparams = mp,
-    simparam = default_simparam(n_reps = 2000),
-    analysisparams = default_analysisparams(),
-    rawdataout = FALSE,
-    dgp_architecture = "mvn",
-    n_cores = max(1, parallel::detectCores() - 1)
-  )
-
-  res$results$config <- i
-  res$results$tau <- cfg$tau
-  res$results$sigma <- cfg$sigma
-  res$results$halflife_days <- cfg$halflife_days
-  res$results$design_name <- design_names[res$results$trialdesign]
-
-  results_all[[i]] <- res$results
+checks <- function(res) {
+  assert_stored_grid(res$results, 'bl_sd',
+                     vapply(configs, `[[`, 0, 'bl_sd'))
+  assert_stored_grid(res$results, 'br_sd',
+                     vapply(configs, `[[`, 0, 'br_sd'))
+  assert_stored_grid(res$results, 'carryover_t1half',
+                     vapply(configs, `[[`, 0, 'halflife_days') / 7)
+  assert_stored_grid(res$results, 'delta_on', 0)
+  stopifnot(nrow(dplyr::distinct(res$results, config, trialdesign)) ==
+              length(configs) * length(designs))
 }
 
-combined <- do.call(rbind, results_all)
-
-save_sweep(
-  list(results = combined,
-       parameterselections = list(configs = configs)),
-  SWEEP_ID, SWEEP_NAME
-)
+save_sweep(res, SWEEP_ID, SWEEP_NAME, n_reps = N_REPS,
+           checks = checks)

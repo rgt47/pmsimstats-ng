@@ -27,11 +27,22 @@ nuisance term when carryover is being modelled linearly.
 used to compute the continuous drug indicator \code{Dbc}.
 \item \code{carryover_scalefactor} (default \code{1}): scale factor in
 the \code{Dbc} decay.
+\item \code{parallel_analysis} (default \code{'ancova'}): analysis of a
+parallel-group design (every participant on one arm for all
+follow-up visits) when \code{target_coef = 'main'}. \code{'ancova'}
+regresses each participant's follow-up mean on the arm
+indicator and the baseline score by ordinary least squares.
+\code{'legacy'} keeps the mixed model with a baseline row, which
+is biased under the null (see the paper 05 referee report,
+comment 4.5) and is retained only to reproduce stored runs.
 }}
 }
 \value{
-A tibble with columns \code{beta}, \code{betaSE}, \code{p}, \code{issingular},
-\code{warning}. If \code{op$full_model_out = TRUE}, returns a list with
+A tibble with columns \code{beta}, \code{betaSE}, \code{betaDF}, \code{p},
+\code{issingular}, \code{warning}, \code{fit_formula} (the fixed-effects formula
+and the error structure actually fitted) and \code{car1_dropped}
+(\code{TRUE} when the \code{corCAR1} fit failed and the independent-error
+fit was used). If \code{op$full_model_out = TRUE}, returns a list with
 \code{form}, \code{fit}, \code{datamerged}, and the \code{stdout} tibble.
 }
 \description{

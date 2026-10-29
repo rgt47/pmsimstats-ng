@@ -1,297 +1,227 @@
 #' plot-all.R
 #'
-#' Render per-sweep figures from the RDS artifacts. Intended to
-#' run after run-all.R completes. Produces one PDF per sweep
-#' under analysis/figures/sensitivity/ and returns a named list
-#' of ggplot objects for downstream assembly.
+#' Render one figure per sweep from the RDS artifacts. Run after
+#' run-all.R. Output: analysis/figures/sensitivity/sens-NN-name.pdf.
+#' Every point carries a 95% Monte Carlo interval (1.96 MCSE). Sweeps
+#' whose artifact lacks the schema-2 metadata (the 2026-05 runs) are
+#' skipped.
 
 suppressPackageStartupMessages({
-  library(nof1power)
   library(dplyr)
   library(ggplot2)
-  library(tibble)
-  library(tidyr)
+  library(here)
 })
 
-sens_data_dir <- file.path(
-  "analysis", "data", "derived_data", "sensitivity"
+source(here::here(
+  'analysis', 'scripts', 'nof1-design-sensitivity', '00-summarize.R'
+))
+
+sens_data_dir <- Sys.getenv(
+  'SENS_OUT_DIR',
+  here::here('analysis', 'data', 'derived_data', 'sensitivity')
 )
-sens_fig_dir <- file.path("analysis", "figures", "sensitivity")
+sens_fig_dir <- Sys.getenv(
+  'SENS_FIG_DIR',
+  here::here('analysis', 'figures', 'sensitivity')
+)
 if (!dir.exists(sens_fig_dir)) {
   dir.create(sens_fig_dir, recursive = TRUE)
 }
 
-#' Generic Morris metric helper (mirrors report.Rmd).
-morris <- function(df, true_beta = NA_real_, alpha = 0.05) {
-  n <- sum(!is.na(df$p))
-  power <- mean(df$p < alpha, na.rm = TRUE)
-  mcse_power <- sqrt(power * (1 - power) / max(n, 1))
-  emp_se <- stats::sd(df$beta, na.rm = TRUE)
-  tibble(
-    n_sim = n, power = power, mcse_power = mcse_power,
-    mean_beta = mean(df$beta, na.rm = TRUE),
-    empirical_SE = emp_se,
-    frac_singular = mean(df$issingular, na.rm = TRUE)
-  )
+with_ci <- function(sm, y = 'power', se = 'mcse_power') {
+  sm$lo <- sm[[y]] - 1.96 * sm[[se]]
+  sm$hi <- sm[[y]] + 1.96 * sm[[se]]
+  sm
 }
 
-#=====================================================================
-# Dispatcher
-#=====================================================================
+#' Power (or Type I error) against a numeric axis, one line per design.
+line_plot <- function(sm, x, color = 'design_name', title, xlab,
+                      ylab = 'Rejection rate', facet = NULL,
+                      hline = c(0.05, 0.8)) {
+  sm <- with_ci(sm)
+  p <- ggplot(sm, aes(x = .data[[x]], y = power,
+                      color = .data[[color]],
+                      group = .data[[color]])) +
+    geom_hline(yintercept = hline[1], linetype = 'dotted',
+               linewidth = 0.3) +
+    geom_hline(yintercept = hline[2], linetype = 'dashed',
+               linewidth = 0.3) +
+    geom_line() +
+    geom_pointrange(aes(ymin = lo, ymax = hi), size = 0.3) +
+    labs(title = title, x = xlab, y = ylab, color = 'Design') +
+    theme_minimal()
+  if (!is.null(facet)) p <- p + facet_wrap(facet, labeller = label_both)
+  p
+}
 
-plot_sweep <- function(id, name) {
-  path <- file.path(
-    sens_data_dir,
-    sprintf("sensitivity-%02d-%s.rds", id, name)
-  )
-  if (!file.exists(path)) {
-    message("Skipping (missing artifact): ", path)
-    return(invisible(NULL))
-  }
+load_art <- function(id, name) {
+  path <- file.path(sens_data_dir,
+                    sprintf('sensitivity-%02d-%s.rds', id, name))
+  if (!file.exists(path)) return(NULL)
   obj <- readRDS(path)
-  res <- if (is.list(obj) && "results" %in% names(obj))
-    obj$results else obj
-
-  plotter <- switch(
-    sprintf("%02d", id),
-    "01" = plot_s1, "02" = plot_s2, "03" = plot_s3,
-    "04" = plot_s4, "05" = plot_s5, "06" = plot_s6,
-    "07" = plot_s7, "08" = plot_s8, "09" = plot_s9,
-    "10" = plot_s10, "11" = plot_s11, "12" = plot_s12
-  )
-  if (is.null(plotter)) return(invisible(NULL))
-
-  p <- plotter(res)
-  out <- file.path(
-    sens_fig_dir,
-    sprintf("sens-%02d-%s.pdf", id, name)
-  )
-  ggsave(out, p, width = 7, height = 5, device = "pdf")
-  message("Rendered: ", out)
-  invisible(p)
-}
-
-#=====================================================================
-# Per-sweep plotters
-#=====================================================================
-
-plot_s1 <- function(res) {
-  agg <- res |>
-    group_by(design_name, delta) |>
-    group_modify(~ morris(.x))
-  ggplot(agg, aes(x = delta, y = power, color = design_name,
-                  group = design_name)) +
-    geom_line() + geom_point(size = 2) +
-    geom_hline(yintercept = 0.8, linetype = "dashed") +
-    geom_hline(yintercept = 0.05, linetype = "dotted") +
-    labs(title = "S1. Power vs effect size",
-         x = "True delta (nightmares/week)", y = "Power",
-         color = "Design") +
-    theme_minimal()
-}
-
-plot_s2 <- function(res) {
-  agg <- res |>
-    group_by(design_name, halflife_days) |>
-    group_modify(~ morris(.x))
-  ggplot(agg, aes(x = halflife_days, y = power,
-                  color = design_name, group = design_name)) +
-    geom_line() + geom_point(size = 2) +
-    geom_hline(yintercept = 0.8, linetype = "dashed") +
-    labs(title = "S2. Power vs carryover half-life",
-         x = "Half-life (days)", y = "Power",
-         color = "Design") +
-    theme_minimal()
-}
-
-plot_s3 <- function(res) {
-  agg <- res |>
-    group_by(design_name, decay_form) |>
-    group_modify(~ morris(.x))
-  ggplot(agg, aes(x = decay_form, y = power,
-                  fill = design_name)) +
-    geom_col(position = position_dodge(width = 0.8),
-             width = 0.7) +
-    labs(title = "S3. Power by DGP decay form (analysis = exponential)",
-         x = "DGP form", y = "Power", fill = "Design") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 30, hjust = 1))
-}
-
-plot_s4 <- function(res) {
-  agg <- res |>
-    group_by(design_name, tau) |>
-    group_modify(~ morris(.x))
-  ggplot(agg, aes(x = tau, y = power, color = design_name,
-                  group = design_name)) +
-    geom_line() + geom_point(size = 2) +
-    geom_hline(yintercept = 0.8, linetype = "dashed") +
-    labs(title = "S4. Power vs between-patient SD",
-         x = "Baseline (BL) SD (tau)", y = "Power",
-         color = "Design") +
-    theme_minimal()
-}
-
-plot_s5 <- function(res) {
-  agg <- res |>
-    group_by(design_name, sigma) |>
-    group_modify(~ morris(.x))
-  ggplot(agg, aes(x = sigma, y = power, color = design_name,
-                  group = design_name)) +
-    geom_line() + geom_point(size = 2) +
-    geom_hline(yintercept = 0.8, linetype = "dashed") +
-    labs(title = "S5. Power vs within-patient SD",
-         x = "Bio-response (BR) SD (sigma)", y = "Power",
-         color = "Design") +
-    theme_minimal()
-}
-
-plot_s6 <- function(res) {
-  agg <- res |>
-    group_by(design_name, k) |>
-    group_modify(~ morris(.x))
-  ggplot(agg, aes(x = k, y = power, color = design_name,
-                  group = design_name)) +
-    geom_line() + geom_point(size = 2) +
-    geom_hline(yintercept = 0.8, linetype = "dashed") +
-    labs(title = "S6. Power vs timepoints per patient (k)",
-         x = "Cycles per patient k", y = "Power",
-         color = "Design") +
-    theme_minimal()
-}
-
-plot_s7 <- function(res) {
-  agg <- res |>
-    group_by(design_name, n_total) |>
-    group_modify(~ morris(.x))
-  ggplot(agg, aes(x = n_total, y = power, color = design_name,
-                  group = design_name)) +
-    geom_line() + geom_point(size = 2) +
-    geom_hline(yintercept = 0.8, linetype = "dashed") +
-    labs(title = "S7. Power vs total participants",
-         x = "N (total)", y = "Power",
-         color = "Design") +
-    theme_minimal()
-}
-
-plot_s8 <- function(res) {
-  agg <- res |>
-    group_by(design_name, rho) |>
-    group_modify(~ morris(.x))
-  ggplot(agg, aes(x = rho, y = power, color = design_name,
-                  group = design_name)) +
-    geom_line() + geom_point(size = 2) +
-    geom_hline(yintercept = 0.8, linetype = "dashed") +
-    labs(title = "S8. Power vs AR(1) rho (analysis uses corCAR1)",
-         x = "AR(1) rho", y = "Power",
-         color = "Design") +
-    theme_minimal()
-}
-
-plot_s9 <- function(res) {
-  agg <- res |>
-    group_by(period_days, halflife_days) |>
-    group_modify(~ morris(.x))
-  ggplot(agg, aes(x = factor(period_days),
-                  y = factor(halflife_days), fill = power)) +
-    geom_tile(color = "white") +
-    geom_text(aes(label = sprintf("%.2f", power)), size = 3) +
-    scale_fill_distiller(palette = "RdYlBu", direction = -1,
-                         limits = c(0, 1)) +
-    labs(title = "S9. Power heatmap (N-of-1) vs period and half-life",
-         x = "Period length (days)",
-         y = "Carryover half-life (days)",
-         fill = "Power") +
-    theme_minimal()
-}
-
-plot_s10 <- function(res) {
-  agg <- res |>
-    group_by(design_name, dgp_architecture, c_bm,
-             halflife_days) |>
-    group_modify(~ morris(.x))
-  ggplot(agg, aes(x = c_bm, y = power,
-                  color = design_name, linetype = factor(halflife_days),
-                  group = interaction(design_name, halflife_days))) +
-    geom_line() + geom_point(size = 2) +
-    facet_wrap(~ dgp_architecture) +
-    geom_hline(yintercept = 0.8, linetype = "dashed") +
-    labs(title = "S10. Biomarker-interaction power",
-         x = "c.bm", y = "Power",
-         color = "Design", linetype = "Half-life (days)") +
-    theme_minimal()
-}
-
-plot_s11 <- function(res) {
-  agg <- res |>
-    group_by(design_name, delta_label, carryover, ar1) |>
-    group_modify(~ morris(.x))
-  agg$condition <- paste0("carryover=", agg$carryover,
-                          ", ar1=", agg$ar1)
-  ggplot(agg,
-         aes(x = condition, y = power, fill = design_name)) +
-    geom_col(position = position_dodge(width = 0.8),
-             width = 0.7) +
-    facet_wrap(~ delta_label,
-               labeller = labeller(
-                 delta_label = c(null = "Null (Type I)",
-                                 alt = "Alternative (Power)"))) +
-    geom_hline(yintercept = 0.05, linetype = "dotted") +
-    labs(title = "S11. Misspecification factorial",
-         x = "DGP condition", y = "Rejection rate",
-         fill = "Design") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 30, hjust = 1))
-}
-
-plot_s12 <- function(res) {
-  agg <- res |>
-    group_by(design_name, config, tau, sigma, halflife_days) |>
-    group_modify(~ morris(.x, true_beta = 0))
-  agg$ci_lo <- agg$power - 1.96 * agg$mcse_power
-  agg$ci_hi <- agg$power + 1.96 * agg$mcse_power
-  agg$config_label <- sprintf(
-    "cfg%d (tau=%g, sigma=%g, hl=%gd)",
-    agg$config, agg$tau, agg$sigma, agg$halflife_days
-  )
-  ggplot(agg,
-         aes(x = config_label, y = power, color = design_name,
-             group = design_name)) +
-    geom_hline(yintercept = 0.05, linetype = "dashed") +
-    geom_errorbar(aes(ymin = ci_lo, ymax = ci_hi),
-                  width = 0.2,
-                  position = position_dodge(width = 0.4)) +
-    geom_point(size = 2.5,
-               position = position_dodge(width = 0.4)) +
-    labs(title = "S12. Null-effect Type I error with 95% CI",
-         x = "Configuration", y = "Empirical Type I",
-         color = "Design") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 30, hjust = 1))
-}
-
-#=====================================================================
-# Main
-#=====================================================================
-
-if (sys.nframe() == 0L) {
-  sweeps <- list(
-    c(1, "effect-size"),
-    c(2, "carryover-halflife"),
-    c(3, "decay-form"),
-    c(4, "tau2"),
-    c(5, "sigma2"),
-    c(6, "cycles"),
-    c(7, "patients"),
-    c(8, "ar1"),
-    c(9, "period"),
-    c(10, "biomarker"),
-    c(11, "misspec"),
-    c(12, "morris-null")
-  )
-
-  for (sw in sweeps) {
-    plot_sweep(as.integer(sw[1]), sw[2])
+  if (!identical(obj$run_meta$schema, 2L)) {
+    message('Skipping (pre-schema-2 artifact): ', path)
+    return(NULL)
   }
-  message("plot-all.R complete.")
+  obj
 }
+
+plot_s1 <- function(r) {
+  sm <- summarize_cells(r, c('design_name', 'delta_on'))
+  line_plot(sm, 'delta_on', title = 'S1. Rejection rate against the effect',
+            xlab = 'Mean drug response on drug (outcome units)')
+}
+
+plot_s2 <- function(r) {
+  r$halflife_days <- round(r$carryover_t1half * 7, 4)
+  sm <- summarize_cells(r, c('design_name', 'halflife_days',
+                             'analysis_t1half'))
+  line_plot(sm, 'halflife_days',
+            title = 'S2. Power against carryover half-life',
+            xlab = 'Data-generating half-life (days)',
+            facet = 'analysis_t1half')
+}
+
+plot_s3 <- function(r) {
+  r$decay_form <- ifelse(r$carryover_form == 'weibull',
+                         sprintf('weibull_k=%g', r$weibull_shape),
+                         r$carryover_form)
+  sm <- with_ci(summarize_cells(r, c('design_name', 'decay_form',
+                                     'analysis_t1half')))
+  ggplot(sm, aes(x = decay_form, y = power, color = design_name)) +
+    geom_pointrange(aes(ymin = lo, ymax = hi), size = 0.3,
+                    position = position_dodge(width = 0.5)) +
+    facet_wrap('analysis_t1half', labeller = label_both) +
+    labs(title = 'S3. Power by data-generating decay form',
+         x = 'Decay form', y = 'Power', color = 'Design') +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 30, hjust = 1))
+}
+
+plot_s4 <- function(r) {
+  sm <- summarize_cells(r, c('axis', 'design_name', 'tau', 'bl_sd'))
+  a <- line_plot(filter(sm, axis == 'tau'), 'tau',
+                 title = 'S4a. Power against treatment heterogeneity',
+                 xlab = 'Heterogeneity SD (tau, outcome units)')
+  a
+}
+
+plot_s4b <- function(r) {
+  sm <- summarize_cells(r, c('axis', 'design_name', 'tau', 'bl_sd'))
+  line_plot(filter(sm, axis == 'bl_sd'), 'bl_sd',
+            title = 'S4b. Power against baseline SD',
+            xlab = 'Baseline SD (outcome units)')
+}
+
+plot_s5 <- function(r) {
+  r$sd_scale <- round(r$br_sd / 1.0, 4)
+  sm <- summarize_cells(r, c('design_name', 'sd_scale'))
+  line_plot(sm, 'sd_scale',
+            title = 'S5. Power against within-participant SD',
+            xlab = 'Multiplier on all component SDs')
+}
+
+plot_s6 <- function(r) {
+  r$periods <- r$n_switch + 1
+  sm <- summarize_cells(r, c('design_name', 'periods'))
+  line_plot(sm, 'periods',
+            title = 'S6. Power against number of periods',
+            xlab = 'Periods in 16 weekly visits (RCT: 1)')
+}
+
+plot_s7 <- function(r) {
+  sm <- summarize_cells(r, c('design_name', 'N'))
+  line_plot(sm, 'N', title = 'S7. Power against sample size',
+            xlab = 'Total participants N')
+}
+
+plot_s8 <- function(r) {
+  sm <- summarize_cells(r, c('design_name', 'c.br'))
+  line_plot(sm, 'c.br', title = 'S8. Power against AR(1) correlation',
+            xlab = 'AR(1) correlation per week (rho)')
+}
+
+plot_s9 <- function(r) {
+  r$period_days <- as.numeric(sub('^Alt-(\\d+)d$', '\\1', r$design_name))
+  r$halflife_days <- round(r$carryover_t1half * 7, 4)
+  sm <- summarize_cells(r, c('period_days', 'halflife_days'))
+  ggplot(sm, aes(x = factor(period_days), y = factor(halflife_days),
+                 fill = power)) +
+    geom_tile(color = 'white') +
+    geom_text(aes(label = sprintf('%.2f', power)), size = 3) +
+    scale_fill_distiller(palette = 'RdYlBu', direction = -1,
+                         limits = c(0, 1)) +
+    labs(title = 'S9. Power of the alternating design',
+         x = 'Period length (days)', y = 'Carryover half-life (days)',
+         fill = 'Power') +
+    theme_minimal()
+}
+
+plot_s10 <- function(r) {
+  r$halflife_days <- round(r$carryover_t1half * 7, 4)
+  sm <- summarize_cells(r, c('design_name', 'dgp_architecture', 'c.bm',
+                             'halflife_days'))
+  line_plot(sm, 'c.bm',
+            title = 'S10. Main-effect power against biomarker correlation',
+            xlab = 'c_bm', facet = c('dgp_architecture', 'halflife_days'))
+}
+
+plot_s11 <- function(r) {
+  sm <- with_ci(summarize_cells(
+    r, c('design_name', 'delta_label', 'carryover', 'ar1',
+         'analysis_t1half')))
+  sm$condition <- paste0('carryover ', sm$carryover, ', AR(1) ', sm$ar1)
+  ggplot(sm, aes(x = condition, y = power, color = design_name,
+                 shape = factor(analysis_t1half))) +
+    geom_pointrange(aes(ymin = lo, ymax = hi), size = 0.3,
+                    position = position_dodge(width = 0.6)) +
+    geom_hline(yintercept = 0.05, linetype = 'dotted') +
+    facet_wrap('delta_label', scales = 'free_y') +
+    labs(title = 'S11. Misspecification factorial', x = NULL,
+         y = 'Rejection rate', color = 'Design',
+         shape = 'Analysis half-life (wk)') +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 30, hjust = 1))
+}
+
+plot_s12 <- function(r) {
+  sm <- with_ci(summarize_cells(
+    r, c('design_name', 'config', 'analysis_t1half')))
+  ggplot(sm, aes(x = factor(config), y = power, color = design_name,
+                 shape = factor(analysis_t1half))) +
+    geom_hline(yintercept = 0.05, linetype = 'dashed') +
+    geom_pointrange(aes(ymin = lo, ymax = hi), size = 0.3,
+                    position = position_dodge(width = 0.6)) +
+    labs(title = 'S12. Type I error with 95% Monte Carlo interval',
+         x = 'Configuration', y = 'Type I error', color = 'Design',
+         shape = 'Analysis half-life (wk)') +
+    theme_minimal()
+}
+
+sweeps <- list(
+  list(1, 'effect-size', plot_s1),
+  list(2, 'carryover-halflife', plot_s2),
+  list(3, 'decay-form', plot_s3),
+  list(4, 'tau2', plot_s4),
+  list(4, 'tau2', plot_s4b, 'b'),
+  list(5, 'sigma2', plot_s5),
+  list(6, 'cycles', plot_s6),
+  list(7, 'patients', plot_s7),
+  list(8, 'ar1', plot_s8),
+  list(9, 'period', plot_s9),
+  list(10, 'biomarker', plot_s10),
+  list(11, 'misspec', plot_s11),
+  list(12, 'morris-null', plot_s12)
+)
+
+for (sw in sweeps) {
+  art <- load_art(sw[[1]], sw[[2]])
+  if (is.null(art)) next
+  suffix <- if (length(sw) > 3) sw[[4]] else ''
+  out <- file.path(sens_fig_dir,
+                   sprintf('sens-%02d%s-%s.pdf', sw[[1]], suffix, sw[[2]]))
+  ggsave(out, sw[[3]](art$results), width = 7, height = 5,
+         device = 'pdf')
+  message('Rendered: ', out)
+}
+message('plot-all.R complete.')

@@ -15,7 +15,8 @@ generate_simulated_results(
   rawdataout = FALSE,
   lambda_cor = NA,
   n_cores = 1,
-  dgp_architecture = "mvn"
+  dgp_architecture = "mvn",
+  skip_infeasible = FALSE
 )
 }
 \arguments{
@@ -24,7 +25,13 @@ of \code{\link[=build_trial_design]{build_trial_design()}} (a \code{list(metadat
 
 \item{respparamsets}{List of response-parameter wrappers, each a
 list with element \code{param} that is a tibble accepted by
-\code{\link[=generate_data]{generate_data()}}.}
+\code{\link[=generate_data]{generate_data()}}. A wrapper may also carry \code{target_delta}, a
+number. The drug-response ceiling (\code{max} of the \code{br} row) is then
+set, separately for every trial design, so that the realized
+estimand \code{delta_on} (the mean drug response over the on-drug
+visits of the design, see \code{.realized_delta_on()}) equals
+\code{target_delta}. This puts designs with different exposure
+schedules on the same effect. \code{target_delta = 0} is the null.}
 
 \item{blparamsets}{List of baseline-parameter wrappers, each a
 list with element \code{param} that is a tibble accepted by
@@ -58,10 +65,22 @@ analysis variant), each with columns matching the \code{op} list in
 Currently sequential; reserved for future \code{furrr} integration.}
 
 \item{dgp_architecture}{Either \code{"mvn"} or \code{"mean_moderation"}.}
+
+\item{skip_infeasible}{Logical. If \code{FALSE} (default), a
+non-positive-definite covariance matrix in any cell stops the
+run. If \code{TRUE}, such cells are dropped, recorded in the
+\code{infeasible} element of the return value with the reason and the
+smallest eigenvalue, and the remaining cells run. No matrix is
+ever repaired.}
 }
 \value{
 A list with elements \code{results} (tibble of per-replicate
-beta/SE/p) and \code{parameterselections} (record of inputs).
+beta/SE/p, the fitted formula, the realized estimand
+\code{delta_on}, the feasibility margin \code{min_eig}, \code{pd_repaired}, and
+the analysis variant \code{analysis_row}, \code{analysis_t1half}),
+\code{parameterselections} (record of inputs), \code{cells} (one row per
+run cell with its feasibility margin) and \code{infeasible} (cells
+dropped under \code{skip_infeasible = TRUE}).
 }
 \description{
 Iterates over the Cartesian product of trial designs, response

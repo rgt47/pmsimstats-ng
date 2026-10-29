@@ -190,6 +190,7 @@ mcse_note <- function(sm) {
 calib_table <- function(sm, keys) {
   out <- sm |>
     transmute(across(all_of(keys)),
+              bias_est = sprintf('%.3f', bias_estimand),
               z = sprintf('%.1f', bias / mcse_bias),
               bias = sprintf('%.3f', bias),
               emp_se = sprintf('%.3f', emp_se),
@@ -259,8 +260,7 @@ txt_s1 <- function() {
   t1 <- join_txt(sprintf('%s %s', null$design_name, pm(
     null$power, null$mcse_power)))
   bias <- join_txt(sprintf(
-    '%s %s (%.1f MCSE)', null$design_name, f3(null$bias),
-    null$bias / null$mcse_bias))
+    '%s %s', null$design_name, pm(null$mean_beta, null$mcse_bias)))
   kap <- join_txt(sprintf('%s %s', null$design_name, f3(null$kappa)))
   reach <- join_txt(vapply(nm, function(d) {
     r <- first_reaching(sm[sm$design_name == d, ], 'delta_on')
@@ -276,8 +276,8 @@ txt_s1 <- function() {
     'At the null, Type I error was ', t1, '. ',
     'Of ', inband[['total']], ' designs, ', inband[['above']],
     ' were above and ', inband[['below']], ' below the band of two ',
-    'MCSE around 0.05. The mean estimate minus its large-sample ',
-    'value at the null was ', bias, '. The ratio of model to ',
+    'MCSE around 0.05. At the null the estimand is zero. The mean ',
+    'estimate was ', bias, '. The ratio of model to ',
     'empirical SE ($\\kappa$) at the null was ', kap, '. ',
     'The smallest grid effect with power of at least 0.80 was ',
     reach, '. At the baseline effect of ', f2(BASE_DELTA),
@@ -310,13 +310,27 @@ txt_s2 <- function() {
                         halflife_days = hmax)$power))
       }, '')), '.')
   }, '')
+  s <- sm[abs(sm$analysis_t1half - 0.2) < 1e-9, ]
+  mv <- join_txt(vapply(unique(s$design_name), function(d) {
+    a <- pick(s, design_name = d, halflife_days = hmin)
+    b <- pick(s, design_name = d, halflife_days = hmax)
+    sprintf('%s from %s to %s', d, f3(a$mean_beta), f3(b$mean_beta))
+  }, ''))
+  dmax <- max(abs(
+    sm$power[abs(sm$analysis_t1half) < 1e-9] -
+      sm$power[abs(sm$analysis_t1half - 0.2) < 1e-9]))
   paste0(
     'We varied the data-generating half-life over ',
     length(unique(sm$halflife_days)), ' values from ', hmin, ' to ',
     hmax, ' days. Each dataset was analyzed with the binary ',
     'on/off indicator (analysis half-life 0) and with the decaying ',
     'indicator at 0.2 week. ', paste(parts, collapse = ' '),
-    ' Each cell has ', big(reps_of(2)), ' replicates.'
+    ' The two analyses differed in power by at most ', f3(dmax),
+    ' in any cell. At analysis half-life 0.2 week, the mean estimate ',
+    'moved from ', hmin, ' to ', hmax, ' days as follows: ', mv,
+    '. The estimand was ', f2(BASE_DELTA), ' throughout. Each cell has ',
+    big(reps_of(2)), ' replicates. The MCSE of a power near 0.5 is ',
+    f3(sqrt(0.25 / reps_of(2))), '.'
   )
 }
 
@@ -380,12 +394,31 @@ txt_s4 <- function() {
               f3(z$power[nrow(z)]), z[[x]][nrow(z)])
     }, ''))
   }
+  cal <- join_txt(vapply(unique(a$design_name), function(d) {
+    z <- a[a$design_name == d, ]
+    z <- z[order(z$tau), ]
+    k <- nrow(z)
+    sprintf(paste0('%s empirical SE %s to %s, model SE %s to %s, ',
+                   '$\\kappa$ %s and coverage %s at $\\tau$ = %s'),
+            d, f3(z$emp_se[1]), f3(z$emp_se[k]), f3(z$model_se[1]),
+            f3(z$model_se[k]), f3(z$kappa[k]), f3(z$coverage[k]),
+            z$tau[k])
+  }, ''))
+  r4 <- load_art(4)$results
+  m <- r4 |> distinct(design_name, br_max) |>
+    mutate(share = abs(BASE_DELTA) / br_max)
   paste0(
     'We varied the SD of participant-level heterogeneity of the drug ',
     'effect ($\\tau$) over ', length(unique(a$tau)), ' values and, ',
     'separately, the SD of the baseline score over ',
     length(unique(b$bl_sd)), ' values. Across $\\tau$, power was ',
-    rng(a, 'tau'), '. Across the baseline SD, power was ',
+    rng(a, 'tau'), '. Over the same range the SEs were: ', cal,
+    '. The engine scales the heterogeneity by the drug-response curve ',
+    'divided by its asymptote. At the matched estimand the asymptote ',
+    'differs by design, so the heterogeneity SD at the mean on-drug ',
+    'visit is $\\tau$ times ',
+    join_txt(sprintf('%s for %s', f2(m$share), m$design_name)),
+    '. Across the baseline SD, power was ',
     rng(b, 'bl_sd'), '. Each cell has ', big(reps_of(4)),
     ' replicates.'
   )
@@ -545,9 +578,11 @@ txt_s10 <- function() {
     paste0(nrow(inf), ' of ', SPEC$cells[10], ' cells were not ',
            'positive definite and were dropped: ',
            join_txt(unique(sprintf(
-             'c_bm of %s under the %s encoding',
-             rep(cb, each = 2)[inf$modelparamset], inf$dgp_architecture
-           ))), '.')
+             '$c_{bm}$ = %s under the %s encoding',
+             rep(cb, each = 2)[inf$modelparamset],
+             ifelse(inf$dgp_architecture == 'mvn', 'correlation',
+                    'mean-shift')
+           ))), ', in every design.')
   } else 'No cell was dropped.'
   paste0(
     'The sweep stored the main-effect coefficient. We varied the ',
@@ -585,15 +620,24 @@ txt_s11 <- function() {
             f3(min(z$power)), f3(max(z$power)), ob[['above']] +
               ob[['below']], ob[['total']])
   }, '')
+  means <- join_txt(vapply(unique(nl$design_name), function(d) {
+    z <- nl[nl$design_name == d, ]
+    sprintf('%s %s to %s', d, f3(min(z$mean_beta)), f3(max(z$mean_beta)))
+  }, ''))
   al <- sm[sm$delta_label == 'alt', ]
+  alt_rng <- join_txt(vapply(unique(al$design_name), function(d) {
+    z <- al[al$design_name == d, ]
+    sprintf('%s %s to %s', d, f3(min(z$power)), f3(max(z$power)))
+  }, ''))
   paste0(
     'We crossed data-generating carryover (off, 3 days) with ',
     'data-generating AR(1) (off, 0.7), at the null and at the ',
     'baseline effect, and analyzed each dataset with three analysis ',
-    'half-lives. Type I error ranged over cells and analyses from ',
-    join_txt(parts), '. Under the alternative, power ranged from ',
-    f3(min(al$power)), ' to ', f3(max(al$power)), '. Each cell has ',
-    big(reps_of(11)), ' replicates.'
+    'half-lives (0, 0.2 week and the data-generating 3/7 week). ',
+    'Type I error ranged over cells and analyses from ',
+    join_txt(parts), '. The mean null estimate ranged from ', means,
+    '. Under the alternative, power ranged from ', alt_rng,
+    '. Each cell has ', big(reps_of(11)), ' replicates.'
   )
 }
 
@@ -623,12 +667,77 @@ txt_s12 <- function() {
       '%s (MCSE %s, %.1f MCSE from 0.05) at analysis half-life %s',
       f3(z$rate), f3(z$mcse), z$z, f2(z$analysis_t1half))))
   }, '')
+  s2 <- sm[abs(sm$analysis_t1half - 0.2) < 1e-9, ]
+  cfg <- join_txt(vapply(unique(s2$design_name), function(d) {
+    z <- s2[s2$design_name == d, ]
+    sprintf('%s %s to %s (mean estimate %s to %s, $\\kappa$ %s to %s)',
+            d, f3(min(z$power)), f3(max(z$power)), f3(min(z$mean_beta)),
+            f3(max(z$mean_beta)), f3(min(z$kappa)), f3(max(z$kappa)))
+  }, ''))
   paste0(
     'We simulated a null drug effect in ', length(unique(sm$config)),
     ' configurations of the baseline SD, the drug-response SD and ',
     'the half-life, with ', big(reps_of(12)), ' replicates per cell. ',
-    'Pooled over configurations, Type I error was: ',
-    paste(parts, collapse = '; '), '.'
+    'Pooled over configurations, Type I error was as follows. ',
+    paste0(parts, collapse = '. '), '. ',
+    'At analysis half-life 0.2 week, Type I error by configuration was ',
+    cfg, '. The MCSE of a mean estimate was at most ',
+    f3(max(s2$mcse_bias)), '.'
+  )
+}
+
+#' Cells where the pooled large-sample fit disagrees with the mean of
+#' the replicate estimates by more than four MCSE (the parallel-group
+#' check, S14, is excluded because its legacy analysis is biased by
+#' construction).
+etbeta_note <- function() {
+  cs <- file.path(DATA_DIR, 'cell-summaries.csv')
+  if (!file.exists(cs)) return('')
+  x <- utils::read.csv(cs)
+  x <- x[x$sweep != 14, ]
+  x$z <- (x$mean_beta - x$target) / x$mcse_bias
+  bad <- x[abs(x$z) > 4 & !is.na(x$z), ]
+  alt <- grepl('^Alt', bad$design_name)
+  paste0(
+    'The large-sample value comes from one fit to all simulated ',
+    'participants of a cell. It differed from the mean of the ',
+    'replicate estimates by more than four MCSE in ', nrow(bad), ' of ',
+    nrow(x), ' cells. ',
+    if (all(alt)) 'All of them are alternating designs. ' else
+      paste0(sum(alt), ' of them are alternating designs. '),
+    'The largest difference was ',
+    f3(max(abs(bad$mean_beta - bad$target))), ' units. Bias and ',
+    'coverage against `ETbeta` are not interpretable in those cells. ',
+    'We therefore also report the mean estimate minus $\\Delta_{\\mathrm{on}}$, ',
+    'which at the null is the mean estimate itself.'
+  )
+}
+
+#' Text for the check of the null mean (script 18).
+txt_s18 <- function() {
+  p <- file.path(DATA_DIR, 'sensitivity-18-null-shift-check.rds')
+  if (!file.exists(p)) return('')
+  obj <- readRDS(p)
+  if (!identical(obj$run_meta$schema, 2L)) return('')
+  r <- obj$results
+  lab <- c(engine = 'the fitted model',
+           follow_up = 'the fitted model plus a follow-up indicator',
+           no_baseline_row = 'the fitted model without the baseline row',
+           visit_factor = 'visit as a factor in place of linear time')
+  one <- function(d) {
+    z <- r[r$design_name == d, ]
+    paste0(
+      d, ' (', big(z$n_participants[1]), ' participants): ',
+      join_txt(sprintf('%s (SE %s) with %s', f3(z$beta), f3(z$se),
+                       lab[z$fit])))
+  }
+  paste0(
+    'For the blinded within-subject designs the baseline row has ',
+    'expectancy 0 and every follow-up visit 0.5, and the model has no ',
+    'term for this step. Script `18-null-shift-check.R` fitted one ',
+    'large null dataset per design four ways. The coefficient of ',
+    '$D_{bc}$ was as follows. ',
+    paste(vapply(unique(r$design_name), one, ''), collapse = '. '), '.'
   )
 }
 
@@ -650,10 +759,11 @@ txt_s12b <- function() {
   r$corCAR1 <- c(TRUE, FALSE)[r$analysis_row]
   sm <- summarize_cells(r, c('design_name', 'corCAR1'))
   paste0(
-    'Refitting the null data without the serial-correlation ',
-    'structure gave Type I error of ',
-    join_txt(sprintf('%s for %s (%s corCAR1)', f3(sm$power),
-                     sm$design_name,
+    'S12b fitted the same null datasets with and without the ',
+    'serial-correlation structure. Type I error and mean estimate were ',
+    join_txt(sprintf('%s and %s for %s %s corCAR1', pm(sm$power,
+                                                        sm$mcse_power),
+                     f3(sm$mean_beta), sm$design_name,
                      ifelse(sm$corCAR1, 'with', 'without'))),
     '. Each cell has ', big(load_art(15, 'xo-corcar1')$run_meta$n_reps),
     ' replicates.'
@@ -745,17 +855,62 @@ abs_results <- function() {
   }
   sm1 <- smry(1, c('design_name', 'delta_on'))
   base <- pick(sm1, delta_on = BASE_DELTA)
+  b <- function(d) {
+    z <- base[base$design_name == d, ]
+    sprintf('%s (MCSE %s)', f3(z$power), f3(z$mcse_power))
+  }
   r <- load_art(12)$results
   pooled <- r |>
+    filter(abs(analysis_t1half - 0.2) < 1e-9) |>
     group_by(design_name) |>
-    summarise(rate = mean(p < 0.05, na.rm = TRUE), .groups = 'drop')
-  paste0(
-    'At a mean drug response of ', f2(BASE_DELTA), ' outcome units ',
-    'on drug and N = 35, power was ',
-    join_txt(sprintf('%s %s', base$design_name, f2(base$power))),
-    '. In the null calibration, pooled Type I error was ',
-    join_txt(sprintf('%s %s', pooled$design_name, f3(pooled$rate))),
-    '.')
+    summarise(rate = mean(p < 0.05, na.rm = TRUE),
+              n = sum(!is.na(p)), mb = mean(beta, na.rm = TRUE),
+              .groups = 'drop') |>
+    mutate(mcse = sqrt(rate * (1 - rate) / n))
+  t1 <- function(d) {
+    z <- pooled[pooled$design_name == d, ]
+    sprintf('%s (MCSE %s)', f3(z$rate), f3(z$mcse))
+  }
+  mb <- function(d) f2(pooled$mb[pooled$design_name == d])
+  out <- paste0(
+    'At a mean drug response on drug of ', f2(BASE_DELTA),
+    ' units and N = 35, power was ', b('Hybrid'), ' for the Hybrid and ',
+    b('RCT'), ' for the parallel group. ',
+    'It was ', b('Alt'), ' for the alternating design and ', b('XO'),
+    ' for the crossover. ',
+    'Pooled over four null configurations, Type I error was ',
+    t1('RCT'), ' for the parallel group and ', t1('Hybrid'),
+    ' for the Hybrid. ',
+    'It was ', t1('Alt'), ' for the alternating design and ', t1('XO'),
+    ' for the crossover. ',
+    'Their mean null estimates were ', mb('Alt'), ' and ', mb('XO'),
+    ' units. A linear time term did not capture their change in mean ',
+    'from baseline to follow-up. ')
+  if (avail(2)) {
+    s2 <- smry(2, c('design_name', 'halflife_days', 'analysis_t1half'))
+    s2 <- s2[abs(s2$analysis_t1half - 0.2) < 1e-9, ]
+    h <- s2[s2$design_name == 'Hybrid', ]
+    h <- h[order(h$halflife_days), ]
+    out <- paste0(out,
+      'Hybrid power fell from ', f3(h$power[1]), ' to ',
+      f3(h$power[nrow(h)]), ' as the carryover half-life rose from ',
+      h$halflife_days[1], ' to ', h$halflife_days[nrow(h)], ' days. ')
+  }
+  if (avail(4)) {
+    s4 <- smry(4, c('axis', 'design_name', 'tau', 'bl_sd'))
+    a <- s4[s4$axis == 'tau', ]
+    g <- function(d, w) {
+      z <- a[a$design_name == d, ]
+      z <- z[order(z$tau), ]
+      if (w == 1) z[1, ] else z[nrow(z), ]
+    }
+    out <- paste0(out,
+      'With treatment heterogeneity of SD ', g('RCT', 2)$tau,
+      ', parallel-group power fell from ', f3(g('RCT', 1)$power),
+      ' to ', f3(g('RCT', 2)$power), ' and Hybrid power from ',
+      f3(g('Hybrid', 1)$power), ' to ', f3(g('Hybrid', 2)$power), '.')
+  }
+  out
 }
 
 synth_text <- function() {
@@ -764,9 +919,37 @@ synth_text <- function() {
   base <- pick(sm1, delta_on = BASE_DELTA)
   base <- base[order(-base$power), ]
   out <- paste0(
-    'At the baseline effect, designs ordered by power were ',
-    paste(sprintf('%s (%s)', base$design_name, f2(base$power)),
+    'At the baseline effect in S1, designs ordered by power were ',
+    paste(sprintf('%s %s', base$design_name,
+                  pm(base$power, base$mcse_power)),
           collapse = ', '), '. ')
+  cs <- file.path(DATA_DIR, 'cell-summaries.csv')
+  if (file.exists(cs)) {
+    x <- utils::read.csv(cs)
+    bx <- x[abs(x$delta_on - BASE_DELTA) < 1e-6 & x$N == BASE_N &
+              abs(x$c.bm - 0.3) < 1e-6 & abs(x$c.br - 0.3) < 1e-6 &
+              x$tau == 0 & abs(x$br_sd - 1) < 1e-6 &
+              abs(x$bl_sd - 1.5) < 1e-6 &
+              abs(x$carryover_t1half - 3 / 7) < 1e-6 &
+              x$carryover_form == 'exponential' &
+              abs(x$analysis_t1half - 0.2) < 1e-6 &
+              x$dgp_architecture == 'mvn' & x$n_visits == 8 &
+              x$design_name %in% c('Hybrid', 'RCT', 'Alt'), ]
+    pl <- bx |>
+      group_by(design_name) |>
+      summarise(k = n(), lo = min(power), hi = max(power),
+                pooled = sum(power * n_fit) / sum(n_fit),
+                n = sum(n_fit), .groups = 'drop') |>
+      mutate(mcse = sqrt(pooled * (1 - pooled) / n))
+    out <- paste0(out,
+      'The baseline cell recurs in ', max(pl$k), ' sweeps with ',
+      'independent draws. Across them, power ranged over ',
+      join_txt(sprintf('%s to %s for %s', f3(pl$lo), f3(pl$hi),
+                       pl$design_name)),
+      '. Pooled over these cells, power was ',
+      join_txt(sprintf('%s %s on %s replicates', pl$design_name,
+                       pm(pl$pooled, pl$mcse), big(pl$n))), '. ')
+  }
   if (avail(7)) {
     sm7 <- smry(7, c('design_name', 'N'))
     out <- paste0(out, 'The smallest N in the grid with power of at ',

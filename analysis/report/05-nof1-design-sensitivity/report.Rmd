@@ -46,7 +46,7 @@ source(here::here(
 
 **Results.** `r abs_results()`
 
-**Conclusions.** The study separates the cost of unmodeled carryover from the cost of carryover itself, and it compares designs on one estimand. The study is exploratory. Its conclusions about design ordering apply to the parameter values simulated and need confirmation in an independent study.
+**Conclusions.** On one estimand at N = 35, the Hybrid had 0.02 less power than a parallel group of the same size, with an MCSE of 0.009 for the difference. Carryover lowered the power of the Hybrid. Treatment heterogeneity lowered the power of the parallel group more. The alternating design and the crossover rejected too often under the null, so their power is not comparable until the analysis model is corrected. The study is exploratory, and its conclusions apply to the parameter values simulated.
 
 **Keywords.** N-of-1 trials; statistical power; carryover; serial correlation; sensitivity analysis; Monte Carlo simulation; crossover designs.
 
@@ -56,7 +56,7 @@ Aggregated N-of-1 trials observe each participant on and off treatment and pool 
 
 Hendrickson et al. [-@hendricksonOptimizing2020] proposed the Hybrid design for validating a predictive biomarker. It combines open-label titration, blinded discontinuation and a brief crossover. We did not find a study of its power for the treatment main effect in a data-generating process (DGP) that includes a placebo-response component, carryover and serial correlation, with the factors varied in turn. This paper reports one.
 
-The paper makes four methodological choices that the 2026-05 version of this study lacked. First, the Hybrid is the published schedule, not a shorter two-path schedule. Second, all designs are put on one estimand, the mean drug response on drug, so that a difference in power is a difference between designs. Third, the analysis half-life is crossed with the data-generating half-life, so that the cost of unmodeled carryover is separate from the cost of carryover. Fourth, the parallel group is analyzed with a standard arm contrast whose null behavior we check before any comparison.
+The paper makes four methodological choices that the 2026-05 version of this study lacked. First, the Hybrid is the published schedule, not a shorter two-path schedule. Second, all designs are put on one estimand, the mean drug response on drug, so that a difference in power is a difference between designs. Third, the analysis half-life is crossed with the data-generating half-life. S2 crosses two assumed half-lives with nine data-generating ones, and S3 and S11 add the data-generating value at 3 days. Fourth, the parallel group is analyzed with a standard arm contrast whose null behavior we check before any comparison.
 
 # Methods
 
@@ -117,7 +117,7 @@ The coefficient $\beta_D$ that an analysis estimates need not equal $\Delta_{\ma
 
 The within-subject designs are fitted with `nlme::lme` [@pinheirobates2000; @verbekemolenberghs2000]. The model has a random intercept for the participant and a continuous-time AR(1) residual correlation, `corCAR1(form = ~t | ptID)`. The fixed part is
 $$Y_{it} = \beta_0 + \beta_B B_i + \beta_T w_t + \beta_D D_{bc,it} + \beta_\eta \eta_t + u_i + \varepsilon_{it}.$$
-The term in $\eta_t$ enters only when the design has more than one value of expectancy, which is the Hybrid. The baseline row ($w = 0$, $D = 0$, $\eta = 0$) is included. The exposure indicator is $D_{bc,it} = 1$ on drug, $2^{-t_{sd}/t^a_{1/2}}$ off drug after exposure and 0 before it. The assumed half-life $t^a_{1/2}$ is a property of the analysis. It is 0 (binary indicator), 0.2 week (the project policy value when the half-life is fixed), or 3/7 week (the data-generating half-life). Which values a sweep uses is listed with the sweep. The target is $\beta_D$. The stored column `fit_formula` records the model actually fitted in every replicate. Table \@ref(tab:formulas) lists the formulas.
+The term in $\eta_t$ enters only when the design has more than one value of expectancy, which is the Hybrid. The baseline row ($w = 0$, $D = 0$, $\eta = 0$) is included. The engine counts expectancy values over the follow-up visits only. In the blinded designs the baseline row has $\eta = 0$ and every follow-up visit has $\eta = 0.5$, so their model has no term for this change (Section \@ref(nullshift)). The exposure indicator is $D_{bc,it} = 1$ on drug, $2^{-t_{sd}/t^a_{1/2}}$ off drug after exposure and 0 before it. The assumed half-life $t^a_{1/2}$ is a property of the analysis. It is 0 (binary indicator), 0.2 week (the project policy value when the half-life is fixed), or 3/7 week (the data-generating half-life). Which values a sweep uses is listed with the sweep. The target is $\beta_D$. The stored column `fit_formula` records the model actually fitted in every replicate. Table \@ref(tab:formulas) lists the formulas.
 
 ```{r formulas}
 fm <- if (avail(1)) {
@@ -141,9 +141,11 @@ knitr::kable(fm, booktabs = TRUE, longtable = FALSE,
 
 The parallel group is analyzed by ANCOVA. Each participant's follow-up observations are averaged and the mean is regressed on the arm indicator and the baseline score by ordinary least squares. The arm coefficient is $\beta_D$. The 2026-05 version fitted the mixed model above, with a baseline row in which $D = 0$ for both arms. That model has one shared linear time term. The engine keeps it as `parallel_analysis = 'legacy'` only to reproduce stored runs. Section \@ref(rctcheck) reports the check of both analyses.
 
-## Performance measures
+## Performance measures {#perf}
 
 For each cell we report, with Monte Carlo standard errors (MCSE) after Morris et al. [-@morris2019simulation], the rejection rate at $\alpha = 0.05$ (power, or Type I error when the effect is zero), the bias $\overline{\hat\beta_D} - \beta_D^{\infty}$ with $\beta_D^{\infty}$ the large-sample value, the empirical SD of $\hat\beta_D$, the mean model SE, the ratio $\kappa$ of the two, the coverage of the 95% interval around $\beta_D^{\infty}$ and the share of fits that failed. A Type I error is called nominal when it lies within two MCSE of 0.05, with the MCSE computed at 0.05. The band is $0.05 \pm `r f3(2 * sqrt(0.05 * 0.95 / 500))`$ at 500 replicates, $\pm `r f3(2 * sqrt(0.05 * 0.95 / 1000))`$ at 1,000 and $\pm `r f3(2 * sqrt(0.05 * 0.95 / 2000))`$ at 2,000. The MCSE of a power near 0.5 is `r f3(sqrt(0.25 / 500))` at 500 replicates and `r f3(sqrt(0.25 / 2000))` at 2,000. Bias, SEs, $\kappa$ and coverage for every cell are in `analysis/data/derived_data/sensitivity/cell-summaries.csv`, written by `16-summarize-all.R`.
+
+`r etbeta_note()`
 
 ## Feasibility of the covariance matrix
 
@@ -251,11 +253,11 @@ The sample-size sweep S7 keeps the allocation rule of the engine. The null calib
 
 ## Software and seeds
 
-The simulation engine is the R package `nof1power` (version 0.1.0), which is part of this project. It is not an external package of Hendrickson et al. The drivers are in `analysis/scripts/nof1-design-sensitivity/`. Each driver calls `set.seed(42 + id)` once, where `id` is the sweep number. The cells then run in parallel with `furrr` and `seed = TRUE`, which gives each cell its own random-number stream derived from the master seed. Results from the container and from a local session are not draw-for-draw identical, because the linear-algebra libraries differ. Each artifact stores the engine version, the repository revision, the seed, the replicate count and the date.
+The simulation engine is the R package `nof1power` (version 0.1.0), which is part of this project. It is not an external package of Hendrickson et al. The drivers are in `analysis/scripts/nof1-design-sensitivity/`. Each driver calls `set.seed(42 + id)` once, where `id` is the sweep number. The cells then run in parallel with `furrr` and `seed = TRUE`, which gives each cell its own random-number stream derived from the master seed. Results from the container and from a local session are not draw-for-draw identical, because the linear-algebra libraries differ. Each artifact stores the engine version, the repository revision, the seed, the replicate count and the date. The sweeps were run in one job on the simulation host, from commit 6485001 with `nof1power` 0.1.0, in 2 h 45 min. The revision field of these artifacts is empty, because the host container had no git metadata. The check of Section \@ref(nullshift) was run locally from the working tree.
 
 # Results
 
-All numbers in this section are generated from the stored artifacts in `analysis/data/derived_data/sensitivity/`. A sweep whose artifact is absent or predates the corrected drivers shows a RESULTS-PENDING note with the rerun command. The README of this directory lists the commands and the expected host time.
+All numbers in this section are generated from the stored artifacts in `analysis/data/derived_data/sensitivity/`. The document reads an artifact only if it carries the run metadata of the corrected drivers. Every sweep artifact used here does. No sweep had a failed fit, and no covariance matrix was repaired. The baseline cell recurs in several sweeps with independent draws, so differences between sweeps include Monte Carlo error. Comparisons are made within a sweep.
 
 ## Parallel-group analyses under the null {#rctcheck}
 
@@ -290,11 +292,18 @@ sm <- smry(1, c('design_name', 'delta_on'))
 cal <- calib_table(sm[abs(sm$delta_on) < 1e-9 |
                         abs(sm$delta_on - BASE_DELTA) < 1e-9, ],
                    c('design_name', 'delta_on'))
-names(cal) <- c('Design', 'Effect', 'Bias/MCSE', 'Bias', 'Empirical SE',
-                'Model SE', 'kappa', 'Coverage', 'Failed')
+names(cal) <- c('Design', 'Effect', 'Mean - estimand', 'Bias/MCSE',
+                'Bias', 'Empirical SE', 'Model SE', 'kappa', 'Coverage',
+                'Failed')
 knitr::kable(cal, booktabs = TRUE,
              caption = paste('S1. Calibration at the null and at the',
-                             'baseline effect.'))
+                             'baseline effect. Mean - estimand is the',
+                             'mean estimate minus the realized estimand.',
+                             'Bias and coverage are against the',
+                             'large-sample value `ETbeta`, which is',
+                             'unreliable for the alternating design',
+                             '(Section \\@ref(perf)).')) |>
+  kableExtra::kable_styling(latex_options = 'scale_down')
 ```
 
 ```{r s1-fig, eval = fig_ok(1), out.width = '85%', fig.cap = 'S1. Rejection rate against the mean drug response on drug, with 95 percent Monte Carlo intervals.'}
@@ -350,6 +359,9 @@ sm <- smry(4, c('axis', 'design_name', 'tau', 'bl_sd'))
 knitr::kable(t4$tau, booktabs = TRUE, digits = 3,
              caption = paste('S4. Power by heterogeneity SD (rows) and',
                              'design (columns).', mcse_note(sm)))
+```
+
+```{r s4-tab-bl, eval = avail(4)}
 knitr::kable(t4$bl_sd, booktabs = TRUE, digits = 3,
              caption = paste('S4. Power by baseline SD (rows) and',
                              'design (columns).', mcse_note(sm)))
@@ -465,11 +477,29 @@ knitr::kable(tab_s12(), booktabs = TRUE, digits = 3,
 
 `r txt_s12b()`
 
+## Mean of the estimate under the null {#nullshift}
+
+`r txt_s18()`
+
 # Discussion
 
-## Summary of the stored results
+## Principal findings
 
 `r synth_text()`
+
+The ANCOVA arm contrast of the parallel group behaved as intended under the null. Its mean null estimate was within 0.013 units of zero in every null cell of S11, S12 and S14. Its $\kappa$ lay between 0.96 and 1.05. Pooled over the S12 configurations, its Type I error was 0.054 (MCSE 0.003), 1.5 MCSE above 0.05. One of the twelve S14 ANCOVA null cells, the open-label parallel group at $\rho = 0$, had 0.065 (MCSE 0.008), just above the band. The mixed-model analysis of the 2026-05 version had mean null estimates from $-0.54$ to $-0.36$ and Type I error from 0.17 to 0.40 in the same data. The correction removes the bias of the comparator that the referee found.
+
+The Hybrid was slightly anticonservative. Pooled over the S12 configurations, its Type I error was 0.057 (MCSE 0.003), 2.9 MCSE above 0.05. By configuration it ranged from 0.049 to 0.069. The null cell of S1 had 0.078 (MCSE 0.008). Its mean null estimate was between 0.013 and 0.019 units, and its $\kappa$ between 0.93 and 1.00. The excess of about one percentage point reported by the referee is therefore still present. By a normal approximation, model-based standard errors 3 to 7 percent too small account for most of it, and the mean shift for little.
+
+The alternating design and the crossover were anticonservative by more. Pooled over the S12 configurations, their Type I error was 0.094 (MCSE 0.003) and 0.148 (MCSE 0.004). Their mean null estimates were about $-0.06$ and $-0.14$ units, in the direction of benefit. Removing `corCAR1` did not remove the excess (S12b). The check of Section \@ref(nullshift) located the cause in the mean model. With a follow-up indicator, without the baseline row, or with visit as a factor, the large-sample null coefficient was within 0.02 units of zero for both designs. For the crossover, $\kappa$ of 0.83 to 0.87 adds to the excess. Part of the power of these two designs at the alternative therefore comes from the analysis model. This study does not estimate how large that part is. The empirical SE of the alternating design at the baseline was 0.126, against 0.168 for the Hybrid. That suggests that its advantage would not vanish under a corrected model, but this was not tested.
+
+At the baseline the Hybrid and the parallel group differed in power by 0.008 in S1, with an MCSE of about 0.013 for each. Pooled over the eight sweeps that contain the baseline cell, the parallel group had 0.020 more power than the Hybrid, with an MCSE of about 0.009 for the difference. In S7 the parallel group reached 0.80 at N = 35 and the Hybrid at N = 60, the next grid value. The grid does not locate the Hybrid's crossing point between those values.
+
+Carryover lowered the power of the within-subject designs and not of the parallel group. As the data-generating half-life rose from 0 to 14 days, Hybrid power fell from 0.840 to 0.362 and its mean estimate moved from $-0.50$ to $-0.27$, against a fixed estimand of $-0.50$. The two assumed half-lives of S2, 0 and 0.2 week, changed power by at most 0.026. At 3 days in S3, the data-generating half-life in the analysis raised Hybrid power over the binary indicator by 0.010 to 0.024 across decay forms. These are paired comparisons on the same datasets. In the same sweep the decay form changed Hybrid power by up to 0.08 at a fixed analysis. S2 does not include the data-generating half-life as an analysis value, so the share of the loss above 3 days that a correct analysis half-life would recover is not estimated. In S11 the data-generating analysis half-life raised the Type I error of the alternating design without carryover from 0.108 to 0.148 (MCSE about 0.015).
+
+Treatment heterogeneity lowered the power of the parallel group from 0.810 to 0.412 as $\tau$ rose from 0 to 1, with $\kappa$ near 1. The Hybrid fell from 0.766 to 0.692. At $\tau = 1$ its $\kappa$ was 0.815 and its coverage 0.888, because the model has no random slope for $D_{bc}$. The Hybrid's power under heterogeneity is therefore overstated. A test with this standard error would also reject a true null too often if heterogeneity were present. The DGP cannot show this, because it scales the heterogeneity by the drug-response curve, which is zero at the null. The scaling divides by the asymptote, and the asymptote differs by design at the matched estimand. The effective heterogeneity SD at the mean on-drug visit is therefore $0.38\tau$ for the alternating design, $0.76\tau$ for the Hybrid and $0.89\tau$ for the parallel group. The designs are therefore not compared at the same heterogeneity in S4.
+
+Serial correlation lowered parallel-group power from 0.922 at $\rho = 0$ to 0.336 at $\rho = 0.9$. Hybrid power rose from 0.764 at $\rho = 0$ to 0.910 at $\rho = 0.7$. The Hybrid and the alternating design were infeasible at $\rho = 0.9$. Under the mean-shift encoding the biomarker term adds participant-level variation to the drug response. Parallel-group power then fell from 0.776 to 0.592 as $c_{bm}$ rose from 0 to 0.6 at half-life 0, and $\kappa$ of the alternating design fell to 0.79 to 0.80. Under the correlation encoding, main-effect power changed by at most 0.036 between $c_{bm} = 0$ and 0.4, within two MCSE of the difference.
 
 ## Relation to earlier work
 
@@ -477,7 +507,7 @@ The sample-size comparison of Blackston et al. [-@blackstonComparisonAggregatedN
 
 The original DGP of Hendrickson et al. holds the biomarker-response correlation constant after first exposure. The interaction estimand is then zero at a positive half-life (`docs/36`, `docs/40`). Interaction power at short half-lives in that setting is therefore a property of the original rule. It is not a result about the main effect, and this paper does not compare with it. The comparison of the two encodings of the interaction belongs to paper 01 of this series.
 
-The standard texts on the analysis of two-period crossover trials are Jones and Kenward [-@jonesKenward2014] and Senn [-@senn2002]. A crossover with one assessment per period gives two follow-up observations per participant, and the baseline row makes three. S12b tests whether fitting `corCAR1` to these data changes the Type I error, by refitting without it.
+The standard texts on the analysis of two-period crossover trials are Jones and Kenward [-@jonesKenward2014] and Senn [-@senn2002]. A crossover with one assessment per period gives two follow-up observations per participant, and the baseline row makes three. S12b tested whether fitting `corCAR1` to these data changes the Type I error, by refitting without it. It did not. The crossover had 0.143 (MCSE 0.008) with and without it, and the same estimates in every replicate.
 
 ## Limitations
 
@@ -485,7 +515,11 @@ The study is a simulation at one baseline. Its conclusions apply to the paramete
 
 The effect is the mean drug response on drug, matched across designs. A trial planner may instead hold the drug and dose fixed, in which case the designs differ in exposure and the comparison here does not apply.
 
-The `lme` Wald tests at $N = 35$ use containment degrees of freedom. A small-sample correction such as Kenward and Roger [-@kenwardRoger1997] or cluster-robust standard errors with Satterthwaite degrees of freedom may be needed. The cells report $\kappa$ and coverage, which show where the model-based SE is miscalibrated. The corrections are not applied.
+The analysis model of the blinded within-subject designs has linear time and no term for the change in mean from baseline to follow-up. Under the null their estimates are shifted toward benefit, and their Type I error is 0.09 for the alternating design and 0.15 for the crossover. Their power is reported as computed. It is not a valid comparison with the Hybrid and the parallel group until the sweeps are rerun with a corrected model. The correction is a change to the engine and was not made in this version.
+
+The `lme` Wald tests at $N = 35$ use containment degrees of freedom. In the null cells of the within-subject designs $\kappa$ ranged from 0.83 to 1.00. The model has no random slope for $D_{bc}$, and under heterogeneity $\kappa$ of the Hybrid fell to 0.82. A small-sample correction such as Kenward and Roger [-@kenwardRoger1997] or cluster-robust standard errors with Satterthwaite degrees of freedom may be needed. The corrections are not applied.
+
+The large-sample value `ETbeta` is unreliable for the alternating design in some cells (Section \@ref(perf)). The heterogeneity of S4 is scaled by each design's asymptote, so a given $\tau$ is a different amount of heterogeneity in each design. S2 crosses the data-generating half-life with assumed half-lives of 0 and 0.2 week only. The data-generating value is an analysis option only at 3 days, in S3 and S11.
 
 The parallel group has 17 or 18 participants per arm. Its ANCOVA uses the baseline score and the arm only.
 
@@ -499,9 +533,17 @@ The carryover rule compounds across consecutive off-drug visits, so the half-lif
 
 Three decisions are open. The first is whether paper 05 should quote half-lives in weeks, to match papers 01 to 04. The second is the baseline effect of `r BASE_DELTA` outcome units, chosen because a local test with 200 replicates gave the Hybrid a power below 1.000 at this value, which the earlier baseline did not. The third is the author list on the title page.
 
+Three analyses remain to be run. The first is a rerun of the within-subject designs with a term for the change from baseline to follow-up, or with visit as a factor. It applies to every sweep that contains the alternating design or the crossover, and to the Hybrid for consistency. The second is an analysis of the Hybrid with a random slope for $D_{bc}$ or cluster-robust standard errors, in S4 and S12. The third is the data-generating half-life as an analysis option at every half-life of S2.
+
 # Conclusions
 
-The conclusions that do not depend on the rerun are methodological. A comparison of N-of-1 and parallel designs needs a common estimand, because a fixed response asymptote gives each design a different mean effect. The cost of unmodeled carryover needs the analysis half-life crossed with the data-generating half-life. A parallel-group comparator needs an analysis whose null behavior has been checked. Cells with a covariance matrix that is not positive definite need to be dropped or reported, not repaired. The conclusions about the ordering of designs are given in the Results once the corrected sweeps have been run.
+With the designs matched on the mean drug response on drug and N = 35, the Hybrid had 0.020 less power than a parallel group analyzed by ANCOVA, with an MCSE of 0.009 for the difference. This is pooled over the eight sweeps that contain the baseline cell. The parallel group's test held its size. The Hybrid's test exceeded nominal by about one percentage point.
+
+The two designs responded to different factors. Carryover lowered Hybrid power from 0.840 to 0.362 between half-lives of 0 and 14 days and left the parallel group unchanged. Treatment heterogeneity and serial correlation lowered parallel-group power. The Hybrid's model-based SE understated its variability under heterogeneity.
+
+The alternating design had the highest power. The crossover had the highest Type I error. Both analyses were shifted under the null by an unmodeled change from baseline to follow-up. The ordering of these two designs against the Hybrid and the parallel group is therefore not established by this run.
+
+Four methodological points hold regardless of the parameter values. A comparison of N-of-1 and parallel designs needs a common estimand. A comparator needs an analysis whose null behavior has been checked, and the same check applies to every within-subject design. Cells with a covariance matrix that is not positive definite need to be dropped or reported, not repaired. Heterogeneity should be defined on the scale of the estimand if designs are to be compared at the same heterogeneity. The study is exploratory, and its conclusions apply to the parameter values simulated.
 
 # Conflict of interest
 
@@ -517,7 +559,7 @@ The drivers, the engine and the stored artifacts are in the pmsimstats-ng projec
 
 # Reproducibility
 
-The manuscript is rendered with `bash tools/render.sh analysis/report/05-nof1-design-sensitivity/report.Rmd`. The sweeps are run with the commands in `README.md` of this directory after `devtools::install_local('implementations/nof1power')`. Each driver sets its seed with `set.seed(42 + id)`, checks that the parameter values stored in the artifact equal the grid, and saves an artifact with the engine version, the repository revision and the replicate count. If a check fails the artifact is saved under a name ending in `-UNCHECKED.rds`, and this document ignores it. Rendering this document does not run any simulation.
+The manuscript is rendered with `bash tools/render.sh analysis/report/05-nof1-design-sensitivity/report.Rmd`. The sweeps are run with the commands in `README.md` of this directory after `devtools::install_local('implementations/nof1power')`. Each driver sets its seed with `set.seed(42 + id)`, checks that the parameter values stored in the artifact equal the grid, and saves an artifact with the engine version, the repository revision and the replicate count. If a check fails the artifact is saved under a name ending in `-UNCHECKED.rds`, and this document ignores it. No such file exists for the stored run. The check of Section \@ref(nullshift) is `18-null-shift-check.R`, which fits one large null dataset per design and takes about two minutes. Rendering this document does not run any simulation.
 
 The principal packages are `nlme` for the analysis, `corpcor` for the positive-definiteness check, `furrr` and `future` for parallel execution, and `dplyr` and `tidyr` for summaries. The package set is recorded in `renv.lock`. The R version used for this render is `r R.version.string`.
 

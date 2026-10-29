@@ -13,16 +13,20 @@ and variance components.
 The manuscript (`report.Rmd`) was rewritten on 2026-10-28 after the
 referee report of the same date (`referee-report-2026-10-28.md`). It
 reads every Results number from the stored artifacts through
-`results-helpers.R`. The sweep artifacts in
-`analysis/data/derived_data/sensitivity/` named `sensitivity-01-*.rds`
-to `sensitivity-13-*.rds` were written by the 2026-05 drivers and are
-ignored by the manuscript (no schema-2 metadata). Until the sweeps
-below are rerun, every Results section shows a RESULTS-PENDING note.
-The parallel-group check (script 14) has been run locally and its
-artifact is in place.
+`results-helpers.R`.
 
-Nothing has been submitted to the simulation host, and nothing is
-committed.
+2026-10-29: the full rerun (host job 51, commit 6485001, `nof1power`
+0.1.0, 2 h 45 min) replaced the 2026-05 artifacts. Every sweep
+artifact has schema-2 metadata, no `*-UNCHECKED.rds` exists, no fit
+failed, and `pd_repaired` is `FALSE` throughout. The `git_rev` field
+is empty because the host container had no git metadata. S13
+(`13-cycle-period.R`) is not in `run-all.R`; its 2026-05 artifact is
+stale and the manuscript does not use it. The rerun showed that the
+alternating design and the crossover have a shifted mean under the
+null (Type I 0.09 and 0.15). `18-null-shift-check.R` (run locally)
+traces it to the missing term for the change from baseline to
+follow-up in the analysis model. The fix is an engine change and has
+not been made. See the manuscript's Open items.
 
 ## What changed from the 2026-05 version
 

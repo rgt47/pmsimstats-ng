@@ -102,6 +102,41 @@ design-level change (multi-path or parallel-group OL+BDC, or
 replacing `phase` with continuous `e`); it cannot be resolved by
 increasing $N$ within the prototype's single-path design.
 
+## 2026-10-28: feasibility of the contamination cells; corrected driver
+
+**Issue.** The contaminated-biomarker run (`run-study-contam.R`, seed
+644, `study-contam-alt100-null100/`) and the hybrid recovery run
+(`run-study-b-recovery.R`, seed 815, `study-b-recovery-pilot/`) passed
+`makePositiveDefinite = TRUE` to `generateData()`, which in June 2026
+repaired a non-positive-definite covariance matrix silently. On the
+sixteen-visit design every cell at `c.bm.pb >= 0.15` is non-PD
+(smallest eigenvalue -0.023 to -0.635), and on the eight-visit design
+the `c.bm.pb = 0.45` cell is (-0.307). The repair lowers the on-drug
+biomarker-BR correlation to between 0.45 and 0.36 and the implied
+pharmacological slope to between -2.21 and -1.44, so the stored bias in
+those cells against -2.25 is a property of the repaired DGP, not of the
+estimator. Referee report 2026-10-28, M1; same failure mode as
+`docs/65` for paper 02.
+
+**Change.** `05-feasibility-bounds.R` computes the Schur-complement
+bound on `c.bm.pb` at `c.bm = 0.45` for each design (eight-visit
+0.321, sixteen-visit 0.126, balanced 0.315), the smallest eigenvalue
+of every cell, and the repaired-process population values for the
+affected cells; output `feasibility-bounds.rds`. The manuscript reports
+the affected cells only as exhibits of the artifact.
+`run-study-2-feasible.R` (seed 2061) reruns the contamination study on
+feasible cells only, with `stopOnNonPD` at its default `TRUE`, a
+pre-flight eigenvalue check, and the F1 model added to the analysis
+set; the phase-augmented analysis fits the identified formula directly
+(the `Dbc:phase` term is not attempted). Smoke test at 3 replicates
+passed 2026-10-28; the full run is pending.
+
+**Studies renamed.** Study A is Study 1, the contamination pilot Study
+2, the hybrid recovery run Study 3, the balanced-placebo run Study 4,
+following NOTATION.md Part 3. Stored directory names keep the old
+letters. The protocol's Study B (identifiability of the full nonlinear
+fit) and Study C were not run; `full_nonlinear_fit()` remains a stub.
+
 ---
 
 *Source:* `~/prj/alz/10-pmsimstats-ng/pmsimstats-ng/analysis/scripts/component-decomposition/02-deviations-log.md`

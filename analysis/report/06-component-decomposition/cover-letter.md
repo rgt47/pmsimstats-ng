@@ -1,70 +1,63 @@
 # Cover letter
-*2026-05-09 09:55 PDT*
+*2026-10-28 18:10 PDT*
 
 To the Editor,
 Statistics in Medicine
 
 Dear Editor:
 
-We are pleased to submit our manuscript titled 'Three-Component
-Decomposition of Treatment Response in Aggregated N-of-1 Trials:
-Pharmacological, Expectation-Driven, and Natural-History
-Components' for consideration as a research article in
-Statistics in Medicine.
+We submit our manuscript 'Three-component decomposition of treatment
+response in aggregated N-of-1 trials: pharmacological,
+expectation-driven, and natural-history components' for consideration
+as a research article in Statistics in Medicine.
 
-The treatment response in aggregated N-of-1 clinical trials is
-not a single quantity but a sum of three causally distinct
-contributions: pharmacological (BR), expectation-driven /
-placebo-belief (PB), and time-variant natural-history (TV).
-Routine analyses lump these components and report the total,
-which is adequate for symptom-control endpoints but is not the
-correct estimand when the inferential target is a predictive
-biomarker. A biomarker that predicts the lumped total is not, in
-general, a pharmacological predictor, and prescribing decisions
-made on a pharmacological basis would mis-stratify patients if
-the biomarker correlates strongly with placebo-belief or
-natural-history components. The decomposition is therefore a
-substantive methodological requirement for predictive-biomarker
-validation in aggregated N-of-1 trials, not a parameterisation
-convenience.
+Treatment response in an aggregated N-of-1 trial has three sources:
+the drug, the participant's belief that treatment is active, and the
+natural history of the condition. A standard analysis fits one
+treatment indicator and reports the total. The manuscript asks when
+that total misleads. It formalizes the three-component model, maps its
+identifiability onto the phase contrasts of the hybrid open-label and
+blinded-discontinuation design, and derives the omitted-variable
+identity for the one-component treatment effect and biomarker slope. A
+corollary of the identity gives the displacement of the one-component
+biomarker slope, when the biomarker is correlated with the placebo
+response, as the product of that correlation, the placebo-response
+standard deviation, and the difference between the design's mean
+expectancy on and off drug. The sign is therefore a property of the
+design.
 
-This manuscript formalises the three-component decomposition,
-makes the trial-design contrasts that identify each component
-explicit, supplies a phase-augmented linear-mixed analysis that
-is identifiable at trial-relevant sample sizes, and clarifies
-the target estimand for biomarker validation as the regression
-of $BR$ on the biomarker rather than the lumped total. A
-proof-of-concept simulation prototype (100 replicates per cell
-on a 6-cell slice) confirms the analysis machinery runs
-end-to-end on the three-component data-generating process. A
-production simulation programme is specified in §6 of the
-manuscript to quantify bias-versus-power trade-offs across
-sample sizes $N \in \{35, 70, 100, 150\}$; the program follows a
-working ADEMP protocol and is the subject of forthcoming
-follow-up work. The study is exploratory, and its findings
-should be confirmed in an independent study.
+Four exploratory Monte Carlo studies, calibrated to a prazosin-PTSD
+reference, test the prediction. With a biomarker correlated with the
+drug response alone, the one-component estimate is unbiased across a
+grid of placebo and natural-history magnitudes at 1,000 replicates per
+cell, and a phase-augmented analysis reduces no bias and loses power.
+With the biomarker also correlated with the placebo response, the
+displacement follows the prediction in sign and approximate size on
+the hybrid and balanced-placebo designs, and the F1 model, which
+interacts the biomarker with both drug state and expectancy, recovers
+the pharmacological slope on a balanced-placebo design at every
+feasible contamination level. The manuscript reports the feasibility
+bound of every simulated cell and identifies the cells of its own
+earlier runs that drew from silently repaired covariance matrices,
+which it reports only as an exhibit of that artifact. It also discusses
+the concealment the recommended designs require. The studies are
+exploratory, and the findings should be confirmed in an independent
+study.
 
-The paper aligns with Statistics in Medicine's editorial focus
-on methodological developments for clinical trials and provides
-the formal framework through which predictive-biomarker claims
-in aggregated N-of-1 trials can be evaluated rigorously. It
-complements companion submissions on the data-generating-process
-architecture, the carryover-mitigation analysis strategies, the
-test-procedure choice, and the trajectory-template choice; we
-anticipate submitting those papers separately.
+The paper aligns with the journal's focus on methodology for clinical
+trials. It complements companion submissions on the data-generating
+process, the carryover analysis strategies, and the treatment main
+effect, which we anticipate submitting separately.
 
-This manuscript is original, has not been published elsewhere,
-and is not under consideration by another journal. All authors
-have approved the submission.
+This manuscript is original, has not been published elsewhere, and is
+not under consideration by another journal. All authors have approved
+the submission. The work received no specific funding, and the
+pmsimstats team declares no conflicts of interest. The data, drivers,
+working ADEMP protocol and deviations log are openly available in the
+project repository at the paths given in the manuscript's
+Reproducibility section.
 
-We confirm that the work received no specific funding and that
-the pmsimstats team declares no conflicts of interest. The data
-and code that support the findings are openly available; the
-working ADEMP protocol is committed at
-`analysis/scripts/component-decomposition/00-ademp-protocol.md`.
-
-**Suggested reviewers** (to be confirmed by the corresponding
-author):
+**Suggested reviewers** (to be confirmed by the corresponding author):
 
 <!-- Reviewer suggestions to be added at submission. -->
 

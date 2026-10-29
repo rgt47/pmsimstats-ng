@@ -44,9 +44,8 @@ sim_contam   <- readRDS(dd('study-contam-alt100-null100/study-contam-summary.rds
 sim_recovery <- readRDS(dd('study-b-recovery-pilot/study-b-recovery-summary.rds'))
 sim_study_b  <- readRDS(dd('study-b-balanced/study-b-balanced-summary.rds'))
 feas         <- readRDS(dd('feasibility-bounds.rds'))
-study2_path  <- dd('study-2-feasible/study-2-summary.rds')
-study2_ready <- file.exists(study2_path)
-if (study2_ready) sim_study2 <- readRDS(study2_path)
+sim_study2   <- readRDS(dd('study-2-feasible/study-2-summary.rds'))
+study2_time  <- readRDS(dd('study-2-feasible/timing.rds'))
 ```
 
 ```{r helpers, include = FALSE}
@@ -82,6 +81,59 @@ feas_cell <- function(dn, c_val, col) {
 bound_of <- function(dn) fbounds[design == dn, c_pb_given_cbm_0.45]
 n_prod_lo <- min(sim_study_b$N)
 n_prod_hi <- max(sim_study_b$N)
+
+s2c <- as.data.table(sim_study2)
+s2c <- merge(s2c, fcells[, .(design, c_bm_pb, identity_approx)],
+             by = c('design', 'c_bm_pb'), all.x = TRUE)
+stopifnot(nrow(s2c) == 84, all(s2c$n_gen_refused == 0),
+          !anyNA(s2c$identity_approx))
+s2_cell <- function(dn, n_val, c_val, an, col, rg = 'alt') {
+  row <- s2c[design == dn & N == n_val & abs(c_bm_pb - c_val) < 1e-8 &
+               analysis == an & regime == rg]
+  stopifnot(nrow(row) == 1)
+  row[[col]]
+}
+# Weighted least squares through the origin with known MCSE variances,
+# over all cells of a design (alternative and null): the simulated
+# displacement per unit c_bm,PB, to set against -sigma_PB w_PB.
+s2_slope <- function(dn) {
+  dd <- s2c[analysis == 'one_component' & design == dn]
+  w <- 1 / dd$mcse_bias^2
+  sxx <- sum(w * dd$c_bm_pb^2)
+  slope <- sum(w * dd$c_bm_pb * dd$bias) / sxx
+  pred <- -2 * fload[design == dn, w_pb]
+  list(slope = slope, se = 1 / sqrt(sxx), pred = pred,
+       ratio = slope / pred, ratio_se = 1 / sqrt(sxx) / abs(pred))
+}
+s2_ratio_rng <- function(dn) {
+  r <- s2c[analysis == 'one_component' & design == dn & c_bm_pb > 0,
+           bias / identity_approx]
+  range(r)
+}
+s2_size <- s2c[regime == 'null']
+s2_alt  <- s2c[regime == 'alt']
+s2_hours <- sum(study2_time$seconds) / 3600
+s2_core_hours <- sum(study2_time$seconds * study2_time$cores) / 3600
+s2_fail <- sum(s2c$n_reps - s2c$n_converged)
+an_label <- c(one_component = 'one-component',
+              phase_augmented = 'phase-augmented', f1 = 'F1')
+sl_s <- s2_slope('simple')
+sl_f <- s2_slope('full')
+sl_b <- s2_slope('balanced')
+# The sign claim of the abstract and section 7.7 rests on this check.
+stopifnot(s2c[analysis == 'one_component' & c_bm_pb > 0,
+              all(sign(bias) == sign(identity_approx))])
+f1_alt <- s2_alt[analysis == 'f1']
+f1_maxabs <- max(abs(f1_alt$bias))
+f1_within2 <- sum(abs(f1_alt$bias) <= 2 * f1_alt$mcse_bias)
+f1_worst <- f1_alt[which.max(abs(bias) / mcse_bias)]
+# Guards for the exception statements written into section 7.7.
+stopifnot(f1_within2 == 21L)
+pw_wide <- dcast(s2_alt, cell_id + design + c_bm_pb ~ analysis,
+                 value.var = 'power')
+stopifnot(identical(pw_wide[f1 > one_component + 1e-12,
+                            unique(paste(design, c_bm_pb))],
+                    'balanced 0.3'))
 ```
 
 # Abstract {-}
@@ -100,10 +152,10 @@ contrasts of the hybrid open-label and blinded-discontinuation design
 separate the components. We derive the omitted-variable identity for the
 one-component treatment effect and for the one-component biomarker
 slope. A corollary gives the sign and size of the biomarker-slope
-displacement from the design's expectancy schedule. Four exploratory
-Monte Carlo studies, calibrated to the prazosin-PTSD reference
-parameters, test these predictions. Every reported cell was checked for
-a positive definite covariance matrix.
+displacement from the design's expectancy schedule. Exploratory Monte
+Carlo studies, calibrated to the prazosin-PTSD reference parameters,
+test these predictions. Every reported cell was checked for a positive
+definite covariance matrix.
 
 **Results.** With a biomarker correlated with BR alone, the
 one-component biomarker-treatment estimate is unbiased across a grid of
@@ -115,16 +167,26 @@ one-component slope is displaced by $-c_{bm,PB}\,\sigma_{PB}\,
 (\bar\eta_{\text{on}} - \bar\eta_{\text{off}})$. The sign is set by the
 design. It is negative on the hybrid design, where belief is higher on
 drug than off, and positive on a balanced-placebo design, where the
-reverse holds. The feasible cells of Studies 2 to 4 agree with this
-prediction in sign and to within about 20 percent in size. Cells of the
-June 2026 contamination runs at larger biomarker-PB correlations drew
-from covariance matrices that were not positive definite. Those
-matrices had been repaired without warning. The apparent bias in those
-cells is the gap between the nominal and the repaired data-generating
-process, and it is reported here only as an exhibit of that artifact. The F1 model interacts the biomarker
-with both drug state and expectancy. On the balanced-placebo design it
-recovers the pharmacological slope at every feasible contamination
-level (Study 4, 1,000 replicates per cell).
+reverse holds. A corrected study drew only feasible cells, with 1,000
+replicates per alternative cell and 2,000 per null cell. The
+displacement had the predicted sign in every contaminated cell. Its
+size was `r fmt(sl_s$ratio, 2)` (MCSE `r fmt(sl_s$ratio_se, 2)`) times
+the prediction on the eight-visit hybrid design,
+`r fmt(sl_f$ratio, 2)` (`r fmt(sl_f$ratio_se, 2)`) on the sixteen-visit
+hybrid design and `r fmt(sl_b$ratio, 2)` (`r fmt(sl_b$ratio_se, 2)`) on
+the balanced-placebo design. Cells of the June 2026 runs at larger
+biomarker-PB correlations drew from covariance matrices that were not
+positive definite and had been repaired without warning. They are
+reported only as an exhibit of that artifact. The F1 model interacts the
+biomarker with both drug state and expectancy. Its bias was within
+`r fmt(f1_maxabs)` of the pharmacological slope in every cell of the
+corrected study, on all three designs. With no interaction and
+$c_{bm,PB} = 0.30$ on the balanced-placebo design, the one-component
+test rejected at
+`r fmt(s2_cell('balanced', 150, 0.3, 'one_component', 'power', 'null'))`
+and F1 at `r fmt(s2_cell('balanced', 150, 0.3, 'f1', 'power', 'null'))`
+(MCSE at most
+`r fmt(s2_cell('balanced', 150, 0.3, 'one_component', 'mcse_power', 'null'))`).
 
 **Conclusions.** Decomposition is useful when the estimand is the
 attribution of response to its sources, or when the biomarker may be
@@ -1433,10 +1495,10 @@ runs_tbl <- data.frame(
   Directory = c('quick-sim/06-decomp-replicates.rds',
                 'study-a-alt1000-null5000', 'study-contam-alt100-null100',
                 'study-b-recovery-pilot', 'study-b-balanced',
-                'study-2-feasible (not yet run)'))
+                'study-2-feasible'))
 kableExtra::kable_styling(
 knitr::kable(runs_tbl, booktabs = TRUE, escape = FALSE,
-             caption = 'Simulation runs reported in this paper. Replicates are given as alternative / null where the two differ. Directories are under analysis/data/derived\\_data/component-decomposition/ unless stated. Seeds enter as set.seed(seed + 1000 cell + replicate).'),
+             caption = sprintf('Simulation runs reported in this paper. Replicates are given as alternative / null where the two differ. Directories are under analysis/data/derived\\_data/component-decomposition/ unless stated. Seeds enter as set.seed(seed + 1000 cell + replicate). The corrected study ran on the simulation host as job 49 at commit 05205dd; its %d cells took %.1f hours of elapsed time on %d worker processes, about %.0f core-hours.', nrow(study2_time), s2_hours, study2_time$cores[1], s2_core_hours)),
   latex_options = c('scale_down', 'HOLD_position'))
 ```
 
@@ -1633,10 +1695,15 @@ $`r fmts(feas_cell('simple', 0.30, 'identity_approx'))`$. The sign is the
 predicted one, the bias at $0.30$ is six to seven MCSE from zero, and the
 two $m_{PB}$ levels agree within one MCSE, as the identity requires. The
 simulated displacement at $0.30$ exceeds the approximation by about $0.15$,
-two to three MCSE at this replicate count; the approximation ignores the
-off-drug decay of $D_{bc}$ and the generalized-least-squares weighting of
-the mixed-model contrast, and the corrected run of section 7.7 will
-measure the gap at 1,000 replicates. These cells were the only faithfully
+two to three MCSE at this replicate count. The corrected study of section
+7.7 does not reproduce that excess. At 1,000 replicates its eight-visit
+one-component bias at $c_{bm,PB} = 0.30$ is
+$`r fmts(s2_cell('simple', 35, 0.3, 'one_component', 'bias'))`$ at
+$N = 35$ and $`r fmts(s2_cell('simple', 70, 0.3, 'one_component', 'bias'))`$
+at $N = 70$ (MCSE
+$`r fmt(s2_cell('simple', 35, 0.3, 'one_component', 'mcse_bias'))`$ and
+$`r fmt(s2_cell('simple', 70, 0.3, 'one_component', 'mcse_bias'))`$),
+smaller than the approximation. These cells were the only faithfully
 generated contaminated cells of the run, and an earlier version of
 this paper called them uninformative while building its narrative on the
 sixteen-visit cells; that reading is withdrawn. The phase-augmented
@@ -1702,11 +1769,9 @@ blinded-stratum analysis return the pharmacological slope of the repaired
 process within $0.03$, while the one-component and phase-augmented
 estimates carry the expectancy displacement. The earlier statement
 that no decomposition recovers the slope on the hybrid design rested on
-these cells measured against $-2.25$, and is withdrawn. Whether F1
-recovers the slope at the contamination levels this design can
-accommodate, $c_{bm,PB} \le 0.10$, is a question for the corrected run
-(section 7.7); the exhibits are consistent with recovery but were
-generated under a process that is not the one specified.
+these cells measured against $-2.25$, and is withdrawn. The corrected study of section 7.7 ran F1 on this design at
+the contamination levels it can accommodate, $c_{bm,PB} \le 0.10$, and
+reports the result there.
 
 ```{r study3, echo = FALSE}
 s3 <- sim_recovery[abs(c_bm_pb) < 1e-8]
@@ -1810,9 +1875,10 @@ $`r fmt(study_b_cell('lumped', n_prod_hi, 0.3, 'mcse_bias'))`$), against
 predicted $`r fmts(feas_cell('balanced', 0.1, 'identity_approx'))`$,
 $`r fmts(feas_cell('balanced', 0.2, 'identity_approx'))`$ and
 $`r fmts(feas_cell('balanced', 0.3, 'identity_approx'))`$. The $N = `r n_prod_lo`$
-cells give the same displacement within MCSE. As on the eight-visit
-design, the simulated displacement exceeds the approximation, here by 15
-to 25 percent. Its coverage falls to
+cells give the same displacement within MCSE. The simulated
+displacement exceeds the approximation by 15 to 25 percent, and the
+corrected study of section 7.7 finds the same excess with an independent
+seed. Its coverage falls to
 $`r fmt(study_b_cell('lumped', n_prod_hi, 0.3, 'coverage'), 2)`$ at
 $c_{bm,PB} = 0.3$ and $N = `r n_prod_hi`$. F1 tracks the pharmacological
 slope across the whole grid: its bias at $N = `r n_prod_hi`$ is
@@ -1827,8 +1893,10 @@ At $N = `r n_prod_lo`$ three of the four F1 biases are within one MCSE of
 zero; the cell at $c_{bm,PB} = 0.2$ is
 $`r fmts(study_b_cell('decomposition', n_prod_lo, 0.2, 'bias'))`$ at MCSE
 $`r fmt(study_b_cell('decomposition', n_prod_lo, 0.2, 'mcse_bias'))`$, $2.6$
-MCSE from zero, with no trend across the grid, and we read it as Monte
-Carlo variation to be checked in the corrected run. F1's power is lower,
+MCSE from zero, with no trend across the grid. The corrected study gives
+$`r fmts(s2_cell('balanced', 70, 0.2, 'f1', 'bias'))`$ (MCSE
+$`r fmt(s2_cell('balanced', 70, 0.2, 'f1', 'mcse_bias'))`$) for the same
+cell, so we read the Study 4 value as Monte Carlo variation. F1's power is lower,
 about $`r fmt(mean(sim_study_b$power[sim_study_b$analysis == 'decomposition' & sim_study_b$N == n_prod_lo]), 2)`$
 at $N = `r n_prod_lo`$ against
 $`r fmt(mean(sim_study_b$power[sim_study_b$analysis == 'decomposition' & sim_study_b$N == n_prod_hi]), 2)`$
@@ -1852,7 +1920,7 @@ open-hidden antidepressant discontinuation protocol of @meissner2023
 a 50 percent chance of discontinuation. In the notation of this paper
 that instruction induces $\eta = 0.5$, the blinded-discontinuation value,
 rather than the $\eta = 0$ of a covert phase; a trial of that form
-supplies the $D_{bc}$-$\eta_t$ decoupling through the crossing of
+separates $D_{bc}$ from $\eta_t$ through the crossing of
 continuation with instruction rather than through a zero-belief phase,
 and the F1 model applies to it unchanged. The recommendation that follows
 is specific: a biomarker-validation trial in which the candidate
@@ -1866,99 +1934,258 @@ same recovery holds under the mean-shift encoding of the interaction,
 where the biomarker shifts component means rather than correlating with
 component draws, was not tested.
 
-```{r bias-figure, echo = FALSE, fig.width = 9, fig.height = 3.4, fig.cap = 'Bias of the one-component (filled circles) and F1 (open squares) estimates of the biomarker-treatment interaction against the biomarker-placebo correlation, one panel per design, with the displacement the identity predicts for the one-component slope drawn as a dashed line. Eight-visit: Study 2 feasible cells at $N = 70$, 100 replicates, two $m_{PB}$ levels. Sixteen-visit: Study 3 at $N = 300$, 1,000 replicates; only the $c_{bm,PB} = 0$ cell is feasible, and the exhibit cells are shown as gray crosses with bias measured against the repaired population value. Balanced-placebo: Study 4 at $N = 150$, 1,000 replicates. Error bars are two MCSE.'}
+## Corrected contamination study
+
+We reran the contamination study on feasible cells only, under the
+package's refusal of non-positive-definite matrices, with the driver
+\texttt{run-study-2-feasible.R}, an independent seed (2061) and a
+pre-flight eigenvalue check of every cell. The grid was the eight-visit
+design at $N \in \{35, 70\}$ and $c_{bm,PB} \in \{0, 0.10, 0.20, 0.30\}$,
+the sixteen-visit design at $N \in \{140, 300\}$ and $c_{bm,PB} \in \{0,
+0.05, 0.10\}$, and the balanced-placebo design at $N \in \{70, 150\}$ and
+$c_{bm,PB} \in \{0, 0.10, 0.20, 0.30\}$. These are 22 alternative cells
+at 1,000 replicates. Six null cells at 2,000 replicates set $c_{bm} = 0$
+with and without the biomarker-$PB$ correlation. They test whether the
+expectancy-scaled placebo channel inflates the size of the interaction
+test. The run fitted the one-component analysis, the phase-augmented
+analysis and F1 to every replicate. The phase-augmented analysis here is
+the identified formula of section 5.2, fitted directly.
+
+The run completed as simulation-host job 49 at commit 05205dd. Its 28
+cells took `r fmt(s2_hours, 1)` hours of elapsed time on
+`r study2_time$cores[1]` worker processes. Every cell was positive
+definite before any replicate ran, with smallest eigenvalue
+`r fmt(min(s2c$min_eig))`. Every cell holds its specified replicate
+count, and no draw was refused. Of the
+`r format(sum(s2c$n_reps), big.mark = ',')` model fits,
+`r s2_fail` failed to converge. The lowest convergence rate in any cell
+and analysis was `r fmt(min(s2c$conv_rate))`. On the balanced-placebo
+design the phase-augmented analysis and F1 are the same model. The
+phase indicator marks the covert visits, where $D_{bc} = 1$ and
+$\eta_t = 0$. The \texttt{bm:Dbc:phase} column is therefore $B_i(1 -
+\eta_t)$, which spans the same space as \texttt{bm:De} once \texttt{bm}
+is in the model. The two analyses return the same estimates on that
+design to within numerical tolerance. Table \@ref(tab:study2c) gives
+every cell.
+
+```{r study2c, echo = FALSE}
+s2n_out <- s2c[order(regime, match(design, c('simple', 'full', 'balanced')),
+                     N, c_bm_pb, match(analysis, names(an_label))), .(
+  Regime = regime, Design = design_label[design], `$N$` = N,
+  `$c_{bm,PB}$` = fmt(c_bm_pb, 2), Analysis = an_label[analysis],
+  `Predicted` = fmts(identity_approx),
+  `Bias (MCSE)` = sprintf('%s (%s)', fmts(bias), fmt(mcse_bias)),
+  `Rejection (MCSE)` = sprintf('%s (%s)', fmt(power), fmt(mcse_power)),
+  Coverage = fmt(coverage))]
+kableExtra::kable_styling(
+  knitr::kable(s2n_out, booktabs = TRUE, escape = FALSE, longtable = TRUE,
+               align = 'llrrlrrrr',
+               caption = 'Corrected contamination study: every cell feasible, data generated under the refusal of non-positive-definite matrices, seed 2061, 1,000 replicates per alternative cell and 2,000 per null cell. Bias of the bm:Dbc coefficient against $-2.25$ (alternative) or $0$ (null). Predicted is the displacement the identity of section 6.1 gives for the one-component analysis. Rejection is power in alternative cells and size in null cells, at nominal level 0.05. Coverage is that of the nominal 95\\% interval.'),
+  font_size = 7)
+```
+
+**Displacement against the identity.** The one-component displacement
+had the predicted sign in every contaminated cell. It was negative on
+the two hybrid designs and positive on the balanced-placebo design. We
+summarize its size on each design by one slope. We regressed the
+one-component bias on $c_{bm,PB}$ through the origin over every cell of
+the design, alternative and null, weighting each cell by its inverse
+squared MCSE. The slope is $`r fmts(sl_s$slope, 2)`$ (MCSE
+$`r fmt(sl_s$se, 2)`$) on the eight-visit design against a predicted
+$`r fmts(sl_s$pred, 2)`$. It is $`r fmts(sl_f$slope, 2)`$
+($`r fmt(sl_f$se, 2)`$) on the sixteen-visit design against
+$`r fmts(sl_f$pred, 2)`$. It is $`r fmts(sl_b$slope, 2)`$
+($`r fmt(sl_b$se, 2)`$) on the balanced-placebo design against
+$`r fmts(sl_b$pred, 2)`$. The simulated displacement is thus
+`r fmt(sl_s$ratio, 2)`, `r fmt(sl_f$ratio, 2)` and `r fmt(sl_b$ratio, 2)`
+times the approximation on the three designs. The 15 to 25 percent
+excess seen in Study 4 persists on the balanced-placebo design. It does
+not hold on the hybrid designs. There the simulated displacement falls
+short of the approximation, by `r round(100 * (1 - sl_s$ratio))` percent
+on the eight-visit design and by `r round(100 * (1 - sl_f$ratio))`
+percent on the sixteen-visit design. Single cells
+scatter more widely. The ratio of bias to prediction runs from
+`r fmt(s2_ratio_rng('simple')[1], 2)` to
+`r fmt(s2_ratio_rng('simple')[2], 2)` over the eight-visit cells, from
+`r fmt(s2_ratio_rng('full')[1], 2)` to
+`r fmt(s2_ratio_rng('full')[2], 2)` over the sixteen-visit cells and
+from `r fmt(s2_ratio_rng('balanced')[1], 2)` to
+`r fmt(s2_ratio_rng('balanced')[2], 2)` over the balanced-placebo cells.
+The approximation ignores the off-drug decay of $D_{bc}$ and the
+generalized-least-squares weighting of the mixed-model contrast. This
+run does not separate the two. The identity predicts the sign of the
+displacement on every design. The simulated size is
+`r fmt(min(sl_s$ratio, sl_f$ratio, sl_b$ratio), 2)` to
+`r fmt(max(sl_s$ratio, sl_f$ratio, sl_b$ratio), 2)` times the predicted
+size.
+
+**F1 on the sixteen-visit design.** Study 3 could not test F1 under
+contamination on this design. The corrected study did, at the levels
+the design accommodates. At $N = 300$ the F1 bias is
+$`r fmts(s2_cell('full', 300, 0, 'f1', 'bias'))`$,
+$`r fmts(s2_cell('full', 300, 0.05, 'f1', 'bias'))`$ and
+$`r fmts(s2_cell('full', 300, 0.10, 'f1', 'bias'))`$ at $c_{bm,PB} = 0$,
+$0.05$ and $0.10$ (MCSE about
+$`r fmt(s2_cell('full', 300, 0.10, 'f1', 'mcse_bias'))`$). At $N = 140$
+it is $`r fmts(s2_cell('full', 140, 0, 'f1', 'bias'))`$,
+$`r fmts(s2_cell('full', 140, 0.05, 'f1', 'bias'))`$ and
+$`r fmts(s2_cell('full', 140, 0.10, 'f1', 'bias'))`$ (MCSE about
+$`r fmt(s2_cell('full', 140, 0.10, 'f1', 'mcse_bias'))`$). Each value is
+within two MCSE of zero. At $N = 300$ and $c_{bm,PB} = 0.10$ the
+one-component bias is
+$`r fmts(s2_cell('full', 300, 0.10, 'one_component', 'bias'))`$ (MCSE
+$`r fmt(s2_cell('full', 300, 0.10, 'one_component', 'mcse_bias'))`$) and
+the phase-augmented bias is
+$`r fmts(s2_cell('full', 300, 0.10, 'phase_augmented', 'bias'))`$ (MCSE
+$`r fmt(s2_cell('full', 300, 0.10, 'phase_augmented', 'mcse_bias'))`$).
+F1 therefore removed the displacement on this design over its feasible
+range. The displacement it removed is small, because the feasible range
+is short. Power was at least
+`r fmt(min(s2_alt[design == 'full', power]))` for all three analyses in
+every sixteen-visit cell. Over all 22 alternative cells of the three
+designs, the largest absolute F1 bias was `r fmt(f1_maxabs)`, and
+`r f1_within2` of 22 F1 biases were within two MCSE of zero. The
+exception is the balanced-placebo cell at $N = `r f1_worst$N`$ and
+$c_{bm,PB} = `r fmt(f1_worst$c_bm_pb, 2)`$, at
+$`r fmts(f1_worst$bias)`$ (MCSE $`r fmt(f1_worst$mcse_bias)`$). The
+same design at $N = 150$ shows no bias at that contamination level.
+
+```{r study2null, echo = FALSE}
+nt <- dcast(s2_size, design + N + c_bm_pb ~ analysis,
+            value.var = c('power', 'mcse_power', 'bias', 'mcse_bias'))
+nt_out <- nt[order(match(design, c('simple', 'full', 'balanced')), c_bm_pb), .(
+  Design = design_label[design], `$N$` = N, `$c_{bm,PB}$` = fmt(c_bm_pb, 2),
+  `One-component bias (MCSE)` = sprintf('%s (%s)', fmts(bias_one_component), fmt(mcse_bias_one_component)),
+  `One-component size` = sprintf('%s (%s)', fmt(power_one_component), fmt(mcse_power_one_component)),
+  `Phase-augmented size` = sprintf('%s (%s)', fmt(power_phase_augmented), fmt(mcse_power_phase_augmented)),
+  `F1 size` = sprintf('%s (%s)', fmt(power_f1), fmt(mcse_power_f1)))]
+kableExtra::kable_styling(
+  knitr::kable(nt_out, booktabs = TRUE, escape = FALSE, align = 'lrrrrrr',
+               caption = 'Corrected contamination study, null cells ($c_{bm} = 0$), 2,000 replicates per cell. Rejection rate of the bm:Dbc test at nominal level 0.05, with MCSE, and the one-component bias against the true value $0$.'),
+  latex_options = c('scale_down', 'HOLD_position'))
+```
+
+**Type I error.** Table \@ref(tab:study2null) gives the null cells.
+Without a biomarker-$PB$ correlation, the rejection rate of the three
+analyses ranged from `r fmt(min(s2_size[c_bm_pb == 0, power]))` to
+`r fmt(max(s2_size[c_bm_pb == 0, power]))` (MCSE at most
+`r fmt(max(s2_size[c_bm_pb == 0, mcse_power]))`). The sixteen-visit
+design was conservative for all three analyses, at
+`r fmt(min(s2_size[design == 'full' & c_bm_pb == 0, power]))` to
+`r fmt(max(s2_size[design == 'full' & c_bm_pb == 0, power]))`. The
+balanced-placebo design rejected at
+`r fmt(s2_cell('balanced', 150, 0, 'one_component', 'power', 'null'))`
+under every analysis, `r fmt((s2_cell('balanced', 150, 0, 'one_component', 'power', 'null') - 0.05) / s2_cell('balanced', 150, 0, 'one_component', 'mcse_power', 'null'), 1)`
+MCSE above nominal. With the biomarker-$PB$ correlation, the
+one-component estimate is displaced under the null as it is under the
+alternative. On the hybrid designs this displacement is small against
+the spread of the estimate. It is
+$`r fmts(s2_cell('simple', 70, 0.3, 'one_component', 'bias', 'null'))`$
+against a standard deviation of
+`r fmt(s2_cell('simple', 70, 0.3, 'one_component', 'sd_beta', 'null'), 2)`
+on the eight-visit design at $c_{bm,PB} = 0.30$, and
+$`r fmts(s2_cell('full', 300, 0.1, 'one_component', 'bias', 'null'))`$
+against `r fmt(s2_cell('full', 300, 0.1, 'one_component', 'sd_beta', 'null'), 2)`
+on the sixteen-visit design at $0.10$. The one-component test rejected at
+`r fmt(s2_cell('simple', 70, 0.3, 'one_component', 'power', 'null'))`
+on the eight-visit design at $c_{bm,PB} = 0.30$ and at
+`r fmt(s2_cell('full', 300, 0.1, 'one_component', 'power', 'null'))`
+on the sixteen-visit design at $0.10$. On the balanced-placebo design at
+$c_{bm,PB} = 0.30$ the one-component bias was
+$`r fmts(s2_cell('balanced', 150, 0.3, 'one_component', 'bias', 'null'))`$
+(MCSE
+$`r fmt(s2_cell('balanced', 150, 0.3, 'one_component', 'mcse_bias', 'null'))`$),
+and the test rejected at
+`r fmt(s2_cell('balanced', 150, 0.3, 'one_component', 'power', 'null'))`
+(MCSE
+`r fmt(s2_cell('balanced', 150, 0.3, 'one_component', 'mcse_power', 'null'))`).
+On that design the one-component test declares a biomarker with no
+pharmacological interaction to be a moderator about three times as
+often as nominal. F1 rejected at
+`r fmt(s2_cell('balanced', 150, 0.3, 'f1', 'power', 'null'))` in the
+same cell. The phase-augmented analysis rejected at
+`r fmt(s2_cell('simple', 70, 0.3, 'phase_augmented', 'power', 'null'))`
+on the eight-visit design at $c_{bm,PB} = 0.30$, the highest rate on
+the hybrid designs.
+
+**Power and coverage.** The displacement also moves one-component power
+and coverage. On the hybrid designs it adds to the negative
+pharmacological slope, so one-component power rose with $c_{bm,PB}$. On
+the eight-visit design at $N = 70$ it rose from
+`r fmt(s2_cell('simple', 70, 0, 'one_component', 'power'))` at
+$c_{bm,PB} = 0$ to
+`r fmt(s2_cell('simple', 70, 0.3, 'one_component', 'power'))` at $0.30$.
+This gain is not power for the pharmacological interaction. On the
+balanced-placebo design the displacement opposes the slope. There
+one-component power fell from
+`r fmt(s2_cell('balanced', 70, 0, 'one_component', 'power'))` to
+`r fmt(s2_cell('balanced', 70, 0.3, 'one_component', 'power'))` at
+$N = 70$, and its coverage fell to
+`r fmt(s2_cell('balanced', 70, 0.3, 'one_component', 'coverage'))` at
+$N = 70$ and
+`r fmt(s2_cell('balanced', 150, 0.3, 'one_component', 'coverage'))` at
+$N = 150$ (MCSE
+`r fmt(s2_cell('balanced', 150, 0.3, 'one_component', 'mcse_coverage'))`).
+F1 power did not change with $c_{bm,PB}$ beyond Monte Carlo variation.
+It was at or below one-component power in every alternative cell except
+the two balanced-placebo cells at $c_{bm,PB} = 0.30$. There the
+displacement had lowered one-component power below that of F1. On the
+eight-visit design F1 power was
+`r fmt(min(s2_alt[design == 'simple' & N == 35 & analysis == 'f1', power]), 2)`
+to `r fmt(max(s2_alt[design == 'simple' & N == 35 & analysis == 'f1', power]), 2)`
+at $N = 35$ and
+`r fmt(min(s2_alt[design == 'simple' & N == 70 & analysis == 'f1', power]), 2)`
+to `r fmt(max(s2_alt[design == 'simple' & N == 70 & analysis == 'f1', power]), 2)`
+at $N = 70$. On the balanced-placebo design it was
+`r fmt(min(s2_alt[design == 'balanced' & N == 70 & analysis == 'f1', power]), 2)`
+to `r fmt(max(s2_alt[design == 'balanced' & N == 70 & analysis == 'f1', power]), 2)`
+at $N = 70$ and
+`r fmt(min(s2_alt[design == 'balanced' & N == 150 & analysis == 'f1', power]), 2)`
+to `r fmt(max(s2_alt[design == 'balanced' & N == 150 & analysis == 'f1', power]), 2)`
+at $N = 150$. F1 coverage ranged from
+`r fmt(min(f1_alt$coverage))` to `r fmt(max(f1_alt$coverage))` over
+the alternative cells. One-component coverage on the sixteen-visit
+design was `r fmt(min(s2_alt[design == 'full' & analysis == 'one_component', coverage]))`
+to `r fmt(max(s2_alt[design == 'full' & analysis == 'one_component', coverage]))`,
+above nominal, in line with its conservative size there.
+
+```{r bias-figure, echo = FALSE, fig.width = 9, fig.height = 3.4, fig.cap = 'Bias of the one-component (filled circles) and F1 (open squares) estimates of the biomarker-treatment interaction against the biomarker-placebo correlation in the corrected contamination study, one panel per design at its larger sample size, 1,000 replicates per cell. The dashed line is the displacement the identity predicts for the one-component slope. Each panel spans the feasible range of its design. Error bars are two MCSE.'}
 op <- par(mfrow = c(1, 3), mar = c(4, 4, 2.5, 1), mgp = c(2.4, 0.7, 0), las = 1)
-col_oc <- '#1f5f8b'; col_f1 <- '#b35806'; col_ex <- 'gray55'
-panel <- function(dn, title, pts, xlim, ylim) {
-  cc <- seq(0, xlim[2], length.out = 50)
+col_oc <- '#1f5f8b'; col_f1 <- '#b35806'
+panel <- function(dn, n_val, title) {
+  xmax <- max(s2_alt[design == dn, c_bm_pb])
+  off <- 0.02 * xmax
+  cc <- seq(0, xmax, length.out = 50)
   w <- fload[design == dn, w_pb]
-  plot(NA, xlim = xlim, ylim = ylim, xlab = expression(c[bm*','*PB]),
-       ylab = 'Bias of bm:Dbc', main = title, cex.main = 1)
+  plot(NA, xlim = c(-2 * off, xmax + 2 * off), ylim = c(-0.4, 0.6),
+       xlab = expression(c[bm*','*PB]), ylab = 'Bias of bm:Dbc',
+       main = title, cex.main = 1)
   abline(h = 0, col = 'gray80')
   lines(cc, -cc * 2 * w, lty = 2, lwd = 1.5)
+  pts <- s2_alt[design == dn & N == n_val & analysis %in% c('one_component', 'f1')]
   for (k in seq_len(nrow(pts))) {
-    with(pts[k], {
-      colk <- if (type == 'oc') col_oc else if (type == 'f1') col_f1 else col_ex
-      pchk <- if (type == 'oc') 16 else if (type == 'f1') 0 else 4
-      segments(x, bias - 2 * mcse, x, bias + 2 * mcse, col = colk)
-      points(x, bias, pch = pchk, col = colk, cex = 1.1)
-    })
+    is_oc <- pts$analysis[k] == 'one_component'
+    colk <- if (is_oc) col_oc else col_f1
+    x <- pts$c_bm_pb[k] + if (is_oc) -off else off
+    segments(x, pts$bias[k] - 2 * pts$mcse_bias[k],
+             x, pts$bias[k] + 2 * pts$mcse_bias[k], col = colk)
+    points(x, pts$bias[k], pch = if (is_oc) 16 else 0, col = colk, cex = 1.1)
   }
 }
-p1 <- sim_contam[regime == 'alt' & N == 70 & c_bm_pb < 0.4 & analysis == 'one_component',
-                 .(x = c_bm_pb + fifelse(m_PB == 6, 0.006, -0.006), bias, mcse = mcse_bias, type = 'oc')]
-panel('simple', 'Eight-visit hybrid (Study 2)', p1, c(0, 0.32), c(-0.6, 0.6))
-p2a <- sim_recovery[N == 300 & analysis %in% c('one_component', 'decomposition')]
-p2a[, tgt := vapply(c_bm_pb, function(cc) if (cc < 1e-8) -2.25 else feas_cell('full', cc, 'target_repaired'), numeric(1))]
-p2a[, tgt_f1 := vapply(c_bm_pb, function(cc) if (cc < 1e-8) -2.25 else feas_cell('full', cc, 'beta_br_repaired'), numeric(1))]
-p2 <- rbind(
-  p2a[analysis == 'one_component' & c_bm_pb < 1e-8, .(x = c_bm_pb - 0.006, bias, mcse = mcse_bias, type = 'oc')],
-  p2a[analysis == 'decomposition' & c_bm_pb < 1e-8, .(x = c_bm_pb + 0.006, bias, mcse = mcse_bias, type = 'f1')],
-  p2a[analysis == 'one_component' & c_bm_pb >= 0.15, .(x = c_bm_pb, bias = mean_beta - tgt, mcse = mcse_bias, type = 'ex')])
-panel('full', 'Sixteen-visit hybrid (Study 3)', p2, c(0, 0.47), c(-0.6, 0.6))
-p3 <- rbind(
-  sim_study_b[N == n_prod_hi & analysis == 'lumped', .(x = c_bm_pb - 0.006, bias, mcse = mcse_bias, type = 'oc')],
-  sim_study_b[N == n_prod_hi & analysis == 'decomposition', .(x = c_bm_pb + 0.006, bias, mcse = mcse_bias, type = 'f1')])
-panel('balanced', 'Balanced-placebo (Study 4)', p3, c(0, 0.32), c(-0.6, 0.6))
+panel('simple', 70, 'Eight-visit hybrid, N = 70')
+panel('full', 300, 'Sixteen-visit hybrid, N = 300')
+panel('balanced', 150, 'Balanced-placebo, N = 150')
 legend('topleft', bty = 'n', cex = 0.85,
        legend = c('one-component', 'F1', 'identity prediction'),
        col = c(col_oc, col_f1, 'black'), pch = c(16, 0, NA), lty = c(NA, NA, 2))
 par(op)
 ```
 
-Figure \@ref(fig:bias-figure) collects the feasible cells of Studies 2 to
-4 with the identity's prediction. The sign of the one-component
-displacement follows the design, its size follows the prediction to
-within about 20 percent, and F1 removes it where the design permits.
+Figure \@ref(fig:bias-figure) shows the corrected cells at the larger
+sample size of each design. The one-component displacement follows the
+sign of the prediction on every design. F1 stays at zero within two
+MCSE in each plotted cell.
 
-## Corrected contamination study (results pending)
-
-The driver \texttt{run-study-2-feasible.R} reruns the contamination study
-on feasible cells only, under the package's refusal of non-positive-
-definite matrices, with an independent seed (2061) and a pre-flight
-eigenvalue check of every cell. Its grid is the eight-visit design at
-$N \in \{35, 70\}$ and $c_{bm,PB} \in \{0, 0.10, 0.20, 0.30\}$, the
-sixteen-visit design at $N \in \{140, 300\}$ and $c_{bm,PB} \in \{0, 0.05,
-0.10\}$, and the balanced-placebo design at $N \in \{70, 150\}$ and
-$c_{bm,PB} \in \{0, 0.10, 0.20, 0.30\}$, 22 alternative cells at 1,000
-replicates, plus six null cells at 2,000 replicates that set $c_{bm} = 0$
-with and without the biomarker-$PB$ correlation, to check whether the
-expectancy-scaled placebo channel inflates the size of the interaction
-test. It fits the one-component analysis, the phase-augmented analysis
-(the identified formula, fitted directly) and F1, saves every replicate
-per cell, and reports bias, power and coverage with MCSE. A three-
-replicate smoke test on 2026-10-28 ran all 28 cells with no refused draw.
-The full run is estimated at about 45 core-hours from the smoke-test
-timing, roughly 7 hours on 7 local cores or 12 to 15 hours on the
-simulation host, and has not been submitted. The command, from the
-repository root, is
-
-\begin{verbatim}
-Rscript analysis/scripts/component-decomposition/run-study-2-feasible.R \
-  1000 2000 study-2-feasible
-\end{verbatim}
-
-```{r study2-pending, echo = FALSE, results = 'asis'}
-if (study2_ready) {
-  s2n <- as.data.table(sim_study2)
-  s2n[, pred := mapply(function(d, cc) feas_cell(d, cc, 'identity_approx'), design, c_bm_pb)]
-  s2n_out <- s2n[order(regime, design, N, c_bm_pb, analysis), .(
-    Regime = regime, Design = design_label[design], `$N$` = N,
-    `$c_{bm,PB}$` = fmt(c_bm_pb, 2), Analysis = analysis,
-    `Predicted displacement` = fifelse(regime == 'alt', fmts(pred), ''),
-    `Bias (MCSE)` = sprintf('%s (%s)', fmts(bias), fmt(mcse_bias)),
-    `Power or size (MCSE)` = sprintf('%s (%s)', fmt(power), fmt(mcse_power)),
-    Coverage = fmt(coverage, 2), Converged = n_converged)]
-  print(kableExtra::kable_styling(
-    knitr::kable(s2n_out, booktabs = TRUE, escape = FALSE, longtable = TRUE,
-                 caption = 'Corrected contamination study: every cell feasible, data generated under the refusal of non-positive-definite matrices, seed 2061.'),
-    font_size = 8, latex_options = 'repeat_header'))
-} else {
-  cat('RESULTS PENDING. The corrected contamination study has not been run.',
-      'When analysis/data/derived\\_data/component-decomposition/study-2-feasible/study-2-summary.rds',
-      'exists, this chunk renders the full results table in its place.\n')
-}
-```
 
 ## What was specified but not run
 
@@ -1983,8 +2210,7 @@ reader takes them as reported.
 - A distributed-lag analysis arm (section 5.3).
 - The production-resolution contamination run of the 2026-06 plan
   (\texttt{study-contam-alt1000-null5000}, one cell stored). It is
-  superseded by the corrected study of section 7.7, which has not been
-  run either.
+  superseded by the corrected study of section 7.7.
 
 # Application to predictive-biomarker validation
 
@@ -2073,12 +2299,14 @@ clarifies the target estimand for biomarker validation (the biomarker-by-$BR$
 association, not the one-component total).
 
 Four open questions remain and warrant acknowledgement. First, the
-corrected contamination study of section 7.7 has not been run, so the
-agreement between the identity and the simulated displacement rests on the
-feasible cells of the June 2026 runs, which are few at the eight-visit
-design and at 100 replicates there; and whether F1 recovers the slope at
-small $c_{bm,PB}$ on the sixteen-visit hybrid design is not yet known.
-Second, the $\eta_t$ multipliers used to parameterize the expectancy
+identity predicts the sign of the displacement on every design in the
+corrected study of section 7.7, but not its size exactly. The simulated
+displacement was `r fmt(sl_s$ratio, 2)` and `r fmt(sl_f$ratio, 2)` times
+the approximation on the two hybrid designs and `r fmt(sl_b$ratio, 2)`
+times it on the balanced-placebo design. The approximation omits the
+off-drug decay of $D_{bc}$ and the weighting of the mixed-model contrast.
+An exact expression for the probability limit under the
+generalized-least-squares fit was not derived. Second, the $\eta_t$ multipliers used to parameterize the expectancy
 modulation of $PB$ are modeling assumptions, and a sensitivity analysis
 varying $\eta$ across plausible values, which the protocol called for, was
 not run; no clinical conclusion should be drawn from the framework's
@@ -2171,14 +2399,21 @@ biomarker that predicts the one-component total is a pharmacological
 predictor only when it is uncorrelated with the non-pharmacological
 components. Where that cannot be assumed, the one-component slope is
 displaced by $-c_{bm,PB}\,\sigma_{PB}\,(\bar\eta_{\text{on}} -
-\bar\eta_{\text{off}})$, a quantity the design fixes and the feasible cells
-of Studies 2 to 4 reproduce in sign and approximate size. Study 4
-establishes that the displacement is removable: the F1 model returns the
+\bar\eta_{\text{off}})$, a quantity the design fixes. The corrected study
+reproduced its sign in every contaminated cell. The simulated size was
+`r fmt(min(sl_s$ratio, sl_f$ratio, sl_b$ratio), 2)` to
+`r fmt(max(sl_s$ratio, sl_f$ratio, sl_b$ratio), 2)` times the
+approximation, depending on the design. Study 4 and the corrected study
+of section 7.7 show that the displacement is removable. The F1 model returned the
 pharmacological slope across the feasible contamination range on a
 balanced-placebo design that varies drug exposure and belief separately.
-On the sixteen-visit hybrid design F1 is unbiased without contamination,
-and its behavior at the small contamination levels that design can
-accommodate awaits the corrected run. The practical lesson is therefore as
+It also did so on both hybrid designs, where the feasible range is
+shorter and the displacement smaller. On the balanced-placebo design at
+$c_{bm,PB} = 0.30$, the one-component test rejected a non-predictive
+biomarker at
+`r fmt(s2_cell('balanced', 150, 0.3, 'one_component', 'power', 'null'))`,
+against `r fmt(s2_cell('balanced', 150, 0.3, 'f1', 'power', 'null'))`
+for F1. The practical lesson is therefore as
 much about design as about analysis, and the designs that supply the
 needed contrast require concealment that must be justified.
 
@@ -2231,6 +2466,23 @@ Studies 1 to 3 was recoded in place on 2026-08-08
 (\texttt{migrate-n-to-total.R}) from the per-path count the drivers
 originally recorded to the total across paths, without a rerun; the
 draws are unchanged.
+
+The corrected contamination study of section 7.7 ran on the simulation
+host as job 49, from commit 05205dd, with the default arguments of
+\texttt{run-study-2-feasible.R} (1,000 alternative and 2,000 null
+replicates). Neither the driver nor the package source under
+\texttt{R/} changed between that commit and the version of this
+manuscript. The run used `r study2_time$cores[1]` worker processes
+through \texttt{parallel::mclapply}. Its 28 cells took
+`r fmt(s2_hours, 2)` hours of elapsed time, about
+`r fmt(s2_core_hours, 0)` core-hours, as recorded per cell in
+\texttt{timing.rds}. The outputs are in
+\texttt{study-2-feasible/}: one checkpoint per cell
+(\texttt{cell-001.rds} to \texttt{cell-028.rds}), the collated
+replicates (\texttt{study-2-all-reps.rds}), the cell summary
+(\texttt{study-2-summary.rds} and \texttt{.txt}) and the timing file.
+Every figure of section 7.7 is computed from the summary at render
+time.
 
 The June 2026 drivers of Studies 2 to 4 passed
 \texttt{makePositiveDefinite = TRUE} to \texttt{generateData()}, which

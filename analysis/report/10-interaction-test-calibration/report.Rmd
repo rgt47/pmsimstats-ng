@@ -318,6 +318,13 @@ cr_fail <- rcr |> group_by(spec) |>
   summarise(fail = sum(!(fit_ok & cr2_ok)), n = n(), .groups = 'drop')
 crf <- function(s) cr_fail$fail[cr_fail$spec == s]
 has_g9 <- dcr$refined && any(rcr$spec == 'G9')
+if (has_g9) {
+  g9w <- rcr |> filter(fit_ok, cr2_ok, spec %in% c('E2', 'G9')) |>
+    select(rep, spec, cr2_p) |>
+    pivot_wider(names_from = spec, values_from = cr2_p) |>
+    na.omit()
+  g9_e2 <- paired(g9w$G9, g9w$E2)
+}
 ## The closed form misses for CR2: kappa near one, size below 0.05.
 cr_pred <- crs |> mutate(pred = 2 * pnorm(-k_cr2 * qt(0.975, df)))
 ```
@@ -384,20 +391,27 @@ kr_change <- rkr |>
                              na.rm = TRUE), .groups = 'drop')
 krc <- function(cv_) kr_change$pct[kr_change$cov == cv_]
 
-## The gls M2 rung against mmrm sp_exp on the same datasets.
-if (dkr$refined) {
-  gm <- rkr |> filter(cov == 'gls_car1') |>
-    select(rep, spec, se_g = se)
-} else {
-  gm <- r4 |> filter(model == 'M2', mean_model == 'fitted') |>
-    select(rep, spec, se_g = std_error)
+## The gls M2 rung against mmrm sp_exp on the same datasets: the
+## pre-correction run (optim, default tolerances) and, when present,
+## the extended-DGP run (nlminb, tight tolerances).
+gm_ratio <- function(g, k) {
+  g |>
+    inner_join(k |> filter(!is.na(p), cov == 'sp_exp',
+                           method == 'Satterthwaite') |>
+                 select(rep, spec, se_m = se), by = c('rep', 'spec')) |>
+    group_by(spec) |>
+    summarise(ratio = mean(se_g) / mean(se_m), n = n(), .groups = 'drop')
 }
-gm <- gm |>
-  inner_join(rkr |> filter(cov == 'sp_exp', method == 'Satterthwaite') |>
-               select(rep, spec, se_m = se), by = c('rep', 'spec')) |>
-  group_by(spec) |>
-  summarise(ratio = mean(se_g) / mean(se_m), n = n(), .groups = 'drop')
+old4 <- readRDS(file.path(old_dir, 'diag-null-type1-stage4.rds'))$results
+oldkr <- readRDS(file.path(old_dir, 'diag-null-type1-kr.rds'))$results
+gm <- gm_ratio(old4 |> filter(model == 'M2', converged %in% TRUE) |>
+                 select(rep, spec, se_g = std_error), oldkr)
 gmv <- function(s) gm$ratio[gm$spec == s]
+if (dkr$refined) {
+  gm_new <- gm_ratio(rkr |> filter(cov == 'gls_car1') |>
+                       select(rep, spec, se_g = se), rkr)
+  gmv_new <- range(gm_new$ratio)
+}
 sm <- dkr_smoke$results
 sm_g <- sm |> filter(cov == 'gls_car1') |> select(rep, spec, se_g = se)
 sm_m <- sm |> filter(cov == 'sp_exp', method == 'Satterthwaite') |>
@@ -731,9 +745,10 @@ of 0.2 week, with a CR2 test.
 The decomposition and the ladder used 5,000 null replicates, the CR2
 and alternative-cell runs 3,000, generalized estimating equations
 5,000, the Kenward-Roger check 2,000 and the gradient 1,500 per point.
-All null-cell runs share one seed, so replicate $i$ is the same
-dataset in every run. Every comparison between procedures is
-therefore paired. A rejection rate $\hat\pi$ from $n$ replicates has
+All null-cell runs at $N = 70$ share one seed, so replicate $i$ is the
+same dataset in every run. Every comparison between procedures is
+therefore paired. The gradient runs draw their own datasets, including
+at $N = 70$. A rejection rate $\hat\pi$ from $n$ replicates has
 Monte Carlo standard error (MCSE) $\sqrt{\hat\pi(1-\hat\pi)/n}$. A
 paired difference of rejection indicators has MCSE equal to the
 standard deviation of the differences over $\sqrt n$. The MCSE of
@@ -814,7 +829,7 @@ The random-intercept standard deviation fell below 1 in
 `r pct(dk('E1','ri_b'))` percent of E1 fits, at the boundary of the
 parameter space, against a pseudo-true value of
 `r f2(akv(dg13, 'E1', 'M3', 'fitted', 'sigma_u'))`.
-`r if (!d13$refined) sprintf('In the pre-correction run %d, %d and %d of the 5,000 fits for E1, E2 and E3 failed with the residual correlation and had been refitted without it. They are excluded here.', sum(!d13$results$has_corcar1[d13$results$spec == "E1"], na.rm = TRUE), sum(!d13$results$has_corcar1[d13$results$spec == "E2"], na.rm = TRUE), sum(!d13$results$has_corcar1[d13$results$spec == "E3"], na.rm = TRUE)) else sprintf('Failed fits numbered %d of %d.', sum(!d13$results$converged), nrow(d13$results))`
+`r if (!d13$refined) sprintf('In the pre-correction run %d, %d and %d of the 5,000 fits for E1, E2 and E3 failed with the residual correlation and had been refitted without it. They are excluded here.', sum(!d13$results$has_corcar1[d13$results$spec == "E1"], na.rm = TRUE), sum(!d13$results$has_corcar1[d13$results$spec == "E2"], na.rm = TRUE), sum(!d13$results$has_corcar1[d13$results$spec == "E3"], na.rm = TRUE)) else sprintf('Failed fits numbered %d of the %s, counting three specifications and two mean models.', sum(!d13$results$converged), format(nrow(d13$results), big.mark = ','))`
 
 ```{r fig-ecdf, fig.width = 5.6, fig.height = 5.2, out.width = "60%", fig.cap = "Empirical distribution function of the null p-values of the model-based M3 test at the primary cell, against the Uniform(0,1) diagonal. The curves lie below the diagonal across the unit interval."}
 r13 |>
@@ -934,9 +949,10 @@ if (!has_oracle) cat(
 
 The ladder explains the random-intercept-only model (Table
 \@ref(tab:tab-ladder)). With the fitted mean, M1 was close to
-calibrated. Its population $\kappa$ was `r fr(akr('M1','fitted'))`,
-and in simulation M1 rejected at `r f3(lv('E1','M1','t1'))` for E1
-and `r f3(lv('E2','M1','t1'))` for E2. With a correct mean its
+calibrated for E1 and slightly liberal for E2. Its population
+$\kappa$ was `r fr(akr('M1','fitted'))`, and in simulation M1 rejected
+at `r f3(lv('E1','M1','t1'))` for E1 and `r f3(lv('E2','M1','t1'))`
+(MCSE `r f4(lv('E2','M1','mcse'))`) for E2. With a correct mean its
 population $\kappa$ was `r fr(akr('M1','correct'))`. M1 would then be
 anti-conservative, because it ignores the serial correlation. The
 absorbed mean misfit raises its $\kappa$ by a similar amount, and the
@@ -944,6 +960,7 @@ two errors cancel. The paired difference in Type I error between M1
 and M3 for E1 was `r fs(pd_m1m3$est)` (MCSE `r f4(pd_m1m3$mcse)`).
 Removing the residual correlation from M3 does not repair the test. It
 trades one error for another.
+`r if (d4$refined) sprintf('The simulated mean-model rungs agree with the population values. With a free mean per visit, M3 had simulated $\\kappa$ = %s and %s for E1 and E2 and rejected at %s and %s. With the expectancy terms added to the fitted mean it had %s and %s and rejected at %s and %s, no better than the fitted mean.', f3(lv("E1","M3","kappa","visit")), f3(lv("E2","M3","kappa","visit")), f3(lv("E1","M3","t1","visit")), f3(lv("E2","M3","t1","visit")), f3(lv("E1","M3","kappa","expect")), f3(lv("E2","M3","kappa","expect")), f3(lv("E1","M3","t1","expect")), f3(lv("E2","M3","t1","expect"))) else ''`
 
 ```{r tab-ladder}
 lab_mod <- c(M0 = 'OLS', M1 = 'Random intercept',
@@ -1016,10 +1033,13 @@ for E1, `r f3(sl('E2','slope'))` (`r f3(sl('E2','lo'))` to
 (`r f3(sl('E3','lo'))` to `r f3(sl('E3','hi'))`) for E3. The
 intervals include zero. They are also wide enough to include a change
 of 0.01 per doubling. The gradient therefore shows only that no large
-finite-sample REML term is present. At $N = 70$ the E1 and E3 sizes,
-`r f3(g70('E1')$t1)` and `r f3(g70('E3')$t1)`, were within
-`r sprintf('%.1f', max(abs(c(g70('E1')$t1, g70('E3')$t1) - 0.05) / sqrt(0.05 * 0.95 / g70('E1')$n)))`
-MCSE of 0.05 at 1,500 replicates. The evidence that the excess is
+finite-sample REML term is present. The gradient is too coarse to
+resolve the size. At $N = 70$ its E1 and E3 sizes were
+`r f3(g70('E1')$t1)` and `r f3(g70('E3')$t1)`, on datasets independent
+of Table \@ref(tab:tab-decomp), against `r f3(dk('E1','t1'))` and
+`r f3(dk('E3','t1'))` there. The differences are
+`r fr(range((c(g70('E1')$t1, g70('E3')$t1) - c(dk('E1','t1'), dk('E3','t1'))) / c(g70('E1')$mcse, g70('E3')$mcse)), function(x) sprintf('%.1f', x))`
+gradient MCSE, consistent with chance. The evidence that the excess is
 asymptotic is the analytic computation of Section 4.2, which does not
 depend on $N$.
 
@@ -1105,7 +1125,7 @@ observed CR2 $\kappa$ and mean degrees of freedom it predicts
 `r f3(min(cr_pred$pred[cr_pred$spec %in% c('E1','E2','E3')]))` to
 `r f3(max(cr_pred$pred[cr_pred$spec %in% c('E1','E2','E3')]))`. The
 coefficient of variation of the CR2 standard error was
-`r fr(range(crs$cv_cr2), f2)`, against `r fr(range(dec$cv_se), f2)`
+`r fr(range(crs$cv_cr2[crs$spec %in% c('E1','E2','E3')]), f2)`, against `r fr(range(dec$cv_se), f2)`
 for the model-based one. The Satterthwaite reference absorbs that variability with
 `r sprintf('%.0f', mean(crs$df))` degrees of freedom, 5th to 95th
 percentile `r sprintf('%.0f', min(crs$df_q05))` to
@@ -1136,6 +1156,8 @@ if (has_g9) {
       'grid.\\end{quote}\n')
 }
 ```
+
+`r if (has_g9) sprintf('Table \\@ref(tab:tab-g9) adds the two analyses the project recommends. F1 rejected at %s (MCSE %s). G9 rejected at %s (MCSE %s), with %d of %s fits failed and excluded. Both are within Monte Carlo error of 0.05 (binomial $p$ = %s and %s). G9 differs from the CR2 test of E2 only by the AIC choice of the half-life. On the %s replicates where both succeeded, the selection raised the size by %s (paired MCSE %s). The CR2 $\\kappa$ of G9 was %s: its standard error does not carry the variability that the selection adds.', f3(cv("F1","t1_cr2")), f4(cv("F1","mcse_cr2")), f3(cv("G9","t1_cr2")), f4(cv("G9","mcse_cr2")), crf("G9"), format(dcr$n_reps, big.mark = ","), fp(cv("F1","bp_cr2")), fp(cv("G9","bp_cr2")), format(g9_e2$n, big.mark = ","), fs(g9_e2$est), f4(g9_e2$mcse), f3(cv("G9","k_cr2"))) else ''`
 
 ```{r fig-cr2, fig.width = 7.5, fig.height = 3.4, out.width = "100%", fig.cap = "Null p-value distribution functions under the model-based and CR2 tests of M3, by specification. The model-based curves lie below the diagonal. The CR2 curves lie close to it."}
 rcr |>
@@ -1225,9 +1247,8 @@ conservative in other designs is a hypothesis, supported by the
 $V + rr^\top$ argument of Section 2.2 but not tested here.
 
 The direction of the error depends on the model. M3 with the fitted
-mean was conservative. M1 with a correct mean was anti-conservative.
-The generalized estimating equations sandwich of Section 5.3 was
-anti-conservative. Gurka, Edwards and Muller [-@gurka2011] showed that
+mean was conservative. M1 with a correct mean was anti-conservative. The Liang-Zeger
+sandwich of Section 5.3 was anti-conservative. Gurka, Edwards and Muller [-@gurka2011] showed that
 an underspecified covariance can inflate the Type I error, and that
 the bias does not shrink with the sample size. Our result is
 compatible with theirs. Here the conservative direction arises
@@ -1292,6 +1313,7 @@ standard errors that matched `mmrm` within a relative difference of
 `r format(signif(sm_maxdiff, 2), scientific = TRUE)` in every one of
 `r nrow(sm_j)` fits. The earlier M2 rung had not reached the REML
 optimum. The corrected drivers use the tight settings.
+`r if (dkr$refined) sprintf('In the full extended-DGP run the ratio of mean standard errors was %s over E1 to E3.', fr(gmv_new)) else ''`
 
 ## The marginal-model alternative
 
@@ -1340,10 +1362,11 @@ This is the second case where the first-order decomposition fails.
 The sandwich standard error is variable and correlated with the
 estimate [@kauermann2001; @fay2001; @panwall2002]. The Mancl-DeRouen
 correction with a $t$ reference rejected at `r f4(gv('E1','md_t'))`,
-`r f4(gv('E2','md_t'))` and `r f4(gv('E3','md_t'))`. For E2 this is
-`r sprintf('%.1f', gv('E2','z_md_t'))` MCSE above 0.05 (binomial
-$p$ = `r fp(gv('E2','bp_md_t'))`). It is not calibrated at this
-cluster count.
+`r f4(gv('E2','md_t'))` and `r f4(gv('E3','md_t'))`,
+`r sprintf('%.1f', min(gs$z_md_t))` to
+`r sprintf('%.1f', max(gs$z_md_t))` MCSE from 0.05 (smallest binomial
+$p$ = `r fp(min(gs$bp_md_t))`).
+`r if (min(gs$bp_md_t) < 0.05) 'It is not calibrated at this cluster count.' else if (dgee$refined) 'At this cluster count it is calibrated within Monte Carlo error. This reverses the pre-correction run, in which it rejected at 0.055 to 0.058. That run took the Mancl-DeRouen standard error from a separate geesmv refit and used the earlier DGP. We did not separate the two changes.' else 'At this cluster count it is calibrated within Monte Carlo error.'`
 
 The GEE estimate was less efficient than the M3 estimate on the same
 data. Its empirical standard deviation for E1 was
@@ -1351,16 +1374,19 @@ data. Its empirical standard deviation for E1 was
 efficiency of `r f2(ev('E1','rel_eff'))`. About
 `r sprintf('%.0f', 100 * (1 - ev('E1','rel_eff')))` percent of the
 information is lost. The marginal route is therefore not equivalent
-to the conditional route with CR2 in this design. The CR2 test of M3
-keeps the efficiency of the mixed-model estimate and comes closer to
-the nominal size.
+to the conditional route with CR2 in this design. Both the CR2 test of
+M3 and the Mancl-DeRouen test with a $t$ reference held the nominal
+size. Only the CR2 test keeps the efficiency of the mixed-model
+estimate.
 
 ## Relation to the recommended analysis
 
 The CR2 tests evaluated here are G6 (E1) and G8 (E2) in the codes of
 the companion carryover paper [@pmsimstats-paper02]. That paper
 recommends G9, which adds an AIC choice of the analysis half-life and
-reports a measurable size increment from the selection step. The
+reports a measurable size increment from the selection step.
+`r if (has_g9) sprintf('Here the increment was %s (paired MCSE %s), and G9 stayed within Monte Carlo error of 0.05.', fs(g9_e2$est), f4(g9_e2$mcse)) else ''`
+The
 present paper explains why the CR2 step is needed: the model-based
 standard error of the historical analysis is inflated by the mean
 misfit. The mean-model results suggest a further option, a free mean

@@ -828,9 +828,19 @@ start is the reason the trial can run at all.
   sequences of equal size and equal visit spacing. Paper 01 uses a
   correlation form of the interaction and AR(1) correlation. Neither
   was fitted to real PTSD symptom data.
-- **The correlation structure is unknown.** The ranking of the
-  Hybrid and the crossover reverses between compound symmetry and
-  AR(1). This is the most important unknown for a real design.
+- **The correlation structure is only partly known.** The ranking of
+  the Hybrid and the crossover reverses between compound symmetry and
+  AR(1). One empirical estimate now exists. In the placebo arm of the
+  VA prazosin trial CSP 563 (152 veterans, CAPS total at weeks 0, 6,
+  10, 18 and 26), compound symmetry fitted worst, and the best
+  parametric model had about 10 percent visit-specific noise with the
+  rest decaying at 0.975 per week (`~/prj/alz/14-murray-nejm`,
+  `analysis/report/04-sbp-caps-replication/results.md`). Under that
+  estimate the Hybrid's contrast noise is 0.37 to 0.41 of the
+  crossover's, a larger advantage than under the extended DGP's
+  assumption of 0.7 per week (0.59 to 0.69). The trial measured
+  monthly, so correlations at the Hybrid's one-week lags are
+  extrapolated.
 - **The restart rule is an assumption.** The model restarts the drug
   response from zero at every re-exposure. If the response rebuilds
   from its residual level, short re-exposure periods are less costly.

@@ -64,6 +64,8 @@ the section where each symbol first appears.
 | $A$ | matrix of AR(1) correlations between visits | 6.2 |
 | $a^\top A a$ | time part of the contrast variance under AR(1) | 6.2 |
 | $P$ | number of randomization paths | 6.5 |
+| $c_{bm}$ | biomarker-drug-response correlation; the interaction strength in the extended DGP | 9.1 |
+| MCSE | Monte Carlo standard error of a simulated rate, $\sqrt{\hat\pi(1-\hat\pi)/R}$ for $R$ replicates | 9.1 |
 
 Table: Notation
 
@@ -616,22 +618,24 @@ The evidence behind the rows:
   difference comes from the open-label phase: the same Hybrid schedule
   run blinded reached 0.739. The rest comes from the five-and-three
   imbalance of paths 1 and 2, whose blinded contrast variance is 38.3
-  against 35.9 for paths 3 and 4 and the crossover. Under CS the arrangement of visits does
-  not matter, so the Hybrid's interleaving brings no gain there.
+  against 35.9 for paths 3 and 4 and the crossover. Under CS the
+  arrangement of visits does not matter, so the Hybrid's interleaving
+  brings no gain there.
 - **AR(1) favors the Hybrid.** Its time part is about half the
   crossover's (Section 6.2). The gain comes from the weekly
   blinded-discontinuation visits and the extra switches, not from the
   open-label phase.
-- **Under the project's full simulation the Hybrid has more power.**
-  Paper 01 simulated both designs under the extended DGP, which uses
-  AR(1) correlation, and analyzed them with G9 (`docs/67`). At
-  $N = 70$, a moderate biomarker effect and a 0.2-week half-life, G9
-  power was 0.650 (MCSE 0.015) in the Hybrid design and 0.413 (MCSE
-  0.016) in the crossover. Paper 01 attributes part of the crossover's
-  deficit to the analysis: the crossover has constant expectancy and
-  only one switch per path, which gives G9 little information to
-  choose a half-life. Paper 01 did not separate that from the
-  correlation structure.
+- **Under the project's full simulation the Hybrid has more power
+  when carryover is short.** Paper 01 simulated both designs under the
+  extended DGP, which uses AR(1) correlation, and analyzed them with
+  G9 (`docs/67`). At $N = 70$, a moderate biomarker effect and a
+  0.2-week half-life, G9 power was 0.650 (MCSE 0.015) in the Hybrid
+  design and 0.413 (MCSE 0.016) in the crossover. Paper 01 attributes
+  part of the crossover's deficit to the analysis: the crossover has
+  constant expectancy and only one switch per path, which gives G9
+  little information to choose a half-life. Paper 01 did not separate
+  that from the correlation structure. Section 9.1 shows that the
+  advantage disappears at a one-week half-life.
 - **A simple analysis loses more to carryover in the Hybrid.** At a
   one-week half-life, an analysis with a binary drug indicator lost a
   fifth to two thirds of its power in the Hybrid and OL+BDC designs,
@@ -645,10 +649,153 @@ The evidence behind the rows:
   term. In the crossover all three time adjustments held their size
   (`docs/40`, Section 1).
 
-**Verdict.** Neither design dominates. The Hybrid's statistical
+### 9.1 Simulated size and power
+
+Two stored simulation grids run both designs under the same extended
+DGP. No new simulation was run for this section. The script
+`analysis/scripts/tutorial-design/01-co-vs-hybrid-heatmaps.R` reads
+the stored summaries and writes the figures below and the tables in
+`analysis/data/tutorial-design/`.
+
+- **Grid 1, paper 01 (simrun job 40).** G9 only, $N = 70$, biomarker
+  correlation $c_{bm} \in \{0, 0.25, 0.35, 0.45\}$, carryover
+  half-life 0, 0.2 and 1 week. There are 2,000 replicates per null
+  cell and 1,000 per alternative cell.
+- **Grid 2, paper 02 (simrun job 27).** The whole analysis ladder of
+  `docs/67`, $N = 35$ and 70, 500 replicates per cell. The null cells
+  have a one-week half-life. The power cells have $c_{bm} = 0.45$ and
+  half-lives of 0, 0.5 and 1 week. With 500 replicates the MCSE of a
+  rejection rate near 0.05 is 0.010, so rates between about 0.03 and
+  0.07 are consistent with a correct test.
+
+$c_{bm}$ is the correlation between the biomarker and the drug
+response, the way the extended DGP encodes the interaction. Larger
+values mean a stronger interaction.
+
+**Size.** Table 7 gives the Type I error of G9 in grid 1.
+
+| Design | 0 wk | 0.2 wk | 1 wk |
+|---|---|---|---|
+| Hybrid | 0.045 (0.005) | 0.051 (0.005) | 0.051 (0.005) |
+| Crossover | 0.059 (0.005) | 0.048 (0.005) | 0.049 (0.005) |
+
+Table: G9 Type I error (MCSE) by carryover half-life, $N = 70$, 2,000
+replicates per cell (grid 1)
+
+Table 8 and Figure 1 give the Type I error of every analysis in grid
+2.
+
+| Analysis | Hybrid, $N = 35$ | Hybrid, $N = 70$ | Crossover, $N = 35$ | Crossover, $N = 70$ |
+|---|---|---|---|---|
+| E0 | 0.070 | 0.060 | 0.150 | 0.128 |
+| G1 | 0.042 | 0.032 | 0.030 | 0.046 |
+| G6 | 0.066 | 0.046 | 0.046 | 0.054 |
+| G3 | 0.030 | 0.034 | 0.034 | 0.046 |
+| G8 | 0.044 | 0.054 | 0.052 | 0.050 |
+| G4 | 0.042 | 0.038 | 0.042 | 0.050 |
+| G9 | 0.060 | 0.058 | 0.058 | 0.056 |
+| G5 (E9) | 0.052 | 0.056 | 0.054 | 0.038 |
+
+Table: Type I error by analysis, one-week half-life, 500 replicates
+per cell, MCSE about 0.010 (grid 2)
+
+![Type I error by analysis and design, one-week half-life, 500 replicates per cell (grid 2). Gray is the nominal 0.05; red is liberal, blue conservative. Rates of 0.10 or more share the darkest red.](figures/68-fig2-ladder-size-hybrid-vs-co.png){width=75%}
+
+Three points follow.
+
+1. **G9 holds its size in both designs.** Its rejection rate is 0.045
+   to 0.059 in grid 1 and 0.056 to 0.060 in grid 2. The design does
+   not change this.
+2. **The original analysis E0 is liberal in the crossover.** It
+   rejects a true null at 0.150 and 0.128, against 0.070 and 0.060 in
+   the Hybrid. E0 has no residual correlation (`docs/67`, Section 6).
+   A plausible reason for the larger excess in the crossover, not
+   tested here, is that its on and off visits are far apart in time,
+   where the omitted correlation changes the variance of the contrast
+   most.
+3. **The other analyses are close to nominal in both designs.** The
+   model-based analyses G1, G3 and G4 lean conservative (0.030 to
+   0.050). No analysis other than E0 lies outside 0.03 to 0.07.
+
+**Power.** Table 9 and Figure 2 give G9 power in grid 1.
+
+| $c_{bm}$ | Half-life | Hybrid | Crossover | Hybrid minus crossover |
+|---|---|---|---|---|
+| 0.25 | 0 wk | 0.663 (0.015) | 0.351 (0.015) | +0.312 (0.021) |
+| 0.25 | 0.2 wk | 0.650 (0.015) | 0.413 (0.016) | +0.237 (0.022) |
+| 0.25 | 1 wk | 0.418 (0.016) | 0.387 (0.015) | +0.031 (0.022) |
+| 0.35 | 0 wk | 0.919 (0.009) | 0.651 (0.015) | +0.268 (0.017) |
+| 0.35 | 0.2 wk | 0.919 (0.009) | 0.626 (0.015) | +0.293 (0.018) |
+| 0.35 | 1 wk | 0.669 (0.015) | 0.647 (0.015) | +0.022 (0.021) |
+| 0.45 | 0 wk | 0.997 (0.002) | 0.874 (0.010) | +0.123 (0.011) |
+| 0.45 | 0.2 wk | 0.994 (0.002) | 0.867 (0.011) | +0.127 (0.011) |
+| 0.45 | 1 wk | 0.854 (0.011) | 0.828 (0.012) | +0.026 (0.016) |
+
+Table: G9 power (MCSE) at $N = 70$, 1,000 replicates per cell (grid
+1). The standard error of the difference treats the two designs as
+independent.
+
+![G9 power at $N = 70$ by biomarker correlation and carryover half-life (A), and the Hybrid-minus-crossover difference (B), grid 1. The power scale starts at 0.3. In B, blue favors the Hybrid and red the crossover.](figures/68-fig1-g9-power-hybrid-vs-co.png)
+
+Table 10 and Figure 3 give the power of every analysis in grid 2 at
+$c_{bm} = 0.45$ and $N = 70$. Figure 3 also shows $N = 35$.
+
+| Analysis | Hybrid 0 wk | Hybrid 0.5 wk | Hybrid 1 wk | Crossover 0 wk | Crossover 0.5 wk | Crossover 1 wk |
+|---|---|---|---|---|---|---|
+| E0 | 0.986 | 0.950 | 0.846 | 0.940 | 0.936 | 0.934 |
+| G1 | 0.992 | 0.960 | 0.790 | 0.880 | 0.874 | 0.832 |
+| G6 | 0.996 | 0.972 | 0.831 | 0.878 | 0.874 | 0.846 |
+| G3 | 0.992 | 0.960 | 0.886 | 0.880 | 0.874 | 0.852 |
+| G8 | 0.996 | 0.976 | 0.904 | 0.878 | 0.874 | 0.842 |
+| G4 | 0.990 | 0.962 | 0.876 | 0.878 | 0.874 | 0.844 |
+| G9 | 0.996 | 0.974 | 0.900 | 0.880 | 0.880 | 0.850 |
+| G5 (E9) | 0.986 | 0.950 | 0.848 | 0.788 | 0.780 | 0.752 |
+
+Table: Power by analysis at $c_{bm} = 0.45$, $N = 70$, 500 replicates
+per cell, MCSE at most 0.022 (grid 2). E0's power is not comparable
+with the others in the crossover, because E0 is liberal there.
+
+![Power by analysis, design, sample size and carryover half-life at $c_{bm} = 0.45$ (grid 2). The power scale starts at 0.3. E0 is liberal in the crossover (Figure 1), so its power there overstates what a correctly sized test would achieve.](figures/68-fig3-ladder-power-hybrid-vs-co.png)
+
+Four points follow.
+
+1. **Without carryover the Hybrid is much more powerful.** At
+   $c_{bm} = 0.25$ G9 power is 0.663 in the Hybrid and 0.351 in the
+   crossover, a difference of 0.31 (SE 0.02). At $N = 35$ and
+   $c_{bm} = 0.45$ in grid 2 it is 0.85 against 0.56. This is the
+   interleaving advantage of Section 6.2. The extended DGP uses AR(1)
+   correlation, which rewards on and off visits close in time.
+2. **At a one-week half-life the advantage disappears.** The G9
+   difference is +0.031, +0.022 and +0.026 at the three effect sizes,
+   none more than two standard errors from zero. The Hybrid loses a
+   third or more of its power between 0 and 1 week at
+   $c_{bm} = 0.25$ (0.663 to 0.418). The crossover loses almost none
+   (0.351 to 0.387; the rise is within Monte Carlo error). Most of the
+   Hybrid's off-drug visits fall one to three weeks after stopping.
+   The crossover's off-drug visits fall 2.5 to 10 weeks after stopping
+   in one path and before any exposure in the other.
+3. **The analysis matters more in the Hybrid.** At a one-week
+   half-life and $N = 70$, the binary-indicator analysis G1 has power
+   0.790 in the Hybrid and the exposure-weighted G8 0.904, a gain of
+   0.11. In the crossover every G analysis lies between 0.832 and
+   0.852. Modeling carryover pays where off-drug visits are close to
+   a discontinuation. With G1 the crossover is slightly more powerful
+   than the Hybrid at one week (0.832 against 0.790).
+4. **The simple paired difference suffers most in the crossover.**
+   G5 (E9) has power 0.752 to 0.788 in the crossover against 0.832 to
+   0.880 for the mixed models. Each crossover participant contributes
+   one on-minus-off contrast between blocks ten weeks apart, and the
+   AR(1) noise does not cancel between them.
+
+### 9.2 Verdict
+
+Neither design dominates. The Hybrid's statistical
 advantage is its interleaving. That advantage exists only if
 correlation fades with time, which the project's main simulation
-assumes but which must be checked for a real outcome. Its open-label
+assumes but which must be checked for a real outcome. In the
+project's simulations it is large when the response half-life is a
+few days and gone at one week, where the crossover's long off-drug
+blocks escape carryover. Its open-label
 phase is a statistical cost, paid for recruitment and titration. The
 crossover is better when correlation is roughly constant over time,
 when the analysis is simple, and when separating period effects

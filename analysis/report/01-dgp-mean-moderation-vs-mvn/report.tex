@@ -198,8 +198,8 @@
   \renewcommand{\headrulewidth}{0pt}%
   \renewcommand{\footrulewidth}{0.4pt}}
 \renewcommand{\stampsource}{\textasciitilde{}/\allowbreak{}prj/\allowbreak{}res/\allowbreak{}36-pmsimstats-ng/\allowbreak{}pmsimstats-ng/\allowbreak{}analysis/\allowbreak{}report/\allowbreak{}01-dgp-mean-moderation-vs-mvn/\allowbreak{}report.Rmd}
-\renewcommand{\stamptime}{2026-10-28 17:49 PDT}
-\renewcommand{\stampversion}{\detokenize{whitepapers-pre-series-109-g270a729d8-wip}}
+\renewcommand{\stamptime}{2026-10-29 22:38 PDT}
+\renewcommand{\stampversion}{\detokenize{whitepapers-pre-series-129-g8ef8b29c1-wip}}
 \usepackage{amssymb}
 \usepackage{booktabs}
 \usepackage{longtable}
@@ -233,7 +233,7 @@
 
 \title{Simulating predictive-biomarker interactions in aggregated N-of-1 trials: an extended data-generating process building on Hendrickson et al.}
 \author{pmsimstats team}
-\date{October 28, 2026}
+\date{October 29, 2026}
 
 \begin{document}
 \maketitle
@@ -1155,8 +1155,14 @@ estimable under G9: every visit is on drug, so the exposure-decayed
 indicator is constant at 1 and the interaction term is collinear with
 the biomarker. The original analysis replaces the interaction with a
 biomarker-by-time term in that case. G9 has no such substitute, and
-the cells are marked as not estimable rather than simulated. Results
-at \(N = 70\) without censoring:
+the cells are marked as not estimable rather than simulated. The
+censoring patterns in this figure use the corrected dropout rule.
+The original \texttt{censordata()} raised dropout with improvement, the
+reverse of the intended mechanism, through a sign error in its biased
+term (Appendix B.5). Under the corrected rule, dropout rises with
+worsening. Figure \ref{fig:fig4bmc} keeps the published rule, because
+it reproduces the original code. Results at \(N = 70\) without
+censoring:
 
 \begin{itemize}
 \tightlist
@@ -1190,7 +1196,7 @@ correlation structure from that of the analysis here.
 
 }
 
-\caption{Power of the analysis G9 to detect the biomarker-by-treatment interaction under the extended DGP (separable AR(1), $\rho = 0.7$, $c_1 = 0.2$, decaying correlation, carryover decaying from the last on-drug mean), in the layout of Figure 4B of the original study. Rows within panels: censoring patterns; columns: carryover half-life; panels: trial design (N-of-1 is the Hybrid design) and total sample size. $c_{bm} = 0.25$, 250 replicates per cell (Monte Carlo SE at most 0.032). Gray cells (n/e): the open-label design, in which every visit is on drug and the interaction is not estimable under G9.}\label{fig:fig4bg9}
+\caption{Power of the analysis G9 to detect the biomarker-by-treatment interaction under the extended DGP (separable AR(1), $\rho = 0.7$, $c_1 = 0.2$, decaying correlation, carryover decaying from the last on-drug mean), in the layout of Figure 4B of the original study. Rows within panels: censoring patterns; columns: carryover half-life; panels: trial design (N-of-1 is the Hybrid design) and total sample size. $c_{bm} = 0.25$, 250 replicates per cell (Monte Carlo SE at most 0.032). Censoring patterns use the corrected dropout rule, under which dropout rises with worsening; the original-code figure uses the published rule of commit 58b32a9. Gray cells (n/e): the open-label design, in which every visit is on drug and the interaction is not estimable under G9.}\label{fig:fig4bg9}
 \end{figure}
 
 Figure \ref{fig:fig4b} extends the comparison over interaction
@@ -3039,6 +3045,14 @@ attenuated interaction as a power loss.
 dropout options of Table \ref{tab:spec} are implemented in the
 stress-test driver (\texttt{11-strawman-stress-test.R}) and in the companion
 study's driver core, and not yet in the package. The package's dropout
-mechanisms (\texttt{censordata.R}) are the original censoring patterns.
+mechanisms (\texttt{censordata.R}) are the original censoring patterns, with
+one correction. In the original code the biased term weights each
+participant by 100 plus the improvement from baseline, raised to the
+power \texttt{eb1}. Dropout therefore rose with improvement, the reverse of
+the mechanism the original study describes. The package now weights by
+100 minus the improvement, floored at zero, so that dropout rises with
+worsening. Figure \ref{fig:fig4bg9} uses the corrected rule. Figure
+\ref{fig:fig4bmc} and \texttt{implementations/original} keep the published
+rule.
 
 \end{document}

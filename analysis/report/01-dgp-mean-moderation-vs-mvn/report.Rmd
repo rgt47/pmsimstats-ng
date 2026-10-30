@@ -837,8 +837,14 @@ estimable under G9: every visit is on drug, so the exposure-decayed
 indicator is constant at 1 and the interaction term is collinear with
 the biomarker. The original analysis replaces the interaction with a
 biomarker-by-time term in that case. G9 has no such substitute, and
-the cells are marked as not estimable rather than simulated. Results
-at $N = 70$ without censoring:
+the cells are marked as not estimable rather than simulated. The
+censoring patterns in this figure use the corrected dropout rule.
+The original `censordata()` raised dropout with improvement, the
+reverse of the intended mechanism, through a sign error in its biased
+term (Appendix B.5). Under the corrected rule, dropout rises with
+worsening. Figure \@ref(fig:fig4bmc) keeps the published rule, because
+it reproduces the original code. Results at $N = 70$ without
+censoring:
 
 - **Hybrid design.** Power is `r g9f_pick('N-of-1', 70, 0)`,
   `r g9f_pick('N-of-1', 70, 0.1)` and `r g9f_pick('N-of-1', 70, 0.2)`
@@ -860,7 +866,7 @@ expectancy, and G9 estimates the half-life from a design with only
 one switch per path. We do not separate the contribution of the
 correlation structure from that of the analysis here.
 
-```{r fig4bg9, fig.cap = 'Power of the analysis G9 to detect the biomarker-by-treatment interaction under the extended DGP (separable AR(1), $\\rho = 0.7$, $c_1 = 0.2$, decaying correlation, carryover decaying from the last on-drug mean), in the layout of Figure 4B of the original study. Rows within panels: censoring patterns; columns: carryover half-life; panels: trial design (N-of-1 is the Hybrid design) and total sample size. $c_{bm} = 0.25$, 250 replicates per cell (Monte Carlo SE at most 0.032). Gray cells (n/e): the open-label design, in which every visit is on drug and the interaction is not estimable under G9.', out.width = '100%', fig.align = 'center', fig.width = 9, fig.height = 5.2}
+```{r fig4bg9, fig.cap = 'Power of the analysis G9 to detect the biomarker-by-treatment interaction under the extended DGP (separable AR(1), $\\rho = 0.7$, $c_1 = 0.2$, decaying correlation, carryover decaying from the last on-drug mean), in the layout of Figure 4B of the original study. Rows within panels: censoring patterns; columns: carryover half-life; panels: trial design (N-of-1 is the Hybrid design) and total sample size. $c_{bm} = 0.25$, 250 replicates per cell (Monte Carlo SE at most 0.032). Censoring patterns use the corrected dropout rule, under which dropout rises with worsening; the original-code figure uses the published rule of commit 58b32a9. Gray cells (n/e): the open-label design, in which every visit is on drug and the interaction is not estimable under G9.', out.width = '100%', fig.align = 'center', fig.width = 9, fig.height = 5.2}
 library(ggplot2)
 fd <- g9f
 fd$design <- factor(fd$design, levels = c('OL', 'OL+BDC', 'CO', 'N-of-1'))
@@ -2352,4 +2358,12 @@ attenuated interaction as a power loss.
 dropout options of Table \@ref(tab:spec) are implemented in the
 stress-test driver (`11-strawman-stress-test.R`) and in the companion
 study's driver core, and not yet in the package. The package's dropout
-mechanisms (`censordata.R`) are the original censoring patterns.
+mechanisms (`censordata.R`) are the original censoring patterns, with
+one correction. In the original code the biased term weights each
+participant by 100 plus the improvement from baseline, raised to the
+power `eb1`. Dropout therefore rose with improvement, the reverse of
+the mechanism the original study describes. The package now weights by
+100 minus the improvement, floored at zero, so that dropout rises with
+worsening. Figure \@ref(fig:fig4bg9) uses the corrected rule. Figure
+\@ref(fig:fig4bmc) and `implementations/original` keep the published
+rule.

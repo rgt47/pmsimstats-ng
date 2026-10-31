@@ -1676,3 +1676,79 @@ simulate_cell_referee <- function(cell, n_reps,
       mutate(rep = rep_i, .before = 1)
   })
 }
+
+## -----------------------------------------------------------------
+## G10 backfill (41-run-g10-backfill.R; split plan 2026-10-29,
+## Section 2.8). Regenerates a stored trial and fits only G9 (E7cr2)
+## and G10 (E7null_cr2). Data generation, including the optional
+## dropout block, is the same sequence of calls as
+## simulate_cell_combined(), and without dropout the same as
+## simulate_cell_referee(), so under the seed and platform of a stored
+## job the trial is identical to that job's. G9 is refitted as the
+## pairing guard: its estimate must reproduce the stored value.
+## -----------------------------------------------------------------
+G10_BACKFILL_SPECS <- c('E7cr2', 'E7null_cr2')
+
+simulate_cell_g10 <- function(cell, n_reps, specs = G10_BACKFILL_SPECS,
+                              stop_on_nonpd = TRUE) {
+  design_set <- build_design_set(cell$design)
+  resp_param     <- default_resp_param()
+  baseline_param <- default_baseline_param()
+  rho <- default_val(cell[['rho']], 0.7)
+  analysis_t1half <- default_val(cell[['analysis_t1half']], cell$t1half)
+  analysis_form   <- default_val(cell[['analysis_form']],   cell$carryover_form)
+  analysis_shape  <- default_val(cell[['analysis_shape']],  cell$weibull_shape)
+
+  model_param <- list(
+    N = cell$N, carryover_t1half = cell$t1half,
+    carryover_form = cell$carryover_form,
+    weibull_shape = cell$weibull_shape,
+    dgp_architecture = cell$dgp_arch,
+    c.bm = cell$c_bm,
+    c.tv = rho, c.pb = rho, c.br = rho,
+    c.cf1t = 0.2, c.cfct = 0.2
+  )
+  model_param$c.bm.bl <- default_val(cell[['c_bl']], 0)
+  model_param$c.bm.tv <- default_val(cell[['c_tv']], 0)
+  model_param$b.bm.tv <- default_val(cell[['b_tv']], 0)
+  model_param$b.bm.tv.trend <- default_val(cell[['b_tv_trend']], 0)
+  model_param$sd_slope <- default_val(cell[['sd_slope']], 0)
+  model_param$c.bm.pb <- default_val(cell[['c_pb']], 0)
+  dropout_rate <- default_val(cell[['dropout_rate']], 0)
+  dropout_mech <- default_val(cell[['dropout_mech']], 'MCAR')
+  dropout_per  <- default_val(cell[['dropout_per']], 'occasion')
+
+  map_dfr(seq_len(n_reps), function(rep_i) {
+    dat <- tryCatch(
+      generate_data_multi_path(model_param, resp_param, baseline_param,
+                               design_set, stop_on_nonpd = stop_on_nonpd),
+      error = function(e) NULL
+    )
+    if (is.null(dat) || nrow(dat) == 0) {
+      return(tibble(rep = rep_i, method = specs, h = NA_real_,
+                    estimate = NA_real_, std_error = NA_real_,
+                    p_value = NA_real_, converged = FALSE, t = NA_real_))
+    }
+    if (dropout_rate > 0) {
+      dat <- apply_dropout(dat, design_set,
+                           rate = dropout_rate,
+                           mechanism = dropout_mech,
+                           per = dropout_per)
+    }
+
+    dat_long <- prepare_long_data(
+      dat, design_set,
+      carryover_t1half = cell$t1half,
+      carryover_form = cell$carryover_form,
+      weibull_shape = cell$weibull_shape,
+      analysis_t1half = analysis_t1half,
+      analysis_form = analysis_form,
+      analysis_shape = analysis_shape
+    )
+
+    map_dfr(specs, ~ fit_spec_s7(dat_long, .x)) |>
+      transmute(method = spec, h = best_t_half, estimate, std_error,
+                p_value, converged, t = estimate / std_error) |>
+      mutate(rep = rep_i, .before = 1)
+  })
+}

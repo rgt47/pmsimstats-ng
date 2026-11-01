@@ -5,7 +5,19 @@
 ## described in 37-ladder-README.md.
 ##
 ## Run from the repository root:
-##   Rscript analysis/scripts/carryover-sensitivity/37-ladder-tables-figures.R
+##   Rscript analysis/scripts/carryover-sensitivity/37-ladder-tables-figures.R \
+##     [--scope full|predictive]
+##
+## --scope full (default) reproduces the ladder of the pre-split paper
+## 02. --scope predictive builds the ladder of paper 02 after the split
+## (split plan 2026-10-29, Section 2.4): families 5 and 6, the trend
+## block and the block N cells with a prognostic pathway are dropped;
+## F1, F1A0B and the fixed-half-life G8 variants are dropped; G9-null
+## is relabeled G10 and becomes rung 4 and the reference, with G9 as a
+## side analysis. G10 replicates in families 1 to 4 and in the slope
+## block come from the backfill (g10-backfill/, script 41); replicates
+## whose G9 refit failed the pairing guard are excluded. Outputs go to
+## ladder-predictive/ and to figures with a -predictive suffix.
 ##
 ## Environment overrides (used for testing the isolation branch
 ## without touching the repository):
@@ -21,10 +33,18 @@ suppressPackageStartupMessages({
   library(patchwork)
 })
 
+args <- commandArgs(trailingOnly = TRUE)
+scope <- if ('--scope' %in% args) args[which(args == '--scope') + 1] else 'full'
+stopifnot(scope %in% c('full', 'predictive'))
+pred <- scope == 'predictive'
+ref_a <- if (pred) 'G10' else 'G9'
+fig_suffix <- if (pred) '-predictive' else ''
+
 data_dir <- here::here('analysis/data/carryover-sensitivity')
 iso_dir <- Sys.getenv('LADDER_ISOLATION_DIR',
   file.path(data_dir, 'e0-isolation'))
-out_data <- Sys.getenv('LADDER_OUT_DATA', file.path(data_dir, 'ladder'))
+out_data <- Sys.getenv('LADDER_OUT_DATA', file.path(data_dir,
+  if (pred) 'ladder-predictive' else 'ladder'))
 out_fig <- Sys.getenv('LADDER_OUT_FIG', here::here('analysis/figures'))
 dir.create(out_data, recursive = TRUE, showWarnings = FALSE)
 dir.create(out_fig, recursive = TRUE, showWarnings = FALSE)
@@ -54,6 +74,16 @@ analysis_meta <- tibble::tribble(
   'F1', 'F1', 'alternative', 'CR2',
   'F1A0B', 'F1A0B', 'alternative', 'bootstrap-calibrated CR2'
 )
+pred_drop <- c('G8-0.25', 'G8-1', 'F1', 'F1A0B')
+if (pred) {
+  analysis_meta <- analysis_meta |>
+    filter(!analysis %in% pred_drop) |>
+    mutate(rung_type = case_when(analysis == 'G9-null' ~ 'selected',
+                                 analysis == 'G9' ~ 'alternative',
+                                 .default = rung_type),
+           label = if_else(analysis == 'G9-null', 'G10', label),
+           analysis = if_else(analysis == 'G9-null', 'G10', analysis))
+}
 
 analysis_cols <- c(
   E0 = '#4D4D4D', E0n = '#737373', E0nc = '#8C8C8C', E1nc = '#A6A6A6',
@@ -67,8 +97,26 @@ analysis_shapes <- c(
   E0 = 15, E0n = 15, E0nc = 15, E1nc = 15,
   G1 = 1, G6 = 16, G3 = 1, G8 = 16, G4 = 1, G9 = 16,
   `G9-null` = 17, `G8-0.25` = 17, `G8-1` = 17, F1 = 17, F1A0B = 17)
+if (pred) {
+  analysis_cols <- analysis_cols[!names(analysis_cols) %in% pred_drop]
+  names(analysis_cols)[names(analysis_cols) == 'G9-null'] <- 'G10'
+  analysis_shapes <- analysis_shapes[!names(analysis_shapes) %in% pred_drop]
+  names(analysis_shapes)[names(analysis_shapes) == 'G9-null'] <- 'G10'
+  analysis_shapes[c('G10', 'G9')] <- c(16, 17)
+  analysis_cols[c('G10', 'G9')] <- c('#D55E00', '#CC79A7')
+}
 
 recode_analysis <- function(method, h = NA_real_) {
+  if (pred) {
+    return(case_when(
+      method == 'E0' ~ 'E0', method == 'E0n' ~ 'E0n',
+      method == 'E0nc' ~ 'E0nc', method == 'E1nc' ~ 'E1nc',
+      method == 'E1' ~ 'G1', method == 'E1cr2' ~ 'G6',
+      method == 'E2' ~ 'G3', method == 'E2cr2' ~ 'G8',
+      method == 'E7' ~ 'G4', method == 'E7cr2' ~ 'G9',
+      method == 'E7null_cr2' ~ 'G10',
+      .default = NA_character_))
+  }
   case_when(
     method == 'E0' ~ 'E0',
     method == 'E0n' ~ 'E0n',
@@ -95,6 +143,11 @@ fam_labels <- c(
   '3' = '3 Autocorrelation', '4' = '4 Dropout',
   '5' = '5 Prognostic', '6' = '6 Large N',
   '7' = '7 Trend and slope', 'S' = 'S Referee Hybrid run')
+if (pred) {
+  fam_levels <- setdiff(fam_levels, c('5', '6'))
+  fam_labels <- fam_labels[fam_levels]
+  fam_labels['7'] <- '7 Patient slope'
+}
 
 ## Data loading -----------------------------------------------------
 
@@ -207,7 +260,7 @@ gf_def <- gf_cells_raw |>
     pooled_null = TRUE,
     t_half = t1half,
     cell_key = paste('gf', job, cell_id, sep = '|')) |>
-  filter(!is.na(family))
+  filter(!is.na(family), family %in% fam_levels)
 gf_cells <- make_cells(gf_def)
 
 gf_files <- list.files(file.path(data_dir, 'g9-gap-fill'),
@@ -223,21 +276,25 @@ gf_reps <- map(gf_files, \(f) {
 
 ## Prognostic stress test, strength 0.3 (family 5) -----------------------
 
-j28_all <- readRDS(file.path(data_dir, 'g9-prognostic-stress/all.rds'))
-j28_sum <- readRDS(file.path(data_dir, 'g9-prognostic-stress/summary.rds'))
-path_lab <- c(progpb = 'PB', progtvconst = 'TV-const', progbl = 'BL')
-j28_cells_raw <- j28_sum |>
-  distinct(cell_id, pathway, strength, c_bm, N) |>
-  filter(pathway %in% names(path_lab), abs(strength - 0.3) < 1e-8) |>
-  mutate(cell_key = paste0('j28|', cell_id), family = '5',
-         scenario = sprintf('%s %.2f', path_lab[pathway], strength),
-         role = if_else(c_bm == 0, 'null', 'alt'),
-         ref = role == 'alt' & abs(c_bm - 0.45) < 1e-8,
-         pooled_null = TRUE, t_half = 0.5)
-j28_cells <- make_cells(j28_cells_raw)
-j28_reps <- j28_all |>
-  filter(cell_id %in% j28_cells_raw$cell_id) |>
-  (\(d) as_reps(d, paste0('j28|', d$cell_id)))()
+j28_cells <- NULL
+j28_reps <- NULL
+if (!pred) {
+  j28_all <- readRDS(file.path(data_dir, 'g9-prognostic-stress/all.rds'))
+  j28_sum <- readRDS(file.path(data_dir, 'g9-prognostic-stress/summary.rds'))
+  path_lab <- c(progpb = 'PB', progtvconst = 'TV-const', progbl = 'BL')
+  j28_cells_raw <- j28_sum |>
+    distinct(cell_id, pathway, strength, c_bm, N) |>
+    filter(pathway %in% names(path_lab), abs(strength - 0.3) < 1e-8) |>
+    mutate(cell_key = paste0('j28|', cell_id), family = '5',
+           scenario = sprintf('%s %.2f', path_lab[pathway], strength),
+           role = if_else(c_bm == 0, 'null', 'alt'),
+           ref = role == 'alt' & abs(c_bm - 0.45) < 1e-8,
+           pooled_null = TRUE, t_half = 0.5)
+  j28_cells <- make_cells(j28_cells_raw)
+  j28_reps <- j28_all |>
+    filter(cell_id %in% j28_cells_raw$cell_id) |>
+    (\(d) as_reps(d, paste0('j28|', d$cell_id)))()
+}
 
 ## Referee-variant blocks (family 7 and the side-analysis family S) --------
 
@@ -259,18 +316,54 @@ rv_load <- function(block) {
       ref = role == 'alt' & abs(c_bm - 0.45) < 1e-8,
       pooled_null = if (block == 'N') c_pb == 0 else TRUE,
       t_half = t1half)
-  list(cells = make_cells(cells),
-       reps = as_reps(a, paste0('rv', block, '|', a$cell_id)))
+  cells <- make_cells(cells)
+  if (pred && block == 'N') {
+    cells <- cells |>
+      filter(cell_key %in% paste0('rvN|', s$cell_id[s$c_pb == 0]))
+  }
+  list(cells = cells,
+       reps = as_reps(a, paste0('rv', block, '|', a$cell_id)) |>
+         filter(cell_key %in% cells$cell_key))
 }
-rv <- map(c('N', 'A', 'T', 'S'), rv_load)
+rv <- map(if (pred) c('N', 'A', 'S') else c('N', 'A', 'T', 'S'), rv_load)
 rv_cells <- list_rbind(map(rv, 'cells'))
 rv_reps <- list_rbind(map(rv, 'reps'))
+
+## G10 backfill (predictive scope) -------------------------------------
+##
+## Script 41 regenerated the stored trials and fitted G10 (E7null_cr2)
+## with a G9 refit as the pairing guard. Replicates whose refit did not
+## reproduce the stored G9 are dropped, so every G10 replicate here is
+## paired with the stored G1 to G9 replicates of the same trial.
+
+bf_reps <- NULL
+if (pred) {
+  bf_all <- readRDS(file.path(data_dir, 'g10-backfill/all.rds'))
+  bf_guard <- readRDS(file.path(data_dir, 'g10-backfill/guard.rds'))
+  gf_jobs <- gf_def |> distinct(cell_id, job)
+  stopifnot('gap-fill cell_id maps to several jobs' =
+              !anyDuplicated(gf_jobs$cell_id))
+  bf_reps <- bf_all |>
+    filter(method == 'E7null_cr2') |>
+    semi_join(bf_guard |> filter(match), by = c('source', 'cell_id', 'rep')) |>
+    left_join(gf_jobs, by = 'cell_id') |>
+    mutate(cell_key = case_when(
+      source == 't1' ~ paste0('t1|', cell_id),
+      source == 'gvf' ~ paste0('gvf|', cell_id),
+      source == 'gf' ~ paste('gf', job, cell_id, sep = '|'),
+      source == 'rvS' ~ paste0('rvS|', cell_id))) |>
+    (\(d) as_reps(d, d$cell_key))() |>
+    filter(cell_key %in% c(t1_cells$cell_key, gvf_cells$cell_key,
+                           gf_cells$cell_key, rv_cells$cell_key))
+  message('G10 backfill replicates used: ', nrow(bf_reps))
+}
 
 ## Assemble ---------------------------------------------------------
 
 cells <- bind_rows(t1_cells, gvf_cells, gf_cells, j28_cells, rv_cells,
                    iso_cells)
-reps <- bind_rows(t1_reps, gvf_reps, gf_reps, j28_reps, rv_reps, iso_reps)
+reps <- bind_rows(t1_reps, gvf_reps, gf_reps, j28_reps, rv_reps, iso_reps,
+                  bf_reps)
 
 stopifnot(
   'duplicate (cell, rep, analysis) rows' =
@@ -284,17 +377,20 @@ cell_stats_reps <- reps |>
   summarise(n = n(), k = sum(reject), kappa = mean(std_error) / sd(estimate),
             .groups = 'drop')
 
-f1a0b_sum <- bind_rows(
-  t1_sum |> transmute(cell_key = paste0('t1|', cell_id), method, reject, n),
-  gvf_sum |> transmute(cell_key = paste0('gvf|', cell), method, reject, n),
-  gf_sum |> transmute(cell_key = paste('gf', job, cell_id, sep = '|'),
-                      method, reject, n),
-  j28_sum |> transmute(cell_key = paste0('j28|', cell_id), method, reject, n)
-) |>
-  filter(method == 'F1A0B', n > 0, !is.na(reject),
-         cell_key %in% cells$cell_key) |>
-  transmute(cell_key, analysis = 'F1A0B', n = as.integer(n),
-            k = round(reject * n), kappa = NA_real_)
+f1a0b_sum <- NULL
+if (!pred) {
+  f1a0b_sum <- bind_rows(
+    t1_sum |> transmute(cell_key = paste0('t1|', cell_id), method, reject, n),
+    gvf_sum |> transmute(cell_key = paste0('gvf|', cell), method, reject, n),
+    gf_sum |> transmute(cell_key = paste('gf', job, cell_id, sep = '|'),
+                        method, reject, n),
+    j28_sum |> transmute(cell_key = paste0('j28|', cell_id), method, reject, n)
+  ) |>
+    filter(method == 'F1A0B', n > 0, !is.na(reject),
+           cell_key %in% cells$cell_key) |>
+    transmute(cell_key, analysis = 'F1A0B', n = as.integer(n),
+              k = round(reject * n), kappa = NA_real_)
+}
 
 cell_stats <- bind_rows(cell_stats_reps, f1a0b_sum) |>
   mutate(value = k / n, mcse = sqrt(value * (1 - value) / n)) |>
@@ -395,6 +491,28 @@ steps <- tibble::tribble(
   'True half-life replaced by a fixed analysis half-life of 0.25 week',
   'G8>G8-1', 'G8', 'G8-1', 'side',
   'True half-life replaced by a fixed analysis half-life of 1 week')
+if (pred) {
+  steps <- tibble::tribble(
+    ~step_id, ~from, ~to, ~kind, ~what,
+    'E0>G1', 'E0', 'G1', 'core',
+    'Software and df method, residual correlation, expectancy term and patient dropping change together (three respects at once)',
+    'G1>G6', 'G1', 'G6', 'core',
+    'CR2 cluster-robust standard errors with Satterthwaite df replace the model-based standard error',
+    'G6>G8', 'G6', 'G8', 'core',
+    'Binary drug indicator replaced by the exposure-weighted predictor at the true half-life',
+    'G8>G10', 'G8', 'G10', 'core',
+    'True half-life replaced by the half-life chosen by AIC on the model without the interaction term',
+    'G10>G9', 'G10', 'G9', 'side',
+    'Half-life selection made on the model with the interaction term',
+    'G1>G3', 'G1', 'G3', 'optional',
+    'Model-based: binary indicator replaced by the exposure-weighted predictor',
+    'G3>G8', 'G3', 'G8', 'optional',
+    'Exposure-weighted predictor: model-based replaced by CR2 inference',
+    'G3>G4', 'G3', 'G4', 'optional',
+    'Model-based: true half-life replaced by the AIC-selected half-life (selection on the model with the interaction)',
+    'G4>G9', 'G4', 'G9', 'optional',
+    'AIC-selected half-life: model-based replaced by CR2 inference')
+}
 
 iso_steps <- tibble::tribble(
   ~step_id, ~from, ~to, ~kind, ~what,
@@ -450,7 +568,8 @@ coverage_fam <- cov_raw |>
     sub == 'C1-ladder' ~ '5',
     .default = NA_character_),
     analysis = method) |>
-  filter(!is.na(family), analysis %in% c('G8', 'G9')) |>
+  filter(!is.na(family), family %in% fam_levels,
+         analysis %in% c('G8', 'G9')) |>
   group_by(family, analysis) |>
   summarise(lower = mean(coverage_lower), upper = mean(coverage_upper),
             n_cells = n(), .groups = 'drop') |>
@@ -565,13 +684,15 @@ cell_size <- cell_stats |>
 cell_alt <- cell_stats |>
   filter(role == 'alt', family != '1iso')
 
+## Relative power is against the reference analysis (G9 in the full
+## scope, G10 in the predictive scope); the g9 names are kept.
 g9_cell_power <- cell_alt |>
-  filter(analysis == 'G9') |>
+  filter(analysis == ref_a) |>
   select(cell_key, g9 = value)
 
 pool_g9_on <- function(fams_cells, role_) {
   cell_stats |>
-    filter(analysis == 'G9', role == role_, pooled,
+    filter(analysis == ref_a, role == role_, pooled,
            cell_key %in% fams_cells) |>
     group_by(family) |>
     summarise(k = sum(k), n = sum(n), .groups = 'drop') |>
@@ -589,7 +710,7 @@ table_b_row <- function(a) {
 
   pw_on <- cell_stats |>
     filter(analysis == a, role == 'alt', pooled, family != '1iso')
-  rel <- if (nrow(pw_on) > 0 && a != 'G9') {
+  rel <- if (nrow(pw_on) > 0 && a != ref_a) {
     x <- pw_on |>
       group_by(family) |>
       summarise(kx = sum(k), nx = sum(n), keys = list(cell_key),
@@ -607,7 +728,7 @@ table_b_row <- function(a) {
       tibble(rel = NA_real_, loss = NA_real_, loss_family = NA_character_,
              m = 0L)
     }
-  } else if (a == 'G9') {
+  } else if (a == ref_a) {
     tibble(rel = 100, loss = 0, loss_family = NA_character_,
            m = nrow(pw_on |> distinct(family)))
   } else {
@@ -642,12 +763,19 @@ table_b_row <- function(a) {
     coverage_families = nrow(cov))
 }
 
-table_b_analyses <- c('E0', 'G1', 'G6', 'G3', 'G8', 'G4', 'G9', 'G9-null',
-                      'G8-1', 'G8-0.25', 'F1', 'F1A0B')
+table_b_analyses <- if (pred) {
+  c('E0', 'G1', 'G6', 'G3', 'G8', 'G4', 'G10', 'G9')
+} else {
+  c('E0', 'G1', 'G6', 'G3', 'G8', 'G4', 'G9', 'G9-null', 'G8-1', 'G8-0.25',
+    'F1', 'F1A0B')
+}
 table_b <- map(table_b_analyses, table_b_row) |>
   list_rbind() |>
   left_join(analysis_meta |> select(analysis, label), by = 'analysis') |>
   relocate(label, .after = analysis)
+if (pred) {
+  table_b <- rename(table_b, mean_power_pct_of_g10 = mean_power_pct_of_g9)
+}
 readr::write_csv(table_b, file.path(out_data, 'ladder-table-B.csv'))
 
 ## Table C ----------------------------------------------------------------
@@ -703,6 +831,26 @@ table_c <- tibble::tribble(
   'Single-resample parametric bootstrap repeating the selection under the null',
   'Exponential carryover; design expectancy varies within patient (not identifiable under CO)')
 
+table_c_order <- c('E0', 'E0n', 'E0nc', 'E1nc', 'G1', 'G6', 'G3', 'G8', 'G4',
+                   'G9', 'G9-null', 'G8-0.25', 'G8-1', 'F1', 'F1A0B')
+if (pred) {
+  table_c <- table_c |>
+    filter(!analysis %in% c(pred_drop, 'G9-null', 'G9')) |>
+    bind_rows(tibble::tribble(
+      ~analysis, ~rung, ~formula, ~inference, ~assumes,
+      'G10', '4',
+      'G8 formula; half-life chosen by ML-AIC over {0.25, 0.5, 1, 2} weeks on the model without bm:Dbc, then refit by REML with it',
+      'CR2 cluster-robust standard error, Satterthwaite df, selection ignored',
+      'Exponential carryover; true half-life near the candidate grid; selection does not use the interaction term',
+      'G9', 'side',
+      'G10 formula with the half-life chosen on the model with bm:Dbc',
+      'CR2 cluster-robust standard error, Satterthwaite df, selection ignored',
+      'As G10; the selection uses the interaction term'))
+  table_c_order <- c('E0', 'E0n', 'E0nc', 'E1nc', 'G1', 'G6', 'G3', 'G8',
+                     'G4', 'G10', 'G9')
+}
+table_c <- arrange(table_c, match(analysis, table_c_order))
+
 if (iso_present) {
   table_c <- bind_rows(
     table_c,
@@ -718,17 +866,15 @@ if (iso_present) {
       'Sx ~ bm + t + Db + bm:Db; random intercept, no residual correlation',
       'As E0n',
       'Isolation run: removes the expectancy term and patient dropping from E0n')) |>
-    arrange(match(analysis, c('E0', 'E0n', 'E0nc', 'E1nc', 'G1', 'G6', 'G3',
-                              'G8', 'G4', 'G9', 'G9-null', 'G8-0.25',
-                              'G8-1', 'F1', 'F1A0B')))
+    arrange(match(analysis, table_c_order))
 }
 readr::write_csv(table_c, file.path(out_data, 'ladder-table-C.csv'))
 
 ## Figures ----------------------------------------------------------------
 
 core_x <- c('E0', if (iso_present) c('E0n', 'E0nc', 'E1nc'),
-            'G1', 'G6', 'G8', 'G9')
-side_x <- c('G9-null', 'G8-0.25', 'G8-1', 'F1', 'F1A0B')
+            'G1', 'G6', 'G8', ref_a)
+side_x <- if (pred) 'G9' else c('G9-null', 'G8-0.25', 'G8-1', 'F1', 'F1A0B')
 x_pos <- c(set_names(seq_along(core_x), core_x),
            set_names(length(core_x) + 1.8 + seq_along(side_x) - 1, side_x))
 x_labs <- analysis_meta |>
@@ -794,7 +940,8 @@ fig1 <- ggplot(fig1_data, aes(x, value)) +
   fig_theme
 
 for (ext in c('pdf', 'png')) {
-  ggsave(file.path(out_fig, paste0('02-ladder-fig1-size.', ext)), fig1,
+  ggsave(file.path(out_fig, paste0('02-ladder-fig1-size', fig_suffix, '.',
+                                   ext)), fig1,
          width = 6.5, height = 4.6, dpi = 300)
 }
 
@@ -803,12 +950,20 @@ fig2_power <- pooled |>
   mutate(panel = 'Power at reference alternative') |>
   prep()
 
-step_prev <- tibble(
-  analysis = c(if (iso_present) c('E0n', 'E0nc', 'E1nc'), 'G1', 'G6', 'G8',
-               'G9', 'G9-null', 'G8-0.25', 'G8-1', 'F1'),
-  from = c(if (iso_present) c('E0', 'E0n', 'E0n'),
-           if (iso_present) 'E1nc' else 'E0', 'G1', 'G6', 'G8', 'G9', 'G8',
-           'G8', 'G9'))
+step_prev <- if (pred) {
+  tibble(
+    analysis = c(if (iso_present) c('E0n', 'E0nc', 'E1nc'), 'G1', 'G6', 'G8',
+                 'G10', 'G9'),
+    from = c(if (iso_present) c('E0', 'E0n', 'E0n'),
+             if (iso_present) 'E1nc' else 'E0', 'G1', 'G6', 'G8', 'G10'))
+} else {
+  tibble(
+    analysis = c(if (iso_present) c('E0n', 'E0nc', 'E1nc'), 'G1', 'G6', 'G8',
+                 'G9', 'G9-null', 'G8-0.25', 'G8-1', 'F1'),
+    from = c(if (iso_present) c('E0', 'E0n', 'E0n'),
+             if (iso_present) 'E1nc' else 'E0', 'G1', 'G6', 'G8', 'G9', 'G8',
+             'G8', 'G9'))
+}
 
 fig2_diff_src <- step_results |>
   filter(kind %in% c('core', 'side', 'isolation')) |>
@@ -857,16 +1012,26 @@ fig2_block <- function(fams, show_strip_y = TRUE) {
           strip.text.y.left = element_text(angle = 90, face = 'plain'))
 }
 
-fig2 <- fig2_block(c('1', '2', '3', '4')) / fig2_block(c('5', '6', '7', 'S'))
+fig2 <- if (pred) {
+  fig2_block(c('1', '2', '3', '4')) /
+    (fig2_block(c('7', 'S')) + plot_spacer() + plot_layout(widths = c(1, 1)))
+} else {
+  fig2_block(c('1', '2', '3', '4')) / fig2_block(c('5', '6', '7', 'S'))
+}
 
 for (ext in c('pdf', 'png')) {
-  ggsave(file.path(out_fig, paste0('02-ladder-fig2-power.', ext)), fig2,
+  ggsave(file.path(out_fig, paste0('02-ladder-fig2-power', fig_suffix, '.',
+                                   ext)), fig2,
          width = 6.5, height = 7.4, dpi = 300)
 }
 
 ## Figure 3: calibration and coverage --------------------------------------
 
-fig3_analyses <- c('E0', 'G1', 'G6', 'G3', 'G8', 'G4', 'G9', 'F1')
+fig3_analyses <- if (pred) {
+  c('E0', 'G1', 'G6', 'G3', 'G8', 'G4', 'G10', 'G9')
+} else {
+  c('E0', 'G1', 'G6', 'G3', 'G8', 'G4', 'G9', 'F1')
+}
 fam_x <- c(fam_levels)
 
 fig3a_data <- kappa_fam |>
@@ -917,12 +1082,15 @@ fig3 <- fig3a + (fig3b + theme(legend.position = 'none')) +
   plot_layout(widths = c(2.2, 1))
 
 for (ext in c('pdf', 'png')) {
-  ggsave(file.path(out_fig, paste0('02-ladder-fig3-calibration.', ext)), fig3,
+  ggsave(file.path(out_fig, paste0('02-ladder-fig3-calibration', fig_suffix,
+                                   '.', ext)), fig3,
          width = 6.5, height = 3.4, dpi = 300)
 }
 
 ## Figure 4: size under the trend pathway and the patient-slope cell -------
+## Full scope only: the trend block leaves paper 02 with the split.
 
+if (!pred) {
 fig4_cells <- cell_stats |>
   filter(family == '7', role == 'null') |>
   mutate(group = if_else(grepl('^Trend', scenario),
@@ -961,12 +1129,14 @@ for (ext in c('pdf', 'png')) {
   ggsave(file.path(out_fig, paste0('02-ladder-fig4-trend.', ext)), fig4,
          width = 6.5, height = 3.2, dpi = 300)
 }
+}
 
 ## Console summary ----------------------------------------------------------
 
+summary_a <- c('G1', 'G6', 'G8', ref_a, if (pred) 'G9')
 message('\nPooled size by family and rung')
 pooled |>
-  filter(role == 'null', analysis %in% c('G1', 'G6', 'G8', 'G9')) |>
+  filter(role == 'null', analysis %in% summary_a) |>
   arrange(match(family, fam_levels), match(analysis, names(analysis_cols))) |>
   mutate(value = round(value, 4), mcse = round(mcse, 4)) |>
   select(family, analysis, n, n_cells, value, mcse) |>
@@ -975,7 +1145,7 @@ pooled |>
 
 message('\nPooled power by family and rung')
 pooled |>
-  filter(role == 'alt', analysis %in% c('G1', 'G6', 'G8', 'G9')) |>
+  filter(role == 'alt', analysis %in% summary_a) |>
   arrange(match(family, fam_levels), match(analysis, names(analysis_cols))) |>
   mutate(value = round(value, 4), mcse = round(mcse, 4)) |>
   select(family, analysis, n, n_cells, value, mcse) |>

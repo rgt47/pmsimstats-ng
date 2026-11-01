@@ -26,6 +26,35 @@ Figures in `analysis/figures/` (PDF and PNG, 6.5 inches wide):
 `02-ladder-fig1-size`, `02-ladder-fig2-power`,
 `02-ladder-fig3-calibration`, `02-ladder-fig4-trend`.
 
+## Scope (`--scope full|predictive`)
+
+`--scope full`, the default, gives the outputs above, the ladder of
+paper 02 before the split. Running it after the 2026-10-31 change
+reproduces the stored CSV files byte for byte.
+
+`--scope predictive` gives the ladder of paper 02 after the split
+(split plan, `revisions/split-plan-prognostic-2026-10-29.md`, Section
+2.4). It writes the same four CSV files to
+`analysis/data/carryover-sensitivity/ladder-predictive/` and Figures
+1 to 3 with a `-predictive` suffix. It has no Figure 4. Compared with
+the full scope:
+
+- Families 5 (prognostic) and 6 (large N), the trend block and the
+  block N cells with a prognostic pathway are dropped. Family 7 is the
+  patient-slope cell only.
+- F1, F1A0B and the fixed-half-life G8 variants are dropped.
+- G9-null is labeled G10. It is rung 4 and the reference: Table B
+  reports `mean_power_pct_of_g10`, and the worst-loss columns are
+  against G10. G9 is a side analysis. The paired steps are `G8>G10`
+  (core) and `G10>G9` (side).
+- G10 replicates for families 1 to 4 and the slope block come from
+  the backfill (`analysis/data/carryover-sensitivity/g10-backfill/`,
+  script 41). A replicate is used only if its G9 refit reproduced the
+  stored G9 (`guard.rds`). For blocks N and A, G10 is the stored
+  `E7null_cr2`.
+- Coverage (Figure 3, right panel) is stored for G8 and G9 only, so
+  it has no G10 entry.
+
 ## Definitions
 
 - Reject is `p_value < 0.05` among converged replicates with a

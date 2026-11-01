@@ -204,8 +204,14 @@ the detail is in the section cited.
    contains a prognostic stress test and a joint feasibility table
    (`tab:prognostic`). Paper 15 cites paper 01 for the DGP-level
    facts and presents only the analysis-level consequences. Paper 01,
-   which is near submission at grade B, is not reopened: its text,
-   tables and analyses stay as they are.
+   which is near submission at grade B, is not reopened for the
+   prognostic material. **Revised 2026-10-31: paper 01 is reopened
+   narrowly for G9 to G10.** Paper 01 simulates G9 in its planning
+   tables (`tab:planning`, `tab:planningg9`) and its Figure 4B panel
+   (`fig:fig4bg9`) and calls G9 the analysis the companion paper
+   recommends. Those cells are rerun with G10 on the same trials
+   (Section 5.1) and the text is changed to match; nothing else in
+   paper 01 changes.
 4. **Role of the models that fix the analysis half-life. Resolved
    2026-10-30.** Models that assume a known half-life lack face
    validity as candidate analyses. The three groups are handled as
@@ -646,6 +652,22 @@ material that moves. Grep for "companion" in 01. As of 8e810ca9d,
 01's own prognostic content is its Study 3 stress test, which is
 independent of 02.
 
+Paper 01 also runs the recommended analysis itself. Driver
+`quick-sim/carryover-closed-form/19-g9-planning-and-fig4b.R` fits G9
+(`E7cr2`) for the planning block P (63 cells, 72,000 replicates) and
+the Figure 4B block F (18 estimable cells, 250 replicates, five
+censoring settings each). These were stored by simrun on 2026-10-28.
+The paper 02 backfill did not cover them. The driver now takes
+`--specs E7null_cr2`, which fits G10 on the same trials (seeds are
+`label_seed(cell_id-rep-r)`), and `--guard-reps 50`, which refits G9
+on the first 50 replicates of each cell and compares the refit with
+the stored run. A two-replicate check matched the stored G9 on all
+126 refits. The full rerun writes to
+`analysis/data/quick-sim/carryover-closed-form/g10-planning/`
+(block F in `block-F/`). Paper 01's `planningg9data` and
+`fig4bg9data` chunks, `summary.Rmd`, `21-fig4b-g9-heatmap.R`, the
+text at the G9 passages and the glossary entry then move to G10.
+
 ### 5.2 Overlap between paper 01 Study 3 and paper 15
 
 Paper 01 already contains:
@@ -757,15 +779,46 @@ All five decisions in Section 1a are settled (the last on
 2. Confirm that G10 holds the size band in every family. If a
    family overturns the recommendation (2.8), stop and revisit
    before rewriting. **Done 2026-10-31; no family overturns it.**
+2a. Rerun paper 01's planning and Figure 4B cells with G10 (5.1),
+   check the G9 guard, then move paper 01's G9 tables, figure, text
+   and glossary entry to G10 and re-render 01 and its summary.
+   **Done 2026-11-01.** Outputs are in `g10-planning/` (block P) and
+   `g10-planning/block-F/`. The G9 refit on the first 50 replicates
+   of every cell matched the stored G9 in 3,143 of 3,150 block P fits
+   and 4,492 of 4,500 block F fits, with no rejection flips; the rest
+   are missing in the stored run, plus one block F fit at 1.02e-6.
+   The block F guard has to read zeus job 56. The local
+   `g9-planning/block-F/all.rds` predates the `censordata()` sign fix
+   (24f187bc6), and against it only the uncensored fits match. Driver
+   19 now reads job 56. G10 power is at most 0.022 below G9 in any
+   cell; at the E9 sample size it is 0.984 to 1.000 in the uncapped
+   cells, the same as G9. No paper 01 conclusion changed. One
+   sentence of the paper 01 Figure 4B text was corrected regardless
+   of G10: OL+BDC power at 0.2 week (0.46) is not within Monte Carlo
+   error of its no-carryover value (0.58), as the G9 text had said.
 3. Add `--scope` and the G10 reference to the ladder script, then
-   regenerate the predictive-only tables and figures.
+   regenerate the predictive-only tables and figures. **Done
+   2026-10-31.** `--scope full` reproduces the stored CSV files byte
+   for byte. `--scope predictive` writes to `ladder-predictive/` and
+   to Figures 1 to 3 with a `-predictive` suffix. It uses 46,989
+   guard-matched G10 backfill replicates; the other 8,000 are the
+   A2-size diagnostic cells, which are not a ladder family. G10 is
+   in the 0.04 to 0.06 band in 6 of 6 families, against 5 of 6 for
+   G8. Pooled by family, G10 power is 96.6 (family S) to 99.7
+   (family 7) percent of G9's. G10 has no
+   coverage entry (the stored coverage covers G8 and G9 only). The
+   Rmd still reads `ladder/`. 22 inline lookups name dropped steps
+   or analyses (`G8>G9`, `G9>F1`, `G9>G9-null`, `G8>G8-1`,
+   `G8>G8-0.25`, `F1`), and `tab-ladder-inc` lists families 5 and
+   6. All of these move in step 4.
 4. Cut and rewrite paper 02 per 2.2. Re-verify every inline number.
    Run `perl tools/notation-lint.pl`. Render through
    `tools/render.sh`.
 5. Create `analysis/report/15-prognostic-biomarker/` and move the
    excised Rmd sections into a first draft, keeping their chunks
    working against the same data. Cite paper 01 for the feasibility
-   bound and the refusal of repair; do not edit paper 01.
+   bound and the refusal of repair; do not edit paper 01 beyond
+   step 2a.
 6. Implement and run the `bmc:t` block (3.1). Include F1A0 alongside
    G10.
 7. Update CLAUDE.md (the recommended-analysis paragraph: G10,

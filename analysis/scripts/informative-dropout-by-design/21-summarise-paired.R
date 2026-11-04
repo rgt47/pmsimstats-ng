@@ -1,10 +1,16 @@
 ## 21-summarise-paired.R
 ##
 ## Summaries of the paired paper 09 run written by 20-paired-dropout.R.
-## Run from the repository root:
-##   Rscript analysis/scripts/informative-dropout-by-design/21-summarise-paired.R
+## Run from the repository root, with the same parameter set as the
+## run (`--params NAME` or PMSIM_PARAMS, default 'fixture'):
+##   Rscript analysis/scripts/informative-dropout-by-design/21-summarise-paired.R \
+##     --params published
+## The folder is P09_OUT, else the driver's default for the set
+## (analysis/data/informative-dropout-by-design under 'fixture', that
+## path plus '-<set>' otherwise); a PARAM_SET marker naming another
+## set stops the script. The true value is read from the replicates.
 ##
-## Outputs (analysis/data/informative-dropout-by-design/):
+## Outputs (in that folder):
 ##   paired-cells.csv     per design x regime x condition x analysis x
 ##                        test: rejection rate, bias against the true
 ##                        value, empirical SD, mean SE, kappa, 95%
@@ -20,7 +26,21 @@
 
 suppressPackageStartupMessages(library(data.table))
 
-dir <- Sys.getenv('P09_OUT', 'analysis/data/informative-dropout-by-design')
+## Same resolution as 20-paired-dropout.R, without sourcing
+## simulation-core.R (only the set's name is needed here).
+args <- commandArgs(trailingOnly = TRUE)
+i <- which(args == '--params')
+params <- if (length(i) && i[1] < length(args)) args[i[1] + 1] else
+  Sys.getenv('PMSIM_PARAMS', 'fixture')
+if (!nzchar(params)) params <- 'fixture'
+legacy_out <- 'analysis/data/informative-dropout-by-design'
+dir <- Sys.getenv('P09_OUT', if (params == 'fixture') legacy_out else
+  paste0(legacy_out, '-', params))
+marker <- file.path(dir, 'PARAM_SET')
+if (file.exists(marker) && readLines(marker, n = 1L) != params) {
+  stop(sprintf("%s holds output under parameter set '%s', not '%s'",
+               dir, readLines(marker, n = 1L), params))
+}
 tag <- Sys.getenv('P09_TAG', 'paired')
 reps <- readRDS(file.path(dir, paste0(tag, '-replicates.rds')))
 drop <- readRDS(file.path(dir, paste0(tag, '-dropout.rds')))
@@ -109,4 +129,4 @@ fwrite(merge(loss, size_shift, by = c('design', 'condition', 'analysis',
        file.path(dir, paste0(tag, '-loss.csv')))
 fwrite(contrast, file.path(dir, paste0(tag, '-contrast.csv')))
 fwrite(dsum, file.path(dir, paste0(tag, '-dropout.csv')))
-cat('Wrote summaries to', dir, '\n')
+cat('Wrote summaries to', dir, '(params', params, ')\n')

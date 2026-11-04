@@ -2,13 +2,30 @@
 ##
 ## USAGE
 ##   cd <repo-root>
-##   Rscript analysis/scripts/component-decomposition/run-study-a-prod.R
+##   Rscript analysis/scripts/component-decomposition/run-study-a-prod.R \
+##     [n_reps_alt] [n_reps_null] [out_dir] [--params NAME]
+##   defaults: 1000 5000, out_dir study-a-alt<alt>-null<null>, and
+##   --params fixture (or PMSIM_PARAMS when set). The parameter sets
+##   (published, simcore2026, fixture) are defined in
+##   analysis/scripts/carryover-sensitivity/simulation-core.R; the
+##   stored run used the raw fixture, which is why that is the default.
+##   SIM_CORES (env) sets the worker count; otherwise detectCores() - 1.
 ##
-## CONFIGURATION -- change only N_REPS below.
+## OUTPUT
 ##   Results land in analysis/data/derived_data/component-decomposition/
-##   study-a-N<nreps>/  as one .rds per cell plus a collated summary.
+##   <out_dir>/ as one .rds per cell plus a collated summary and
+##   meta.rds (parameter set and true value). Under any set other than
+##   the fixture the default out_dir gains a '-<set>' suffix (e.g.
+##   study-a-alt1000-null5000-published), and the folder carries a
+##   PARAM_SET marker that refuses a resume under another set. out_dir
+##   is taken as given when it is an absolute path.
 ##   Re-running skips cells whose checkpoint file already exists, so
 ##   the script is safe to interrupt and resume.
+##
+## BIOMARKER SCALE (docs/74, D1)
+##   The biomarker enters every analysis standardized by the active
+##   set's mean and SD, so the true bm:Dbc slope is -c_bm * sigma_BR per
+##   biomarker SD (-2.25 under the fixture, -3.6 under published).
 ##
 ## PREREQUISITES (host R, not Docker):
 ##   install.packages(c('pkgload', 'data.table', 'nlme', 'parallel'))
@@ -17,11 +34,6 @@
 ## NOTE: uses pkgload::load_all() rather than devtools::load_all() so
 ##   it runs on hosts where devtools is absent or uninstalled.
 
-## ---- parameters to change ---------------------------------------- ##
-N_REPS_ALT  <- 1000L   # replicates for alternative cells (c_bm = 0.45)
-N_REPS_NULL <- 5000L   # replicates for null cells (c_bm = 0)
-## ------------------------------------------------------------------ ##
-
 suppressPackageStartupMessages({
   pkgload::load_all('.', quiet = TRUE)
   library(data.table)
@@ -29,11 +41,57 @@ suppressPackageStartupMessages({
   library(parallel)
 })
 
+## The stored paper 06 runs used the raw tinytest fixture, so this
+## driver defaults to 'fixture' rather than the core's 'simcore2026':
+## a run without --params then reproduces the stored one.
+if (!'--params' %in% commandArgs(trailingOnly = TRUE) &&
+    !nzchar(Sys.getenv('PMSIM_PARAMS')))
+  Sys.setenv(PMSIM_PARAMS = 'fixture')
+source(file.path('analysis', 'scripts', 'carryover-sensitivity',
+                 'simulation-core.R'))
+
+args <- commandArgs(trailingOnly = TRUE)
+i_params <- which(args == '--params')
+if (length(i_params)) args <- args[-c(i_params[1], i_params[1] + 1L)]
+
+## ---- parameters to change ---------------------------------------- ##
+## replicates for alternative cells (c_bm = 0.45) and null cells (c_bm = 0)
+N_REPS_ALT  <- if (length(args) >= 1) as.integer(args[[1]]) else 1000L
+N_REPS_NULL <- if (length(args) >= 2) as.integer(args[[2]]) else 5000L
+## ------------------------------------------------------------------ ##
+
+## SIM_CORES lets a cgroup-limited job size its pool; detectCores()
+## reports the host, not the job.
+n_workers <- function() {
+  v <- Sys.getenv('SIM_CORES')
+  if (nzchar(v)) as.integer(v) else max(1L, detectCores() - 1L)
+}
+
+## Any set other than the fixture writes to a sibling folder, so it
+## can neither resume from nor overwrite the stored run.
+set_dir_name <- function(base)
+  if (param_set() == 'fixture') base else paste0(base, '-', param_set())
+
+## guard_out_dir() reads an unmarked folder that holds files as
+## 'simcore2026', but the stored paper 06 folders hold raw-fixture
+## runs, so the legacy folder is marked 'fixture' before it is guarded.
+guard_paper06_dir <- function(dir, legacy_dir) {
+  marker <- file.path(dir, 'PARAM_SET')
+  if (param_set() == 'fixture' && !file.exists(marker) &&
+      dir.exists(dir) && length(list.files(dir)) > 0 &&
+      normalizePath(dir) == normalizePath(legacy_dir, mustWork = FALSE))
+    writeLines('fixture', marker)
+  guard_out_dir(dir)
+}
+
 STUDY_SEED  <- 642L
-CHECKPOINT_DIR <- file.path(
-  'analysis', 'data', 'derived_data', 'component-decomposition',
-  sprintf('study-a-alt%d-null%d', N_REPS_ALT, N_REPS_NULL))
-dir.create(CHECKPOINT_DIR, recursive = TRUE, showWarnings = FALSE)
+CD_ROOT <- file.path('analysis', 'data', 'derived_data',
+                     'component-decomposition')
+LEGACY_NAME <- sprintf('study-a-alt%d-null%d', N_REPS_ALT, N_REPS_NULL)
+OUT_NAME <- if (length(args) >= 3) args[[3]] else set_dir_name(LEGACY_NAME)
+CHECKPOINT_DIR <- if (startsWith(OUT_NAME, '/')) OUT_NAME else
+  file.path(CD_ROOT, OUT_NAME)
+guard_paper06_dir(CHECKPOINT_DIR, file.path(CD_ROOT, LEGACY_NAME))
 
 ## ------------------------------------------------------------------ ##
 ## Trial designs
@@ -87,17 +145,16 @@ allocate_across_paths <- function(n_total, n_paths) {
 ## Parameter constructors
 ## ------------------------------------------------------------------ ##
 
-make_resp_params <- function(m_PB = 6.5, m_TV = 0, m_BR = 10.98604) {
-  data.table(cat  = c('tv', 'pb', 'br'),
-             max  = c(m_TV, m_PB, m_BR),
-             disp = c(5, 5, 5),
-             rate = c(0.42, 0.35, 0.42),
-             sd   = c(5, 2, 5))
+## The base table is the active set's (docs/74, D6); m_PB and m_TV are
+## the design axes and override only the PB and TV maxima per cell.
+make_resp_params <- function(m_PB = 6.5, m_TV = 0) {
+  rp <- as.data.table(default_resp_param())
+  rp[cat == 'pb', max := m_PB]
+  rp[cat == 'tv', max := m_TV]
+  rp
 }
 
-make_bl_params <- function() {
-  data.table(cat = c('bm', 'BL'), m = c(0, 70), sd = c(1, 10))
-}
+make_bl_params <- function() as.data.table(default_baseline_param())
 
 make_model_params <- function(N = 70, c_bm = 0.45, t1half = 1) {
   data.table(N = N, c.bm = c_bm, carryover_t1half = t1half,
@@ -105,9 +162,12 @@ make_model_params <- function(N = 70, c_bm = 0.45, t1half = 1) {
              c.cf1t = 0.1, c.cfct = 0.05)
 }
 
-TRUE_BETA <- function(c_bm = 0.45, sigma_br = 5, sigma_bm = 1) {
-  -c_bm * sigma_br / sigma_bm
-}
+SIGMA_BR <- make_resp_params()[cat == 'br', sd]
+BM_MEAN  <- make_bl_params()[cat == 'bm', m]
+BM_SD    <- make_bl_params()[cat == 'bm', sd]
+
+## Per biomarker SD, because the analysis biomarker is standardized.
+TRUE_BETA <- function(c_bm = 0.45) -c_bm * SIGMA_BR
 
 ## ------------------------------------------------------------------ ##
 ## Analysis wrappers
@@ -223,6 +283,9 @@ one_rep_06 <- function(rep_idx, cell, study_seed, cell_id) {
       data.table(analysis = an, rep_idx = rep_idx, na_row))))
   }
   dat <- rbindlist(dat_list[good], fill = TRUE)
+  ## The generator is done with the raw biomarker; both analyses take
+  ## bm from dat (docs/74, D1).
+  dat[, bm := (bm - BM_MEAN) / BM_SD]
   out <- vector('list', 0L)
   for (an in cell$analyses) {
     fit <- switch(an,
@@ -245,7 +308,7 @@ one_rep_06 <- function(rep_idx, cell, study_seed, cell_id) {
 ## ------------------------------------------------------------------ ##
 
 run_cell_06 <- function(cell, n_reps, study_seed, cell_id,
-                         n_cores = max(1L, detectCores() - 1L)) {
+                         n_cores = n_workers()) {
   t0 <- proc.time()[['elapsed']]
   el <- function() proc.time()[['elapsed']] - t0
   lbl <- sprintf('cell %02d (m_PB=%2g m_TV=%2g N=%3d)',
@@ -310,11 +373,11 @@ cells <- rbindlist(list(alt_cells, null_cells),
 cells[, cell_id := .I]
 cells[, analyses := list(list(c('one_component', 'phase_augmented')))]
 
-n_cores <- max(1L, detectCores() - 1L)
+n_cores <- n_workers()
 cat(sprintf(
-  'Study A: %d cells | alt=%d reps, null=%d reps | seed=%d | cores=%d\nOutput: %s\n',
+  'Study A: %d cells | alt=%d reps, null=%d reps | seed=%d | cores=%d | params=%s | true beta=%.3f\nOutput: %s\n',
   nrow(cells), N_REPS_ALT, N_REPS_NULL, STUDY_SEED, n_cores,
-  CHECKPOINT_DIR))
+  param_set(), TRUE_BETA(), CHECKPOINT_DIR))
 
 ## ------------------------------------------------------------------ ##
 ## Main loop with per-cell checkpointing
@@ -379,6 +442,12 @@ saveRDS(summary_dt,
 write.table(summary_dt,
             file.path(CHECKPOINT_DIR, 'study-a-summary.txt'),
             sep = '\t', quote = FALSE, row.names = FALSE)
+saveRDS(list(params = param_meta(), true_beta = TRUE_BETA(),
+             bm_scale = c(mean = BM_MEAN, sd = BM_SD),
+             seed = STUDY_SEED, n_reps_alt = N_REPS_ALT,
+             n_reps_null = N_REPS_NULL, workers = n_cores,
+             date = Sys.time()),
+        file.path(CHECKPOINT_DIR, 'meta.rds'))
 
 elapsed <- proc.time()[['elapsed']] - t_wall
 cat(sprintf(

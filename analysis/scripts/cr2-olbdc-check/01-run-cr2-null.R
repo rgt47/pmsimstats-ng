@@ -37,9 +37,27 @@
 ##     p09form    binary, + De, BL row added (paper 09's ta0 form)
 ## Control designs (CO, Hybrid) fit only ta0 and ta0.5.
 ##
-## Environment: CHK_SETTING (p09 | p02), CHK_DESIGN (OLBDC | CO |
+## Environment: CHK_SETTING (p09 | p02 | iso), CHK_DESIGN (OLBDC | CO |
 ## Hybrid), CHK_N, CHK_REPS, CHK_CORES, CHK_OUT, CHK_SMOKE (1 = also
-## check G6 agreement).
+## check G6 agreement), CHK_ISO, CHK_VARIANTS, CHK_REP0.
+##
+## Parameter set (2026-11-03; docs/74). `--params NAME` or
+## PMSIM_PARAMS selects one set of simulation-core.R for every
+## setting; the biomarker enters every analysis standardized by that
+## set's mean and SD (D1). The output folder defaults to
+## analysis/data/cr2-olbdc-check-<set>, guarded by guard_out_dir(), so
+## 04-summarise.R never pools sets. With no set requested the check
+## runs as stored (legacy mode): p09 and iso under 'fixture' (the
+## values hard-coded in 20-paired-dropout.R until 2026-11-03), p02
+## under 'simcore2026' (simulation-core.R's default), into
+## analysis/data/cr2-olbdc-check, which holds both and is not guarded.
+## Usage, e.g.:
+##   PMSIM_PARAMS=published bash analysis/scripts/cr2-olbdc-check/01-run.sh \
+##     p09 OLBDC 70 3000 8 0 ta0
+##
+## Outputs (in the folder): <setting>-<design>-N<n>[-from<k>].rds, one
+## row per replicate x variant, and the matching -meta.rds with
+## param_set, params (param_meta()) and the rp/bp the generator used.
 
 suppressPackageStartupMessages({
   pkgload::load_all('.', quiet = TRUE)
@@ -53,8 +71,24 @@ design <- Sys.getenv('CHK_DESIGN', 'OLBDC')
 n_total <- as.integer(Sys.getenv('CHK_N', '70'))
 n_reps <- as.integer(Sys.getenv('CHK_REPS', '20'))
 n_cores <- as.integer(Sys.getenv('CHK_CORES', '8'))
-out_dir <- Sys.getenv('CHK_OUT', 'analysis/data/cr2-olbdc-check')
 smoke <- Sys.getenv('CHK_SMOKE', '0') == '1'
+
+cli <- commandArgs(trailingOnly = TRUE)
+i_params <- which(cli == '--params')
+requested <- if (length(i_params) && i_params[1] < length(cli)) {
+  cli[i_params[1] + 1]
+} else {
+  Sys.getenv('PMSIM_PARAMS', '')
+}
+legacy <- !nzchar(requested)
+## Set before either driver is sourced, so both resolve the same set.
+if (legacy) {
+  Sys.setenv(PMSIM_PARAMS = if (setting == 'p02') 'simcore2026' else
+    'fixture')
+}
+LEGACY_OUT <- 'analysis/data/cr2-olbdc-check'
+out_dir <- Sys.getenv('CHK_OUT', if (legacy) LEGACY_OUT else
+  paste0(LEGACY_OUT, '-', requested))
 
 env09 <- new.env(parent = globalenv())
 local({
@@ -71,19 +105,30 @@ env02 <- new.env(parent = globalenv())
 sys.source('implementations/tidyverse/R/functions.R', envir = env02)
 sys.source('analysis/scripts/carryover-sensitivity/simulation-core.R',
            envir = env02)
+stopifnot(env09$PARAMS == env02$param_set())
+if (!legacy) env02$guard_out_dir(out_dir)
 
 fit_analysis <- env09$fit_analysis
 
 ## Setting 'iso' (targeted isolation): paper 09's generator and
 ## analyses with some of paper 02's DGP settings swapped in, chosen by
-## CHK_ISO: 'all' (component SDs tv 6 / br 8, cross-factor
+## CHK_ISO: 'all' (paper 02's tv and br component SDs, cross-factor
 ## correlations 0.2 / 0.2, carryover half-life 1 week), 'sd', 'cf' or
 ## 'hl' (one group only). The Sigma cache is rebuilt to match.
+## Paper 02's SDs are those of its set: simcore2026 (tv 6, br 8) in
+## legacy mode, where p02 ran under simcore2026; otherwise the active
+## set's, which paper 09 now shares, so 'sd' changes nothing there.
 iso <- Sys.getenv('CHK_ISO', 'all')
 if (setting == 'iso') {
   if (iso %in% c('all', 'sd')) {
-    env09$rp[cat == 'tv', sd := 6]
-    env09$rp[cat == 'br', sd := 8]
+    rp02 <- if (legacy) env02$simcore2026_resp_param() else
+      env02$default_resp_param()
+    ## Base indexing, so this works whether rp is a data.table or a
+    ## tibble.
+    rp <- env09$rp
+    k <- match(c('tv', 'br'), rp$cat)
+    rp$sd[k] <- rp02$sd[match(c('tv', 'br'), rp02$cat)]
+    env09$rp <- rp
   }
   mp_cf <- if (iso %in% c('all', 'cf')) c(0.2, 0.2) else c(0.1, 0.05)
   mp_hl <- if (iso %in% c('all', 'hl')) 1.0 else 0.5
@@ -164,8 +209,14 @@ gen_p02 <- function(rep) {
                                 carryover_form = 'exponential',
                                 weibull_shape = 1.0)
   dl <- as.data.table(dl)
+  ## prepare_long_data() standardizes bm by the active set; the added
+  ## baseline rows must carry the same bm or a participant's rows
+  ## would disagree (the identity under simcore2026 and fixture).
+  bp02 <- env02$default_baseline_param()
   bl <- as.data.table(dat)[, .(ptID = paste(path, ptID, sep = '_'),
-                               bm, Sx = BL)]
+                               bm = (bm - bp02$m[bp02$cat == 'bm']) /
+                                 bp02$sd[bp02$cat == 'bm'],
+                               Sx = BL)]
   bl[, `:=`(t = 0, Db = 0, Dbc = 0, L = 0, tsd = 0, De = 0)]
   list(dl = dl, bl = bl, dat = dat)
 }
@@ -231,8 +282,9 @@ run_rep <- function(rep) {
   out
 }
 
-cat(sprintf('%s %s N=%d reps=%d cores=%d\n', setting, design, n_total,
-            n_reps, n_cores))
+cat(sprintf('%s %s N=%d reps=%d cores=%d params=%s%s out=%s\n', setting,
+            design, n_total, n_reps, n_cores, env02$param_set(),
+            if (legacy) ' (legacy)' else '', out_dir))
 t0 <- Sys.time()
 ## CHK_REP0 offsets the replicate indices (and so the seeds) for
 ## top-up runs; their output file carries a '-from<REP0+1>' suffix.
@@ -256,6 +308,10 @@ fn <- file.path(out_dir, sprintf('%s%s-%s-N%d%s.rds',
                                  else ''))
 saveRDS(res, fn)
 attr_meta <- list(elapsed = elapsed, n_reps = n_reps, n_cores = n_cores,
+                  param_set = env02$param_set(), legacy = legacy,
+                  params = env02$param_meta(),
+                  generator_rp = if (setting == 'p02') NULL else env09$rp,
+                  generator_bp = if (setting == 'p02') NULL else env09$bp,
                   finished = Sys.time(), session = sessionInfo())
 saveRDS(attr_meta, sub('\\.rds$', '-meta.rds', fn))
 

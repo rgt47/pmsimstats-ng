@@ -26,7 +26,8 @@
 ## correlation, the repaired population value of the bm:Dbc contrast,
 ## and the largest change in any correlation. Those cells drew from
 ## the repaired matrix, so bias in them must be read against the
-## repaired population value, not against -2.25. The repair is
+## repaired population value, not against -c_bm sigma_BR (-2.25 under
+## the fixture those runs used). The repair is
 ## applied here directly with corpcor on a copy of the raw matrix; the
 ## package's own repair branch is never enabled.
 ##
@@ -38,10 +39,27 @@
 ## exact population on-minus-off contrast of the biomarker slope,
 ## computed from the raw covariance matrix as in docs/65 Section 3.3.
 ##
+## Parameters: the response and baseline tables are the active set's
+## (analysis/scripts/carryover-sensitivity/simulation-core.R; docs/74,
+## D6), with m_PB = 6 and m_TV = 0 overriding the PB and TV maxima.
+## The default set is the raw tinytest fixture the stored runs used.
+## Every slope is per biomarker SD (docs/74, D1). The bounds, the
+## eigenvalue signs and the correlations depend only on the
+## correlation structure, so they are the same under every set; the
+## slope columns (beta_br_*, pb_disp_*, tv_disp_*, target_*,
+## identity_approx) scale with sigma_BR and sigma_PB.
+##
 ## Usage (from the repository root, host R):
-##   Rscript analysis/scripts/component-decomposition/05-feasibility-bounds.R
+##   Rscript analysis/scripts/component-decomposition/05-feasibility-bounds.R \
+##     [out_dir] [--params NAME]
+##   defaults: --params fixture (or PMSIM_PARAMS when set); out_dir
+##   analysis/data/derived_data/component-decomposition/ under the
+##   fixture and its subfolder feasibility-bounds-<set>/ under any
+##   other set. A relative out_dir is taken under component-
+##   decomposition/, an absolute one as given. The folder carries a
+##   PARAM_SET marker and refuses output under another set.
 ## Output:
-##   analysis/data/derived_data/component-decomposition/feasibility-bounds.rds
+##   <out_dir>/feasibility-bounds.rds (meta$params records the set)
 ## Runs in seconds; no simulation.
 
 suppressPackageStartupMessages({
@@ -49,9 +67,37 @@ suppressPackageStartupMessages({
   library(data.table)
 })
 
-OUT_DIR <- file.path('analysis', 'data', 'derived_data',
+## The stored paper 06 runs used the raw tinytest fixture, so this
+## script defaults to 'fixture' rather than the core's 'simcore2026':
+## a run without --params then reproduces the stored output.
+if (!'--params' %in% commandArgs(trailingOnly = TRUE) &&
+    !nzchar(Sys.getenv('PMSIM_PARAMS')))
+  Sys.setenv(PMSIM_PARAMS = 'fixture')
+source(file.path('analysis', 'scripts', 'carryover-sensitivity',
+                 'simulation-core.R'))
+
+## guard_out_dir() reads an unmarked folder that holds files as
+## 'simcore2026', but the stored paper 06 output holds raw-fixture
+## runs, so the legacy folder is marked 'fixture' before it is guarded.
+guard_paper06_dir <- function(dir, legacy_dir) {
+  marker <- file.path(dir, 'PARAM_SET')
+  if (param_set() == 'fixture' && !file.exists(marker) &&
+      dir.exists(dir) && length(list.files(dir)) > 0 &&
+      normalizePath(dir) == normalizePath(legacy_dir, mustWork = FALSE))
+    writeLines('fixture', marker)
+  guard_out_dir(dir)
+}
+
+args <- commandArgs(trailingOnly = TRUE)
+i_params <- which(args == '--params')
+if (length(i_params)) args <- args[-c(i_params[1], i_params[1] + 1L)]
+CD_ROOT <- file.path('analysis', 'data', 'derived_data',
                      'component-decomposition')
-dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)
+OUT_DIR <- if (length(args) >= 1) {
+  if (startsWith(args[[1]], '/')) args[[1]] else file.path(CD_ROOT, args[[1]])
+} else if (param_set() == 'fixture') CD_ROOT else
+  file.path(CD_ROOT, paste0('feasibility-bounds-', param_set()))
+guard_paper06_dir(OUT_DIR, CD_ROOT)
 
 ## ------------------------------------------------------------------ ##
 ## Designs (identical to the drivers)
@@ -84,17 +130,22 @@ design_balanced <- function() buildtrialdesign(
 designs <- list(simple = design_simple(), full = design_full(),
                 balanced = design_balanced())
 
-make_resp_params <- function(m_PB = 6, m_TV = 0, m_BR = 10.98604)
-  data.table(cat = c('tv', 'pb', 'br'), max = c(m_TV, m_PB, m_BR),
-             disp = c(5, 5, 5), rate = c(0.42, 0.35, 0.42), sd = c(5, 2, 5))
-make_bl_params <- function()
-  data.table(cat = c('bm', 'BL'), m = c(0, 70), sd = c(1, 10))
+## Base table from the active set (docs/74, D6); m_PB and m_TV override
+## only the PB and TV maxima.
+make_resp_params <- function(m_PB = 6, m_TV = 0) {
+  rp <- as.data.table(default_resp_param())
+  rp[cat == 'pb', max := m_PB]
+  rp[cat == 'tv', max := m_TV]
+  rp
+}
+make_bl_params <- function() as.data.table(default_baseline_param())
 make_model_params <- function(c_bm = 0.45, c_bm_pb = 0)
   data.table(N = 50, c.bm = c_bm, c.bm.pb = c_bm_pb, carryover_t1half = 1,
              c.tv = 0.7, c.pb = 0.7, c.br = 0.7, c.cf1t = 0.1, c.cfct = 0.05)
 
-SIGMA_PB <- 2
-SIGMA_BR <- 5
+SIGMA_PB <- make_resp_params()[cat == 'pb', sd]
+SIGMA_BR <- make_resp_params()[cat == 'br', sd]
+BM_SD    <- make_bl_params()[cat == 'bm', sd]
 
 ## Raw covariance (never repaired): stopOnNonPD = FALSE and
 ## makePositiveDefinite = FALSE return the matrix as built. Without
@@ -122,6 +173,11 @@ min_eig <- function(sig)
 ##   (Cov(bm,BL) - Cov(bm,TV_t) - Cov(bm,PB_t) - Cov(bm,BR_t)) / Var(bm)
 ## and the on-minus-off average of that slope is the population value
 ## the one-component bm:Dbc coefficient targets (binary drug state).
+## The analyses standardize the biomarker by the set's nominal SD
+## (docs/74, D1), so each slope is the raw-unit slope times BM_SD. The
+## nominal SD, not sqrt(Var(bm)) from the matrix, is the right scale:
+## the repair changes Var(bm), but the analysis scale does not move
+## with it. Under the fixture BM_SD = 1 and nothing changes.
 
 slope_contrast <- function(sig, path) {
   lbl <- rownames(sig)
@@ -141,8 +197,8 @@ slope_contrast <- function(sig, path) {
   ## under the DGP is the on-drug BR slope plus the on-minus-off
   ## displacement from any component the biomarker is correlated
   ## with (Section 6.1 of the manuscript; docs/65 Section 3.3).
-  disp <- function(cv) -(mean(cv[on]) - mean(cv[!on])) / v_bm
-  list(beta_br_on = -mean(cv_br[on]) / v_bm,
+  disp <- function(cv) -(mean(cv[on]) - mean(cv[!on])) / v_bm * BM_SD
+  list(beta_br_on = -mean(cv_br[on]) / v_bm * BM_SD,
        pb_disp = disp(cv_pb), tv_disp = disp(cv_tv),
        cor_bm_br_on = mean(cv_br[on] / sqrt(v_bm * v_br_on)))
 }
@@ -293,7 +349,9 @@ stopifnot(all(study1[, diff(range(min_eig)) < 1e-12, by = design]$V1))
 ## ------------------------------------------------------------------ ##
 
 options(width = 160)
-cat('Feasibility bounds (c_bm = 0.45, sigma_BR = 5, sigma_PB = 2, rho = 0.7,\n',
+cat(sprintf('Parameter set: %s\n', param_set()))
+cat(sprintf('Feasibility bounds (c_bm = 0.45, sigma_BR = %g, sigma_PB = %g, rho = 0.7,\n',
+            SIGMA_BR, SIGMA_PB),
     'c_1 = 0.1, c_x = 0.05, t1/2 = 1 week), minimum over paths:\n')
 print(bounds[, lapply(.SD, function(x) if (is.numeric(x)) round(x, 3) else x)])
 cat('\nBound verification (eigenvalue just below / above):\n')
@@ -310,6 +368,8 @@ out <- list(bounds = bounds, verify = verify, loading = loading,
             meta = list(date = Sys.time(), c_bm = 0.45, sigma_pb = SIGMA_PB,
                         sigma_br = SIGMA_BR, rho = 0.7, c1 = 0.1,
                         cx = 0.05, t1half = 1,
-                        repair = 'corpcor::make.positive.definite(tol = 1e-3) on the positive-variance block'))
+                        slope_scale = 'per biomarker SD', bm_sd = BM_SD,
+                        repair = 'corpcor::make.positive.definite(tol = 1e-3) on the positive-variance block',
+                        params = param_meta()))
 saveRDS(out, file.path(OUT_DIR, 'feasibility-bounds.rds'))
 cat(sprintf('\nWritten: %s\n', file.path(OUT_DIR, 'feasibility-bounds.rds')))

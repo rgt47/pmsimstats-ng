@@ -53,24 +53,50 @@
 ## Seeds: set.seed(P09_SEED + 100000 * design_index + rep) per
 ## (design, replicate); the null regime adds 50000.
 ##
+## Parameter set (2026-11-03; docs/74, D1 and D3). Every response and
+## baseline parameter comes from the active set of
+## analysis/scripts/carryover-sensitivity/simulation-core.R:
+## `--params NAME`, else PMSIM_PARAMS, else 'fixture' here (the set
+## the stored run used, hard-coded in this driver until 2026-11-03;
+## not simulation-core.R's 'simcore2026' default, which paper 09 never
+## used). Paper 09's production set is 'published' (D3). The biomarker
+## enters the analyses centered and scaled by the set's mean and SD,
+## so the true interaction is -beta_bm * sigma_BR per biomarker SD
+## (-2.25 under fixture, -3.6 under published). The dropout hazards
+## do not use the biomarker.
+##
 ## Environment variables:
+##   PMSIM_PARAMS   parameter set, if no --params (default 'fixture')
 ##   P09_REPS       replicates per design, alt regime (default 1000)
-##   P09_NULL_REPS  replicates per design, null regime (default 1000)
-##   P09_CORES      worker count (default 8)
-##   P09_OUT        output directory
-##                  (default analysis/data/informative-dropout-by-design)
+##   P09_NULL_REPS  replicates per design, null regime (default 1000;
+##                  the stored fixture run used 500)
+##   SIM_CORES      worker count, when set (simrun jobs)
+##   P09_CORES      worker count otherwise (default 8)
+##   P09_OUT        output directory (default
+##                  analysis/data/informative-dropout-by-design under
+##                  'fixture', that path plus '-<set>' under any other
+##                  set; guard_out_dir() refuses a folder written under
+##                  another set)
 ##   P09_TAG        file tag (default 'paired')
 ##
 ## Run from the repository root through the wrapper
 ## analysis/scripts/informative-dropout-by-design/20-run-paired.sh,
-## which pins BLAS threads to 1.
+## which pins BLAS threads to 1, e.g.
+##   PMSIM_PARAMS=published \
+##     bash analysis/scripts/informative-dropout-by-design/20-run-paired.sh
+## or directly
+##   Rscript analysis/scripts/informative-dropout-by-design/20-paired-dropout.R \
+##     --params published
 ##
 ## Outputs:
+##   <out>/PARAM_SET              the parameter set (guard_out_dir())
 ##   <out>/<tag>-replicates.rds   one row per design x regime x rep x
 ##                                condition x analysis
 ##   <out>/<tag>-dropout.rds      dropout diagnostics per design x
 ##                                regime x rep x condition
-##   <out>/<tag>-meta.rds         settings, timing, session info
+##   <out>/<tag>-meta.rds         settings, parameter set (params =
+##                                param_meta()), completed units per
+##                                design x regime, timing, session info
 
 suppressPackageStartupMessages({
   pkgload::load_all('.', quiet = TRUE)
@@ -79,18 +105,32 @@ suppressPackageStartupMessages({
   loadNamespace('clubSandwich')
 })
 
+if (!'--params' %in% commandArgs(trailingOnly = TRUE) &&
+    !nzchar(Sys.getenv('PMSIM_PARAMS'))) {
+  Sys.setenv(PMSIM_PARAMS = 'fixture')
+}
+## local = TRUE: 01-run-cr2-null.R evaluates this file in its own
+## environment, and the helpers must land there, not in globalenv.
+source('analysis/scripts/carryover-sensitivity/simulation-core.R',
+       local = TRUE)
+PARAMS <- param_set()
+
 P09_SEED <- 20261029L
 n_reps <- as.integer(Sys.getenv('P09_REPS', '1000'))
 n_null <- as.integer(Sys.getenv('P09_NULL_REPS', '1000'))
-n_cores <- as.integer(Sys.getenv('P09_CORES', '8'))
-out_dir <- Sys.getenv('P09_OUT', 'analysis/data/informative-dropout-by-design')
+## SIM_CORES is what a simrun job is allotted (cgroup); P09_CORES is
+## the older local setting.
+sim_cores <- Sys.getenv('SIM_CORES')
+n_cores <- as.integer(if (nzchar(sim_cores)) sim_cores else
+  Sys.getenv('P09_CORES', '8'))
+LEGACY_OUT <- 'analysis/data/informative-dropout-by-design'
+out_dir <- Sys.getenv('P09_OUT', if (PARAMS == 'fixture') LEGACY_OUT else
+  paste0(LEGACY_OUT, '-', PARAMS))
 tag <- Sys.getenv('P09_TAG', 'paired')
 
 N_TOTAL <- 70L
 BETA_BM <- 0.45
 T_HALF <- 0.5
-SIGMA_BR <- 5
-TRUE_BETA <- -BETA_BM * SIGMA_BR / 1
 GAMMA <- log(3)
 ANALYSIS_HL <- c(ta0.5 = 0.5, ta0 = 0)
 
@@ -136,14 +176,16 @@ td_Hybrid <- buildtrialdesign(
 
 designs <- list(OLBDC = td_OLBDC, CO = td_CO, Hybrid = td_Hybrid)
 
-bp <- data.table(cat = c('bm', 'BL'), m = c(0, 70), sd = c(1, 10))
-rp <- data.table(
-  cat = c('tv', 'pb', 'br'),
-  max = c(10.98604, 6.50647, 10.98604),
-  disp = c(5, 5, 5),
-  rate = c(0.42, 0.35, 0.42),
-  sd = c(5, 2, SIGMA_BR)
-)
+## generateData() and buildSigma() index these with data.table syntax.
+bp <- as.data.table(default_baseline_param())
+rp <- as.data.table(default_resp_param())
+SIGMA_BR <- rp[cat == 'br', sd]
+BM_MEAN <- bp[cat == 'bm', m]
+BM_SD <- bp[cat == 'bm', sd]
+## Per biomarker SD: generateData() shifts BR by beta_bm * bm_z *
+## sigma_BR and build_long() standardizes bm, so the slope of Sx on
+## the analyzed bm is -beta_bm * sigma_BR under every set.
+TRUE_BETA <- -BETA_BM * SIGMA_BR
 
 make_mp <- function(beta_bm) {
   data.table(N = NA_integer_, c.bm = beta_bm,
@@ -250,9 +292,13 @@ build_long <- function(y_list, bl_list, bm_list, fd_list, templates) {
     n <- nrow(y)
     ids <- off + seq_len(n)
     off <- off + n
+    ## Standardized as in prepare_long_data() (D1): an affine map, so
+    ## tests are unchanged, and the identity under fixture; on the raw
+    ## published scale (mean 124) bm:Dbc would be nearly collinear
+    ## with Dbc.
     l <- data.table(
       ptID = rep(ids, times = ncol(y)),
-      bm = rep(bm_list[[g]], times = ncol(y)),
+      bm = rep((bm_list[[g]] - BM_MEAN) / BM_SD, times = ncol(y)),
       Sx = as.vector(y),
       t = rep(tp$t, each = n),
       De = rep(tp$e, each = n),
@@ -395,8 +441,24 @@ units <- rbind(
   }
 )
 
-cat(sprintf('Units: %d (alt %d, null %d per design); cores %d\n',
-            nrow(units), n_reps, n_null, n_cores))
+## The committed driver wrote the stored fixture run to LEGACY_OUT
+## with no PARAM_SET marker, and guard_out_dir() reads an unmarked
+## folder that holds files as 'simcore2026'; mark it with the set that
+## produced it so a fixture rerun is accepted and any other set is
+## refused.
+legacy_marker <- file.path(LEGACY_OUT, 'PARAM_SET')
+if (PARAMS == 'fixture' && dir.exists(LEGACY_OUT) &&
+    !file.exists(legacy_marker) &&
+    normalizePath(out_dir, mustWork = FALSE) ==
+      normalizePath(LEGACY_OUT, mustWork = FALSE)) {
+  writeLines('fixture', legacy_marker)
+}
+## Before the run, so a folder from another set fails fast.
+guard_out_dir(out_dir)
+
+cat(sprintf('Units: %d (alt %d, null %d per design); cores %d; params %s; true beta %.4g; out %s\n',
+            nrow(units), n_reps, n_null, n_cores, PARAMS, TRUE_BETA,
+            out_dir))
 t0 <- Sys.time()
 out <- mclapply(seq_len(nrow(units)), function(j) {
   tryCatch(run_unit(units$design[j], units$regime[j], units$rep[j]),
@@ -414,13 +476,25 @@ reps_dt <- rbindlist(lapply(out, `[[`, 'res'), fill = TRUE)
 diag_dt <- rbindlist(lapply(out, `[[`, 'diag'), fill = TRUE)
 reps_dt[, true_beta := fifelse(regime == 'alt', TRUE_BETA, 0)]
 
-dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+## Units that returned results; n_null alone overstates the null count
+## if a unit failed. n_null_used is the smallest per-design count.
+ok_dt <- if ('error' %in% names(reps_dt)) reps_dt[is.na(error)] else
+  reps_dt
+units_done <- unique(ok_dt[, .(design, regime, rep)])[
+  , .(n_units = .N), by = .(design, regime)]
+n_null_used <- min(vapply(names(designs), function(d) {
+  units_done[design == d & regime == 'null', sum(n_units)]
+}, integer(1)))
+
 saveRDS(reps_dt, file.path(out_dir, paste0(tag, '-replicates.rds')))
 saveRDS(diag_dt, file.path(out_dir, paste0(tag, '-dropout.rds')))
 saveRDS(list(seed = P09_SEED, n_reps = n_reps, n_null = n_null,
+             n_null_used = n_null_used, units_done = units_done,
              n_cores = n_cores, N_total = N_TOTAL, beta_bm = BETA_BM,
-             t_half = T_HALF, true_beta = TRUE_BETA, gamma = GAMMA,
+             t_half = T_HALF, true_beta = TRUE_BETA, sigma_br = SIGMA_BR,
+             bm_mean = BM_MEAN, bm_sd = BM_SD, gamma = GAMMA,
              analysis_hl = ANALYSIS_HL, conditions = CONDITIONS,
+             param_set = PARAMS, params = param_meta(),
              elapsed_secs = elapsed, finished = Sys.time(),
              session = sessionInfo()),
         file.path(out_dir, paste0(tag, '-meta.rds')))

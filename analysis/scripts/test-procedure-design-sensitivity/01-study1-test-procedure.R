@@ -51,22 +51,58 @@
 ## and the same job list. The analysis arms consume no random numbers,
 ## so adding an arm leaves the draws unchanged.
 ##
+## Usage (from the repository root):
+##   Rscript analysis/scripts/test-procedure-design-sensitivity/01-study1-test-procedure.R \
+##     [--params fixture|published|simcore2026]
+##
+## Parameter set (docs/74, Section 3). The response and baseline
+## parameters come from simulation-core.R's named sets, chosen by
+## `--params NAME`, else PMSIM_PARAMS. This driver's default is
+## 'fixture', not the core's 'simcore2026', because the stored
+## 2026-10-08/10-28 run used the tinytest fixture; under 'fixture' the
+## driver reproduces that run draw for draw. Hendrickson's values are
+## `--params published`.
+##
+## Biomarker scale (docs/74, D1). The biomarker is standardized by the
+## active set's mean and SD right after generateData(), before every
+## arm, so every arm's interaction is per biomarker SD and the truth is
+## -c_bm * sigma_BR (-2.25 under fixture, -3.6 under published at
+## c_bm = 0.45). Under fixture (mean 0, SD 1) the map is the identity.
+##
 ## Environment overrides:
-##   REPS_NULL, REPS_POWER, N_CORES, N_LEVELS, CBM_LEVELS   as before
+##   REPS_NULL, REPS_POWER, N_LEVELS, CBM_LEVELS   as before
+##   SIM_CORES       worker count; else N_CORES; else detectCores() - 1
 ##   PROCS           comma-separated subset of the procedure names
-##   OUT_PREFIX      output path prefix (default
-##                   analysis/data/quick-sim/08-test); a smoke test
-##                   should set this to a scratch location
-##   FIG_PATH        figure path (default
-##                   analysis/figures/quick-sim/08-test-power.pdf)
+##   OUT_PREFIX      output path prefix. Default under fixture:
+##                   analysis/data/quick-sim/08-test (the stored run);
+##                   under any other set:
+##                   analysis/data/quick-sim/08-test-<set>/08-test.
+##                   A smoke test should set this to a scratch location.
+##   FIG_PATH        figure path. Default under fixture:
+##                   analysis/figures/quick-sim/08-test-power.pdf; under
+##                   any other set:
+##                   analysis/figures/quick-sim/08-test-power-<set>.pdf
 ##   BETATRUE_N, BETATRUE_DRAWS   reference-run size (default 2000, 6)
+##
+## Any OUT_PREFIX other than the stored default puts its folder under
+## guard_out_dir(), which refuses a folder written under another set.
+## A non-fixture run refuses the stored default prefix and figure.
 ##
 ## Outputs (overwrite):
 ##   <OUT_PREFIX>-replicates.rds
 ##   <OUT_PREFIX>-summary.txt
 ##   <OUT_PREFIX>-betatrue.txt
 ##   <OUT_PREFIX>-mancl-benchmark.txt
+##   <OUT_PREFIX>-meta.rds   parameter set (param_meta()) and run settings
 ##   <FIG_PATH>
+## Post-process with 02-mancl-t-reference.R, passing the same prefix.
+
+## Set the driver's default before the core resolves the set; an
+## explicit --params still wins inside resolve_param_set(). The core is
+## sourced before data.table is attached so that data.table, not
+## dplyr, keeps the names the two packages share.
+if (!nzchar(Sys.getenv('PMSIM_PARAMS'))) Sys.setenv(PMSIM_PARAMS = 'fixture')
+source('analysis/scripts/carryover-sensitivity/simulation-core.R')
 
 suppressPackageStartupMessages({
   library(devtools)
@@ -91,16 +127,41 @@ cat('clubSandwich available:', have_clubsandwich, '\n')
 
 reps_null  <- as.integer(Sys.getenv('REPS_NULL',  '2000'))
 reps_power <- as.integer(Sys.getenv('REPS_POWER', '1000'))
-n_cores    <- as.integer(Sys.getenv('N_CORES',
-                  as.character(max(1L, parallel::detectCores() - 1L))))
+## SIM_CORES is what simrun jobs set; detectCores() overstates a
+## cgroup-limited container.
+n_cores    <- as.integer(Sys.getenv('SIM_CORES', Sys.getenv('N_CORES',
+                  as.character(max(1L, parallel::detectCores() - 1L)))))
 N_levels   <- as.integer(strsplit(Sys.getenv('N_LEVELS', '25,35,70,100'),
                                    ',')[[1]])
 c_bm_levels <- as.numeric(strsplit(Sys.getenv('CBM_LEVELS', '0,0.45'),
                                     ',')[[1]])
 master_seed <- 20260507L
-out_prefix <- Sys.getenv('OUT_PREFIX', 'analysis/data/quick-sim/08-test')
-fig_path   <- Sys.getenv('FIG_PATH',
-                         'analysis/figures/quick-sim/08-test-power.pdf')
+pset <- param_set()
+stored_prefix <- 'analysis/data/quick-sim/08-test'
+stored_fig    <- 'analysis/figures/quick-sim/08-test-power.pdf'
+default_prefix <- if (pset == 'fixture') stored_prefix else
+  sprintf('analysis/data/quick-sim/08-test-%s/08-test', pset)
+default_fig <- if (pset == 'fixture') stored_fig else
+  sprintf('analysis/figures/quick-sim/08-test-power-%s.pdf', pset)
+out_prefix <- Sys.getenv('OUT_PREFIX', default_prefix)
+fig_path   <- Sys.getenv('FIG_PATH', default_fig)
+
+## A prefix is not itself a file, so normalize its folder and keep the
+## stem; this catches an absolute spelling of the stored prefix too.
+norm_prefix <- function(p) {
+  file.path(normalizePath(dirname(p), mustWork = FALSE), basename(p))
+}
+same_path <- function(a, b) norm_prefix(a) == norm_prefix(b)
+if (pset != 'fixture' &&
+    (same_path(out_prefix, stored_prefix) || same_path(fig_path, stored_fig))) {
+  stop(sprintf(paste0("parameter set '%s' would overwrite the stored ",
+                      "fixture run (%s*, %s); set another OUT_PREFIX/FIG_PATH."),
+               pset, stored_prefix, stored_fig))
+}
+## The stored prefix's folder is shared with other papers' unmarked
+## quick-sim output, which guard_out_dir() would read as simcore2026,
+## so only a non-stored prefix gets a guarded (set-specific) folder.
+if (!same_path(out_prefix, stored_prefix)) guard_out_dir(dirname(out_prefix))
 betatrue_n     <- as.integer(Sys.getenv('BETATRUE_N', '2000'))
 betatrue_draws <- as.integer(Sys.getenv('BETATRUE_DRAWS', '6'))
 procs_env <- Sys.getenv('PROCS', '')
@@ -128,21 +189,18 @@ td <- buildtrialdesign(
   )
 )
 
-resp_param <- data.table(
-  cat  = c('tv', 'pb', 'br'),
-  max  = c(10.98604, 6.50647, 10.98604),
-  disp = c(5, 5, 5),
-  rate = c(0.42, 0.35, 0.42),
-  sd   = c(5, 2, 5)
-)
-
-baseline_param <- data.table(
-  cat = c('bm', 'BL'),
-  m   = c(0, 70),
-  sd  = c(1, 10)
-)
+## generateData() indexes these with data.table syntax
+## (respparam[cat == 'br']), which a tibble does not support.
+resp_param <- data.table::as.data.table(default_resp_param())
+baseline_param <- data.table::as.data.table(default_baseline_param())
+stopifnot(setequal(resp_param$cat, c('tv', 'pb', 'br')),
+          setequal(baseline_param$cat, c('bm', 'BL')))
 
 sd_br <- resp_param[cat == 'br', sd]
+bm_mean <- baseline_param[cat == 'bm', m]
+bm_sd   <- baseline_param[cat == 'bm', sd]
+cat(sprintf('Parameter set: %s (sigma_BR = %g; biomarker mean %g, SD %g)\n',
+            pset, sd_br, bm_mean, bm_sd))
 
 split_N <- function(N_total) c(ceiling(N_total / 2), floor(N_total / 2))
 
@@ -158,7 +216,10 @@ simulate_one_dataset <- function(c_bm, N_total, t1half = 0) {
                     c.cf1t = 0.1, c.cfct = 0.05)
   ## stopOnNonPD = TRUE: a non-PD matrix is refused, never repaired.
   ## Both paths' matrices are PD at these parameters (min eigenvalue
-  ## 0.168), so the refusal never triggers.
+  ## 0.168 under fixture), so the refusal never triggers. Under mean
+  ## moderation the correlation matrix carries no biomarker term, and
+  ## positive SDs do not change definiteness, so this holds under every
+  ## parameter set (inferred; a refusal would surface as failed reps).
   d1 <- generateData(mp1, resp_param, baseline_param,
                      td$trialpaths[[1]], empirical = FALSE,
                      makePositiveDefinite = FALSE, stopOnNonPD = TRUE,
@@ -170,7 +231,13 @@ simulate_one_dataset <- function(c_bm, N_total, t1half = 0) {
                      dgp_architecture = 'mean_moderation')
   d2[, path := 2]
   d2[, ptID := ptID + max(d1$ptID)]
-  rbind(d1, d2)
+  dat <- rbind(d1, d2)
+  ## D1 (docs/74): every arm (contrast, lme via lme_analysis(), GEE,
+  ## Mancl-DeRouen) reads bm from this table, so standardizing here puts
+  ## all of them on the per-SD scale. The raw published biomarker (mean
+  ## 124) would make bm:Dbc nearly collinear with Dbc.
+  dat[, bm := (bm - bm_mean) / bm_sd]
+  dat
 }
 
 build_long_data <- function(dat) {
@@ -484,7 +551,11 @@ run_one_rep <- function(c_bm, N_total) {
 ## --------------------------------------------------------------
 ## Reference run to pin the interaction estimand (beta_true).
 ## Large-N lme fit at c.bm = 0.45; averaged over a few draws.
-## Analytic expectation: c.bm * sd_br = 0.45 * 5 = 2.25.
+## Analytic magnitude: c.bm * sd_br per biomarker SD, from the active
+## set (0.45 * 5 = 2.25 under fixture, 0.45 * 8 = 3.6 under published).
+## The fitted bm:Dbc is negative (BR lowers Sx), so beta_true_mc is
+## about -c.bm * sd_br; the analytic line keeps the stored file's
+## unsigned convention.
 ## --------------------------------------------------------------
 
 cat(sprintf('\nEstimating beta_true (reference, N=%d x %d draws)...\n',
@@ -501,6 +572,16 @@ cat(sprintf('beta_true = %.4f (analytic c.bm*sd_br = %.2f); draws: %s\n',
             paste(sprintf('%.3f', bt_draws), collapse = ', ')))
 dir.create(dirname(out_prefix), showWarnings = FALSE, recursive = TRUE)
 dir.create(dirname(fig_path), showWarnings = FALSE, recursive = TRUE)
+saveRDS(list(params = param_meta(), master_seed = master_seed,
+             n_cores = n_cores, reps_null = reps_null,
+             reps_power = reps_power, N_levels = N_levels,
+             c_bm_levels = c_bm_levels, procedures = proc_levels,
+             betatrue_n = betatrue_n, betatrue_draws = betatrue_draws,
+             bm_standardized = c(mean = bm_mean, sd = bm_sd),
+             beta_true_analytic = 0.45 * sd_br,
+             out_prefix = out_prefix, fig_path = fig_path,
+             started = t_start),
+        paste0(out_prefix, '-meta.rds'))
 writeLines(c(sprintf('beta_true_mc\t%.6f', beta_true),
              sprintf('beta_true_analytic\t%.6f', 0.45 * sd_br),
              sprintf('n_draws\t%d', sum(is.finite(bt_draws)))),
@@ -660,8 +741,8 @@ p_fig <- ggplot(plot_dt, aes(x = proc_lbl, y = rejection_rate,
                      expand = c(0, 0)) +
   labs(x = 'Test procedure', y = 'Rejection rate (p < 0.05)',
        title = 'Test-procedure comparison for the biomarker x treatment interaction',
-       subtitle = sprintf('OL+BDC, mean-moderation DGP; null reps=%d, power reps=%d',
-                          reps_null, reps_power),
+       subtitle = sprintf('OL+BDC, mean-moderation DGP, %s parameters; null reps=%d, power reps=%d',
+                          pset, reps_null, reps_power),
        caption = 'Error bars: 1.96 x MCSE (binomial); dashed line at 0.05.') +
   theme_bw(base_size = 11) +
   theme(panel.grid.minor = element_blank(),
@@ -669,5 +750,6 @@ p_fig <- ggplot(plot_dt, aes(x = proc_lbl, y = rejection_rate,
 
 ggsave(fig_path, p_fig, width = 12.0, height = 6.5)
 
-cat('\nWrote replicates, summary, beta_true, benchmark, figure.\n')
+cat(sprintf('\nWrote replicates, summary, beta_true, benchmark, meta (%s*), figure (%s).\n',
+            out_prefix, fig_path))
 invisible(NULL)

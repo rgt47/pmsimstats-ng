@@ -187,7 +187,7 @@ else is unpaired.
 | Host | Queue, in order | Hours |
 |---|---|---|
 | zeus (8 cores, 24 GB) | p01-pf, p02-tier1, p02-e0iso, p02-gf-dropout, p02-gf-size, p02-gf-B | about 36 |
-| athena (8 cores, 22 GB) | p02-ref-A, p02-factorial, p02-scen, p02-ref-S, p02-ref-N, p15-refT, p10, p15-stress, p15-re | about 25 |
+| athena (8 cores, 22 GB) | p02-ref-A, p02-factorial, p02-scen, p02-ref-S, p02-ref-N, p15-refT, p10, p15-stress | about 22 |
 | mercury (6 cores, 12 GB) | check job, p01-n80, p15-gapC | about 28 |
 | joe (8 cores, 18 GB) | p03-null, then p03-alt after its timing run | about 4 plus p03-alt |
 
@@ -201,6 +201,13 @@ submission, because only local timings exist.
 
 With every queue full, wave 1 ends in about a day and a half; wave 2
 adds about a day once its code is ready.
+
+**Submitted 2026-11-03 18:30 PST at commit 9d7821e.** zeus jobs 60 to
+65; athena jobs 4 to 11; mercury check job 50 (passed), then jobs 51
+and 52; joe job 2 (timing run of paper 03's alternative block) and job
+3 (null block). Driver 29 (p15-re) was dropped under D5: every
+confounded cell in it is a strength-0.6 repair-artifact cell, so the
+stored run stays as part of the historical exhibit.
 
 ## 7. Before any submission
 

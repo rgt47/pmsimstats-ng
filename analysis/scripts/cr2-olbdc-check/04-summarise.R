@@ -1,9 +1,30 @@
-## Summarise every production rds in analysis/data/cr2-olbdc-check/:
-## empirical SD, mean model-based and CR2 SE, CR2 df quantiles,
-## rejection rates at 0.05 with MCSE and exact two-sided binomial
-## p-values against 0.05, and paired differences between variants.
+## Summarise every production rds in one output folder of
+## 01-run-cr2-null.R: empirical SD, mean model-based and CR2 SE, CR2 df
+## quantiles, rejection rates at 0.05 with MCSE and exact two-sided
+## binomial p-values against 0.05, and paired differences between
+## variants. Writes summary.csv and paired-differences.csv there.
+## The folder is CHK_OUT, else analysis/data/cr2-olbdc-check-<set> for
+## `--params NAME` or PMSIM_PARAMS, else the legacy
+## analysis/data/cr2-olbdc-check (p09 fixture and p02 simcore2026
+## cells, pooled as stored). Usage, from the repository root:
+##   PMSIM_PARAMS=published Rscript analysis/scripts/cr2-olbdc-check/04-summarise.R
 suppressPackageStartupMessages(library(data.table))
-dir <- 'analysis/data/cr2-olbdc-check'
+args <- commandArgs(trailingOnly = TRUE)
+i <- which(args == '--params')
+params <- if (length(i) && i[1] < length(args)) args[i[1] + 1] else
+  Sys.getenv('PMSIM_PARAMS', '')
+dir <- Sys.getenv('CHK_OUT', if (nzchar(params)) {
+  paste0('analysis/data/cr2-olbdc-check-', params)
+} else {
+  'analysis/data/cr2-olbdc-check'
+})
+marker <- file.path(dir, 'PARAM_SET')
+if (nzchar(params) && file.exists(marker) &&
+    readLines(marker, n = 1L) != params) {
+  stop(sprintf("%s holds output under parameter set '%s', not '%s'",
+               dir, readLines(marker, n = 1L), params))
+}
+cat('Summarising', dir, '\n')
 fs <- list.files(dir, pattern = '^(p09|p02|iso_[a-z]+)-.*-N[0-9]+(-from[0-9]+)?\\.rds$',
                  full.names = TRUE)
 d <- rbindlist(lapply(fs, readRDS), fill = TRUE)

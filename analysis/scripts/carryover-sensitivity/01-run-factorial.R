@@ -14,6 +14,11 @@
 ##              Default reps in this mode: 50.
 ## --smoke    : 2 replicates, one cell per design (pipeline sanity only)
 ## --reps N   : override the rep count for the current mode
+## --arch A   : mvn or mean_moderation keeps one architecture
+## --out-dir D: output directory (default output/; refused if it holds
+##              results under another parameter set)
+## --params P : published, simcore2026 (default) or fixture
+##              (simulation-core.R)
 ## --robust   : additionally fit the lme+CR2 and GEE+MD robust
 ##              analyses alongside A1/A2/A3 (cluster-robust
 ##              calibration; see analysis/report/
@@ -43,6 +48,18 @@ n_reps_override <- if (length(reps_idx) && reps_idx < length(args))
   as.integer(args[reps_idx + 1]) else NA_integer_
 n_reps <- if (!is.na(n_reps_override)) n_reps_override else
           if (smoke_mode) 2 else if (dev_mode) 50 else 500
+arg_value <- function(k, d) {
+  i <- which(args == k)
+  if (length(i) && i[1] < length(args)) args[i[1] + 1] else d
+}
+## --arch mvn keeps only the covariance-moderation cells (the slice
+## paper 02 reports); --out-dir keeps runs under different parameter
+## sets apart (docs/71).
+arch_sel <- arg_value('--arch', 'all')
+stopifnot(arch_sel %in% c('all', 'mvn', 'mean_moderation'))
+out_dir <- arg_value('--out-dir', file.path(repo_root,
+  'analysis/scripts/carryover-sensitivity/output'))
+guard_out_dir(out_dir)
 
 seed <- 20260415L
 set.seed(seed)
@@ -93,6 +110,7 @@ if (smoke_mode) {
     )
 }
 
+if (arch_sel != 'all') grid <- dplyr::filter(grid, dgp_arch == arch_sel)
 stopifnot(nrow(grid) > 0)
 cat(sprintf('Grid cells: %d, n_reps per cell: %d\n',
             nrow(grid), n_reps))
@@ -133,13 +151,11 @@ t_elapsed <- Sys.time() - t_start
 cat(sprintf('Completed in %.1f %s\n',
             as.numeric(t_elapsed, units = 'secs'), 'seconds'))
 
-out_dir <- file.path(repo_root,
-  'analysis/scripts/carryover-sensitivity/output')
-dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
-
 meta <- list(
   script = '01-run-factorial.R',
   date = Sys.time(),
+  params = param_meta(),
+  arch = arch_sel,
   seed = seed,
   n_reps = n_reps,
   dev_mode = dev_mode,

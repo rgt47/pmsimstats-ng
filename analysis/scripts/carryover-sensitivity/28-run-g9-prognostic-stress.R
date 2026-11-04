@@ -49,6 +49,9 @@ N_BOOT <- as.integer(argv('--n-boot', '1'))
 CORES <- as.integer(argv('--cores', Sys.getenv('SIM_CORES', '6')))
 OUT_DIR <- argv('--out-dir',
   'analysis/data/carryover-sensitivity/g9-prognostic-stress')
+## Refuses a folder (and its trials/ checkpoints) written under another
+## parameter set (simulation-core.R --params; docs/74).
+guard_out_dir(OUT_DIR)
 ck_dir <- file.path(OUT_DIR, 'trials')
 dir.create(ck_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -147,6 +150,7 @@ saveRDS(summary_tab, file.path(OUT_DIR, 'summary.rds'))
 
 meta <- list(
   script = '28-run-g9-prognostic-stress.R',
+  params = param_meta(),
   date = Sys.time(),
   n_reps = REPS,
   n_boot = N_BOOT,

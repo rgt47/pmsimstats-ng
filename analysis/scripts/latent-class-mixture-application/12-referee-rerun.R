@@ -163,6 +163,9 @@ TIME      <- '--time' %in% args
 OUT_DIR <- argv('--out-dir',
   if (SMOKE) 'analysis/data/latent-class-mixture-application/referee-rerun-smoke'
   else 'analysis/data/latent-class-mixture-application/referee-rerun')
+## Refuses a folder (and its trials/ checkpoints) written under another
+## parameter set (simulation-core.R --params; docs/74).
+guard_out_dir(OUT_DIR)
 ck_dir <- file.path(OUT_DIR, 'trials')
 dir.create(ck_dir, recursive = TRUE, showWarnings = FALSE)
 stopifnot(BLOCK %in% c('null', 'alt', 'all'))
@@ -423,6 +426,13 @@ run_one_rep <- function(cfg, N, cell_id, r) {
   seed <- label_seed(sprintf('%s-rep-%d', cell_id, r))
   set.seed(seed)
   dat <- generate_trial(cfg, N)
+  ## The biomarker enters both fits in SD units (docs/74, decision D1).
+  ## The published set's biomarker has mean 124.3 and SD 15.4, which
+  ## would leave hlme's gating intercept and the bm:Dbc term poorly
+  ## conditioned. The map is affine, so the tests are unchanged and the
+  ## estimates are per SD; under simcore2026 (mean 0, SD 1) it is the
+  ## identity, so stored runs reproduce.
+  dat$bm <- (dat$bm - BP[cat == 'bm', m]) / BP[cat == 'bm', sd]
 
   t0 <- Sys.time()
   prep <- tryCatch(lme_analysis(DESIGN_SET, dat, OP), error = function(e) NULL)
@@ -690,6 +700,7 @@ print(as.data.frame(summary_tab[, .(cell_id, test, n, reject = round(reject, 3),
 
 meta <- list(
   script = '12-referee-rerun.R', block = BLOCK, date = Sys.time(),
+  params = param_meta(),
   reps_null = REPS_NULL, reps_alt = REPS_ALT, smoke = SMOKE, cores = CORES,
   seed_scheme = 'label_seed(sprintf("%s-rep-%d", cell_id, r)) per (cell, rep); mc.set.seed = FALSE',
   design = 'Hybrid (design_preset) via buildtrialdesign; fixed path allocation',

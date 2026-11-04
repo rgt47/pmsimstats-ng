@@ -79,6 +79,7 @@ TIME       <- '--time' %in% args
 OUT_DIR <- argv('--out-dir',
   if (SMOKE) 'analysis/data/carryover-sensitivity/referee-variants-smoke'
   else 'analysis/data/carryover-sensitivity/referee-variants')
+guard_out_dir(OUT_DIR)
 ck_dir <- file.path(OUT_DIR, 'trials')
 dir.create(ck_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -280,6 +281,7 @@ saveRDS(paired_tab, file.path(OUT_DIR, 'paired.rds'))
 
 meta <- list(
   script = '36-run-referee-variants.R', block = BLOCK, date = Sys.time(),
+  params = param_meta(),
   reps_null = REPS_NULL, reps_alt = REPS_ALT, reps_other = REPS_OTHER,
   hl_fixed = HL_FIXED, smoke = SMOKE, elapsed_min_this_run = elapsed_min,
   r_version = R.version.string,

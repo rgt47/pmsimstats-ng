@@ -22,7 +22,9 @@
 ## Run from the repository root (SIM_CORES is set by simrun; a bare
 ## local run falls back to 6):
 ##   Rscript analysis/scripts/carryover-sensitivity/06-g-vs-f-comparison.R \
-##     [--reps R] [--n-boot B] [--cores K] [--out-dir PATH]
+##     [--reps R] [--n-boot B] [--cores K] [--out-dir PATH] \
+##     [--cells all|paper02|NAME,...] \
+##     [--params published|simcore2026|fixture]
 suppressMessages({
   library(dplyr); library(purrr); library(tibble); library(parallel)
 })
@@ -35,6 +37,10 @@ REPS <- as.integer(argv('--reps', '500'))
 N_BOOT <- as.integer(argv('--n-boot', '1'))
 CORES <- as.integer(argv('--cores', Sys.getenv('SIM_CORES', '6')))
 OUT_DIR <- argv('--out-dir', 'analysis/data/carryover-sensitivity/g-vs-f-comparison')
+## --cells all (default) or 'paper02', the ten cells paper 02 reads
+## (docs/71), or a comma-separated list of cell names.
+CELL_SEL <- argv('--cells', 'all')
+guard_out_dir(OUT_DIR)
 ck_dir <- file.path(OUT_DIR, 'trials')
 dir.create(ck_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -70,6 +76,17 @@ CELLS <- list(
   meanmod_alt  = modifyList(base_cell, list(design = 'Hybrid', c_bm = 0.25,
                                              dgp_arch = 'mean_moderation'))
 )
+
+PAPER02_CELLS <- c('hybrid_null', 'olbdc_null', 't1hifhi_null',
+                   'shapemis_null', 'hybrid_alt', 'hybrid_alt_lo',
+                   'olbdc_alt', 't1hifhi_alt', 'shapemis_alt',
+                   'progtvgrow_null')
+if (CELL_SEL != 'all') {
+  keep <- if (CELL_SEL == 'paper02') PAPER02_CELLS else
+    strsplit(CELL_SEL, ',', fixed = TRUE)[[1]]
+  stopifnot(all(keep %in% names(CELLS)))
+  CELLS <- CELLS[keep]
+}
 
 jobs <- expand.grid(cell = names(CELLS), rep = seq_len(REPS),
                     stringsAsFactors = FALSE)
@@ -131,3 +148,13 @@ summary_tab <- res |>
 cat('\nRejection rate (Type I error at null cells, power at alt cells):\n')
 print(summary_tab, n = 60)
 saveRDS(summary_tab, file.path(OUT_DIR, 'summary.rds'))
+
+meta <- list(
+  script = '06-g-vs-f-comparison.R', date = Sys.time(),
+  params = param_meta(), cells = names(CELLS), n_reps = REPS,
+  n_boot = N_BOOT, elapsed_min_this_run = elapsed_min,
+  r_version = R.version.string,
+  git_sha = tryCatch(system('git rev-parse --short HEAD', intern = TRUE),
+                     error = function(e) NA_character_)
+)
+saveRDS(meta, file.path(OUT_DIR, 'meta.rds'))

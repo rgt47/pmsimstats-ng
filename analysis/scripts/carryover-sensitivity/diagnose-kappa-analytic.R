@@ -44,7 +44,10 @@
 ## Usage (from the repository root):
 ##   Rscript analysis/scripts/carryover-sensitivity/diagnose-kappa-analytic.R
 ##
-## Writes output/paper10-refined/diag-kappa-analytic.rds
+## Writes output/paper10-refined/diag-kappa-analytic.rds, or
+## output/paper10-<set>/ under a parameter set other than simcore2026.
+## Both scenarios use the active parameter set; under docs/74 D4 the
+## paper's historical comparison keeps the stored simcore2026 file.
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -268,18 +271,29 @@ misfit <- map_dfr(c('stored', 'refined'), function(lab) {
 
 print(as.data.frame(res |> filter(model %in% c('M1', 'M3')) |>
   mutate(across(where(is.numeric), ~ round(.x, 4)))))
-cat('\nCorrectly specified check (expect kappa = 1, sigma_u = 10,',
-    'rho_a = 0.7):\n')
+bp_bl <- default_baseline_param()
+cat(sprintf(paste('\nCorrectly specified check (expect kappa = 1,',
+                  'sigma_u = %g, the baseline SD of the %s set, rho_a = 0.7):\n'),
+            bp_bl$sd[bp_bl$cat == 'BL'], param_set()))
 print(as.data.frame(homo_check), digits = 4)
 cat('\nPD check:\n')
 print(as.data.frame(pd_check), digits = 4)
 
-out_dir <- file.path(repo_root,
-  'analysis/scripts/carryover-sensitivity/output/paper10-refined')
-dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+## Same folder as the other paper 10 drivers: paper10-refined/ under
+## simcore2026, paper10-<set>/ (guarded) under any other set.
+out_dir <- if (param_set() == 'simcore2026') {
+  d <- file.path(repo_root,
+    'analysis/scripts/carryover-sensitivity/output/paper10-refined')
+  dir.create(d, showWarnings = FALSE, recursive = TRUE)
+  d
+} else {
+  guard_out_dir(file.path(repo_root,
+    'analysis/scripts/carryover-sensitivity/output',
+    paste0('paper10-', param_set())))
+}
 saveRDS(list(kappa = res, homo_check = homo_check, pd_check = pd_check,
              misfit = misfit, elapsed_secs = elapsed,
-             date = Sys.Date()),
+             params = param_meta(), date = Sys.Date()),
         file.path(out_dir, 'diag-kappa-analytic.rds'))
 cat(sprintf('Wrote %s (%.0f s)\n',
             file.path(out_dir, 'diag-kappa-analytic.rds'), elapsed))

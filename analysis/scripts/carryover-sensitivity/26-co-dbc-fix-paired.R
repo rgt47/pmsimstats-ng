@@ -24,7 +24,14 @@
 ## is that of simulate_cell_s7() (rho = 0.7, no dropout).
 ##
 ## Usage:
-##   Rscript analysis/scripts/carryover-sensitivity/26-co-dbc-fix-paired.R [--reps N]
+##   Rscript analysis/scripts/carryover-sensitivity/26-co-dbc-fix-paired.R \
+##     [--reps N] [--out-dir PATH] [--params published|simcore2026]
+## The stored run (2026-10-06, analysis/data/carryover-sensitivity/
+## 26-co-dbc-fix-paired-reps500.*) is simcore2026 and is still written
+## there by default under that set. Under any other set the default
+## output is analysis/data/carryover-sensitivity/<set>/co-dbc-fix/,
+## and guard_out_dir() refuses a directory written under another set.
+## Paper 01 Appendix B.4 reports the published-set run.
 
 suppressPackageStartupMessages({
   library(tibble)
@@ -43,6 +50,17 @@ args <- commandArgs(trailingOnly = TRUE)
 reps_idx <- which(args == '--reps')
 n_reps <- if (length(reps_idx) && reps_idx < length(args))
   as.integer(args[reps_idx + 1]) else 500L
+out_idx <- which(args == '--out-dir')
+## The legacy default directory is shared by many drivers, so it gets
+## no PARAM_SET marker; every other output directory is guarded.
+out_dir <- if (length(out_idx) && out_idx < length(args)) {
+  guard_out_dir(args[out_idx + 1])
+} else if (param_set() == 'simcore2026') {
+  file.path(repo_root, 'analysis/data/carryover-sensitivity')
+} else {
+  guard_out_dir(file.path(repo_root, 'analysis/data/carryover-sensitivity',
+                          param_set(), 'co-dbc-fix'))
+}
 
 seed <- 20261006L
 set.seed(seed)
@@ -146,7 +164,11 @@ hyb <- tibble(design = 'Hybrid', N = 70, c_bm = c(0.45, 0), t1half = 1.0, panel 
 grid <- bind_rows(co, hyb)
 
 cat(sprintf('%d cells, n_reps = %d\n', nrow(grid), n_reps))
-plan(multicore, workers = max(1, parallel::detectCores() - 1))
+## simrun exports SIM_CORES, the job's CPU cap; detectCores() reports
+## the host's cores.
+sim_cores <- suppressWarnings(as.integer(Sys.getenv('SIM_CORES')))
+plan(multicore, workers = if (!is.na(sim_cores) && sim_cores >= 1L)
+  sim_cores else max(1, parallel::detectCores() - 1))
 t_start <- Sys.time()
 results <- map_dfr(seq_len(nrow(grid)), function(i) {
   out <- run_cell(grid[i, ])
@@ -169,9 +191,9 @@ summary_tab <- results |>
             h_2 = mean(best_t_half == 2, na.rm = TRUE),
             .groups = 'drop')
 
-out_dir <- file.path(repo_root, 'analysis/data/carryover-sensitivity')
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 meta <- list(script = '26-co-dbc-fix-paired.R', date = Sys.time(), seed = seed,
+             params = param_meta(),
              n_reps = n_reps, elapsed_secs = elapsed, r_version = R.version.string,
              git_sha = tryCatch(system('git rev-parse --short HEAD', intern = TRUE),
                                 error = function(e) NA_character_))

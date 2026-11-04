@@ -220,7 +220,7 @@ if (!exists('E0_ISOLATION_LIB_ONLY')) {
     group_by(cell_id) |>
     summarise(min_eigenvalue = min(min_eigenvalue),
               feasible = all(feasible), .groups = 'drop')
-  dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)
+  guard_out_dir(OUT_DIR)
   saveRDS(pre, file.path(OUT_DIR, 'preflight.rds'))
   cat(sprintf('Pre-flight: %d cells, %d feasible, min eigenvalue %.4f\n',
               nrow(pre), sum(pre$feasible), min(pre$min_eigenvalue)))
@@ -305,6 +305,7 @@ if (!exists('E0_ISOLATION_LIB_ONLY')) {
 
   meta <- list(
     script = '38-run-e0-isolation.R', date = Sys.time(), reps = REPS,
+    params = param_meta(),
     smoke = SMOKE, methods = METHODS, elapsed_min_this_run = elapsed_min,
     note_de = paste('de_used is FALSE for E0, E0n and E0nc in the CO',
                     'preset, where expectancy is constant in every path.'),

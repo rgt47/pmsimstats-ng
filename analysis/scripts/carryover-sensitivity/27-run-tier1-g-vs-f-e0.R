@@ -32,7 +32,9 @@
 ##
 ## Usage:
 ##   Rscript analysis/scripts/carryover-sensitivity/27-run-tier1-g-vs-f-e0.R \
-##     [--reps R] [--n-boot B] [--cores K] [--out-dir PATH]
+##     [--reps R] [--n-boot B] [--cores K] [--out-dir PATH] \
+##     [--params published|simcore2026|fixture]
+## G10 (E7null_cr2) is fitted beside G9 since 2026-11-03.
 suppressMessages({
   library(dplyr); library(purrr); library(tibble); library(tidyr)
   library(parallel)
@@ -47,6 +49,7 @@ N_BOOT <- as.integer(argv('--n-boot', '1'))
 CORES <- as.integer(argv('--cores', Sys.getenv('SIM_CORES', '6')))
 OUT_DIR <- argv('--out-dir',
   'analysis/data/carryover-sensitivity/tier1-g-vs-f-e0')
+guard_out_dir(OUT_DIR)
 ck_dir <- file.path(OUT_DIR, 'trials')
 dir.create(ck_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -145,6 +148,7 @@ saveRDS(summary_tab, file.path(OUT_DIR, 'summary.rds'))
 meta <- list(
   script = '27-run-tier1-g-vs-f-e0.R',
   date = Sys.time(),
+  params = param_meta(),
   n_reps = REPS,
   n_boot = N_BOOT,
   elapsed_min_this_run = elapsed_min,

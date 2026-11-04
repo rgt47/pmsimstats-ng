@@ -15,17 +15,24 @@
 ##     rule.
 ##   - stop_on_nonpd = TRUE: a non-positive-definite covariance stops
 ##     generation and the replicate is recorded as failed.
-## Outputs go to output/paper10-refined/. The pre-correction outputs
-## in output/ (diag-*.rds, 2026-05-20, relabeled 2026-07-31) are kept
+## Outputs go to output/paper10-refined/ under the simcore2026
+## parameter set (the stored runs) and to output/paper10-<set>/ under
+## any other (simulation-core.R --params or PMSIM_PARAMS; docs/74),
+## which guard_out_dir() keeps apart. The pre-correction outputs in
+## output/ (diag-*.rds, 2026-05-20, relabeled 2026-07-31) are kept
 ## unchanged for comparison.
 
 P10_CFCT <- 0.2
 
 p10_out_dir <- function(repo_root) {
-  d <- file.path(repo_root,
-    'analysis/scripts/carryover-sensitivity/output/paper10-refined')
-  dir.create(d, showWarnings = FALSE, recursive = TRUE)
-  d
+  base <- file.path(repo_root, 'analysis/scripts/carryover-sensitivity/output')
+  if (param_set() == 'simcore2026') {
+    d <- file.path(base, 'paper10-refined')
+    dir.create(d, showWarnings = FALSE, recursive = TRUE)
+    d
+  } else {
+    guard_out_dir(file.path(base, paste0('paper10-', param_set())))
+  }
 }
 
 p10_model_param <- function(N, c_bm, t1half = 1.0, rho = 0.7,
@@ -52,7 +59,7 @@ p10_dgp_meta <- function(repo_root) {
                             'analysis/scripts/carryover-sensitivity'),
                    stdout = TRUE, stderr = FALSE)) > 0,
     error = function(e) NA)
-  list(c.cf1t = 0.2, c.cfct = P10_CFCT,
+  list(c.cf1t = 0.2, c.cfct = P10_CFCT, params = param_meta(),
        carryover_rule = 'decays from the last on-drug mean',
        stop_on_nonpd = TRUE, commit = commit,
        working_tree_dirty = dirty, run_date = as.character(Sys.time()),

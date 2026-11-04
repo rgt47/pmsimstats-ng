@@ -32,9 +32,12 @@
 ##   Rscript analysis/scripts/carryover-sensitivity/32-run-g9-gap-fill.R \
 ##     [--block A|B|C|all] [--sub SUB] [--reps R] [--reps-size R] \
 ##     [--reps-large R] [--n-boot B] [--cores K] [--out-dir PATH] \
-##     [--preflight] [--smoke]
+##     [--preflight] [--smoke] [--dropout-per patient|occasion|both] \
+##     [--params published|simcore2026|fixture]
 ##   --sub restricts the run to one sub-block (A1-dropout, A2-size,
 ##   B1-shape, B2-halflife, B3-meanmod, B4-rho, C1-ladder, C2-largeN).
+##   --params selects the response/baseline set (simulation-core.R);
+##   G10 (E7null_cr2) is fitted beside G9 since 2026-11-03.
 suppressMessages({
   library(dplyr); library(purrr); library(tibble); library(tidyr)
   library(parallel)
@@ -56,6 +59,7 @@ SMOKE      <- '--smoke' %in% args
 OUT_DIR <- argv('--out-dir',
   if (SMOKE) 'analysis/data/carryover-sensitivity/g9-gap-fill-smoke'
   else 'analysis/data/carryover-sensitivity/g9-gap-fill')
+guard_out_dir(OUT_DIR)
 ck_dir <- file.path(OUT_DIR, 'trials')
 dir.create(ck_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -69,14 +73,23 @@ cell_row <- function(block, sub, id, reps, ...) {
 }
 
 ## ---------------- block A ----------------
+## --dropout-per occasion restores job 31's per-occasion cells (ids
+## without '-pt'), which paper 02's heavy-missingness table still
+## reads; 'both' runs the two conventions in one job (docs/71).
+DROPOUT_PER <- argv('--dropout-per', 'patient')
+stopifnot(DROPOUT_PER %in% c('patient', 'occasion', 'both'))
+dropout_pers <- if (DROPOUT_PER == 'both') c('patient', 'occasion') else
+  DROPOUT_PER
 grid_a <- bind_rows(
-  pmap_dfr(expand_grid(rate = c(0.1, 0.2, 0.3), mech = c('MCAR', 'MAR'),
+  pmap_dfr(expand_grid(per = dropout_pers,
+                       rate = c(0.1, 0.2, 0.3), mech = c('MCAR', 'MAR'),
                        c_bm = c(0, 0.45), N = c(35, 70)),
-           function(rate, mech, c_bm, N)
+           function(per, rate, mech, c_bm, N)
              cell_row('A', 'A1-dropout',
-                      sprintf('drop-%s%.1f-cbm%.2f-N%d-pt', mech, rate, c_bm, N),
+                      sprintf('drop-%s%.1f-cbm%.2f-N%d%s', mech, rate, c_bm, N,
+                              if (per == 'patient') '-pt' else ''),
                       REPS, dropout_rate = rate, dropout_mech = mech,
-                      dropout_per = 'patient', c_bm = c_bm, N = N)),
+                      dropout_per = per, c_bm = c_bm, N = N)),
   pmap_dfr(expand_grid(t1half = c(0.5, 1), N = c(35, 70)),
            function(t1half, N)
              cell_row('A', 'A2-size',
@@ -284,13 +297,15 @@ summary_tab <- res |>
 
 cat('\nRejection rate per (cell, method); kappa = mean SE / empirical SE:\n')
 print(as.data.frame(summary_tab |>
-  filter(method %in% c('E1', 'E2', 'E7', 'E2cr2', 'E7cr2', 'E0', 'F1', 'F1A0B')) |>
+  filter(method %in% c('E1', 'E2', 'E7', 'E2cr2', 'E7cr2', 'E7null_cr2',
+                       'E0', 'F1', 'F1A0B')) |>
   select(block, cell_id, method, reject, n, nonconv, kappa) |>
   mutate(across(c(reject, nonconv, kappa), ~ round(.x, 3)))), max = 4000)
 saveRDS(summary_tab, file.path(OUT_DIR, 'summary.rds'))
 
 meta <- list(
   script = '32-run-g9-gap-fill.R', block = BLOCK, sub = SUB, date = Sys.time(),
+  dropout_per = DROPOUT_PER, params = param_meta(),
   n_reps = REPS, n_reps_size = REPS_SIZE, n_reps_large = REPS_LARGE,
   n_boot = N_BOOT, smoke = SMOKE, elapsed_min_this_run = elapsed_min,
   r_version = R.version.string,

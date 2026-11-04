@@ -80,14 +80,80 @@ build_design_set <- function(name) {
 }
 
 ## -----------------------------------------------------------------
-## Default response / baseline parameters
+## Response / baseline parameter sets (docs/70, docs/71)
 ## -----------------------------------------------------------------
+## Three named sets:
+##   published    Hendrickson et al. (2020), read from the package data
+##                extracted from commit 58b32a9 (data/extracted_rp.rda,
+##                data/extracted_bp.rda); the set paper 01 uses.
+##   simcore2026  the set every run of this core used before
+##                2026-11-03. It descends from a test fixture, not from
+##                the published code (paper 01's
+##                m1-parameter-provenance-2026-11-02.md); kept so stored
+##                runs reproduce.
+##   fixture      the tinytest fixture (inst/tinytest) itself.
+## The active set comes from a `--params NAME` argument, else the
+## PMSIM_PARAMS environment variable, else DEFAULT_PARAM_SET. It is
+## written back to PMSIM_PARAMS so worker processes inherit it, and
+## default_resp_param()/default_baseline_param() dispatch on it, so
+## their call sites need no change.
+##
+## The default stays 'simcore2026' because some fifty scripts across
+## papers 02, 10, 11 and 12 and the closed-form checks source this
+## core, and most resume into stored output directories without
+## guard_out_dir(); a 'published' default would switch all of them
+## silently. New paper 02 runs pass `--params published` (docs/71).
 
-default_resp_param <- function() {
-  ## br sd = 8 matches the docs/19 calibration target
-  ## (c_bm * sigma_BR = 0.45 * 8 = 3.6 BR units per SD of biomarker).
-  ## tv / pb values follow the Hendrickson (2020) defaults; tv sd is
-  ## bumped to 6 so the TV trajectory is not dominated by BR noise.
+PARAM_SETS <- c('published', 'simcore2026', 'fixture')
+DEFAULT_PARAM_SET <- 'simcore2026'
+
+resolve_param_set <- function() {
+  args <- commandArgs(trailingOnly = TRUE)
+  i <- which(args == '--params')
+  set <- if (length(i) && i[1] < length(args)) args[i[1] + 1] else
+    Sys.getenv('PMSIM_PARAMS', DEFAULT_PARAM_SET)
+  if (!set %in% PARAM_SETS)
+    stop(sprintf("unknown parameter set '%s' (one of: %s)", set,
+                 paste(PARAM_SETS, collapse = ', ')))
+  Sys.setenv(PMSIM_PARAMS = set)
+  set
+}
+resolve_param_set()
+
+param_set <- function() {
+  set <- Sys.getenv('PMSIM_PARAMS', DEFAULT_PARAM_SET)
+  stopifnot(set %in% PARAM_SETS)
+  set
+}
+
+## Package data are read once per process; forked workers inherit
+## the cache.
+.param_cache <- new.env(parent = emptyenv())
+read_param_data <- function(name) {
+  if (is.null(.param_cache[[name]])) {
+    e <- new.env()
+    load(here::here('data', paste0(name, '.rda')), envir = e)
+    x <- tibble::as_tibble(as.data.frame(e[[name]]))
+    attr(x, '.internal.selfref') <- NULL
+    .param_cache[[name]] <- x
+  }
+  .param_cache[[name]]
+}
+
+published_resp_param <- function() {
+  rp <- read_param_data('extracted_rp')
+  rp[match(c('tv', 'pb', 'br'), rp$cat), ]
+}
+
+published_baseline_param <- function() {
+  bp <- read_param_data('extracted_bp')
+  bp[match(c('bm', 'BL'), bp$cat), ]
+}
+
+simcore2026_resp_param <- function() {
+  ## TV takes the BR curve; SDs are the fixture's with TV raised to 6
+  ## and BR to 8 (the docs/19 target c_bm * sigma_BR = 3.6). These
+  ## are not Hendrickson's values (published TV and PB SD 10).
   tibble::tibble(
     cat  = c('tv', 'pb', 'br'),
     max  = c(10.98604, 6.50647, 10.98604),
@@ -97,12 +163,58 @@ default_resp_param <- function() {
   )
 }
 
-default_baseline_param <- function() {
+simcore2026_baseline_param <- function() {
   tibble::tibble(
     cat = c('bm', 'BL'),
     m   = c(0, 70),
     sd  = c(1, 10)
   )
+}
+
+fixture_resp_param <- function() {
+  rp <- simcore2026_resp_param()
+  rp$sd <- c(5, 2, 5)
+  rp
+}
+
+fixture_baseline_param <- function() simcore2026_baseline_param()
+
+default_resp_param <- function() {
+  switch(param_set(),
+         published   = published_resp_param(),
+         simcore2026 = simcore2026_resp_param(),
+         fixture     = fixture_resp_param())
+}
+
+default_baseline_param <- function() {
+  switch(param_set(),
+         published   = published_baseline_param(),
+         simcore2026 = simcore2026_baseline_param(),
+         fixture     = fixture_baseline_param())
+}
+
+## Parameter provenance for a driver's meta.rds.
+param_meta <- function() {
+  list(param_set = param_set(),
+       resp_param = default_resp_param(),
+       baseline_param = default_baseline_param())
+}
+
+## Refuses to reuse an output directory, and its per-replicate
+## checkpoints, that was written under a different parameter set.
+## A directory with no marker predates the sets and counts as
+## 'simcore2026'.
+guard_out_dir <- function(out_dir) {
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+  marker <- file.path(out_dir, 'PARAM_SET')
+  has_files <- length(setdiff(list.files(out_dir), 'PARAM_SET')) > 0
+  prev <- if (file.exists(marker)) readLines(marker, n = 1L) else
+    if (has_files) 'simcore2026' else NA_character_
+  if (!is.na(prev) && prev != param_set())
+    stop(sprintf("%s holds output under parameter set '%s'; this run uses '%s'. Use another --out-dir.",
+                 out_dir, prev, param_set()))
+  writeLines(param_set(), marker)
+  invisible(out_dir)
 }
 
 ## -----------------------------------------------------------------
@@ -226,6 +338,15 @@ prepare_long_data <- function(dat, design_set, carryover_t1half,
     ) |>
     mutate(ptID = paste(path, ptID, sep = '_')) |>
     filter(!is.na(Sx))
+
+  ## bm enters the analysis centered at the DGP mean and in SD units,
+  ## so bm serves as bmc and every coefficient and truth value
+  ## (theta = -c_bm * sigma_BR) is per biomarker SD under any
+  ## parameter set. The map is affine, so tests of bm:Dbc are
+  ## unchanged; under simcore2026 (mean 0, SD 1) it is the identity.
+  bp <- default_baseline_param()
+  dat_long$bm <- (dat_long$bm - bp$m[bp$cat == 'bm']) /
+    bp$sd[bp$cat == 'bm']
 
   dat_long
 }
@@ -1153,9 +1274,9 @@ simulate_cell_s7 <- function(cell, n_reps,
 
 ## -----------------------------------------------------------------
 ## F-family analysis models (docs/57, docs/62): the richer model
-## Y ~ bmc + t + Dbc + bmc:Dbc + De + bmc:De. bm is already centered
-## at 0 by the DGP's baseline_param (bm_m = 0), so bm serves as bmc
-## directly. De requires prepare_long_data() above to carry the
+## Y ~ bmc + t + Dbc + bmc:Dbc + De + bmc:De. prepare_long_data()
+## centers bm at the DGP mean and scales it to SD units, so bm serves
+## as bmc directly. De requires prepare_long_data() above to carry the
 ## expectancy column, which it now does. F1 fixes t1/2^a at the
 ## project's policy value (0.2 week, CLAUDE.md); F1A selects it by
 ## AIC with the interaction already in the model (the liberal
@@ -1409,7 +1530,8 @@ simulate_cell_f <- function(cell, n_reps, n_boot = 1L,
 ## dropout, neither used by any cell this function has been run on.
 simulate_cell_combined <- function(cell, n_reps, n_boot = 1L,
                                    g_specs = c('E1', 'E2', 'E3', 'E7', 'E9',
-                                              'E1cr2', 'E3cr2', 'E2cr2', 'E7cr2'),
+                                              'E1cr2', 'E3cr2', 'E2cr2', 'E7cr2',
+                                              'E7null_cr2'),
                                    stop_on_nonpd = TRUE) {
   design_set <- build_design_set(cell$design)
   resp_param     <- default_resp_param()

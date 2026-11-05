@@ -39,7 +39,8 @@ m6a <- read.csv(file.path('..', '..', 'data', 'quick-sim',
 m6a_p <- sum(m6a$rej) / sum(m6a$reps)
 ## Commit cited in Availability of data and materials.
 render_sha <- tryCatch(
-  system2('git', c('rev-parse', '--short', 'HEAD'), stdout = TRUE,
+  system2('git', c('describe', '--always', '--dirty', '--abbrev=9'),
+          stdout = TRUE,
           stderr = FALSE),
   error = function(e) 'unknown', warning = function(w) 'unknown')
 ```
@@ -65,8 +66,8 @@ design with carryover and judge each extension by five criteria.
 paired-difference interaction statistic under the original DGP and
 the extensions. We derive a Schur-complement bound on the feasible
 interaction strength. We verify them by Monte Carlo simulation,
-including runs of the original code, and test ten analyses against a
-prognostic biomarker.
+including runs of the original code, and fit fourteen analyses
+against a prognostic biomarker, ten of which are reported.
 
 **Results.** The original DGP holds the biomarker-response correlation
 constant after first exposure. With any carryover the on-drug and
@@ -88,7 +89,9 @@ rule with carryover the bound is higher, because the correlation then
 stays constant off drug. The original effect size of 0.6 therefore
 relied on repaired matrices in part of the original grid. A separable
 AR(1) structure at serial
-correlation 0.7 raises the bound to 0.474. A prognostic
+correlation 0.7, a conventional value, raises the bound to 0.474. A
+PTSD symptom series suggests a slower decay, under which the bound
+would be lower. A prognostic
 biomarker with a pathway absent at baseline makes analyses that share
 the biomarker effect with baseline anticonservative.
 
@@ -156,8 +159,11 @@ the published value. Prazosin and blood pressure therefore serve here
 as a worked example for the units of the planning section, not as an
 established predictive biomarker.
 
-Closed-form power calculations exist only for simplified versions of
-these designs [@wang2019; @senn2002]. Power is therefore estimated by
+Recent reviews cover the design and analysis of N-of-1 trials,
+including Bayesian models for series of trials
+[@duan2022personalized; @schmid2022bayesian]. Closed-form power
+calculations exist only for simplified versions of these designs
+[@wang2019; @senn2002]. Power is therefore estimated by
 simulating trials from a data-generating process (DGP) and analyzing
 each simulated trial [@morris2019simulation]. Several simulators of
 N-of-1 and aggregated N-of-1 data exist. Percha et al. [@percha2019]
@@ -167,7 +173,9 @@ cycles under compound symmetry or AR(1) with a carryover effect to
 compare analyses. Blackston et al. [@blackston2019] and Gärtner et al.
 [@gartner2023] simulate aggregated series with carryover to compare
 designs and estimators. None of these four represents a baseline
-biomarker that modifies the drug response. Grenet et al. [@grenet2020] simulate
+biomarker that modifies the drug response. Tueller et al.
+[@tueller2022] estimate power for idiographic within-subject trials by
+simulation. Grenet et al. [@grenet2020] simulate
 crossover and parallel-group trials with a binary predictive biomarker.
 They encode it as a mean-term interaction. In single-case research,
 multilevel models with moderators of the intervention effect are
@@ -198,13 +206,15 @@ The original DGP also encodes the predictive biomarker in a
 distinctive way. Statistical models and sample-size methods for N-of-1
 and crossover designs usually represent treatment-effect heterogeneity
 as random participant-by-treatment variation
-[@senn2016mastering; @araujo2016; @senn2019samplesize; @zucker1997].
+[@senn2004individual; @senn2016mastering; @araujo2016;
+@senn2011individual; @senn2019samplesize; @zucker1997].
 The original DGP instead places the biomarker in the same multivariate
 normal distribution as the response components. The biomarker has a
 nonzero correlation $c_{bm}$ with the drug response at on-drug visits.
 Without carryover it has zero correlation elsewhere. We call $c_{bm}$
-the biomarker-response correlation. A predictive biomarker is then one
-whose association with the outcome differs between on-drug and
+the biomarker-response correlation. A predictive biomarker, a
+moderator of the treatment effect [@kraemer2002moderators], is then
+one whose association with the outcome differs between on-drug and
 off-drug visits. The parameterization keeps the marginal distribution
 of the drug response fixed. It expresses the strength of the
 interaction as a correlation. We call this the correlation encoding of
@@ -238,35 +248,44 @@ visit. Its mean would carry the design effects and an interaction term
 $\beta\, B_i D_{it}$. Its residual would be compound symmetric or
 AR(1). Most simulators of crossover and N-of-1 data use that form
 [@chen2014; @wang2019], and the analysis model
-assumes it. It is adequate when the question is the main effect. It is
-not adequate for the questions this series asks, for four reasons.
+assumes it. It is adequate when the question is the main effect. For
+the questions this series asks, the joint-distribution form of the
+original DGP differs from it in four ways. The simple form stays
+usable: a mean model with a random participant-by-treatment slope
+[@senn2016mastering; @araujo2016] is the conditional equivalent of the
+joint-distribution form (Discussion).
 
-1. **Carryover would be whatever the analyst specifies.** In the
-   simple form carryover is a mean shift added at off-drug visits.
-   Whether the design still identifies the interaction under carryover
-   depends on how the biomarker's association with the response
-   persists after discontinuation. The simple form has no such
-   association, so the question cannot be studied.
-2. **The interaction would be only a conditional mean effect.** With
-   a mean term the residual variance of the drug response is the same
-   at every biomarker value. A predictive biomarker that explains part
-   of the between-person variation in drug response implies a
-   responder class in the population. That implies a correlation
-   between the biomarker and the drug response. The simple form has no
-   parameter for it (Appendix A.6).
-3. **A prognostic pathway could not be generated.** A biomarker may
-   also be associated with the placebo response or with the natural
-   history of the condition. Such a biomarker enters the observed
-   outcome through a pathway the analysis cannot see. Whether an
-   analysis keeps its nominal size under that feature can only be
-   tested by a DGP that generates the pathways separately.
-4. **Existence and identifiability would be invisible.** In the simple
-   form every parameter combination yields a valid distribution. The
-   design enters only through the regressor pattern. Whether the
-   simulated effect sizes are jointly possible, and how much of the
-   interaction the design can see, are questions about the joint
-   distribution of the biomarker and the response components. They
-   have closed-form answers only when that distribution is specified.
+1. **How the moderation persists after discontinuation is stated
+   separately from the mean carryover.** Carryover in crossover trials
+   is usually modeled as a mean effect [@jones2014crossover], a model
+   whose usefulness has been questioned [@senn1992carryover;
+   @senn1998robust]. In the
+   simple form the
+   analyst adds it as a term such as $\beta B_i D_{bc,it}$. In the
+   joint-distribution form it is the correlation profile $g_t$. Either
+   is a modeling choice. The joint-distribution form makes the choice
+   visible in the same quantity that sets the effect size.
+2. **The interaction is expressed as a share of between-person
+   variation.** With the marginal variance of the drug response held
+   fixed, $c_{bm}^2$ is the share of the on-drug drug-response
+   variance that the biomarker explains linearly. Appendix A.6 relates
+   it to a responder-class model. A mean model with a random
+   participant-by-treatment slope implies the same kind of quantity
+   through the ratio of the fixed slope to the slope variance. Neither
+   form makes the residual variance depend on the biomarker.
+3. **Prognostic pathways are correlations in the same matrix.** A
+   biomarker may also be associated with the placebo response or with
+   the natural history of the condition. In the joint-distribution
+   form such a pathway is a further correlation in the biomarker row,
+   and it shares one feasibility condition with $c_{bm}$ (Stage 6). A
+   pathway can also be generated as a mean shift, as the stress test
+   does for the growing natural-history pathway (Appendix B.5).
+4. **Existence becomes a question with an answer.** In the simple form
+   every parameter combination yields a valid distribution. In the
+   joint-distribution form, with the marginal variances fixed, it does
+   not. Whether the simulated effect sizes are jointly possible, and
+   how much of the interaction the design can see, then have
+   closed-form answers.
 
 The original DGP specifies it. The biomarker and the three response
 components at every visit form one multivariate normal vector. The
@@ -275,8 +294,11 @@ with the drug response at on-drug visits, and at a value set by the
 exposure state at off-drug visits. The components are serially
 correlated in calendar weeks. The components are cross-correlated
 through a common block. Three results follow. The largest feasible
-interaction is a property of the design, not a number found by trial
-and error. We call it the feasibility bound. The power of a
+interaction has a closed form. It depends
+on the design and on two modeling choices: the marginal drug-response
+variance is held fixed, and the drug-response component keeps its
+full variance and serial correlation at off-drug and pre-exposure
+visits. We call it the feasibility bound. The power of a
 paired-difference statistic has a closed form. The design enters it
 through the on/off correlation difference, the on-drug correlation
 minus the mean off-drug correlation. The residual structure the
@@ -294,7 +316,7 @@ term is routine [@chen2014; @wang2019]. Decomposing a clinical
 trajectory into disease progression, placebo response and drug action
 is the pharmacometric convention [@holford2015]. Separable (Kronecker)
 covariances for several response variables measured repeatedly are an
-established model [@galecki1994]. The original DGP combined these
+established model [@galecki1994; @naik2001kronecker]. The original DGP combined these
 parts. It placed a baseline variable in the joint distribution of the
 latent response components, with a correlation indexed by each visit's
 exposure state. Designs for heterogeneity analyses in cluster
@@ -351,7 +373,9 @@ therefore falls by orders of magnitude within a day of the last dose.
 We assume a symptom-level half-life of 0.1 to 0.2 week (17 to 34
 hours), or 7 to 15 plasma half-lives, as the pharmacological range.
 No symptom-response half-life for prazosin in PTSD has been reported,
-so the range is an assumption. The Results
+so the range is an assumption. A drug's effect need not decline with
+its plasma concentration [@holford1981dose], so the plasma half-life
+is only a starting point. The Results
 therefore cover 0 to 2 weeks and label half-lives of 0.5 week and
 above as behavioral scenarios. The drug is re-titrated after an
 interruption, which bears on how the DGP treats re-exposure (Stage 3).
@@ -470,7 +494,10 @@ Analyses that contrast on-drug with off-drug visits through a binary
 drug indicator estimate this quantity only when no moderation remains
 off drug. Under carryover they estimate an attenuated on-minus-off
 contrast. Analyses with an exposure-decayed indicator $D_{bc,it}$ at
-the true half-life recover the on-drug moderation. At another analysis
+the true half-life recover the on-drug moderation, because the
+decaying correlation and $D_{bc,it}$ share one exponential decay. Under
+the Weibull decay option, or with a correlation half-life that differs
+from the carryover half-life, they do not. At another analysis
 half-life, fixed or chosen from the data, they recover it only
 approximately. Table
 \@ref(tab:estimands) states which analysis in this paper targets which
@@ -562,7 +589,8 @@ correlation profile. It is a bound on the DGP, not on any analysis.
 ## Simulation studies
 
 We designed and report the simulations following the ADEMP structure
-of Morris et al. [@morris2019simulation]: aims, data-generating
+of Morris et al. [@morris2019simulation; @siepe2024simulation]: aims,
+data-generating
 mechanisms, estimands, methods and performance measures. There are
 three studies (Table \@ref(tab:ademp)). The scripts are listed under
 Availability of data and materials. The closed-form calculations of
@@ -652,7 +680,10 @@ DGP as defined (Table \@ref(tab:spec)).
 
 **Software.** R 4.6.1, with lme4 2.0.1 and lmerTest 3.2.1 for the
 original pipeline, nlme 3.1-169, mmrm 0.3.17, clubSandwich 0.7.0 and
-MASS 7.3-65.
+MASS 7.3-65. In study 3 the original analysis is fitted with `mmrm`
+and a compound-symmetry covariance with Satterthwaite inference, not
+with `lmer`. The two coincide when the within-person correlation is
+non-negative.
 
 **Exploratory status.** The stress test is exploratory. Its cells and
 analyses were written down as a working protocol in `docs/46` of the
@@ -664,7 +695,10 @@ counted as non-rejections and are now excluded from the denominator,
 a change of at most 0.0025 in any rate. The study also compared the
 analyses' power and selected one by a decision rule. That selection
 was revised after results, is post hoc, and is reported in the
-project's documentation (`docs/56`), not here. This paper uses the
+project's documentation (`docs/56`), not here. Such post hoc changes
+can favor one method in comparative simulation studies
+[@pawel2024pitfalls], which is a further reason not to rank the
+analyses here. This paper uses the
 stress test only for what it shows about the DGP: which analyses are
 valid under a prognostic biomarker, and what the optional features do
 to size and power.
@@ -702,13 +736,23 @@ person-level factor. The biomarker therefore cannot be correlated with
 the on-drug visits alone without being correlated, through that
 factor, with the off-drug visits as well. The bound is low because the
 correlation profile switches between visits that the structure ties
-together.
+together, and because the drug-response component keeps its full
+variance at the off-drug visits.
 
 We extended the DGP to check feasibility and stop. When the matrix is
 not positive definite, the extended DGP reports the cell as infeasible
 instead of changing it (Appendix B.2). The package function
 `buildSigma()` now does so by default (Appendix B.5). The choice rests
-on the existence criterion. One consequence is that the original
+on the existence criterion. A repair need not be the unstructured
+nearest matrix. A shrinking repair can keep the response block fixed
+and change only the biomarker row [@higham2016shrinking]. Such a
+repair simulates a smaller $c_{bm}$ than the one requested. The stop
+reports the infeasibility to the user.
+The same feasibility question arises for target correlations in
+NORTA generation [@ghosh2003norta]. Correlation matrices built from
+partial correlations are positive definite by construction
+[@joe2006generating], but they do not fix the target correlations a
+design requires. One consequence is that the original
 effect size of 0.6 can rarely be simulated. Table \@ref(tab:nonpd)
 shows it infeasible in 75% of the extended grid under the extended
 DGP, and in every Hybrid cell.
@@ -742,9 +786,24 @@ tab <- data.frame(
   grid = c('Figure 4 grid of the original study, $c_{bm} \\in \\{0, 0.3, 0.6\\}$ (81)',
            'Extended grid, $c_{bm} = 0.25$ (40)', 'Extended grid, $c_{bm} = 0.3$ (40)',
            'Extended grid, $c_{bm} = 0.6$ (40)'),
-  orig = c('20 (25\\%)', '0 (0\\%)', '12 (30\\%)', '12 (30\\%)'),
-  ref8 = c('21 (26\\%)', '0 (0\\%)', '0 (0\\%)', '30 (75\\%)'),
-  ref7 = c('21 (26\\%)', '0 (0\\%)', '0 (0\\%)', '30 (75\\%)'))
+  orig = NA, ref8 = NA, ref7 = NA)
+npd <- read.csv(file.path('..', '..', 'data', 'quick-sim',
+                          'carryover-closed-form', 'rho-stage',
+                          'nonpd-by-rho.csv'))
+npd_col <- function(con, r) {
+  x <- npd[npd$construct == con & npd$rho == r, ]
+  pick <- function(g, cb) {
+    y <- if (is.na(cb)) x[x$grid == g, ] else
+      x[x$grid == g & !is.na(x$c.bm) & x$c.bm == cb, ]
+    stopifnot(nrow(y) == 1)
+    sprintf('%d (%d\\%%)', y$repaired, y$pct)
+  }
+  c(pick('published', NA), pick('extended', 0.25),
+    pick('extended', 0.3), pick('extended', 0.6))
+}
+tab$orig <- npd_col('CS', 0.8)
+tab$ref8 <- npd_col('sep', 0.8)
+tab$ref7 <- npd_col('sep', 0.7)
 knitr::kable(tab, booktabs = TRUE, escape = FALSE,
   col.names = c('Grid (number of matrices)',
                 'Original DGP (constant correlation, compound symmetry, $\\rho_{cs} = 0.8$)',
@@ -1262,9 +1321,13 @@ the pharmacology, as a judgment. The numerical consequence is at most
 ## Stage 4. Serial correlation
 
 The original DGP uses compound symmetry. Visits one week apart and
-sixteen weeks apart have the same correlation of 0.8. We have no PTSD
-symptom series with which to decide whether that overstates long-lag
-correlation, and we do not claim that it does. Both compound symmetry
+sixteen weeks apart have the same correlation of 0.8. The one PTSD
+symptom series available to us, the total CAPS score in CSP 563
+(planning section), has a correlation that decays slowly with lag.
+Matching its 4- and 20-week correlations within this DGP's structure
+would need $\rho$ of about 0.87 to 0.91 per week (`docs/69`). That
+series is a total score, so it constrains the component-level $\rho$
+without determining it. Both compound symmetry
 and AR(1) are used in N-of-1 simulation [@chen2014]. Serial
 correlation has been discussed as a design consideration for
 personalized studies [@schork2022]. Two elements are open: the form of
@@ -1277,8 +1340,13 @@ as a convention only, not an estimate. Under the adopted separable
 form the original effect size of 0.3 is already feasible at
 $\rho = 0.8$ (bound 0.440), so feasibility at 0.3 does not determine
 the value. Of the four values in Table \@ref(tab:rhostage), 0.7 has
-the largest separable feasibility bound (0.474). The value should be
-read with the sensitivity range of that table.
+the largest separable feasibility bound (0.474). That keeps the
+planning effect sizes feasible but says nothing about whether 0.7 is
+right, and the value lies below the range the CSP 563 series suggests. Above 0.7, a larger $\rho$ lowers the feasibility bound and
+raises E9 power (Table \@ref(tab:rhostage), 0.7 against 0.8). If that
+continues into the range CSP 563 suggests, the planning results at
+$\rho = 0.7$ overstate the largest feasible effect and the sample size
+needed. The table stops at 0.8 and does not cover that range.
 
 Table \@ref(tab:rhostage) shows what $\rho$ does under compound
 symmetry and under the structure adopted in Stage 5, for
@@ -1449,18 +1517,23 @@ The original DGP correlates the biomarker with the drug response only.
 A biomarker that is also prognostic, through an association with the
 natural history, the placebo response or baseline severity, cannot be
 represented. A simulation built on the original DGP therefore cannot
-show whether an analysis stays valid under such a biomarker.
+show whether an analysis stays valid under such a biomarker. A
+prognostic effect of the biomarker is known to bias tests of a
+biomarker-by-treatment interaction when the analysis model omits or
+misrepresents it [@haller2018; @kent2020path].
 
 The extended DGP adds optional correlations of the biomarker with the
-natural-history component or the placebo-response component (constant
-over visits, or growing along the natural-history curve) and with
-baseline severity. It adds phase-specific measurement error, a Weibull
+natural-history component (constant over visits) or the
+placebo-response component, a mean shift of the natural-history
+component that grows along its curve, and a correlation with baseline
+severity. It adds phase-specific measurement error, a Weibull
 decay form and monotone dropout as further options.
 
 **A prognostic biomarker.** We simulated a correlation of 0.3 between
-the biomarker and the natural-history component (constant, or growing
-along its curve), the placebo-response component, or baseline
-severity, with no interaction. Analyses that keep baseline as an
+the biomarker and the natural-history component, the
+placebo-response component or baseline severity, and a growing mean
+shift of the natural-history component of 0.3 of its SD per SD of
+biomarker, with no interaction. Analyses that keep baseline as an
 outcome row use one biomarker main effect $\beta_B$ for baseline and
 for the off-drug visits. When the biomarker is prognostic through a
 pathway that is absent at baseline, those two associations differ.
@@ -1580,7 +1653,7 @@ knitr::kable(tab, booktabs = TRUE, escape = FALSE, row.names = FALSE,
   linesep = '',
   col.names = c('Analysis', 'Natural history, constant', 'Natural history, growing',
                 'Placebo response', 'Baseline severity'),
-  caption = 'Null rejection rates under a prognostic biomarker (prognostic correlation 0.3, $c_{bm} = 0$), 1,000 replicates per cell (two-MCSE band 0.036 to 0.064 for a single cell). Second run of study 3: carryover decaying from the last on-drug mean (the extended DGP) and randomized path allocation. Rates above 0.075 in bold. The first run is in Table \\ref{tab:prognosticfirst}; the per-cell changes are given in the text.') |>
+  caption = 'Null rejection rates under a prognostic biomarker ($c_{bm} = 0$). Each pathway has strength 0.3: a correlation of 0.3 with the natural-history component (constant), the placebo-response component or baseline severity, and for the growing natural-history pathway a mean shift of the natural-history component of 0.3 of its SD (3 points) per SD of biomarker at the end of its curve, growing along the curve. 1,000 replicates per cell (two-MCSE band 0.036 to 0.064 for a single cell). Second run of study 3: carryover decaying from the last on-drug mean (the extended DGP) and randomized path allocation. Rates above 0.075 in bold. The first run is in Table \\ref{tab:prognosticfirst}; the per-cell changes are given in the text.') |>
   kableExtra::kable_styling(font_size = 9) |>
   kableExtra::column_spec(1, width = '5.5cm') |>
   kableExtra::column_spec(2:5, width = '2.1cm')
@@ -1719,7 +1792,14 @@ half-life chosen by AIC, the CAR(1) model rejected
 `r ss_f(ss_cmax(ss2, 'F1A')$reject)`, under
 `r ss_cell[ss_cmax(ss2, 'F1A')$label]`. Of the analyses in this
 paragraph, `r ss_list(ss_short[intersect(c('R', 'A', 'DS', 'F1A'), ss_above)])`
-lie above the pooled band.
+lie above the pooled band. Single-cell flags should be judged against
+the number of comparisons. With `r length(ss_an)` reported analyses and 15
+null cells, about
+`r round(length(ss_an) * 15 * 2 * pnorm(-2))` analysis-cell pairs would
+fall outside a two-MCSE band by chance at nominal size. The pairs are
+not independent, since all analyses share the same trials. A single
+exceedance, such as the free-baseline model under the growing pathway,
+is therefore weak evidence on its own.
 
 **The options.** Table \@ref(tab:options) shows what each optional
 feature did to size and power for three analyses: the original
@@ -2042,6 +2122,22 @@ closed form, so this comparison is the measured difference between
 the paired-difference approximation and the analysis a trial would
 use.
 
+**When these sample sizes apply.** The G10 sample sizes assume that
+the biomarker has no prognostic pathway. G10 was not run in the
+prognostic cells of the stress test. Its nearest relatives there were
+the CAR(1) model with CR2 at the fixed half-life, which rejected
+`r ss_f(ss_m2['S', 'prog-TV-const'])` and
+`r ss_f(ss_m2['S', 'prog-PB'])` under the constant natural-history
+and placebo pathways, and the same model with the half-life chosen by
+AIC, which rejected `r ss_f(ss_m2['DS', 'prog-TV-const'])` and
+`r ss_f(ss_m2['DS', 'prog-PB'])` (Table \@ref(tab:prognostic)). G10
+has no expectancy terms and keeps baseline as an outcome row, so it is
+likely to be affected in the same way. This has not been tested. Only
+the expectancy-term analyses kept their size in those cells (Stage 6).
+A trial in which the biomarker may be prognostic through a pathway
+absent at baseline should be planned for such an analysis, at some
+cost in power.
+
 ```{r planning}
 tab <- data.frame(
   design = c('Hybrid', '', '', 'OL+BDC', '', '', 'Crossover', '', ''),
@@ -2186,7 +2282,9 @@ The correlation encoding has four strengths.
 
 - **One interpretable parameter.** The interaction strength is a
   single correlation. Its square, $c_{bm}^2$, is the share of on-drug
-  drug-response variance the biomarker explains.
+  drug-response variance the biomarker explains, the systematic part of
+  treatment-effect variation in the sense of Ding et al.
+  [@ding2019decomposing].
 - **A reduced form of responder heterogeneity.** Suppose participants
   fall into two latent responder classes, and both the biomarker and
   the drug response differ between classes. Then class membership
@@ -2314,6 +2412,12 @@ the following.
   design only, by simulation at `r n80_k` values of $N$ per cell, and
   it carries Monte Carlo error that Table \@ref(tab:n80g10) does not
   show.
+- **The planning results assume $\rho = 0.7$ and no prognostic
+  pathway.** The one available PTSD series suggests a slower decay
+  than $\rho = 0.7$ (Stage 4), and the planning tables do not extend
+  into that range. G10 was not tested under a prognostic pathway, and
+  its nearest relatives did not keep their size there (planning
+  section).
 - **At pharmacological half-lives the extended DGP shows no carryover
   effect.** The on/off correlation difference is within 0.01 of 1 at
   0.2 week. The DGP therefore tests carryover only at half-lives of
@@ -2356,7 +2460,9 @@ proved monotone for the path-stratified paired-difference statistic
 and was checked on a grid for the pooled statistic. A serial
 correlation of 0.7 and a separable AR(1) structure allow a
 biomarker-response correlation of 0.47, or 3.8 symptom points per SD
-of biomarker at the original drug-response SD. The planning table
+of biomarker at the original drug-response SD. The value 0.7 is a
+convention, and the one available PTSD series suggests a slower decay,
+under which the bound would be lower. The planning table
 quantifies the power at matched strength, for the paired-difference
 statistic in closed form and for the recommended mixed-model analysis
 G10 by simulation. At the closed-form sample size, G10 power was
@@ -2475,8 +2581,10 @@ code, data files and table headings.
 - **Prognostic correlation** ($c_{PB}$, $c_{TV}$, $c_{BL}$;
   `prog-PB`, `prog-TV-const`, `prog-TV-grow`, `prog-BL` in data
   labels): a correlation of the biomarker with the placebo-response
-  component, with the natural-history component (constant over visits,
-  or growing along its curve), or with baseline severity.
+  component, with the natural-history component (constant over
+  visits), or with baseline severity. The growing natural-history
+  pathway (`prog-TV-grow`) is not a correlation but a mean shift of the
+  natural-history component that grows along its curve.
 - **Expectancy-term model**: the random-intercept CAR(1) analysis that
   adds the expectancy and a biomarker-by-expectancy term to the mean
   model.
@@ -2504,18 +2612,21 @@ code, data files and table headings.
 # Abbreviations {-}
 
 ADEMP: aims, data-generating mechanisms, estimands, methods,
-performance measures; AIC: Akaike information criterion; BDC:
-blinded discontinuation; BL: baseline
-severity; BR: drug-response component; CAPS: Clinician-Administered
-PTSD Scale; CAR(1): continuous-time first-order autoregressive
-correlation; CO: crossover; CR2: bias-reduced cluster-robust variance
-estimator; CS: compound symmetry; DGP: data-generating process; E9,
-E9b: the paired-difference interaction statistic on post-baseline
-visits, and with baseline counted as an off-drug visit; MCSE: Monte
-Carlo standard error; OL: open label; OL+BDC: open label followed by
-blinded discontinuation; PB: placebo-response component; PD: positive
-definite; PTSD: post-traumatic stress disorder; TV: natural-history
-component.
+performance measures; AIC: Akaike information criterion; AR(1):
+first-order autoregressive; BDC: blinded discontinuation; BL:
+baseline severity; BR: drug-response component; CAPS:
+Clinician-Administered PTSD Scale; CAR(1): continuous-time
+first-order autoregressive correlation; CI: confidence interval; CO:
+crossover; CR2: bias-reduced cluster-robust variance estimator; CS:
+compound symmetry; CSP: Cooperative Studies Program; DGP:
+data-generating process; E9, E9b: the paired-difference interaction
+statistic on post-baseline visits, and with baseline counted as an
+off-drug visit; MCSE: Monte Carlo standard error; ML: maximum
+likelihood; OL: open label; OL+BDC: open label followed by blinded
+discontinuation; PB: placebo-response component; PTSD: post-traumatic
+stress disorder; REML: restricted maximum likelihood; SD: standard
+deviation; SE: standard error; TV: natural-history component; VA:
+Department of Veterans Affairs.
 
 # Declarations {-}
 
@@ -2528,7 +2639,7 @@ study uses simulated data only.
 are in the pmsimstats-ng repository
 (`https://github.com/rgt47/pmsimstats-ng`). A tagged release with a
 persistent identifier will be deposited at submission. Until then,
-cite commit `r render_sha`, from which this version was rendered.
+cite commit `r sub('-dirty$', '', render_sha)`, from which this version was rendered`r if (grepl('-dirty$', render_sha)) ' with uncommitted changes; a submitted version must be rendered from a clean commit' else ''`.
 
 - the closed-form calculations, in
   `analysis/scripts/quick-sim/carryover-closed-form/01-e9-closed-form.R`,
@@ -2556,7 +2667,13 @@ cite commit `r render_sha`, from which this version was rendered.
   `17-published-th01-more-reps.R`, and the repair counts in
   `11-pd-repair-count.R`;
 - the stress test, in
-  `analysis/scripts/quick-sim/carryover-closed-form/11-strawman-stress-test.R`;
+  `analysis/scripts/quick-sim/carryover-closed-form/11-strawman-stress-test.R`.
+  The second run is reproduced with `--carryover anchored --allocation
+  random --analysis-half-life 0.5`, and the first with `--carryover
+  recursive --allocation fixed --analysis-half-life 0.5`, each followed
+  by the same command with `--extra` and with `--extra2` added. The
+  script's default analysis half-life is now 0.2 week, so the flag is
+  needed;
 - the original code, at
   `github.com/rchendrickson/pmsimstats`, commit 58b32a9.
 
@@ -2649,7 +2766,11 @@ $r/\sqrt{1 - r^2}$.
 Pooling paths with a common intercept adds the between-path variation
 in mean contrast to the residual variance. In the Hybrid design it is
 under 0.7% of the total. Power is the noncentral-$t$ tail probability
-averaged over the $\chi^2$ law of $\mathrm{SS}_B$.
+averaged over the $\chi^2$ law of $\mathrm{SS}_B$. For the pooled
+statistic this is an approximation. It treats the between-path
+differences in mean and slope as extra residual variance and ignores
+the differences in residual variance between paths. The per-path
+result is exact.
 
 ## A.3 Monotonicity under the decaying correlation {-}
 
@@ -2707,11 +2828,13 @@ $\sqrt{1 - c_{bm}^2 A_{\tilde g\tilde g}}$. The $p$ and $q$ patterns
 are structurally identical, so $c_{PB}$ and $c_{TV}$ have the same
 bounds. A design's bound is the minimum over its paths. The
 off-diagonal entries of $A$ are negative at the extended DGP's values,
-so the correlations are mildly complementary. A biomarker correlated
-with the drug response already implies a small correlation with the
-other components. An explicit correlation of the same sign therefore
-uses less of the feasible region than it would if the components were
-independent.
+so the correlations are mildly complementary. The DGP sets the
+biomarker's marginal correlations with the other components to zero.
+The negative entries of $A$ reflect partial association: given its
+correlation with the drug response, the biomarker's partial
+correlation with the other components is not zero. An explicit
+correlation of the same sign therefore uses less of the feasible
+region than it would if the components were independent.
 
 **The shared biomarker effect.** Let $s_0$, $s_{\text{off}}$ and
 $s_{\text{on}}$ be the true slopes of $Y$ on $B$ at baseline, at

@@ -1830,8 +1830,8 @@ pg_n80_range <- pend(have_pg, fmt_range(pg_n80$power))
 pg_n80_n <- pend(have_pg, nrow(pg_n80))
 pg_cap_range <- pend(have_pg, fmt_range(pg_cap$power))
 pg_cap_n <- pend(have_pg, nrow(pg_cap))
-pg_min_n80 <- pend(have_pg, sprintf('%.3f',
-  min(pg_alt$power[pg_alt$N_label == 'N80_E9'])))
+## Uncapped cells only: a capped cell ran below the E9 sample size.
+pg_min_n80 <- pend(have_pg, sprintf('%.3f', min(pg_n80$power)))
 pg_nonconv_max <- pend(have_pg, sprintf('%.3f', max(pg$nonconv)))
 pg_nonconv_pct <- pend(have_pg, sprintf('%.1f', 100 * max(pg$nonconv)))
 
@@ -1942,7 +1942,7 @@ same cell it is `r pg_pow('Crossover', 0.25, 0.2)` (MCSE
 `r e9_fmt('Crossover', 0.25, 0.2)`. Third, at the E9 sample size for
 80 percent power, G10 power is `r pg_n80_range` in the `r pg_n80_n`
 uncapped cells, and `r pg_cap_range` in the `r pg_cap_n` cells that
-ran at $N = 400$. `r if (!have_pg) PENDING else if (pg_conservative) paste0('The closed-form E9 rule is therefore conservative for G10: a trial sized by Table \\@ref(tab:planning) and analyzed with G10 had power of at least ', pg_min_n80, ' in every cell simulated.') else sprintf('The closed-form E9 rule is therefore not conservative for G10 in every cell: in %d of the %d uncapped cells G10 power at the E9 sample size is more than two Monte Carlo SEs below 0.80.', nrow(pg_short), nrow(pg_n80))`
+ran at $N = 400$. `r if (!have_pg) PENDING else if (pg_conservative) paste0('The closed-form E9 rule is therefore conservative for G10: a trial sized by Table \\@ref(tab:planning) and analyzed with G10 had power of at least ', pg_min_n80, ' in every uncapped cell.') else sprintf('The closed-form E9 rule is therefore not conservative for G10 in every cell: in %d of the %d uncapped cells G10 power at the E9 sample size is more than two Monte Carlo SEs below 0.80.', nrow(pg_short), nrow(pg_n80))`
 Fits failed to converge in at most `r pg_nonconv_max` of replicates in
 any cell, and the rejection rates are computed over converged fits.
 
@@ -1954,11 +1954,7 @@ the G9 and G10 rejection rates differ by at most `r pg_vs9_max`.
 at `r n80_k` multiples of the E9 sample size, from `r n80_mult_txt`
 times, with `r n80_reps` replicates at each, and fitted a probit
 regression of rejection on $\log N$ in each cell. Table
-\@ref(tab:n80g10) gives the $N$ at which the fitted power is 0.80. In
-the `r n80_n_in` cells where that $N$ lies inside the simulated range,
-it is `r n80_ratio_range` times the E9 value. In the remaining
-`r n80_n_ex` cells it lies outside the range, and the value is an
-extrapolation from the fitted curve and is marked. The E9 values are
+\@ref(tab:n80g10) gives the $N$ at which the fitted power is 0.80. `r if (have_n80 && sum(n80$extrapolated) == 0) paste0('That $N$ lies inside the simulated range in all ', n80_n_in, ' cells, and it is ', n80_ratio_range, ' times the E9 value.') else paste0('In the ', n80_n_in, ' cells where that $N$ lies inside the simulated range, it is ', n80_ratio_range, ' times the E9 value. In the remaining ', n80_n_ex, ' cells it lies outside the range, and the value is an extrapolation from the fitted curve and is marked.')` The E9 values are
 closed form, so this comparison is the measured difference between
 the paired-difference approximation and the analysis a trial would
 use.

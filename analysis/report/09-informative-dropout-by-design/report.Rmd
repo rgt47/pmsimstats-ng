@@ -36,28 +36,46 @@ knitr::opts_chunk$set(
 )
 library(data.table)
 root <- here::here()
+## Hendrickson's published parameter set (docs/74, D3). The run under
+## the earlier fixture set stays in the folder without the suffix.
 pdir <- file.path(root, 'analysis', 'data',
-                  'informative-dropout-by-design')
-stopifnot(file.exists(file.path(pdir, 'paired-cells.csv')))
+                  'informative-dropout-by-design-published')
+read_set <- function(d) trimws(readLines(file.path(d, 'PARAM_SET')))
+stopifnot(file.exists(file.path(pdir, 'paired-cells.csv')),
+          read_set(pdir) == 'published')
 {
   cells <- fread(file.path(pdir, 'paired-cells.csv'))
   loss <- fread(file.path(pdir, 'paired-loss.csv'))
   contr <- fread(file.path(pdir, 'paired-contrast.csv'))
   dsum <- fread(file.path(pdir, 'paired-dropout.csv'))
   meta <- readRDS(file.path(pdir, 'paired-meta.rds'))
+  reps <- readRDS(file.path(pdir, 'paired-replicates.rds'))
 }
+stopifnot(meta$param_set == 'published',
+          all(cells[regime == 'alt']$true_beta == meta$true_beta))
+tbv <- meta$true_beta
+tba <- abs(tbv)
+rp_pub <- as.data.table(meta$params$resp_param)
+bp_pub <- as.data.table(meta$params$baseline_param)
 old <- fread(file.path(root, 'analysis', 'data', 'quick-sim',
                        '09-dropout-summary.txt'))
-## Large null check of CR2 in OL+BDC (analysis/scripts/cr2-olbdc-check/):
-## this paper's driver, 5,000 independent null datasets per N.
-cr2chk <- fread(file.path(root, 'analysis', 'data', 'cr2-olbdc-check',
-                          'summary.csv'))
-ck <- function(n_tot, col) {
-  x <- cr2chk[setting == 'p09' & design == 'OLBDC' & variant == 'ta0' &
+## The stored paired run under the fixture set, read only to check the
+## prototype against the paired driver (Section sec-old).
+pdir_fx <- file.path(root, 'analysis', 'data',
+                     'informative-dropout-by-design')
+loss_fx <- fread(file.path(pdir_fx, 'paired-loss.csv'))
+## Large null check of the tests (analysis/scripts/cr2-olbdc-check/):
+## this paper's driver on independent null datasets.
+cdir <- file.path(root, 'analysis', 'data', 'cr2-olbdc-check-published')
+stopifnot(read_set(cdir) == 'published')
+cr2chk <- fread(file.path(cdir, 'summary.csv'))
+ck <- function(n_tot, col, d = 'OLBDC') {
+  x <- cr2chk[setting == 'p09' & design == d & variant == 'ta0' &
                 N == n_tot][[col]]
   stopifnot(length(x) == 1)
   x
 }
+fmtn <- function(x) format(x, big.mark = ',')
 
 f2 <- function(x) sprintf('%.2f', x)
 f3 <- function(x) sprintf('%.3f', x)
@@ -88,7 +106,27 @@ ds_ <- function(d, cond, reg = 'alt') {
 pm <- function(v, s, k = 3) {
   sprintf(paste0('%.', k, 'f (%.', k, 'f)'), v, s)
 }
-od <- function(d, cond, col) old[design == d & dropout_pattern == cond][[col]]
+od <- function(d, cond, col) {
+  old[design == d & dropout_pattern == cond][[col]]
+}
+old_mc <- sapply(c('traditional_crossover', 'hybrid', 'OLBDC'),
+                 function(d) sqrt(od(d, 'none', 'mcse_power')^2 +
+                                    od(d, 'biased_40', 'mcse_power')^2))
+lfx <- function(d) {
+  x <- loss_fx[design == d & condition == 'magnitude_40' &
+                 analysis == 'ta0.5' & test == 'mb']
+  stopifnot(nrow(x) == 1)
+  x
+}
+old_loss <- sapply(c('traditional_crossover', 'hybrid', 'OLBDC'),
+                   function(d) od(d, 'none', 'power') -
+                     od(d, 'biased_40', 'power'))
+fx_loss <- sapply(c('CO', 'Hybrid', 'OLBDC'), function(d) lfx(d)$loss)
+fx_mc <- sapply(c('CO', 'Hybrid', 'OLBDC'), function(d) lfx(d)$mcse_loss)
+stopifnot(all(abs(old_loss - fx_loss) < 2 * sqrt(old_mc^2 + fx_mc^2)))
+proto_d <- unname(old_loss['traditional_crossover'] - old_loss['hybrid'])
+proto_se <- unname(sqrt(old_mc['traditional_crossover']^2 +
+                          old_mc['hybrid']^2))
 designs_lab <- c(OLBDC = 'OL+BDC', CO = 'CO', Hybrid = 'Hybrid')
 conds <- c('none', 'MCAR_25', 'magnitude_25', 'magnitude_40',
            'worsening_25', 'improvement_25', 'return_25')
@@ -118,6 +156,26 @@ null_rng <- function(d, te) {
 }
 sh_imp <- loss[condition == 'improvement_25' & analysis == 'ta0' &
                  test == 'mb']
+lmb <- loss[analysis == 'ta0' & test == 'mb']
+outc <- c('magnitude_25', 'magnitude_40', 'worsening_25',
+          'improvement_25', 'return_25')
+## Claims stated in the text; the render stops if a rerun breaks one.
+co_most_shift <- all(sapply(outc, function(k) {
+  x <- lmb[condition == k]
+  x[design == 'CO']$shift == max(x$shift)
+}))
+co_vs <- function(b) contr[design_a == 'CO' & design_b == b &
+                             analysis == 'ta0']
+co_more_loss <- all(co_vs('Hybrid')$diff > 0, co_vs('OLBDC')$diff > 0)
+dirc <- c('worsening_25', 'improvement_25', 'return_25')
+dir_z <- lmb[condition %in% dirc, shift / mcse_shift]
+stopifnot(co_most_shift, co_more_loss, all(dir_z > 2))
+nz <- function(b, te) {
+  x <- co_vs(b)[test == te]
+  c(sum(x$z > 2), nrow(x))
+}
+chk70 <- cr2chk[setting == 'p09' & variant == 'ta0' & N == 70]
+pct <- function(s) 100 * s / tba
 ```
 
 # Abstract {-}
@@ -129,16 +187,18 @@ three designs.
 
 \textbf{Methods.} We simulated open-label titration with blinded
 discontinuation (OL+BDC), a two-period crossover (CO) and the Hybrid
-design at one parameter point, with $N = 70$ in each. The biomarker
-shifted the drug-response mean at on-drug visits, with true
-interaction $-2.25$. Seven dropout conditions were applied to the same
-`r format(meta$n_reps, big.mark = ',')` complete datasets per design.
+design at one parameter point, with $N = `r meta$N_total`$ in each.
+The response and baseline parameters were those of the published code
+of Hendrickson et al. The biomarker shifted the drug-response mean at
+on-drug visits. The true interaction was $`r f2(tbv)`$ points per
+biomarker standard deviation. Seven dropout conditions were applied to
+the same `r fmtn(meta$n_reps)` complete datasets per design.
 They were no dropout, completely random dropout and magnitude-driven
 dropout at 25 and 40 percent, and three directional mechanisms at 25
 percent. We fitted the mixed
 model at analysis half-lives of 0.5 week and 0, with model-based and
 cluster-robust (CR2) tests. A null regime had
-`r meta$n_null` datasets per design.
+`r fmtn(meta$n_null)` datasets per design.
 
 \textbf{Results.} The 0.5-week analysis half-life biased the
 interaction estimate by `r f2(c0('OLBDC', 'ta0.5')$bias)` in OL+BDC
@@ -151,23 +211,27 @@ Dropout at 25 percent raised the standard error by a factor of
 `r f3(sr25[1])` to `r f3(sr25[2])` under completely random dropout.
 At 40 percent magnitude-driven dropout the factor was `r f3(sr40[1])`
 to `r f3(sr40[2])`, nearly the same in all three designs. CO lost
-more absolute power, mostly because it started lower on its power
-curve. Improvement-driven dropout attenuated the estimate by
-`r f3(min(sh_imp$shift))` to `r f3(max(sh_imp$shift))` points
-(paired MCSE at most `r f3(max(sh_imp$mcse_shift))`), most in CO.
-Dropout did not change test size. The model-based test rejected in
-`r f3(null_rng('Hybrid', 'mb')[1])` to
-`r f3(null_rng('Hybrid', 'mb')[2])` of null Hybrid datasets. The
-CR2 test was calibrated: in 5,000 independent null OL+BDC datasets it
-rejected in `r f3(ck(70, 'rej_cr2'))` (MCSE
-`r f3(ck(70, 'mcse_cr2'))`).
+more absolute power than the other two designs in every condition.
+Its lower starting power did not explain the difference. Worsening-,
+improvement- and symptom-return-driven dropout attenuated the estimate
+in every design, most in CO under the binary indicator.
+Improvement-driven dropout attenuated it
+by `r f3(min(sh_imp$shift))` to `r f3(max(sh_imp$shift))` points
+(paired MCSE at most `r f3(max(sh_imp$mcse_shift))`). Dropout did not
+change test size. In separate null checks the CR2 test rejected in
+`r f3(min(chk70$rej_cr2))` to `r f3(max(chk70$rej_cr2))` of datasets
+in the three designs. The model-based test was conservative in
+OL+BDC, rejecting in `r f3(ck(70, 'rej_mb'))` of
+`r fmtn(ck(70, 'n'))` null datasets (MCSE
+`r f3(ck(70, 'mcse_mb'))`).
 
 \textbf{Conclusions.} At this parameter point the Hybrid and OL+BDC
 designs carried the same information and lost it to dropout at the
 same rate. CO needed about `r sprintf('%.1f', 1 / re_co)` times the
 sample for the same precision. The analysis half-life must match the
-generating interaction. The direction of dropout mattered for bias,
-not for precision.
+generating interaction. The rate of dropout set the loss of precision.
+Dropout that depended on the direction of symptom change attenuated
+the estimate, most in CO when the analysis half-life matched.
 
 # Introduction
 
@@ -185,7 +249,7 @@ mechanism or only on its rate.
 
 The three designs are open-label titration followed by blinded
 discontinuation (OL+BDC), the traditional two-period crossover (CO),
-and the Hybrid design of @hendrickson2020. The Hybrid design is
+and the Hybrid design of Hendrickson et al. [@hendrickson2020]. The Hybrid design is
 open-label titration, then blinded discontinuation, then a brief
 crossover. A fourth design, open label throughout (OL), has no off-drug
 visits. It cannot separate the drug response from the placebo response
@@ -195,7 +259,7 @@ $\beta_{bm:D}$. We exclude it from the comparison for that reason
 
 ## Prior work
 
-@hendrickson2020 introduced the Hybrid design and compared it with
+Hendrickson et al. [@hendrickson2020] introduced the Hybrid design and compared it with
 OL, OL+BDC and CO by simulation. Their censoring filter assigned each
 simulated participant a per-unit-time dropout probability equal to a
 flat hazard plus a term in the square of the symptom change since
@@ -217,15 +281,16 @@ on placebo, tend to leave before the later crossover blocks, so those
 blocks are spent on participants whose earlier phases were
 inconclusive (Discussion). It is not a statement about power.
 
-The present study does not reproduce those results. It uses different
-correlation parameters, carryover, analysis model and dropout hazards
+The present study does not reproduce those results. It uses their
+response and baseline parameters. It uses different correlation
+parameters, carryover, analysis model and dropout hazards
 (Section \@ref(sec-hendrickson-diff)).
 
-@matthews2013crossover studied two-period crossover designs under
+Matthews and Henderson [@matthews2013crossover] studied two-period crossover designs under
 non-ignorable dropout. They found the conventional AB/BA design robust
 under a missing-at-random analysis, and they identified a sequence set
 that is preferable when dropout depends on the within-participant
-difference between periods. @blackston2019 compared aggregated N-of-1
+difference between periods. Blackston et al. [@blackston2019] compared aggregated N-of-1
 designs with parallel and crossover trials by simulation, including
 selection bias. N-of-1 reporting guidance asks that dropout be reported
 [@vohraCONSORTExtensionReporting2015], and reviews of published N-of-1
@@ -234,7 +299,7 @@ studies assess how completely trials report their methods
 simulation that compares OL+BDC, CO and the Hybrid design on paired
 data under several dropout mechanisms.
 
-The missing-data background is standard. @rubin1976 defined data
+The missing-data background is standard. Rubin [@rubin1976] defined data
 missing completely at random (MCAR), missing at random (MAR) and
 missing not at random (MNAR) [@littlerubin2019]. Selection models
 [@diggle1994], pattern-mixture models [@little1993pattern;
@@ -267,8 +332,8 @@ paired differences with small Monte Carlo standard errors (MCSE).
 Third, we show that the analysis half-life must match the generating
 interaction. The historical analysis decays the exposure indicator at
 0.5 week, while the generating interaction has no carryover. This
-mismatch biases the estimate for OL+BDC and the Hybrid design and
-changes the design ordering (Section \@ref(sec-bias)).
+mismatch biases the estimate for OL+BDC and the Hybrid design but not
+for CO (Section \@ref(sec-bias)).
 
 The study covers one parameter point. It is exploratory. No analysis
 plan was registered in advance, and its findings should be confirmed
@@ -351,7 +416,7 @@ a symptom-dependent Bernoulli draw. In the published code (commit
 $(D + 100)^{e_{b1}}$, where $D$ is the generated column `D_<visit>`.
 That column is the sum of the response components, which equals
 $\mathrm{BL}_i - Y_{it}$, the improvement, so the term increases with
-improvement. @hendrickson2020 describe the term as the change in
+improvement. Hendrickson et al. [@hendrickson2020] describe the term as the change in
 symptoms since baseline shifted by 100, which makes dropout higher
 for participants who worsen. The code and the description disagree in
 sign. The package and its live implementations now use
@@ -370,7 +435,7 @@ missing completely at random [@rubin1976].
 Under the four outcome-dependent conditions, dropout at visit $t$
 depends on $Y_{it}$, and $Y_{it}$ is then deleted. Dropout therefore
 depends on an unobserved value, and the data are MNAR. This is the
-selection-model form of @diggle1994. Two features weaken the practical
+selection-model form of Diggle and Kenward [@diggle1994]. Two features weaken the practical
 consequence. First, the serial correlation of the generating process
 is $0.7^{|w_t - w_s|}$ within each response component, where $w_t$ is
 the calendar week. $Y_{it}$ is therefore partly predicted by
@@ -436,7 +501,9 @@ The OL design is on drug at every visit. The package analysis
 `lme_analysis()` detects that no participant varies in exposure after
 baseline and then fits `Sx ~ bm + t + bm:t`. The coefficient it tests
 is the biomarker-by-time slope, not $\beta_{bm:D}$. The earlier
-prototype reported that slope test in its OL row. Its rejection rate,
+prototype, run under an earlier parameter set
+(Section \@ref(sec-old)), reported that slope test in its OL row. Its
+rejection rate,
 `r f3(min(old[design == 'OL']$power))` to
 `r f3(max(old[design == 'OL']$power))`, was the power of a different
 test. It was neither a test size nor a measure of information on the
@@ -450,7 +517,7 @@ results in Section \@ref(sec-results) address that question directly.
 
 # Simulation design {#sec-sim}
 
-We report the study in the ADEMP structure of @morris2019simulation.
+We report the study in the ADEMP structure of Morris et al. [@morris2019simulation].
 
 **Aims.** To compare OL+BDC, CO and the Hybrid design on the power to
 detect $\beta_{bm:D}$, its bias and the calibration of its test,
@@ -460,26 +527,59 @@ point, with paired comparisons across conditions.
 **Data-generating mechanism.** Data were generated by the package
 function `generateData()` under the mean-shift encoding
 (`dgp_architecture = 'mean_moderation'`,
-`moderation_scaling = 'constant'`). The biomarker $B_i$ has mean 0
-and standard deviation 1, so it coincides with its standardized value
-$b_i$. At every on-drug visit, the drug-response component is shifted
-by $\beta_{bm} b_i \sigma_{BR}$ with $\beta_{bm} = 0.45$ and
-$\sigma_{BR} = 5$. Off-drug visits receive no shift, so the shift has
-no carryover. The mean drug response itself carries over after
-discontinuation with half-life $t_{1/2} = 0.5$ week, decaying from the
-last on-drug mean. The three response components (drug response,
-placebo response, natural history) follow modified Gompertz means with
-the reference parameters of the driver. Each component has first-order
+`moderation_scaling = 'constant'`). The response and baseline
+parameters are those of the published code of Hendrickson et al.
+[@hendrickson2020], at commit 58b32a9, as stored in the package
+data. Table
+\@ref(tab:tab-params) lists them. The biomarker $B_i$ has mean
+$\mu_{bm} = `r f2(bp_pub[cat == 'bm']$m)`$ and standard deviation
+$\sigma_{bm} = `r f2(bp_pub[cat == 'bm']$sd)`$. Its standardized value
+is $b_i = (B_i - \mu_{bm})/\sigma_{bm}$. At every on-drug visit, the
+drug-response component is shifted by $\beta_{bm} b_i \sigma_{BR}$
+with $\beta_{bm} = `r meta$beta_bm`$ and
+$\sigma_{BR} = `r meta$sigma_br`$. Off-drug visits receive no shift,
+so the shift has no carryover. The mean drug response itself carries
+over after discontinuation with half-life
+$t_{1/2} = `r meta$t_half`$ week, decaying from the last on-drug mean.
+The three response components follow modified Gompertz means
+$G(t_{od}; m, d, r)$, the curve $m \exp\{-d \exp(-r t)\}$ shifted
+vertically to pass through the origin, with maximum $m$, displacement
+$d$ and rate $r$. Each component has first-order
 autoregressive correlation $\rho = 0.7$ per week. Components are
-correlated at 0.1 at the same visit and 0.05 across visits. Baseline
-severity has mean 70 and standard deviation 10. Every covariance matrix
-was positive definite, and the driver refuses any matrix that is not.
+correlated at 0.1 at the same visit and 0.05 across visits. Every
+covariance matrix was positive definite, and the driver refuses any
+matrix that is not.
+
+```{r tab-params}
+gp <- rp_pub[match(c('br', 'pb', 'tv'), cat)]
+pt <- data.table(
+  Quantity = c('Drug-response component', 'Placebo-response component',
+               'Natural-history component', 'Biomarker $B_i$',
+               'Baseline severity'),
+  `$m$` = c(sprintf('%.3f', gp$max), '', ''),
+  `$d$` = c(sprintf('%.0f', gp$disp), '', ''),
+  `$r$` = c(sprintf('%.2f', gp$rate), '', ''),
+  Mean = c('', '', '', f2(bp_pub[cat == 'bm']$m),
+           f2(bp_pub[cat == 'BL']$m)),
+  SD = c(sprintf('%.0f', gp$sd), f2(bp_pub[cat == 'bm']$sd),
+         f2(bp_pub[cat == 'BL']$sd)))
+knitr::kable(
+  pt, format = 'latex', booktabs = TRUE, linesep = '', escape = FALSE,
+  caption = paste(
+    'Response and baseline parameters, read from the run metadata.',
+    'They are the values of the published code of Hendrickson et al.',
+    'Modified Gompertz maximum $m$ (points), displacement $d$ and rate',
+    '$r$ (per week). SD: standard deviation of the component, the',
+    'biomarker or baseline severity.')) |>
+  kableExtra::kable_styling(font_size = 9)
+```
 
 The components reduce symptoms, so a larger drug response lowers
-$Y_{it}$. The interaction is therefore negative. Its true value is
-$\beta_{bm:D} = -\beta_{bm}\sigma_{BR}/\sigma_{bm} = -2.25$ points per
-biomarker unit, under binary drug exposure. Under the null regime
-$\beta_{bm} = 0$ and the true value is 0.
+$Y_{it}$. The interaction is therefore negative. The analysis enters
+the standardized biomarker $b_i$. The true value is
+$\beta_{bm:D} = -\beta_{bm}\sigma_{BR} = `r f2(tbv)`$ points per
+biomarker standard deviation, under binary drug exposure. Under the
+null regime $\beta_{bm} = 0$ and the true value is 0.
 
 Every design has a total of $N = 70$ participants, allocated across
 its paths: 35 on each path of OL+BDC and CO, and 18, 18, 17 and 17 on
@@ -494,15 +594,18 @@ Datasets were not shared across designs, so between-design
 comparisons are unpaired.
 
 **Estimand.** $\beta_{bm:D}$ under the hypothetical strategy, with
-true value $-2.25$ (alternative) or 0 (null).
+true value $`r f2(tbv)`$ (alternative) or 0 (null).
 
 **Methods.** Each post-dropout dataset was analyzed with
-$$Y_{it} = \beta_0 + \beta_B B_i + \beta_T w_t + \beta_D D_{bc,it} +
-\beta_{bm:D} B_i D_{bc,it} + \beta_\eta \eta_t + u_i +
+$$Y_{it} = \beta_0 + \beta_B b_i + \beta_T w_t + \beta_D D_{bc,it} +
+\beta_{bm:D} b_i D_{bc,it} + \beta_\eta \eta_t + u_i +
 \varepsilon_{it},$$
 with a participant random intercept $u_i$ and CAR(1) residual
 correlation in calendar weeks, fitted by restricted maximum likelihood
-with `nlme::lme`. The design expectancy $\eta_t$ enters for OL+BDC and
+with `nlme::lme`. Here $b_i$ is the biomarker standardized by
+$\mu_{bm}$ and $\sigma_{bm}$. The map from $B_i$ to $b_i$ is affine,
+so it leaves the tests unchanged and expresses $\beta_{bm:D}$ per
+biomarker standard deviation. The design expectancy $\eta_t$ enters for OL+BDC and
 the Hybrid design. CO has a constant post-baseline expectancy, so the
 term is omitted there, as in `lme_analysis()`. The exposure indicator
 $D_{bc,it}$ is 1 on drug, 0 before the first exposure, and
@@ -540,14 +643,14 @@ square root of the number of replicates. The MCSE of a rejection rate
 is $\sqrt{\hat\pi(1-\hat\pi)/n_{\text{reps}}}$.
 
 **Replicates and seeds.** The alternative regime has
-`r format(meta$n_reps, big.mark = ',')`
+`r fmtn(meta$n_reps)`
 replicates per design and the null regime
-`r meta$n_null`. The seed of each
-design and replicate is `set.seed(20261029 + 100000 * d + r)`, where
-$d$ is the design index (1 OL+BDC, 2 CO, 3 Hybrid) and $r$ the
+`r fmtn(meta$n_null)`. The seed of each
+design and replicate is `set.seed(P09_SEED + 100000 * d + r)` with
+`P09_SEED` equal to `r meta$seed`, where $d$ is the design index (1 OL+BDC, 2 CO, 3 Hybrid) and $r$ the
 replicate. The null regime adds 50,000. Replicates ran in parallel with
-`parallel::mclapply` on 8 workers, with single-threaded linear
-algebra.
+`parallel::mclapply` on `r meta$n_cores` workers, with single-threaded
+linear algebra.
 
 # Results {#sec-results}
 
@@ -558,13 +661,26 @@ car1_min <- min(cells$car1_rate)
 cr <- function(d, cond, an, te, col, reg = 'alt') {
   cell(d, cond, an, te, reg)[[col]]
 }
+bz0 <- cells[regime == 'alt' & condition == 'none' & analysis == 'ta0' &
+               test == 'mb', bias / mcse_bias]
+pw0 <- dcast(cells[regime == 'alt' & condition == 'none'],
+             analysis + test ~ design, value.var = 'rej')
+hy_ol_pw <- pw0$Hybrid - pw0$OLBDC
+stopifnot(all(pw0$CO < pmin(pw0$Hybrid, pw0$OLBDC)),
+          any(hy_ol_pw > 0), any(hy_ol_pw < 0))
+nl_all <- cells[regime == 'null' & analysis == 'ta0']
+cr2_z0 <- nl_all[condition == 'none' & test == 'cr2',
+                 (rej - 0.05) / mcse_rej]
+n_fb <- sum(!reps$car1)
+fb_des <- unique(reps[!reps$car1, ]$design)
 ```
 
 Every fit converged
-(`r sprintf('%.0f', 100 * fit_ok_min)` percent of fits in every cell),
-and every fit used the CAR(1) residual
-(`r sprintf('%.0f', 100 * car1_min)` percent). No fallback fit
-occurred.
+(`r sprintf('%.0f', 100 * fit_ok_min)` percent of fits in every cell).
+Of `r fmtn(nrow(reps))` fits, `r n_fb` fell back to the model without
+the CAR(1) residual, all in
+`r paste(designs_lab[fb_des], collapse = ', ')`. No cell had more than
+`r sprintf('%.1f', 100 * (1 - car1_min))` percent fallback fits.
 
 ## Dropout achieved and its direction {#sec-dropout-achieved}
 
@@ -625,15 +741,14 @@ design.
 
 The direction of selection matched the construction of each hazard.
 Under the magnitude-of-change hazard, participants who dropped out
-were slightly more improved than those who stayed. The correlation
+were more improved than those who stayed. The correlation
 with mean improvement was
 `r f3(min(dsum[condition %in% c('magnitude_25', 'magnitude_40') & regime == 'alt']$cor_drop_improve))`
 to
 `r f3(max(dsum[condition %in% c('magnitude_25', 'magnitude_40') & regime == 'alt']$cor_drop_improve))`.
-In large single samples of 5,000 participants per path, the mean
-change from baseline was negative at every post-baseline visit of
-every path, between $-2.4$ and $-28.4$ points. A large squared change
-is therefore usually a large improvement. The worsening-driven and
+Every response component lowers the symptom score, so the mean change
+from baseline is an improvement at every post-baseline visit. A large
+squared change is therefore usually a large improvement. The worsening-driven and
 improvement-driven hazards gave correlations near
 `r f2(mean(dsum[condition == 'worsening_25' & regime == 'alt']$cor_drop_improve))`
 and
@@ -648,7 +763,12 @@ high-biomarker participants more often (correlation
 to
 `r f3(max(dsum[condition == 'improvement_25' & regime == 'alt']$cor_drop_bm))`),
 because those participants had the larger drug response.
-Worsening-driven dropout did the reverse.
+Worsening-driven dropout did the reverse (correlation
+`r f3(min(dsum[condition == 'worsening_25' & regime == 'alt']$cor_drop_bm))`
+to
+`r f3(max(dsum[condition == 'worsening_25' & regime == 'alt']$cor_drop_bm))`).
+The MCSE of each correlation was at most
+`r f3(max(dsum$mcse_cor_drop_bm, na.rm = TRUE))`.
 
 Because $\alpha$ was calibrated on each path separately, every path
 lost the same expected fraction of participants. The per-path
@@ -665,10 +785,10 @@ of 0.5 week, the interaction estimate was biased by
 `r pm(cr('OLBDC', 'none', 'ta0.5', 'mb', 'bias'), cr('OLBDC', 'none', 'ta0.5', 'mb', 'mcse_bias'))`
 in OL+BDC and
 `r pm(cr('Hybrid', 'none', 'ta0.5', 'mb', 'bias'), cr('Hybrid', 'none', 'ta0.5', 'mb', 'mcse_bias'))`
-in the Hybrid design, on a true value of $-2.25$. These are
-`r sprintf('%.0f', -100 * cr('OLBDC', 'none', 'ta0.5', 'mb', 'bias') / 2.25)`
+in the Hybrid design, on a true value of $`r f2(tbv)`$. These are
+`r sprintf('%.0f', -pct(cr('OLBDC', 'none', 'ta0.5', 'mb', 'bias')))`
 and
-`r sprintf('%.0f', -100 * cr('Hybrid', 'none', 'ta0.5', 'mb', 'bias') / 2.25)`
+`r sprintf('%.0f', -pct(cr('Hybrid', 'none', 'ta0.5', 'mb', 'bias')))`
 percent of the true value, away from zero. The cause is the mismatch
 between the analysis and the generating process. The analysis gives
 off-drug visits after discontinuation an exposure weight of
@@ -683,7 +803,8 @@ in OL+BDC,
 `r pm(cr('Hybrid', 'none', 'ta0', 'mb', 'bias'), cr('Hybrid', 'none', 'ta0', 'mb', 'mcse_bias'))`
 in the Hybrid design and
 `r pm(cr('CO', 'none', 'ta0', 'mb', 'bias'), cr('CO', 'none', 'ta0', 'mb', 'mcse_bias'))`
-in CO.
+in CO. Each of these was within
+`r sprintf('%.1f', max(abs(bz0)))` MCSE of zero.
 
 ```{r tab-calib}
 tb <- cells[regime == 'alt' & condition == 'none']
@@ -709,13 +830,14 @@ knitr::kable(
   format = 'latex', booktabs = TRUE, linesep = '', escape = FALSE,
   caption = paste(
     'Performance without dropout. Bias (MCSE) against the true value',
-    '$-2.25$. Emp. SD: empirical standard deviation of the estimates.',
+    paste0('$', f2(tbv), '$.'),
+    'Emp. SD: empirical standard deviation of the estimates.',
     'MB: model-based test. CR2: cluster-robust test with Satterthwaite',
     'degrees of freedom. Cover: coverage of the 95 percent interval.',
     'Size: rejection rate in the null regime. MCSE of power at most',
     paste0(f3(max(tb$mcse_rej_mb, tb$mcse_rej_cr2)),
            '; of size at most ',
-           f3(max(cells[regime == "null" & condition == "none"]$mcse_rej)),
+           f3(max(cells[regime == 'null' & condition == 'none']$mcse_rej)),
            '.'))) |>
   kableExtra::kable_styling(font_size = 8, latex_options = 'scale_down')
 ```
@@ -727,36 +849,68 @@ standard deviation in OL+BDC was
 `r f3(cr('OLBDC', 'none', 'ta0', 'mb', 'emp_sd'))` for the binary
 analysis. Model-based power was
 `r f3(cr('OLBDC', 'none', 'ta0.5', 'mb', 'rej'))` and
-`r f3(cr('OLBDC', 'none', 'ta0', 'mb', 'rej'))`. The design ordering
-in power did not depend on the half-life. From here on we report the
-binary analysis, which is unbiased for this generating process.
+`r f3(cr('OLBDC', 'none', 'ta0', 'mb', 'rej'))`. CO had the lowest
+power under both half-lives and both tests. The Hybrid design and
+OL+BDC differed in power by at most
+`r f3(max(abs(hy_ol_pw)))`, and their order depended on the test and
+the half-life. From here on we report the binary analysis, which is
+unbiased for this generating process.
 
-The two tests were calibrated differently by design. The model-based
-test was conservative in the Hybrid design. Its $\kappa$ was
-`r f2(cr('Hybrid', 'none', 'ta0', 'mb', 'kappa'))` and its null
-rejection rate
+The two tests were calibrated differently. The model-based test was
+conservative in OL+BDC. Its $\kappa$ under the alternative was
+`r f2(cr('OLBDC', 'none', 'ta0', 'mb', 'kappa'))`, and its null
+rejection rate in this run was
+`r pm(cr('OLBDC', 'none', 'ta0', 'mb', 'rej', 'null'), cr('OLBDC', 'none', 'ta0', 'mb', 'mcse_rej', 'null'))`.
+It was close to nominal in the Hybrid design, with $\kappa$
+`r f2(cr('Hybrid', 'none', 'ta0', 'mb', 'kappa'))` and null rejection
+rate
 `r pm(cr('Hybrid', 'none', 'ta0', 'mb', 'rej', 'null'), cr('Hybrid', 'none', 'ta0', 'mb', 'mcse_rej', 'null'))`.
-It was close to nominal size in OL+BDC and CO, although its $\kappa$
-in OL+BDC under the alternative was
-`r f2(cr('OLBDC', 'none', 'ta0', 'mb', 'kappa'))`. The CR2 test was
-close to nominal in the Hybrid design and CO. In OL+BDC it rejected in
+In CO its $\kappa$ was
+`r f2(cr('CO', 'none', 'ta0', 'mb', 'kappa'))` and its null rejection
+rate
+`r pm(cr('CO', 'none', 'ta0', 'mb', 'rej', 'null'), cr('CO', 'none', 'ta0', 'mb', 'mcse_rej', 'null'))`.
+Without dropout the CR2 test rejected in
+`r pm(cr('CO', 'none', 'ta0', 'cr2', 'rej', 'null'), cr('CO', 'none', 'ta0', 'cr2', 'mcse_rej', 'null'))`
+(CO),
+`r pm(cr('Hybrid', 'none', 'ta0', 'cr2', 'rej', 'null'), cr('Hybrid', 'none', 'ta0', 'cr2', 'mcse_rej', 'null'))`
+(Hybrid) and
 `r pm(cr('OLBDC', 'none', 'ta0', 'cr2', 'rej', 'null'), cr('OLBDC', 'none', 'ta0', 'cr2', 'mcse_rej', 'null'))`
-of the 500 null datasets of this run. That figure is a Monte Carlo
-excursion of these 500 datasets, not a property of the test. The same
-driver applied to 5,000 independent null datasets gave
-`r pm(ck(70, 'rej_cr2'), ck(70, 'mcse_cr2'))` at $N = 70$ and
-`r pm(ck(35, 'rej_cr2'), ck(35, 'mcse_cr2'))` at $N = 35$, with a CR2
-standard error `r f2(ck(70, 'ratio_cr2'))` times the empirical
-standard deviation (`analysis/scripts/cr2-olbdc-check/`). The
-model-based test was conservative there, rejecting in
-`r f3(ck(70, 'rej_mb'))`. The seven dropout conditions of this run
-reuse the same 500 null datasets per design, so their null rejection
-rates are not independent replications. CR2 was within two MCSE of
-nominal in every design. The model-based test was conservative in the
-Hybrid design and OL+BDC. Comparisons of power across designs under the
-model-based test therefore mix information with test calibration. For that reason we also compare designs by the
-empirical standard deviation of the estimate, which does not depend on
-the test (Section \@ref(sec-design-compare)).
+(OL+BDC) of the `r fmtn(meta$n_null)` null datasets of this run.
+Each rate was within `r sprintf('%.1f', max(abs(cr2_z0)))` MCSE of
+nominal.
+
+The same driver was applied to further independent null datasets
+(`analysis/scripts/cr2-olbdc-check/`). In OL+BDC, with
+`r fmtn(ck(70, 'n'))` datasets at $N = 70$, the CR2 test rejected in
+`r pm(ck(70, 'rej_cr2'), ck(70, 'mcse_cr2'))`, and with
+`r fmtn(ck(35, 'n'))` datasets at $N = 35$ in
+`r pm(ck(35, 'rej_cr2'), ck(35, 'mcse_cr2'))`. Its standard error was
+`r f2(ck(70, 'ratio_cr2'))` times the empirical standard deviation at
+$N = 70$. The model-based test was conservative there, rejecting in
+`r pm(ck(70, 'rej_mb'), ck(70, 'mcse_mb'))`. With
+`r fmtn(ck(70, 'n', 'Hybrid'))` datasets each, the CR2 test rejected in
+`r pm(ck(70, 'rej_cr2', 'Hybrid'), ck(70, 'mcse_cr2', 'Hybrid'))` in
+the Hybrid design and
+`r pm(ck(70, 'rej_cr2', 'CO'), ck(70, 'mcse_cr2', 'CO'))` in CO. The
+model-based test rejected in
+`r pm(ck(70, 'rej_mb', 'Hybrid'), ck(70, 'mcse_mb', 'Hybrid'))` and
+`r pm(ck(70, 'rej_mb', 'CO'), ck(70, 'mcse_mb', 'CO'))`. In CO the
+model-based rate was
+`r sprintf('%.1f', (ck(70, 'rej_mb', 'CO') - 0.05) / ck(70, 'mcse_mb', 'CO'))`
+MCSE above nominal.
+
+The seven dropout conditions of this run reuse the same
+`r fmtn(meta$n_null)` null datasets per design, so their null
+rejection rates are not independent replications. Across all
+`r nrow(nl_all[test == 'mb'])` cells the model-based test rejected in
+`r f3(min(nl_all[test == 'mb']$rej))` to
+`r f3(max(nl_all[test == 'mb']$rej))` and the CR2 test in
+`r f3(min(nl_all[test == 'cr2']$rej))` to
+`r f3(max(nl_all[test == 'cr2']$rej))`. Comparisons of power across
+designs under the model-based test therefore mix information with test
+calibration. For that reason we also compare designs by the empirical
+standard deviation of the estimate, which does not depend on the test
+(Section \@ref(sec-design-compare)).
 
 Dropout did not change the size of either test. Across the six dropout
 conditions, the paired change in the null rejection rate ranged from
@@ -841,28 +995,46 @@ The 25 percent conditions of different mechanisms gave ratios within
 `r f3(diff(range(loss[analysis == 'ta0' & test == 'mb' & condition != 'magnitude_40']$se_ratio)))`
 of each other.
 
-Second, the mechanism changed the estimate. MCAR,
-magnitude-driven and worsening-driven dropout moved the estimate by
+Second, the mechanism changed the estimate. MCAR dropout moved it by
 at most
-`r f3(max(abs(loss[analysis == 'ta0' & test == 'mb' & condition %in% c('MCAR_25', 'magnitude_25', 'magnitude_40', 'worsening_25') & design != 'Hybrid']$shift)))`
-in OL+BDC and CO. In the Hybrid design worsening-driven dropout moved
-it by
-`r pm(ls_('Hybrid', 'worsening_25', 'ta0', 'mb')$shift, ls_('Hybrid', 'worsening_25', 'ta0', 'mb')$mcse_shift)`.
-Improvement-driven dropout moved the estimate toward zero by
+`r f3(max(abs(lmb[condition == 'MCAR_25']$shift)))`
+(paired MCSE at most
+`r f3(max(lmb[condition == 'MCAR_25']$mcse_shift))`). The three
+directional mechanisms moved it toward zero in every design, each by
+at least `r sprintf('%.1f', min(dir_z))` paired MCSE.
+Improvement-driven dropout moved it by
 `r pm(ls_('CO', 'improvement_25', 'ta0', 'mb')$shift, ls_('CO', 'improvement_25', 'ta0', 'mb')$mcse_shift)`
 in CO,
 `r pm(ls_('OLBDC', 'improvement_25', 'ta0', 'mb')$shift, ls_('OLBDC', 'improvement_25', 'ta0', 'mb')$mcse_shift)`
 in OL+BDC and
 `r pm(ls_('Hybrid', 'improvement_25', 'ta0', 'mb')$shift, ls_('Hybrid', 'improvement_25', 'ta0', 'mb')$mcse_shift)`
-in the Hybrid design. Symptom-return dropout moved it by
-`r f3(min(loss[analysis == 'ta0' & test == 'mb' & condition == 'return_25']$shift))`
-to
-`r f3(max(loss[analysis == 'ta0' & test == 'mb' & condition == 'return_25']$shift))`.
+in the Hybrid design. Worsening-driven dropout moved it by
+`r f3(min(lmb[condition == 'worsening_25']$shift))` to
+`r f3(max(lmb[condition == 'worsening_25']$shift))`, and
+symptom-return dropout by
+`r f3(min(lmb[condition == 'return_25']$shift))` to
+`r f3(max(lmb[condition == 'return_25']$shift))`. Magnitude-driven
+dropout moved the CO estimate toward zero by
+`r pm(ls_('CO', 'magnitude_40', 'ta0', 'mb')$shift, ls_('CO', 'magnitude_40', 'ta0', 'mb')$mcse_shift)`
+at 40 percent. In OL+BDC and the Hybrid design it moved the estimate
+by at most
+`r f3(max(abs(lmb[design != 'CO' & condition %in% c('magnitude_25', 'magnitude_40')]$shift)))`.
+With the binary exposure indicator, the shift in each
+outcome-dependent condition was largest in CO. With the 0.5-week
+indicator, OL+BDC shifted more than CO under symptom-return dropout
+(`r f3(ls_('OLBDC', 'return_25', 'ta0.5', 'mb')$shift)` against
+`r f3(ls_('CO', 'return_25', 'ta0.5', 'mb')$shift)`) and by a similar
+amount under worsening-driven dropout
+(`r f3(ls_('OLBDC', 'worsening_25', 'ta0.5', 'mb')$shift)` against
+`r f3(ls_('CO', 'worsening_25', 'ta0.5', 'mb')$shift)`).
 Improvement-driven dropout removes high-biomarker participants, who
 have the largest drug response (Section \@ref(sec-dropout-achieved)).
-The observed data then understate the interaction. The largest shift,
-`r f3(ls_('CO', 'improvement_25', 'ta0', 'mb')$shift)` in CO, is
-`r sprintf('%.0f', 100 * ls_('CO', 'improvement_25', 'ta0', 'mb')$shift / 2.25)`
+The observed data then understate the interaction. Worsening-driven
+dropout removes low-biomarker participants and also attenuated the
+estimate. We did not isolate the cause of that attenuation. The largest
+shift, `r f3(ls_('CO', 'improvement_25', 'ta0', 'mb')$shift)` in CO,
+is
+`r sprintf('%.1f', pct(ls_('CO', 'improvement_25', 'ta0', 'mb')$shift))`
 percent of the true value. Coverage of the 95 percent interval stayed
 between
 `r f3(min(cells[regime == 'alt' & analysis == 'ta0' & test == 'cr2']$coverage))`
@@ -883,29 +1055,47 @@ in the Hybrid design. The difference between CO and the Hybrid design
 was
 `r pm(ct_('CO', 'Hybrid', 'magnitude_40', 'ta0', 'mb')$diff, ct_('CO', 'Hybrid', 'magnitude_40', 'ta0', 'mb')$se_diff)`
 ($z = `r f2(ct_('CO', 'Hybrid', 'magnitude_40', 'ta0', 'mb')$z)`$).
-Most of this difference follows from the starting power, not from a
-design-specific loss of information. The standard-error ratios were
-nearly equal across designs. A normal approximation predicts the loss
-from the no-dropout power $\pi_0$ and the standard-error ratio $s$ as
-$\pi_0 - \Phi\{(\Phi^{-1}(\pi_0) + 1.96)/s - 1.96\}$.
+Across the six dropout conditions, the CO loss exceeded the Hybrid
+loss by more than two standard errors in `r nz('Hybrid', 'cr2')[1]`
+of `r nz('Hybrid', 'cr2')[2]` conditions under the CR2 test and
+`r nz('Hybrid', 'mb')[1]` of `r nz('Hybrid', 'mb')[2]` under the
+model-based test. Against OL+BDC the counts were
+`r nz('OLBDC', 'cr2')[1]` and `r nz('OLBDC', 'mb')[1]`.
+
+The starting power does not explain this difference. A normal
+approximation predicts the loss from the no-dropout power $\pi_0$ and
+the standard-error ratio $s$ as
+$\pi_0 - \Phi\{(\Phi^{-1}(\pi_0) + 1.96)/s - 1.96\}$. Adding the
+paired shift $\Delta$ multiplies $\Phi^{-1}(\pi_0) + 1.96$ by
+$1 - \Delta/|\beta_{bm:D}|$.
 
 ```{r pred-loss}
-pred_loss <- function(d, cond) {
+pred_loss <- function(d, cond, use_shift = FALSE) {
   x <- ls_(d, cond, 'ta0', 'mb')
-  x$power_none - pnorm((qnorm(x$power_none) + 1.96) / x$se_ratio - 1.96)
+  a <- if (use_shift) 1 - x$shift / tba else 1
+  x$power_none -
+    pnorm((qnorm(x$power_none) + 1.96) * a / x$se_ratio - 1.96)
 }
 ```
 
-For 40 percent magnitude-driven dropout it gives
+For 40 percent magnitude-driven dropout the first form gives
 `r f3(pred_loss('CO', 'magnitude_40'))` for CO,
 `r f3(pred_loss('OLBDC', 'magnitude_40'))` for OL+BDC and
 `r f3(pred_loss('Hybrid', 'magnitude_40'))` for the Hybrid design.
 The observed losses were
 `r f3(ls_('CO', 'magnitude_40', 'ta0', 'mb')$loss)`,
 `r f3(ls_('OLBDC', 'magnitude_40', 'ta0', 'mb')$loss)` and
-`r f3(ls_('Hybrid', 'magnitude_40', 'ta0', 'mb')$loss)`. Under
-improvement-driven dropout the extra loss in CO also reflects the
-attenuation of its estimate.
+`r f3(ls_('Hybrid', 'magnitude_40', 'ta0', 'mb')$loss)`. The
+approximation predicts nearly equal losses from the starting power,
+while the observed CO loss was the largest. With the shift added, it
+gives `r f3(pred_loss('CO', 'magnitude_40', TRUE))` for CO, close to
+the observed loss. It then gives
+`r f3(pred_loss('OLBDC', 'magnitude_40', TRUE))` and
+`r f3(pred_loss('Hybrid', 'magnitude_40', TRUE))` for OL+BDC and the
+Hybrid design, above their observed losses. The extra loss in CO
+coincides with the attenuation of its estimate. The approximation does
+not account for all of the differences between designs, and we did not
+resolve the remainder.
 
 ## Design comparison on precision {#sec-design-compare}
 
@@ -924,30 +1114,39 @@ deviation. Their power losses differed by at most
 across conditions and tests. The largest $|z|$ for a
 difference in their losses was
 `r f2(max(abs(contr[design_a == 'Hybrid' & design_b == 'OLBDC' & analysis == 'ta0']$z)))`
-among the 12 comparisons, which is within the range expected from
-chance alone.
+among the
+`r nrow(contr[design_a == 'Hybrid' & design_b == 'OLBDC' & analysis == 'ta0'])`
+comparisons, which is within the range expected from chance alone.
 
 ## Comparison with the earlier unpaired prototype {#sec-old}
 
 An earlier version of this study used independent datasets for each
-cell, 500 replicates per cell, the historical analysis and the
-magnitude-of-change hazard under the label 'biased'. It reported power
-losses at 40 percent of
+cell, `r old[design == 'OLBDC' & dropout_pattern == 'none']$n_reps`
+replicates per cell, the historical analysis and the
+magnitude-of-change hazard under the label 'biased'. It used an
+earlier parameter set that did not match the published code, not that
+of Table \@ref(tab:tab-params). The prototype was not rerun. It
+reported power losses at 40 percent of
 `r f3(od('traditional_crossover', 'none', 'power') - od('traditional_crossover', 'biased_40', 'power'))`
 (CO),
 `r f3(od('hybrid', 'none', 'power') - od('hybrid', 'biased_40', 'power'))`
 (Hybrid) and
 `r f3(od('OLBDC', 'none', 'power') - od('OLBDC', 'biased_40', 'power'))`
-(OL+BDC), with MCSE near 0.02. The paired rerun with the same analysis
-gave
+(OL+BDC), with MCSE
+`r f3(min(old_mc))` to `r f3(max(old_mc))`. The paired driver, run
+under that earlier parameter set with the same analysis, gave
+`r pm(lfx('CO')$loss, lfx('CO')$mcse_loss)`,
+`r pm(lfx('Hybrid')$loss, lfx('Hybrid')$mcse_loss)` and
+`r pm(lfx('OLBDC')$loss, lfx('OLBDC')$mcse_loss)`
+(`analysis/data/informative-dropout-by-design/`). The two runs agree
+within their Monte Carlo error. Under the parameters of Table
+\@ref(tab:tab-params) the paired run with the same analysis gave
 `r pm(ls_('CO', 'magnitude_40', 'ta0.5', 'mb')$loss, ls_('CO', 'magnitude_40', 'ta0.5', 'mb')$mcse_loss)`,
 `r pm(ls_('Hybrid', 'magnitude_40', 'ta0.5', 'mb')$loss, ls_('Hybrid', 'magnitude_40', 'ta0.5', 'mb')$mcse_loss)`
 and
 `r pm(ls_('OLBDC', 'magnitude_40', 'ta0.5', 'mb')$loss, ls_('OLBDC', 'magnitude_40', 'ta0.5', 'mb')$mcse_loss)`.
-The two runs agree within their Monte Carlo error. The earlier run
-could not separate the CO loss from the others. The paired run
-separates it, and the standard-error ratios show that the separation
-reflects CO's lower starting power.
+The earlier run could not separate the CO loss from the others. The
+paired run separates it.
 
 The earlier run also reported an OL row. That row tested the
 biomarker-by-time slope (Section \@ref(sec-designs)), not the
@@ -968,12 +1167,26 @@ gd <- data.table(
     'Dropout on symptom return',
     'Choice of analysis half-life'),
   Finding = c(
-    sprintf('Hybrid and OL+BDC equal in precision. CO needs about %.1f times the sample', 1 / re_co),
-    sprintf('Standard error rises by a similar factor in all designs (%s to %s at 40 percent)', f3(sr40[1]), f3(sr40[2])),
-    sprintf('Shift at most %s; precision loss as for MCAR', f3(max(loss[analysis == "ta0" & test == "mb" & condition == "worsening_25"]$shift))),
-    sprintf('Estimate attenuated by %s (CO) to %s (Hybrid)', f3(ls_('CO', 'improvement_25', 'ta0', 'mb')$shift), f3(ls_('Hybrid', 'improvement_25', 'ta0', 'mb')$shift)),
-    sprintf('Estimate attenuated by %s to %s', f3(min(loss[analysis == "ta0" & test == "mb" & condition == "return_25"]$shift)), f3(max(loss[analysis == "ta0" & test == "mb" & condition == "return_25"]$shift))),
-    sprintf('Mismatch biased OL+BDC by %s and Hybrid by %s', f2(c0('OLBDC', 'ta0.5')$bias), f2(c0('Hybrid', 'ta0.5')$bias))))
+    sprintf(paste('Hybrid and OL+BDC equal in precision. CO needs',
+                  'about %.1f times the sample'), 1 / re_co),
+    sprintf(paste('Standard error rises by a similar factor in all',
+                  'designs (%s to %s at 40 percent). CO estimate',
+                  'attenuated by %s at 40 percent'),
+            f3(sr40[1]), f3(sr40[2]),
+            f3(ls_('CO', 'magnitude_40', 'ta0', 'mb')$shift)),
+    sprintf(paste('Estimate attenuated by %s to %s; precision loss as',
+                  'for MCAR'),
+            f3(min(lmb[condition == 'worsening_25']$shift)),
+            f3(max(lmb[condition == 'worsening_25']$shift))),
+    sprintf('Estimate attenuated by %s (Hybrid) to %s (CO)',
+            f3(ls_('Hybrid', 'improvement_25', 'ta0', 'mb')$shift),
+            f3(ls_('CO', 'improvement_25', 'ta0', 'mb')$shift)),
+    sprintf('Estimate attenuated by %s to %s',
+            f3(min(lmb[condition == 'return_25']$shift)),
+            f3(max(lmb[condition == 'return_25']$shift))),
+    sprintf('Mismatch biased OL+BDC by %s and Hybrid by %s',
+            f2(c0('OLBDC', 'ta0.5')$bias),
+            f2(c0('Hybrid', 'ta0.5')$bias))))
 knitr::kable(gd, format = 'latex', booktabs = TRUE, linesep = '',
              caption = paste(
                'What the paired cells support, binary analysis unless',
@@ -986,7 +1199,8 @@ knitr::kable(gd, format = 'latex', booktabs = TRUE, linesep = '',
 On these results the Hybrid design and OL+BDC are interchangeable for
 the interaction. The choice between them can rest on participant burden
 and feasibility. CO is less efficient for this estimand at this
-parameter point, and its estimate was the most sensitive to
+parameter point. Its estimate was the most sensitive to every
+outcome-dependent dropout mechanism, and most of all to
 improvement-driven dropout. The analysis half-life should match the
 generating interaction. In practice the true form is unknown, and a
 data-chosen half-life is the project's provisional recommendation
@@ -998,18 +1212,24 @@ data-chosen half-life is the project's provisional recommendation
 
 Applying every dropout condition to the same datasets turned each loss
 and shift into a paired difference. This made the CO loss separable
-from the others and showed why. On the standard-error scale the three
-designs lost the same precision to dropout of a given rate. CO lost
-more absolute power because it started lower. The earlier unpaired
-prototype had read its 3-point difference in losses as evidence that
-CO is the least robust design. With a standard error of about 3
-points, that difference was not resolved.
+from the others. On the standard-error scale the three designs lost
+the same precision to dropout of a given rate. CO still lost more
+absolute power. Its estimate was also attenuated most by
+outcome-dependent dropout, and the extra loss coincides with that
+attenuation. The earlier unpaired prototype had read its
+`r sprintf('%.1f', 100 * proto_d)`-point difference in losses
+between CO and the Hybrid design as evidence that CO is the least
+robust design. With a standard error of about
+`r sprintf('%.1f', 100 * proto_se)` points, that difference was not
+resolved.
 
 ## Why the results differ from Hendrickson et al. {#sec-hendrickson-diff}
 
-@hendrickson2020 found the Hybrid design slightly less powerful than CO
+Hendrickson et al. [@hendrickson2020] found the Hybrid design slightly less powerful than CO
 without carryover. Here CO was the least efficient design. The two
-studies differ in several ways that could explain this. The original
+studies share the response and baseline parameters of Table
+\@ref(tab:tab-params). They differ in several other ways that could
+explain the difference. The original
 DGP uses compound symmetry with a common within-component correlation
 of 0.8. We used first-order autoregressive correlation of 0.7 per
 week. The original DGP encodes the interaction as a correlation
@@ -1047,14 +1267,20 @@ these accounts for the difference was not tested.
 - **Calibrated rates.** The ever-dropout fraction is set by
   construction. The study compares mechanisms at equal rates. It does
   not predict how often participants will leave a given design.
-- **Test calibration.** The model-based test was conservative in the
-  Hybrid design and OL+BDC. Power comparisons across designs under that
-  test carry this difference. The null regime has 500 datasets per
-  design, so single-cell null rejection rates carry an MCSE of about
-  0.01. The CR2 calibration rests on a separate 5,000-dataset check.
-- **Platform.** The run was made on the host R session, not in the
-  project container. Results are not draw-for-draw reproducible across
-  the two.
+- **Test calibration.** The model-based test was conservative in
+  OL+BDC and above nominal in CO. Power comparisons across designs
+  under that test carry this difference. The null regime has
+  `r fmtn(meta$n_null)` datasets per design, so single-cell null
+  rejection rates carry an MCSE of about
+  `r f3(sqrt(0.05 * 0.95 / meta$n_null))`. The CR2 calibration rests
+  on separate checks of `r fmtn(ck(70, 'n'))` datasets in OL+BDC and
+  `r fmtn(ck(70, 'n', 'CO'))` in each of the other two designs.
+- **Platform.** The run was made in a Linux container
+  (`r meta$session$running`), not in a host R session. Results are not
+  draw-for-draw reproducible across platforms.
+- **One parameter set.** The response and baseline parameters are
+  those of the published code. Results at other response means and
+  variances may differ.
 - **Symptom-return mechanism.** Its hazard uses the step change
   between consecutive visits, which differ in spacing. It was only
   weakly related to mean improvement and is one of several possible
@@ -1062,24 +1288,30 @@ these accounts for the difference was not tested.
 
 # Conclusions {#sec-conclusions}
 
-At one parameter point with $N = 70$, the Hybrid and OL+BDC designs
-estimated the biomarker-by-treatment interaction with the same
-precision and lost the same share of it to dropout. CO needed about
-`r sprintf('%.1f', 1 / re_co)` times the sample for the same precision.
-Its larger absolute power loss under dropout followed mainly from its
-lower starting power.
+At one parameter point with $N = `r meta$N_total`$, the Hybrid and
+OL+BDC designs estimated the biomarker-by-treatment interaction with
+the same precision and lost the same share of it to dropout. CO needed
+about `r sprintf('%.1f', 1 / re_co)` times the sample for the same
+precision. It also lost more absolute power under dropout. Its lower
+starting power did not explain that loss. The attenuation of its
+estimate under outcome-dependent dropout accounts for part of it.
 
-The rate of dropout set the loss of precision. The direction of
-dropout set the bias. Improvement-driven dropout attenuated the
-estimate by up to
-`r sprintf('%.0f', 100 * ls_('CO', 'improvement_25', 'ta0', 'mb')$shift / 2.25)`
-percent of its true value. Worsening-driven, magnitude-driven and
-MCAR dropout changed it little. Dropout did not change test size.
+The rate of dropout set the loss of precision. The mechanism set the
+bias. Improvement-driven dropout attenuated the estimate by up to
+`r sprintf('%.1f', pct(ls_('CO', 'improvement_25', 'ta0', 'mb')$shift))`
+percent of its true value. Worsening-driven and symptom-return dropout
+attenuated it by up to
+`r sprintf('%.1f', pct(max(lmb[condition %in% c('worsening_25', 'return_25')]$shift)))`
+percent. Magnitude-driven dropout attenuated it by up to
+`r sprintf('%.1f', pct(max(lmb[condition %in% c('magnitude_25', 'magnitude_40')]$shift)))`
+percent, in CO. MCAR dropout moved it by at most
+`r sprintf('%.1f', pct(max(abs(lmb[condition == 'MCAR_25']$shift))))`
+percent. Dropout did not change test size.
 
 An analysis half-life of 0.5 week biased the OL+BDC and Hybrid
 estimates by about
-`r sprintf('%.0f', -100 * c0('OLBDC', 'ta0.5')$bias / 2.25)` and
-`r sprintf('%.0f', -100 * c0('Hybrid', 'ta0.5')$bias / 2.25)` percent,
+`r sprintf('%.0f', -pct(c0('OLBDC', 'ta0.5')$bias))` and
+`r sprintf('%.0f', -pct(c0('Hybrid', 'ta0.5')$bias))` percent,
 because the generating interaction had no carryover. The analysis must
 match the exposure profile of the interaction, not only that of the
 mean drug response.
@@ -1120,6 +1352,10 @@ mean drug response.
 - **Paired loss.** The mean over replicates of the rejection indicator
   without dropout minus the rejection indicator with dropout, computed
   on the same datasets.
+- **Parameter set.** The response and baseline parameters of the
+  simulation. This run uses the set of the published code of
+  Hendrickson et al. (Table \@ref(tab:tab-params), data label
+  `published`). The earlier prototype used an earlier set.
 - **Analysis half-life $t^a_{1/2}$.** The half-life the analysis uses
   to build the exposure indicator. It is distinct from the
   data-generating half-life $t_{1/2}$.
@@ -1144,44 +1380,50 @@ This work received no specific funding.
 
 The data and code that support the findings of this study are in the
 pmsimstats-ng project repository. Per-replicate outputs and summary
-files are under `analysis/data/informative-dropout-by-design/`. The
-drivers are under `analysis/scripts/informative-dropout-by-design/`.
-Exact paths are listed in the Reproducibility section.
+files are under
+`analysis/data/informative-dropout-by-design-published/`. The drivers
+are under `analysis/scripts/informative-dropout-by-design/`. Exact
+paths are listed in the Reproducibility section.
 
 # Reproducibility {-}
 
 The paired study is produced by
-`analysis/scripts/informative-dropout-by-design/20-paired-dropout.R`,
-run from the repository root through
-`bash analysis/scripts/informative-dropout-by-design/20-run-paired.sh`.
+`analysis/scripts/informative-dropout-by-design/20-paired-dropout.R`
+with `--params published`, run from the repository root through
+`PMSIM_PARAMS=published bash analysis/scripts/informative-dropout-by-design/20-run-paired.sh`.
 The wrapper sets `VECLIB_MAXIMUM_THREADS`, `OPENBLAS_NUM_THREADS` and
 `OMP_NUM_THREADS` to 1. The environment variables `P09_REPS` and
 `P09_NULL_REPS` set the replicate counts (this manuscript used
-`r format(meta$n_reps, big.mark = ',')` and
-`r meta$n_null`). The driver writes
+`r fmtn(meta$n_reps)` and `r fmtn(meta$n_null)`). The driver writes
 `paired-replicates.rds` (one row per design, regime, replicate,
 condition and analysis), `paired-dropout.rds` (dropout diagnostics)
-and `paired-meta.rds` (settings, elapsed time and session information)
-to `analysis/data/informative-dropout-by-design/`. The script
-`21-summarise-paired.R` in the same directory writes the four summary
-files `paired-cells.csv`, `paired-loss.csv`, `paired-contrast.csv`
-and `paired-dropout.csv`. Every number in Sections
-\@ref(sec-results) to \@ref(sec-conclusions) is read from those files
-by inline R when this manuscript is rendered.
+and `paired-meta.rds` (settings, parameter set, elapsed time and
+session information) to
+`analysis/data/informative-dropout-by-design-published/`. The script
+`21-summarise-paired.R --params published` in the same directory
+writes the four summary files `paired-cells.csv`, `paired-loss.csv`,
+`paired-contrast.csv` and `paired-dropout.csv`. The null checks of the
+tests are produced by `analysis/scripts/cr2-olbdc-check/` under the
+same parameter set and summarized in
+`analysis/data/cr2-olbdc-check-published/summary.csv`. Every number in
+Sections \@ref(sec-results) to \@ref(sec-conclusions) is read from
+those files by inline R when this manuscript is rendered.
 
-Seeds are `set.seed(20261029 + 100000 * d + r)` for design index $d$
-and replicate $r$, plus 50,000 in the null regime. The run reported
-here was made on the host R session (R 4.6.1, macOS, outside the
-project container and without renv). Results from the container are
-not draw-for-draw identical because the linear-algebra libraries
-differ. The run took
-`r sprintf('%.0f', meta$elapsed_secs / 60)`
-minutes on 8 workers on a shared machine.
+Seeds are `set.seed(P09_SEED + 100000 * d + r)` for design index $d$
+and replicate $r$, plus 50,000 in the null regime, with `P09_SEED`
+equal to `r meta$seed`. The run
+reported here was made in a Linux container
+(`r meta$session$R.version$version.string`,
+`r meta$session$running`). Results from a host R session are not
+draw-for-draw identical because the linear-algebra libraries differ.
+The run took `r sprintf('%.0f', meta$elapsed_secs / 60)` minutes on
+`r meta$n_cores` workers.
 
 The earlier unpaired prototype is
 `analysis/scripts/quick-sim/09-dropout-prototype-10min.R`. It calls
 `set.seed(20260508)` once and seeds each replicate with
-`100000 * i + rep` for cell index $i$. Its outputs are
+`100000 * i + rep` for cell index $i$. It hard-codes the earlier
+parameter set. Its outputs are
 `analysis/data/quick-sim/09-dropout-replicates.rds` and
 `09-dropout-summary.txt`. The working protocol
 `analysis/scripts/informative-dropout-by-design/00-ademp-protocol.md`

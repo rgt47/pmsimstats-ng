@@ -1,5 +1,5 @@
 # Cover letter
-*2026-10-28 18:30 PDT*
+*2026-10-28 18:30 PDT; revised 2026-11-05 PST*
 
 To the Editor,
 Statistics in Medicine
@@ -41,19 +41,22 @@ continuous-biomarker procedures, including the calibration ratio
 and cell.
 
 The principal findings are as follows. Dichotomization accounts for
-0.08 to 0.21 of absolute power and the test procedure for at most
-0.04; the observed loss matches Cohen's $2/\pi$ efficiency factor.
-GEE with the Liang-Zeger sandwich rejects at 7.4 to 9.7 percent under
-the null at every sample size. The Mancl-DeRouen sandwich restores
-nominal size only when paired with a $t$ reference on $K - p$
-degrees of freedom (4.7 to 5.9 percent), at a power cost of 10 to 15
-points relative to the uncorrected GEE at $N \le 35$. The linear
-mixed model with model-based inference is conservative (size 2.1 to
-3.4 percent) because its working covariance over-estimates the
-standard error by 10 to 16 percent; a degrees-of-freedom correction
-cannot repair this, and a cluster-robust standard error can. An LME
-plus CR2 arm is specified in the driver and will be reported on
-rerun.
+0.12 to 0.22 of absolute power and the test procedure for at most
+0.09; the observed loss agrees with Cohen's $2/\pi$ efficiency factor
+within Monte Carlo error. GEE with the Liang-Zeger sandwich rejects at
+6.8 to 11.3 percent under the null at every sample size. The
+Mancl-DeRouen sandwich restores nominal size only when paired with a
+$t$ reference on $K - p$ degrees of freedom (5.1 to 6.0 percent), at a
+power cost of 11 to 14 points relative to the uncorrected GEE at
+$N \le 35$. The linear mixed model with model-based inference is
+conservative (size 2.8 to 3.6 percent) because its working covariance
+over-estimates the standard error by 7 to 11 percent; a
+degrees-of-freedom correction cannot repair this, and a cluster-robust
+standard error can. The mixed model with CR2 standard errors holds
+nominal size (4.5 to 5.8 percent) and is the most powerful arm with
+nominal size, although at $N = 25$ it is slightly less powerful than
+the conservative model-based test. No procedure reaches 80 percent
+power at $N \le 35$.
 
 The paper's scope is the test-procedure axis at a fixed design. A
 cycle-by-period design grid is recorded as future work. The paper

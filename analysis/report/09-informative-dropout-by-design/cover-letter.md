@@ -1,5 +1,5 @@
 # Cover letter
-*2026-05-09 09:55 PDT; revised 2026-10-29 11:35 PDT*
+*2026-05-09 09:55 PDT; revised 2026-11-05 PST*
 
 To the Editor,
 Statistics in Medicine
@@ -25,17 +25,19 @@ Crowther (2019).
 
 The principal findings, at one parameter point with N = 70, are as
 follows. (i) The Hybrid and OL+BDC designs estimated the interaction
-with the same precision. CO needed about 1.9 times the sample for the
+with the same precision. CO needed about 1.5 times the sample for the
 same precision. (ii) Dropout of a given rate inflated the standard
 error by nearly the same factor in all three designs (1.08 to 1.09 at
-25 percent completely random dropout, 1.13 to 1.16 at 40 percent
-magnitude-driven dropout). CO's larger absolute power loss followed
-mainly from its lower starting power. (iii) Improvement-driven dropout
-attenuated the estimate by up to 7 percent of its true value, most in
-CO. Dropout did not change test size. (iv) An analysis half-life of
-0.5 week biased the OL+BDC and Hybrid estimates by about 11 and 8
-percent, because the generating interaction had no carryover. A
-binary exposure indicator removed the bias.
+25 percent completely random dropout, 1.12 to 1.15 at 40 percent
+magnitude-driven dropout). CO lost the most power in every condition,
+and its lower starting power did not explain the difference.
+(iii) Worsening-, improvement- and symptom-return-driven dropout each
+attenuated the estimate in every design. Improvement-driven dropout
+attenuated it by up to 6 percent of its true value, in CO. Dropout
+did not change test size. (iv) An analysis half-life of 0.5 week
+biased the OL+BDC and Hybrid estimates by about 10 and 6 percent,
+because the generating interaction had no carryover. A binary
+exposure indicator removed the bias.
 
 The study is exploratory. No analysis plan was registered in advance,
 and its findings should be confirmed in an independent study. It

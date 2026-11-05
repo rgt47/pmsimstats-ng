@@ -36,9 +36,139 @@ knitr::opts_chunk$set(
   message = FALSE
 )
 root <- tryCatch(here::here(), error = function(e) '../../..')
-summary_file <- file.path(root, 'analysis/data/quick-sim/08-test-summary.txt')
-stored <- read.delim(summary_file)
-has_cr2 <- 'lme_cr2' %in% stored$procedure
+# Every number in the text is read from the published-set run. The
+# earlier fixture run (analysis/data/quick-sim/08-test-*) is superseded.
+pfx <- file.path(root,
+                 'analysis/data/quick-sim/08-test-published/08-test')
+rd <- function(suffix) read.delim(paste0(pfx, suffix))
+stored <- rd('-summary.txt')
+tref   <- rd('-mancl-tref.txt')
+nullb  <- rd('-null-binomial.txt')
+bench  <- rd('-mancl-benchmark.txt')
+bt_tab <- read.delim(paste0(pfx, '-betatrue.txt'), header = FALSE)
+meta   <- readRDS(paste0(pfx, '-meta.rds'))
+stopifnot(
+  meta$params$param_set == 'published',
+  readLines(file.path(dirname(pfx), 'PARAM_SET'), n = 1) == 'published',
+  all(c('lme_cr2', 'gee_mancl', 'gee_mancl_z') %in% stored$procedure)
+)
+
+beta_mc <- bt_tab$V2[bt_tab$V1 == 'beta_true_mc']
+beta_an <- bt_tab$V2[bt_tab$V1 == 'beta_true_analytic']
+n_bt    <- bt_tab$V2[bt_tab$V1 == 'n_draws']
+# The individual reference draws are not stored; their SE is
+# approximated from the empirical SD of the model-based LME at the
+# largest N, scaled to the reference sample size.
+ref_se <- with(stored[stored$procedure == 'lme' &
+                        stored$c.bm == 0.45 &
+                        stored$N == max(meta$N_levels), ],
+               emp_se * sqrt(N / meta$betatrue_n) / sqrt(n_bt))
+Ns <- meta$N_levels
+rp <- as.data.frame(meta$params$resp_param)
+bp <- as.data.frame(meta$params$baseline_param)
+sd_br  <- rp$sd[rp$cat == 'br']
+bm_mu  <- bp$m[bp$cat == 'bm']
+bm_sig <- bp$sd[bp$cat == 'bm']
+
+col <- function(proc, cbm, what = 'rejection_rate') {
+  s <- stored[stored$procedure == proc & stored$c.bm == cbm, ]
+  s[[what]][match(Ns, s$N)]
+}
+pw <- function(proc, what = 'rejection_rate') col(proc, 0.45, what)
+t1 <- function(proc, what = 'rejection_rate') col(proc, 0, what)
+nb <- function(proc, what = 'binom_p') {
+  s <- nullb[nullb$procedure == proc, ]
+  s[[what]][match(Ns, s$N)]
+}
+tr <- function(cbm, what) {
+  s <- tref[tref$c.bm == cbm, ]
+  s[[what]][match(Ns, s$N)]
+}
+# Round half away from zero so that, for example, 0.0595 prints as
+# 6.0 percent, matching the two-decimal table entry 5.95.
+f <- function(x, d = 2) {
+  formatC(round(x + sign(x) * 1e-9, d) + 0, format = 'f', digits = d)
+}
+rng <- function(x, d = 2, s = 1) {
+  paste(f(s * min(x), d), 'to', f(s * max(x), d))
+}
+lst <- function(x, d = 3, s = 1) {
+  v <- f(s * x, d)
+  paste0(paste(v[-length(v)], collapse = ', '), ', and ', v[length(v)])
+}
+pt_ <- function(x) f(100 * x, 1)
+
+# Strict RM-ANOVA versus the contrast, and the contrast versus the
+# continuous-biomarker arms with nominal or conservative size.
+dich    <- pw('contrast_cont') - pw('rmanova')
+inc_lme <- pw('lme') - pw('contrast_cont')
+inc_cr2 <- pw('lme_cr2') - pw('contrast_cont')
+inc_md  <- pw('gee_mancl') - pw('contrast_cont')
+proc_max <- max(abs(c(inc_lme, inc_cr2, inc_md)))
+
+# Cohen's 2/pi prediction: solve the contrast's observed power for its
+# non-centrality on N - 2 df, scale by sqrt(2/pi), recompute power.
+cohen_pred <- function(pow, N) {
+  df <- N - 2
+  crit <- qt(0.975, df)
+  pfun <- function(ncp) {
+    pt(crit, df, ncp, lower.tail = FALSE) + pt(-crit, df, ncp)
+  }
+  ncp <- uniroot(function(x) pfun(x) - pow, c(0, 30))$root
+  pfun(ncp * sqrt(2 / pi))
+}
+dich_pred <- mapply(cohen_pred, pw('contrast_cont'), Ns)
+dich_obs  <- pw('rmanova')
+dich_z    <- (dich_obs - dich_pred) / pw('rmanova', 'mcse_rate')
+
+rel_bias <- function(proc) {
+  max(abs(stored$bias[stored$procedure == proc])) / abs(beta_mc)
+}
+bias_se <- function(proc) {
+  s <- stored[stored$procedure == proc, ]
+  max(abs(s$bias / s$emp_se))
+}
+
+n_null_tests <- length(setdiff(unique(nullb$procedure), 'gee_mancl_z')) *
+  length(Ns)
+max_small <- max(stored$rejection_rate[stored$c.bm == 0.45 &
+                                         stored$N <= 35])
+nominal_arms <- c('contrast_cont', 'lme_cr2', 'gee_mancl')
+pw_nominal <- sapply(nominal_arms, pw)
+pw_bias <- sapply(c('contrast_cont', 'lme', 'gee'),
+                  function(p) pw(p, 'bias'))
+
+# The prose states these directions in words; stop the render if a
+# rerun reverses any of them.
+stopifnot(
+  min(dich) > proc_max,
+  which.max(dich) == 3,
+  all(abs(dich_z) < 2), all(dich_z[2:3] < 0),
+  pw('lme')[1] > pw('lme_cr2')[1],
+  all(pw('lme_cr2')[-1] >= pw('lme')[-1]),
+  max_small < 0.8,
+  pw('lme')[3] > 0.8, pw('lme_cr2')[3] > 0.8,
+  pw('contrast_cont')[3] < 0.8, pw('gee_mancl')[3] < 0.8,
+  pw('contrast_cont')[4] > 0.8, pw('gee_mancl')[4] > 0.8,
+  all(apply(pw_nominal, 1, which.max) == 2),
+  all(apply(pw_nominal, 1, which.min) == 3),
+  pw('gee')[1] > pw('lme')[1], all(pw('gee')[-1] <= pw('lme')[-1]),
+  which.max(t1('gee')) == 1,
+  all(t1('lme') < 0.05), all(t1('gee') > 0.05),
+  all(tr(0, 'binom_p_t') > 0.05), all(nb('lme') < 0.05),
+  all(nb('gee') < 0.001), all(nb('lme_cr2') > 0.05),
+  all(tr(0, 'binom_p_z')[c(1, 2, 4)] < 0.05),
+  tr(0, 'binom_p_z')[3] > 0.05,
+  sum(nb('contrast_cont') < 0.05) == 1, nb('contrast_cont')[4] < 0.05,
+  all(pw_bias < 0), all(apply(abs(pw_bias), 2, diff) < 0),
+  which.min(t1('gee', 'se_ratio')) == 1,
+  which.min(pw('gee', 'se_ratio')) == 1,
+  which.min(t1('lme_cr2', 'se_ratio')) == 1,
+  all(abs(nb('lme_cr2', 'z_vs_nominal')) < 2),
+  isTRUE(all.equal(tr(0, 'rejection_rate_t'), t1('gee_mancl'))),
+  isTRUE(all.equal(tr(0, 'rejection_rate_z'), t1('gee_mancl_z'))),
+  all(stored$conv_rate == 1)
+)
 ```
 
 # Abstract
@@ -60,30 +190,44 @@ biomarker. A within-participant contrast kept the biomarker
 continuous and otherwise matched RM-ANOVA. A linear mixed model
 (LME) used continuous-time AR(1) residuals, once with model-based
 inference and once with CR2 cluster-robust inference. Two GEE
-analyses used the Liang-Zeger and the Mancl-DeRouen sandwich. The design was a two-path open-label plus blinded
-discontinuation schedule with $N \in \{25, 35, 70, 100\}$ and an
-interaction coefficient $\beta_{bm} \in \{0, 0.45\}$. Each power
-cell had 1000 replicates and each null cell 2000.
+analyses used the Liang-Zeger and the Mancl-DeRouen sandwich. The
+design was a two-path open-label plus blinded discontinuation
+schedule with $N \in \{25, 35, 70, 100\}$ and an interaction
+coefficient $\beta_{bm} \in \{0, 0.45\}$. The data-generating
+parameters were those published by Hendrickson et al.
+[@hendrickson2020]. Each power
+cell had `r meta$reps_power` replicates and each null cell
+`r meta$reps_null`.
 
-**Results.** Dichotomization accounted for 0.08 to 0.21 of absolute
-power. Among procedures with nominal or conservative size, the test
-procedure accounted for at most 0.07. The observed
-loss matched Cohen's $2/\pi$ efficiency factor for a median split.
-The Liang-Zeger GEE rejected at 7.4 to 9.7 percent under the null.
-The Mancl-DeRouen sandwich with a $t$ reference on $K - 5$ degrees of
-freedom rejected at 4.7 to 5.9 percent. Its power was 10 to 15
-points below the uncorrected GEE at $N \le 35$. The LME with
-model-based inference rejected at 2.1 to 3.4 percent. Its standard
-error exceeded the empirical standard error by 10 to 16 percent.
-The same fit with CR2 inference rejected at 4.3 to 5.9 percent and
-gained 0.5 to 3.0 points of power.
+**Results.** Dichotomization cost `r rng(dich)` of absolute power.
+Among procedures with nominal or conservative size, the test
+procedure moved power by at most `r f(proc_max)` relative to the
+continuous-biomarker contrast. The observed loss agreed with Cohen's
+$2/\pi$ efficiency factor for a median split to within
+`r f(max(abs(dich_z)), 1)` MCSE. Power was modest at this effect
+size: no procedure reached 0.80 at $N \le 35$. The Liang-Zeger GEE
+rejected at `r rng(t1('gee'), 1, 100)` percent under the null. The
+Mancl-DeRouen sandwich with a $t$ reference on $K - 5$ degrees of
+freedom rejected at `r rng(tr(0, 'rejection_rate_t'), 1, 100)`
+percent. Its power was
+`r rng((pw('gee') - pw('gee_mancl'))[Ns <= 35], 0, 100)` points
+below the uncorrected GEE at $N \le 35$. The LME with model-based
+inference rejected at `r rng(t1('lme'), 1, 100)` percent. Its
+standard error exceeded the empirical standard error by
+`r rng(c(t1('lme', 'se_ratio'), pw('lme', 'se_ratio')) - 1, 0, 100)`
+percent. The same fit with CR2 inference rejected at
+`r rng(t1('lme_cr2'), 1, 100)` percent. Its power was
+`r f(100 * (pw('lme') - pw('lme_cr2'))[1], 1)` points below the
+model-based fit at $N = 25$ and
+`r rng((pw('lme_cr2') - pw('lme'))[-1], 1, 100)` points above it
+at larger $N$.
 
 **Conclusions.** Keeping the biomarker continuous is the most
 consequential choice. The LME's conservatism is a working-covariance
 calibration defect. Degrees-of-freedom corrections cannot repair it.
 The cluster-robust CR2 standard error used by the companion papers
-repairs it here. Uncorrected GEE should not be used at these sample
-sizes.
+restores nominal size here. Uncorrected GEE should not be used at
+these sample sizes.
 
 # Introduction
 
@@ -134,12 +278,12 @@ serially correlated on a timescale set by pharmacokinetics,
 natural-history drift, and measurement reactivity. A continuous-time
 AR(1) residual correlation represents this. It is not spherical in
 the sense required by a classical analysis that keeps every visit
-as a repeated level. @haverkamp2017sphericity report through
+as a repeated level. Haverkamp and Beauducel [@haverkamp2017sphericity] report through
 simulation that uncorrected RM-ANOVA inflates Type I error under
 sphericity violations. They also report that the
 Greenhouse-Geisser-corrected RM-ANOVA and the multilevel model
 perform comparably, and that the multilevel model is not uniformly
-safer. @blanca2023sphericity extend this with finer epsilon
+safer. Blanca et al. [@blanca2023sphericity] extend this with finer epsilon
 resolution. The classical procedure we evaluate pre-averages each
 phase to one value, so it has a two-level within-participant factor
 and sphericity holds by construction. The serial correlation
@@ -148,55 +292,55 @@ affects it only through the variance of the phase difference.
 ## What the literature does and does not do
 
 Most published N-of-1 analyses ignore serial correlation.
-@natesanbatley2023 report that 83.8 percent of the studies they
-catalog do so. @stunnenberg2022 and @shaffer2018 reach similar
+Natesan Batley et al. [@natesanbatley2023] report that 83.8 percent of the studies they
+catalog do so. Stunnenberg et al. [@stunnenberg2022] and Shaffer et al. [@shaffer2018] reach similar
 conclusions in neurology and behavioral medicine, and
-@defelippe2023 in rare-disease applications. The CENT
+Defelippe et al. [@defelippe2023] in rare-disease applications. The CENT
 reporting standards [@vohraCONSORTExtensionReporting2015;
 @shamseer2015cent] do not address the analytic-model decision, and
-@kwasnicka2019 rank it as the field's highest-priority
+Kwasnicka et al. [@kwasnicka2019] rank it as the field's highest-priority
 methodological problem.
 
 The cost of a median split is a classical result.
-@cohen1983dichotomization gave the efficiency loss of dichotomizing
+Cohen [@cohen1983dichotomization] gave the efficiency loss of dichotomizing
 a normal predictor at the median as about 36 percent, the factor
-$2/\pi$ on the squared correlation. @maccallum2002dichotomization
+$2/\pi$ on the squared correlation. MacCallum et al. [@maccallum2002dichotomization]
 documented the practice and its consequences at length.
-@royston2006dichotomizing showed the power loss and residual
+Royston et al. [@royston2006dichotomizing] showed the power loss and residual
 confounding in regression. The present paper observes that loss
 once more, in the N-of-1 interaction setting, and compares it with
 the $2/\pi$ prediction.
 
 Test-procedure comparisons for longitudinal data are not new.
-@ma2012beyond report that RM-ANOVA is less powerful than GEE and
+Ma et al. [@ma2012beyond] report that RM-ANOVA is less powerful than GEE and
 mixed models for continuous longitudinal endpoints. The MMRM
 literature [@mallinckrodt2003; @mallinckrodt2008recommendations]
 addresses parallel-group trials with monotone missingness. The GEE
-of @liang1986 over-rejects with few clusters, and several
+of Liang and Zeger [@liang1986] over-rejects with few clusters, and several
 bias-corrected sandwiches address this [@mancl2001covariance;
 @kauermann2001sandwich; @fay2001sandwich; @wang2016geesmv].
-@pan2002sandwich proposed $t$ and $F$ references that account for
-the variability of the sandwich. @li2015sandwich compared the
+Pan and Wall [@pan2002sandwich] proposed $t$ and $F$ references that account for
+the variability of the sandwich. Li and Redden [@li2015sandwich] compared the
 corrections and concluded that the Wald $z$ test should be avoided
 with few clusters even with a bias-corrected sandwich, and that a
-$t$ reference is needed. @tong2024stepwedge report that in
+$t$ reference is needed. Tong et al. [@tong2024stepwedge] report that in
 stepped-wedge trials with fewer than six units only 6.6 percent of
 analyses use a small-sample correction. None of these papers
 addresses the biomarker-interaction estimand in an N-of-1 design.
 
 Design optimization has been studied separately from
-test-procedure choice. @hedges2023power give power computations for
-$(AB)^k$ single-case designs. @bouwmeester2020 document the effect
+test-procedure choice. Hedges et al. [@hedges2023power] give power computations for
+$(AB)^k$ single-case designs. Bouwmeester and Jongerling [@bouwmeester2020] document the effect
 of serial correlation on randomization-test power.
-@senn1994crossover and @senn2011individual show that replicate
+Senn [@senn1994crossover] and Senn et al. [@senn2011individual] show that replicate
 crossover designs identify the patient-by-treatment interaction
-variance. @hendrickson2020 compare design families for the
+variance. Hendrickson et al. [@hendrickson2020] compare design families for the
 biomarker-interaction question with one test procedure.
-@blackstonComparisonAggregatedNof12019 compare aggregated N-of-1
+Blackston et al. [@blackstonComparisonAggregatedNof12019] compare aggregated N-of-1
 trials against parallel and crossover designs with one mixed
-model. @schork2023precision and @zucker2010 review the design
+model. Schork et al. [@schork2023precision] and Zucker et al. [@zucker2010] review the design
 literature. Run-in selection is a separate controversy:
-@berger2003runin show that response-based exclusion during a
+Berger et al. [@berger2003runin] show that response-based exclusion during a
 placebo run-in biases validity, and the open-label titration used
 here avoids it.
 
@@ -236,8 +380,9 @@ multiplier on the standardized biomarker. The companion
 architecture manuscript uses $c_{bm}$ for the correlation encoding.
 The two are calibrated so that $0.45$ denotes a matched interaction
 strength, but the symbols are not interchangeable. The biomarker is
-standardized (mean 0, SD 1) throughout and carries no clinical
-units.
+generated on its published scale and standardized by its population
+mean and SD before every analysis, so $\beta_{bm:D}$ is the
+interaction per biomarker SD.
 
 The remainder of the paper is organized as follows. Section
 \@ref(sec-closed-form) gives the derivation, adapted from
@@ -544,7 +689,7 @@ of the companion paper [@pmsimstats-paper02] address assumptions
 
 # Simulation design {#sec-design}
 
-The study follows the ADEMP structure of @morris2019simulation. It is
+The study follows the ADEMP structure of Morris et al. [@morris2019simulation]. It is
 exploratory. Its findings should be confirmed in an independent
 study.
 
@@ -587,7 +732,7 @@ The total $N$ is split across the two paths as $\lceil N/2 \rceil$
 and $\lfloor N/2 \rfloor$. Path A contributes 6 on-drug and 3
 off-drug visits per participant (counting baseline), path B 5 and
 4. This design is the two-path OL+BDC of the series' notation, not
-the four-path Hybrid design of @hendrickson2020, which adds a
+the four-path Hybrid design of Hendrickson et al. [@hendrickson2020], which adds a
 crossover block. The working protocol specified the Hybrid design;
 Table \@ref(tab:deviations) records the change.
 
@@ -598,30 +743,61 @@ Data are generated by the pmsimstats package function
 outcome at each visit is a baseline level plus three components: a
 natural-history component, a placebo-response component, and a
 drug-response component. Each component follows a modified Gompertz
-curve in time on drug with the package's prazosin reference
-parameters. Within each component the visit-to-visit correlation is
-AR(1) with $\rho = 0.7$. The cross-component correlation is 0.1 at
-the same visit and 0.05 across visits (the package parameters
-`c.cf1t` and `c.cfct`). The biomarker is standard normal. Under the
-mean-shift encoding, the drug-response mean at on-drug visits is
-shifted by $\beta_{bm}\, b_i\, \sigma_{BR}$, where $b_i$ is the
-standardized biomarker and $\sigma_{BR} = 5$. The interaction on the
-outcome scale is therefore $\beta_{bm} \sigma_{BR}$, with an
-analytic value of $2.25$ at $\beta_{bm} = 0.45$; a Monte Carlo
-reference fit at $N = 2000$ gave $-2.21$ in the sign convention of
-the fitted coefficient.
+curve in time on drug. The curve parameters, the component SDs, and
+the baseline and biomarker distributions are the values published by
+Hendrickson et al. [@hendrickson2020] (Table \@ref(tab:params)). Within each component
+the visit-to-visit correlation is AR(1) with $\rho = 0.7$. The
+cross-component correlation is 0.1 at the same visit and 0.05 across
+visits (the package parameters `c.cf1t` and `c.cfct`).
 
-This configuration is the package default under the mean-shift
-encoding. It is neither the original DGP of @hendrickson2020
-(compound symmetry within components, $\rho_{cs} = 0.8$) nor the
-extended DGP of the series' notation, which sets the cross-component
-correlation $c_1 = 0.2$. The carryover half-life is zero: the
-drug-response mean drops to zero at discontinuation. There is no
-dropout. Both paths' covariance matrices are positive definite at
-these parameters (minimum eigenvalue 0.168), and $\beta_{bm}$ does
-not enter the covariance under the mean-shift encoding. The stored
-run therefore did not rely on the package's former repair of
-non-positive-definite matrices, which is now disabled by default.
+```{r params-table, results = 'asis'}
+ptab <- data.frame(
+  Quantity = c('Natural history (TV)', 'Placebo response (PB)',
+               'Drug response (BR)', 'Biomarker', 'Baseline level'),
+  Max = c(f(rp$max[match(c('tv', 'pb', 'br'), rp$cat)], 3), '', ''),
+  Disp = c(f(rp$disp[match(c('tv', 'pb', 'br'), rp$cat)], 0), '', ''),
+  Rate = c(f(rp$rate[match(c('tv', 'pb', 'br'), rp$cat)], 2), '', ''),
+  Mean = c('', '', '', f(bp$m[match(c('bm', 'BL'), bp$cat)], 2)),
+  SD = c(f(rp$sd[match(c('tv', 'pb', 'br'), rp$cat)], 0),
+         f(bp$sd[match(c('bm', 'BL'), bp$cat)], 2))
+)
+print(knitr::kable(ptab, format = 'pandoc',
+  label = NA, escape = FALSE,
+  col.names = c('Component', 'Gompertz max', 'Gompertz disp',
+                'Gompertz rate', 'Mean', 'SD'),
+  caption = paste(
+    '(\\#tab:params) Data-generating parameters: the published set',
+    'of Hendrickson et al., as recorded in the run\'s metadata',
+    '(`08-test-meta.rds`). The three response components follow the',
+    'modified Gompertz curve $m \\exp(-d \\exp(-r t))$ in time on',
+    'drug.')))
+```
+
+Under the mean-shift encoding, the drug-response mean at on-drug
+visits is shifted by $\beta_{bm}\, b_i\, \sigma_{BR}$, where $b_i$ is
+the standardized biomarker and $\sigma_{BR} = `r f(sd_br, 0)`$. The
+biomarker is drawn with mean `r f(bm_mu, 2)` and SD `r f(bm_sig, 2)`
+and is standardized by these values before every analysis. Without
+the standardization, a biomarker centered near 124 would make the
+`bm:Dbc` column nearly collinear with `Dbc`. The interaction on the
+outcome scale is therefore $\beta_{bm} \sigma_{BR}$ per biomarker
+SD, with an analytic magnitude of `r f(beta_an, 1)` at
+$\beta_{bm} = 0.45$. A Monte Carlo reference fit of the model-based
+LME, averaged over `r n_bt` data sets of $N = `r meta$betatrue_n`$,
+gave $`r f(beta_mc, 2)`$ in the sign convention of the fitted
+coefficient. That value is the reference for bias and coverage.
+
+The correlation structure is neither that of the original DGP of
+Hendrickson et al. [@hendrickson2020] (compound symmetry within components,
+$\rho_{cs} = 0.8$) nor that of the extended DGP of the series'
+notation, which sets the cross-component correlation $c_1 = 0.2$.
+The carryover half-life is zero: the drug-response mean drops to
+zero at discontinuation. There is no dropout. Under the mean-shift
+encoding $\beta_{bm}$ does not enter the covariance matrix. The
+correlation matrices of both paths are positive definite, and
+positive component SDs do not change that. The run refuses a
+non-positive-definite matrix rather than repairing it, and every
+replicate data set was generated.
 
 ## Estimands
 
@@ -674,21 +850,23 @@ replicate data set.
    0, 4, 8, 12, 16, 17, 18, 19, and 20, so the working correlation
    treats unequally spaced occasions as equally spaced. The LME arms
    use the continuous-time form instead. The test is the Wald $z$
-   with the robust sandwich of @liang1986.
+   with the robust sandwich of Liang and Zeger [@liang1986].
 6. **GEE, Mancl-DeRouen sandwich.** The same fit as procedure 5.
    The sandwich meat is bias-corrected by inflating each cluster's
    residual as $(I - H_{ii})^{-1} r_i$ [@mancl2001covariance],
    computed inline. The Wald statistic is referred to a $t$
    distribution on $K - p$ degrees of freedom, with $K = N$ clusters
-   and $p = 5$ fixed effects, the pairing @li2015sandwich recommend.
-   The stored 2026-10-08 run used a normal reference; the
-   $t$-reference results below were recomputed from the stored
-   per-replicate estimates and standard errors without refitting
-   (`02-mancl-t-reference.R`). The inline sandwich was benchmarked
-   against `geesmv::GEE.var.md` on 25 probe replicates at $N = 35$,
+   and $p = 5$ fixed effects, the pairing Li and Redden [@li2015sandwich] recommend.
+   The driver also stores the normal-reference test for comparison.
+   A separate script (`02-mancl-t-reference.R`) recomputes both
+   references from the per-replicate estimates and standard errors
+   without refitting and reproduces the driver's rejection rates.
+   The inline sandwich was benchmarked against `geesmv::GEE.var.md`
+   on `r nrow(bench)` probe replicates at $N = 35$,
    $\beta_{bm} = 0.45$: the inline-to-`geesmv` ratio of the
-   interaction standard error had mean 1.024, SD 0.021, and range
-   0.999 to 1.092.
+   interaction standard error had mean `r f(mean(bench$ratio), 3)`,
+   SD `r f(sd(bench$ratio), 3)`, and range
+   `r rng(bench$ratio, 3)`.
 
 The arms differ in their mean model as well as in their covariance
 treatment. The contrast arm uses no time trend and no expectancy
@@ -725,7 +903,7 @@ Table: (\#tab:deviations) Working protocol versus executed Study 1.
 | Substrate | `implementations/simple` | pmsimstats package (`generateData()`, `lme_analysis()`) | The package DGP is the one the companion papers use |
 | RM-ANOVA form | Greenhouse-Geisser-corrected $F$ on the multi-timepoint series | Pre-averaged $2 \times 2$ split-plot $F$ (exact) | Isolates dichotomization; the GG-corrected multi-level form is a different procedure |
 | Test procedures | 3 (RM-ANOVA, LME, GEE-MD) | 6 (adds the contrast, Liang-Zeger GEE, LME plus CR2) | Contrast isolates dichotomization; Liang-Zeger documents the uncorrected GEE; CR2 is the series' inference |
-| GEE reference | Not stated | Mancl-DeRouen with $t_{K - 5}$; the normal reference is reported for comparison | @li2015sandwich |
+| GEE reference | Not stated | Mancl-DeRouen with $t_{K - 5}$; the normal reference is reported for comparison | Li and Redden [@li2015sandwich] |
 | Biomarker effect | $\{0, 0.3, 0.6\}$ | $\{0, 0.45\}$ | The series' reference effect size |
 | Sample size $N$ | $\{35, 70, 100\}$ | $\{25, 35, 70, 100\}$ | Adds the smallest trial-relevant $N$ |
 | Replicates | 1000 power, 5000 null | 1000 power, 2000 null | Run time; MCSE on a 5 percent rate is 0.5 points |
@@ -738,62 +916,101 @@ days.
 
 ## Execution
 
-The 40 stored cells (5 procedures, 2 effect sizes, 4 sample sizes)
-ran in 587 s on 7 cores with `parallel::mclapply`. Convergence was
-100 percent across the 60,000 stored fits. Per-replicate output is
-at `analysis/data/quick-sim/08-test-replicates.rds` and the
-cell-level summary at `08-test-summary.txt`. With 1000 replicates
-the MCSE on a power near 0.5 is 0.016. With 2000 replicates the
-MCSE on a rate near 0.05 is 0.005.
+The `r nrow(stored)` cells (`r length(unique(stored$procedure))`
+procedure variants, 2 effect sizes, 4 sample sizes) ran with
+`parallel::mclapply` on `r meta$n_cores` workers. The run started
+on `r format(meta$started, '%Y-%m-%d')`. Convergence was
+`r f(100 * min(stored$conv_rate), 0)` percent across all
+`r format(sum(stored$n_reps), big.mark = ',')` stored fits.
+Per-replicate output is at
+`analysis/data/quick-sim/08-test-published/08-test-replicates.rds`
+and the cell-level summary at `08-test-summary.txt` in the same
+directory. An earlier draft reported a run of the same design under
+a parameter set taken from the package's unit tests. That run is
+superseded and is not reported. With 1000 replicates the MCSE on a
+power near 0.5 is 0.016. With 2000 replicates the MCSE on a rate
+near 0.05 is 0.005.
 
 # Results {#sec-results}
 
 ## Type I error and power
 
-We applied the five stored procedures and the recomputed
-Mancl-DeRouen $t$ reference to every replicate. Table
-\@ref(tab:type1) gives the null rejection rates and Table
-\@ref(tab:power) the power.
+We applied the six procedures, and the normal-reference variant of
+the Mancl-DeRouen test, to every replicate. Table \@ref(tab:type1)
+gives the null rejection rates and Table \@ref(tab:power) the power.
+The LME plus CR2 arm is reported separately in Section
+\@ref(sec-cr2).
 
-Table: (\#tab:type1) Type I error rate (percent $\pm$ MCSE) under
-$H_0: \beta_{bm:D} = 0$, 2000 replicates per cell. Nominal level 5
-percent. An asterisk marks a cell whose exact binomial test against
-0.05 has $p < 0.05$.
+```{r rate-tables, results = 'asis'}
+proc_lab <- c(
+  rmanova       = 'Strict RM-ANOVA (dichotomized)',
+  contrast_cont = 'Contrast (continuous biomarker)',
+  lme           = 'LME, model-based (`corCAR1`)',
+  gee           = 'GEE, Liang-Zeger sandwich',
+  gee_mancl     = 'GEE, Mancl-DeRouen, $t_{K-5}$',
+  gee_mancl_z   = 'GEE, Mancl-DeRouen, normal'
+)
+n_cols <- paste0('$N = ', Ns, '$')
+rate_tab <- function(cbm, scale_d, mcse_d, star) {
+  rows <- lapply(names(proc_lab), function(p) {
+    r <- col(p, cbm)
+    m <- col(p, cbm, 'mcse_rate')
+    cell <- paste(f(100 * r, scale_d), '$\\pm$', f(100 * m, mcse_d))
+    if (star) cell <- paste0(cell, ifelse(nb(p) < 0.05, '*', ''))
+    cell
+  })
+  out <- data.frame(proc_lab, do.call(rbind, rows))
+  names(out) <- c('Procedure', n_cols)
+  out
+}
+print(knitr::kable(rate_tab(0, 2, 2, TRUE), format = 'pandoc',
+  label = NA,
+  escape = FALSE, row.names = FALSE,
+  caption = paste0(
+    '(\\#tab:type1) Type I error rate (percent $\\pm$ MCSE) under ',
+    '$H_0: \\beta_{bm:D} = 0$, ', meta$reps_null, ' replicates per ',
+    'cell. Nominal level 5 percent. An asterisk marks a cell whose ',
+    'exact binomial test against 0.05 has $p < 0.05$.')))
+cat('\n')
+print(knitr::kable(rate_tab(0.45, 1, 2, FALSE), format = 'pandoc',
+  label = NA,
+  escape = FALSE, row.names = FALSE,
+  caption = paste0(
+    '(\\#tab:power) Power (percent $\\pm$ MCSE) at ',
+    '$\\beta_{bm} = 0.45$, ', meta$reps_power,
+    ' replicates per cell.')))
+```
 
-| Procedure | $N = 25$ | $N = 35$ | $N = 70$ | $N = 100$ |
-|---|---|---|---|---|
-| Strict RM-ANOVA (dichotomized) | 4.55 $\pm$ 0.47 | 4.15 $\pm$ 0.45 | 5.95 $\pm$ 0.53 | 5.20 $\pm$ 0.50 |
-| Contrast (continuous biomarker) | 5.25 $\pm$ 0.50 | 4.50 $\pm$ 0.46 | 6.45 $\pm$ 0.55* | 4.60 $\pm$ 0.47 |
-| LME, model-based (`corCAR1`) | 2.75 $\pm$ 0.37* | 2.05 $\pm$ 0.32* | 3.35 $\pm$ 0.40* | 2.90 $\pm$ 0.38* |
-| GEE, Liang-Zeger sandwich | 9.70 $\pm$ 0.66* | 8.55 $\pm$ 0.63* | 7.90 $\pm$ 0.60* | 7.40 $\pm$ 0.59* |
-| GEE, Mancl-DeRouen, $t_{K-5}$ | 4.95 $\pm$ 0.49 | 4.70 $\pm$ 0.47 | 5.85 $\pm$ 0.52 | 5.55 $\pm$ 0.51 |
-| GEE, Mancl-DeRouen, normal | 6.35 $\pm$ 0.55* | 5.30 $\pm$ 0.50 | 6.25 $\pm$ 0.54* | 5.90 $\pm$ 0.53 |
-
-Table: (\#tab:power) Power (percent $\pm$ MCSE) at
-$\beta_{bm} = 0.45$, 1000 replicates per cell.
-
-| Procedure | $N = 25$ | $N = 35$ | $N = 70$ | $N = 100$ |
-|---|---|---|---|---|
-| Strict RM-ANOVA (dichotomized) | 35.8 $\pm$ 1.52 | 46.8 $\pm$ 1.58 | 75.3 $\pm$ 1.36 | 91.3 $\pm$ 0.89 |
-| Contrast (continuous biomarker) | 53.8 $\pm$ 1.58 | 67.7 $\pm$ 1.48 | 91.5 $\pm$ 0.88 | 98.8 $\pm$ 0.34 |
-| LME, model-based (`corCAR1`) | 56.5 $\pm$ 1.57 | 71.2 $\pm$ 1.43 | 94.5 $\pm$ 0.72 | 99.2 $\pm$ 0.28 |
-| GEE, Liang-Zeger sandwich | 67.2 $\pm$ 1.48 | 75.9 $\pm$ 1.35 | 94.5 $\pm$ 0.72 | 99.2 $\pm$ 0.28 |
-| GEE, Mancl-DeRouen, $t_{K-5}$ | 52.0 $\pm$ 1.58 | 65.9 $\pm$ 1.50 | 92.2 $\pm$ 0.85 | 99.1 $\pm$ 0.30 |
-| GEE, Mancl-DeRouen, normal | 57.3 $\pm$ 1.56 | 69.1 $\pm$ 1.46 | 92.7 $\pm$ 0.82 | 99.1 $\pm$ 0.30 |
+Power was modest at this effect size under the published
+parameters. At $N \le 35$ no procedure reached 0.80; the highest
+value was `r f(max_small, 3)`.
+At $N = 70$ the model-based LME (`r f(pw('lme')[3], 3)`) and the
+CR2 arm (`r f(pw('lme_cr2')[3], 3)`) exceeded 0.80, while the
+contrast (`r f(pw('contrast_cont')[3], 3)`) and the corrected GEE
+(`r f(pw('gee_mancl')[3], 3)`) did not.
 
 ## The cost of dichotomization
 
 The power gap between strict RM-ANOVA and the LME is mostly the
 cost of dichotomizing the biomarker. At $N = 25$ strict RM-ANOVA
-had power 0.358. The contrast, which differs only in keeping the
-biomarker continuous, had power 0.538. Dichotomization therefore
-cost 0.180. The LME had power 0.565, so the test procedure added
-0.027. The decomposition is stable across $N$. The dichotomization
-cost was 0.209 at $N = 35$ (0.468 to 0.677), 0.162 at $N = 70$
-(0.753 to 0.915), and 0.075 at $N = 100$ (0.913 to 0.988). The
-contrast-to-LME increment never exceeded 0.04 with model-based
-inference. With CR2 inference it was 0.035 to 0.065, the largest at
-$N = 35$ (0.677 to 0.742).
+had power `r f(pw('rmanova')[1], 3)`. The contrast, which differs
+only in keeping the biomarker continuous, had power
+`r f(pw('contrast_cont')[1], 3)`. Dichotomization therefore cost
+`r f(dich[1], 3)`. The LME had power `r f(pw('lme')[1], 3)`, so the
+test procedure added `r f(inc_lme[1], 3)`. The decomposition holds
+across $N$. The dichotomization cost was `r f(dich[2], 3)` at
+$N = 35$ (`r f(pw('rmanova')[2], 3)` to
+`r f(pw('contrast_cont')[2], 3)`), `r f(dich[3], 3)` at $N = 70$
+(`r f(pw('rmanova')[3], 3)` to `r f(pw('contrast_cont')[3], 3)`),
+and `r f(dich[4], 3)` at $N = 100$ (`r f(pw('rmanova')[4], 3)` to
+`r f(pw('contrast_cont')[4], 3)`). It was largest at $N = 70$,
+where power was near the middle of its range, and smaller at the
+ends. The contrast-to-LME increment was `r rng(inc_lme, 3)` with
+model-based inference. With CR2 inference it was
+`r rng(inc_cr2, 3)`, the largest at
+$N = `r Ns[which.max(inc_cr2)]`$. In every cell the dichotomization
+cost exceeded the largest test-procedure increment among the
+procedures with nominal or conservative size (`r f(proc_max, 3)`).
 
 The observed cost agrees with the classical prediction. A median
 split of a normal predictor retains a fraction $2/\pi \approx 0.64$
@@ -801,39 +1018,62 @@ of the squared correlation [@cohen1983dichotomization], so the
 non-centrality of the contrast test is multiplied by
 $\sqrt{2/\pi} \approx 0.80$. Solving the observed contrast power
 for its non-centrality at $N - 2$ degrees of freedom and scaling by
-0.80 predicts dichotomized power of 0.375, 0.488, 0.758, and 0.920
-at $N = 25, 35, 70, 100$. The observed values were 0.358, 0.468,
-0.753, and 0.913, each within 1.3 MCSE of the prediction. The
-dichotomization result is therefore Cohen's loss observed in the
-N-of-1 interaction setting, not a new finding.
+0.80 predicts dichotomized power of `r lst(dich_pred)` at
+$N = 25, 35, 70, 100$. The observed values were `r lst(dich_obs)`.
+The signed differences, observed minus predicted, are
+`r lst(dich_z, 1)` MCSE, each within
+`r f(max(abs(dich_z)), 1)` MCSE. The observed loss is slightly
+larger than predicted at $N = 35$ and $70$, but no cell departs by
+more than 2 MCSE, and the prediction itself carries the Monte Carlo
+error of the contrast's power. The dichotomization result is
+therefore Cohen's loss observed in the N-of-1 interaction setting,
+not a new finding.
 
 ## GEE calibration
 
 The Liang-Zeger GEE over-rejected at every $N$. Its null rate was
-0.097 at $N = 25$ and fell only to 0.086, 0.079, and 0.074 at
-$N = 35, 70, 100$ (exact binomial $p < 10^{-5}$ in every cell).
-The inflation persists at trial-relevant sizes.
+`r lst(t1('gee'), 3)` at $N = 25, 35, 70, 100$ (exact binomial
+$p \le `r f(max(nb('gee')), 4)`$ in every cell). The rate was
+highest at $N = 25$ and did not return to nominal at $N = 100$. The
+inflation persists at trial-relevant sizes.
 
 The Mancl-DeRouen correction with the normal reference did not
-restore nominal size. Its null rates were 0.064, 0.053, 0.063, and
-0.059. The $N = 25$ cell is 2.8 MCSE above nominal (binomial
-$p = 0.008$) and the $N = 70$ cell 2.6 MCSE above (binomial
-$p = 0.014$). This is the residual over-rejection that
-@li2015sandwich report for a bias-corrected sandwich with a Wald $z$
-test at small cluster counts.
+restore nominal size. Its null rates were
+`r lst(tr(0, 'rejection_rate_z'), 4)`. Three of the four cells
+differ from 0.05 by the exact binomial test
+($p = `r f(tr(0, 'binom_p_z')[1], 3)`$,
+`r f(tr(0, 'binom_p_z')[2], 3)` and
+`r f(tr(0, 'binom_p_z')[4], 3)` at $N = 25, 35, 100$); the
+$N = 70$ cell does not ($p = `r f(tr(0, 'binom_p_z')[3], 2)`$).
+This is the residual over-rejection that Li and Redden [@li2015sandwich] report for
+a bias-corrected sandwich with a Wald $z$ test at small cluster
+counts.
 
 The same correction with a $t$ reference on $K - 5$ degrees of
-freedom (20, 30, 65, and 95) gave null rates of 0.050, 0.047,
-0.059, and 0.056. No cell differs from 0.05 by the binomial test
-(smallest $p = 0.09$, at $N = 70$). Its coverage of the true
-interaction at $\beta_{bm} = 0.45$ was 95.6, 95.0, 95.4, and 94.4
-percent. The power cost relative to the Liang-Zeger GEE was 15
-points at $N = 25$ (0.672 to 0.520), 10 points at $N = 35$ (0.759
-to 0.659), 2 points at $N = 70$, and none at $N = 100$. The
-Liang-Zeger GEE's apparent power advantage over the LME at small
-$N$ is the residue of its over-rejection, not an efficiency gain.
-With the $t$ reference the corrected GEE sits 0.00 to 0.05 below
-the model-based LME and within 0.02 of the contrast.
+freedom (`r lst(tr(0, 'df'), 0)`) gave null rates of
+`r lst(tr(0, 'rejection_rate_t'), 4)`. No cell differs from 0.05 by
+the binomial test (smallest
+$p = `r f(min(tr(0, 'binom_p_t')), 3)`$, at
+$N = `r Ns[which.min(tr(0, 'binom_p_t'))]`$). Its coverage of the
+reference interaction at $\beta_{bm} = 0.45$ was
+`r lst(tr(0.45, 'coverage_t'), 1, 100)` percent. The power cost
+relative to the Liang-Zeger GEE was
+`r f(100 * (pw('gee') - pw('gee_mancl'))[1], 0)` points at $N = 25$
+(`r f(pw('gee')[1], 3)` to `r f(pw('gee_mancl')[1], 3)`),
+`r f(100 * (pw('gee') - pw('gee_mancl'))[2], 0)` points at $N = 35$
+(`r f(pw('gee')[2], 3)` to `r f(pw('gee_mancl')[2], 3)`),
+`r f(100 * (pw('gee') - pw('gee_mancl'))[3], 0)` points at $N = 70$,
+and `r f(100 * (pw('gee') - pw('gee_mancl'))[4], 0)` points at
+$N = 100$. The Liang-Zeger GEE had more power than the model-based
+LME only at $N = 25$ (`r f(pw('gee')[1], 3)` against
+`r f(pw('lme')[1], 3)`). That advantage is the residue of its
+over-rejection, not an efficiency gain. At larger $N$ the LME had
+equal or greater power despite its conservative size. With the $t$
+reference the corrected GEE sits
+`r rng(pw('lme') - pw('gee_mancl'), 2)` below the model-based LME
+and `r rng(pw('contrast_cont') - pw('gee_mancl'), 2)` below the
+contrast. It is the least powerful of the continuous-biomarker
+procedures with nominal size at every $N$.
 
 ## Standard-error calibration
 
@@ -841,61 +1081,103 @@ Table \@ref(tab:kappa) gives the calibration ratio $\kappa$ for
 every coefficient-bearing arm and cell. Table \@ref(tab:secondary)
 gives coverage and bias.
 
-Table: (\#tab:kappa) Calibration ratio $\kappa$ (mean model-based SE
-divided by the empirical SD of the estimates) by arm, effect size
-and $N$. Values above 1 indicate a conservative test; values below
-1 an anti-conservative one.
+```{r kappa-tables, results = 'asis'}
+arm_lab <- c(
+  contrast_cont = 'Contrast',
+  lme           = 'LME, model-based',
+  lme_cr2       = 'LME plus CR2',
+  gee           = 'GEE, Liang-Zeger',
+  gee_mancl     = 'GEE, Mancl-DeRouen'
+)
+k_rows <- do.call(rbind, lapply(names(arm_lab), function(p) {
+  rbind(c(arm_lab[[p]], '0', f(t1(p, 'se_ratio'))),
+        c(arm_lab[[p]], '0.45', f(pw(p, 'se_ratio'))))
+}))
+k_tab <- as.data.frame(k_rows)
+names(k_tab) <- c('Arm', '$\\beta_{bm}$', paste0('$N = ', Ns, '$'))
+print(knitr::kable(k_tab, format = 'pandoc',
+  label = NA, escape = FALSE,
+  row.names = FALSE,
+  caption = paste(
+    '(\\#tab:kappa) Calibration ratio $\\kappa$ (mean model-based SE',
+    'divided by the empirical SD of the estimates) by arm, effect',
+    'size and $N$. Values above 1 indicate a conservative test;',
+    'values below 1 an anti-conservative one. The two Mancl-DeRouen',
+    'variants share the standard error and therefore $\\kappa$.')))
+cat('\n')
+sec_arms <- c('contrast_cont', 'lme', 'gee', 'gee_mancl')
+s_rows <- do.call(rbind, lapply(sec_arms, function(p) {
+  cov <- if (p == 'gee_mancl') tr(0.45, 'coverage_t') else
+    pw(p, 'coverage')
+  c(if (p == 'gee_mancl') 'GEE, Mancl-DeRouen, $t_{K-5}$' else
+      arm_lab[[p]],
+    pt_(cov), paste0(f(100 * rel_bias(p), 1), '\\%'))
+}))
+s_tab <- as.data.frame(s_rows)
+names(s_tab) <- c('Arm', paste0('$N = ', Ns, '$'), 'Max relative bias')
+print(knitr::kable(s_tab, format = 'pandoc',
+  label = NA, escape = FALSE,
+  row.names = FALSE,
+  caption = paste0(
+    '(\\#tab:secondary) Coverage (percent) of the nominal 95 percent ',
+    'interval at $\\beta_{bm} = 0.45$, and the largest relative bias ',
+    'of $\\hat\\beta_{bm:D}$ across all cells. The Monte Carlo ',
+    'reference value is $', f(beta_mc, 2), '$. The Mancl-DeRouen ',
+    'row uses the $t_{K-5}$ interval; the normal-reference interval ',
+    'covered ', lst(tr(0.45, 'coverage_z'), 1, 100), ' percent.')))
+```
 
-| Arm | $\beta_{bm}$ | $N = 25$ | $N = 35$ | $N = 70$ | $N = 100$ |
-|---|---|---|---|---|---|
-| Contrast | 0 | 0.98 | 0.98 | 0.96 | 1.02 |
-| Contrast | 0.45 | 0.99 | 1.00 | 0.94 | 0.98 |
-| LME, model-based | 0 | 1.13 | 1.13 | 1.10 | 1.15 |
-| LME, model-based | 0.45 | 1.16 | 1.15 | 1.11 | 1.11 |
-| GEE, Liang-Zeger | 0 | 0.88 | 0.91 | 0.94 | 0.97 |
-| GEE, Liang-Zeger | 0.45 | 0.91 | 0.93 | 0.96 | 0.98 |
-| GEE, Mancl-DeRouen | 0 | 1.03 | 1.02 | 1.00 | 1.01 |
-| GEE, Mancl-DeRouen | 0.45 | 1.07 | 1.05 | 1.01 | 1.02 |
-
-Table: (\#tab:secondary) Coverage (percent) of the nominal 95
-percent interval at $\beta_{bm} = 0.45$, and the largest relative
-bias of $\hat\beta_{bm:D}$ across all cells. The Monte Carlo
-reference value is $-2.21$. The Mancl-DeRouen row uses the $t_{K-5}$
-interval; the normal-reference interval covered 94.3, 94.2, 95.0
-and 94.0 percent.
-
-| Arm | $N = 25$ | $N = 35$ | $N = 70$ | $N = 100$ | Max relative bias |
-|---|---|---|---|---|---|
-| Contrast | 94.9 | 95.0 | 93.5 | 94.8 | 3.0% |
-| LME, model-based | 97.7 | 97.3 | 97.3 | 97.0 | 2.6% |
-| GEE, Liang-Zeger | 90.0 | 91.5 | 94.1 | 93.3 | 3.8% |
-| GEE, Mancl-DeRouen, $t_{K-5}$ | 95.6 | 95.0 | 95.4 | 94.4 | 3.8% |
-
-The relative bias of $\hat\beta_{bm:D}$ was below 4 percent of the
-reference value in every cell for every coefficient-bearing arm.
-The differences in size, power, and coverage are therefore
+The relative bias of $\hat\beta_{bm:D}$ was at most
+`r f(100 * max(sapply(sec_arms, rel_bias)), 1)` percent of the
+reference value across all cells and coefficient-bearing arms. The
+largest values are in the $N = 25$ power cells. In every power cell
+the mean estimate was larger in magnitude than the reference, and
+the excess shrank with $N$. The bias never exceeded
+`r f(max(sapply(sec_arms, bias_se)), 2)` empirical standard
+deviations. Part of it may reflect the reference value itself,
+which rests on `r n_bt` large-sample fits and lies
+`r f(abs(beta_an) - abs(beta_mc), 2)` below the analytic magnitude
+of `r f(beta_an, 1)`. Scaling the empirical SD of the model-based
+LME at $N = `r max(Ns)`$ to $N = `r meta$betatrue_n`$ gives the
+reference an approximate standard error of `r f(ref_se, 2)`, so a
+bias of that size cannot be told apart from error in the reference.
+The bias is small against the standard
+errors, so the differences in size, power, and coverage are
 variance-estimation effects.
 
-The contrast is calibrated: $\kappa$ is 0.94 to 1.02 and coverage
-93.5 to 95.0 percent. Its null rate at $N = 70$ (0.0645, binomial
-$p = 0.004$) is the one excursion among its four null cells. With
-20 null cells in the study one such excursion is expected, and the
-arm's other three null cells are at nominal.
+The contrast is calibrated: $\kappa$ is
+`r rng(c(t1('contrast_cont', 'se_ratio'), pw('contrast_cont', 'se_ratio')))`
+and coverage `r rng(pw('contrast_cont', 'coverage'), 1, 100)`
+percent. Its null rate at $N = 100$
+(`r f(t1('contrast_cont')[4], 4)`, binomial
+$p = `r f(nb('contrast_cont')[4], 3)`$) is the one excursion among
+its four null cells. With `r n_null_tests` null cells in the study
+one or two such
+excursions are expected, and the arm's other three null cells are at
+nominal.
 
 The Liang-Zeger GEE under-estimates its standard error: $\kappa$ is
-0.88 to 0.97 under the null and 0.91 to 0.98 at $\beta_{bm} =
-0.45$, with the largest deficits (9 and 7 percent at the power cells
-for $N = 25$ and $35$) at the smallest $N$. Its coverage is 90.0
+`r rng(t1('gee', 'se_ratio'))` under the null and
+`r rng(pw('gee', 'se_ratio'))` at $\beta_{bm} = 0.45$, with the
+largest deficits at $N = 25$
+(`r f(100 * (1 - t1('gee', 'se_ratio')[1]), 0)` percent under the
+null and `r f(100 * (1 - pw('gee', 'se_ratio')[1]), 0)` percent at
+the power cell). Its coverage is `r pt_(pw('gee', 'coverage')[1])`
 percent at $N = 25$. The Mancl-DeRouen correction brings $\kappa$ to
-1.00 to 1.07.
+`r rng(c(t1('gee_mancl', 'se_ratio'), pw('gee_mancl', 'se_ratio')))`.
 
 ## The conservatism of the model-based LME
 
-The LME's null rejection rate was 0.0275, 0.0205, 0.0335, and
-0.0290. Every cell is below 0.05 by 3.4 to 6.1 MCSE (binomial
-$p < 0.001$ in each). Its coverage is 97.0 to 97.7 percent and its
-$\kappa$ is 1.10 to 1.16. The model-based standard error exceeds
-the empirical standard error by 10 to 16 percent in every cell.
+The LME's null rejection rate was `r lst(t1('lme'), 4)`. Every cell
+is below 0.05 by `r rng(-nb('lme', 'z_vs_nominal'), 1)` binomial
+standard errors at the nominal rate (exact binomial
+$p \le `r f(max(nb('lme')), 3)`$ in each). Its coverage is
+`r rng(pw('lme', 'coverage'), 1, 100)` percent at
+$\beta_{bm} = 0.45$ and its $\kappa$ is
+`r rng(c(t1('lme', 'se_ratio'), pw('lme', 'se_ratio')))`. The
+model-based standard error exceeds the empirical standard error by
+`r rng(c(t1('lme', 'se_ratio'), pw('lme', 'se_ratio')) - 1, 0, 100)`
+percent in every cell.
 
 This is a working-covariance calibration defect, not a
 degrees-of-freedom effect. The fitted covariance (random intercept
@@ -904,7 +1186,7 @@ AR(1) components with distinct curves, a separate baseline level,
 and cross-component correlations. The `nlme` Wald test assigns the
 within-participant term `bm:Dbc` the inner-level degrees of
 freedom, 556 at $N = 70$, so no choice of reference distribution
-can produce a 2 percent size. A Kenward-Roger
+can produce a size this far below 5 percent. A Kenward-Roger
 [@kenward1997small] or Satterthwaite adjustment of the model-based
 test can only reduce the rejection rate further. Both inflate the
 estimated variance or reduce the denominator degrees of freedom.
@@ -921,70 +1203,56 @@ rate from the conservative G1 value to near nominal. Procedure 4
 (Section \@ref(sec-methods)) applies that inference to the fit
 evaluated here.
 
-## LME plus CR2 arm
+## LME plus CR2 arm {#sec-cr2}
 
 ```{r cr2-table, results = 'asis'}
-if (has_cr2) {
-  s <- stored[stored$procedure == 'lme_cr2', ]
-  s <- s[order(s$c.bm, s$N), ]
-  fmt <- function(r, m, scale = 100, d = 1) {
-    sprintf(paste0('%.', d, 'f $\\pm$ %.2f'), scale * r, scale * m)
-  }
-  row_null <- s[s$c.bm == 0, ]
-  row_pow  <- s[s$c.bm == 0.45, ]
-  tab <- data.frame(
-    Quantity = c('Type I error (percent)', 'Power (percent)',
-                 'Coverage (percent)', '$\\kappa$'),
-    N25 = c(fmt(row_null$rejection_rate[row_null$N == 25],
-                row_null$mcse_rate[row_null$N == 25], 100, 2),
-            fmt(row_pow$rejection_rate[row_pow$N == 25],
-                row_pow$mcse_rate[row_pow$N == 25]),
-            sprintf('%.1f', 100 * row_pow$coverage[row_pow$N == 25]),
-            sprintf('%.2f', row_pow$se_ratio[row_pow$N == 25])),
-    N35 = c(fmt(row_null$rejection_rate[row_null$N == 35],
-                row_null$mcse_rate[row_null$N == 35], 100, 2),
-            fmt(row_pow$rejection_rate[row_pow$N == 35],
-                row_pow$mcse_rate[row_pow$N == 35]),
-            sprintf('%.1f', 100 * row_pow$coverage[row_pow$N == 35]),
-            sprintf('%.2f', row_pow$se_ratio[row_pow$N == 35])),
-    N70 = c(fmt(row_null$rejection_rate[row_null$N == 70],
-                row_null$mcse_rate[row_null$N == 70], 100, 2),
-            fmt(row_pow$rejection_rate[row_pow$N == 70],
-                row_pow$mcse_rate[row_pow$N == 70]),
-            sprintf('%.1f', 100 * row_pow$coverage[row_pow$N == 70]),
-            sprintf('%.2f', row_pow$se_ratio[row_pow$N == 70])),
-    N100 = c(fmt(row_null$rejection_rate[row_null$N == 100],
-                 row_null$mcse_rate[row_null$N == 100], 100, 2),
-             fmt(row_pow$rejection_rate[row_pow$N == 100],
-                 row_pow$mcse_rate[row_pow$N == 100]),
-             sprintf('%.1f', 100 * row_pow$coverage[row_pow$N == 100]),
-             sprintf('%.2f', row_pow$se_ratio[row_pow$N == 100])))
-  print(knitr::kable(tab, format = 'pandoc', escape = FALSE,
-    col.names = c('Quantity', '$N = 25$', '$N = 35$', '$N = 70$',
-                  '$N = 100$'),
-    caption = '(\\#tab:cr2) LME plus CR2 (Satterthwaite) arm: Type I
-      error at $\\beta_{bm} = 0$ (2000 replicates), and power,
-      coverage and $\\kappa$ at $\\beta_{bm} = 0.45$ (1000
-      replicates). Values are percent $\\pm$ MCSE where applicable.'))
-} else {
-  cat('**RESULTS PENDING.** The LME plus CR2 arm is implemented in',
-      'the driver (`01-study1-test-procedure.R`, procedure `lme_cr2`)',
-      'and passed a smoke test, but the stored replicate file does',
-      'not contain fitted model objects, so the arm needs a rerun.',
-      'The analysis arms consume no random numbers, so a rerun with',
-      'the same worker count (7) and job list reproduces the stored',
-      'draws and adds the arm. Command, from the repository root:',
-      '`N_CORES=7 Rscript',
-      'analysis/scripts/test-procedure-design-sensitivity/01-study1-test-procedure.R`.',
-      'Estimated cost: about 11 minutes on 7 local cores (the stored',
-      'run took 587 s; the CR2 step adds 0.026 s per LME fit over',
-      '12,000 fits). A table of Type I error, power, coverage and',
-      '$\\kappa$ for the arm renders here when the summary file',
-      'contains it.\n')
-}
+pm <- function(r, m, d) paste(f(100 * r, d), '$\\pm$', f(100 * m, 2))
+cr2_tab <- data.frame(
+  Quantity = c('Type I error (percent)', 'Power (percent)',
+               'Coverage (percent)', '$\\kappa$ (null)',
+               '$\\kappa$ ($\\beta_{bm} = 0.45$)'),
+  do.call(cbind, lapply(seq_along(Ns), function(i) {
+    c(pm(t1('lme_cr2')[i], t1('lme_cr2', 'mcse_rate')[i], 2),
+      pm(pw('lme_cr2')[i], pw('lme_cr2', 'mcse_rate')[i], 1),
+      pt_(pw('lme_cr2', 'coverage')[i]),
+      f(t1('lme_cr2', 'se_ratio')[i]),
+      f(pw('lme_cr2', 'se_ratio')[i]))
+  }))
+)
+names(cr2_tab) <- c('Quantity', paste0('$N = ', Ns, '$'))
+print(knitr::kable(cr2_tab, format = 'pandoc',
+  label = NA, escape = FALSE,
+  row.names = FALSE,
+  caption = paste0(
+    '(\\#tab:cr2) LME plus CR2 (Satterthwaite) arm: Type I error at ',
+    '$\\beta_{bm} = 0$ (', meta$reps_null, ' replicates), power and ',
+    'coverage at $\\beta_{bm} = 0.45$ (', meta$reps_power,
+    ' replicates), and $\\kappa$ at both. Rates are percent ',
+    '$\\pm$ MCSE.')))
 ```
 
-`r if (has_cr2) 'Table \\@ref(tab:cr2) reports the arm. Its $\\kappa$ and null rejection rate should be read against the model-based LME row of Tables \\@ref(tab:type1) and \\@ref(tab:kappa). The point estimates are identical, so the two arms differ only in the standard error. CR2 brings $\\kappa$ from 1.10 to 1.16 down to 0.96 to 0.98. Its null rejection rate is 4.3 to 5.9 percent, each within 2 MCSE of 5 percent. Its power exceeds the model-based LME by 0.5 to 3.0 points at every $N$.' else 'The arm is reported here when the rerun is complete. Its expected behavior, from the companion papers, is a null rejection rate near nominal and a $\\kappa$ near 1, with power above the model-based LME by the amount the conservatism forgoes.'`
+Table \@ref(tab:cr2) reports the arm. Its $\kappa$ and null
+rejection rate should be read against the model-based LME rows of
+Tables \@ref(tab:type1) and \@ref(tab:kappa). The point estimates
+are identical, so the two arms differ only in the standard error.
+CR2 brings $\kappa$ at $\beta_{bm} = 0.45$ from
+`r rng(pw('lme', 'se_ratio'))` down to
+`r rng(pw('lme_cr2', 'se_ratio'))`. Under the null it is
+`r rng(t1('lme_cr2', 'se_ratio'))`, the lowest value at $N = 25$.
+Its null rejection rate is `r rng(t1('lme_cr2'), 1, 100)` percent,
+each cell within
+`r f(max(abs(nb('lme_cr2', 'z_vs_nominal'))), 1)` binomial standard
+errors of 5 percent, and no cell differs from 0.05 by the exact
+binomial test. Its power exceeds the model-based LME by
+`r rng((pw('lme_cr2') - pw('lme'))[-1], 1, 100)` points at
+$N \ge 35$. At $N = 25$ it is
+`r f(100 * (pw('lme') - pw('lme_cr2'))[1], 1)` points lower
+(`r f(pw('lme_cr2')[1], 3)` against `r f(pw('lme')[1], 3)`). The
+CR2 test refers its statistic to a $t$ distribution with
+Satterthwaite degrees of freedom, which are small when there are few
+clusters. That is a likely reason for the loss at $N = 25$; the
+stored output does not record the degrees of freedom, so the
+explanation is not verified.
 
 # Recommendation {#sec-recommendation}
 
@@ -992,17 +1260,17 @@ The recommendation is scoped to what was tested: a two-path OL+BDC
 design, no carryover, no dropout, the mean-shift encoding of the
 interaction, and the procedures of Section \@ref(sec-methods). The
 overriding recommendation is design-agnostic. Keep the biomarker
-continuous. Dichotomizing it forfeits 0.08 to 0.21 of absolute
+continuous. Dichotomizing it forfeits `r rng(dich)` of absolute
 power here, which is the classical $2/\pi$ loss.
 
 | Scenario | Preferred procedure | Rationale |
 |---|---|---|
-| Any $N$, continuous biomarker, inference to match the series | LME with CR2 Satterthwaite inference (procedure 4) | The inference of the companion papers' G6 to G9; corrects the model-based LME's conservatism; size 0.043 to 0.059, $\kappa$ 0.96 to 0.98, the highest power of the continuous-biomarker arms with nominal size |
-| Any $N$, model-based LME only | LME, model-based (`corCAR1`) | Power 0.5 to 3.0 points below the CR2 arm and conservative (size 0.02 to 0.03, $\kappa$ 1.10 to 1.16); do not apply Kenward-Roger or Satterthwaite to the model-based test, which would lower the size further |
-| Transparent classical analysis | Continuous-biomarker contrast | Within 0.04 of the model-based LME and 0.07 of the CR2 arm on power; size at nominal in 3 of 4 cells; $\kappa$ 0.94 to 1.02; no covariance modeling |
-| Marginal (GEE) inference required | GEE, Mancl-DeRouen sandwich with $t_{K-p}$ | Size 0.047 to 0.059, none distinguishable from 0.05; coverage 94 to 96 percent; power 0.00 to 0.05 below the model-based LME |
+| Any $N$, continuous biomarker, inference to match the series | LME with CR2 Satterthwaite inference (procedure 4) | The inference of the companion papers' G6 to G9; corrects the model-based LME's conservatism; size `r rng(t1('lme_cr2'), 3)`, $\kappa$ `r rng(pw('lme_cr2', 'se_ratio'))` at $\beta_{bm} = 0.45$; the highest power of the continuous-biomarker arms with nominal size at every $N$ |
+| Any $N$, model-based LME only | LME, model-based (`corCAR1`) | Conservative (size `r rng(t1('lme'), 3)`, $\kappa$ `r rng(c(t1('lme', 'se_ratio'), pw('lme', 'se_ratio')))`); power `r f(100 * (pw('lme') - pw('lme_cr2'))[1], 1)` points above the CR2 arm at $N = 25$ and `r rng((pw('lme_cr2') - pw('lme'))[-1], 1, 100)` points below it at larger $N$; do not apply Kenward-Roger or Satterthwaite to the model-based test, which would lower the size further |
+| Transparent classical analysis | Continuous-biomarker contrast | `r rng(inc_lme)` below the model-based LME and `r rng(inc_cr2)` below the CR2 arm on power; size at nominal in 3 of 4 cells; $\kappa$ `r rng(c(t1('contrast_cont', 'se_ratio'), pw('contrast_cont', 'se_ratio')))`; no covariance modeling |
+| Marginal (GEE) inference required | GEE, Mancl-DeRouen sandwich with $t_{K-p}$ | Size `r rng(tr(0, 'rejection_rate_t'), 3)`, none distinguishable from 0.05; coverage `r rng(tr(0.45, 'coverage_t'), 0, 100)` percent; power `r rng(pw('lme') - pw('gee_mancl'))` below the model-based LME, the lowest of the arms with nominal size |
 | Reviewer-mandated classical analysis | Strict RM-ANOVA | Report alongside a continuous-biomarker analysis with the decomposition |
-| GEE with the Liang-Zeger sandwich, or Mancl-DeRouen with a normal reference | Not recommended | Size 0.074 to 0.097 (Liang-Zeger); 0.053 to 0.064 (Mancl-DeRouen, normal) |
+| GEE with the Liang-Zeger sandwich, or Mancl-DeRouen with a normal reference | Not recommended | Size `r rng(t1('gee'), 3)` (Liang-Zeger); `r rng(tr(0, 'rejection_rate_z'), 3)` (Mancl-DeRouen, normal) |
 
 The recommendation for a trial with carryover is not made here. The
 companion paper [@pmsimstats-paper02] recommends G9, the
@@ -1022,20 +1290,33 @@ such.
 
 The study settles four points at its resolution. First, the power
 gap between strict RM-ANOVA and the LME is the cost of
-dichotomization. The continuous-biomarker contrast recovers 0.180
-of the 0.207 gap at $N = 25$ and the pattern holds across the grid.
-The loss matches Cohen's $2/\pi$ factor within MCSE. Second, the
+dichotomization. The continuous-biomarker contrast recovers
+`r f(dich[1], 3)` of the `r f(pw('lme')[1] - pw('rmanova')[1], 3)`
+gap at $N = 25$, and the pattern holds across the grid. The loss
+matches Cohen's $2/\pi$ factor within 2 MCSE. Second, the
 Liang-Zeger GEE over-rejects at every $N$ examined, and the
 Mancl-DeRouen correction restores size only when paired with a $t$
-reference on $K - p$ degrees of freedom. Third, the four
-continuous-biomarker arms are unbiased, so their differences are
+reference on $K - p$ degrees of freedom. That pairing costs power:
+it is the least powerful of the continuous-biomarker arms with
+nominal size. Third, the bias of the four continuous-biomarker arms
+is small against their standard errors, so their differences are
 variance-estimation effects that the $\kappa$ table explains.
 Fourth, the model-based LME is conservative because its working
-covariance over-estimates the standard error by 10 to 16 percent.
-A degrees-of-freedom correction would move it further from nominal.
-The CR2 cluster-robust standard error is the remedy. Here it brings
-the null rejection rate to 4.3 to 5.9 percent and raises power at
-every $N$.
+covariance over-estimates the standard error by
+`r rng(c(t1('lme', 'se_ratio'), pw('lme', 'se_ratio')) - 1, 0, 100)`
+percent. A degrees-of-freedom correction would move it further from
+nominal. The CR2 cluster-robust standard error is the remedy for
+size. Here it brings the null rejection rate to
+`r rng(t1('lme_cr2'), 1, 100)` percent. It raises power at
+$N \ge 35$ but lowers it at $N = 25$.
+
+At $\beta_{bm} = 0.45$ under the published parameters, power was
+modest. No procedure reached 0.80 at $N \le 35$, and the arms with
+nominal size first reached it at $N = 70$ (CR2) or $N = 100$ (the
+contrast and the corrected GEE). The procedure ranking is
+informative at these sample sizes; the absolute power values depend
+on the effect size and the variance components and do not transfer
+to other settings.
 
 ## Limitations
 
@@ -1046,10 +1327,10 @@ continuous-time form; a closer working correlation might change the
 GEE power by a few points. The LME and GEE arms include a time
 trend and the LME an expectancy term, while the contrast includes
 neither, so the contrast-to-LME step is not a pure covariance
-comparison. The Mancl-DeRouen $t$-reference numbers were recomputed
-from stored estimates and then reproduced exactly by a full rerun
-that added the CR2 arm. The rerun reproduced every stored arm to
-machine precision. The study is exploratory.
+comparison. The Monte Carlo reference value for the interaction
+rests on `r n_bt` large-sample fits, so the reported bias and
+coverage carry its error as well as their own. The study is
+exploratory.
 
 ## Future work
 
@@ -1063,19 +1344,27 @@ protocol and is not delivered here. The recommendation in Section
 
 # Conclusions
 
-Keep the biomarker continuous. Dichotomization cost 0.08 to 0.21 of
+Keep the biomarker continuous. Dichotomization cost `r rng(dich)` of
 absolute power across $N \in \{25, 35, 70, 100\}$, which is the
 classical $2/\pi$ loss, while the test procedure moved power by at
-most 0.07 among procedures with nominal or conservative size. The
-model-based LME was conservative, with size 0.02 to 0.03 and a
-model standard error 10 to 16 percent above the empirical one. That
-defect is in the working covariance, not in the degrees of freedom.
-The series' CR2 cluster-robust inference repairs it: the same fit
-rejected at 0.043 to 0.059 under the null and had the highest power
-of the continuous-biomarker arms with nominal size. The Liang-Zeger GEE over-rejected at every $N$. The
+most `r f(proc_max)` among procedures with nominal or conservative
+size. The model-based LME was conservative, with size
+`r rng(t1('lme'), 3)` and a model standard error
+`r rng(c(t1('lme', 'se_ratio'), pw('lme', 'se_ratio')) - 1, 0, 100)`
+percent above the empirical one. That defect is in the working
+covariance, not in the degrees of freedom. The series' CR2
+cluster-robust inference repairs it: the same fit rejected at
+`r rng(t1('lme_cr2'), 3)` under the null and had the highest power
+of the continuous-biomarker arms with nominal size at every $N$.
+It was slightly less powerful than the conservative model-based fit
+at $N = 25$. The Liang-Zeger GEE over-rejected at every $N$. The
 Mancl-DeRouen sandwich with a $t_{K-p}$ reference held size at
-0.047 to 0.059 with 94 to 96 percent coverage, at a power cost of
-10 to 15 points relative to the uncorrected GEE at $N \le 35$. The
+`r rng(tr(0, 'rejection_rate_t'), 3)` with
+`r rng(tr(0.45, 'coverage_t'), 0, 100)` percent coverage, at a power
+cost of `r rng((pw('gee') - pw('gee_mancl'))[Ns <= 35], 0, 100)`
+points relative to the uncorrected GEE at $N \le 35$. Power at the
+reference effect size was modest: no procedure reached 0.80 below
+$N = 70$. The
 strict RM-ANOVA $F$-test is a two-sample $t$-test on
 within-participant phase differences, exact for any
 within-participant covariance once each phase is averaged, and its
@@ -1090,7 +1379,7 @@ pooled into one model.
 The two-path version used here is defined in Table
 \@ref(tab:visits).
 
-**Hybrid design.** The @hendrickson2020 design: open-label titration,
+**Hybrid design.** The Hendrickson et al. [@hendrickson2020] design: open-label titration,
 blinded discontinuation, then a brief crossover. Not used here.
 
 **Mean-shift encoding.** The interaction is a shift of the
@@ -1128,14 +1417,14 @@ statistic with baseline counted as an off-drug visit; the contrast
 arm here.
 
 **CR2.** The bias-reduced cluster-robust variance estimator of
-@pustejovsky2018clubsandwich with Satterthwaite degrees of freedom.
+Pustejovsky and Tipton [@pustejovsky2018clubsandwich] with Satterthwaite degrees of freedom.
 
 **Liang-Zeger sandwich.** The robust variance estimator of
-@liang1986. Some GEE literature calls the model-based variance
+Liang and Zeger [@liang1986]. Some GEE literature calls the model-based variance
 "naive"; this paper does not use that word.
 
 **Mancl-DeRouen sandwich.** The bias-corrected sandwich of
-@mancl2001covariance, with residuals inflated by $(I -
+Mancl and DeRouen [@mancl2001covariance], with residuals inflated by $(I -
 H_{ii})^{-1}$.
 
 **$\kappa$.** The calibration ratio: mean model-based standard error
@@ -1145,7 +1434,7 @@ $\kappa > 1$ indicates a conservative test.
 **Extended DGP, original DGP.** The series' names for the
 recommended data-generating process ($c_1 = 0.2$, decaying
 correlation, carryover from the last on-drug mean) and for the
-@hendrickson2020 process. The configuration used here is neither.
+Hendrickson et al. [@hendrickson2020] process. The configuration used here is neither.
 
 **MCSE.** Monte Carlo standard error.
 
@@ -1167,27 +1456,31 @@ exact paths are in the Reproducibility section.
 
 # Reproducibility
 
-The stored simulation ran with R 4.6.x. The project ships a
-zzcollab Docker container (`Dockerfile`, `renv.lock`) for
-container-based reproduction. Packages used are `nlme`, `geepack`,
+The stored simulation ran as a batch job in the project's zzcollab
+Docker container (`Dockerfile`, `renv.lock`; R 4.6.0) with
+`--params published`, which selects the published parameter set
+(Table \@ref(tab:params)). Packages used are `nlme`, `geepack`,
 `geesmv` (benchmark only), `clubSandwich` (the CR2 arm),
 `data.table`, `parallel`, `rmarkdown` and `bookdown`.
 
 **Random-number generator.** The driver sets
-`RNGkind("L'Ecuyer-CMRG")` and `set.seed(20260507)`, then runs the
+`RNGkind("L'Ecuyer-CMRG")` and calls `set.seed()` with master seed
+`r meta$master_seed`, then runs the
 cell-by-replicate job list through `parallel::mclapply` with
 `mc.set.seed = TRUE` and `mc.preschedule = TRUE`. Each forked worker
 receives one L'Ecuyer stream and processes a prescheduled block of
 jobs from it sequentially. Reproduction therefore requires the same
-worker count (7 for the stored run), the same job list, and the
-same platform. The reference run that pins the estimand (6 draws at
-$N = 2000$) precedes the job list and advances the generator, so it
-must also be run unchanged. Results from the Docker container and
-from a local session are not draw-for-draw identical (different
-BLAS).
+worker count (`r meta$n_cores` for the stored run), the same job
+list, and the same platform. The reference run that pins the
+estimand (`r n_bt` draws at $N = `r meta$betatrue_n`$) precedes the
+job list and advances the generator, so it must also be run
+unchanged. Results from the Docker container and from a local
+session are not draw-for-draw identical (different BLAS).
 
 **Data and code.** Per-replicate outputs are at
-`analysis/data/quick-sim/08-test-replicates.rds`; the cell-level
+`analysis/data/quick-sim/08-test-published/08-test-replicates.rds`;
+the run's parameter set and settings at `08-test-meta.rds`; the
+cell-level
 summary at `08-test-summary.txt`; the Monte Carlo reference estimand
 at `08-test-betatrue.txt`; the `geesmv` benchmark at
 `08-test-mancl-benchmark.txt`; the recomputed Mancl-DeRouen

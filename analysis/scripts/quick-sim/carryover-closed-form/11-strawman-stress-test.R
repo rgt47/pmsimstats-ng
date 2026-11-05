@@ -16,7 +16,7 @@
 ##   Rscript analysis/scripts/quick-sim/carryover-closed-form/11-strawman-stress-test.R \
 ##     [--pilot R] [--cores K] [--chunk C] [--check]
 ##     [--carryover anchored|recursive] [--allocation random|fixed]
-##     [--out-dir PATH]
+##     [--analysis-half-life H] [--out-dir PATH]
 ## --check runs the pre-run checks only. --pilot R runs R replicates per
 ## cell into a separate directory. Chunks are checkpointed; a relaunch
 ## with the same arguments resumes. --cores defaults to SIM_CORES (set
@@ -57,6 +57,11 @@ sarg <- function(k, d) if (k %in% args) args[which(args == k) + 1] else d
 cores <- arg('--cores', as.integer(Sys.getenv('SIM_CORES', '8')))
 CARRYOVER <- sarg('--carryover', 'anchored')
 ALLOCATION <- sarg('--allocation', 'random')
+## Fixed analysis half-life (weeks). 0.2 per the validated policy
+## (docs/59 s2.11); the stored runs (jobs 15, 21, 22, 37) used 0.5. A
+## value other than 0.2 is recorded in the run tag ('-ha0.5').
+TH_A <- as.numeric(sarg('--analysis-half-life', '0.2'))
+stopifnot(is.finite(TH_A), TH_A > 0)
 stopifnot(CARRYOVER %in% c('anchored', 'recursive'), ALLOCATION %in% c('random', 'fixed'))
 dgp_tag <- if (CARRYOVER == 'recursive' && ALLOCATION == 'fixed') '' else
   paste0('-', CARRYOVER, if (ALLOCATION == 'fixed') '-fixed' else
@@ -80,7 +85,8 @@ out_dir <- sarg('--out-dir', 'analysis/data/quick-sim/carryover-closed-form/stra
 run_tag <- paste0(if (pilot > 0) sprintf('pilot%d', pilot) else 'full',
                   if (extra) '-extra' else if (extra2) '-extra2' else if (extra3) '-extra3' else
                     if (extra4) '-extra4' else '',
-                  if (extra3 && EXT3_CELLS == 'docs57') '-docs57' else '', dgp_tag)
+                  if (extra3 && EXT3_CELLS == 'docs57') '-docs57' else '', dgp_tag,
+                  if (TH_A != 0.2) sprintf('-ha%g', TH_A) else '')
 cell_dir <- file.path(out_dir, paste0('cells-', run_tag))
 dir.create(cell_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -239,9 +245,8 @@ dropout_visit <- function(Y, type) {
 }
 
 ## ---------------- analyses (docs/46, Section 4) ----------------
-## 0.2 week per the validated fixed-half-life policy (docs/59 s2.11).
-## Stored runs (jobs 15, 21, 22, 37) used 0.5 week; reproduce with TH_A <- 0.5.
-TH_A <- 0.2
+## TH_A, the fixed analysis half-life, is set from --analysis-half-life
+## above (default 0.2 week; the stored runs used 0.5).
 GRID <- c(0, 0.25, 0.5, 1, 2)
 dbc <- function(Db, tsd, h) {
   if (h <= 0) return(as.numeric(Db))

@@ -67,6 +67,12 @@ stopifnot(is.finite(beta_true))
 md <- r[procedure == 'gee_mancl' & converged & is.finite(beta) &
           is.finite(se)]
 md[, df := N - p_fixed]
+## The z reference is recomputed rather than read from p_interaction:
+## the converted driver stores the t-reference p-value there, so the
+## stored column is the z one only for the 2026-10-08 run.
+md[, p_z := 2 * pnorm(-abs(beta / se))]
+md[, lo_z := beta - qnorm(0.975) * se]
+md[, hi_z := beta + qnorm(0.975) * se]
 md[, p_t := 2 * pt(-abs(beta / se), df)]
 md[, tc := qt(0.975, df)]
 md[, lo_t := beta - tc * se]
@@ -75,15 +81,15 @@ md[, hi_t := beta + tc * se]
 tref <- md[, {
   bt_cell <- if (c.bm[1] == 0) 0 else beta_true
   rej_t <- mean(p_t < 0.05)
-  rej_z <- mean(p_interaction < 0.05)
+  rej_z <- mean(p_z < 0.05)
   list(n_reps = .N, df = df[1],
        rejection_rate_z = rej_z,
        mcse_rate_z = sqrt(rej_z * (1 - rej_z) / .N),
        rejection_rate_t = rej_t,
        mcse_rate_t = sqrt(rej_t * (1 - rej_t) / .N),
-       coverage_z = mean(ci_lo <= bt_cell & bt_cell <= ci_hi),
+       coverage_z = mean(lo_z <= bt_cell & bt_cell <= hi_z),
        coverage_t = mean(lo_t <= bt_cell & bt_cell <= hi_t),
-       binom_p_z = binom.test(sum(p_interaction < 0.05), .N, 0.05)$p.value,
+       binom_p_z = binom.test(sum(p_z < 0.05), .N, 0.05)$p.value,
        binom_p_t = binom.test(sum(p_t < 0.05), .N, 0.05)$p.value)
 }, by = .(c.bm, N)]
 setorder(tref, c.bm, N)

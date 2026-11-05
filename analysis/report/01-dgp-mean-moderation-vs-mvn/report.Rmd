@@ -37,6 +37,11 @@ m6a <- read.csv(file.path('..', '..', 'data', 'quick-sim',
                           'hendrickson-problems', 'graded-patch',
                           'published-th0.1-reps4000.csv'))
 m6a_p <- sum(m6a$rej) / sum(m6a$reps)
+## Commit cited in Availability of data and materials.
+render_sha <- tryCatch(
+  system2('git', c('rev-parse', '--short', 'HEAD'), stdout = TRUE,
+          stderr = FALSE),
+  error = function(e) 'unknown', warning = function(w) 'unknown')
 ```
 
 # Abstract {-}
@@ -60,18 +65,21 @@ design with carryover and judge each extension by five criteria.
 paired-difference interaction statistic under the original DGP and
 the extensions. We derive a Schur-complement bound on the feasible
 interaction strength. We verify them by Monte Carlo simulation,
-including runs of the original code, and test fourteen analyses
-against a prognostic biomarker.
+including runs of the original code, and test ten analyses against a
+prognostic biomarker.
 
 **Results.** The original DGP holds the biomarker-response correlation
-constant after first exposure. With any carryover the interaction is
-then absent and power equals the test size. We extended the DGP so the
+constant after first exposure. With any carryover the on-drug and
+post-baseline off-drug visits then carry the same moderation, and power
+falls nearly to the test size. What power remains comes from the
+baseline visit. We extended the DGP so the
 correlation decays at the carryover half-life. Power then returns to
 its no-carryover value at half-lives of 0.1 to 0.2 week and declines
 at longer ones. The decline is proved monotone for the
 paired-difference statistic within each design path. For the pooled
-statistic it was checked on a grid, and for the mixed model only at
-the simulated half-lives. In the original code at 0.1 week, power was
+statistic it was checked on a grid. For the mixed model the simulated
+half-lives are consistent with it within Monte Carlo error. In the
+original code at 0.1 week, power was
 `r sprintf('%.2f', m6a_p)` under the original rule (4,000 replicates)
 and 0.64 with the extension, against 0.67 without carryover.
 Without carryover, the original compound-symmetry structure admits no
@@ -353,9 +361,10 @@ interruption, which bears on how the DGP treats re-exposure (Stage 3).
 This paper extends the original DGP and judges each extension against
 the five criteria. The Hybrid design is the primary case. The
 open-label, blinded-discontinuation and crossover designs are
-comparators. The paper shows in closed form why power equals the test
-size under the original DGP when carryover is present, and why its
-joint distribution often does not exist. It gives the changes to the
+comparators. The paper shows in closed form why power falls nearly to
+the test size under the original DGP when carryover is present, and
+why its joint distribution does not exist in 20 of the 54
+nonzero-effect matrices of the original grid. It gives the changes to the
 original code that add a decaying correlation and a feasibility check.
 It chooses, with reasons, the elements the original DGP leaves open.
 It collects the result as a reference specification with the stage
@@ -409,7 +418,7 @@ calculation in this paper uses them, including the simulations of the
 analysis G10 in the planning section and the paired rerun of Appendix
 B.4. In those two, the biomarker enters the analysis standardized to
 mean 0 and SD 1, so their interaction coefficients are per SD of
-biomarker; the standardization is linear and does not change the test.
+biomarker. The standardization is linear and does not change the test.
 
 Off drug, the drug-response mean decays from its previous value with
 half-life $t_{1/2}$:
@@ -430,10 +439,10 @@ is nonzero and 0 elsewhere. The correlation is therefore constant
 after first exposure. When the correlation matrix is not positive
 definite, the covariance matrix built from it is not either, and the
 original code replaces that covariance matrix with a nearby
-positive-definite one (`corpcor::make.positive.definite` with
-tolerance $10^{-3}$, which follows Higham's nearest symmetric
+positive-definite one. It calls `corpcor::make.positive.definite` with
+tolerance $10^{-3}$. That function follows Higham's nearest symmetric
 positive semidefinite matrix [@higham1988] and raises every
-eigenvalue below $2 \times 10^{-3}$ to that value). The repair changes
+eigenvalue below $2 \times 10^{-3}$ to that value. The repair changes
 the variances as well as the correlations. No warning is issued.
 
 The original analysis is the linear mixed model
@@ -575,10 +584,10 @@ $\sqrt{p(1-p)/R}$ for $R$ replicates.
 | | 1. Closed-form verification | 2. The original code | 3. Stress test under a prognostic biomarker |
 |--------------|------------------------------|------------------------------|------------------------------|
 | **Aim** | Check the closed-form moments and power of Appendix A, and the loss of power under the original rule | Show on the original code that the correlation rule alone determines the loss of power | Find which analyses keep their nominal size under features the extended DGP adds |
-| **Data-generating mechanisms** | The correlation encoding with the original rule and with the decaying correlation; compound symmetry and the separable AR(1) form; carryover on the drug-response mean decaying from the last on-drug value; Hybrid, crossover and OL+BDC designs; $N = 70$; grids of $c_{bm}$ and $t_{1/2}$ | The original `generateData()` at commit 58b32a9, as published and with the decaying correlation only (Appendix B.1); $c_{bm} = 0.25$. (a) Hybrid, $N = 70$, no censoring, $t_{1/2} \in \{0, 0.1, 0.2, 1\}$; (b) four designs, $N \in \{35, 70\}$, $t_{1/2} \in \{0, 0.1, 0.2\}$, the original censoring patterns | The extended DGP (Table \@ref(tab:spec)), with randomized allocation (the first run: fixed allocation and the original carryover rule); base cell separable AR(1), $\rho = 0.7$, $N = 70$, $t_{1/2} = 0.5$ week; 15 null cells (11 without and 4 with a prognostic pathway of strength 0.3) and 10 alternative cells at $c_{bm} = 0.30$ varying $N$, half-life, decay form, dropout and measurement error |
+| **Data-generating mechanisms** | The correlation encoding with the original rule and with the decaying correlation; compound symmetry and the separable AR(1) form; carryover on the drug-response mean decaying from the last on-drug value; Hybrid, crossover and OL+BDC designs; $N = 70$; grids of $c_{bm}$ and $t_{1/2}$ | The original `generateData()` at commit 58b32a9, as published and with the decaying correlation only (Appendix B.1); $c_{bm} = 0.25$. (a) Hybrid, $N = 70$, no censoring, $t_{1/2} \in \{0, 0.1, 0.2, 1\}$; (b) four designs, $N \in \{35, 70\}$, $t_{1/2} \in \{0, 0.1, 0.2\}$, the original censoring patterns | The extended DGP (Table \@ref(tab:spec)), with randomized allocation (the first run: fixed allocation and the original carryover rule); base cell separable AR(1), $\rho = 0.7$, $N = 70$, $t_{1/2} = 0.5$ week; 15 null cells (11 without and 4 with a prognostic pathway of strength 0.3) and 26 alternative cells: power curves under the separable form ($c_{bm}$ from $-0.30$ to 0.45, 7 cells) and under compound symmetry ($\rho_{cs} = 0.8$, $c_{bm}$ from $-0.20$ to 0.25, 6 cells), and 13 cells at $c_{bm} = 0.30$ that each vary one feature ($N$, half-life, decay form, dropout, measurement error or a prognostic pathway) |
 | **Estimand** | $\beta_{bm:D}$, and the mean of the paired-difference statistic | $\beta_{bm:D}$ | $\beta_{bm:D}$ |
-| **Methods** | Paired-difference statistics E9 and E9b, closed form and simulated; the original mixed model fitted with `lmer` | The original analysis pipeline (`lmer`, model-based test) on both versions | Fourteen analyses fitted to the same simulated trials; two-sided tests at $\alpha = 0.05$ |
-| **Performance measures** | Mean, SD and power of the statistic; agreement as (simulated $-$ closed form)/MCSE | Power; mean interaction estimate; number of repaired correlation matrices | Null rejection rate; power; $\kappa$, the ratio of mean model SE to empirical SD; failed fits |
+| **Methods** | Paired-difference statistics E9 and E9b, closed form and simulated; the original mixed model fitted with `lmer` | The original analysis pipeline (`lmer`, model-based test) on both versions | Fourteen analyses fitted to the same simulated trials, of which the ten in Table \@ref(tab:prognostic) are reported; two-sided tests at $\alpha = 0.05$ |
+| **Performance measures** | Mean, SD and power of the statistic; agreement as (simulated $-$ closed form)/MCSE | Power; mean interaction estimate; number of repaired correlation matrices | Null rejection rate; power; failed fits |
 | **Replicates** | 5,000 per cell (MCSE of power at most 0.007); 500 to 1,000 for `lmer` | (a) 500 per cell (MCSE at most 0.022); (b) 250 per cell (at most 0.032) | 1,000 per null cell (MCSE 0.0069 at a rate of 0.05), 500 per alternative cell (at most 0.022) |
 
 ```{r cfcount}
@@ -628,7 +637,8 @@ calculations build the cross-component correlation as
 $c_1\rho^{\lvert w_t - w_s\rvert}$ (the separable form) where the
 separable structure is named, and as the original constants where
 compound symmetry is named. Study 2 is the original code and so the
-original structure. Study 3 was run twice with the separable form.
+original structure. Study 3 was run twice, with the separable form in
+every cell except the compound-symmetry curve.
 The first run used fixed path allocation (18, 18, 17, 17) and the
 original carryover rule on the mean. The second run used carryover
 decaying from the last on-drug mean, the rule of the extended DGP. It
@@ -699,9 +709,9 @@ not positive definite, the extended DGP reports the cell as infeasible
 instead of changing it (Appendix B.2). The package function
 `buildSigma()` now does so by default (Appendix B.5). The choice rests
 on the existence criterion. One consequence is that the original
-effect size of 0.6 cannot be simulated under any correlation encoding
-in this paper. Table \@ref(tab:nonpd) shows it infeasible in 75% of
-the extended grid under the extended DGP, and in every Hybrid cell.
+effect size of 0.6 can rarely be simulated. Table \@ref(tab:nonpd)
+shows it infeasible in 75% of the extended grid under the extended
+DGP, and in every Hybrid cell.
 The original DGP passes those cells at positive half-lives because its
 rule keeps the correlation constant after first exposure. A constant
 correlation places a small demand on the structure, and it carries no
@@ -751,7 +761,7 @@ The original study reported that power to detect the interaction fell
 sharply once carryover was introduced. In our 500-replicate rerun of
 the original code in the Hybrid design at $N = 70$ and
 $c_{bm} = 0.25$ (Table \@ref(tab:patch)), power fell from 0.668 without
-carryover to 0.126 at a half-life of 0.1 week; a 4,000-replicate rerun
+carryover to 0.126 at a half-life of 0.1 week. A 4,000-replicate rerun
 of that cell gives `r sprintf('%.3f', m6a_p)` (below). No correlation
 matrix
 was repaired in that run, because 0.25 lies below the
@@ -814,7 +824,10 @@ is consistent with a high draw of a 500-replicate run. We found no
 difference between the two implementations that would explain it.
 
 With a constant correlation, the biomarker moderates the on-drug and
-off-drug responses equally. No interaction remains to detect. The loss
+post-baseline off-drug responses equally. No interaction remains among
+the post-baseline visits. Only the baseline visit, where the
+correlation is zero, still contrasts with the on-drug visits, which is
+why E9b and the original analysis keep a little power. The loss
 of power under small carryover is therefore a property of the
 correlation rule, not of carryover or of the designs.
 
@@ -868,8 +881,10 @@ has $t_{sd} \ge 1$ week. Two consequences follow.
   3, Appendix A.3). The placebo-first crossover path, whose off-drug
   visits all precede exposure, has constant power. For the pooled
   statistic power is non-increasing at every step of a 120-point grid
-  from 0.03 to 4 weeks. For the original mixed model it was checked
-  only at the simulated half-lives.
+  from 0.03 to 4 weeks. For the original mixed model only the
+  simulated half-lives are available, and its values there are
+  consistent with a monotone decline within Monte Carlo error (Table
+  \@ref(tab:patch)).
 - **The loss vanishes faster than any power of the half-life as
   $t_{1/2} \to 0$.** At 0.1 week, $\bar g_{\text{off}} \le 2^{-10}$
   and power is unchanged to within 0.001.
@@ -923,8 +938,9 @@ Figure \@ref(fig:fig4bmc) repeats Figure 4B of the original study on
 the original code, for all four designs, both sample sizes and the
 five censoring patterns, as published and with the decaying
 correlation. It uses $c_{bm} = 0.25$ instead of the original 0.6. The
-value 0.6 lies above every feasibility bound in this paper and would
-confound the comparison with the repair. At 0.25 neither version
+value 0.6 lies above the feasibility bound of the Hybrid design and of
+most cells of the other designs, so it would confound the comparison
+with the repair. At 0.25 neither version
 repaired a matrix, so the correlation rule is the only difference.
 With 250 replicates per cell the Monte Carlo SE reaches 0.032, so a
 difference of 0.05 between adjacent cells is within Monte Carlo error.
@@ -993,8 +1009,8 @@ f4_cmp <- function(d) pend(have_f4, {
   s <- vapply(c(0.1, 0.2), function(th) {
     r1 <- f4_row(d, 70, th)
     k <- rate_cmp(r1$power, r1$n_conv, r0$power, r0$n_conv)
-    if (k == 0L) 'within Monte Carlo error of it' else
-      sprintf('%s, at %.2f', if (k < 0L) 'lower' else 'higher', r1$power)
+    if (k == 0L) 'within Monte Carlo error of its no-carryover value' else
+      sprintf('%s (%.2f)', if (k < 0L) 'lower' else 'higher', r1$power)
   }, '')
   if (s[1] == s[2]) paste(s[1], 'at both half-lives') else
     sprintf('%s at 0.1 week and %s at 0.2 week', s[1], s[2])
@@ -1007,30 +1023,72 @@ f4_low <- if (have_f4) {
 } else NULL
 f4_low_name <- pend(have_f4, sprintf("the '%s' pattern", f4_low$censoring))
 f4_low_pow <- pend(have_f4, sprintf('%.2f', f4_low$power))
-## Crossover under G10 against the original code with the decaying
-## correlation (lower panels of the preceding figure), N = 70, no
-## censoring, at 0, 0.1 and 0.2 week.
+## G10 against the original code with the decaying correlation (lower
+## panels of the preceding figure) and against closed-form E9 under the
+## extended DGP, N = 70, no censoring, no carryover. Without carryover
+## the two carryover rules on the mean coincide, so the figures differ
+## there only in the correlation structure and the analysis.
 orig_f4 <- read.csv(file.path('..', '..', 'data', 'quick-sim',
                               'hendrickson-problems', 'fig4b-graded',
                               'fig4b-graded-cbm0.25-reps250.csv'))
-f4_co_k <- if (have_f4) vapply(c(0, 0.1, 0.2), function(th) {
-  g <- f4_row('CO', 70, th)
-  o <- orig_f4[orig_f4$version == 'graded' & orig_f4$design == 'CO' &
-               orig_f4$N == 70 & orig_f4$t_half == th &
+e9_70 <- read.csv(file.path('..', '..', 'data', 'quick-sim',
+                            'carryover-closed-form', 'rho-stage',
+                            'planning-n80.csv'))
+f4_des <- c(`N-of-1` = 'Hybrid', `OL+BDC` = 'OL+BDC', CO = 'CO')
+f4_orig <- function(d) {
+  o <- orig_f4[orig_f4$version == 'graded' & orig_f4$design == d &
+               orig_f4$N == 70 & orig_f4$t_half == 0 &
                orig_f4$censoring == 'No censoring', ]
-  stopifnot(nrow(g) == 1, nrow(o) == 1)
-  rate_cmp(g$power, g$n_conv, o$power, o$n)
-}, 0L) else NULL
-## Completes 'In the crossover design, G10 power is ... the original
-## analysis on the original code'.
-f4_co_txt <- pend(have_f4, {
-  if (all(f4_co_k < 0)) 'below that of' else
-  if (all(f4_co_k > 0)) 'above that of' else
-  if (all(f4_co_k == 0)) 'within Monte Carlo error of that of' else
-    sprintf('different, at %d of the three half-lives, from that of',
-            sum(f4_co_k != 0))
+  stopifnot(nrow(o) == 1)
+  o
+}
+f4_e9 <- function(d) {
+  v <- e9_70$power_N70[e9_70$design == f4_des[[d]] &
+                       e9_70$c_bm == 0.25 & e9_70$t_half == 0]
+  stopifnot(length(v) == 1)
+  v
+}
+f4_trio <- function(f) pend(have_f4, sprintf('%.2f, %.2f and %.2f',
+  f('N-of-1'), f('OL+BDC'), f('CO')))
+f4_g10_0 <- f4_trio(function(d) f4_row(d, 70, 0)$power)
+f4_orig_0 <- f4_trio(function(d) f4_orig(d)$power)
+f4_e9_0 <- f4_trio(f4_e9)
+## G10 below the original code in every design, and E9 no higher than
+## G10 plus two Monte Carlo SEs: the conditions the text states.
+f4_all_lower <- have_f4 && all(vapply(names(f4_des), function(d) {
+  g <- f4_row(d, 70, 0)
+  o <- f4_orig(d)
+  rate_cmp(g$power, g$n_conv, o$power, o$n) < 0
+}, TRUE))
+f4_e9_low <- have_f4 && all(vapply(names(f4_des), function(d) {
+  g <- f4_row(d, 70, 0)
+  f4_e9(d) <= g$power + 2 * sqrt(g$power * (1 - g$power) / g$n_conv)
+}, TRUE))
+stopifnot(!have_f4 || (f4_all_lower && f4_e9_low))
+## The OL+BDC comparison at 0.2 week in the 1,000-replicate planning
+## run of the same DGP and analysis.
+pl_file <- pub_ok('planning-g10.csv')
+f4_pl <- if (!is.na(pl_file)) {
+  pl <- read.csv(pl_file)
+  sapply(c(0, 0.2), function(th) {
+    r <- pl[pl$design == 'OL+BDC' & pl$c_bm == 0.25 & pl$t_half == th &
+            pl$N_label == '70', ]
+    stopifnot(nrow(r) == 1)
+    c(power = r$power, n = r$n_reps)
+  })
+} else NULL
+f4_pl_txt <- pend(!is.null(f4_pl), {
+  k <- rate_cmp(f4_pl['power', 2], f4_pl['n', 2], f4_pl['power', 1],
+                f4_pl['n', 1])
+  sprintf(paste('In the planning run of the same DGP and analysis, with',
+                '%s replicates per cell (Table \\@ref(tab:planningg10)),',
+                'OL+BDC power is %.3f without carryover and %.3f at 0.2',
+                'week, %s.'),
+          format(f4_pl['n', 1], big.mark = ','), f4_pl['power', 1],
+          f4_pl['power', 2],
+          if (k == 0) 'within Monte Carlo error of each other' else
+            'a difference of more than two Monte Carlo SEs')
 })
-f4_co_lower <- have_f4 && all(f4_co_k < 0)
 ```
 
 Figure \@ref(fig:fig4bg10) repeats the grid of Figure \@ref(fig:fig4bmc)
@@ -1068,18 +1126,29 @@ censoring:
 - **Crossover.** Power is `r g9f_pick('CO', 70, 0)`,
   `r g9f_pick('CO', 70, 0.1)` and `r g9f_pick('CO', 70, 0.2)`.
 
-Under G10 and the extended DGP, power at the pharmacological
-half-lives, compared with its no-carryover value, is
-`r f4_cmp('N-of-1')` in the Hybrid design, `r f4_cmp('OL+BDC')` in the
-OL+BDC design and `r f4_cmp('CO')` in the crossover design. Here two
-rates differ when they are more than two combined Monte Carlo SEs
-apart. Of the censoring patterns, `r f4_low_name` gives the lowest
-power in the Hybrid design at 0.2 week, `r f4_low_pow`. In the
-crossover design, G10 power is `r f4_co_txt` the original analysis on
-the original code with the decaying correlation (Figure
-\@ref(fig:fig4bmc), lower two panel rows).`r if (f4_co_lower) ' The crossover design has a constant expectancy, and G10 estimates the half-life from a design with only one switch per path.' else ''`
-We do not separate the contribution of the correlation structure from
-that of the analysis here.
+We compare G10 power at the pharmacological half-lives with its
+no-carryover value. Two rates differ when they are more than two
+combined Monte Carlo SEs apart. In the Hybrid design, power is
+`r f4_cmp('N-of-1')`. In the OL+BDC design it is `r f4_cmp('OL+BDC')`.
+In the crossover design it is `r f4_cmp('CO')`. Each comparison rests
+on one cell of 250 replicates. `r f4_pl_txt` Of the censoring
+patterns, `r f4_low_name` gives the lowest power in the Hybrid design
+at 0.2 week, `r f4_low_pow`.
+
+G10 power is lower than in the original code with the decaying
+correlation (Figure \@ref(fig:fig4bmc), lower two panel rows) in every
+design. Without carryover it is `r f4_g10_0` in the Hybrid, OL+BDC and
+crossover designs, against `r f4_orig_0` in the original code. The
+analysis does not account for the difference. Under the extended DGP
+the closed-form power of the paired-difference statistic E9 at the
+same $N$ and $c_{bm}$ is `r f4_e9_0`, computed as for Table
+\@ref(tab:planning), no higher than G10. Without carryover the two carryover rules on the mean
+coincide, so the difference comes from the correlation structure. The
+original code uses compound symmetry at $\rho_{cs} = 0.8$, and the
+extended DGP uses the separable AR(1) form at $\rho = 0.7$. Table
+\@ref(tab:rhostage) shows the effect of that change on closed-form E9
+power in the Hybrid design. The drop is largest in the crossover
+design. We have not established why.
 
 ```{r fig4bg10, eval = have_f4, fig.cap = paste0('Power of the analysis G10 to detect the biomarker-by-treatment interaction under the extended DGP (separable AR(1), $\\rho = 0.7$, $c_1 = 0.2$, decaying correlation, carryover decaying from the last on-drug mean, original response parameters), in the layout of Figure 4B of the original study. Rows within panels: censoring patterns; columns: carryover half-life; panels: trial design (N-of-1 is the Hybrid design) and total sample size. $c_{bm} = 0.25$, 250 replicates per cell (Monte Carlo SE at most ', g9f_mcse_max, '). Censoring patterns use the corrected dropout rule, under which dropout rises with worsening; the original-code figure uses the published rule of commit 58b32a9. Gray cells (n/e): the open-label design, in which every visit is on drug and the interaction is not estimable under G10.'), out.width = '100%', fig.align = 'center', fig.width = 9, fig.height = 5.2}
 library(ggplot2)
@@ -1474,7 +1543,7 @@ ss_band1 <- 0.05 + c(-2, 2) * sqrt(0.05 * 0.95 / 1000)
 ss_cross <- function(thr) {
   k <- which((ss_m1 > thr) != (ss_m2 > thr), arr.ind = TRUE)
   if (!nrow(k)) return('none')
-  paste(sprintf('%s under %s (%s to %s)',
+  paste(sprintf('%s under %s (first run %s, second run %s)',
                 ss_short[rownames(ss_m2)[k[, 1]]],
                 ss_cell[colnames(ss_m2)[k[, 2]]],
                 ss_f(ss_m1[k]), ss_f(ss_m2[k])), collapse = '; ')
@@ -1494,7 +1563,8 @@ ss_cmax <- function(d, an) {
   x[which.max(x$reject), ]
 }
 ss_band11 <- 2 * sqrt(0.05 * 0.95 / 11000)
-ss_fixed <- c('S', 'C1', 'F1', 'ES', 'F2', 'G1')
+## Only analyses defined in the paper (Table tab:prognostic).
+ss_fixed <- c('S', 'F1', 'ES', 'G1')
 ss_fixed_pool <- sapply(ss_fixed, function(a) ss_pool(ss2, a))
 ss_fixed_max <- max(sapply(ss_fixed, function(a) ss_cmax(ss2, a)$reject))
 ss_all <- c('R', 'S', 'C1', 'C2', 'DS', 'A', 'DA', 'F1', 'F2', 'ES', 'EA',
@@ -1510,14 +1580,14 @@ knitr::kable(tab, booktabs = TRUE, escape = FALSE, row.names = FALSE,
   linesep = '',
   col.names = c('Analysis', 'Natural history, constant', 'Natural history, growing',
                 'Placebo response', 'Baseline severity'),
-  caption = 'Null rejection rates under a prognostic biomarker (prognostic correlation 0.3, $c_{bm} = 0$), 1,000 replicates per cell (two-MCSE band 0.036 to 0.064 for a single cell). Second run of study 3: carryover decaying from the last on-drug mean (the extended DGP) and randomized path allocation. Rates above 0.075 in bold. The first run is in Table \\@ref(tab:prognosticfirst); the per-cell changes are given in the text.') |>
+  caption = 'Null rejection rates under a prognostic biomarker (prognostic correlation 0.3, $c_{bm} = 0$), 1,000 replicates per cell (two-MCSE band 0.036 to 0.064 for a single cell). Second run of study 3: carryover decaying from the last on-drug mean (the extended DGP) and randomized path allocation. Rates above 0.075 in bold. The first run is in Table \\ref{tab:prognosticfirst}; the per-cell changes are given in the text.') |>
   kableExtra::kable_styling(font_size = 9) |>
   kableExtra::column_spec(1, width = '5.5cm') |>
   kableExtra::column_spec(2:5, width = '2.1cm')
 ```
 
-The expectancy-term family kept the nominal level in every prognostic
-cell. Its four analyses rejected
+The expectancy-term family stayed within the single-cell two-MCSE band
+in every prognostic cell. Its four analyses rejected
 `r ss_f(min(ss_m2[c('F1', 'G1', 'G2', 'F1A'), ]))` to
 `r ss_f(max(ss_m2[c('F1', 'G1', 'G2', 'F1A'), ]))`. This family adds
 the expectancy and a biomarker-by-expectancy term to the mean model,
@@ -1559,11 +1629,11 @@ Writing the row as a sum of fixed patterns scaled by the correlations,
 the existence condition of Stage 1 becomes a quadratic form. The
 largest value of one correlation given the others is the positive
 root of a quadratic (Appendix A.4). Table \@ref(tab:jointceiling)
-gives the bounds for the Hybrid design under the extended DGP. The
-prognostic correlation of 0.3 used above lies inside the feasible
-region at every $c_{bm}$ up to 0.45. At the stress test's half-life of
-0.5 week, a prognostic correlation of 0.3 with $c_{bm} = 0.45$ lies
-0.006 inside the boundary. A prognostic correlation of 0.6 is
+gives the bounds for the Hybrid design under the extended DGP. At the
+stress test's half-life of 0.5 week, the prognostic correlation of 0.3
+used above lies inside the feasible region at every $c_{bm}$ up to
+0.45, by 0.006 at 0.45. At 0.2 week it is feasible only up to
+$c_{bm} = 0.42$. A prognostic correlation of 0.6 is
 infeasible with any $c_{bm}$. That is the combination the companion
 study's two repaired runs had simulated (Stage 1). The correlations
 with the placebo-response and the natural-history components have
@@ -1571,8 +1641,9 @@ identical bounds, because their patterns are the same constant on
 every visit of one component. A correlation with baseline severity
 has a looser bound, since baseline severity is uncorrelated with the
 response components and enters only through its square. The OL+BDC
-design is within 0.03 of the Hybrid values. The crossover design has
-looser bounds throughout. We verified the bounds by checking that the
+bounds are within 0.035 of the Hybrid values. The crossover bounds are
+looser on $c_{bm}$ and $c_{BL}$, and slightly tighter on $c_{PB}$
+alone (0.487 against 0.513). We verified the bounds by checking that the
 smallest eigenvalue of the full matrix is positive at 0.999 times each
 bound and negative at 1.001 times it.
 
@@ -1666,7 +1737,7 @@ power of `r op_rng(op_p2['N35', ])`, against
 CAR(1) model reached `r sprintf('%.2f', op_p2['N150', 'S'])`. In these
 null cells the CAR(1) and expectancy-term models rejected at most
 `r ss_f(op_valid_max)`, against a single-cell band of
-`r sprintf('%.4f', ss_band1[1])` to `r sprintf('%.4f', ss_band1[2])`.
+`r ss_f(ss_band1[1])` to `r ss_f(ss_band1[2])``r if (op_valid_max > ss_band1[2]) ' (the maximum lies just above the upper edge, by less than 0.001)' else ''`.
 The original analysis rejected up to `r ss_f(op_R_max)`, under
 `r op_R_at`. The features change power, which the planning section
 and the companion paper address.
@@ -1863,9 +1934,11 @@ pg_vs_e9_txt <- pend(have_pg, {
   if (k[['above']] == k[['cells']]) {
     sprintf('higher power than E9 in every one of the %d cells', k[['cells']])
   } else {
+    cnt <- function(n) if (n == 0) 'none' else as.character(n)
     sprintf(paste('power more than two Monte Carlo SEs above that of E9 in',
-                  '%d of the %d cells, within two SEs in %d and below in %d'),
-            k[['above']], k[['cells']], k[['within']], k[['below']])
+                  '%d of the %d cells, within two SEs in %s and below in %s'),
+            k[['above']], k[['cells']], cnt(k[['within']]),
+            cnt(k[['below']]))
   }
 })
 ## Is the closed-form E9 rule conservative for G10? At the E9 sample
@@ -1873,6 +1946,10 @@ pg_vs_e9_txt <- pend(have_pg, {
 ## SEs.
 pg_short <- if (have_pg) pg_n80[pg_n80$power < 0.8 - 2 * pg_n80$mcse, ] else NULL
 pg_conservative <- have_pg && nrow(pg_short) == 0
+## The text names the crossover design as the one with the smallest
+## margin at the E9 sample size.
+stopifnot(!have_pg ||
+  names(which.min(tapply(pg_n80$power, pg_n80$design, min))) == 'CO')
 
 ## Block N: N for 80 percent power of G10 in the Hybrid design.
 n80_dir <- file.path(pub_dir, 'block-N')
@@ -1898,8 +1975,10 @@ n80_n_ex <- pend(have_n80, sum(n80$extrapolated))
 power of the paired-difference statistic E9 under the extended DGP, by
 design, $c_{bm}$ and half-life, and the power at the original
 $N = 70$. The sample sizes are closed-form values for E9. In the
-Hybrid design E9 tracks the original mixed model closely (Methods). In
-the crossover design it understates a time-adjusted mixed model. At
+Hybrid design E9 tracks the original mixed model closely (Methods).
+Under compound symmetry it understates the original mixed model in
+the crossover design. Under the extended DGP the margin by which G10
+exceeds E9 is smallest in the crossover design (below). At
 the pharmacological half-life the Hybrid design needs about 280
 participants at $c_{bm} = 0.25$ and 84 at 0.45. At a 1-week half-life
 those rise to 480 and 146. For comparison, Brookes et al.
@@ -1919,7 +1998,11 @@ fits of the model without the interaction, so the choice of half-life
 does not depend on the term under test. The model at the chosen
 half-life is refitted by REML with the interaction, and the
 interaction is tested with CR2 cluster-robust standard errors and
-Satterthwaite degrees of freedom. We simulated G10 under the extended
+Satterthwaite degrees of freedom. The grid of half-lives does not
+include 0 or the pharmacological values of 0.1 to 0.2 week, so at
+those true values G10 uses an analysis half-life of at least 0.25
+week. The AIC-chosen analyses of the stress test also consider 0
+(Table \@ref(tab:estimands)). We simulated G10 under the extended
 DGP with the original parameters in every cell of Table
 \@ref(tab:planning), at $N = 70$ and at the E9 sample size for 80
 percent power, with `r pg_alt_reps` replicates per cell. We also
@@ -1942,7 +2025,7 @@ same cell it is `r pg_pow('Crossover', 0.25, 0.2)` (MCSE
 `r e9_fmt('Crossover', 0.25, 0.2)`. Third, at the E9 sample size for
 80 percent power, G10 power is `r pg_n80_range` in the `r pg_n80_n`
 uncapped cells, and `r pg_cap_range` in the `r pg_cap_n` cells that
-ran at $N = 400$. `r if (!have_pg) PENDING else if (pg_conservative) paste0('The closed-form E9 rule is therefore conservative for G10: a trial sized by Table \\@ref(tab:planning) and analyzed with G10 had power of at least ', pg_min_n80, ' in every uncapped cell.') else sprintf('The closed-form E9 rule is therefore not conservative for G10 in every cell: in %d of the %d uncapped cells G10 power at the E9 sample size is more than two Monte Carlo SEs below 0.80.', nrow(pg_short), nrow(pg_n80))`
+ran at $N = 400$. `r if (!have_pg) PENDING else if (pg_conservative) paste0('Under the extended DGP at $\\rho = 0.7$ with the original parameters, the closed-form E9 rule is therefore conservative for G10. A trial sized by Table \\@ref(tab:planning) and analyzed with G10 had power of at least ', pg_min_n80, ' in every uncapped cell, with the smallest margin in the crossover design.') else sprintf('The closed-form E9 rule is therefore not conservative for G10 in every cell: in %d of the %d uncapped cells G10 power at the E9 sample size is more than two Monte Carlo SEs below 0.80.', nrow(pg_short), nrow(pg_n80))`
 Fits failed to converge in at most `r pg_nonconv_max` of replicates in
 any cell, and the rejection rates are computed over converged fits.
 
@@ -2039,7 +2122,7 @@ knitr::kable(tabn, booktabs = TRUE, escape = FALSE, align = 'rrrrrr',
   linesep = '', row.names = FALSE,
   col.names = c('$c_{bm}$', '$t_{1/2}$ (weeks)', 'E9 (closed form)',
                 'G10 (simulated)', 'G10 / E9', 'Simulated $N$'),
-  caption = paste0('Total $N$ for 80 percent power in the Hybrid design under the extended DGP with the original parameters: closed-form E9 (Table \\@ref(tab:planning)) and the analysis G10. G10 was simulated at ', n80_k, ' values of $N$ per cell (', n80_reps, ' replicates each), and the $N$ at which a probit regression of rejection on $\\log N$ reaches 0.80 is rounded up. $\\ddagger$: outside the simulated range of $N$, an extrapolation. n/e: the fitted curve does not rise with $N$.'))
+  caption = paste0('Total $N$ for 80 percent power in the Hybrid design under the extended DGP with the original parameters: closed-form E9 (Table \\ref{tab:planning}) and the analysis G10. G10 was simulated at ', n80_k, ' values of $N$ per cell (', n80_reps, ' replicates each), and the $N$ at which a probit regression of rejection on $\\log N$ reaches 0.80 is rounded up.', if (have_n80 && any(n80$extrapolated)) ' $\\ddagger$: outside the simulated range of $N$, an extrapolation.' else '', if (have_n80 && any(is.na(n80$N80_G))) ' n/e: the fitted curve does not rise with $N$.' else ''))
 ```
 
 **Parameters by status.**
@@ -2174,16 +2257,19 @@ planning section translates into outcome units.
 
 ## What remains uncalibrated
 
-The extended DGP meets the existence, identifiability and
-analyzability criteria by construction and derivation. It meets the
-fidelity criterion by judgment. It does not meet the calibration
-criterion: every parameter is the original value or a choice made
-here. The values that matter most are the serial correlation, the
+The extended DGP meets the existence and identifiability criteria by
+construction and derivation. It meets the analyzability criterion in
+part: the separable form matches the analysis model within each
+phase, and the effect of the departure across phases on test
+calibration has not been measured. It meets the fidelity criterion by
+judgment. It does not meet the calibration criterion. Every parameter
+is the original value or a choice made here. The values that matter most are the serial correlation, the
 drug-response SD and the symptom half-life. The parallel-group trial
 CSP 563 informs only the first, and only on the total score. Its CAPS
-correlation decays slowly, compound symmetry fits it worst among the
-structures compared, and the DGP's total-score correlation decays
-faster at short lags (planning section). All three values could be
+correlation decays slowly, and the DGP's total-score correlation
+decays faster at short lags (planning section). In the reanalysis
+(`docs/69`), compound symmetry fit it worst among the structures
+compared. All three values could be
 estimated from an aggregated N-of-1 trial of prazosin with weekly
 symptom measurement. Such a trial would also show which correlation
 form fits weekly series.
@@ -2218,10 +2304,11 @@ the following.
 
 - **The closed form covers one statistic.** It is exact for the
   paired-difference statistic, not for the original mixed model. The
-  two agree closely in the Hybrid design. In the crossover design the
-  closed form understates what a time-adjusted analysis achieves. The
-  sample sizes of the planning table inherit this. The simulated G10
-  columns show the direction and size of the difference: at the E9
+  two agree closely in the Hybrid design. Under compound symmetry, in
+  the crossover design, the closed form understates the original mixed
+  model. The sample sizes of the planning table are E9 values. The
+  simulated G10 columns show the direction and size of the difference
+  under the extended DGP: at the E9
   sample size G10 power was `r pg_n80_range` in the uncapped cells. The
   G10 sample size for 80 percent power was searched for in the Hybrid
   design only, by simulation at `r n80_k` values of $N$ per cell, and
@@ -2256,7 +2343,8 @@ The original DGP encodes the predictive-biomarker interaction as a
 correlation between the biomarker and the drug response. That encoding
 remains a coherent choice for simulating aggregated N-of-1 trials. The
 original DGP holds the correlation constant after first exposure, so
-the interaction is absent whenever there is carryover. It repairs
+with any carryover the interaction is absent among the post-baseline
+visits and power falls nearly to the test size. It repairs
 correlation matrices that are not positive definite. Both features
 have closed-form explanations, and both are changed by small
 extensions. With a correlation that decays after discontinuation and
@@ -2274,7 +2362,7 @@ statistic in closed form and for the recommended mixed-model analysis
 G10 by simulation. At the closed-form sample size, G10 power was
 `r pg_n80_range` in the uncapped cells, and in the Hybrid design the
 G10 sample size for 80 percent power was `r n80_ratio_range` times the
-closed-form value where it could be located. We propose the extended
+closed-form value`r if (have_n80 && (any(n80$extrapolated) || any(is.na(n80$N80_G)))) ' where it could be located' else ''`. We propose the extended
 DGP,
 with options for prognostic pathways and other features that change
 which analysis is valid, as the reference for simulation studies of
@@ -2370,11 +2458,12 @@ code, data files and table headings.
   model of the original study, with a random intercept, a binary drug
   indicator and baseline included as an off-drug row.
 - **G10** (`E7null_cr2` in data labels): the analysis the companion
-  paper recommends; a random-intercept CAR(1) mixed model with the
-  exposure-decayed drug indicator at a half-life chosen by AIC over
-  0.25, 0.5, 1 and 2 weeks from maximum-likelihood fits without the
-  interaction, refitted by REML with the interaction, with CR2
-  cluster-robust standard errors and Satterthwaite degrees of freedom.
+  paper recommends. It is a random-intercept CAR(1) mixed model with
+  the exposure-decayed drug indicator. The half-life is chosen by AIC
+  over 0.25, 0.5, 1 and 2 weeks from maximum-likelihood fits without
+  the interaction. The model is then refitted by REML with the
+  interaction and tested with CR2 cluster-robust standard errors and
+  Satterthwaite degrees of freedom.
 - **G9** (`E7cr2` in data labels): as G10, except that the half-life is
   chosen with the interaction in the model.
 - **Capped cell** ($\dagger$ in Table \@ref(tab:planningg10)): a cell
@@ -2395,11 +2484,10 @@ code, data files and table headings.
   adds `bmc:bl0`, a separate biomarker slope for the baseline row.
 - **CAR(1)**: the continuous-time first-order autoregressive residual
   correlation `corCAR1` of the analysis model.
-- **Calibration ratio** ($\kappa$): the mean model standard error
-  divided by the empirical standard deviation of the estimates.
 - **Stress test** (`11-strawman-stress-test.R`): study 3, the
   simulation that fits fourteen analyses to trials from the extended
-  DGP with and without a prognostic biomarker.
+  DGP with and without a prognostic biomarker. The ten analyses of
+  Table \@ref(tab:prognostic) are reported.
 - **First and second runs of the stress test** (`summary-full*.csv`
   and `summary-full*-anchored.csv`): the first run used the original
   carryover rule (`recursive`) and fixed allocation. The second run,
@@ -2438,9 +2526,9 @@ study uses simulated data only.
 
 **Availability of data and materials.** All code and simulated data
 are in the pmsimstats-ng repository
-(`https://github.com/rgt47/pmsimstats-ng`); a tagged release with a
-persistent identifier will be deposited at submission, and the commit
-reported here should be cited until then.
+(`https://github.com/rgt47/pmsimstats-ng`). A tagged release with a
+persistent identifier will be deposited at submission. Until then,
+cite commit `r render_sha`, from which this version was rendered.
 
 - the closed-form calculations, in
   `analysis/scripts/quick-sim/carryover-closed-form/01-e9-closed-form.R`,
@@ -2841,7 +2929,7 @@ drug effect, with zero correlation before first exposure:
 
 ```r
   # correlation with biomarker: full on drug, decaying with the drug
-  # effect off drug (graded coupling), zero before first exposure
+  # effect off drug (decaying correlation), zero before first exposure
   for(p in 1:nP){
     n1<-paste(trialdesign$timeptname[p],"br",sep=".")
     if(d[p]$tod>0){

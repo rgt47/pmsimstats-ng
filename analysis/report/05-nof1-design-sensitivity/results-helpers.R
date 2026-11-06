@@ -13,6 +13,17 @@ suppressPackageStartupMessages({
   library(knitr)
 })
 
+# The container's renv library holds the GitHub nof1power, which shares
+# the version number 0.1.0 but lacks build_trial_design(); fall back to
+# the vendored source.
+if (!requireNamespace('nof1power', quietly = TRUE) ||
+    !'build_trial_design' %in% getNamespaceExports('nof1power')) {
+  pkgload::load_all(
+    here::here('implementations', 'nof1power'),
+    export_all = FALSE, quiet = TRUE
+  )
+}
+
 source(here::here(
   'analysis', 'scripts', 'nof1-design-sensitivity', '00-summarize.R'
 ))

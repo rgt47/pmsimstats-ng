@@ -68,7 +68,11 @@
 ##     [--reps-n80 R] [--n80-mult M1,M2,...] \
 ##     [--cores K] [--out-dir PATH] [--smoke] [--preflight] [--time] \
 ##     [--cross-check [--reps-cross R]] [--specs S1[,S2]] [--guard-reps R] \
-##     [--params published|simcore2026]
+##     [--params published|simcore2026] [--rho R --plan-file PATH]
+##   --rho and --plan-file (block P only) run the planning cells at
+##   another serial correlation, with the grid of a planning file from
+##   24-rho-sweep.R; cells it flags infeasible are skipped. Output goes
+##   to published-planning/rho<R>/ by default.
 ##   --preflight checks every covariance matrix and exits; --smoke runs
 ##   2 replicates per cell; --time reports per-replicate cost on one
 ##   worker and a projected host wall time; --cross-check runs the
@@ -107,6 +111,7 @@ TIME       <- '--time' %in% args
 CROSS      <- '--cross-check' %in% args
 SPECS      <- strsplit(argv('--specs', 'E7cr2'), ',', fixed = TRUE)[[1]]
 GUARD_REPS <- as.integer(argv('--guard-reps', '0'))
+RHO        <- as.numeric(argv('--rho', '0.7'))
 G_LABEL <- c(E7cr2 = 'G9', E7null_cr2 = 'G10')
 stopifnot(length(SPECS) >= 1, all(SPECS %in% names(G_LABEL)),
           !anyDuplicated(SPECS), !anyNA(N80_MULT), all(N80_MULT > 0))
@@ -114,7 +119,11 @@ LABELS <- unname(G_LABEL[SPECS])
 G9_DIR <- 'analysis/data/quick-sim/carryover-closed-form/g9-planning'
 ## The stored G9 and G10 runs are simcore2026; a published-set run gets
 ## its own directory so neither can resume from the other's checkpoints.
-BASE_DIR <- if (param_set() == 'published') {
+## Runs at another rho reuse the cell ids, and so the seeds, of the
+## rho = 0.7 run; their own subdirectory keeps the checkpoints apart.
+BASE_DIR <- if (param_set() == 'published' && RHO != 0.7) {
+  file.path(dirname(G9_DIR), 'published-planning', sprintf('rho%g', RHO))
+} else if (param_set() == 'published') {
   file.path(dirname(G9_DIR), 'published-planning')
 } else if (length(SPECS) == 1) {
   file.path(dirname(G9_DIR), sprintf('%s-planning', tolower(LABELS)))
@@ -134,9 +143,9 @@ ck_dir <- file.path(OUT_DIR, 'trials')
 dir.create(ck_dir, recursive = TRUE, showWarnings = FALSE)
 stopifnot(BLOCK %in% c('P', 'F', 'N', 'all'))
 
-PLAN_FILE <- 'analysis/data/quick-sim/carryover-closed-form/rho-stage/planning-n80.csv'
+PLAN_FILE <- argv('--plan-file',
+  'analysis/data/quick-sim/carryover-closed-form/rho-stage/planning-n80.csv')
 N_CAP <- 400L
-RHO <- 0.7
 HOST_CORES <- 8
 HOST_SPEEDUP <- 2
 
@@ -156,7 +165,12 @@ DESIGN_SETS <- map(set_names(unique(PRESET)), build_design_set)
 
 ## ---------------- grids ----------------
 plan <- read.csv(PLAN_FILE) |> as_tibble() |> mutate(N80 = as.integer(N80))
-stopifnot(nrow(plan) == 27, all(plan$design %in% names(PRESET)))
+## Planning files for rho other than 0.7 (24-rho-sweep.R) flag cells
+## above the feasibility bound; those are not simulated.
+if ('feasible' %in% names(plan)) plan <- filter(plan, feasible)
+stopifnot(nrow(plan) > 0, all(plan$design %in% names(PRESET)))
+if (RHO != 0.7 && BLOCK != 'P')
+  stop('--rho other than 0.7 is set up for block P only')
 
 p_common <- function(d) d |> mutate(block = 'P', simulate = TRUE)
 alt_70 <- plan |>
@@ -297,7 +311,7 @@ if (TIME) {
   }
   sim_p <- filter(grid_p, simulate)
   heavy_p <- filter(sim_p, design == 'Hybrid', N == max(N))[1, ]
-  ref_p <- filter(sim_p, design == 'Hybrid', c_bm == 0.45, t_half == 0,
+  ref_p <- filter(sim_p, design == 'Hybrid', c_bm == max(c_bm), t_half == 0,
                   N_label == '70')[1, ]
   heavy_f <- filter(grid_f, design == 'N-of-1', N == 70, t_half == 0.2)[1, ]
   s_p_heavy <- time_cell(heavy_p, 3)
@@ -551,7 +565,7 @@ meta <- list(
   reps_alt = REPS_ALT, reps_null = REPS_NULL, reps_fig = REPS_FIG,
   reps_n80 = REPS_N80, n80_mult = N80_MULT,
   fig_cbm = FIG_CBM, n_cap = N_CAP, smoke = SMOKE, cross_check = CROSS,
-  spec = SPECS, guard_reps = GUARD_REPS,
+  spec = SPECS, guard_reps = GUARD_REPS, rho = RHO, plan_file = PLAN_FILE,
   elapsed_min_this_run = elapsed_min, r_version = R.version.string,
   git_sha = tryCatch(system('git rev-parse --short HEAD', intern = TRUE),
                      error = function(e) NA_character_)

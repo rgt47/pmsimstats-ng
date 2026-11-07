@@ -90,8 +90,9 @@ stays constant off drug. The original effect size of 0.6 therefore
 relied on repaired matrices in part of the original grid. A separable
 AR(1) structure at serial
 correlation 0.7, a conventional value, raises the bound to 0.474. A
-PTSD symptom series suggests a slower decay, under which the bound
-would be lower. A prognostic
+PTSD symptom series suggests a slower decay. At a serial correlation
+of 0.9 the bound falls to 0.34, and the Hybrid design needs about half
+the sample it needs at 0.7. A prognostic
 biomarker with a pathway absent at baseline makes analyses that share
 the biomarker effect with baseline anticonservative.
 
@@ -1335,6 +1336,26 @@ correlation has been discussed as a design consideration for
 personalized studies [@schork2022]. Two elements are open: the form of
 the within-component correlation, and its value.
 
+```{r rhobounddata}
+## 24-rho-sweep.R: separable AR(1), bound by design and half-life, and
+## the E9 sample size for 80 percent power by rho.
+rb_dir <- file.path('..', '..', 'data', 'quick-sim', 'carryover-closed-form',
+                    'rho-stage', 'rho-sweep')
+rb <- read.csv(file.path(rb_dir, 'ceilings-sep.csv'))
+rb_n <- read.csv(file.path(rb_dir, 'planning-n80-by-rho.csv'))
+rb_min <- function(r, th) min(rb$ceiling[rb$rho == r & rb$t_half == th])
+rb_bind <- function(r, th) {
+  k <- rb$rho == r & rb$t_half == th
+  rb$design[k][which.min(rb$ceiling[k])]
+}
+rb_f <- function(v) sprintf('%.3f', v)
+rb_rho <- sort(unique(rb$rho))
+## The Stage 4 text states these.
+stopifnot(rb_rho[which.max(sapply(rb_rho, rb_min, 0))] == 0.7,
+          all(sapply(rb_rho[rb_rho > 0.7], rb_bind, 0) == 'Hybrid'),
+          all(diff(sapply(rb_rho[rb_rho >= 0.7], rb_min, 0)) < 0))
+```
+
 The extended DGP uses AR(1) in calendar weeks,
 $\rho^{\lvert w_t - w_s\rvert}$, with one $\rho$ for all three
 components. The value of $\rho$ is a parameter. We take $\rho = 0.7$
@@ -1348,7 +1369,14 @@ right, and the value lies below the range the CSP 563 series suggests. Above 0.7
 raises E9 power (Table \@ref(tab:rhostage), 0.7 against 0.8). If that
 continues into the range CSP 563 suggests, the planning results at
 $\rho = 0.7$ overstate the largest feasible effect and the sample size
-needed. The table stops at 0.8 and does not cover that range.
+needed. Table \@ref(tab:rhobound) extends the separable form to
+$\rho$ from 0.4 to 0.95. The bound is largest at $\rho = 0.7$. It
+falls slowly below that value, to `r rb_f(rb_min(0.4, 0))` at 0.4, and
+steeply above it, to `r rb_f(rb_min(0.9, 0))` at 0.9 and
+`r rb_f(rb_min(0.95, 0))` at 0.95, where the Hybrid design is the
+binding one. Above 0.7 the E9 sample size in the Hybrid design falls
+as well.
+The planning section repeats its calculations at $\rho = 0.5$ and 0.9.
 
 Table \@ref(tab:rhostage) shows what $\rho$ does under compound
 symmetry and under the structure adopted in Stage 5, for
@@ -1393,13 +1421,37 @@ knitr::kable(tab, booktabs = TRUE, digits = 3,
   kableExtra::add_header_above(c(' ' = 1, 'Compound symmetry' = 2, 'Separable AR(1)' = 2))
 ```
 
+```{r rhobound}
+rb_hyb <- function(r, cb) {
+  k <- rb_n$rho == r & rb_n$design == 'Hybrid' & rb_n$c_bm == cb &
+    rb_n$t_half == 0.2
+  stopifnot(sum(k) == 1)
+  if (!rb_n$feasible[k]) 'not feasible' else
+    if (is.na(rb_n$N80[k])) '> 2000' else as.character(rb_n$N80[k])
+}
+tab <- data.frame(
+  rho = sprintf('%.2f', rb_rho),
+  b0 = sapply(rb_rho, rb_min, 0), b02 = sapply(rb_rho, rb_min, 0.2),
+  b1 = sapply(rb_rho, rb_min, 1),
+  bind = ifelse(sapply(rb_rho, rb_bind, 0) == 'CO', 'Crossover',
+                sapply(rb_rho, rb_bind, 0)),
+  n25 = sapply(rb_rho, rb_hyb, 0.25), n35 = sapply(rb_rho, rb_hyb, 0.35))
+knitr::kable(tab, booktabs = TRUE, digits = 3, escape = FALSE,
+  align = 'rrrrlrr', linesep = '',
+  col.names = c('$\\rho$', '$t_{1/2} = 0$', '0.2 week', '1 week',
+                'Binding design', '$c_{bm} = 0.25$', '$c_{bm} = 0.35$'),
+  caption = 'Serial correlation under the separable AR(1) form of the extended DGP ($c_1 = 0.2$, decaying correlation, carryover decaying from the last on-drug mean): the feasibility bound on $c_{bm}$, minimum over the Hybrid, crossover and OL+BDC designs, by carryover half-life, the design that attains the minimum without carryover, and the closed-form total $N$ for 80 percent power of E9 in the Hybrid design at the 0.2-week half-life. Not feasible: $c_{bm}$ lies above the Hybrid bound.') |>
+  kableExtra::add_header_above(c(' ' = 1, 'Feasibility bound' = 4,
+                                 'Hybrid N, E9' = 2))
+```
+
 The extended DGP uses AR(1) in weeks at $\rho = 0.7$. The choice rests
 on existence, traded against power. The calibration status is open.
 The AR(1) form is adopted for the reason given in Stage 5 (it is what
 the analysis model assumes), not because compound symmetry has been
 shown wrong for these data. Any study using the DGP should report
 $\rho$. Where the conclusion could depend on it, the analysis should be
-repeated at 0.6 and 0.8.
+repeated at other values, as the planning section does at 0.5 and 0.9.
 
 ## Stage 5. Cross-component structure
 
@@ -2158,6 +2210,128 @@ closed form, so this comparison is the measured difference between
 the paired-difference approximation and the analysis a trial would
 use.
 
+```{r planningrhodata}
+## Block P at rho 0.5 and 0.9: driver 19 with --rho and --plan-file
+## (athena job 19, joe job 12, commit 644f958), published-planning/
+## rho<R>/; closed-form grids from 24-rho-sweep.R.
+pr_rhos <- c(0.5, 0.7, 0.9)
+pr_cf_dir <- file.path('..', '..', 'data', 'quick-sim',
+                       'carryover-closed-form', 'rho-stage')
+pr_dir <- function(r) if (r == 0.7) pub_dir else
+  file.path(pub_dir, sprintf('rho%g', r))
+pr_list <- lapply(pr_rhos, function(r) {
+  f <- pub_ok('planning-g10.csv', pr_dir(r))
+  if (is.na(f)) NULL else cbind(rho = r, read.csv(f))
+})
+have_pr <- !any(vapply(pr_list, is.null, logical(1)))
+pr_cf <- do.call(rbind, lapply(pr_rhos, function(r) {
+  f <- if (r == 0.7) 'planning-n80.csv' else
+    sprintf('planning-n80-rho%g.csv', r)
+  d <- read.csv(file.path(pr_cf_dir, f))
+  if (!'feasible' %in% names(d)) d$feasible <- TRUE
+  cbind(rho = r, d[, c('design', 'c_bm', 't_half', 'N80', 'power_N70',
+                       'feasible')])
+}))
+pr_grid <- list(`0.5` = c(0.25, 0.35, 0.45), `0.7` = c(0.25, 0.35, 0.45),
+                `0.9` = c(0.20, 0.25, 0.30))
+if (have_pr) {
+  pr <- do.call(rbind, pr_list)
+  pr_new <- pr[pr$rho != 0.7, ]
+  pr_null <- pr_new[pr_new$c_bm == 0, ]
+  pr_n80 <- pr_new[pr_new$c_bm > 0 & pr_new$N_label == 'N80_E9' &
+                   !pr_new$capped, ]
+  ## Every feasible closed-form cell was simulated at both sample sizes.
+  stopifnot(nrow(pr_new[pr_new$c_bm > 0, ]) ==
+              2 * sum(pr_cf$feasible[pr_cf$rho != 0.7]))
+  co9 <- pr_new$rho == 0.9 & pr_new$design == 'CO'
+  pr_fail_co9 <- pr_new$nonconv[co9 & pr_new$N_label == '70']
+  pr_fail_co9_n80 <- pr_new$nonconv[co9 & pr_new$N_label == 'N80_E9' &
+                                    !pr_new$capped]
+  pr_fail_co9_cap <- pr_new$nonconv[co9 & pr_new$capped]
+  pr_fail_other <- pr_new$nonconv[!co9]
+}
+pr_cell <- function(r, d, cb, th, nlab) {
+  pr[pr$rho == r & pr$design == d & abs(pr$c_bm - cb) < 1e-9 &
+     pr$t_half == th & pr$N_label == nlab, ]
+}
+pr_e9n <- function(r, d, cb, th = 0.2) {
+  k <- pr_cf$rho == r & pr_cf$design == d & abs(pr_cf$c_bm - cb) < 1e-9 &
+    pr_cf$t_half == th
+  stopifnot(sum(k) == 1)
+  if (!pr_cf$feasible[k]) NA_integer_ else pr_cf$N80[k]
+}
+pr_rng <- function(x, d = 3) sprintf(paste0('%.', d, 'f to %.', d, 'f'),
+                                     min(x), max(x))
+pr_pct <- function(x) sprintf('%.0f', 100 * x)
+pr_size_txt <- pend(have_pr, pr_rng(pr_null$size))
+pr_n80_txt <- function(r) pend(have_pr, pr_rng(pr_n80$power[pr_n80$rho == r]))
+pr_g <- function(r, d, cb, th, nlab) pend(have_pr,
+  sprintf('%.3f', pr_cell(r, d, cb, th, nlab)$power))
+pr_fail_txt <- pend(have_pr, paste(pr_pct(min(pr_fail_co9)), 'to',
+                                   pr_pct(max(pr_fail_co9))))
+pr_fail_n80_txt <- pend(have_pr, paste(pr_pct(min(pr_fail_co9_n80)), 'to',
+                                       pr_pct(max(pr_fail_co9_n80))))
+pr_fail_cap_txt <- pend(have_pr, sprintf('%.1f',
+                                         100 * max(pr_fail_co9_cap)))
+pr_fail_other_txt <- pend(have_pr, sprintf('%.1f',
+                                           100 * max(pr_fail_other)))
+pr_ratio <- function(r) sprintf('%.1f',
+  pr_e9n(r, 'CO', 0.25) / pr_e9n(r, 'Hybrid', 0.25))
+## The text states that G10 power at the E9 sample size exceeds 0.80 in
+## every uncapped cell at both new values of rho, and that the
+## crossover failures at 0.9 are the only ones above 3 percent.
+stopifnot(!have_pr || (all(pr_n80$power > 0.8) &&
+                       max(pr_fail_other) < 0.03 && min(pr_fail_co9) > 0.03 &&
+                       min(pr_fail_co9_n80) > 0.03 &&
+                       max(pr_fail_co9_cap) < 0.01))
+## Typed in the Abstract and Limitations: bound 0.34 at rho 0.9, and
+## about half the Hybrid sample of rho 0.7.
+stopifnot(abs(rb_min(0.9, 0) - 0.34) < 0.005,
+          abs(pr_e9n(0.9, 'Hybrid', 0.25) / pr_e9n(0.7, 'Hybrid', 0.25) -
+                0.5) < 0.1)
+```
+
+**Serial correlation.** The planning results above assume
+$\rho = 0.7$, a convention (Stage 4). We repeated the closed-form
+calculation and the G10 simulation at $\rho = 0.5$ and 0.9, with the
+same seeds and replicate counts. At 0.5 the grid of $c_{bm}$ is
+unchanged, and one cell lies above its bound (OL+BDC at 0.45 without
+carryover). At 0.9 the Hybrid bound falls to `r rb_f(rb_min(0.9, 0))`,
+so the grid moves to 0.20, 0.25 and 0.30. Table
+\@ref(tab:planningrho) gives the cells at the 0.2-week half-life.
+
+In the Hybrid design the required sample size depends strongly on
+$\rho$ above 0.7 and little below it. At $c_{bm} = 0.25$ the E9 rule
+gives `r pr_e9n(0.5, 'Hybrid', 0.25)`, `r pr_e9n(0.7, 'Hybrid', 0.25)`
+and `r pr_e9n(0.9, 'Hybrid', 0.25)` participants at $\rho = 0.5$, 0.7
+and 0.9. The crossover needs `r pr_ratio(0.7)` times the Hybrid sample
+at 0.7 and `r pr_ratio(0.9)` times at 0.9. The likely reason is visit
+spacing. The Hybrid design compares on- and off-drug visits one week
+apart, where a high serial correlation cancels most of the shared
+noise. The crossover compares two blocks of four visits 2.5 weeks
+apart, ten weeks apart on average. G10 rejected
+the null at `r pr_size_txt` in the 18 design-by-half-life cells at the
+two new values. At the E9 sample size its power was
+`r pr_n80_txt(0.5)` at $\rho = 0.5$ and `r pr_n80_txt(0.9)` at 0.9, in
+the uncapped cells. The E9 rule therefore stays conservative for G10,
+and at $\rho = 0.9$ it is very conservative. There G10 had power
+`r pr_g(0.9, 'Hybrid', 0.25, 0.2, '70')` in the Hybrid design at
+$c_{bm} = 0.25$ with only 70 participants.
+
+In the crossover design at $\rho = 0.9$, `r pr_fail_txt` percent of G10
+fits failed in each cell at $N = 70$, and `r pr_fail_n80_txt` percent
+at the E9 sample sizes below 400. In the cells that ran at $N = 400$
+at most `r pr_fail_cap_txt` percent failed. In every other cell at the
+two new values at most `r pr_fail_other_txt` percent failed. In the failed replicates we
+refitted, the model chosen by AIC put the serial correlation at its
+upper limit of 1 and the random-intercept SD near zero. A correlation
+that does not decay cannot be told apart from a random intercept, and
+the CR2 step then failed because the fitted covariance was singular.
+The rates in Table \@ref(tab:planningrho) are over the fits that
+succeeded. A trialist who expects slow decay and plans a crossover
+analyzed with G10 should expect such failures and specify a fallback
+model in advance.
+
 **When these sample sizes apply.** The G10 sample sizes assume that
 the biomarker has no prognostic pathway. G10 was not run in the
 prognostic cells of the stress test. Its nearest relatives there were
@@ -2255,6 +2429,47 @@ knitr::kable(tabn, booktabs = TRUE, escape = FALSE, align = 'rrrrrr',
   col.names = c('$c_{bm}$', '$t_{1/2}$ (weeks)', 'E9 (closed form)',
                 'G10 (simulated)', 'G10 / E9', 'Simulated $N$'),
   caption = paste0('Total $N$ for 80 percent power in the Hybrid design under the extended DGP with the original parameters: closed-form E9 (Table \\ref{tab:planning}) and the analysis G10. G10 was simulated at ', n80_k, ' values of $N$ per cell (', n80_reps, ' replicates each), and the $N$ at which a probit regression of rejection on $\\log N$ reaches 0.80 is rounded up.', if (have_n80 && any(n80$extrapolated)) ' $\\ddagger$: outside the simulated range of $N$, an extrapolation.' else '', if (have_n80 && any(is.na(n80$N80_G))) ' n/e: the fitted curve does not rise with $N$.' else ''))
+```
+
+```{r planningrho}
+pr_rows <- do.call(rbind, lapply(pr_rhos, function(r)
+  expand.grid(cbm = pr_grid[[as.character(r)]],
+              design = c('Hybrid', 'OL+BDC', 'CO'), rho = r,
+              stringsAsFactors = FALSE)))
+pr_txt <- function(r, d, cb, nlab) {
+  if (!have_pr) return(PENDING)
+  x <- pr_cell(r, d, cb, 0.2, nlab)
+  if (nrow(x) == 0) return('')
+  paste0(sprintf('%.3f', x$power), if (x$capped) '$^\\dagger$' else '')
+}
+tabr <- data.frame(
+  rho = ifelse(!duplicated(pr_rows$rho), sprintf('%.1f', pr_rows$rho), ''),
+  design = ifelse(!duplicated(pr_rows[, c('rho', 'design')]),
+                  ifelse(pr_rows$design == 'CO', 'Crossover',
+                         pr_rows$design), ''),
+  cbm = sprintf('%.2f', pr_rows$cbm),
+  n = mapply(function(r, d, cb) {
+    v <- pr_e9n(r, d, cb)
+    k <- pr_cf$rho == r & pr_cf$design == d &
+      abs(pr_cf$c_bm - cb) < 1e-9 & pr_cf$t_half == 0.2
+    if (!pr_cf$feasible[k]) 'not feasible' else
+      if (is.na(v)) '> 800' else as.character(v)
+  }, pr_rows$rho, pr_rows$design, pr_rows$cbm),
+  g70 = mapply(pr_txt, pr_rows$rho, pr_rows$design, pr_rows$cbm, '70'),
+  g80 = mapply(pr_txt, pr_rows$rho, pr_rows$design, pr_rows$cbm,
+               'N80_E9'),
+  fail = mapply(function(r, d, cb) {
+    if (!have_pr) return('')
+    x <- pr_cell(r, d, cb, 0.2, '70')
+    if (nrow(x) == 0) '' else pr_pct(x$nonconv)
+  }, pr_rows$rho, pr_rows$design, pr_rows$cbm))
+knitr::kable(tabr, booktabs = TRUE, escape = FALSE, align = 'llrrrrr',
+  linesep = '', row.names = FALSE,
+  col.names = c('$\\rho$', 'Design', '$c_{bm}$', 'E9 $N$', 'At $N = 70$',
+                'At the E9 $N$', 'Failed (\\%)'),
+  caption = paste0('Planning by serial correlation at the 0.2-week half-life under the extended DGP (separable AR(1), $c_1 = 0.2$, original response parameters): the closed-form total $N$ for 80 percent power of E9, and G10 power at $N = 70$ and at that $N$, with the percent of G10 fits that failed at $N = 70$. ', pend(have_pr, format(max(pr$n_reps[pr$c_bm > 0]), big.mark = ',')), ' replicates per cell. The rows at $\\rho = 0.7$ repeat Table \\ref{tab:planning}. At $\\rho = 0.9$ the grid of $c_{bm}$ lies inside the lower bound. Not feasible: $c_{bm}$ lies above the bound of that design. $\\dagger$: the E9 sample size exceeds 400 and the cell ran at $N = 400$. Power is over the fits that succeeded.')) |>
+  kableExtra::add_header_above(c(' ' = 4, 'G10 power' = 2, ' ' = 1)) |>
+  kableExtra::kable_styling(font_size = 9)
 ```
 
 **Parameters by status.**
@@ -2448,12 +2663,15 @@ the following.
   design only, by simulation at `r n80_k` values of $N$ per cell, and
   it carries Monte Carlo error that Table \@ref(tab:n80g10) does not
   show.
-- **The planning results assume $\rho = 0.7$ and no prognostic
-  pathway.** The one available PTSD series suggests a slower decay
-  than $\rho = 0.7$ (Stage 4), and the planning tables do not extend
-  into that range. G10 was not tested under a prognostic pathway, and
-  its nearest relatives did not keep their size there (planning
-  section).
+- **The planning results depend on $\rho$ and assume no prognostic
+  pathway.** The main tables use $\rho = 0.7$. The one available PTSD
+  series suggests a slower decay (Stage 4). At $\rho = 0.9$ the Hybrid
+  design needs about half the sample, the largest feasible effect is
+  lower, and G10 fits fail often in the crossover design (Table
+  \@ref(tab:planningrho)). The G10 sample-size search of Table
+  \@ref(tab:n80g10) was run at 0.7 only. G10 was not tested under a
+  prognostic pathway, and its nearest relatives did not keep their
+  size there (planning section).
 - **At pharmacological half-lives the extended DGP shows no carryover
   effect.** The on/off correlation difference is within 0.01 of 1 at
   0.2 week. The DGP therefore tests carryover only at half-lives of
@@ -2497,8 +2715,11 @@ and was checked on a grid for the pooled statistic. A serial
 correlation of 0.7 and a separable AR(1) structure allow a
 biomarker-response correlation of 0.47, or 3.8 symptom points per SD
 of biomarker at the original drug-response SD. The value 0.7 is a
-convention, and the one available PTSD series suggests a slower decay,
-under which the bound would be lower. The planning table
+convention, and the one available PTSD series suggests a slower decay.
+At 0.9 the bound falls to `r rb_f(rb_min(0.9, 0))` and the Hybrid
+design needs `r pr_e9n(0.9, 'Hybrid', 0.25)` participants at
+$c_{bm} = 0.25$ instead of `r pr_e9n(0.7, 'Hybrid', 0.25)`. The
+planning table
 quantifies the power at matched strength, for the paired-difference
 statistic in closed form and for the recommended mixed-model analysis
 G10 by simulation. At the closed-form sample size, G10 power was

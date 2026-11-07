@@ -1,0 +1,1539 @@
+---
+title: "When the biomarker is also prognostic: bias in the
+  biomarker-treatment interaction test of aggregated N-of-1 trials
+  and two remedies"
+subtitle: 'First draft, assembled from the material that left paper 02'
+author: 'pmsimstats team'
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    keep_tex: true
+    highlight: tango
+    includes:
+      in_header: ../sim-preamble.tex
+lof: false
+lot: true
+fontsize: 11pt
+linestretch: 1.1
+geometry: 'left=3cm,right=3cm,top=2.5cm,bottom=2.5cm'
+bibliography: references.bib
+csl: vancouver.csl
+link-citations: true
+header-includes:
+  - \usepackage{amsmath}
+  - \usepackage{amssymb}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{float}
+  - \usepackage[mathlines]{lineno}
+  - \linenumbers
+knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path(d, 'tools', 'stamp-render.R')) && d != dirname(d)) d <- dirname(d); source(file.path(d, 'tools', 'stamp-render.R'))$value(input) })
+---
+
+<!--
+  Build pipeline for this manuscript (first draft, 2026-11-06)
+  ============================================================
+
+  This Rmd runs no simulation code. helpers.R (this folder) loads the
+  stored summaries below and defines the formatting helpers. Paths are
+  relative to the repository root. Origin of the prose: paper 02's
+  report.Rmd at commit c866404be (sections sec-comparators,
+  sec-pathways, sec-alternatives, sec-prognostic, sec-trend,
+  sec-random, "What the expectancy terms are for", and the matching
+  Limitations, Conclusions and Glossary items), rewritten against the
+  published-set reruns of docs/74.
+
+  Published-set runs (Hendrickson et al.'s parameter values, stop on
+  non-positive-definite matrices; docs/74, wave 1, 2026-11-03/04):
+    28-run-g9-prognostic-stress.R --params published
+      -> analysis/data/carryover-sensitivity/published/g9-prognostic-stress/
+    32-run-g9-gap-fill.R --params published --block C
+      -> .../published/g9-gap-fill/C/
+    36-run-referee-variants.R --params published --block T, N, A
+      -> .../published/referee-variants/block-{T,N,A}/
+    27-run-tier1-g-vs-f-e0.R --params published
+      -> .../published/tier1-g-vs-f-e0/
+    06-g-vs-f-comparison.R --params published --cells paper02
+      -> .../published/g-vs-f-comparison/
+
+  Historical exhibit (simcore2026 parameter set, silent repair; kept
+  under docs/74 decision D5, not rerun):
+    28-run-g9-prognostic-stress.R (job 28, 2026-10-25)
+      -> analysis/data/carryover-sensitivity/g9-prognostic-stress/summary.rds
+    29-run-g9-random-effects.R (job 30, 2026-10-26)
+      -> analysis/data/carryover-sensitivity/g9-random-effects/summary.rds
+    30-check-prognostic-confound-pd.R (analytic, simcore2026 SDs)
+      -> .../g9-prognostic-stress/pd-check.rds
+    31-prognostic-coupling-ceiling.R (analytic, correlation matrix only)
+      -> .../g9-prognostic-stress/coupling-ceilings.rds
+    34-referee-reanalysis.R
+      -> .../referee-reanalysis/m12-random-effects.csv
+
+  Not yet run: the biomarker-by-time block of split plan Section 3.1.
+  Its section is a marked placeholder with no numbers.
+
+  Render through tools/render.sh, never rmarkdown::render() directly.
+-->
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.path = '../../figures/15-cache-'
+)
+library(knitr)
+## The repository root is the first parent holding DESCRIPTION. The
+## here package is not assumed, since the host R session may lack it.
+repo_root <- local({
+  d <- normalizePath(getwd())
+  while (!file.exists(file.path(d, 'DESCRIPTION')) &&
+           d != dirname(d)) d <- dirname(d)
+  d
+})
+source(file.path(repo_root, 'analysis', 'report',
+                 '15-prognostic-biomarker', 'helpers.R'))
+```
+
+```{r values-provenance, include = FALSE}
+pub_metas <- list(stress = st_p_m, gapC = gfC_m, blkT = rvT_m,
+                  blkN = rvN_m, blkA = rvA_m, tier1 = s27_m,
+                  scen = s21_m)
+pub_metas <- pub_metas[!vapply(pub_metas, is.null, logical(1))]
+claim(all(vapply(pub_metas, pub_ok, logical(1))),
+      'Every published-set run records param_set = published.')
+if (!is.na(sigma_br)) {
+  setv('sig_br', sprintf('%g', sigma_br))
+  setv('sig_pb', sprintf('%g', sigma_pb))
+  setv('truth45', fs2(-0.45 * sigma_br))
+  setv('truth30', fs2(-0.30 * sigma_br))
+}
+if (!is.na(sigma_pb_simcore)) {
+  setv('sig_pb_sc', sprintf('%g', sigma_pb_simcore))
+  claim(sigma_pb > sigma_pb_simcore,
+        'The published placebo-response SD exceeds the simcore2026 SD.')
+}
+```
+
+```{r values-ceil, include = FALSE}
+if (has_ceil) {
+  cr <- ceil$results
+  bnd <- function(cp, g) cr$ceiling[cr$coupling == cp & cr$given == g]
+  setv('b_bm', f3(bnd('c_bm', 'alone')))
+  setv('b_pb', f3(bnd('c_pb', 'alone')))
+  setv('b_pb30', f3(bnd('c_pb', 'c_bm = 0.3')))
+  setv('b_pb45', f3(bnd('c_pb', 'c_bm = 0.45')))
+  setv('b_bl30', f3(bnd('c_bl', 'c_bm = 0.3')))
+  setv('b_bl45', f3(bnd('c_bl', 'c_bm = 0.45')))
+  claim(is.na(bnd('c_bm', 'c_pb = 0.6')) &&
+          is.na(bnd('c_bm', 'c_tv = 0.6')),
+        'No c_bm is feasible with c_pb or c_tv at 0.6.')
+  claim(bnd('c_pb', 'c_bm = 0.45') > 0.3,
+        'Strength 0.3 lies inside the bound at c_bm = 0.45.')
+}
+```
+
+```{r values-stress, include = FALSE}
+if (has_st_p) {
+  n_st <- st_p_m$n_reps
+  setv('st_n', fn(n_st))
+  setv('st_band', band_txt(n_st))
+  s3n <- st_p |>
+    filter(strength == 0.3, c_bm == 0, pathway != 'progtvgrow')
+  g9n <- s3n |> filter(method == 'E7cr2')
+  g10n <- s3n |> filter(method == 'E7null_cr2')
+  fbn <- s3n |> filter(method == 'F1A0B')
+  setv('st_g9_null', rng(g9n$reject))
+  setv('st_g10_null', rng(g10n$reject))
+  setv('st_fb_null', rng(fbn$reject))
+  claim(all(in_band(g9n$reject, n_st)),
+        'Stress job: G9 null inside the band at strength 0.3.')
+  claim(all(in_band(g10n$reject, n_st)),
+        'Stress job: G10 null inside the band at strength 0.3.')
+  pw <- st_p |>
+    filter(strength == 0.3, c_bm == 0.45,
+           method %in% c('E7cr2', 'E7null_cr2', 'F1A0B')) |>
+    select(pathway, N, method, reject) |>
+    pivot_wider(names_from = method, values_from = reject)
+  setv('st_g9_alt', rng(pw$E7cr2))
+  setv('st_fb_g10', rng(pw$F1A0B - pw$E7null_cr2, fs3))
+  tvg <- st_p |>
+    filter(pathway == 'progtvgrow') |>
+    select(c_bm, N, method, strength, reject) |>
+    pivot_wider(names_from = strength, values_from = reject,
+                names_prefix = 's')
+  claim(isTRUE(all.equal(tvg$s0.3, tvg$s0.6)),
+        'Constant shift: identical rejection at both strengths.')
+  cells <- st_p |>
+    group_by(cell_id, pathway, strength, c_bm, N) |>
+    summarise(nmax = max(n, na.rm = TRUE), .groups = 'drop')
+  six <- cells |> filter(strength == 0.6, pathway != 'progtvgrow')
+  setv('n6_cells', nrow(six))
+  setv('n6_refused', sum(six$nmax == 0))
+  refused <- six |> filter(nmax == 0)
+  setv('n6_ran', sum(six$nmax > 0))
+  if (has_pdc) {
+    rep_cfg <- pdc$summary |>
+      filter(paths_repaired > 0) |>
+      transmute(key = paste(pathway, strength, c_bm))
+    ref_cfg <- unique(paste(refused$pathway, refused$strength,
+                            refused$c_bm))
+    claim(setequal(rep_cfg$key, ref_cfg),
+          paste('The published rerun refused exactly the',
+                'configurations that the historical check repaired.'))
+  }
+  if (has_rvA) {
+    ref <- rvA |>
+      filter(method == 'E7cr2', t1half == 0.5, c_bm == 0.45) |>
+      select(N, ref = reject)
+    s3a <- st_p |>
+      filter(strength == 0.3, c_bm == 0.45, method == 'E7cr2',
+             pathway != 'progtvgrow') |>
+      left_join(ref, by = 'N')
+    setv('a_n', fn(rvA_m$reps_alt))
+    setv('ref35', f3(ref$ref[ref$N == 35]))
+    setv('ref70', f3(ref$ref[ref$N == 70]))
+    dlt <- s3a$reject - s3a$ref
+    imx <- which.max(abs(dlt))
+    setv('st_g9_dmax', fs3(dlt[imx]))
+    claim(s3a$pathway[imx] == 'progpb' && dlt[imx] > 0,
+          paste('Stress job: the largest G9 power difference from the',
+                'reference is a gain under the placebo-response path.'))
+  }
+}
+if (has_s21) {
+  a <- s21 |> filter(cell == 'hybrid_null') |> arrange(method)
+  b <- s21 |> filter(cell == 'progtvgrow_null') |> arrange(method)
+  dd <- max(abs(a$reject - b$reject), na.rm = TRUE)
+  setv('abs_dd', f4(dd))
+  claim(dd == 0, 'Constant shift reproduces the null cell exactly.')
+}
+```
+
+```{r values-blockN, include = FALSE}
+if (has_rvN) {
+  nN <- rvN |> filter(c_pb > 0)
+  ids <- unique(nN$cell_id)
+  pN <- rvNp |> filter(cell_id %in% ids)
+  d9 <- pN |> filter(method == 'E7cr2')
+  d10 <- pN |> filter(method == 'E7null_cr2')
+  dF <- pN |> filter(method == 'F1')
+  n_bn <- rvN_m$reps_null
+  setv('bn_cpb', sprintf('%.1f', unique(nN$c_pb)))
+  setv('bn_n', fn(n_bn))
+  setv('bn_band', band_txt(n_bn))
+  setv('bn_cells', length(ids))
+  setv('bn_g9_d', rng(d9$diff_vs_g8, fs4))
+  setv('bn_g10_d', rng(d10$diff_vs_g8, fs4))
+  setv('bn_f1_d', rng(dF$diff_vs_g8, fs4))
+  setv('bn_g9_z', sprintf('%.1f', min(d9$diff_vs_g8 / d9$paired_se)))
+  claim(all(d9$diff_vs_g8 > 0),
+        'Block N, c_pb > 0: G9 above G8 in every cell.')
+  claim(all(abs(d10$diff_vs_g8) < 2 * d10$paired_se),
+        'Block N, c_pb > 0: G10 within 2 paired SE of G8.')
+  above <- function(m) {
+    sum(nN$reject[nN$method == m & is.na(nN$h_fixed)] >
+          band(n_bn)[2])
+  }
+  setv('bn_up_g8', above('E2cr2'))
+  setv('bn_up_g9', above('E7cr2'))
+  setv('bn_up_g10', above('E7null_cr2'))
+  setv('bn_up_f1', above('F1'))
+  claim(above('E7null_cr2') <= above('E2cr2'),
+        'Block N: G10 exceeds the band in no more cells than G8.')
+}
+```
+
+```{r values-gapC, include = FALSE}
+if (has_gfC) {
+  n_c <- gfC_m$n_reps
+  n_l <- gfC_m$n_reps_large
+  setv('c_n', fn(n_c))
+  setv('c_band', band_txt(n_c))
+  setv('l_n', fn(n_l))
+  setv('l_band', band_txt(n_l))
+  C1 <- gfC |>
+    filter(sub == 'C1-ladder') |>
+    mutate(path = case_when(c_pb > 0 ~ 'progpb',
+                            c_tv > 0 ~ 'progtvconst',
+                            c_bl > 0 ~ 'progbl'),
+           strength = pmax(c_pb, c_tv, c_bl))
+  c0 <- C1 |> filter(c_bm == 0)
+  setv('c_nnull', length(unique(c0$cell_id)))
+  setv('c_g9_null', rng(c0$reject[c0$method == 'E7cr2']))
+  setv('c_g10_null', rng(c0$reject[c0$method == 'E7null_cr2']))
+  setv('c_f1_null', rng(c0$reject[c0$method == 'F1']))
+  claim(all(in_band(c0$reject[c0$method == 'E7cr2'], n_c)),
+        'Feasible grid: G9 null inside the band in every cell.')
+  pb0 <- c0 |> filter(path == 'progpb')
+  op0 <- c0 |> filter(path != 'progpb')
+  setv('c_pb_g9_est', rng(pb0$mean_est[pb0$method == 'E7cr2'], fs2))
+  setv('c_pb_g10_est',
+       rng(pb0$mean_est[pb0$method == 'E7null_cr2'], fs2))
+  setv('c_pb_f1_est', rng(pb0$mean_est[pb0$method == 'F1'], fs2))
+  setv('c_op_g9_est', rng(op0$mean_est[op0$method == 'E7cr2'], fs2))
+  claim(max(pb0$mean_est[pb0$method == 'E7cr2']) <
+          min(op0$mean_est[op0$method == 'E7cr2']),
+        'G9 null estimate is more negative under c_pb than elsewhere.')
+  claim(all(abs(pb0$mean_est[pb0$method == 'F1']) <
+              abs(pb0$mean_est[pb0$method == 'E7cr2'])),
+        'F1 null estimate is nearer zero than G9 under c_pb.')
+  a3 <- C1 |> filter(c_bm > 0, c_bm < 0.45)
+  setv('c_bm_alt', sprintf('%.2f', unique(a3$c_bm)))
+  pb3 <- a3 |> filter(path == 'progpb')
+  op3 <- a3 |> filter(path != 'progpb')
+  setv('c_pb_g9_pw', rng(pb3$reject[pb3$method == 'E7cr2']))
+  setv('c_pb_f1_pw', rng(pb3$reject[pb3$method == 'F1']))
+  setv('c_op_g9_pw', rng(op3$reject[op3$method == 'E7cr2']))
+  setv('c_pb_g9_ae', rng(pb3$mean_est[pb3$method == 'E7cr2'], fs2))
+  setv('c_op_g9_ae', rng(op3$mean_est[op3$method == 'E7cr2'], fs2))
+  setv('c_f1_ae', rng(a3$mean_est[a3$method == 'F1'], fs2))
+  if (has_ceil) {
+    mx <- function(p) max(a3$strength[a3$path == p])
+    setv('c_mx_pb', sprintf('%.2f', mx('progpb')))
+    setv('c_mx_bl', sprintf('%.2f', mx('progbl')))
+    setv('c_gap_pb', f3(bnd('c_pb', 'c_bm = 0.3') - mx('progpb')))
+    setv('c_gap_bl', f3(bnd('c_bl', 'c_bm = 0.3') - mx('progbl')))
+  }
+  C2 <- gfC |> filter(sub == 'C2-largeN')
+  lg <- function(m, n_, cpb) {
+    row1(C2, method == m, N == n_, c_pb == cpb)
+  }
+  setv('l_g9_45', f3(lg('E7cr2', 280, 0.45)$reject))
+  setv('l_g10_45', f3(lg('E7null_cr2', 280, 0.45)$reject))
+  setv('l_g8_45', f3(lg('E2cr2', 280, 0.45)$reject))
+  setv('l_g1_45', f3(lg('E1', 280, 0.45)$reject))
+  setv('l_f1_45', f3(lg('F1', 280, 0.45)$reject))
+  setv('l_f1a0_45', f3(lg('F1A0', 280, 0.45)$reject))
+  setv('l_fb_45', f3(lg('F1A0B', 280, 0.45)$reject))
+  setv('l_g9_30', f3(lg('E7cr2', 280, 0.3)$reject))
+  setv('l_f1_30', f3(lg('F1', 280, 0.3)$reject))
+  setv('l_g9_140', f3(lg('E7cr2', 140, 0.45)$reject))
+  setv('l_g9_70', f3(row1(C1, method == 'E7cr2', path == 'progpb',
+                          strength == 0.45, c_bm == 0)$reject))
+  setv('l_g9_est', fs2(lg('E7cr2', 280, 0.45)$mean_est))
+  setv('l_f1_est', fs2(lg('F1', 280, 0.45)$mean_est))
+  setv('l_g9_k', f2(lg('E7cr2', 280, 0.45)$kappa))
+  setv('l_f1_k', f2(lg('F1', 280, 0.45)$kappa))
+  claim(lg('E7cr2', 280, 0.45)$reject > band(n_l)[2],
+        'Large N: G9 above the band at N = 280, c_pb = 0.45.')
+  claim(in_band(lg('F1', 280, 0.45)$reject, n_l) &&
+          in_band(lg('F1A0B', 280, 0.45)$reject, n_l),
+        'Large N: F1 and F1A0B inside the band at N = 280.')
+  ff <- C2 |> filter(method %in% c('F1', 'F1A0', 'F1A0B'))
+  ff0 <- c0 |> filter(path == 'progpb',
+                      method %in% c('F1', 'F1A0', 'F1A0B'))
+  claim(all(in_band(ff$reject, n_l)) && all(in_band(ff0$reject, n_c)),
+        paste('The F-family stays inside the band under the',
+              'placebo-response pathway at every N.'))
+  claim(all(in_band(c0$reject[c0$method == 'E7null_cr2'], n_c)),
+        'Feasible grid: G10 null inside the band in every cell.')
+  if (has_gfCa) {
+    cid <- lg('E7cr2', 280, 0.45)$cell_id
+    pd <- paired_diff(gfC_all, cid, 'E7cr2', 'F1')
+    setv('l_pd', fs3(pd[['diff']]))
+    setv('l_pd_se', f3(pd[['se']]))
+    pd2 <- paired_diff(gfC_all, cid, 'E7null_cr2', 'F1A0')
+    setv('l_pd2', fs3(pd2[['diff']]))
+    setv('l_pd2_se', f3(pd2[['se']]))
+    claim(pd[['diff']] < -2 * pd[['se']],
+          'Large N: F1 rejects less than G9 by over 2 paired SE.')
+  }
+}
+```
+
+```{r values-trend, include = FALSE}
+if (has_rvT) {
+  n_t <- rvT_m$reps_other
+  tn <- function(m) row1(rvT, method == m, c_bm == 0)
+  ta <- function(m) row1(rvT, method == m, c_bm == 0.45)
+  setv('t_coef', sprintf('%.1f', unique(rvT$b_tv_trend)))
+  setv('t_n', fn(n_t))
+  setv('t_band', band_txt(n_t))
+  setv('t_g8', f3(tn('E2cr2')$reject))
+  setv('t_g9', f3(tn('E7cr2')$reject))
+  setv('t_f1', f3(tn('F1')$reject))
+  setv('t_g8_est', fs2(tn('E2cr2')$mean_est))
+  setv('t_g9_est', fs2(tn('E7cr2')$mean_est))
+  setv('t_f1_est', fs2(tn('F1')$mean_est))
+  setv('t_g8_se', f2(tn('E2cr2')$emp_se))
+  pf <- row1(rvTp, method == 'F1', grepl('cbm0.00', cell_id))
+  p9 <- row1(rvTp, method == 'E7cr2', grepl('cbm0.00', cell_id))
+  setv('t_f1_d', fs3(pf$diff_vs_g8))
+  setv('t_f1_dse', f3(pf$paired_se))
+  setv('t_g9_d', fs3(p9$diff_vs_g8))
+  setv('t_g9_dse', f3(p9$paired_se))
+  setv('t_g9_pw', f3(ta('E7cr2')$reject))
+  setv('t_g9_aest', fs2(ta('E7cr2')$mean_est))
+  setv('t_f1_pw', f3(ta('F1')$reject))
+  claim(tn('E7cr2')$reject > band(n_t)[2],
+        'Trend: G9 null above the band.')
+  claim(in_band(tn('F1')$reject, n_t),
+        'Trend: F1 null inside the band.')
+  claim(tn('F1')$mean_est < tn('E2cr2')$mean_est &&
+          tn('F1')$mean_est > 0,
+        'Trend: F1 null estimate positive but below that of G8.')
+  if (has_rvA) {
+    r0 <- row1(rvA, method == 'E7cr2', t1half == 0.5, N == 70,
+               c_bm == 0.45)
+    setv('t_ref_pw', f3(r0$reject))
+    setv('t_ref_est', fs2(r0$mean_est))
+    claim(ta('E7cr2')$reject < r0$reject,
+          'Trend: G9 power below the no-trend reference.')
+  }
+}
+```
+
+```{r values-gvf, include = FALSE}
+if (has_s27) {
+  t1 <- s27 |> filter(design != 'CO')
+  setv('g_n', fn(s27_m$n_reps))
+  setv('g_band', band_txt(s27_m$n_reps))
+  nul <- t1 |> filter(c_bm == 0)
+  setv('g_null_g10', rng(nul$reject[nul$method == 'E7null_cr2']))
+  setv('g_null_f1a0', rng(nul$reject[nul$method == 'F1A0']))
+  setv('g_null_fb', rng(nul$reject[nul$method == 'F1A0B']))
+  setv('g_null_f1', rng(nul$reject[nul$method == 'F1']))
+  co_f <- s27 |> filter(design == 'CO', grepl('^F', method))
+  claim(all(is.na(co_f$reject)),
+        'The F-family is not estimable under CO.')
+  alt <- t1 |> filter(c_bm > 0)
+  ratio <- function(d, m) {
+    w <- alt |> filter(design == d, method %in% c(m, 'E7null_cr2')) |>
+      select(cell_id, method, reject) |>
+      pivot_wider(names_from = method, values_from = reject)
+    100 * mean(w[[m]]) / mean(w$E7null_cr2)
+  }
+  for (d in c('Hybrid', 'OLBDC')) {
+    for (m in c('F1', 'F1A0', 'F1A0B')) {
+      setv(paste0('g_r_', d, '_', m), sprintf('%.1f', ratio(d, m)))
+    }
+  }
+  if (has_s27a) {
+    pool <- function(d, m) {
+      ids <- unique(alt$cell_id[alt$design == d])
+      x <- vapply(ids, function(i) {
+        paired_diff(s27_all, i, 'E7null_cr2', m)[c('diff', 'se')]
+      }, numeric(2))
+      c(diff = mean(x['diff', ]),
+        se = sqrt(sum(x['se', ]^2)) / ncol(x), k = ncol(x))
+    }
+    for (d in c('Hybrid', 'OLBDC')) {
+      for (m in c('F1', 'F1A0')) {
+        p <- pool(d, m)
+        setv(paste0('g_pd_', d, '_', m), fs3(p[['diff']]))
+        setv(paste0('g_pse_', d, '_', m), f3(p[['se']]))
+        setv('g_k', p[['k']])
+      }
+    }
+  }
+}
+if (has_rvA) {
+  a2 <- rvA |> filter(t1half == 2, c_bm == 0.45)
+  setv('a_f1_pw', rng(a2$reject[a2$method == 'F1']))
+  setv('a_g10_pw', rng(a2$reject[a2$method == 'E7null_cr2']))
+  setv('a_f1_est', rng(a2$mean_est[a2$method == 'F1'], fs2))
+  setv('a_g10_est', rng(a2$mean_est[a2$method == 'E7null_cr2'], fs2))
+  claim(all(a2$reject[a2$method == 'F1'] <
+              a2$reject[a2$method == 'E7null_cr2']),
+        'Block A, t1/2 = 2: F1 below G10 in power in every cell.')
+}
+```
+
+```{r values-hist, include = FALSE}
+if (has_st_h && has_re_h) {
+  ref_h <- re_h |>
+    filter(pathway == 'none', c_bm == 0.45, method == 'G9') |>
+    select(N, ref = reject)
+  hh <- st_h |>
+    filter(c_bm == 0.45, method == 'E7cr2',
+           pathway %in% c('progpb', 'progtvconst')) |>
+    left_join(ref_h, by = 'N') |>
+    mutate(loss = ref - reject)
+  setv('h_ref35', f3(ref_h$ref[ref_h$N == 35]))
+  setv('h_ref70', f3(ref_h$ref[ref_h$N == 70]))
+  setv('h_loss6', rng(100 * hh$loss[hh$strength == 0.6],
+                      function(x) sprintf('%.0f', x)))
+  setv('h_loss3', f3(max(abs(hh$loss[hh$strength == 0.3]))))
+  nmeth <- length(unique(st_h$method))
+  setv('h_nmeth', nmeth)
+  lw <- st_h |>
+    filter(c_bm == 0.45, pathway %in% c('progpb', 'progtvconst')) |>
+    select(pathway, N, method, strength, reject) |>
+    pivot_wider(names_from = strength, values_from = reject,
+                names_prefix = 's')
+  claim(all(lw$s0.6 < lw$s0.3),
+        paste('Historical: every analysis lost power at strength 0.6',
+              'on the placebo-response and natural-history pathways.'))
+}
+if (has_pdc) {
+  ps <- pdc$summary
+  pv <- function(p, s, cb, w) ps[[w]][ps$pathway == p &
+                                        ps$strength == s &
+                                        ps$c_bm == cb]
+  setv('h_c_none', fs2(pv('none', 0, 0.45, 'contrast_raw')))
+  setv('h_c_pb6', fs2(pv('progpb', 0.6, 0.45, 'contrast_repaired')))
+  setv('h_c_tv6',
+       fs2(pv('progtvconst', 0.6, 0.45, 'contrast_repaired')))
+  setv('h_c_pb3n', fs2(pv('progpb', 0.3, 0, 'contrast_raw')))
+  setv('h_c_pb6n', fs2(pv('progpb', 0.6, 0, 'contrast_raw')))
+  setv('h_eig_pb3', f3(pv('progpb', 0.3, 0.45, 'min_eigenvalue')))
+  setv('h_npaths', max(ps$paths_repaired))
+  six_pd <- ps |>
+    filter((pathway %in% c('progpb', 'progtvconst') &
+              strength == 0.6) |
+             (pathway == 'progbl' & strength == 0.6 & c_bm == 0.45))
+  claim(all(six_pd$paths_repaired == max(ps$paths_repaired)),
+        'Historical: every infeasible cell is repaired on all paths.')
+}
+if (has_re_h) {
+  w <- re_h |>
+    select(cell_id, method, reject) |>
+    pivot_wider(names_from = method, values_from = reject)
+  dmx <- max(abs(c(w$G9rs, w$G9re, w$G9rse) - rep(w$G9, 3)))
+  setv('re_dmax', f3(dmx))
+  setv('re_ncell', nrow(w))
+  setv('re_n6', length(unique(re_h$cell_id[re_h$strength == 0.6])))
+  setv('re_nonconv', sprintf('%.1f', 100 * max(re_h$nonconv)))
+  setv('re_reps', fn(re_h_m$n_reps))
+}
+if (has_m12) setv('m12_dmax', f3(max(abs(m12$diff))))
+```
+
+# Abstract {-}
+
+**Background.** The biomarker-treatment interaction test of an
+aggregated N-of-1 trial is built for a predictive biomarker. A
+biomarker can also be prognostic. It can then be associated with the
+natural history, the placebo response or the baseline level. We asked
+when such an association biases the interaction test, and what
+removes the bias.
+
+**Methods.** We simulated the Hybrid design under the extended
+data-generating process (DGP) of the companion paper, with the
+parameter values published by Hendrickson et al. Five prognostic
+pathways were examined. Three are correlations of the biomarker with a
+component. Two are mean shifts of the natural-history component, one
+constant and one growing over the trial. We compared analyses with
+and without the design-expectancy terms $\eta_t$ and $B^c_i\eta_t$.
+
+**Results.** Under a correlation with the placebo-response component
+of 0.45, the analyses without expectancy terms rejected a true null at
+`r V('l_g9_45')` (G9) at $N = 280$. With the terms, the rate was
+`r V('l_f1_45')` (F1). The two-MCSE band at `r V('l_n')` replicates
+was `r V('l_band')`.
+Under a natural-history shift that grows over the trial, G9 rejected
+at `r V('t_g9')` and F1 at `r V('t_f1')` at $N = 70$. Without a
+prognostic effect, F1A0 reached `r V('g_r_Hybrid_F1A0')` percent of
+the power of G10 in the Hybrid cells. The power loss once attributed
+to a strong prognostic correlation came from repaired covariance
+matrices. Under the current stop on infeasible matrices, all
+`r V('n6_refused')` of those cells were refused.
+
+**Conclusions.** For a biomarker that may be prognostic, add
+$\eta_t$ and $B^c_i\eta_t$ to the recommended analysis of the
+companion paper. A biomarker that may predict the rate of
+natural-history change needs a biomarker-by-time term. That remedy
+has not yet been simulated.
+
+# Notation and glossary {-}
+
+Symbols follow `analysis/report/NOTATION.md`. Two symbols are not yet
+listed there and are marked *proposed*.
+
+| Symbol | Meaning |
+|---|---|
+| $B_i$, $B^c_i$ | biomarker of participant $i$; centered at the trial's baseline mean |
+| $z_i$ | standardized biomarker |
+| $w_t$ | calendar week of visit $t$ |
+| $c_{bm}$ | on-drug biomarker-response correlation, the interaction under the correlation encoding |
+| $c_{bm,PB}$, $c_{bm,TV}$, $c_{bm,BL}$ | prognostic correlations of the biomarker with the placebo-response component, the natural-history component and the baseline level |
+| $b_{TV}$ (*proposed*) | constant natural-history mean shift per SD of the biomarker |
+| $b_{TV}^{\mathrm{tr}}$ (*proposed*) | coefficient of the trend pathway: a shift of $b_{TV}^{\mathrm{tr}}\,\sigma_{TV}\,z_i\,g(w_t)$, with $g$ the natural-history mean course scaled to peak 1 |
+| $\sigma_{BR}$, $\sigma_{PB}$, $\sigma_{TV}$ | SDs of the drug-response, placebo-response and natural-history components |
+| $t_{1/2}$, $t^a_{1/2}$ | carryover half-life of the DGP; half-life assumed by the analysis |
+| $D_{bc,it}$ | exposure-weighted drug indicator built at $t^a_{1/2}$ |
+| $\eta_t$ | design expectancy: 1 open label, 0.5 blinded, 0 at baseline |
+| $\beta_{bm:D}$ | interaction coefficient, the target of the test |
+| $\beta_\eta$, $\beta_{bm:\eta}$ | coefficients of $\eta_t$ and $B^c_i\eta_t$ |
+| $\kappa$ | mean model standard error divided by the empirical SD of the estimates |
+| $\hat\pi$, MCSE | estimated rejection rate and its Monte Carlo standard error |
+
+- **Correlation encoding.** The interaction is a correlation between
+  the biomarker and the drug response. It is present on drug and
+  decays after discontinuation at the carryover half-life. Code
+  labels it `mvn`.
+- **Original DGP; extended DGP.** The original DGP is the code
+  published by Hendrickson et al. at commit `58b32a9`
+  [@hendrickson2020]. The extended DGP is the one recommended in
+  paper 01 [@pmsimstats-paper01]. It has a decaying biomarker-response
+  correlation, the same first-order autoregressive correlation for
+  every component with a constant between-component correlation at
+  every lag ($\rho = 0.7$, $c_1 = 0.2$), carryover that decays from
+  the last on-drug mean, and a stop on correlation matrices that are
+  not positive definite. Code and data label it `refined`.
+- **Published parameter set; simcore2026 set.** The published set is
+  the component means and SDs of Hendrickson et al. The simcore2026
+  set is an earlier set used by the paper 02 drivers before
+  2026-11-03. Runs under it are labeled historical in this draft.
+- **Predictive biomarker.** One that changes the drug response
+  ($c_{bm} \ne 0$). **Prognostic biomarker:** one associated with the
+  outcome through another channel. A biomarker can be both.
+- **Prognostic pathway.** One channel of prognostic association. The
+  stored data labels are `prog-BL` ($c_{bm,BL}$), `prog-TV-const`
+  ($c_{bm,TV}$), `prog-PB` ($c_{bm,PB}$), `prog-TV-grow` ($b_{TV}$,
+  constant despite its label) and the block T trend pathway
+  ($b_{TV}^{\mathrm{tr}}$).
+- **Feasibility bound.** The largest value of one correlation, given
+  the others, for which the joint correlation matrix is positive
+  definite on every path of the design.
+- **Silent repair; repaired cell.** Before 2026-10-26 the drivers
+  replaced a matrix that was not positive definite with a nearby one
+  that was, without warning. A repaired cell is a cell simulated
+  under such a matrix.
+- **G-family.** Analyses with no expectancy terms. **G8:**
+  $D_{bc,it}$ at the true half-life with CR2, an oracle benchmark and
+  not a candidate analysis. **G9:** $t^a_{1/2}$ chosen by AIC on the
+  model with the interaction, with CR2. **G10:** $t^a_{1/2}$ chosen by
+  AIC on the model without the interaction, the interaction model
+  refitted, with CR2. G10 is the recommended analysis of paper 02
+  [@pmsimstats-paper02]. G1 and G6 are the binary-indicator analyses,
+  model-based and with CR2. Stored codes: `E2cr2`, `E7cr2`,
+  `E7null_cr2`, `E1`, `E1cr2`.
+- **F-family.** The G3 formula plus $\eta_t$ and $B^c_i\eta_t$, with
+  CR2. **F1:** $t^a_{1/2}$ fixed at the half-life policy value of 0.2
+  week. **F1A:** chosen by AIC with the interaction in the model.
+  **F1A0:** chosen by AIC without it. **F1A0B:** F1A0 with a
+  single-resample parametric-bootstrap calibration that repeats the
+  selection.
+- **CR2.** The Bell-McCaffrey bias-reduced cluster-robust standard
+  error with Satterthwaite degrees of freedom
+  [@bell2002bias; @pustejovsky2018].
+- **Two-MCSE band.** The interval $0.05 \pm 2\sqrt{0.05 \times
+  0.95/n}$ at $n$ replicates.
+- **Designs.** Hybrid: open-label titration, then blinded
+  discontinuation, then a brief crossover. OL+BDC: open-label
+  titration then blinded discontinuation. CO: a two-period crossover.
+- **Single-resample bootstrap.** One bootstrap resample per Monte
+  Carlo replicate, with the critical value taken from the pooled
+  resamples of the cell.
+
+# Introduction {#sec-intro}
+
+An aggregated N-of-1 trial gives each participant repeated periods on
+and off drug. Pooling the participants allows a test of whether a
+baseline biomarker modifies the drug effect. That test targets a
+predictive biomarker. The interaction test in a parallel-group trial
+already needs a large sample [@brookes2004]. The N-of-1 design
+reduces that cost by comparing each participant with themselves
+[@senn2002; @araujo2016].
+
+A biomarker can also be prognostic. It may track the severity at
+baseline, the natural course of the illness, or the response to
+placebo. In a design whose expectancy varies between open-label and
+blinded phases, the on-drug and off-drug visits differ in more than
+drug exposure. A prognostic association that differs between those
+visits can then project onto the interaction term. The test would
+then report moderation of the drug effect where there is none.
+
+The companion paper on carryover [@pmsimstats-paper02] studies a
+predictive-only biomarker. It recommends G10. That analysis uses an
+exposure-weighted drug indicator, chooses its half-life by AIC on the
+model without the interaction, and tests with CR2. This paper asks
+what changes when the biomarker is also prognostic. It examines five
+pathways. It compares the G-family with the F-family, which adds the
+design-expectancy terms $\eta_t$ and $B^c_i\eta_t$. It also reports
+a finding about the simulation itself. An apparent loss of power
+under a strong prognostic correlation came from the silent repair of
+infeasible covariance matrices. It was not a property of any
+analysis.
+
+The data-generating facts are established in paper 01
+[@pmsimstats-paper01]. A prognostic correlation shares one
+feasibility condition with $c_{bm}$. The extended DGP refuses a
+matrix that is not positive definite. This paper cites those results
+and reports only their consequences for the analysis. The studies are
+exploratory.
+
+# Methods {#sec-methods}
+
+## Data-generating process {#sec-dgp}
+
+All published-set cells use the extended DGP under the correlation
+encoding, on the Hybrid design, with $t_{1/2} = 0.5$ week unless
+stated. The component means and SDs are those of Hendrickson et al.
+Table \@ref(tab:tab-params) reads them from the stored run metadata.
+The drug-response SD is $\sigma_{BR} =$ `r V('sig_br')`. The true
+interaction at $c_{bm}$ is therefore $-c_{bm}\sigma_{BR}$ per SD of
+the biomarker: `r V('truth45')` at $c_{bm} = 0.45$ and
+`r V('truth30')` at $c_{bm} = 0.30$. The components are reductions in
+symptom severity, so an increase in any component lowers the
+outcome. Interaction coefficients are negative.
+
+```{r tab-params}
+pm <- if (!is.null(gfC_m)) gfC_m else st_p_m
+if (!is.null(pm$params$resp_param)) {
+  rp <- pm$params$resp_param
+  bp <- pm$params$baseline_param
+  cat_lab <- c(tv = 'Natural history (TV)', pb = 'Placebo response (PB)',
+               br = 'Drug response (BR)', bm = 'Biomarker',
+               BL = 'Baseline level')
+  tp <- rbind(
+    data.frame(Component = cat_lab[rp$cat],
+               Mean = sprintf('%.2f', rp$max),
+               SD = sprintf('%g', rp$sd),
+               Rate = sprintf('%.2f', rp$rate),
+               Displacement = sprintf('%g', rp$disp)),
+    data.frame(Component = cat_lab[bp$cat],
+               Mean = sprintf('%.1f', bp$m),
+               SD = sprintf('%.1f', bp$sd),
+               Rate = '--', Displacement = '--'))
+  rownames(tp) <- NULL
+  knitr::kable(tp, booktabs = TRUE, escape = FALSE,
+    col.names = c('Component', 'Maximum or mean', 'SD',
+                  'Rate (per week)', 'Displacement'),
+    caption = 'Parameter values of the published-set runs, read from
+      the stored run metadata (\\texttt{meta.rds}, field
+      \\texttt{params}). For the
+      response components the mean column is the maximum $m$ of the
+      modified Gompertz curve.') |>
+    kableExtra::kable_styling(font_size = 9)
+} else {
+  pending_note('the parameter table of the published-set runs')
+}
+```
+
+## Prognostic pathways {#sec-pathways}
+
+A biomarker may be associated with the outcome through channels other
+than the drug response. Three pathways are entries in the biomarker
+row of the joint correlation matrix. Each sets one correlation with
+the others at zero. The first is a correlation with the baseline
+level, $c_{bm,BL}$. The second is a correlation with the
+natural-history component at every visit, $c_{bm,TV}$. The third is a
+correlation with the placebo-response component at every visit,
+$c_{bm,PB}$. Their strengths are bounded by feasibility (Section
+\@ref(sec-feasibility)).
+
+Two further pathways are mean shifts. They are not bounded by the
+correlation matrix. The constant shift adds $b_{TV}\,\sigma_{TV}\,z_i$
+to the natural-history mean at every visit. It is stored as
+`prog-TV-grow` although it does not grow. It is absorbed exactly by
+the biomarker main effect of every analysis here (Appendix
+\@ref(sec-absorb)). It serves only as a check of that absorption. The
+trend pathway adds $b_{TV}^{\mathrm{tr}}\,\sigma_{TV}\,z_i\,g(w_t)$,
+where $g$ is the natural-history mean course scaled to peak 1. It
+describes a biomarker that predicts the rate of natural-history
+change. A model with no biomarker-by-time term cannot absorb it.
+
+## Analyses {#sec-analyses}
+
+All analyses fit a linear mixed model with a participant random
+intercept and continuous-time AR(1) residual correlation
+(`corCAR1`). The G-family model is
+$$
+Y_{it} = \beta_0 + \beta_B B^c_i + \beta_T w_t + \beta_D D_{bc,it}
+  + \beta_{bm:D} B^c_i D_{bc,it} + u_i + \epsilon_{it}.
+$$
+$D_{bc,it}$ is one on drug, $2^{-t_{sd}/t^a_{1/2}}$ off drug after
+first exposure, and zero before first exposure. G8 sets
+$t^a_{1/2} = t_{1/2}$. It is an oracle benchmark and not a candidate
+analysis. G9 chooses $t^a_{1/2}$ by maximum-likelihood AIC over
+$\{0.25, 0.5, 1, 2\}$ weeks with the interaction in the model
+[@akaike1974new]. G10 makes the same choice on the model without the
+interaction and refits the interaction model by REML. The selection
+of G9 depends on the coefficient under test. That is a
+post-selection inference risk [@berk2013valid; @leeb2005]. All three
+test $\beta_{bm:D}$ with CR2 and Satterthwaite degrees of freedom.
+
+The F-family adds the design-expectancy terms:
+$$
+Y_{it} = \ldots + \beta_\eta \eta_t + \beta_{bm:\eta} B^c_i \eta_t.
+$$
+The regressors are `De` and `bmc:De`. The placebo-response amplitude
+scales with $\eta_t$, and $\eta_t$ differs between on-drug and
+off-drug visits in the Hybrid design. A biomarker correlated with the
+placebo response therefore acquires an on/off slope difference by
+construction. The term $B^c_i\eta_t$ absorbs it. F1 fixes
+$t^a_{1/2}$ at 0.2 week. F1A selects it by AIC with the interaction.
+F1A0 selects it without the interaction, as G10 does. F1A0B
+calibrates F1A0 by a single-resample parametric bootstrap under the
+null that repeats the selection. Its candidate grid is $\{0, 0.2,
+0.5, 1, 2\}$ weeks. $\eta_t$ is constant within every path of the
+crossover design. The F-family is therefore not estimable under CO.
+F1A0 and G10 differ only in the expectancy terms. That is the
+property that lets papers 02 and 15 give one recommendation
+(Section \@ref(sec-recommend)).
+
+## Performance measures {#sec-perf}
+
+We report the rejection rate $\hat\pi$ at $\alpha = 0.05$, its MCSE,
+the mean interaction estimate, and $\kappa$ [@morris2019simulation].
+Under the null $\hat\pi$ is the Type I error. A cell's rejection rate
+is compared with its two-MCSE band. That band is a check on gross
+departures and not a demonstration of nominal size. Within a job,
+cells at the same design and $N$ share random-number streams, and
+every analysis is fitted to the same trials. Contrasts between
+analyses are paired, and their standard errors come from the
+per-replicate rejection indicators. Comparisons across jobs are
+unpaired. Results from different simulation hosts are not
+draw-for-draw identical.
+
+## Stored runs and their parameter sets {#sec-sources}
+
+Table \@ref(tab:tab-sources) lists every stored run this draft reads.
+The published-set runs are the reruns of `docs/74`. The historical
+runs used the simcore2026 parameter set and silent repair. They are
+kept only as the exhibit of Section \@ref(sec-artifact)
+(`docs/74`, decision D5). No historical number enters a result about
+an analysis.
+
+```{r tab-sources}
+srow <- function(what, folder, meta, kind) {
+  data.frame(
+    Run = what,
+    Folder = paste0('\\texttt{', gsub('_', '\\\\_', folder), '}'),
+    Set = if (is.null(meta)) 'missing' else param_set(meta),
+    Date = if (is.null(meta) || is.null(meta$date)) '--' else
+      format(as.Date(meta$date)),
+    Kind = kind)
+}
+tsrc <- rbind(
+  srow('Prognostic stress test', 'published/g9-prognostic-stress',
+       st_p_m, 'published set'),
+  srow('Feasible grid and large N', 'published/g9-gap-fill/C',
+       gfC_m, 'published set'),
+  srow('Trend pathway (block T)', 'published/referee-variants/block-T',
+       rvT_m, 'published set'),
+  srow('Hybrid nulls (block N)', 'published/referee-variants/block-N',
+       rvN_m, 'published set'),
+  srow('Hybrid alternatives (block A)',
+       'published/referee-variants/block-A', rvA_m, 'published set'),
+  srow('Original 30-cell grid', 'published/tier1-g-vs-f-e0',
+       s27_m, 'published set'),
+  srow('Scenario cells', 'published/g-vs-f-comparison', s21_m,
+       'published set'),
+  srow('Prognostic stress test', 'g9-prognostic-stress', st_h_m,
+       'historical, repaired'),
+  srow('Random-slope variants', 'g9-random-effects', re_h_m,
+       'historical, repaired'))
+knitr::kable(tsrc, booktabs = TRUE, escape = FALSE,
+  col.names = c('Run', 'Folder under carryover-sensitivity/',
+                'Parameter set recorded', 'Date', 'Status'),
+  caption = 'Stored runs read by this draft. The parameter set is the
+    value recorded in each run\'s metadata. Runs made before the
+    parameter switch of 2026-11-03 record none and used the
+    simcore2026 set (docs/74). Two analytic files of the historical
+    folder, \\texttt{pd-check.rds} and
+    \\texttt{coupling-ceilings.rds}, are read as well. The first
+    depends on the simcore2026 SDs. The second depends on the
+    correlation matrix only.') |>
+  kableExtra::kable_styling(latex_options = 'scale_down',
+                            font_size = 8)
+```
+
+# Results {#sec-results}
+
+## Feasibility of a prognostic correlation {#sec-feasibility}
+
+Paper 01 derives the joint feasibility condition and tabulates the
+bounds for every design [@pmsimstats-paper01]. A prognostic
+correlation occupies the same biomarker row of the correlation
+matrix as $c_{bm}$. The two share one condition, a quadratic form in
+the correlations that must be below one. We do not repeat that
+table. We quote only the bounds at this paper's configuration:
+Hybrid, $t_{1/2} = 0.5$ week, $\rho = 0.7$, $c_1 = 0.2$. The bounds
+depend on the correlation matrix only, not on the component SDs. They
+therefore hold for both parameter sets.
+
+Alone, $c_{bm}$ is feasible up to `r V('b_bm')` and $c_{bm,PB}$ or
+$c_{bm,TV}$ up to `r V('b_pb')`. Given $c_{bm} = 0.30$ the bound on
+$c_{bm,PB}$ or $c_{bm,TV}$ is `r V('b_pb30')` and on $c_{bm,BL}$ is
+`r V('b_bl30')`. Given $c_{bm} = 0.45$ they are `r V('b_pb45')` and
+`r V('b_bl45')`. No $c_{bm}$ is feasible with $c_{bm,PB}$ or
+$c_{bm,TV}$ at 0.6. Strength 0.3 therefore lies just inside the
+bound at $c_{bm} = 0.45$. Strength 0.6 is infeasible at every
+$c_{bm}$ on those two pathways. The feasible grid of Section
+\@ref(sec-grid) was chosen from these bounds.
+
+## Correlation pathways at strength 0.3 {#sec-stress}
+
+We crossed the three correlation pathways and the constant shift
+with $c_{bm} \in \{0, 0.45\}$ and $N \in \{35, 70\}$, at
+`r V('st_n')` replicates per cell. Table \@ref(tab:tab-stress) gives
+the rejection rates. The two-MCSE band is `r V('st_band')`.
+
+```{r tab-stress}
+if (has_st_p) {
+  ts <- st_p |>
+    filter(strength == 0.3, method %in% show_m) |>
+    mutate(Pathway = path_lab[pathway], Method = m_lab[method]) |>
+    select(pathway, Pathway, c_bm, N, Method, reject) |>
+    pivot_wider(names_from = Method, values_from = reject) |>
+    arrange(match(pathway, path_ord), c_bm, N) |>
+    select(Pathway, c_bm, N, all_of(show_c)) |>
+    mutate(c_bm = sprintf('%.2f', c_bm),
+           across(all_of(show_c), f3))
+  ts$Pathway[duplicated(ts$Pathway)] <- ''
+  knitr::kable(ts, booktabs = TRUE, escape = FALSE, linesep = '',
+    col.names = c('Pathway', '$c_{bm}$', '$N$', show_c),
+    caption = sprintf('Rejection rate under each prognostic pathway
+      at strength 0.3, published parameter set. Hybrid, $t_{1/2} =
+      0.5$ week, %s replicates per cell, the same trials for every
+      analysis. Rows with $c_{bm} = 0$ are Type I error (band %s).
+      G8 is the oracle benchmark.', V('st_n'), V('st_band'))) |>
+    kableExtra::kable_styling(font_size = 9)
+} else {
+  pending_note('the published-set prognostic stress test')
+}
+```
+
+The G9 Type I error was `r V('st_g9_null')` across the six null cells
+of the three correlation pathways. G10 gave `r V('st_g10_null')` and
+F1A0B `r V('st_fb_null')`. Every G9 and G10 null rate was inside the
+band. The G9 power at $c_{bm} = 0.45$ was `r V('st_g9_alt')`. The
+no-confound reference from block A of the referee-variant runs is
+`r V('ref35')` at $N = 35$ and `r V('ref70')` at $N = 70$. The
+largest difference from it was `r V('st_g9_dmax')`, under the
+placebo-response pathway. Section \@ref(sec-grid) shows that this
+excess is bias in the estimate. That comparison is
+unpaired, against `r V('a_n')`-replicate cells of another job. F1A0B
+differed from G10 in power by `r V('st_fb_g10')` on the same trials.
+The constant shift gave the same rejection at strengths 0.3 and 0.6
+in every analysis. In the scenario job, the constant-shift null cell
+differs from the unshifted Hybrid null cell by at most
+`r V('abs_dd')` in any analysis. That is the absorption of Appendix
+\@ref(sec-absorb).
+
+A longer run at the placebo-response pathway sharpens the size
+comparison. Block N of the referee-variant runs fitted G8, G9, G10
+and F1 to `r V('bn_n')` replicates in each of `r V('bn_cells')`
+Hybrid null cells at $c_{bm,PB} =$ `r V('bn_cpb')`
+(Table \@ref(tab:tab-blockN)). The band is `r V('bn_band')`. The
+paired difference from G8 was `r V('bn_g9_d')` for G9, `r V('bn_g10_d')`
+for G10 and `r V('bn_f1_d')` for F1. G9 was above G8 in every cell,
+by at least `r V('bn_g9_z')` paired standard errors. G10 was within
+two paired standard errors of G8 in every cell. The number of cells
+above the band was `r V('bn_up_g8')` for G8, `r V('bn_up_g9')` for
+G9, `r V('bn_up_g10')` for G10 and `r V('bn_up_f1')` for F1.
+
+```{r tab-blockN}
+if (has_rvN) {
+  tb <- rvN |>
+    filter(c_pb > 0, is.na(h_fixed)) |>
+    left_join(rvNp |> select(cell_id, method, h_fixed, diff_vs_g8,
+                             paired_se),
+              by = c('cell_id', 'method', 'h_fixed')) |>
+    mutate(Method = m_lab[method],
+           Cell = sprintf('$t_{1/2} = %.1f$, $N = %d$', t1half, N)) |>
+    arrange(t1half, N, match(method, show_m)) |>
+    transmute(Cell, Method,
+              Rejection = sprintf('%.4f (%.4f)', reject, mcse),
+              `Diff. vs G8 (SE)` = ifelse(is.na(diff_vs_g8), '--',
+                sprintf('%+.4f (%.4f)', diff_vs_g8, paired_se)),
+              `$\\kappa$` = f2(kappa))
+  tb$Cell[duplicated(tb$Cell)] <- ''
+  knitr::kable(tb, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = sprintf('Block N, published parameter set: null
+      rejection rate (MCSE) under the placebo-response pathway at
+      $c_{bm,PB} = %s$, Hybrid, %s replicates per cell, the same
+      trials for every analysis, with the paired difference from G8
+      and its paired SE. Band %s.', V('bn_cpb'), V('bn_n'),
+      V('bn_band'))) |>
+    kableExtra::kable_styling(font_size = 8)
+} else {
+  pending_note('block N of the published-set referee-variant runs')
+}
+```
+
+## The feasible prognostic grid {#sec-grid}
+
+The supplementary study ran a grid of correlations chosen inside the
+feasibility bounds. At $c_{bm} = 0.30$ it set $c_{bm,PB}$ and
+$c_{bm,TV}$ at 0.40 and 0.45, and $c_{bm,BL}$ at 0.6 and 0.8. It also
+ran $c_{bm,BL} = 0.45$ at $c_{bm} = 0.45$. Each cell was run with and
+without a true interaction, at $N = 70$ and `r V('c_n')` replicates.
+The strongest $c_{bm,PB}$ lies `r V('c_gap_pb')` below its bound at
+$c_{bm} = 0.30$. The strongest $c_{bm,BL}$ lies `r V('c_gap_bl')`
+below its bound. Table \@ref(tab:tab-grid) gives the rejection rates
+and Table \@ref(tab:tab-grid-est) the mean estimates.
+
+```{r tab-grid}
+if (has_gfC) {
+  tg <- C1 |>
+    filter(method %in% show_m) |>
+    mutate(Method = m_lab[method],
+           Cell = sprintf('%s = %.2f, $c_{bm} = %.2f$',
+                          path_lab[path], strength, c_bm)) |>
+    arrange(match(path, path_ord), strength, c_bm) |>
+    select(Cell, Method, reject) |>
+    pivot_wider(names_from = Method, values_from = reject) |>
+    select(Cell, all_of(show_c)) |>
+    mutate(across(-Cell, f3))
+  knitr::kable(tg, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = sprintf('Rejection rate on the feasible prognostic grid,
+      published parameter set. Hybrid, $N = 70$, $t_{1/2} = 0.5$
+      week, %s replicates per cell. Rows with $c_{bm} = 0$ are Type I
+      error (band %s). The others are power.', V('c_n'),
+      V('c_band'))) |>
+    kableExtra::kable_styling(font_size = 9)
+} else {
+  pending_note('the published-set feasible prognostic grid')
+}
+```
+
+```{r tab-grid-est}
+if (has_gfC) {
+  te <- C1 |>
+    filter(method %in% c('E7cr2', 'E7null_cr2', 'F1', 'F1A0')) |>
+    mutate(Method = m_lab[method],
+           Truth = -c_bm * sigma_br,
+           Cell = sprintf('%s = %.2f, $c_{bm} = %.2f$',
+                          path_lab[path], strength, c_bm)) |>
+    arrange(match(path, path_ord), strength, c_bm) |>
+    select(Cell, Truth, Method, mean_est) |>
+    pivot_wider(names_from = Method, values_from = mean_est) |>
+    select(Cell, Truth, G9, G10, F1, F1A0) |>
+    mutate(across(-Cell, fs2))
+  knitr::kable(te, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = 'Mean interaction estimate on the feasible prognostic
+      grid (same cells as the rejection table). The true value is
+      $-c_{bm}\\sigma_{BR}$ per SD of the biomarker.') |>
+    kableExtra::kable_styling(font_size = 9)
+} else {
+  pending_note('the published-set feasible prognostic grid')
+}
+```
+
+The G9 Type I error was `r V('c_g9_null')` across the
+`r V('c_nnull')` null cells, inside the band in every one. G10 gave
+`r V('c_g10_null')` and F1 `r V('c_f1_null')`. The rejection rates
+hide a bias that the mean estimates show. Under the placebo-response
+pathway with no true interaction, the mean G9 estimate was
+`r V('c_pb_g9_est')`. G10 gave `r V('c_pb_g10_est')`. F1 gave
+`r V('c_pb_f1_est')`. Under the other two pathways the mean G9
+estimate was `r V('c_op_g9_est')`. At $c_{bm} =$ `r V('c_bm_alt')`
+the same bias appears as excess power. G9 reached `r V('c_pb_g9_pw')`
+under the placebo-response pathway and `r V('c_op_g9_pw')` under the
+others. Its mean estimate was `r V('c_pb_g9_ae')` and
+`r V('c_op_g9_ae')` against a true value of `r V('truth30')`. F1
+reached `r V('c_pb_f1_pw')` under the placebo-response pathway. Its
+mean estimate was `r V('c_f1_ae')` across the grid. The F1 estimate
+is attenuated because its fixed half-life of 0.2 week is below the
+true 0.5 week (Section \@ref(sec-gvf)). The excess power of the
+G-family under the placebo-response pathway is therefore not evidence
+of better power. It is the same bias as under the null.
+
+## Larger samples under the placebo-response pathway {#sec-largen}
+
+A bias of a fixed size becomes Type I error inflation as $N$ grows,
+because the standard error shrinks. The supplementary study ran the
+placebo-response pathway with no true interaction at $N \in \{140,
+280\}$ and $c_{bm,PB} \in \{0.30, 0.45\}$, at `r V('l_n')`
+replicates. The band is `r V('l_band')`. Table \@ref(tab:tab-largen)
+gives the result.
+
+```{r tab-largen}
+if (has_gfC) {
+  tl <- gfC |>
+    filter(sub == 'C2-largeN' |
+             (sub == 'C1-ladder' & c_pb == 0.45 & c_bm == 0)) |>
+    filter(method %in% c('E1', show_m)) |>
+    mutate(Method = m_lab[method],
+           Cell = sprintf('$c_{bm,PB} = %.2f$, $N = %d$', c_pb, N)) |>
+    arrange(c_pb, N) |>
+    select(Cell, Method, reject) |>
+    pivot_wider(names_from = Method, values_from = reject) |>
+    select(Cell, G1, all_of(show_c)) |>
+    mutate(across(-Cell, f3))
+  knitr::kable(tl, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = sprintf('Type I error under the placebo-response
+      pathway at larger samples, published parameter set. Hybrid,
+      $t_{1/2} = 0.5$ week, $c_{bm} = 0$, %s replicates at $N = 140$
+      and $280$ (band %s). The $N = 70$ row is from the feasible grid
+      at %s replicates.', V('l_n'), V('l_band'), V('c_n'))) |>
+    kableExtra::kable_styling(font_size = 9)
+} else {
+  pending_note('the published-set large-sample cells')
+}
+```
+
+At $N = 280$ and $c_{bm,PB} = 0.45$, G9 rejected at
+`r V('l_g9_45')`, G10 at `r V('l_g10_45')` and G8 at `r V('l_g8_45')`.
+The model-based binary-indicator analysis G1 rejected at
+`r V('l_g1_45')`. The F-family stayed inside the band: F1 at
+`r V('l_f1_45')`, F1A0 at `r V('l_f1a0_45')` and F1A0B at
+`r V('l_fb_45')`. On the same trials, the paired difference in
+rejection of F1 minus G9 was `r V('l_pd')` (paired SE
+`r V('l_pd_se')`). That of F1A0 minus G10 was `r V('l_pd2')`
+(`r V('l_pd2_se')`). The G9 rate rose with $N$:
+`r V('l_g9_70')` at 70, `r V('l_g9_140')` at 140 and
+`r V('l_g9_45')` at 280. Its mean estimate at $N = 280$ was
+`r V('l_g9_est')` against `r V('l_f1_est')` for F1. The standard
+errors were calibrated for both, with $\kappa$ of `r V('l_g9_k')` and
+`r V('l_f1_k')`. The excess is therefore bias, not an
+underestimated standard error. At $c_{bm,PB} = 0.30$ the rates were
+`r V('l_g9_30')` for G9 and `r V('l_f1_30')` for F1.
+
+## The trend pathway {#sec-trend}
+
+Block T of the referee-variant runs simulated a natural-history shift
+that grows over the trial, with $b_{TV}^{\mathrm{tr}} =$
+`r V('t_coef')`. It is a mean shift, so the feasibility bound does
+not limit it. G8, G9 and F1 were fitted at $N = 70$ and
+`r V('t_n')` replicates (Table \@ref(tab:tab-trend)). The band is
+`r V('t_band')`.
+
+```{r tab-trend}
+if (has_rvT) {
+  tt <- rvT |>
+    mutate(Method = m_lab[method],
+           Cell = ifelse(c_bm == 0, 'null ($c_{bm} = 0$)',
+                         sprintf('$c_{bm} = %.2f$', c_bm))) |>
+    arrange(c_bm, match(method, show_m)) |>
+    transmute(Cell, Method,
+              Rejection = sprintf('%.3f (%.3f)', reject, mcse),
+              `Mean estimate` = fs2(mean_est),
+              `Empirical SE` = f2(emp_se),
+              `$\\kappa$` = f2(kappa))
+  tt$Cell[duplicated(tt$Cell)] <- ''
+  knitr::kable(tt, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = sprintf('Block T, published parameter set: rejection
+      rate (MCSE), mean interaction estimate, empirical SE and
+      calibration ratio under the trend pathway
+      ($b_{TV}^{\\mathrm{tr}} = %s$). Hybrid, $N = 70$, $t_{1/2} =
+      0.5$ week, %s replicates. The true value is 0 at the null and
+      %s at $c_{bm} = 0.45$. Band at the null %s.', V('t_coef'),
+      V('t_n'), V('truth45'), V('t_band'))) |>
+    kableExtra::kable_styling(font_size = 9)
+} else {
+  pending_note('block T of the published-set referee-variant runs')
+}
+```
+
+The trend pathway biased the G-family. Under the null G8 rejected at
+`r V('t_g8')` and G9 at `r V('t_g9')`. Their mean estimates were
+`r V('t_g8_est')` and `r V('t_g9_est')` where the truth is zero. The
+G8 empirical SE was `r V('t_g8_se')`. F1 rejected at `r V('t_f1')`,
+with a mean estimate of `r V('t_f1_est')`. Paired against G8, F1
+differed by `r V('t_f1_d')` (SE `r V('t_f1_dse')`) and G9 by
+`r V('t_g9_d')` (`r V('t_g9_dse')`). The expectancy terms therefore
+absorb part of the shift but not all of it. At $c_{bm} = 0.45$ the
+bias is toward zero. G9 power was `r V('t_g9_pw')` with a mean
+estimate of `r V('t_g9_aest')`. In the no-trend cell of block A it
+was `r V('t_ref_pw')` with `r V('t_ref_est')`. That comparison is
+unpaired. The mechanism is the design. In the Hybrid design
+$D_{bc,it}$ falls with calendar time, so a biomarker that predicts
+the trend projects onto the interaction term of a model with no
+biomarker-by-time term.
+
+## The biomarker-by-time remedy: RESULTS PENDING {#sec-bmt}
+
+\fbox{\parbox{0.95\linewidth}{\textbf{RESULTS PENDING.} The
+simulation for this section has not been run. This section contains
+no results. It will be written from the block described in the split
+plan, Section 3.1, once that block is stored.}}
+
+The remedy adds a biomarker-by-time term $B^c_i w_t$ to the analysis
+model, as `bmc:t`. Its coefficient would be written
+$\beta_{bm:T}$ (*proposed*). A quadratic variant adds $B^c_i w_t^2$.
+The planned block crosses the trend pathway, present or absent, with
+a null and an alternative interaction. It fits G8, G9, G10 and F1A0
+with and without the term to the same trials. It answers three
+questions. Does the term remove the trend bias in size and in the
+mean estimate? What does it cost in power when there is no trend?
+Does a linear term suffice when the natural-history course is not a
+straight line? The driver changes it needs are listed in the
+Reproducibility section.
+
+## Expectancy terms without a prognostic effect {#sec-gvf}
+
+The F-family's cost when the biomarker is predictive only was
+measured on the original 30-cell grid of paper 02 under the published
+parameter set (`r V('g_n')` replicates per cell). The F-family is
+not estimable under CO, so only the Hybrid and OL+BDC cells enter.
+Table \@ref(tab:tab-gvf) gives the rejection rates.
+
+```{r tab-gvf}
+if (has_s27) {
+  tv <- s27 |>
+    filter(design != 'CO',
+           method %in% c('E7cr2', 'E7null_cr2', 'F1', 'F1A0',
+                         'F1A0B')) |>
+    mutate(Method = m_lab[method],
+           Design = ifelse(design == 'OLBDC', 'OL+BDC', design)) |>
+    arrange(Design, c_bm, t1half, N) |>
+    select(Design, c_bm, t1half, N, Method, reject) |>
+    pivot_wider(names_from = Method, values_from = reject) |>
+    select(Design, c_bm, t1half, N, G9, G10, F1, F1A0, F1A0B) |>
+    mutate(c_bm = sprintf('%.2f', c_bm),
+           t1half = sprintf('%.1f', t1half),
+           across(c(G9, G10, F1, F1A0, F1A0B), f3))
+  tv$Design[duplicated(tv$Design)] <- ''
+  knitr::kable(tv, booktabs = TRUE, escape = FALSE, linesep = '',
+    col.names = c('Design', '$c_{bm}$', '$t_{1/2}$', '$N$', 'G9',
+                  'G10', 'F1', 'F1A0', 'F1A0B'),
+    caption = sprintf('Original 30-cell grid of paper 02, published
+      parameter set, Hybrid and OL+BDC cells: rejection rate with no
+      prognostic effect. %s replicates per cell, the same trials for
+      every analysis. Rows with $c_{bm} = 0$ are Type I error (band
+      %s).', V('g_n'), V('g_band'))) |>
+    kableExtra::kable_styling(font_size = 9)
+} else {
+  pending_note('the published-set original grid')
+}
+```
+
+The null rates were `r V('g_null_g10')` for G10, `r V('g_null_f1a0')`
+for F1A0, `r V('g_null_fb')` for F1A0B and `r V('g_null_f1')` for F1.
+Over the alternative cells of the Hybrid design, F1A0 reached
+`r V('g_r_Hybrid_F1A0')` percent of the mean power of G10, F1A0B
+`r V('g_r_Hybrid_F1A0B')` percent and F1 `r V('g_r_Hybrid_F1')`
+percent. Under OL+BDC the figures were `r V('g_r_OLBDC_F1A0')`,
+`r V('g_r_OLBDC_F1A0B')` and `r V('g_r_OLBDC_F1')` percent. The mean
+paired difference from G10 over the `r V('g_k')` Hybrid alternative
+cells was `r V('g_pd_Hybrid_F1A0')` for F1A0 (SE
+`r V('g_pse_Hybrid_F1A0')`) and `r V('g_pd_Hybrid_F1')` for F1
+(`r V('g_pse_Hybrid_F1')`). Under OL+BDC it was
+`r V('g_pd_OLBDC_F1A0')` (`r V('g_pse_OLBDC_F1A0')`) and
+`r V('g_pd_OLBDC_F1')` (`r V('g_pse_OLBDC_F1')`). The pooled
+standard errors treat the cells as independent. Cells at the same
+$N$ share random-number streams, so they are approximate.
+
+F1 also loses power where its fixed half-life is wrong. In block A
+at a true half-life of 2 weeks and $c_{bm} = 0.45$, F1 reached
+`r V('a_f1_pw')` against `r V('a_g10_pw')` for G10. Its mean estimate
+was `r V('a_f1_est')` against `r V('a_g10_est')` for G10 and a true
+value of `r V('truth45')`. The fixed half-life is the cost, not the
+expectancy terms. F1A0, which selects the half-life, is the fair
+comparator for the terms themselves.
+
+```{r tab-scen}
+if (has_s21) {
+  sc_lab <- c(hybrid_null = 'Hybrid, null',
+              olbdc_null = 'OL+BDC, null',
+              t1hifhi_null = '$t_{1/2} = 2$ wk, null',
+              shapemis_null = 'Weibull $k = 2$ data, null',
+              hybrid_alt = 'Hybrid, $c_{bm} = 0.45$',
+              hybrid_alt_lo = 'Hybrid, $c_{bm} = 0.25$',
+              olbdc_alt = 'OL+BDC, $c_{bm} = 0.45$',
+              t1hifhi_alt = '$t_{1/2} = 2$ wk, $c_{bm} = 0.25$',
+              shapemis_alt = 'Weibull $k = 2$ data, $c_{bm} = 0.25$')
+  tsc <- s21 |>
+    filter(cell %in% names(sc_lab),
+           method %in% c('E7cr2', 'E7null_cr2', 'F1', 'F1A0',
+                         'F1A0B')) |>
+    mutate(Cell = sc_lab[cell], Method = m_lab[method]) |>
+    select(Cell, Method, reject) |>
+    pivot_wider(names_from = Method, values_from = reject) |>
+    arrange(match(Cell, sc_lab)) |>
+    select(Cell, G9, G10, F1, F1A0, F1A0B) |>
+    mutate(across(-Cell, f3))
+  knitr::kable(tsc, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = sprintf('Scenario cells of paper 02, published parameter
+      set, no prognostic effect: rejection rate. Hybrid unless
+      stated, $N = 70$, $t_{1/2} = 0.5$ week unless stated, %s
+      replicates. In the $t_{1/2} = 2$ week rows the fixed half-life
+      of F1 is a tenth of the true value.', fn(s21_m$n_reps))) |>
+    kableExtra::kable_styling(font_size = 9)
+} else {
+  pending_note('the published-set scenario cells')
+}
+```
+
+## The repair artifact: a historical exhibit {#sec-artifact}
+
+\fbox{\parbox{0.95\linewidth}{\textbf{Historical exhibit.} Every
+number in this section comes from runs under the simcore2026 parameter
+set with silent repair (Table \ref{tab:tab-sources}). They are
+evidence about a repaired DGP. They are not evidence about any
+analysis under a prognostic biomarker.}}
+
+The first prognostic stress test ran at strengths 0.3 and 0.6 before
+the drivers refused infeasible matrices. At strength 0.6 on the
+placebo-response and natural-history pathways, G9 lost
+`r V('h_loss6')` points of power at $c_{bm} = 0.45$ against the
+no-confound reference of `r V('h_ref35')` ($N = 35$) and
+`r V('h_ref70')` ($N = 70$). At strength 0.3 the largest loss was
+`r V('h_loss3')`. Every one of the `r V('h_nmeth')` analyses fitted
+to the same trials lost power at strength 0.6 (Table
+\@ref(tab:tab-hist)). That uniformity was the first sign that the
+loss arose before the analysis.
+
+```{r tab-hist}
+if (has_st_h) {
+  th <- st_h |>
+    filter(c_bm == 0.45, method %in% c('E7cr2', 'F1', 'F1A0B'),
+           pathway != 'progtvgrow') |>
+    mutate(Pathway = path_lab[pathway], Method = m_lab[method]) |>
+    select(pathway, Pathway, N, strength, Method, reject) |>
+    pivot_wider(names_from = c(Method, strength), values_from = reject,
+                names_sep = ' ') |>
+    arrange(match(pathway, path_ord), N) |>
+    select(Pathway, N, `G9 0.3`, `G9 0.6`, `F1 0.3`, `F1 0.6`,
+           `F1A0B 0.3`, `F1A0B 0.6`) |>
+    mutate(across(-c(Pathway, N), f3))
+  th$Pathway[duplicated(th$Pathway)] <- ''
+  knitr::kable(th, booktabs = TRUE, escape = FALSE, linesep = '',
+    col.names = c('Pathway', '$N$', rep(c('0.3', '0.6'), 3)),
+    caption = sprintf('Historical exhibit (simcore2026 parameter set,
+      silent repair): power at $c_{bm} = 0.45$ at prognostic
+      strengths 0.3 and 0.6, Hybrid, $t_{1/2} = 0.5$ week, %s
+      replicates. Every strength-0.6 cell here, including
+      $c_{bm,BL} = 0.6$, was simulated under a repaired matrix.',
+      fn(st_h_m$n_reps))) |>
+    kableExtra::add_header_above(c(' ' = 2, 'G9' = 2, 'F1' = 2,
+                                   'F1A0B' = 2)) |>
+    kableExtra::kable_styling(font_size = 9)
+} else {
+  pending_note('the historical prognostic stress test')
+}
+```
+
+A direct check of the covariance matrices explains it (Table
+\@ref(tab:tab-pd)). Each strength-0.6 cell on those two pathways, and
+$c_{bm,BL} = 0.6$ at $c_{bm} = 0.45$, has a joint matrix that is not
+positive definite on all `r V('h_npaths')` Hybrid paths. The repair
+replaced it with a nearby matrix before any data were drawn. The
+repair shrank the population on-drug minus off-drug slope of the
+outcome on the biomarker. That is the quantity the interaction term
+estimates. With no prognostic correlation it is `r V('h_c_none')`.
+After repair it was `r V('h_c_pb6')` under the placebo-response
+pathway and `r V('h_c_tv6')` under the natural-history pathway. The
+power loss is the repair removing part of the interaction from the
+data. No analysis could recover it. At strength 0.3 the matrix is
+positive definite, with a smallest eigenvalue of `r V('h_eig_pb3')`
+under the placebo-response pathway.
+
+```{r tab-pd}
+if (has_pdc) {
+  tpd <- pdc$summary |>
+    filter(pathway != 'progtvgrow',
+           !(pathway == 'none' & c_bm == 0),
+           c_bm == 0.45 | strength == 0.6) |>
+    mutate(Pathway = ifelse(pathway == 'none', 'none',
+                            path_lab[pathway])) |>
+    transmute(Pathway, Strength = sprintf('%.1f', strength),
+              `$c_{bm}$` = sprintf('%.2f', c_bm),
+              `Paths repaired` = paths_repaired,
+              `Min. eigenvalue` = f3(min_eigenvalue),
+              `Contrast, raw` = fs2(contrast_raw),
+              `Contrast, repaired` = fs2(contrast_repaired))
+  knitr::kable(tpd, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = 'Historical exhibit: positive definiteness of the raw
+      joint covariance matrix on the Hybrid paths, and the population
+      on-drug minus off-drug slope of the outcome on the biomarker
+      before and after the silent repair. Computed from the matrix
+      under the simcore2026 SDs, no simulation
+      (\\texttt{30-check-prognostic-confound-pd.R}).') |>
+    kableExtra::kable_styling(font_size = 9)
+} else {
+  pending_note('the historical positive-definiteness check')
+}
+```
+
+Before the artifact was found, the loss was read as patient-level
+variance that a random intercept could not absorb. G9 was refitted
+with a random slope on time, on expectancy, and on both, in
+`r V('re_ncell')` cells at `r V('re_reps')` replicates. `r V('re_n6')`
+of those cells are repaired strength-0.6 cells. The three variants
+matched plain G9 to within `r V('re_dmax')` in rejection rate in every
+cell (Table \@ref(tab:tab-re)). The largest paired per-replicate
+difference was `r V('m12_dmax')`. Non-convergence reached
+`r V('re_nonconv')` percent for the variant with both slopes. The DGP
+has no patient-specific slope, so there was no variance for a random
+slope to absorb. The check shows only that the slopes cost nothing
+there.
+
+```{r tab-re}
+if (has_re_h) {
+  re_lab <- c(G9 = 'G9', G9rs = '+ slope on $w_t$',
+              G9re = '+ slope on $\\eta_t$', G9rse = '+ both')
+  tre <- re_h |>
+    mutate(Cell = sprintf('%s, $c_{bm} = %.2f$, $N = %d$',
+                          ifelse(pathway == 'none', 'none',
+                                 paste(path_lab[pathway], strength)),
+                          c_bm, N),
+           Method = re_lab[method]) |>
+    select(Cell, Method, reject) |>
+    pivot_wider(names_from = Method, values_from = reject) |>
+    mutate(across(-Cell, f3))
+  knitr::kable(tre, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = sprintf('Historical exhibit: rejection rate of G9 and
+      its three random-slope variants (simcore2026 parameter set,
+      Hybrid, $t_{1/2} = 0.5$ week, %s replicates). The strength-0.6
+      rows were simulated under repaired matrices.', V('re_reps'))) |>
+    kableExtra::kable_styling(font_size = 9)
+} else {
+  pending_note('the historical random-slope runs')
+}
+```
+
+The published-set rerun applied the current default, which refuses an
+infeasible matrix. Of its `r V('n6_cells')` strength-0.6 cells on the
+three correlation pathways, `r V('n6_refused')` were refused and
+`r V('n6_ran')` ran. The refused cells are exactly the configurations
+that the historical check found infeasible. The cells that ran set
+$c_{bm,BL} = 0.6$ with no true interaction, which is feasible. Under
+the current code a repaired cell cannot be simulated without an
+explicit option.
+
+# Discussion {#sec-discussion}
+
+## What the expectancy terms are for {#sec-expectancy}
+
+The placebo-response amplitude scales with $\eta_t$. In the Hybrid
+design $\eta_t$ differs between on-drug and off-drug visits. A
+biomarker correlated with the placebo response therefore acquires an
+on/off slope difference with no true interaction. Under the
+simcore2026 SDs the population contrast was `r V('h_c_pb3n')` at
+$c_{bm,PB} = 0.3$ and `r V('h_c_pb6n')` at 0.6, against
+`r V('h_c_none')` for the interaction at $c_{bm} = 0.45$ (historical,
+Table \@ref(tab:tab-pd)). The placebo-response SD is
+`r V('sig_pb_sc')` in the simcore2026 set and `r V('sig_pb')` in the
+published set. The contrast scales with that SD. It has not been
+recomputed under the published set.
+
+The published-set runs show the consequence. Under the
+placebo-response pathway the G-family estimate moved away from zero
+with no interaction present (Section \@ref(sec-grid)). The bias was
+small against the standard error at $N = 70$ and produced no excess
+rejection there. At $N = 280$ it did (Section \@ref(sec-largen)).
+The F-family, whose $B^c_i\eta_t$ term absorbs the contrast, stayed
+inside the band at every $N$ examined. The earlier conclusion that
+the expectancy terms add nothing came from the simcore2026 runs. It
+does not hold under the published parameter values.
+
+## The joint recommendation {#sec-recommend}
+
+The two companion papers give one recommendation between them.
+
+- For a biomarker believed to be predictive only, use G10: the
+  exposure-weighted indicator with the half-life chosen by AIC on the
+  model without the interaction, tested with CR2
+  [@pmsimstats-paper02].
+- Where the biomarker may also be prognostic, add the
+  design-expectancy terms $\eta_t$ and $B^c_i\eta_t$. This is F1A0,
+  or its bootstrap-calibrated form F1A0B. F1A0 and G10 differ only in
+  those two terms.
+- Where the biomarker may predict the rate of natural-history change,
+  also add a biomarker-by-time term. This step is provisional until
+  the block of Section \@ref(sec-bmt) is run.
+
+F1, which fixes the half-life at 0.2 week, is not recommended. It
+loses power wherever that value is wrong (Section \@ref(sec-gvf)).
+Two questions remain for F1A0B. Its bootstrap calibration may be
+unnecessary once the selection excludes the interaction. Its cost
+against G10 without a prognostic effect is measured here on one grid
+only.
+
+## Limitations {#sec-limitations}
+
+The published-set results come from one parameter set and one
+correlation structure ($\rho = 0.7$, $c_1 = 0.2$). Most cells are on
+the Hybrid design at $t_{1/2} = 0.5$ week. The prognostic correlations
+are correlations of a single latent biomarker with the components.
+The feasibility bound is a property of that parameterization. The
+large-sample cells have no confound-free counterpart at the same $N$.
+The trend pathway was simulated at one coefficient, one sample size
+and one half-life. Its remedy has not been simulated. The
+placebo-response contrast has not been recomputed under the published
+SDs. The random-slope variants were fitted only to historical,
+partly repaired cells under a DGP without patient-specific slopes.
+Comparisons with the block A reference are across jobs and unpaired.
+Cells within a job share random-number streams, so counts of cells
+inside a band are not independent confirmations.
+
+# Conclusions {#sec-conclusions}
+
+1. A constant prognostic shift is absorbed exactly by the biomarker
+   main effect. It cannot move the interaction estimate.
+2. Inside the feasibility bounds, the correlation pathways left the G9
+   and G10 Type I error inside the band at $N \le 70$.
+3. A biomarker correlated with the placebo response biases the
+   G-family estimate. Under the published parameter values the bias
+   inflated the size of G9 and G10 at $N = 280$. The expectancy terms
+   removed it.
+4. A biomarker that predicts the natural-history trend biases every
+   analysis examined. The expectancy terms absorb part of the bias.
+   The biomarker-by-time remedy is pending.
+5. The power loss once attributed to a prognostic correlation of 0.6
+   was produced by the silent repair of infeasible matrices. Under the
+   current default those cells are refused.
+6. For a biomarker that may be prognostic, add $\eta_t$ and
+   $B^c_i\eta_t$ to G10. The result is F1A0.
+
+# Declarations {-}
+
+**Funding, competing interests, author contributions.** To be
+completed.
+
+**Data and code availability.** Every number in this draft is read
+from the stored files of Table \@ref(tab:tab-sources) by inline code.
+
+# Reproducibility {#sec-repro}
+
+The drivers live in `analysis/scripts/carryover-sensitivity/`. The
+published-set runs were submitted on 2026-11-03 under `docs/74`,
+wave 1. The prognostic stress test is driver 28. The feasible grid and
+the large-sample cells are driver 32, block C. The trend, null and
+alternative blocks are driver 36, blocks T, N and A. The original
+grid is driver 27 and the scenario cells driver 06. Driver 29, the
+random-slope variants, was not rerun. Every confounded cell in it is
+a repaired strength-0.6 cell (`docs/74`, decision D5).
+
+Changes needed before the next draft, not made here:
+
+- Add the biomarker-by-time specifications (`E2cr2_bmt`,
+  `E7cr2_bmt`, `E7null_cr2_bmt`, `F1A0_bmt`, optionally quadratic) to
+  `simulation-core.R`. Add the corresponding block to
+  `36-run-referee-variants.R` (split plan, Section 3.1, step 6).
+- Give `30-check-prognostic-confound-pd.R` a `--params` switch so that
+  the placebo-response contrast can be recomputed under the published
+  SDs.
+- Give `37-ladder-tables-figures.R --scope all` a published-set input
+  path if paper 15 is to carry ladder-style figures. Its trend figure
+  (`02-ladder-fig4-trend.png`) was built from historical data and is
+  not used here.
+
+# References {-}
+
+<div id="refs"></div>
+
+# (APPENDIX) Appendix {-}
+
+# Absorption of a constant shift {#sec-absorb}
+
+Let $X$ be the fixed-effects design matrix of any analysis here. It
+contains the biomarker main effect $B^c_i$. The constant shift adds
+$b_{TV}\sigma_{TV} z_i$ to every outcome of participant $i$. Since
+$z_i$ is an affine function of $B^c_i$, the shift vector lies in the
+column space of $X$. For fixed variance parameters the generalized
+least-squares estimate then changes only in the coefficients of the
+intercept and $B^c_i$. The residuals are unchanged. REML and ML
+estimates of the variance parameters depend on the data only through
+those residuals, so they are unchanged too. AIC selection compares
+fits whose likelihoods are unchanged, so it selects the same
+half-life. CR2 standard errors depend on the residuals and the design
+only. The interaction estimate, its standard error and its $p$-value
+are therefore identical, replicate by replicate. The stored data
+confirm it (Section \@ref(sec-stress)).
+
+# Draft consistency checks {#sec-checks}
+
+```{r checks, results = 'asis'}
+cat(sprintf('The prose of this draft makes %d qualitative statements
+that are checked against the stored data when it renders. ',
+            claim_env$n))
+if (length(claim_env$fail) == 0) {
+  cat('All of them hold.\n')
+} else {
+  cat(sprintf('%d do not hold and must be revised:\n\n',
+              length(claim_env$fail)))
+  cat(paste0('- ', claim_env$fail, collapse = '\n'), '\n')
+}
+```

@@ -69,10 +69,10 @@
 ##     [--cores K] [--out-dir PATH] [--smoke] [--preflight] [--time] \
 ##     [--cross-check [--reps-cross R]] [--specs S1[,S2]] [--guard-reps R] \
 ##     [--params published|simcore2026] [--rho R --plan-file PATH]
-##   --rho and --plan-file (block P only) run the planning cells at
+##   --rho and --plan-file (blocks P and N) run the planning cells at
 ##   another serial correlation, with the grid of a planning file from
 ##   24-rho-sweep.R; cells it flags infeasible are skipped. Output goes
-##   to published-planning/rho<R>/ by default.
+##   to published-planning/rho<R>/ (block N: rho<R>/block-N/) by default.
 ##   --preflight checks every covariance matrix and exits; --smoke runs
 ##   2 replicates per cell; --time reports per-replicate cost on one
 ##   worker and a projected host wall time; --cross-check runs the
@@ -169,8 +169,8 @@ plan <- read.csv(PLAN_FILE) |> as_tibble() |> mutate(N80 = as.integer(N80))
 ## above the feasibility bound; those are not simulated.
 if ('feasible' %in% names(plan)) plan <- filter(plan, feasible)
 stopifnot(nrow(plan) > 0, all(plan$design %in% names(PRESET)))
-if (RHO != 0.7 && BLOCK != 'P')
-  stop('--rho other than 0.7 is set up for block P only')
+if (RHO != 0.7 && !BLOCK %in% c('P', 'N'))
+  stop('--rho other than 0.7 is set up for blocks P and N only')
 
 p_common <- function(d) d |> mutate(block = 'P', simulate = TRUE)
 alt_70 <- plan |>

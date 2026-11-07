@@ -77,14 +77,19 @@ extra <- '--extra' %in% args
 extra2 <- '--extra2' %in% args
 extra3 <- '--extra3' %in% args
 extra4 <- '--extra4' %in% args
+## --extra5 (2026-11-07; paper 01 referee report 2026-11-05, M2): G10,
+## the planning analysis of paper 01, on the trials of the main run, and
+## S again as the pairing check. Writes files tagged '-extra5'.
+extra5 <- '--extra5' %in% args
 EXT3_CELLS <- sarg('--ext3-cells', 'all')
-stopifnot(sum(extra, extra2, extra3, extra4) <= 1, EXT3_CELLS %in% c('all', 'docs57'))
+stopifnot(sum(extra, extra2, extra3, extra4, extra5) <= 1,
+          EXT3_CELLS %in% c('all', 'docs57'))
 SEED_BASE <- if (extra3) 57261009L else if (extra4) 47261012L else 20261007L
 here04 <- 'analysis/scripts/quick-sim/hendrickson-problems/04-power-simulation.R'
 out_dir <- sarg('--out-dir', 'analysis/data/quick-sim/carryover-closed-form/strawman-stress')
 run_tag <- paste0(if (pilot > 0) sprintf('pilot%d', pilot) else 'full',
                   if (extra) '-extra' else if (extra2) '-extra2' else if (extra3) '-extra3' else
-                    if (extra4) '-extra4' else '',
+                    if (extra4) '-extra4' else if (extra5) '-extra5' else '',
                   if (extra3 && EXT3_CELLS == 'docs57') '-docs57' else '', dgp_tag,
                   if (TH_A != 0.2) sprintf('-ha%g', TH_A) else '')
 cell_dir <- file.path(out_dir, paste0('cells-', run_tag))
@@ -364,9 +369,29 @@ fit_extra4 <- function(d) {
               G1 = c(cr2(g_fit), h = TH_A), G2 = c(mb(g_fit), h = TH_A))
   rbindlist(lapply(names(res), function(nm) as.data.table(as.list(res[[nm]]))[, analysis := nm]))
 }
+## --extra5: G10 as paper 01 defines it (E7null_cr2 of simulation-core.R):
+## the analysis half-life chosen by ML AIC over 0.25, 0.5, 1 and 2 weeks
+## on the model without the interaction, the interaction model refitted
+## by REML at that half-life, and bmc:X tested with CR2. The grid omits
+## 0, unlike GRID. S again as the pairing check.
+G10_GRID <- c(0.25, 0.5, 1, 2)
+F_S0 <- Sx ~ bmc + t + X
+fit_extra5 <- function(d) {
+  d05 <- with_x(d, TH_A)
+  ds <- lapply(G10_GRID, function(h) with_x(d, h))
+  aic <- sapply(ds, function(dd) { f <- fit_lme(F_S0, dd, 'ML')
+                                   if (is.null(f)) NA_real_ else AIC(f) })
+  g10 <- if (all(is.na(aic))) c(na3, h = NA_real_) else {
+    k <- which.min(aic)
+    c(cr2(fit_lme(F_S, ds[[k]])), h = G10_GRID[k])
+  }
+  res <- list(S = c(cr2(fit_lme(F_S, d05)), h = TH_A), G10 = g10)
+  rbindlist(lapply(names(res), function(nm) as.data.table(as.list(res[[nm]]))[, analysis := nm]))
+}
 if (extra) fit_all <- fit_extra
 if (extra2) fit_all <- fit_extra2
 if (extra4) fit_all <- fit_extra4
+if (extra5) fit_all <- fit_extra5
 ## Data-chosen analysis half-lives (docs/57; RERUN-ext3.md). The
 ## grid fits, F1, F1A, F1A0, AIC-weight averaging (MA), the Bonferroni
 ## maximum and the null-model bootstrap draw are the definitions of

@@ -70,21 +70,23 @@ g_labels_short <- c(E1 = 'G1', E3 = 'G2', E2 = 'G3', E7 = 'G4', E9 = 'G5',
 ## Added as a separate layer so g_order/g_code/g_labels above, and
 ## every stored table built from them, are unchanged.
 ##
-##   E7null_cr2 -> G9-null -> half-life chosen by AIC on the null
-##                 model Sx ~ bm + t + Dbc, refit with bm:Dbc, CR2 (M1)
+##   E7null_cr2 -> G10 -> half-life chosen by AIC on the null model
+##                 Sx ~ bm + t + Dbc, refit with bm:Dbc, CR2 (M1);
+##                 displayed as G9-null before 2026-10-30, renamed G10
+##                 when paper 02 adopted it as the recommended analysis
 ##   E3fix_cr2  -> G8-fixed -> G8 at a fixed analysis half-life that
 ##                 need not equal the truth; the half-life used is in
 ##                 the per-replicate `h` column (M9)
 g_order_referee <- c(g_order, 'E7null_cr2', 'E3fix_cr2')
 
-g_code_referee <- c(g_code, E7null_cr2 = 'G9-null', E3fix_cr2 = 'G8-fixed')
+g_code_referee <- c(g_code, E7null_cr2 = 'G10', E3fix_cr2 = 'G8-fixed')
 
 g_labels_referee <- c(
   g_labels,
-  E7null_cr2 = 'G9-null: null-model AIC-selected t1/2 + CR2',
+  E7null_cr2 = 'G10: null-model AIC-selected t1/2 + CR2',
   E3fix_cr2  = 'G8-fixed: Exposure-weighted at a fixed t1/2 + CR2')
 
-g_labels_short_referee <- c(g_labels_short, E7null_cr2 = 'G9-null',
+g_labels_short_referee <- c(g_labels_short, E7null_cr2 = 'G10',
                             E3fix_cr2 = 'G8-fixed')
 
 g_factor_referee <- function(x) {

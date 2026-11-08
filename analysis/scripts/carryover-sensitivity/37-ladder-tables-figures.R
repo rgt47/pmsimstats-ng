@@ -143,10 +143,18 @@ fam_labels <- c(
   '3' = '3 Autocorrelation', '4' = '4 Dropout',
   '5' = '5 Prognostic', '6' = '6 Large N',
   '7' = '7 Trend and slope', 'S' = 'S Referee Hybrid run')
+## The predictive scope renumbers family 7 (patient slope only) as 5
+## (split plan 2.3). The id stays '7' internally, because the gap-fill
+## design file also uses '5' for its prognostic ladder; fam_out()
+## recodes it only in the written outputs.
 if (pred) {
   fam_levels <- setdiff(fam_levels, c('5', '6'))
   fam_labels <- fam_labels[fam_levels]
-  fam_labels['7'] <- '7 Patient slope'
+  fam_labels['7'] <- '5 Patient slope'
+}
+fam_out <- function(f) {
+  f <- as.character(f)
+  if (pred) replace(f, f == '7', '5') else f
 }
 
 ## Data loading -----------------------------------------------------
@@ -625,7 +633,8 @@ ladder_long <- bind_rows(long_cell, long_pooled, long_kappa, long_diff,
                          long_cov) |>
   arrange(match(family, fam_levels), level, quantity, analysis, cell_group)
 
-readr::write_csv(ladder_long, file.path(out_data, 'ladder-long.csv'))
+readr::write_csv(ladder_long |> mutate(family = fam_out(family)),
+                 file.path(out_data, 'ladder-long.csv'))
 
 ## Table A ----------------------------------------------------------------
 
@@ -669,9 +678,11 @@ table_a <- steps_all |>
   left_join(table_a_cells, by = 'step_id') |>
   select(step_id, from, to, kind, what, all_of(fam_cols))
 table_a[is.na(table_a)] <- '--'
+if (pred) names(table_a) <- sub('^family7_', 'family5_', names(table_a))
 readr::write_csv(table_a, file.path(out_data, 'ladder-table-A.csv'))
 readr::write_csv(
-  table_a_numeric |> arrange(match(step_id, steps_all$step_id)),
+  table_a_numeric |> arrange(match(step_id, steps_all$step_id)) |>
+    mutate(family = fam_out(family)),
   file.path(out_data, 'ladder-table-A-numeric.csv'))
 
 ## Table B ----------------------------------------------------------------
@@ -774,7 +785,8 @@ table_b <- map(table_b_analyses, table_b_row) |>
   left_join(analysis_meta |> select(analysis, label), by = 'analysis') |>
   relocate(label, .after = analysis)
 if (pred) {
-  table_b <- rename(table_b, mean_power_pct_of_g10 = mean_power_pct_of_g9)
+  table_b <- rename(table_b, mean_power_pct_of_g10 = mean_power_pct_of_g9) |>
+    mutate(worst_family = fam_out(worst_family))
 }
 readr::write_csv(table_b, file.path(out_data, 'ladder-table-B.csv'))
 

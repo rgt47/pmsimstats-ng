@@ -41,7 +41,8 @@ the full scope:
 
 - Families 5 (prognostic) and 6 (large N), the trend block and the
   block N cells with a prognostic pathway are dropped. Family 7 is the
-  patient-slope cell only.
+  patient-slope cell only and is written as family 5 in the outputs
+  (split plan 2.3); the script keeps the id 7 internally.
 - F1, F1A0B and the fixed-half-life G8 variants are dropped.
 - G9-null is labeled G10. It is rung 4 and the reference: Table B
   reports `mean_power_pct_of_g10`, and the worst-loss columns are

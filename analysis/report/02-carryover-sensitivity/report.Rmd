@@ -2786,41 +2786,54 @@ if (has_rv) {
 ```
 
 ```{r stage5-slope-rs, include = FALSE}
-## G10 with and without a random slope on time, refitted to the block-S
-## trials in one container run (44-g10-random-slope.R; referee report
-## 2026-11-08, m17).
-rs_dir <- here::here('analysis/data/carryover-sensitivity/g10-random-slope')
-has_rs <- file.exists(file.path(rs_dir, 'all.rds'))
-if (has_rs) {
-  rs_all <- readRDS(file.path(rs_dir, 'all.rds'))
-  rs_guard <- readRDS(file.path(rs_dir, 'guard.rds'))
-  rs_w <- rs_all |>
+## G10 and G9 with and without a random slope on time, refitted to the
+## block-S trials in container runs (44-g10-random-slope.R, with --g9
+## for G9; referee report 2026-11-08, m17).
+rs_load <- function(spec, ref) {
+  d <- here::here('analysis/data/carryover-sensitivity',
+                  sprintf('%s-random-slope', tolower(spec)))
+  if (!file.exists(file.path(d, 'all.rds'))) return(NULL)
+  all <- readRDS(file.path(d, 'all.rds'))
+  guard <- readRDS(file.path(d, 'guard.rds'))
+  rs <- paste0(spec, 'rs')
+  w <- all |>
     filter(converged) |>
     select(cell_id, rep, c_bm, method, p_value) |>
     tidyr::pivot_wider(names_from = method, values_from = p_value) |>
-    filter(!is.na(G10), !is.na(G10rs))
-  rs_rej <- function(m, cb) {
-    x <- rs_all |> filter(method == m, c_bm == cb, converged)
+    filter(!is.na(.data[[spec]]), !is.na(.data[[rs]]))
+  rej <- function(m, cb) {
+    x <- all |> filter(method == m, c_bm == cb, converged)
     mean(x$p_value < 0.05)
   }
-  rs_fail <- function(m) sum(rs_all$method == m & !rs_all$converged)
-  rs_disagree <- sum((rs_w$G10 < 0.05) != (rs_w$G10rs < 0.05))
-  rs_miss <- sum(!(rs_guard$gap < 1e-6))
   ## Each pairing miss is a different half-life choice (Reproducibility).
-  rs_miss_h <- rs_guard |>
+  miss_h <- guard |>
     filter(!(gap < 1e-6)) |>
-    left_join(rs_all |> filter(method == 'G10') |> select(cell_id, rep, h),
+    left_join(all |> filter(method == spec) |> select(cell_id, rep, h),
               by = c('cell_id', 'rep')) |>
-    left_join(bf_all |> filter(source == 'rvS', method == 'E7null_cr2') |>
+    left_join(bf_all |> filter(source == 'rvS', method == ref) |>
                 select(cell_id, rep, h_ref = h), by = c('cell_id', 'rep'))
-  stopifnot(all(rs_miss_h$h != rs_miss_h$h_ref))
-  ## The G10 refit reproduces the stored block-S G10 rates.
-  stopifnot(abs(rs_rej('G10', 0) -
-                  bf_rej('rvS', 'E7null_cr2', c_bm == 0)) < 0.002,
-            abs(rs_rej('G10', 0.45) -
-                  bf_rej('rvS', 'E7null_cr2', c_bm == 0.45)) < 0.002,
-            rs_miss <= 0.01 * nrow(rs_guard),
-            all(rs_all$stage[!rs_all$converged] == 'refit'))
+  ## The random-intercept refit reproduces the stored block-S rates.
+  stopifnot(all(miss_h$h != miss_h$h_ref),
+            abs(rej(spec, 0) - bf_rej('rvS', ref, c_bm == 0)) < 0.002,
+            abs(rej(spec, 0.45) - bf_rej('rvS', ref, c_bm == 0.45)) < 0.002,
+            nrow(miss_h) <= 0.01 * nrow(guard),
+            all(all$stage[!all$converged] == 'refit'))
+  list(all = all, guard = guard, n_pair = nrow(w),
+       disagree = sum((w[[spec]] < 0.05) != (w[[rs]] < 0.05)),
+       rej = rej, n_fit = sum(all$method == rs),
+       fail = function(m) sum(all$method == m & !all$converged))
+}
+rs10 <- rs_load('G10', 'E7null_cr2')
+rs9 <- rs_load('G9', 'E7cr2')
+has_rs <- !is.null(rs10) && !is.null(rs9)
+decisions <- function(x) {
+  if (x$disagree == 0) {
+    sprintf('the same decision in all %s',
+            format(x$n_pair, big.mark = ','))
+  } else {
+    sprintf('different decisions in %d of %s', x$disagree,
+            format(x$n_pair, big.mark = ','))
+  }
 }
 ```
 
@@ -2834,16 +2847,23 @@ and
 `r if (has_rv) fmt3(rv_cell(rvA, 'E7null_cr2', t1half == 0.5, N == 70, c_bm == 0.45)$reject)`.
 G9 behaves the same way. We also refitted G10 to the same trials with
 a random slope on time, in both the half-life selection and the final
-fit. Size was `r if (has_rs) fmt3(rs_rej('G10rs', 0))` and power
-`r if (has_rs) fmt3(rs_rej('G10rs', 0.45))`. The two fits reached
-`r if (has_rs) ifelse(rs_disagree == 0, 'the same decision in all', paste('different decisions in', rs_disagree, 'of the'))`
-`r if (has_rs) format(nrow(rs_w), big.mark = ',')` replicates in
-which both converged. The random slope added failures of the final
-fit (`r if (has_rs) rs_fail('G10rs')` of
-`r if (has_rs) format(sum(rs_all$method == 'G10rs'), big.mark = ',')` against
-`r if (has_rs) rs_fail('G10')`); no half-life selection failed. At
+fit. Size was `r if (has_rs) fmt3(rs10$rej('G10rs', 0))` and power
+`r if (has_rs) fmt3(rs10$rej('G10rs', 0.45))`. The two fits reached
+`r if (has_rs) decisions(rs10)` replicates in which both converged.
+The same refit of G9 gave size
+`r if (has_rs) fmt3(rs9$rej('G9rs', 0))` and power
+`r if (has_rs) fmt3(rs9$rej('G9rs', 0.45))`, against
+`r if (has_rs) fmt3(rs9$rej('G9', 0))` and
+`r if (has_rs) fmt3(rs9$rej('G9', 0.45))` without it, with
+`r if (has_rs) decisions(rs9)` paired replicates. The random slope
+added failures of the final fit (G10
+`r if (has_rs) rs10$fail('G10rs')` of
+`r if (has_rs) format(rs10$n_fit, big.mark = ',')` against
+`r if (has_rs) rs10$fail('G10')`; G9
+`r if (has_rs) rs9$fail('G9rs')` against
+`r if (has_rs) rs9$fail('G9')`); no half-life selection failed. At
 this slope variance a random slope on time neither gains power nor
-changes size. The G9 random-slope variant was not fitted.
+changes size.
 
 ## Calibration and coverage {#sec-calibration}
 
@@ -3334,7 +3354,8 @@ every specification. The recommendation is therefore for trials that
 retain most of their observations. The scenario grids use one
 alternative effect size per scenario. The patient-specific slope
 variance was simulated at one value, in one Hybrid cell, and with G8,
-G9 and G10 only; only G10 was also fitted with a random slope. Cells within a job share random-number streams.
+G9 and G10 only; G9 and G10 were also fitted with a random slope on
+time. Cells within a job share random-number streams.
 Counts of cells inside a band are therefore not independent, and the
 cross-job comparisons are unpaired. The calibration ratio $\kappa$
 uses the mean rather than the root mean square of the standard
@@ -3706,18 +3727,22 @@ summaries only.
   which held in
   `r format(sum(bf_guard$match, na.rm = TRUE), big.mark = ',')` of
   `r format(nrow(bf_guard), big.mark = ',')` replicates (`guard.rds`).
-- G10 with a random slope on time: `44-g10-random-slope.R`
-  regenerates the block-S trials from their seeds and fits G10 with a
-  random intercept and with a random slope, recording whether a
-  failure came at the half-life selection or the final fit. Run as
-  simrun job 5 on the julia host (6 cores) at commit `2c9dadd` on
-  2026-11-09 (37 minutes), writing
-  `carryover-sensitivity/g10-random-slope/` (`all.rds`,
-  `summary.rds`, `guard.rds`). The random-intercept fit is the pairing
-  check against the stored block-S G10: it reproduced the stored
-  estimate within $10^{-6}$ in
-  `r if (has_rs) format(sum(rs_guard$gap < 1e-6), big.mark = ',')` of
-  `r if (has_rs) format(nrow(rs_guard), big.mark = ',')` replicates; the
+- G10 and G9 with a random slope on time: `44-g10-random-slope.R`
+  regenerates the block-S trials from their seeds and fits G10 (or,
+  with `--g9`, G9) with a random intercept and with a random slope,
+  recording whether a failure came at the half-life selection or the
+  final fit. Run as simrun jobs 5 (G10, commit `2c9dadd`, 37 minutes)
+  and 7 (G9, commit `781b7ef`, 40 minutes) on the julia host (6 cores)
+  on 2026-11-09, writing `carryover-sensitivity/g10-random-slope/` and
+  `g9-random-slope/` (`all.rds`, `summary.rds`, `guard.rds`). The
+  random-intercept fit is the pairing check against the stored
+  block-S fit of the same analysis: it reproduced the stored estimate
+  within $10^{-6}$ in
+  `r if (has_rs) format(sum(rs10$guard$gap < 1e-6), big.mark = ',')` of
+  `r if (has_rs) format(nrow(rs10$guard), big.mark = ',')` replicates
+  for G10 and
+  `r if (has_rs) format(sum(rs9$guard$gap < 1e-6), big.mark = ',')` of
+  `r if (has_rs) format(nrow(rs9$guard), big.mark = ',')` for G9. Each
   exception chose a different half-life.
 - Ladder tables and figures: `37-ladder-tables-figures.R --scope
   predictive` reads only stored data, in a few seconds, and writes the

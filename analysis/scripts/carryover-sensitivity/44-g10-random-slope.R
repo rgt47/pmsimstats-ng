@@ -119,16 +119,24 @@ cat(sprintf('%.1f min for %d jobs\n',
             as.numeric(Sys.time() - t0, units = 'mins'), nrow(jobs)))
 
 res <- bind_rows(lapply(list.files(ck_dir, full.names = TRUE), readRDS))
+if (!TIME) saveRDS(res, file.path(OUT_DIR, 'all.rds'))
 
-## Pairing guard against the stored G10 of the backfill.
+## Pairing guard against the stored G10 of the backfill. The backfill
+## itself matched its G9 reference in all but 11 of 55,000 replicates,
+## so isolated numerical misses are recorded, not fatal; a pairing
+## failure shows as a large share of misses.
 bf <- readRDS(file.path(DATA_DIR, 'g10-backfill/all.rds')) |>
   filter(source == 'rvS', method == 'E7null_cr2') |>
   select(cell_id, rep, est_ref = estimate)
 chk <- res |> filter(method == 'G10', converged) |>
-  inner_join(bf, by = c('cell_id', 'rep'))
-gap <- max(abs(chk$estimate - chk$est_ref), na.rm = TRUE)
-cat(sprintf('guard: %d paired fits, max |diff| %.2g\n', nrow(chk), gap))
-stopifnot(nrow(chk) > 0, gap < GUARD_TOL)
+  inner_join(bf, by = c('cell_id', 'rep')) |>
+  mutate(gap = abs(estimate - est_ref))
+n_miss <- sum(!(chk$gap < GUARD_TOL))
+cat(sprintf('guard: %d paired fits, %d beyond %.0e, max |diff| %.2g\n',
+            nrow(chk), n_miss, GUARD_TOL, max(chk$gap, na.rm = TRUE)))
+if (!TIME) saveRDS(chk |> select(cell_id, rep, gap),
+                   file.path(OUT_DIR, 'guard.rds'))
+stopifnot(nrow(chk) > 0, n_miss <= 0.01 * nrow(chk))
 
 summ <- res |>
   group_by(cell_id, c_bm, method) |>
@@ -139,7 +147,4 @@ summ <- res |>
             kappa = mean(std_error, na.rm = TRUE) / sd(estimate, na.rm = TRUE),
             .groups = 'drop')
 print(as.data.frame(summ))
-if (!TIME) {
-  saveRDS(res, file.path(OUT_DIR, 'all.rds'))
-  saveRDS(summ, file.path(OUT_DIR, 'summary.rds'))
-}
+if (!TIME) saveRDS(summ, file.path(OUT_DIR, 'summary.rds'))

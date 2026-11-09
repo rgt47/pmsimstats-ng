@@ -383,6 +383,7 @@ cell_stats_reps <- reps |>
   filter(!is.na(reject)) |>
   group_by(cell_key, analysis) |>
   summarise(n = n(), k = sum(reject), kappa = mean(std_error) / sd(estimate),
+            kappa_rms = sqrt(mean(std_error^2)) / sd(estimate),
             .groups = 'drop')
 
 f1a0b_sum <- NULL
@@ -422,6 +423,16 @@ kappa_fam_role <- cell_stats |>
   filter(!is.na(kappa)) |>
   group_by(family, role, analysis) |>
   summarise(kappa = mean(kappa), n_cells = n(), .groups = 'drop')
+## Sensitivity of kappa to the SE summary (paper 02 referee report
+## 2026-11-08, m13): the mean SE understates the typical SE when the SE
+## varies across replicates, so the root-mean-square SE is reported
+## beside it. The reported kappa stays the mean-SE version, which the
+## other drivers store.
+kappa_rms_fam <- cell_stats |>
+  filter(!is.na(kappa)) |>
+  group_by(family, role, analysis) |>
+  summarise(kappa = mean(kappa), kappa_rms = mean(kappa_rms),
+            n_cells = n(), .groups = 'drop')
 
 ## Isolation family: report the new analyses under family 1 ---------------
 
@@ -635,6 +646,11 @@ ladder_long <- bind_rows(long_cell, long_pooled, long_kappa, long_diff,
 
 readr::write_csv(ladder_long |> mutate(family = fam_out(family)),
                  file.path(out_data, 'ladder-long.csv'))
+readr::write_csv(kappa_rms_fam |>
+                   mutate(family = if_else(family == '1iso', '1', family)) |>
+                   distinct(family, role, analysis, .keep_all = TRUE) |>
+                   mutate(family = fam_out(family)),
+                 file.path(out_data, 'ladder-kappa-rms.csv'))
 
 ## Table A ----------------------------------------------------------------
 

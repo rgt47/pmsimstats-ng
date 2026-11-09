@@ -71,6 +71,7 @@ sgf  <- readRDS(here::here(
 bf_dir <- here::here('analysis/data/carryover-sensitivity/g10-backfill')
 bf_sum <- readRDS(file.path(bf_dir, 'summary.rds'))
 bf_all <- readRDS(file.path(bf_dir, 'all.rds'))
+bf_guard <- readRDS(file.path(bf_dir, 'guard.rds'))
 bf_rej <- function(src, m, ...) {
   d <- bf_sum |> filter(source == src, method == m, ...)
   stopifnot(nrow(d) == 1)
@@ -106,6 +107,25 @@ gf <- function(sub_, m, ...) {
   d$reject
 }
 
+## One column of the 2,000-replicate size diagnostic (A2-size cells)
+## for one method, and a formatted range (referee report 2026-11-08,
+## m14: inline instead of hard-coded).
+a2v <- function(m, col, n = c(35, 70)) {
+  x <- sgf[[col]][sgf$sub == 'A2-size' & sgf$method == m & sgf$N %in% n]
+  stopifnot(length(x) > 0)
+  x
+}
+rngf <- function(x, d = 3) sprintf(paste0('%.', d, 'f to %.', d, 'f'),
+                                   min(x), max(x))
+## G1 and G3 (model-based) in the rho = 0.9 cells of the serial-
+## correlation grid, at c_bm = cb.
+rho9 <- function(col, cb) {
+  x <- sgf[[col]][sgf$sub == 'B4-rho' & sgf$rho == 0.9 &
+                    sgf$c_bm == cb & sgf$method %in% c('E1', 'E2')]
+  stopifnot(length(x) == 4)
+  x
+}
+
 ## Method display labels shared by the tables.
 m_lab <- c(E0 = 'E0', E1 = 'G1', E3 = 'G2', E2 = 'G3', E7 = 'G4',
            E9 = 'G5', E1cr2 = 'G6', E3cr2 = 'G7', E2cr2 = 'G8',
@@ -120,6 +140,8 @@ fmt3 <- function(x) ifelse(is.na(x), '--', sprintf('%.3f', x))
 rr_dir <- here::here('analysis/data/carryover-sensitivity/referee-reanalysis')
 has_rr <- file.exists(file.path(rr_dir, 'm2-pooled-size.csv'))
 g9_pooled <- if (has_rr) read.csv(file.path(rr_dir, 'm2-pooled-size.csv')) else NULL
+## G9 null rejection by the half-life it selected (four A2 cells).
+g9h <- if (has_rr) g9_pooled[g9_pooled$item == 'G9 conditional on selected h', ] else NULL
 ## The four referee-variant runs (36-run-referee-variants.R, simrun
 ## jobs 34 to 37 on zeus, 2026-10-27), one directory per block.
 rv_dir <- here::here('analysis/data/carryover-sensitivity/referee-variants')
@@ -129,6 +151,11 @@ rv_read <- function(block, what) {
 }
 has_rv <- !is.null(rv_read('N', 'summary'))
 rv_lab <- c(E2cr2 = 'G8', E7null_cr2 = 'G10', E7cr2 = 'G9')
+## E3fix_cr2 is the G8 formula at a fixed analysis half-life (0.25 or
+## 1 week) instead of the true one (referee report 2026-11-08, M3).
+rv_name <- function(m, h) ifelse(m == 'E3fix_cr2',
+                                 sprintf('Fixed %g', h), rv_lab[m])
+rv_ord <- c('G8', 'G10', 'G9', 'Fixed 0.25', 'Fixed 1')
 ## Block N also holds null cells with a prognostic placebo pathway
 ## (c_pb = 0.3), which belong to the companion paper.
 rvN <- rv_read('N', 'summary')
@@ -211,6 +238,50 @@ lag_mean_g2 <- grid |>
          power) |>
   pivot_wider(names_from = spec, values_from = power) |>
   summarise(m = mean(E3 - E1)) |> pull(m)
+## Hybrid-only headline (referee report 2026-11-08, M7): G10 against
+## G6, the simplest correctly sized analysis that needs no half-life,
+## over the Hybrid alternative cells of families 1 to 4 (families 5
+## and S have no G6). Same trials, so the cell differences are paired.
+hy_cells <- lad_long |>
+  filter(level == 'cell', quantity == 'power', family %in% c('1', '2', '3', '4'),
+         analysis %in% c('G6', 'G10'),
+         family != '1' | sub(' .*', '', scenario) == 'Hybrid') |>
+  select(family, cell_group, analysis, value) |>
+  pivot_wider(names_from = analysis, values_from = value) |>
+  mutate(d = G10 - G6)
+stopifnot(!anyNA(hy_cells$d))
+hy_d_mean <- mean(hy_cells$d)
+hy_below <- sum(hy_cells$d < 0)
+hy_min <- min(hy_cells$d)
+hy_max <- max(hy_cells$d)
+## Size of G10 against the oracle in family S (independent seeds), with
+## the 90 percent interval of the equivalence test (M6).
+eqS <- lad_An |> filter(step_id == 'G8>G10', family == 'S')
+eqS_lo <- eqS$size_diff - qnorm(0.95) * eqS$size_se
+eqS_hi <- eqS$size_diff + qnorm(0.95) * eqS$size_se
+stopifnot(nrow(eqS) == 1, eqS_lo > -0.01, eqS_hi < 0.01)
+## OL+BDC CR2 check at 5,000 null datasets per cell, this paper's
+## parameter set (analysis/data/cr2-olbdc-check/; the -published/
+## directory beside it holds the same check under the starting values).
+olb <- read.csv(here::here('analysis/data/cr2-olbdc-check/summary.csv')) |>
+  filter(setting == 'p02', design == 'OLBDC', variant == 'g6')
+stopifnot(nrow(olb) == 2, setequal(olb$N, c(35, 70)))
+## kappa with the root-mean-square SE against the mean-SE kappa used
+## throughout, CR2 analyses, by family and role (37-ladder-tables-
+## figures.R, ladder-kappa-rms.csv; referee report 2026-11-08, m13).
+krms <- read.csv(file.path(lad_dir, 'ladder-kappa-rms.csv')) |>
+  filter(analysis %in% c('G6', 'G8', 'G9', 'G10'))
+krms_d <- krms$kappa_rms - krms$kappa
+## The text states that G9 stays the lowest of the four in every family
+## and role, and below one at the alternatives, under either summary.
+krms_g9 <- krms |>
+  group_by(family, role) |>
+  summarise(g9_low = all(kappa[analysis == 'G9'] <= kappa) &&
+              all(kappa_rms[analysis == 'G9'] <= kappa_rms),
+            .groups = 'drop')
+krms_g10_alt_rms <- krms$kappa_rms[krms$analysis == 'G10' & krms$role == 'alt']
+stopifnot(all(krms_d > 0), max(krms_d) < 0.04, all(krms_g9$g9_low),
+          all(krms$kappa_rms[krms$analysis == 'G9' & krms$role == 'alt'] < 1))
 ```
 
 # Problem and approach {-}
@@ -220,9 +291,11 @@ to validate predictive biomarkers. Drug carryover attenuates the
 biomarker-by-treatment interaction. The analyst must decide how to
 represent residual exposure, how to obtain a correctly sized test, and
 whether the half-life must be known. We ran an exploratory simulation
-study under the recommended DGP, in which the interaction is a
-correlation between the biomarker and the drug response and the
-biomarker is predictive only. An analysis ladder changes one thing per
+study under the structure of the recommended DGP, in which the
+interaction is a correlation between the biomarker and the drug
+response and the biomarker is predictive only. The parameter values
+are the simulation core's own set, not the companion paper's (Table
+\@ref(tab:tab-params)). An analysis ladder changes one thing per
 rung: the starting analysis E0 (rung 0), a binary indicator with
 residual AR(1) correlation G1 (rung 1), CR2 inference G6 (rung 2), an
 exposure-weighted predictor at the true half-life G8 (rung 3, an
@@ -257,6 +330,39 @@ knitr::kable(tab_fam, booktabs = TRUE, escape = FALSE, linesep = '',
   kableExtra::kable_styling(font_size = 9)
 ```
 
+Table \@ref(tab:tab-params) gives the parameter values.
+
+```{r tab-params, echo = FALSE}
+## simcore2026 set of simulation-core.R (the driver default under which
+## every tracked run of this paper was produced) against the starting
+## values of commit 58b32a9 used by the companion paper; both checked by
+## 42-check-param-sets.R (referee report 2026-11-08, M2).
+pt <- tibble::tribble(
+  ~Parameter, ~`This paper`, ~`Companion paper`,
+  'Natural history (TV): Gompertz max, rate, displacement',
+    '10.99, 0.42, 5', '6.51, 0.35, 5',
+  'Placebo response (PB): Gompertz max, rate, displacement',
+    '6.51, 0.35, 5', '6.51, 0.35, 5',
+  'Drug response (BR): Gompertz max, rate, displacement',
+    '10.99, 0.42, 5', '10.99, 0.42, 5',
+  'SD of TV, PB, BR', '6, 2, 8', '10, 10, 8',
+  'Biomarker: mean, SD', '0, 1', '124.3, 15.4',
+  'Baseline severity: mean, SD', '70, 10', '83.1, 18.5',
+  'Within-component serial correlation $\\rho$', '0.7', '0.7',
+  'Cross-component constant $c_1$', '0.2', '0.2',
+  'Biomarker-response correlation $c_{bm}$', '0 to 0.45 by scenario',
+    'by scenario')
+knitr::kable(pt, booktabs = TRUE, escape = FALSE, linesep = '',
+  caption = 'Parameter values of the data-generating process. This
+    paper uses the simulation core\'s own set (`simcore2026` in
+    `simulation-core.R`). The companion paper\'s recommended DGP uses
+    the response and baseline values of the published code with the
+    same correlation structure, which is described in the text. The biomarker enters the analysis centered and scaled, so its
+    location and scale do not affect the interaction test.') |>
+  kableExtra::kable_styling(font_size = 8) |>
+  kableExtra::column_spec(1, width = '7cm')
+```
+
 Table \@ref(tab:tab-spec-summary) defines the ten G-family
 specifications.
 
@@ -279,7 +385,7 @@ knitr::kable(tab_spec, booktabs = TRUE, escape = FALSE,
   caption = 'The ten G-family analysis specifications. G1 to G3 are
     the model-based representations of residual exposure. G4 replaces
     the assumed half-life by a data-driven choice. G6 to G9
-    are CR2 cluster-robust variants of G1, G2, G4 and G3. G10 is G9
+    are CR2 cluster-robust variants of G1, G2, G3 and G4. G10 is G9
     with the half-life chosen on the model without the interaction.
     G2 and G7 are the lag-adjusted pair, fitted and not discussed. G5
     collapses to one row per patient before fitting and has no CR2
@@ -367,8 +473,10 @@ cap_fig3 <- paste0(
   'coverage of the nominal 95 percent interval of G8 and G9 in ',
   'families 2 to 4, as the mean of the cell lower bounds and upper ',
   'bounds. The bars span the two bounds. The coverage bounds are ',
-  'not Monte Carlo intervals. Coverage was not computed for G10, ',
-  'and families 1, 5 and S have no coverage output.')
+  'not Monte Carlo intervals. The family-level coverage output covers ',
+  'G8 and G9 only; G10 coverage over the cells of the supplementary ',
+  'study is in Table \\@ref(tab:stage3-coverage). Families 1, 5 and ',
+  'S have no coverage output.')
 ```
 
 Figure \@ref(fig:fig-ladder-size) gives size by family.
@@ -462,6 +570,14 @@ Table \@ref(tab:stage3-null) gives Type I error at the six null cells
 of the corrected grid.
 
 ```{r stage3-null, echo = FALSE}
+## Null rejection by method at the six null cells, for the text.
+st3n <- function(m) s27$reject[s27$c_bm == 0 & s27$method %in% m]
+st3_g6max <- s27 |> filter(c_bm == 0, method == 'E1cr2') |>
+  slice_max(reject, n = 1)
+st3_g9g8 <- s27 |> filter(c_bm == 0, method %in% c('E2cr2', 'E7cr2')) |>
+  select(design, N, method, reject) |>
+  pivot_wider(names_from = method, values_from = reject) |>
+  with(max(abs(E7cr2 - E2cr2)))
 st3 <- s27 |>
   filter(c_bm == 0, method %in% c('E0', 'E1', 'E1cr2', 'E2', 'E2cr2',
                                   'E7', 'E7cr2')) |>
@@ -803,12 +919,35 @@ rl <- grid |> filter(dgp_arch == 'mvn', carryover_form == 'exponential',
             lo05 = min(loss05), hi05 = max(loss05), .groups = 'drop')
 rl_txt <- function(d, h) {
   r <- rl[rl$design == d, ]
-  if (h == 1) sprintf('%.0f%% to %.0f%%', 100 * r$lo1, 100 * r$hi1)
-  else sprintf('%.0f%% to %.0f%%', 100 * r$lo05, 100 * r$hi05)
+  ## Round first so that a small gain prints as 0, not -0.
+  p <- function(x) sprintf('%.0f%%', round(100 * x) + 0)
+  if (h == 1) paste(p(r$lo1), 'to', p(r$hi1))
+  else paste(p(r$lo05), 'to', p(r$hi05))
 }
 pr_hy_g8_g6 <- pair27('Hybrid', 'E2cr2', 'E1cr2', 1)
 pr_hy_g3_g1 <- pair27('Hybrid', 'E2', 'E1', 1)
+## Share of G6's loss from t1/2 = 0 to 1 week that G8 recovers, job 27,
+## c_bm = 0.45 (referee report 2026-11-08, M1).
+rec27 <- expand.grid(design = c('Hybrid', 'OLBDC'), nn = c(35, 70),
+                     stringsAsFactors = FALSE)
+rec27$loss <- mapply(function(d, n) c27(d, 'E1cr2', 0, nn = n)$reject -
+                       c27(d, 'E1cr2', 1, nn = n)$reject,
+                     rec27$design, rec27$nn)
+rec27$gain <- mapply(function(d, n) c27(d, 'E2cr2', 1, nn = n)$reject -
+                       c27(d, 'E1cr2', 1, nn = n)$reject,
+                     rec27$design, rec27$nn)
+rec27$share <- rec27$gain / rec27$loss
+stopifnot(all(rec27$share < 0.5))
+rec_txt <- function(d) {
+  r <- rec27[rec27$design == d, ]
+  sprintf('%.0f%% to %.0f%%', 100 * min(r$share), 100 * max(r$share))
+}
 ```
+
+Exposure weighting recovers only part of the loss. At a one-week
+half-life G8 recovers `r rec_txt('Hybrid')` of G6's loss under Hybrid
+and `r rec_txt('OLBDC')` under OL+BDC. G8 uses the true half-life and
+decay form, so the rest has to be met by the design.
 
 ## Rung 4: choosing the half-life {-}
 
@@ -851,32 +990,52 @@ if (has_rr) {
                               sub('h=', '', detail))),
               Method = method, `$n$` = n,
               Rate = sprintf('%.4f', reject), MCSE = sprintf('%.4f', mcse))
+  ## Discordant counts, parsed from the stored detail string.
+  disc <- g9_pooled$detail[g9_pooled$item == 'paired G9 vs G8']
+  disc_n <- function(k) regmatches(disc, regexpr(paste0(k, '=[0-9]+'),
+                                                  disc)) |> sub('.*=', '', x = _)
   knitr::kable(m2, booktabs = TRUE, escape = FALSE, linesep = '',
-    caption = 'Null rejection of G6, G8 and G9 pooled over
+    caption = paste0('Null rejection of G6, G8 and G9 pooled over
       the four 2{,}000-replicate Hybrid null cells of Table
       \\ref{tab:tab-type1-cr2}; the paired difference between G9
-      and G8 on the same trials (the discordant counts are 77
-      replicates rejected by G9 only and 30 by G8 only); and G9
+      and G8 on the same trials (the discordant counts are ',
+      disc_n('G9 only'), ' replicates rejected by G9 only and ',
+      disc_n('G8 only'), ' by G8 only); and G9
       conditional on the half-life it selected. From
-      `34-referee-reanalysis.R`.') |>
+      `34-referee-reanalysis.R`.')) |>
     kableExtra::kable_styling(font_size = 9)
 }
 ```
 
 ```{r stage3-selection, echo = FALSE}
 if (file.exists(file.path(rr_dir, 'm9-selection-frequencies.csv'))) {
+  ## The stored pooled rows also hold prognostic, mean-moderation,
+  ## heavy-missingness (job 31 dropout) and C1-ladder fits, so the pool
+  ## is rebuilt from the per-source rows (referee report 2026-11-08, M4).
+  m9_oos <- function(source, scenario) {
+    grepl('^prognostic-stress', source) | grepl('prog', scenario) |
+      grepl('meanmod', scenario) | scenario == 'C1-ladder' |
+      (source == 'gap-fill job 31' & scenario == 'A1-dropout')
+  }
   m9 <- read.csv(file.path(rr_dir, 'm9-selection-frequencies.csv')) |>
-    filter(level != 'by source x scenario', method == 'G9',
-           design == 'Hybrid', N %in% c(35, 70)) |>
-    arrange(true_t1half, N) |>
+    filter(level == 'by source x scenario', method == 'G9',
+           design == 'Hybrid', N %in% c(35, 70),
+           !m9_oos(source, scenario)) |>
+    group_by(true_t1half, N) |>
+    summarise(across(c(p_0.25, p_0.5, p_1, p_2), ~ sum(.x * n) / sum(n)),
+              n = sum(n), .groups = 'drop') |>
+    arrange(true_t1half, N)
+  m9_05 <- m9 |> filter(true_t1half == 0.5)
+  m9 <- m9 |>
     transmute(`True $t_{1/2}$` = true_t1half, `$N$` = N, `$n$` = n,
               `0.25` = sprintf('%.2f', p_0.25), `0.5` = sprintf('%.2f', p_0.5),
               `1` = sprintf('%.2f', p_1), `2` = sprintf('%.2f', p_2))
   knitr::kable(m9, booktabs = TRUE, escape = FALSE, linesep = '',
     caption = 'Share of replicates in which each candidate
       half-life (weeks) was selected by AIC, Hybrid design, pooled
-      over every stored cell at the given true half-life and $N$
-      (null and alternative cells together). From
+      over the stored predictive-only cells at the given true half-life
+      and $N$ (null and alternative cells together; prognostic,
+      mean-moderation and heavy-missingness cells excluded). From
       `34-referee-reanalysis.R`.') |>
     kableExtra::add_header_above(c(' ' = 3, 'Selected half-life' = 4)) |>
     kableExtra::kable_styling(font_size = 9)
@@ -907,13 +1066,14 @@ trials in the independent Hybrid run.
 ```{r stage3-variants-null, echo = FALSE}
 if (has_rv) {
   tN <- rvN |>
-    filter(method %in% names(rv_lab)) |>
-    mutate(Method = rv_lab[method],
+    filter(method %in% c(names(rv_lab), 'E3fix_cr2')) |>
+    mutate(Method = rv_name(method, h_fixed),
            Cell = sprintf('$t_{1/2} = %.1f$, $N = %d$', t1half, N)) |>
-    left_join(rvNp |> filter(is.na(h_fixed)) |>
-                transmute(cell_id, method, diff_vs_g8),
-              by = c('cell_id', 'method')) |>
-    arrange(t1half, N, match(Method, c('G8', 'G10', 'G9'))) |>
+    left_join(rvNp |> transmute(cell_id, method, h_fixed, diff_vs_g8),
+              by = c('cell_id', 'method', 'h_fixed')) |>
+    mutate(diff_vs_g8 = ifelse(Method == sprintf('Fixed %g', t1half),
+                               NA, diff_vs_g8)) |>
+    arrange(t1half, N, match(Method, rv_ord)) |>
     transmute(Cell, Method, Rejection = sprintf('%.4f', reject),
               `Paired diff. vs G8` = ifelse(is.na(diff_vs_g8), '--',
                                             sprintf('%+.4f', diff_vs_g8)),
@@ -921,11 +1081,14 @@ if (has_rv) {
   tN$Cell[duplicated(tN$Cell)] <- ''
   knitr::kable(tN, booktabs = TRUE, escape = FALSE, linesep = '',
     caption = 'Referee-variant runs: null rejection rate
-      ($c_{bm} = 0$) of G8 (the oracle at the true half-life), G10 and
-      G9 in four Hybrid null cells, 5{,}000 replicates each (MCSE
-      about 0.003), independent seeds per cell, with the paired
-      per-replicate difference against G8 (paired SE 0.0015 to 0.0021)
-      and the calibration ratio.') |>
+      ($c_{bm} = 0$) of G8 (the oracle at the true half-life), G10, G9
+      and the G8 formula at a fixed analysis half-life of 0.25 or 1 week
+      (Fixed 0.25, Fixed 1) in four Hybrid null cells, 5{,}000
+      replicates each (MCSE about 0.003), independent seeds per cell,
+      with the paired per-replicate difference against G8 (paired SE
+      0.0015 to 0.0028) and the calibration ratio. Where the fixed value
+      equals the true half-life the fixed analysis is G8, and the
+      difference is shown as --.') |>
     kableExtra::kable_styling(font_size = 8)
 }
 ```
@@ -933,19 +1096,20 @@ if (has_rv) {
 ```{r stage3-variants-alt, echo = FALSE}
 if (has_rv) {
   tA <- rvA |>
-    filter(method %in% names(rv_lab)) |>
-    mutate(Method = rv_lab[method]) |>
+    filter(method %in% c(names(rv_lab), 'E3fix_cr2')) |>
+    mutate(Method = rv_name(method, h_fixed)) |>
     select(t1half, N, c_bm, Method, reject) |>
     pivot_wider(names_from = Method, values_from = reject) |>
-    select(t1half, N, c_bm, G8, G10, G9) |>
+    select(t1half, N, c_bm, all_of(rv_ord)) |>
     arrange(t1half, c_bm, N) |>
     mutate(across(-c(t1half, N, c_bm), fmt3))
   knitr::kable(tA, booktabs = TRUE, escape = FALSE, linesep = '',
-    col.names = c('$t_{1/2}$', '$N$', '$c_{bm}$', 'G8', 'G10', 'G9'),
+    col.names = c('$t_{1/2}$', '$N$', '$c_{bm}$', rv_ord),
     caption = 'Referee-variant runs: power at eight Hybrid
       alternative cells, 1{,}000 replicates each (MCSE at most 0.016),
       independent seeds per cell, for the same analyses as the null
-      table. The true half-life is 0.5 or 2 weeks.') |>
+      table. The true half-life is 0.5 or 2 weeks, so neither fixed
+      value is the true one.') |>
     kableExtra::kable_styling(font_size = 9)
 }
 ```
@@ -961,6 +1125,35 @@ if (has_rv) {
   g8A <- rvA |> filter(method == 'E2cr2') |> arrange(t1half, c_bm, N)
   dA <- function(m) pA(m) - g8A$reject
   kA <- function(m) range(rvA$kappa[rvA$method == m])
+  ## Fixed analysis half-life against G10 at the alternatives, by true
+  ## half-life (M3).
+  fxA <- rvA |> filter(method %in% c('E3fix_cr2', 'E7null_cr2')) |>
+    mutate(Method = rv_name(method, h_fixed)) |>
+    select(t1half, N, c_bm, Method, reject) |>
+    pivot_wider(names_from = Method, values_from = reject) |>
+    mutate(d1 = `Fixed 1` - G10, d025 = `Fixed 0.25` - G10)
+  fx_rng <- function(v, h) {
+    x <- 100 * fxA[[v]][fxA$t1half == h]
+    sprintf('%+.1f to %+.1f', min(x), max(x))
+  }
+  fx_size <- rvN |> filter(method == 'E3fix_cr2') |> pull(reject) |> range()
+  ## Per-replicate agreement of the half-lives chosen by G9 and G10 on
+  ## the same trials, by source and null/alternative (M8 of the minor
+  ## comments, referee report 2026-11-08).
+  sel_agree <- bf_all |>
+    select(source, cell_id, rep, method, h, c_bm) |>
+    pivot_wider(names_from = method, values_from = h) |>
+    filter(!is.na(E7cr2), !is.na(E7null_cr2)) |>
+    group_by(source, null = c_bm == 0) |>
+    summarise(agree = mean(E7cr2 == E7null_cr2), .groups = 'drop')
+  ag_rng <- function(nl) {
+    x <- 100 * sel_agree$agree[sel_agree$null == nl]
+    sprintf('%.0f to %.0f percent', min(x), max(x))
+  }
+  ## The text calls Fixed 1 within about a point of G10 and Fixed 0.25
+  ## below it at a 2-week truth.
+  stopifnot(all(abs(fxA$d1) < 0.02), all(fxA$d025[fxA$t1half == 2] < 0),
+            all(fx_size > 0.04 & fx_size < 0.06))
 }
 ```
 
@@ -968,7 +1161,13 @@ G10 differs from G8 under the null by
 `r if (has_rv) sprintf('%+.4f', min(dN('E7null_cr2')))` to
 `r if (has_rv) sprintf('%+.4f', max(dN('E7null_cr2')))`; G9 exceeds
 G8 by `r if (has_rv) sprintf('%+.4f', min(dN('E7cr2')))` to
-`r if (has_rv) sprintf('%+.4f', max(dN('E7cr2')))`.
+`r if (has_rv) sprintf('%+.4f', max(dN('E7cr2')))`. The same runs
+fitted the G8 formula at a fixed analysis half-life. A fixed value of
+1 week differed from G10 by `r if (has_rv) fx_rng('d1', 0.5)` points at a
+true half-life of 0.5 week and `r if (has_rv) fx_rng('d1', 2)` at 2
+weeks. A fixed value of 0.25 week fell behind at 2 weeks. Selection
+protects against a fixed value far below the truth; it does not beat
+a reasonable one.
 
 ## Stress scenarios {-}
 
@@ -1186,7 +1385,7 @@ if (has_rv) {
 ## Calibration and coverage {-}
 
 Figure \@ref(fig:fig-ladder-calibration) gives the calibration ratio
-and Table \@ref(tab:stage3-coverage) the coverage of G8 and G9.
+and Table \@ref(tab:stage3-coverage) the coverage of G8, G10 and G9.
 
 ```{r fig-ladder-calibration, echo = FALSE, fig.cap = cap_fig3, out.width = '100%'}
 knitr::include_graphics('../../figures/02-ladder-fig3-calibration-predictive.png')
@@ -1203,28 +1402,45 @@ cvr <- function(a) lad_fam |> filter(analysis == a, quantity == 'coverage',
 ```{r stage3-coverage, echo = FALSE}
 if (file.exists(file.path(rr_dir, 'm3-coverage.csv'))) {
   ## The stored summary rows also pool the prognostic C1 cells, which
-  ## belong to the companion paper, so the summary is recomputed here.
+  ## belong to the companion paper, and the per-occasion dropout cells
+  ## of job 31 (A1-dropout without the -pt suffix), the heavy-missingness
+  ## case, so the summary is recomputed here.
   m3c <- read.csv(file.path(rr_dir, 'm3-coverage.csv')) |>
-    filter(level == 'cell', dgp_arch == 'mvn', sub != 'C1-ladder') |>
+    filter(level == 'cell', dgp_arch == 'mvn', sub != 'C1-ladder',
+           !(sub == 'A1-dropout' & !grepl('-pt$', cell_id))) |>
     group_by(method, N) |>
     summarise(cells = n(), lo = mean(coverage_lower),
               hi = mean(coverage_upper), mn = min(coverage_lower),
-              .groups = 'drop') |>
-    arrange(method, N)
+              .groups = 'drop')
+  ## G10 from the per-replicate refits of 41-run-g10-backfill.R, same
+  ## method, same cells (43-g10-coverage.R; referee report 2026-11-08,
+  ## M5).
+  m5c <- read.csv(file.path(rr_dir, 'm5-coverage-g10.csv')) |>
+    filter(level == 'cell', method == 'G10') |>
+    group_by(method, N) |>
+    summarise(cells = n(), lo = mean(coverage_lower),
+              hi = mean(coverage_upper), mn = min(coverage_lower),
+              .groups = 'drop')
+  stopifnot(identical(sort(unique(m5c$cells)), sort(unique(m3c$cells))))
+  m3c <- bind_rows(m3c, m5c) |>
+    arrange(match(method, c('G8', 'G10', 'G9')), N)
   m3c_g9 <- m3c |> filter(method == 'G9')
+  m3c_g10 <- m3c |> filter(method == 'G10')
   m3c <- m3c |>
     transmute(Method = method, `$N$` = N, Cells = cells,
               `Mean coverage (lower, upper)` = sprintf('%.3f, %.3f', lo, hi),
               `Minimum (lower)` = sprintf('%.3f', mn))
   knitr::kable(m3c, booktabs = TRUE, escape = FALSE, linesep = '',
-    caption = 'Coverage of the nominal 95 percent CR2 interval for G8
-      and G9 over the alternative cells of the supplementary study, on the
+    caption = 'Coverage of the nominal 95 percent CR2 interval for G8,
+      G10 and G9 over the predictive-only alternative cells of the
+      supplementary study without heavy missingness, on the
       calibrated scale ($\\theta = -c_{bm}\\sigma_{BR}$). The
       Satterthwaite degrees of freedom are not stored per replicate
       and were recovered from the stored $t$ and $p$ where $|t| \\ge
       0.5$; the remaining replicates are classified as covering, not
       covering, or ambiguous, which gives the lower and upper bounds.
-      From `34-referee-reanalysis.R`.') |>
+      G8 and G9 from `34-referee-reanalysis.R`, G10 from
+      `43-g10-coverage.R`.') |>
     kableExtra::kable_styling(font_size = 9)
 }
 ```
@@ -1240,7 +1456,6 @@ tex_cell <- function(x) {
   x <- gsub(' | ', ', ', x, fixed = TRUE)
   x <- gsub('t1/2=', '$t_{1/2}$ = ', x, fixed = TRUE)
   x <- gsub('cbm=', '$c_{bm}$ = ', x, fixed = TRUE)
-  x <- gsub('cpb=', '$c_{pb}$ = ', x, fixed = TRUE)
   x <- gsub('rho=', '$\\rho$ = ', x, fixed = TRUE)
   x <- gsub('N=', '$N$ = ', x, fixed = TRUE)
   x <- gsub('k=', '$k$ = ', x, fixed = TRUE)
@@ -1268,7 +1483,9 @@ knitr::kable(lad_B2, booktabs = TRUE, escape = FALSE, linesep = '',
   caption = 'Scoreboard of the analyses over the scenario families.
     Families in band counts the families whose pooled null rejection
     rate lies in 0.04 to 0.06, out of the families in which the
-    analysis was fitted. Smallest and largest size are cell-level
+    analysis was fitted; it is descriptive and does not separate the
+    analyses (Table \\ref{tab:tab-size-equiv} compares size with the
+    oracle directly). Smallest and largest size are cell-level
     null rejection rates. Power is the mean over families of the
     pooled power as a percent of G10 in the same family. The worst
     power loss is against G10 in points of power, by family and by
@@ -1289,19 +1506,83 @@ knitr::kable(lad_B2, booktabs = TRUE, escape = FALSE, linesep = '',
 
 ```{r which-numbers, echo = FALSE}
 bv <- function(a, col) lad_B[[col]][lad_B$analysis == a]
+## Equivalence of G10's size to the oracle G8 (referee report
+## 2026-11-08, M6): paired difference per family with a 90 percent
+## interval, which is the two one-sided tests at the 5 percent level.
+## The paired SE is the replicate-weighted mean of cell SEs, an upper
+## bound, so the interval is conservative. The margin of 0.01 was
+## chosen after the results were seen.
+eq_margin <- 0.01
+eq <- lad_An |>
+  filter(step_id %in% c('G8>G10', 'G10>G9')) |>
+  select(step_id, family, size_diff, size_se) |>
+  mutate(lo = size_diff - qnorm(0.95) * size_se,
+         hi = size_diff + qnorm(0.95) * size_se,
+         equiv = lo > -eq_margin & hi < eq_margin)
+eq10 <- eq |> filter(step_id == 'G8>G10')
+eq9 <- eq |> filter(step_id == 'G10>G9')
+stopifnot(nrow(eq10) == 6, eq10$equiv[eq10$family == 'S'])
+fam_ord <- c('S', '1', '2', '3', '4', '5')
+g8_low <- lad_fam |> filter(analysis == 'G8', quantity == 'size') |>
+  slice_min(value, n = 1)
+## The text says G10 and G9 are in band everywhere and G8 misses once.
+stopifnot(bv('G10', 'families_size_in_band') == 6,
+          bv('G9', 'families_size_in_band') == 6,
+          bv('G8', 'families_size_in_band') == 5)
+```
+
+The band counts do not separate the analyses. Table
+\@ref(tab:tab-size-equiv) compares the size of G10 with the oracle's
+directly.
+
+```{r tab-size-equiv, echo = FALSE}
+te <- eq10 |>
+  left_join(eq9 |> select(family, d9 = size_diff, se9 = size_se),
+            by = 'family') |>
+  arrange(match(family, fam_ord)) |>
+  mutate(size_diff = ifelse(abs(size_diff) < 1e-9, 0, size_diff)) |>
+  transmute(
+    Family = ifelse(family == '5', '5 (one cell)',
+                    ifelse(family == 'S', 'S (independent seeds)', family)),
+    `G10 $-$ G8` = sprintf('%+.4f', size_diff),
+    `Paired SE` = sprintf('%.4f', size_se),
+    `90\\% interval` = sprintf('%+.4f to %+.4f', lo, hi),
+    `Within $\\pm 0.01$` = ifelse(equiv, 'yes', 'no'),
+    `G9 $-$ G10` = sprintf('%+.4f (%.4f)', d9, se9))
+knitr::kable(te, booktabs = TRUE, escape = FALSE, linesep = '',
+  caption = 'Size of G10 against the oracle G8, by family: the paired
+    difference in null rejection rate on the same trials, its paired
+    standard error, and the 90 percent interval. An interval inside
+    $\\pm 0.01$ is equivalence by two one-sided tests at the 5 percent
+    level. The paired SE is the replicate-weighted mean of the cell
+    SEs, an upper bound, so the interval is conservative. The margin
+    was chosen after the results were seen. The last column gives the
+    paired difference of G9 from G10 with its SE. Family S has
+    independent seeds per cell; the cells of families 2 to 4 share
+    random-number streams.') |>
+  kableExtra::kable_styling(font_size = 8)
 ```
 
 # Recommendation {-}
 
-For a Hybrid trial with a predictive-only biomarker at $N \le 70$ we
-recommend G10: the exposure-weighted predictor with the half-life
-chosen by AIC on the model without the interaction, refitted by REML
-with the interaction and tested with CR2. Against the oracle at the
-true half-life it changes size by `r inc_rng('G8>G10', 'size_diff')`
-and power by `r inc_rng('G8>G10', 'power_diff')` across the families.
-Choosing the half-life with the interaction in the model (G9) adds
-`r inc_rng('G10>G9', 'size_diff')` of size and
-`r inc_rng('G10>G9', 'power_diff')` of power. The recommendation is
-conditional on the recommended DGP and the parameters simulated.
+For a Hybrid trial with a biomarker known to be predictive only, at
+$N \le 70$, use G10: the exposure-weighted predictor with the
+half-life chosen by AIC on the model without the interaction,
+refitted by REML with the interaction and tested with CR2. Its size is
+equivalent to the oracle's within $\pm 0.01$ in the run with
+independent seeds and in `r sum(eq10$equiv) - 1` of the other five
+families. In the Hybrid cells it gains
+`r sprintf('%.1f', 100 * hy_d_mean)` points of power over G6 on
+average, up to `r sprintf('%.1f', 100 * hy_max)` at long half-lives,
+and is behind by at most `r sprintf('%.1f', -100 * hy_min)` point in
+`r hy_below` cells. Choosing the half-life with the interaction in the
+model (G9) adds `r inc_rng('G10>G9', 'size_diff')` of size.
+
+Whether a biomarker is also prognostic is rarely known before a
+trial. For a biomarker of unknown role the default is the analysis of
+the companion paper [@pmsimstats_prognostic2026], which shares G10's
+exposure-weighted predictor, half-life rule and CR2 test. The
+recommendation is conditional on the correlation encoding, on one
+parameter set and on one design.
 
 # References {-}

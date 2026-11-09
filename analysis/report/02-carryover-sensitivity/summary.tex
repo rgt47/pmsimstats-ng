@@ -155,8 +155,8 @@
   \renewcommand{\headrulewidth}{0pt}%
   \renewcommand{\footrulewidth}{0.4pt}}
 \renewcommand{\stampsource}{\textasciitilde{}/\allowbreak{}prj/\allowbreak{}res/\allowbreak{}36-pmsimstats-ng/\allowbreak{}pmsimstats-ng/\allowbreak{}analysis/\allowbreak{}report/\allowbreak{}02-carryover-sensitivity/\allowbreak{}summary.Rmd}
-\renewcommand{\stamptime}{2026-11-07 16:33 PST}
-\renewcommand{\stampversion}{\detokenize{whitepapers-pre-series-158-geafe30762-wip}}
+\renewcommand{\stamptime}{2026-11-08 16:42 PST}
+\renewcommand{\stampversion}{\detokenize{whitepapers-pre-series-161-gd30613e63-wip}}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{booktabs}
@@ -192,7 +192,7 @@
 
 \title{Summary of paper 02: carryover representation and inference for biomarker-treatment interaction tests with a predictive biomarker in aggregated N-of-1 trials under the correlation encoding of the interaction}
 \author{pmsimstats team}
-\date{November 07, 2026}
+\date{November 08, 2026}
 
 \begin{document}
 \maketitle
@@ -206,9 +206,11 @@ to validate predictive biomarkers. Drug carryover attenuates the
 biomarker-by-treatment interaction. The analyst must decide how to
 represent residual exposure, how to obtain a correctly sized test, and
 whether the half-life must be known. We ran an exploratory simulation
-study under the recommended DGP, in which the interaction is a
-correlation between the biomarker and the drug response and the
-biomarker is predictive only. An analysis ladder changes one thing per
+study under the structure of the recommended DGP, in which the
+interaction is a correlation between the biomarker and the drug
+response and the biomarker is predictive only. The parameter values
+are the simulation core's own set, not the companion paper's (Table
+\ref{tab:tab-params}). An analysis ladder changes one thing per
 rung: the starting analysis E0 (rung 0), a binary indicator with
 residual AR(1) correlation G1 (rung 1), CR2 inference G6 (rung 2), an
 exposure-weighted predictor at the true half-life G8 (rung 3, an
@@ -247,6 +249,35 @@ S & Hybrid run with independent seeds: G8, G9 and G10, $N \in \{35, 70\}$ & 1,00
 \end{tabular}
 \end{table}
 
+Table \ref{tab:tab-params} gives the parameter values.
+
+\begin{table}
+\centering
+\caption{\label{tab:tab-params}Parameter values of the data-generating process. This
+    paper uses the simulation core's own set (`simcore2026` in
+    `simulation-core.R`). The companion paper's recommended DGP uses
+    the response and baseline values of the published code with the
+    same correlation structure, which is described in the text. The biomarker enters the analysis centered and scaled, so its
+    location and scale do not affect the interaction test.}
+\centering
+\fontsize{8}{10}\selectfont
+\begin{tabular}[t]{>{\raggedright\arraybackslash}p{7cm}ll}
+\toprule
+Parameter & This paper & Companion paper\\
+\midrule
+Natural history (TV): Gompertz max, rate, displacement & 10.99, 0.42, 5 & 6.51, 0.35, 5\\
+Placebo response (PB): Gompertz max, rate, displacement & 6.51, 0.35, 5 & 6.51, 0.35, 5\\
+Drug response (BR): Gompertz max, rate, displacement & 10.99, 0.42, 5 & 10.99, 0.42, 5\\
+SD of TV, PB, BR & 6, 2, 8 & 10, 10, 8\\
+Biomarker: mean, SD & 0, 1 & 124.3, 15.4\\
+Baseline severity: mean, SD & 70, 10 & 83.1, 18.5\\
+Within-component serial correlation $\rho$ & 0.7 & 0.7\\
+Cross-component constant $c_1$ & 0.2 & 0.2\\
+Biomarker-response correlation $c_{bm}$ & 0 to 0.45 by scenario & by scenario\\
+\bottomrule
+\end{tabular}
+\end{table}
+
 Table \ref{tab:tab-spec-summary} defines the ten G-family
 specifications.
 
@@ -255,7 +286,7 @@ specifications.
 \caption{\label{tab:tab-spec-summary}The ten G-family analysis specifications. G1 to G3 are
     the model-based representations of residual exposure. G4 replaces
     the assumed half-life by a data-driven choice. G6 to G9
-    are CR2 cluster-robust variants of G1, G2, G4 and G3. G10 is G9
+    are CR2 cluster-robust variants of G1, G2, G3 and G4. G10 is G9
     with the half-life chosen on the model without the interaction.
     G2 and G7 are the lag-adjusted pair, fitted and not discussed. G5
     collapses to one row per patient before fitting and has no CR2
@@ -579,6 +610,11 @@ $t_{1/2}$ & Analysis & Power & Type I & Empirical SD & Mean SE & $\kappa$ & Bias
 \includegraphics[width=1\linewidth]{../../figures/02-power-by-half-life} \caption{Power against carryover half-life by analysis and design (job 27: $N = 70$, $c_{bm} = 0.45$, exponential decay, 500 replicates). The analyses are G1 (binary indicator, model-based), G6 (binary indicator, CR2), G3 (exposure-weighted at the true half-life, model-based), G8 (the same with CR2), G4 (half-life chosen by AIC, model-based), G9 (the same with CR2) and E0, the starting analysis, in gray. Points at each half-life are offset horizontally for legibility. Bars are 2 $\times$ the Monte Carlo standard error.}\label{fig:fig-power-by-half-life}
 \end{figure}
 
+Exposure weighting recovers only part of the loss. At a one-week
+half-life G8 recovers 15\% to 44\% of G6's loss under Hybrid
+and 19\% to 25\% under OL+BDC. G8 uses the true half-life and
+decay form, so the rest has to be met by the design.
+
 \subsection*{Rung 4: choosing the half-life}\label{rung-4-choosing-the-half-life}
 \addcontentsline{toc}{subsection}{Rung 4: choosing the half-life}
 
@@ -640,8 +676,7 @@ selected half-lives.
 \caption{\label{tab:stage3-pooled}Null rejection of G6, G8 and G9 pooled over
       the four 2{,}000-replicate Hybrid null cells of Table
       \ref{tab:tab-type1-cr2}; the paired difference between G9
-      and G8 on the same trials (the discordant counts are 77
-      replicates rejected by G9 only and 30 by G8 only); and G9
+      and G8 on the same trials (the discordant counts are 77 replicates rejected by G9 only and 30 by G8 only); and G9
       conditional on the half-life it selected. From
       `34-referee-reanalysis.R`.}
 \centering
@@ -666,8 +701,9 @@ G9 given selected $\hat t^{a}_{1/2}$ = 2 & G9 & 1026 & 0.0585 & 0.0073\\
 \centering
 \caption{\label{tab:stage3-selection}Share of replicates in which each candidate
       half-life (weeks) was selected by AIC, Hybrid design, pooled
-      over every stored cell at the given true half-life and $N$
-      (null and alternative cells together). From
+      over the stored predictive-only cells at the given true half-life
+      and $N$ (null and alternative cells together; prognostic,
+      mean-moderation and heavy-missingness cells excluded). From
       `34-referee-reanalysis.R`.}
 \centering
 \fontsize{9}{11}\selectfont
@@ -681,8 +717,8 @@ True $t_{1/2}$ & $N$ & $n$ & 0.25 & 0.5 & 1 & 2\\
 0.0 & 70 & 500 & 0.99 & 0.01 & 0.00 & 0.00\\
 0.2 & 35 & 1000 & 0.95 & 0.05 & 0.00 & 0.00\\
 0.2 & 70 & 992 & 0.98 & 0.02 & 0.00 & 0.00\\
-0.5 & 35 & 34957 & 0.56 & 0.29 & 0.11 & 0.04\\
-0.5 & 70 & 47337 & 0.59 & 0.33 & 0.06 & 0.01\\
+0.5 & 35 & 15487 & 0.60 & 0.28 & 0.09 & 0.03\\
+0.5 & 70 & 17944 & 0.63 & 0.31 & 0.05 & 0.01\\
 1.0 & 35 & 3500 & 0.20 & 0.24 & 0.29 & 0.28\\
 1.0 & 70 & 3493 & 0.12 & 0.26 & 0.40 & 0.21\\
 2.0 & 35 & 1000 & 0.16 & 0.07 & 0.14 & 0.63\\
@@ -700,11 +736,14 @@ trials in the independent Hybrid run.
 \begin{table}
 \centering
 \caption{\label{tab:stage3-variants-null}Referee-variant runs: null rejection rate
-      ($c_{bm} = 0$) of G8 (the oracle at the true half-life), G10 and
-      G9 in four Hybrid null cells, 5{,}000 replicates each (MCSE
-      about 0.003), independent seeds per cell, with the paired
-      per-replicate difference against G8 (paired SE 0.0015 to 0.0021)
-      and the calibration ratio.}
+      ($c_{bm} = 0$) of G8 (the oracle at the true half-life), G10, G9
+      and the G8 formula at a fixed analysis half-life of 0.25 or 1 week
+      (Fixed 0.25, Fixed 1) in four Hybrid null cells, 5{,}000
+      replicates each (MCSE about 0.003), independent seeds per cell,
+      with the paired per-replicate difference against G8 (paired SE
+      0.0015 to 0.0028) and the calibration ratio. Where the fixed value
+      equals the true half-life the fixed analysis is G8, and the
+      difference is shown as --.}
 \centering
 \fontsize{8}{10}\selectfont
 \begin{tabular}[t]{lllll}
@@ -714,15 +753,23 @@ Cell & Method & Rejection & Paired diff. vs G8 & $\kappa$\\
 $t_{1/2} = 0.5$, $N = 35$ & G8 & 0.0482 & -- & 0.97\\
  & G10 & 0.0470 & -0.0012 & 0.97\\
  & G9 & 0.0522 & +0.0040 & 0.93\\
+ & Fixed 0.25 & 0.0460 & -0.0022 & 0.98\\
+ & Fixed 1 & 0.0462 & -0.0020 & 0.96\\
 $t_{1/2} = 0.5$, $N = 70$ & G8 & 0.0514 & -- & 0.99\\
  & G10 & 0.0510 & -0.0004 & 0.98\\
  & G9 & 0.0538 & +0.0024 & 0.97\\
+ & Fixed 0.25 & 0.0521 & +0.0008 & 0.98\\
+ & Fixed 1 & 0.0492 & -0.0022 & 0.99\\
 $t_{1/2} = 1.0$, $N = 35$ & G8 & 0.0508 & -- & 0.96\\
  & G10 & 0.0506 & -0.0002 & 0.94\\
  & G9 & 0.0596 & +0.0088 & 0.89\\
+ & Fixed 0.25 & 0.0504 & -0.0004 & 0.96\\
+ & Fixed 1 & 0.0508 & -- & 0.96\\
 $t_{1/2} = 1.0$, $N = 70$ & G8 & 0.0461 & -- & 1.00\\
  & G10 & 0.0447 & -0.0012 & 0.99\\
  & G9 & 0.0505 & +0.0044 & 0.95\\
+ & Fixed 0.25 & 0.0427 & -0.0036 & 1.00\\
+ & Fixed 1 & 0.0461 & -- & 1.00\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -732,21 +779,22 @@ $t_{1/2} = 1.0$, $N = 70$ & G8 & 0.0461 & -- & 1.00\\
 \caption{\label{tab:stage3-variants-alt}Referee-variant runs: power at eight Hybrid
       alternative cells, 1{,}000 replicates each (MCSE at most 0.016),
       independent seeds per cell, for the same analyses as the null
-      table. The true half-life is 0.5 or 2 weeks.}
+      table. The true half-life is 0.5 or 2 weeks, so neither fixed
+      value is the true one.}
 \centering
 \fontsize{9}{11}\selectfont
-\begin{tabular}[t]{rrrlll}
+\begin{tabular}[t]{rrrlllll}
 \toprule
-$t_{1/2}$ & $N$ & $c_{bm}$ & G8 & G10 & G9\\
+$t_{1/2}$ & $N$ & $c_{bm}$ & G8 & G10 & G9 & Fixed 0.25 & Fixed 1\\
 \midrule
-0.5 & 35 & 0.25 & 0.291 & 0.277 & 0.293\\
-0.5 & 70 & 0.25 & 0.538 & 0.526 & 0.538\\
-0.5 & 35 & 0.45 & 0.743 & 0.737 & 0.753\\
-0.5 & 70 & 0.45 & 0.966 & 0.960 & 0.964\\
-2.0 & 35 & 0.25 & 0.124 & 0.108 & 0.139\\
-2.0 & 70 & 0.25 & 0.248 & 0.239 & 0.271\\
-2.0 & 35 & 0.45 & 0.384 & 0.362 & 0.410\\
-2.0 & 70 & 0.45 & 0.679 & 0.661 & 0.690\\
+0.5 & 35 & 0.25 & 0.291 & 0.277 & 0.293 & 0.276 & 0.273\\
+0.5 & 70 & 0.25 & 0.538 & 0.526 & 0.538 & 0.517 & 0.517\\
+0.5 & 35 & 0.45 & 0.743 & 0.737 & 0.753 & 0.735 & 0.723\\
+0.5 & 70 & 0.45 & 0.966 & 0.960 & 0.964 & 0.958 & 0.959\\
+2.0 & 35 & 0.25 & 0.124 & 0.108 & 0.139 & 0.097 & 0.117\\
+2.0 & 70 & 0.25 & 0.248 & 0.239 & 0.271 & 0.187 & 0.256\\
+2.0 & 35 & 0.45 & 0.384 & 0.362 & 0.410 & 0.307 & 0.370\\
+2.0 & 70 & 0.45 & 0.679 & 0.661 & 0.690 & 0.515 & 0.667\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -755,7 +803,13 @@ G10 differs from G8 under the null by
 -0.0012 to
 -0.0002; G9 exceeds
 G8 by +0.0024 to
-+0.0088.
++0.0088. The same runs
+fitted the G8 formula at a fixed analysis half-life. A fixed value of
+1 week differed from G10 by -1.4 to -0.1 points at a
+true half-life of 0.5 week and +0.6 to +1.6 at 2
+weeks. A fixed value of 0.25 week fell behind at 2 weeks. Selection
+protects against a fixed value far below the truth; it does not beat
+a reasonable one.
 
 \subsection*{Stress scenarios}\label{stress-scenarios}
 \addcontentsline{toc}{subsection}{Stress scenarios}
@@ -969,32 +1023,36 @@ $c_{bm} = 0.45$ & G8 & 0.970 (0.005) & -3.63 & 0.98\\
 \addcontentsline{toc}{subsection}{Calibration and coverage}
 
 Figure \ref{fig:fig-ladder-calibration} gives the calibration ratio
-and Table \ref{tab:stage3-coverage} the coverage of G8 and G9.
+and Table \ref{tab:stage3-coverage} the coverage of G8, G10 and G9.
 
 \begin{figure}
-\includegraphics[width=1\linewidth]{../../figures/02-ladder-fig3-calibration-predictive} \caption{Calibration and coverage. Left: the calibration ratio, the mean model standard error divided by the empirical standard deviation of the estimates, averaged without weights over the cells of each scenario family, by analysis. A value of one is calibrated and a value above one is conservative. Right: the coverage of the nominal 95 percent interval of G8 and G9 in families 2 to 4, as the mean of the cell lower bounds and upper bounds. The bars span the two bounds. The coverage bounds are not Monte Carlo intervals. Coverage was not computed for G10, and families 1, 5 and S have no coverage output.}\label{fig:fig-ladder-calibration}
+\includegraphics[width=1\linewidth]{../../figures/02-ladder-fig3-calibration-predictive} \caption{Calibration and coverage. Left: the calibration ratio, the mean model standard error divided by the empirical standard deviation of the estimates, averaged without weights over the cells of each scenario family, by analysis. A value of one is calibrated and a value above one is conservative. Right: the coverage of the nominal 95 percent interval of G8 and G9 in families 2 to 4, as the mean of the cell lower bounds and upper bounds. The bars span the two bounds. The coverage bounds are not Monte Carlo intervals. The family-level coverage output covers G8 and G9 only; G10 coverage over the cells of the supplementary study is in Table \\ref{tab:stage3-coverage}. Families 1, 5 and S have no coverage output.}\label{fig:fig-ladder-calibration}
 \end{figure}
 
 \begin{table}
 \centering
-\caption{\label{tab:stage3-coverage}Coverage of the nominal 95 percent CR2 interval for G8
-      and G9 over the alternative cells of the supplementary study, on the
+\caption{\label{tab:stage3-coverage}Coverage of the nominal 95 percent CR2 interval for G8,
+      G10 and G9 over the predictive-only alternative cells of the
+      supplementary study without heavy missingness, on the
       calibrated scale ($\theta = -c_{bm}\sigma_{BR}$). The
       Satterthwaite degrees of freedom are not stored per replicate
       and were recovered from the stored $t$ and $p$ where $|t| \ge
       0.5$; the remaining replicates are classified as covering, not
       covering, or ambiguous, which gives the lower and upper bounds.
-      From `34-referee-reanalysis.R`.}
+      G8 and G9 from `34-referee-reanalysis.R`, G10 from
+      `43-g10-coverage.R`.}
 \centering
 \fontsize{9}{11}\selectfont
 \begin{tabular}[t]{lrrll}
 \toprule
 Method & $N$ & Cells & Mean coverage (lower, upper) & Minimum (lower)\\
 \midrule
-G8 & 35 & 21 & 0.950, 0.959 & 0.938\\
-G8 & 70 & 21 & 0.948, 0.953 & 0.915\\
-G9 & 35 & 21 & 0.938, 0.947 & 0.890\\
-G9 & 70 & 21 & 0.929, 0.936 & 0.873\\
+G8 & 35 & 15 & 0.951, 0.958 & 0.938\\
+G8 & 70 & 15 & 0.951, 0.954 & 0.915\\
+G10 & 35 & 15 & 0.946, 0.955 & 0.914\\
+G10 & 70 & 15 & 0.934, 0.941 & 0.869\\
+G9 & 35 & 15 & 0.939, 0.948 & 0.890\\
+G9 & 70 & 15 & 0.930, 0.937 & 0.873\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1010,7 +1068,9 @@ families.
 \caption{\label{tab:tab-ladder-score}Scoreboard of the analyses over the scenario families.
     Families in band counts the families whose pooled null rejection
     rate lies in 0.04 to 0.06, out of the families in which the
-    analysis was fitted. Smallest and largest size are cell-level
+    analysis was fitted; it is descriptive and does not separate the
+    analyses (Table \ref{tab:tab-size-equiv} compares size with the
+    oracle directly). Smallest and largest size are cell-level
     null rejection rates. Power is the mean over families of the
     pooled power as a percent of G10 in the same family. The worst
     power loss is against G10 in points of power, by family and by
@@ -1036,19 +1096,60 @@ G9 & 6 of 6 & 0.026 & 0.067 ($t_{1/2}$ = 4 wk, $N$ = 70, $c_{bm}$ = 0.00, $t_{1/
 \end{tabular}
 \end{table}
 
+The band counts do not separate the analyses. Table
+\ref{tab:tab-size-equiv} compares the size of G10 with the oracle's
+directly.
+
+\begin{table}
+\centering
+\caption{\label{tab:tab-size-equiv}Size of G10 against the oracle G8, by family: the paired
+    difference in null rejection rate on the same trials, its paired
+    standard error, and the 90 percent interval. An interval inside
+    $\pm 0.01$ is equivalence by two one-sided tests at the 5 percent
+    level. The paired SE is the replicate-weighted mean of the cell
+    SEs, an upper bound, so the interval is conservative. The margin
+    was chosen after the results were seen. The last column gives the
+    paired difference of G9 from G10 with its SE. Family S has
+    independent seeds per cell; the cells of families 2 to 4 share
+    random-number streams.}
+\centering
+\fontsize{8}{10}\selectfont
+\begin{tabular}[t]{llllll}
+\toprule
+Family & G10 $-$ G8 & Paired SE & 90\% interval & Within $\pm 0.01$ & G9 $-$ G10\\
+\midrule
+S (independent seeds) & -0.0008 & 0.0016 & -0.0033 to +0.0018 & yes & +0.0057 (0.0011)\\
+1 & +0.0023 & 0.0047 & -0.0054 to +0.0101 & no & +0.0040 (0.0030)\\
+2 & +0.0000 & 0.0043 & -0.0071 to +0.0071 & yes & +0.0070 (0.0029)\\
+3 & -0.0015 & 0.0041 & -0.0083 to +0.0053 & yes & +0.0045 (0.0029)\\
+4 & +0.0012 & 0.0046 & -0.0064 to +0.0088 & yes & +0.0045 (0.0028)\\
+5 (one cell) & +0.0000 & 0.0028 & -0.0047 to +0.0047 & yes & +0.0010 (0.0010)\\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \section*{Recommendation}\label{recommendation}
 \addcontentsline{toc}{section}{Recommendation}
 
-For a Hybrid trial with a predictive-only biomarker at \(N \le 70\) we
-recommend G10: the exposure-weighted predictor with the half-life
-chosen by AIC on the model without the interaction, refitted by REML
-with the interaction and tested with CR2. Against the oracle at the
-true half-life it changes size by -0.002 to +0.002
-and power by -0.013 to +0.003 across the families.
-Choosing the half-life with the interaction in the model (G9) adds
-+0.001 to +0.007 of size and
-+0.003 to +0.024 of power. The recommendation is
-conditional on the recommended DGP and the parameters simulated.
+For a Hybrid trial with a biomarker known to be predictive only, at
+\(N \le 70\), use G10: the exposure-weighted predictor with the
+half-life chosen by AIC on the model without the interaction,
+refitted by REML with the interaction and tested with CR2. Its size is
+equivalent to the oracle's within \(\pm 0.01\) in the run with
+independent seeds and in 4 of the other five
+families. In the Hybrid cells it gains
+1.3 points of power over G6 on
+average, up to 7.1 at long half-lives,
+and is behind by at most 1.0 point in
+6 cells. Choosing the half-life with the interaction in the
+model (G9) adds +0.001 to +0.007 of size.
+
+Whether a biomarker is also prognostic is rarely known before a
+trial. For a biomarker of unknown role the default is the analysis of
+the companion paper (1), which shares G10's
+exposure-weighted predictor, half-life rule and CR2 test. The
+recommendation is conditional on the correlation encoding, on one
+parameter set and on one design.
 
 \section*{References}\label{references}
 \addcontentsline{toc}{section}{References}

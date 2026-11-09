@@ -7,12 +7,15 @@
 ##          estimate must reproduce the stored G10 of
 ##          g10-backfill/all.rds (source rvS) to GUARD_TOL;
 ##   G10rs  the same selection and refit with random = ~1 + t | ptID.
+## With --g9 the same pair is fitted for G9 (E7cr2, half-life chosen
+## by AIC on the interaction model), guarded against the stored G9,
+## and written to g9-random-slope/.
 ## The output also records, for each fit, whether the ML selection
 ## step failed or only the REML refit did (m18).
 ##
 ## Usage (repository root):
 ##   Rscript analysis/scripts/carryover-sensitivity/44-g10-random-slope.R \
-##     [--max-reps R] [--cores K] [--time]
+##     [--max-reps R] [--cores K] [--time] [--g9]
 suppressMessages({
   library(dplyr); library(purrr); library(tibble); library(parallel)
 })
@@ -24,9 +27,13 @@ argv <- function(k, d) if (k %in% args) args[which(args == k) + 1] else d
 MAX_REPS <- as.integer(argv('--max-reps', 1000))
 CORES    <- as.integer(argv('--cores', Sys.getenv('SIM_CORES', '6')))
 TIME     <- '--time' %in% args
+G9       <- '--g9' %in% args
+SPEC     <- if (G9) 'G9' else 'G10'
+REF_SPEC <- if (G9) 'E7cr2' else 'E7null_cr2'
+SELECTION <- if (G9) Sx ~ bm + t + Dbc + bm:Dbc else NULL
 DATA_DIR <- 'analysis/data/carryover-sensitivity'
-OUT_DIR  <- file.path(DATA_DIR, if (TIME) 'g10-random-slope-time'
-                      else 'g10-random-slope')
+OUT_DIR  <- file.path(DATA_DIR, sprintf('%s-random-slope%s',
+                                         tolower(SPEC), if (TIME) '-time' else ''))
 ck_dir <- file.path(OUT_DIR, 'trials')
 dir.create(ck_dir, recursive = TRUE, showWarnings = FALSE)
 GUARD_TOL <- 1e-6
@@ -47,7 +54,7 @@ fit_g10 <- function(dat_long, random, label) {
            p_value = p, converged = stage == 'ok', stage = stage)
   }
   fit_ml <- function(dl) tryCatch(
-    nlme::lme(E7_NULL_SELECTION, random = random,
+    nlme::lme(if (G9) SELECTION else E7_NULL_SELECTION, random = random,
               correlation = nlme::corCAR1(form = ~t | ptID), data = dl,
               method = 'ML', control = nlme::lmeControl(
                 opt = 'optim', maxIter = 200, msMaxIter = 200)),
@@ -105,8 +112,8 @@ one_job <- function(i) {
   set.seed(label_seed(sprintf('%s-rep-%d', id, r)))
   dl <- tryCatch(one_trial(cells[[id]]), error = function(e) NULL)
   if (is.null(dl)) return(invisible(NULL))
-  res <- bind_rows(fit_g10(dl, ~1 | ptID, 'G10'),
-                   fit_g10(dl, ~1 + t | ptID, 'G10rs')) |>
+  res <- bind_rows(fit_g10(dl, ~1 | ptID, SPEC),
+                   fit_g10(dl, ~1 + t | ptID, paste0(SPEC, 'rs'))) |>
     mutate(cell_id = id, rep = r, c_bm = cells[[id]]$c_bm, .before = 1)
   saveRDS(res, f)
   invisible(NULL)
@@ -126,9 +133,9 @@ if (!TIME) saveRDS(res, file.path(OUT_DIR, 'all.rds'))
 ## so isolated numerical misses are recorded, not fatal; a pairing
 ## failure shows as a large share of misses.
 bf <- readRDS(file.path(DATA_DIR, 'g10-backfill/all.rds')) |>
-  filter(source == 'rvS', method == 'E7null_cr2') |>
+  filter(source == 'rvS', method == REF_SPEC) |>
   select(cell_id, rep, est_ref = estimate)
-chk <- res |> filter(method == 'G10', converged) |>
+chk <- res |> filter(method == SPEC, converged) |>
   inner_join(bf, by = c('cell_id', 'rep')) |>
   mutate(gap = abs(estimate - est_ref))
 n_miss <- sum(!(chk$gap < GUARD_TOL))

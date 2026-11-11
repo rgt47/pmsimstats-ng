@@ -20,7 +20,9 @@ d[, design := factor(design, levels = c('OL', 'OL+BDC', 'CO', 'N-of-1'))]
 d[, censoring := factor(censoring, levels = c('high dropout', 'more of biased',
                                               'more of flat', 'balanced', 'No censoring'))]
 ## Strip labels use paper 01's terms (referee comment, minor 8, 2026-11-03).
-v_lab <- c(published = 'Original rule (58b32a9)', graded = 'Decaying correlation')
+## 2026-11-11: labels follow paper 01's renamed rules.
+v_lab <- c(published = 'As published: constant rule (58b32a9)',
+           graded = 'Decaying rule')
 d[, version := factor(v_lab[version], levels = unname(v_lab))]
 d[, N := factor(paste0('N = ', N), levels = c('N = 35', 'N = 70'))]
 p <- ggplot(d, aes(factor(t_half), censoring, fill = power)) +

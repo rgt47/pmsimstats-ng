@@ -225,9 +225,10 @@ fwrite(traj, file.path(out_dir, 'hybrid-br-mean-trajectory.csv'))
 traj[, path_lab := sprintf('Path %d (%s)', path,
                             sapply(path, function(p) paste(ifelse(dgp$designs$Hybrid$paths[[p]] == 1, 'D', 'P'), collapse = '')))]
 traj[, th_lab := factor(sprintf('t1/2 = %g week', t_half), levels = c('t1/2 = 0.2 week', 't1/2 = 1 week'))]
-## Legend in paper 01's terms (referee comment, minor 8, 2026-11-03).
-cr_levels <- c('Decay from the last on-drug mean (extended DGP)',
-               'Original carryover rule (compounded decay)')
+## Legend in paper 01's terms (referee comment, minor 8, 2026-11-03;
+## renamed 2026-11-11 to the anchored and compounding rules).
+cr_levels <- c('Anchored rule: decay from the last on-drug mean (recommended DGP)',
+               'Compounding rule: decay from the previous visit')
 traj[, cr_lab := factor(ifelse(carryover == 'anchored', cr_levels[1], cr_levels[2]),
                         levels = cr_levels)]
 ink <- '#0b0b0b'; ink2 <- '#52514e'; surface <- '#fcfcfb'

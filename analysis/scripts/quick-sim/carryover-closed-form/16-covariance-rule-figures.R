@@ -13,6 +13,10 @@
 ## labels, and a two-rule version of Figure 2 is drawn from the stored
 ## gap curve (37-fig2-power-vs-gap-cov.png).
 ##
+## 2026-11-11: paper 01 reports E9 throughout and uses E9b only in one
+## Stage 2 paragraph, so the three figures show E9 alone. The E9b curves
+## remain in the stored data and in docs/37's four-rule figures.
+##
 ## Usage: Rscript analysis/scripts/quick-sim/carryover-closed-form/16-covariance-rule-figures.R
 suppressMessages({library(data.table); library(ggplot2)})
 dat_dir <- 'analysis/data/quick-sim/carryover-closed-form'
@@ -22,8 +26,10 @@ ALPHA <- 0.05
 mc_reps <- 5000L
 
 ink <- '#0b0b0b'; ink2 <- '#52514e'; surface <- '#fcfcfb'
-rule_lab <- c(step = 'Original rule (constant correlation after first exposure)',
-              graded = 'Decaying correlation')
+## 2026-11-11: labels follow the paper's renamed rules (constant rule,
+## decaying rule); the paper no longer calls the constant rule original.
+rule_lab <- c(step = 'Constant rule (correlation constant after first exposure)',
+              graded = 'Decaying rule (correlation decays with the drug effect)')
 pal <- setNames(c('#2a78d6', '#1baf7a'), rule_lab)
 lty <- setNames(c('solid', 'solid'), rule_lab)
 var_lev <- c(E9b = 'E9b: baseline counted off drug (as in the original analysis)',
@@ -48,7 +54,7 @@ theme_fig <- function() {
 
 x0 <- 0.018
 prep <- function(dt) {
-  dt <- dt[rule %in% names(rule_lab)]
+  dt <- dt[rule %in% names(rule_lab) & variant == 'E9']
   dt[, rule := factor(rule_lab[rule], levels = rule_lab)]
   dt[, variant := factor(var_lev[variant], levels = var_lev)]
   dt[, x := ifelse(t_half == 0, x0, t_half)]
@@ -72,10 +78,9 @@ g <- ggplot(fd[t_half > 0], aes(x, power, colour = rule, linetype = rule)) +
   scale_x_log10(breaks = c(x0, 0.03, 0.1, 1, 4),
                 labels = c('0', '0.03', '0.1', '1', '4')) +
   scale_y_continuous(limits = c(0, 1)) +
-  facet_wrap(~ variant, nrow = 1) +
   labs(x = 'Carryover half-life (weeks, log scale; 0 at the left edge)',
        y = 'Power (alpha = 0.05)',
-       title = 'Power of the paired-difference statistic against carryover half-life',
+       title = 'Power of the paired-difference statistic E9 against carryover half-life',
        subtitle = sprintf(
          'Hybrid design, N = 70, c_bm = %.2f, compound symmetry', CBM),
        caption = paste('Lines: closed form. Filled points: closed form at t1/2 = 0.',
@@ -84,14 +89,12 @@ g <- ggplot(fd[t_half > 0], aes(x, power, colour = rule, linetype = rule)) +
   theme_fig() +
   guides(colour = guide_legend(nrow = 1), linetype = guide_legend(nrow = 1))
 out1 <- file.path(fig_dir, '37-fig1-power-closed-form-cov.png')
-ggsave(out1, g, width = 10, height = 5.1, dpi = 200, bg = surface)
+ggsave(out1, g, width = 7.5, height = 5.1, dpi = 200, bg = surface)
 cat('Wrote', out1, '\n')
 
 hm <- fread(file.path(dat_dir, 'e9-power-heatmap.csv'))
-hd <- hm[rule %in% names(rule_lab)]
+hd <- hm[rule %in% names(rule_lab) & variant == 'E9']
 hd[, rule := factor(rule_lab[rule], levels = rule_lab)]
-hd[, variant := factor(variant, levels = c('E9b', 'E9'),
-                       labels = c('E9b (as in the original analysis)', 'E9'))]
 hd[, t_lab := factor(format(t_half, drop0trailing = TRUE),
                      levels = c('0', '0.1', '0.2', '0.5', '1', '2'))]
 hd[, c_lab := factor(format(c.bm, nsmall = 1),
@@ -107,10 +110,10 @@ g3 <- ggplot(hd, aes(t_lab, c_lab)) +
   scale_colour_identity() +
   scale_fill_gradient(low = '#eaf1fb', high = '#1a4f9c', limits = c(0, 1),
                       name = 'Power') +
-  facet_grid(variant ~ rule) +
+  facet_wrap(~ rule, nrow = 1) +
   labs(x = 'Carryover half-life (weeks)',
        y = expression(paste('Strength: ', c[bm])),
-       title = 'Power by interaction strength and carryover half-life, per rule',
+       title = 'Power of E9 by interaction strength and carryover half-life, per rule',
        subtitle = 'Hybrid design, N = 70, compound symmetry, closed form',
        caption = paste('Gray cells: c_bm at or above the compound-symmetry feasibility bound,',
                        'so the correlation matrix is not positive definite and no',
@@ -129,7 +132,7 @@ g3 <- ggplot(hd, aes(t_lab, c_lab)) +
         legend.title = element_text(colour = ink2),
         legend.text = element_text(colour = ink2))
 out3 <- file.path(fig_dir, '37-fig3-power-heatmap-cov.png')
-ggsave(out3, g3, width = 9, height = 5.6, dpi = 200, bg = surface)
+ggsave(out3, g3, width = 9, height = 3.9, dpi = 200, bg = surface)
 cat('Wrote', out3, '\n')
 
 ## Figure 2 (two rules): power against the on/off correlation difference.
@@ -159,34 +162,28 @@ rule_pts <- rbind(
 stopifnot(abs(rule_pts[rule == 'graded' & t_half == 1]$gap - 0.754) < 0.001)
 rule_pts[, power := approx(gap_curve[variant == 'E9']$gap,
                            gap_curve[variant == 'E9']$power, xout = gap)$y]
-rule_pts[, label := ifelse(rule == 'step', 'original rule, any t1/2 > 0',
+rule_pts[, label := ifelse(rule == 'step', 'constant rule, any t1/2 > 0',
                            ifelse(t_half == 0, 'no carryover',
                                   sprintf('decaying, t1/2 = %s', format(t_half))))]
-var_lab <- c(E9 = 'E9: post-baseline visits only',
-             E9b = 'E9b: baseline counted off drug (as in the original analysis)')
-var_pal <- setNames(c('#2a78d6', '#eb6834'), var_lab)
-gd <- copy(gap_curve)[, variant := factor(var_lab[variant], levels = var_lab)]
-g2 <- ggplot(gd, aes(gap, power, colour = variant)) +
+gd <- gap_curve[variant == 'E9']
+g2 <- ggplot(gd, aes(gap, power)) +
   geom_hline(yintercept = ALPHA, colour = ink2, linewidth = 0.4, linetype = 'dashed') +
-  geom_line(linewidth = 0.9) +
+  geom_line(linewidth = 0.9, colour = '#2a78d6') +
   geom_point(data = rule_pts, aes(gap, power), inherit.aes = FALSE, colour = ink,
              size = 2.2) +
   geom_text(data = rule_pts, aes(gap, power, label = label,
                                  hjust = ifelse(rule == 'step' | t_half == 2, -0.08, 1.08),
                                  vjust = ifelse(rule == 'step' | t_half == 2, 1.6, -0.6)),
             inherit.aes = FALSE, colour = ink2, size = 3) +
-  scale_colour_manual(values = var_pal) +
   scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25)) +
   scale_y_continuous(limits = c(0, 1)) +
   labs(x = 'On/off correlation difference: on-drug minus mean off-drug correlation profile',
-       y = 'Power (alpha = 0.05)',
+       y = 'Power of E9 (alpha = 0.05)',
        title = 'Power depends on carryover only through the on/off correlation difference',
        subtitle = sprintf('Hybrid design, N = 70, c_bm = %.2f, compound symmetry', CBM),
-       caption = paste('Lines: closed form. Points: where the two correlation rules sit (E9).',
-                       'Difference on the post-baseline visits; under E9b the baseline keeps',
-                       'zero correlation.', sep = '\n')) +
-  theme_fig() +
-  guides(colour = guide_legend(nrow = 2))
+       caption = paste('Line: closed form. Points: where the two correlation rules sit.',
+                       'Difference on the post-baseline visits.', sep = '\n')) +
+  theme_fig()
 out2 <- file.path(fig_dir, '37-fig2-power-vs-gap-cov.png')
 ggsave(out2, g2, width = 8, height = 5.6, dpi = 200, bg = surface)
 cat('Wrote', out2, '\n')

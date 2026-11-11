@@ -113,3 +113,28 @@ spec_linetypes <- c('Unadjusted'        = 'dotted',
 spec_shapes <- c('Unadjusted'        = 16,
                  'Lag-adjusted'      = 4,
                  'Exposure-weighted' = 17)
+
+## Paper 02 short list (author decision 2026-11-11; plan in
+## analysis/report/02-carryover-sensitivity/revisions/
+## short-list-refactor-plan-2026-11-11.md). Paper 02 shows only the
+## five rungs of its analysis ladder, labeled by rung number. Keys
+## cover both the stored method codes and the G display codes, since
+## some stored outputs (the ladder CSVs) already carry G codes. The
+## G vectors above are unchanged because papers 01 and 15 use them.
+a_order <- c('A0', 'A1', 'A2', 'A3', 'A4')
+
+a_code <- c(E0 = 'A0', E1 = 'A1', E1cr2 = 'A2', E2cr2 = 'A3',
+            E7null_cr2 = 'A4',
+            G1 = 'A1', G6 = 'A2', G8 = 'A3', G10 = 'A4')
+
+a_labels <- c(A0 = 'A0: starting analysis',
+              A1 = 'A1: binary indicator',
+              A2 = 'A2: binary indicator + CR2',
+              A3 = 'A3: exposure-weighted, true t1/2 + CR2',
+              A4 = 'A4: exposure-weighted, AIC t1/2 + CR2')
+
+## Map stored or G codes to A codes; codes outside the short list
+## become NA so callers can filter them out.
+to_a <- function(x) unname(a_code[x])
+
+a_factor <- function(x) factor(to_a(x), levels = a_order)

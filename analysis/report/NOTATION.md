@@ -167,7 +167,7 @@ $e^{-(\lambda_w t)^k}$; power $\max(0, (1 - t/(3t_{1/2}))^p)$.
 | $\tau^2$ | between-participant variance of the drug effect: treatment heterogeneity (Senn); in the paper 04 protocol the variance of the participant deviation $v_i$ of the drug-response ceiling (2026-10-09) | points$^2$ | `tau_squared`, `tau` | paper 04, its protocol, docs/58, CM (main-effect track) |
 | $\theta$, $\hat\theta$ | a generic interaction coefficient; used only where the argument is deliberately not N-of-1 specific | points per biomarker unit | | paper 10, CM |
 | $\theta_{\text{true}}$ | calibrated true value, $-c_{bm}\,\sigma_{BR}$ | points per biomarker unit | `true_value` | paper 10 |
-| $\kappa$ | ratio of mean model-based standard error to empirical standard deviation; $\kappa > 1$ means a conservative test | none | | papers 08, 10 |
+| $\kappa$ | ratio of mean reported standard error (working-covariance or cluster-robust) to empirical standard deviation; $\kappa > 1$ means a conservative test | none | | papers 08, 10 |
 | $\delta$ | standardized bias of the test statistic | none | | paper 10 |
 | $\nu$ | denominator degrees of freedom | none | | all |
 | $\alpha$ | nominal significance level; 0.05 throughout | none | | all |
@@ -282,7 +282,7 @@ implemented.
 |---|---|---|
 | `bare-Dbc` | `Dbc` as a symbol outside a code span | 1 |
 | `bare-Sx` | `Sx` as a symbol outside a code span | 3 |
-| `legacy-spec-label` | `A1`, `A2`, `A3` | Part 3, specifications |
+| `legacy-spec-label` | `A1`, `A2`, `A3` (not in paper 02, which uses A0-A4) | Part 3, specifications |
 | `N-per-path` | a value of $N$ directly qualified as per-path | 4 |
 
 `N-per-path` fires on `$N = 35$ per randomization path` but not on
@@ -622,6 +622,16 @@ them. These were labeled `A1`/`A2`/`A3` until 2026-07-31; the stored data
 and the drivers were migrated to E1/E2/E3, so the labels now agree
 everywhere and nothing is mapped at display time.
 
+**Paper 02 exception (2026-11-11).** Paper 02 displays its five
+ladder analyses as A0 to A4, numbered by rung: A0 = E0, A1 = G1
+(`E1`), A2 = G6 (`E1cr2`), A3 = G8 (`E2cr2`), A4 = G10
+(`E7null_cr2`). The mapping is `to_a()` in
+`analysis/scripts/carryover-sensitivity/spec-labels.R`. These display
+labels are unrelated to the legacy stored `A1`/`A2`/`A3` codes of
+output archived before 2026-07-31; paper 02's Reproducibility section
+says so. `notation-lint.pl` exempts paper 02's sources from
+`legacy-spec-label`; the rule still applies to every other document.
+
 **Why not A/B/C and M1/M2/M3.** The original scheme used A/B/C for
 architectures and `A1`/`A2`/`A3` for specifications, colliding on the letter
 A within a single manuscript. Relabeling the specifications M1/M2/M3
@@ -685,6 +695,11 @@ requires a dichotomized biomarker.
 **Anti-conservative.** Realized Type I error above nominal.
 **Working covariance.** The assumed residual covariance of the LME;
 reserve **working correlation structure** for the GEE object.
+**Working-covariance standard error.** The standard error the LME
+reports under its working covariance; contrast with the
+**cluster-robust standard error** (CR2). Do not call it
+"model-based": $\kappa$ uses the reported standard error of either
+kind (2026-11-11).
 
 ## Estimands and reporting
 

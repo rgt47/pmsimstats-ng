@@ -56,17 +56,23 @@ message('Isolation data present: ', iso_present)
 
 ## Analyses ---------------------------------------------------------
 
+## Paper 02 short list (2026-11-11): in the predictive scope the
+## figures show only the five rungs, labeled A0 to A4 (to_a()). The CSV
+## files keep every analysis under its G code.
+source(here::here('analysis/scripts/carryover-sensitivity/spec-labels.R'))
+short_list <- c('E0', 'G1', 'G6', 'G8', 'G10')
+
 analysis_meta <- tibble::tribble(
   ~analysis, ~label, ~rung_type, ~inference,
-  'E0', 'E0', 'original', 'model-based',
-  'E0n', 'E0n', 'original', 'model-based',
-  'E0nc', 'E0nc', 'original', 'model-based',
-  'E1nc', 'E1nc', 'original', 'model-based',
-  'G1', 'G1', 'binary', 'model-based',
+  'E0', 'E0', 'original', 'working-covariance',
+  'E0n', 'E0n', 'original', 'working-covariance',
+  'E0nc', 'E0nc', 'original', 'working-covariance',
+  'E1nc', 'E1nc', 'original', 'working-covariance',
+  'G1', 'G1', 'binary', 'working-covariance',
   'G6', 'G6', 'binary', 'CR2',
-  'G3', 'G3', 'exposure-weighted', 'model-based',
+  'G3', 'G3', 'exposure-weighted', 'working-covariance',
   'G8', 'G8', 'exposure-weighted', 'CR2',
-  'G4', 'G4', 'selected', 'model-based',
+  'G4', 'G4', 'selected', 'working-covariance',
   'G9', 'G9', 'selected', 'CR2',
   'G9-null', 'G9-null', 'alternative', 'CR2',
   'G8-0.25', 'G8 at 0.25 wk', 'alternative', 'CR2',
@@ -151,6 +157,9 @@ if (pred) {
   fam_levels <- setdiff(fam_levels, c('5', '6'))
   fam_labels <- fam_labels[fam_levels]
   fam_labels['7'] <- '5 Patient slope'
+  ## Paper 02 wording (2026-11-11): base grid; independent-seed run.
+  fam_labels['1'] <- '1 Base grid'
+  fam_labels['S'] <- 'S Independent-seed Hybrid'
 }
 fam_out <- function(f) {
   f <- as.character(f)
@@ -489,7 +498,7 @@ steps <- tibble::tribble(
   'E0>G1', 'E0', 'G1', 'core',
   'Software and df method, residual correlation, expectancy term and patient dropping change together (three respects at once)',
   'G1>G6', 'G1', 'G6', 'core',
-  'CR2 cluster-robust standard errors with Satterthwaite df replace the model-based standard error',
+  'CR2 cluster-robust standard errors with Satterthwaite df replace the working-covariance standard error',
   'G6>G8', 'G6', 'G8', 'core',
   'Binary drug indicator replaced by the exposure-weighted predictor at the true half-life',
   'G8>G9', 'G8', 'G9', 'core',
@@ -501,11 +510,11 @@ steps <- tibble::tribble(
   'G1>G3', 'G1', 'G3', 'optional',
   'Model-based: binary indicator replaced by the exposure-weighted predictor',
   'G3>G8', 'G3', 'G8', 'optional',
-  'Exposure-weighted predictor: model-based replaced by CR2 inference',
+  'Exposure-weighted predictor: working-covariance replaced by CR2 inference',
   'G3>G4', 'G3', 'G4', 'optional',
   'Model-based: true half-life replaced by the AIC-selected half-life',
   'G4>G9', 'G4', 'G9', 'optional',
-  'AIC-selected half-life: model-based replaced by CR2 inference',
+  'AIC-selected half-life: working-covariance replaced by CR2 inference',
   'G8>G8-0.25', 'G8', 'G8-0.25', 'side',
   'True half-life replaced by a fixed analysis half-life of 0.25 week',
   'G8>G8-1', 'G8', 'G8-1', 'side',
@@ -516,7 +525,7 @@ if (pred) {
     'E0>G1', 'E0', 'G1', 'core',
     'Software and df method, residual correlation, expectancy term and patient dropping change together (three respects at once)',
     'G1>G6', 'G1', 'G6', 'core',
-    'CR2 cluster-robust standard errors with Satterthwaite df replace the model-based standard error',
+    'CR2 cluster-robust standard errors with Satterthwaite df replace the working-covariance standard error',
     'G6>G8', 'G6', 'G8', 'core',
     'Binary drug indicator replaced by the exposure-weighted predictor at the true half-life',
     'G8>G10', 'G8', 'G10', 'core',
@@ -526,11 +535,11 @@ if (pred) {
     'G1>G3', 'G1', 'G3', 'optional',
     'Model-based: binary indicator replaced by the exposure-weighted predictor',
     'G3>G8', 'G3', 'G8', 'optional',
-    'Exposure-weighted predictor: model-based replaced by CR2 inference',
+    'Exposure-weighted predictor: working-covariance replaced by CR2 inference',
     'G3>G4', 'G3', 'G4', 'optional',
     'Model-based: true half-life replaced by the AIC-selected half-life (selection on the model with the interaction)',
     'G4>G9', 'G4', 'G9', 'optional',
-    'AIC-selected half-life: model-based replaced by CR2 inference')
+    'AIC-selected half-life: working-covariance replaced by CR2 inference')
 }
 
 iso_steps <- tibble::tribble(
@@ -579,6 +588,19 @@ step_results <- step_results |>
 cov_raw <- read.csv(file.path(data_dir, 'referee-reanalysis/m3-coverage.csv'),
                     stringsAsFactors = FALSE) |>
   filter(level == 'cell')
+## The predictive scope shows A3 (G8) and A4 (G10); G10 coverage comes
+## from the backfill refits (43-g10-coverage.R), same cells and method.
+if (pred) {
+  cov_raw <- bind_rows(
+    cov_raw |> filter(method == 'G8'),
+    read.csv(file.path(data_dir, 'referee-reanalysis/m5-coverage-g10.csv'),
+             stringsAsFactors = FALSE) |>
+      filter(level == 'cell', method == 'G10') |>
+      ## No dropout_per column in this file; the patient-level dropout
+      ## cells carry a -pt suffix.
+      mutate(dropout_per = if_else(grepl('-pt$', cell_id), 'patient',
+                                   NA_character_)))
+}
 coverage_fam <- cov_raw |>
   mutate(family = case_when(
     sub == 'A1-dropout' & dropout_per == 'patient' ~ '4',
@@ -588,7 +610,7 @@ coverage_fam <- cov_raw |>
     .default = NA_character_),
     analysis = method) |>
   filter(!is.na(family), family %in% fam_levels,
-         analysis %in% c('G8', 'G9')) |>
+         analysis %in% c('G8', if (pred) 'G10' else 'G9')) |>
   group_by(family, analysis) |>
   summarise(lower = mean(coverage_lower), upper = mean(coverage_upper),
             n_cells = n(), .groups = 'drop') |>
@@ -816,7 +838,7 @@ table_c <- tibble::tribble(
   'Binary drug indicator; independent residuals given the random intercept; patients never on drug dropped',
   'G1', '1',
   'Sx ~ bm + t + Db + bm:Db; random intercept, corCAR1 residuals',
-  'nlme model-based standard error',
+  'nlme working-covariance standard error',
   'Binary drug indicator; AR(1) residual correlation at the stated working structure',
   'G6', '2',
   'Sx ~ bm + t + Db + bm:Db; random intercept, corCAR1 residuals',
@@ -824,7 +846,7 @@ table_c <- tibble::tribble(
   'Binary drug indicator; working covariance may be wrong',
   'G3', 'optional (between 2 and 3)',
   'Sx ~ bm + t + Dbc + bm:Dbc; random intercept, corCAR1 residuals',
-  'nlme model-based standard error',
+  'nlme working-covariance standard error',
   'Exponential carryover at the true half-life; working covariance correct',
   'G8', '3',
   'Sx ~ bm + t + Dbc + bm:Dbc; random intercept, corCAR1 residuals',
@@ -832,7 +854,7 @@ table_c <- tibble::tribble(
   'Exponential carryover at the true half-life',
   'G4', 'optional (between 3 and 4)',
   'G3 formula with the half-life chosen by AIC over {0.25, 0.5, 1, 2} weeks',
-  'nlme model-based standard error, selection ignored',
+  'nlme working-covariance standard error, selection ignored',
   'Exponential carryover; true half-life near the candidate grid',
   'G9', '4',
   'G4 formula; half-life chosen by AIC over {0.25, 0.5, 1, 2} weeks',
@@ -900,15 +922,19 @@ readr::write_csv(table_c, file.path(out_data, 'ladder-table-C.csv'))
 
 ## Figures ----------------------------------------------------------------
 
-core_x <- c('E0', if (iso_present) c('E0n', 'E0nc', 'E1nc'),
-            'G1', 'G6', 'G8', ref_a)
-side_x <- if (pred) 'G9' else c('G9-null', 'G8-0.25', 'G8-1', 'F1', 'F1A0B')
+core_x <- if (pred) short_list else
+  c('E0', if (iso_present) c('E0n', 'E0nc', 'E1nc'), 'G1', 'G6', 'G8', ref_a)
+side_x <- if (pred) character(0) else
+  c('G9-null', 'G8-0.25', 'G8-1', 'F1', 'F1A0B')
 x_pos <- c(set_names(seq_along(core_x), core_x),
            set_names(length(core_x) + 1.8 + seq_along(side_x) - 1, side_x))
 x_labs <- analysis_meta |>
   filter(analysis %in% names(x_pos)) |>
   mutate(label = c('G8-0.25' = 'G8 0.25 wk', 'G8-1' = 'G8 1 wk')[analysis] |>
            coalesce(label))
+if (pred) x_labs <- x_labs |> mutate(label = to_a(analysis))
+analysis_disp <- if (pred) set_names(to_a(short_list), short_list) else
+  set_names(analysis_meta$label, analysis_meta$analysis)
 
 fig_theme <- theme_classic(base_size = 7.5) +
   theme(
@@ -935,19 +961,27 @@ prep <- function(d) {
            analysis = factor(analysis, levels = names(analysis_cols)))
 }
 
-point_layers <- function(lo_mult = 2) {
+point_layers <- function(lo_mult = 2, breaks = waiver(),
+                         labels = waiver()) {
   list(
     geom_errorbar(aes(ymin = pmax(value - lo_mult * mcse, -Inf),
                       ymax = value + lo_mult * mcse, colour = analysis),
                   width = 0, linewidth = 0.4),
     geom_point(aes(colour = analysis, shape = analysis), size = 1.7,
                stroke = 0.6),
-    scale_colour_manual(values = analysis_cols),
-    scale_shape_manual(values = analysis_shapes))
+    scale_colour_manual(values = analysis_cols, breaks = breaks,
+                        labels = labels, name = NULL, drop = FALSE,
+                        limits = if (is.character(breaks)) breaks else NULL),
+    scale_shape_manual(values = analysis_shapes, breaks = breaks,
+                       labels = labels, name = NULL, drop = FALSE,
+                       limits = if (is.character(breaks)) breaks else NULL))
 }
 
-gap_line <- function(x) geom_vline(xintercept = x, linewidth = 0.25,
-                                   colour = 'grey70', linetype = 'dotted')
+gap_line <- function(x) {
+  if (length(side_x) == 0) return(NULL)
+  geom_vline(xintercept = x, linewidth = 0.25, colour = 'grey70',
+             linetype = 'dotted')
+}
 gap_x <- length(core_x) + 0.9
 
 fig1_data <- pooled |>
@@ -973,17 +1007,22 @@ for (ext in c('pdf', 'png')) {
          width = 6.5, height = 4.6, dpi = 300)
 }
 
+## Paper 02 (2026-11-11): A0 is liberal, so its power is not comparable
+## and it is left out of the power figure; its size is in figure 1.
+no_power <- if (pred) 'E0' else character(0)
+x_scale2 <- scale_x_continuous(
+  breaks = unname(x_pos[setdiff(x_labs$analysis, no_power)]),
+  labels = x_labs$label[!x_labs$analysis %in% no_power],
+  expand = expansion(add = 0.5))
+
 fig2_power <- pooled |>
-  filter(role == 'alt') |>
+  filter(role == 'alt', !analysis %in% no_power) |>
   mutate(panel = 'Power at reference alternative') |>
   prep()
 
 step_prev <- if (pred) {
-  tibble(
-    analysis = c(if (iso_present) c('E0n', 'E0nc', 'E1nc'), 'G1', 'G6', 'G8',
-                 'G10', 'G9'),
-    from = c(if (iso_present) c('E0', 'E0n', 'E0n'),
-             if (iso_present) 'E1nc' else 'E0', 'G1', 'G6', 'G8', 'G10'))
+  tibble(analysis = c('G6', 'G8', 'G10'),
+         from = c('G1', 'G6', 'G8'))
 } else {
   tibble(
     analysis = c(if (iso_present) c('E0n', 'E0nc', 'E1nc'), 'G1', 'G6', 'G8',
@@ -1012,6 +1051,23 @@ fig2_data <- bind_rows(fig2_power, fig2_diff_src) |>
   mutate(panel = factor(panel, levels = c('Power at reference alternative',
                                           'Change from previous rung')))
 
+## One y-range per row (power, change) across every family, so that
+## heights are comparable between panels and between the two blocks.
+fig2_lims <- fig2_data |>
+  group_by(panel) |>
+  summarise(lo = min(value - 2 * mcse, na.rm = TRUE),
+            hi = max(value + 2 * mcse, na.rm = TRUE), .groups = 'drop') |>
+  mutate(lo = ifelse(panel == 'Change from previous rung', pmin(lo, 0), lo),
+         hi = ifelse(panel == 'Change from previous rung', pmax(hi, 0), hi))
+fig2_blank <- bind_rows(
+  fig2_lims |> transmute(panel, value = lo),
+  fig2_lims |> transmute(panel, value = hi)) |>
+  ## At A3's position, which every family has, so no axis is widened.
+  mutate(x = unname(x_pos['G8']))
+## Legend: the analyses drawn in the power figure, with display labels.
+fig2_breaks <- if (pred) setdiff(short_list, no_power) else waiver()
+fig2_labels <- if (pred) to_a(fig2_breaks) else waiver()
+
 fig2_block <- function(fams, show_strip_y = TRUE) {
   fl <- unname(fam_labels[fams])
   d <- fig2_data |> filter(family %in% fl) |>
@@ -1025,10 +1081,12 @@ fig2_block <- function(fams, show_strip_y = TRUE) {
                              yint = 0),
                aes(yintercept = yint), linewidth = 0.3, colour = 'grey40') +
     gap_line(gap_x) +
-    point_layers() +
+    geom_blank(data = fig2_blank, aes(x = x, y = value),
+               inherit.aes = FALSE) +
+    point_layers(breaks = fig2_breaks, labels = fig2_labels) +
     geom_text(data = en, aes(x = x, y = value, label = text), size = 2.2,
               colour = 'grey30', inherit.aes = FALSE) +
-    x_scale +
+    x_scale2 +
     scale_y_continuous(expand = expansion(mult = c(0.05, 0.08))) +
     facet_grid(panel ~ family, scales = 'free_y', switch = 'y',
                labeller = labeller(panel = c(
@@ -1041,8 +1099,12 @@ fig2_block <- function(fams, show_strip_y = TRUE) {
 }
 
 fig2 <- if (pred) {
-  fig2_block(c('1', '2', '3', '4')) /
-    (fig2_block(c('7', 'S')) + plot_spacer() + plot_layout(widths = c(1, 1)))
+  (fig2_block(c('1', '2', '3', '4')) /
+    (fig2_block(c('7', 'S')) + guides(colour = 'none', shape = 'none') +
+       plot_spacer() + plot_layout(widths = c(1, 1)))) +
+    plot_layout(guides = 'collect') &
+    theme(legend.position = 'bottom', legend.key.size = unit(0.7, 'lines'),
+          legend.text = element_text(size = 6.5))
 } else {
   fig2_block(c('1', '2', '3', '4')) / fig2_block(c('5', '6', '7', 'S'))
 }
@@ -1056,7 +1118,7 @@ for (ext in c('pdf', 'png')) {
 ## Figure 3: calibration and coverage --------------------------------------
 
 fig3_analyses <- if (pred) {
-  c('E0', 'G1', 'G6', 'G3', 'G8', 'G4', 'G10', 'G9')
+  short_list
 } else {
   c('E0', 'G1', 'G6', 'G3', 'G8', 'G4', 'G9', 'F1')
 }
@@ -1074,11 +1136,13 @@ fig3a <- ggplot(fig3a_data, aes(family, kappa, colour = analysis,
   geom_hline(yintercept = 1, linewidth = 0.3, colour = 'grey40') +
   geom_point(position = dodge, size = 1.5, stroke = 0.6) +
   scale_colour_manual(values = analysis_cols, breaks = fig3_analyses,
+                      labels = unname(analysis_disp[fig3_analyses]),
                       drop = FALSE) +
   scale_shape_manual(values = analysis_shapes, breaks = fig3_analyses,
+                      labels = unname(analysis_disp[fig3_analyses]),
                      drop = FALSE) +
-  scale_x_discrete(labels = fam_x, drop = FALSE) +
-  labs(x = 'Scenario family', y = 'Calibration ratio (model SE / empirical SD)',
+  scale_x_discrete(labels = fam_out(fam_x), drop = FALSE) +
+  labs(x = 'Scenario family', y = 'Calibration ratio (reported SE / empirical SD)',
        colour = NULL, shape = NULL) +
   fig_theme +
   theme(axis.text.x = element_text(angle = 0, hjust = 0.5, size = 7),
@@ -1096,10 +1160,12 @@ fig3b <- ggplot(fig3b_data, aes(family, value, colour = analysis,
                 width = 0, linewidth = 0.5) +
   geom_point(position = dodge, size = 1.5, stroke = 0.6) +
   scale_colour_manual(values = analysis_cols, breaks = fig3_analyses,
+                      labels = unname(analysis_disp[fig3_analyses]),
                       drop = FALSE) +
   scale_shape_manual(values = analysis_shapes, breaks = fig3_analyses,
+                      labels = unname(analysis_disp[fig3_analyses]),
                      drop = FALSE) +
-  scale_x_discrete(labels = fam_x, drop = FALSE) +
+  scale_x_discrete(labels = fam_out(fam_x), drop = FALSE) +
   scale_y_continuous(limits = c(0.88, 0.97)) +
   labs(x = 'Scenario family', y = 'Coverage of the nominal 95% interval',
        colour = NULL, shape = NULL) +

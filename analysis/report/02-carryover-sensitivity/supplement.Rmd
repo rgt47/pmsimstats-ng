@@ -1,0 +1,380 @@
+---
+title: "Supplement to: Testing a predictive biomarker under drug
+  carryover in aggregated N-of-1 trials: a staged simulation study"
+author: 'pmsimstats team'
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 1
+    number_sections: false
+    keep_tex: true
+    highlight: tango
+    includes:
+      in_header: ../sim-preamble.tex
+fontsize: 11pt
+linestretch: 1.1
+geometry: 'left=3cm,right=3cm,top=2.5cm,bottom=2.5cm'
+header-includes:
+  - \usepackage{amsmath}
+  - \usepackage{amssymb}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{float}
+  - \renewcommand{\thetable}{S\arabic{table}}
+knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path(d, 'tools', 'stamp-render.R')) && d != dirname(d)) d <- dirname(d); source(file.path(d, 'tools', 'stamp-render.R'))$value(input) })
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.path = "../../figures/02-supp-",
+  cache.path = "_cache_supp/"
+)
+library(tibble)
+library(dplyr)
+library(tidyr)
+library(knitr)
+source(here::here(
+  'analysis/report/02-carryover-sensitivity/shared-data.R'))
+```
+
+This supplement gives the tables that support the main text but are
+not needed to follow it. The analyses are labeled A0 to A4 as in the
+definition table of the main text: A0 is the starting analysis, A1
+the binary indicator with the working-covariance standard error, A2
+the binary indicator with the cluster-robust standard error (CR2), A3
+the exposure-weighted predictor at the true half-life with CR2 (an
+oracle), and A4 the exposure-weighted predictor at the half-life
+chosen by AIC on the model without the interaction, with CR2. The
+companion papers call A4 G10. The scenario families are those of the
+main text. Every table is computed from stored simulation output by
+the same code as the main text (`shared-data.R`).
+
+# Rung 0 to rung 1: the starting analysis
+
+Table \@ref(tab:stage3-null) gives Type I error at the six null
+cells of the base grid. Table \@ref(tab:iso-table) separates the
+three differences between A0 and A1.
+
+```{r stage3-null, echo = FALSE}
+st3 <- s27 |>
+  filter(c_bm == 0,
+         method %in% c('E0', 'E1', 'E1cr2', 'E2cr2', 'E7null_cr2')) |>
+  mutate(Design = design_lab[design], Method = to_a(method)) |>
+  select(Design, N, Method, reject) |>
+  pivot_wider(names_from = Method, values_from = reject) |>
+  arrange(match(Design, design_lab), N) |>
+  select(Design, N, all_of(a_order)) |>
+  mutate(across(-c(Design, N), fmt3))
+knitr::kable(st3, booktabs = TRUE, escape = FALSE,
+  col.names = c('Design', '$N$', a_order),
+  caption = 'Type I error of the five analyses at the six null cells
+    of the corrected grid ($c_{bm} = 0$, $t_{1/2} = 1$ week,
+    exponential DGP, $n_{sim} = 500$). A4 was fitted afterward to the
+    same simulated trials. Two-MCSE band around 0.05:
+    $[0.031, 0.069]$.') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+```{r iso-table, echo = FALSE}
+iso_pow <- iso_rw |>
+  filter(c_bm == 0.45, t1half == 1) |>
+  pivot_longer(all_of(names(iso_lab)), names_to = 'method',
+               values_to = 'rej') |>
+  filter(!is.na(rej)) |>
+  group_by(design, method) |>
+  summarise(p = mean(rej), n = n(), .groups = 'drop') |>
+  mutate(mcse = sqrt(p * (1 - p) / n),
+         val = sprintf('%.3f (%.3f)', p, mcse),
+         Quantity = 'Power')
+iso_kap <- iso |>
+  filter(c_bm == 0) |>
+  group_by(design, method) |>
+  summarise(val = sprintf('%.2f', mean(kappa)), .groups = 'drop') |>
+  mutate(Quantity = '$\\kappa$ under the null')
+iso_tab <- bind_rows(
+  iso_null |> mutate(val = sprintf('%.3f (%.3f)', p, mcse),
+                     Quantity = 'Type I error'),
+  iso_kap, iso_pow) |>
+  mutate(Design = design_lab[design],
+         Method = factor(iso_lab[as.character(method)],
+                         levels = unname(iso_lab))) |>
+  select(Design, Quantity, Method, val) |>
+  pivot_wider(names_from = Method, values_from = val) |>
+  select(Design, Quantity, all_of(unname(iso_lab))) |>
+  arrange(match(Design, design_lab),
+          match(Quantity, c('Type I error', '$\\kappa$ under the null',
+                            'Power')))
+knitr::kable(iso_tab, booktabs = TRUE, escape = FALSE, linesep = '',
+  caption = 'Isolation of the three differences between A0 and A1
+    (simrun job 42, 1,000 replicates per cell, $t_{1/2} = 1$ week,
+    pooled over $N \\in \\{35, 70\\}$, Monte Carlo standard error in
+    parentheses). A0 is the starting analysis. E0n refits it with
+    nlme and no residual correlation. E0nc adds corCAR1 to E0n. E1nc
+    uses the A1 formula with nlme and no residual correlation, that
+    is, without the expectancy term and without the exclusion rule.
+    A1 is E1nc with corCAR1. Power is at $c_{bm} = 0.45$. The
+    calibration ratio $\\kappa$ is the mean reported standard error over
+    the empirical standard deviation, averaged over the two sample
+    sizes. Under CO the expectancy term is absent from A0 because
+    expectancy is constant, so E0n and E1nc are the same model.') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+# Rung 2: the cluster-robust standard error
+
+Table \@ref(tab:tab-type1-cr2) compares the working-covariance and
+cluster-robust standard errors of each regressor at four Hybrid null
+cells with 2,000 replicates each.
+
+```{r tab-type1-cr2, echo = FALSE}
+## One row per regressor: the working-covariance (WC) fit and the CR2
+## fit of the same model. A4 is fitted with CR2 only.
+pair <- c(E1 = 'E1cr2', E2 = 'E2cr2', E7null = 'E7null_cr2')
+reg_lab <- c(E1 = 'Binary indicator (A1, A2)',
+             E2 = 'Exposure-weighted, true $t_{1/2}$ (A3)',
+             E7null = 'Exposure-weighted, selected $t_{1/2}$ (A4)')
+a2 <- sgf |> filter(sub == 'A2-size')
+tab <- a2 |> filter(method %in% pair) |>
+  transmute(t1half, N, method = names(pair)[match(method, pair)],
+            k_cr2 = kappa, t1_cr2 = reject) |>
+  left_join(a2 |> filter(method %in% names(pair)) |>
+              select(t1half, N, method, k_mod = kappa, t1_mod = reject),
+            by = c('t1half', 'N', 'method')) |>
+  arrange(t1half, N, match(method, names(pair))) |>
+  transmute(`$t_{1/2}$` = sprintf('%.1f', t1half), `$N$` = N,
+            Regressor = reg_lab[method],
+            `$\\kappa$ WC` = ifelse(is.na(k_mod), '--',
+                                    sprintf('%.2f', k_mod)),
+            `Type I WC`    = fmt3(t1_mod),
+            `$\\kappa$ CR2` = sprintf('%.2f', k_cr2),
+            `Type I CR2`   = fmt3(t1_cr2))
+stopifnot(nrow(tab) == 12)
+knitr::kable(tab, booktabs = TRUE, escape = FALSE,
+  caption = 'Conservatism of the working-covariance interaction
+    test and its cluster-robust correction at four Hybrid null cells
+    ($c_{bm} = 0$, exponential DGP, corrected simulation code,
+    2{,}000 replicates each). Each row fits one regressor with the
+    working-covariance standard error (WC) and with the cluster-robust
+    standard error (CR2). The binary row is A1 under WC and A2 under
+    CR2; the CR2 columns of the other rows are A3 and A4. A4 is fitted
+    with CR2 only. $\\kappa$ is the calibration ratio of the main text; $\\kappa > 1$ is a conservative test.
+    Two-MCSE band around 0.05: $[0.040, 0.060]$.') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+# Rung 4: choosing the half-life
+
+Table \@ref(tab:stage3-selection) gives the half-life that A4
+selected. Tables \@ref(tab:stage3-variants-null) and
+\@ref(tab:stage3-variants-alt) compare A4 with the oracle A3 in the
+Hybrid run with independent seeds.
+
+```{r stage3-selection, echo = FALSE}
+knitr::kable(m9 |>
+    transmute(`True $t_{1/2}$` = true_t1half, `$N$` = N, `$n$` = n,
+              `0.25` = sprintf('%.2f', p_0.25), `0.5` = sprintf('%.2f', p_0.5),
+              `1` = sprintf('%.2f', p_1), `2` = sprintf('%.2f', p_2)),
+  booktabs = TRUE, escape = FALSE, linesep = '',
+  caption = 'Share of replicates in which A4 selected each candidate
+    half-life (weeks), Hybrid design, pooled over the predictive-only
+    cells of the base grid and the supplementary study at the given
+    true half-life and $N$ (null and alternative cells together).') |>
+  kableExtra::add_header_above(c(' ' = 3, 'Selected half-life' = 4)) |>
+  kableExtra::kable_styling(font_size = 9)
+
+```
+
+```{r stage3-variants-null, echo = FALSE}
+if (has_rv) {
+  tN <- rvN |>
+    filter(method %in% rv_tab_m) |>
+    mutate(Method = to_a(method),
+           Cell = sprintf('$t_{1/2} = %.1f$, $N = %d$', t1half, N)) |>
+    left_join(rvNp |> filter(is.na(h_fixed)) |>
+                transmute(cell_id, method, diff_vs_g8),
+              by = c('cell_id', 'method')) |>
+    arrange(t1half, N, match(Method, a_order)) |>
+    transmute(Cell, Method, Rejection = sprintf('%.4f', reject),
+              `Paired diff. vs A3` = ifelse(method == 'E2cr2', '--',
+                                            sprintf('%+.4f', diff_vs_g8)),
+              `$\\kappa$` = sprintf('%.2f', kappa))
+  stopifnot(nrow(tN) == 8)
+  tN$Cell[duplicated(tN$Cell)] <- ''
+  knitr::kable(tN, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = 'Hybrid run with independent seeds (family S): null
+      rejection rate ($c_{bm} = 0$) of A3, the oracle at the true
+      half-life, and A4 in four Hybrid null cells, 5{,}000 replicates
+      each (MCSE about 0.003), with the paired per-replicate
+      difference of A4 against A3 (paired SE 0.0015 to 0.0028) and the
+      calibration ratio.') |>
+    kableExtra::kable_styling(font_size = 8)
+}
+
+```
+
+```{r stage3-variants-alt, echo = FALSE}
+if (has_rv) {
+  tA <- rvA |>
+    filter(method %in% rv_tab_m) |>
+    mutate(Method = to_a(method)) |>
+    select(t1half, N, c_bm, Method, reject, kappa) |>
+    pivot_wider(names_from = Method, values_from = c(reject, kappa)) |>
+    arrange(t1half, c_bm, N) |>
+    transmute(t1half, N, c_bm,
+              A3 = fmt3(reject_A3), A4 = fmt3(reject_A4),
+              d = sprintf('%+.3f', reject_A4 - reject_A3),
+              k3 = sprintf('%.2f', kappa_A3), k4 = sprintf('%.2f', kappa_A4))
+  stopifnot(nrow(tA) == 8)
+  knitr::kable(tA, booktabs = TRUE, escape = FALSE, linesep = '',
+    col.names = c('$t_{1/2}$', '$N$', '$c_{bm}$', 'A3', 'A4',
+                  'A4 $-$ A3', 'A3', 'A4'),
+    caption = 'Hybrid run with independent seeds (family S): power and
+      calibration ratio of A3 and A4 at eight Hybrid alternative cells,
+      1{,}000 replicates each (MCSE of power at most 0.016).') |>
+    kableExtra::add_header_above(c(' ' = 3, 'Power' = 3,
+                                   '$\\\\kappa$' = 2), escape = FALSE) |>
+    kableExtra::kable_styling(font_size = 9)
+}
+
+```
+
+# Stress scenarios
+
+Tables \@ref(tab:stage4-null) and \@ref(tab:stage4-alt) give the
+single-cell scenarios of the scenario job. Tables
+\@ref(tab:stage4-grid-null) and \@ref(tab:stage4-grid-alt) give the
+scenario grids of the supplementary study.
+
+```{r stage4-null, echo = FALSE}
+st4_tab <- function(lab) {
+  s21 |>
+    filter(method %in% focus, cell %in% names(lab)) |>
+    bind_rows(bf_gvf |> filter(cell %in% names(lab))) |>
+    mutate(Cell = lab[cell], Method = to_a(method)) |>
+    select(Cell, Method, reject) |>
+    pivot_wider(names_from = Method, values_from = reject) |>
+    mutate(o = match(Cell, lab)) |> arrange(o) |>
+    select(Cell, all_of(focus_cols)) |>
+    mutate(across(-Cell, fmt3))
+}
+knitr::kable(st4_tab(null_lab), booktabs = TRUE, escape = FALSE,
+  caption = 'Type I error ($c_{bm} = 0$) at four null scenarios on
+    Hybrid ($N = 70$, $t_{1/2} = 0.5$ week unless stated; OL+BDC row is
+    that design), $n_{sim} = 500$, same trial for every specification
+    each replicate. A4 was fitted to the same trials of the two
+    misspecification cells only (-- elsewhere). Two-MCSE band around
+    0.05: $[0.031, 0.069]$.') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+```{r stage4-alt, echo = FALSE}
+knitr::kable(st4_tab(alt_lab) |> select(-A0), booktabs = TRUE,
+  escape = FALSE,
+  caption = 'Power at five alternative scenarios (same cells and
+    $n_{sim}$ as the null table). A2 and A3 are the equal-size
+    comparators. A0 is omitted because its test is liberal and its
+    power is not comparable.') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+```{r stage4-grid-null, echo = FALSE}
+knitr::kable(grid_tab(sB |> filter(c_bm == 0)), booktabs = TRUE,
+  escape = FALSE,
+  col.names = c('Scenario', '$N$', focus_cols),
+  caption = 'Scenario grids: Type I error ($c_{bm} = 0$) on
+    Hybrid at $N \\in \\{35, 70\\}$ under a Weibull decay analyzed as
+    exponential, a true half-life below, at the boundary of and above
+    A4\'s candidate grid, and two autocorrelations ($t_{1/2} = 0.5$ week and $\\rho = 0.7$ unless
+    stated; $n_{sim} = 500$; band $[0.031, 0.069]$).') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+```{r stage4-grid-alt, echo = FALSE}
+knitr::kable(grid_tab(sB |> filter(c_bm == alt_level[sub]) |>
+                        mutate(level = sprintf('%s, $c_{bm} = %.2f$',
+                                               level, c_bm))) |>
+    select(-A0),
+  booktabs = TRUE, escape = FALSE,
+  col.names = c('Scenario', '$N$', setdiff(focus_cols, 'A0')),
+  caption = 'Scenario grids: power at one alternative per
+    scenario (same cells and $n_{sim}$ as the null table; $c_{bm} =
+    0.30$ for the autocorrelation rows because 0.45 is infeasible at
+    $\\rho = 0.9$). A0 is omitted because its test is liberal.') |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+# Heavy missingness
+
+Table \@ref(tab:heavy-missing) gives the dispersion of the estimates
+in the heavy-missingness stress case.
+
+```{r heavy-missing, echo = FALSE}
+if (file.exists(file.path(rr_dir, 'm10-heavy-missingness.csv'))) {
+  ## The stored file uses display G codes; A4 was not fitted to these
+  ## cells (the G10 backfill excludes the per-occasion dropout cells).
+  hm_codes <- c('E0', 'G1', 'G6', 'G8')
+  m10 <- read.csv(file.path(rr_dir, 'm10-heavy-missingness.csv')) |>
+    filter(method %in% hm_codes) |>
+    arrange(c_bm, match(method, hm_codes)) |>
+    transmute(Cell = ifelse(c_bm == 0, 'null', '$c_{bm} = 0.45$'),
+              Method = to_a(method),
+              `SD of estimates` = sprintf('%.1f', sd_est),
+              `MAD-based SD` = sprintf('%.1f', mad_sd_est),
+              `Max $|\\hat\\beta|$` = sprintf('%.0f', max_abs_est),
+              `$\\kappa$` = sprintf('%.2f', kappa),
+              `Robust $\\kappa$` = sprintf('%.2f', robust_kappa),
+              `Rejection` = sprintf('%.3f', reject))
+  stopifnot(nrow(m10) == 8)
+  m10$Cell[duplicated(m10$Cell)] <- ''
+  knitr::kable(m10, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = 'Heavy-missingness stress case (per-occasion MCAR 0.3,
+      $N = 35$, 500 replicates): dispersion of the interaction
+      estimates on the calibrated scale and the calibration ratio on
+      the conventional scale ($\\kappa$, mean SE over SD) and a robust
+      one (median SE over 1.4826 times the median absolute
+      deviation). A4 was not fitted to these cells. From
+      `34-referee-reanalysis.R`.') |>
+    kableExtra::kable_styling(font_size = 9)
+}
+
+```
+
+# Patient slope variance
+
+Table \@ref(tab:stage5-slope) gives A3 and A4 under a
+patient-specific linear trend in the natural-history component.
+
+```{r stage5-slope, echo = FALSE}
+if (has_rv) {
+  bf_S <- bf_all |>
+    filter(source == 'rvS', method == 'E7null_cr2') |>
+    group_by(cell_id) |>
+    summarise(mean_est = mean(estimate, na.rm = TRUE), .groups = 'drop') |>
+    left_join(bf_sum |> filter(source == 'rvS', method == 'E7null_cr2'),
+              by = 'cell_id')
+  tS <- bind_rows(rvS |> filter(method == 'E2cr2'), bf_S) |>
+    mutate(Method = to_a(method),
+           Cell = ifelse(c_bm == 0, 'null ($c_{bm} = 0$)', '$c_{bm} = 0.45$')) |>
+    arrange(c_bm, match(Method, a_order)) |>
+    transmute(Cell, Method, Rejection = sprintf('%.3f (%.3f)', reject, mcse),
+              `Mean estimate` = sprintf('%+.2f', mean_est),
+              `$\\kappa$` = sprintf('%.2f', kappa))
+  stopifnot(nrow(tS) == 4)
+  tS$Cell[duplicated(tS$Cell)] <- ''
+  knitr::kable(tS, booktabs = TRUE, escape = FALSE, linesep = '',
+    caption = 'Patient slope variance (family 5): rejection rate
+      (MCSE), mean interaction estimate and calibration ratio of A3
+      and A4 under a patient-specific linear trend in the
+      natural-history component (SD 0.3 outcome units per week),
+      Hybrid, $N = 70$, $t_{1/2} = 0.5$ week, 1{,}000 replicates. A4
+      was fitted afterward to the same trials. The true value at the
+      alternative is $-3.6$.') |>
+    kableExtra::kable_styling(font_size = 9)
+}
+
+```

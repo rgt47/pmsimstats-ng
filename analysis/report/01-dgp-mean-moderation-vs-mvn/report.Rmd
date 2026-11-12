@@ -421,8 +421,8 @@ mean 83.1 and SD 18.5. We call these the default values. They are the
 values of Hendrickson et al. [@hendrickson2020] (their code at commit
 58b32a9, stored in the package as `extracted_rp` and
 `extracted_bp`). Every simulation and closed-form calculation in this
-paper uses them, including the simulations of the analysis G10 in the
-planning section and the paired rerun of Appendix B.4. In those two,
+paper uses them, including the simulations of the analysis G10 in
+Stage 2 and the paired rerun of Appendix B.4. In those two,
 the biomarker enters the analysis standardized to mean 0 and SD 1, so
 their interaction coefficients are per SD of biomarker. The
 standardization is linear and does not change the test.
@@ -517,7 +517,7 @@ Table: (\#tab:estimands) The analyses used in this paper and the quantity each e
 | Study 2: the binary-indicator analysis | binary | the on-minus-off contrast | Stage 6 |
 | Study 2: fixed-half-life analyses | $D_{bc,it}$ at an analysis half-life of 0.5 week, the true half-life except in the cells that vary it | on-drug moderation $\beta_{bm:D}$ where the half-lives match | Stage 6 |
 | Study 2: analyses with the half-life chosen by AIC | $D_{bc,it}$ at the AIC-chosen half-life (0, 0.25, 0.5, 1 or 2 weeks) | on-drug moderation $\beta_{bm:D}$ where the chosen half-life is the true one | Stage 6 |
-| G10 (planning) | $D_{bc,it}$ at the half-life chosen by AIC without the interaction (0.25, 0.5, 1 or 2 weeks) | on-drug moderation $\beta_{bm:D}$ where the chosen half-life is the true one | Stage 2; planning |
+| G10 | $D_{bc,it}$ at the half-life chosen by AIC without the interaction (0.25, 0.5, 1 or 2 weeks) | on-drug moderation $\beta_{bm:D}$ where the chosen half-life is the true one | Stage 2 |
 
 ## The paired-difference statistic
 
@@ -601,11 +601,9 @@ mechanisms, estimands, methods and performance measures. There are
 two studies (Table \@ref(tab:ademp)). The scripts are listed under
 Availability of data and materials. The closed-form calculations of
 Stages 4 and 5 and of the planning section use the same code as study
-1 with $\rho$ varied. A further run, described in the planning section,
-simulates the analysis G10 of the companion paper
-[@pmsimstats-paper02] under the recommended DGP with the default
-values. It supplies the G10 columns of the planning tables, the G10
-sample sizes for 80 percent power and the G10 power grid (Figure
+1 with $\rho$ varied. A further run simulates the analysis G10 of the
+companion paper [@pmsimstats-paper02] under the recommended DGP with
+the default values. It supplies the G10 power grid of Stage 2 (Figure
 \@ref(fig:fig4bg10)). Its generator reproduces the closed-form
 power of E9 within two Monte Carlo SEs in the Hybrid, OL+BDC and
 crossover designs ($N = 70$, $c_{bm} = 0.25$, $t_{1/2} = 0.2$ week,
@@ -930,10 +928,17 @@ Figure \@ref(fig:fig4bg10) shows the power of a mixed-model analysis
 under the recommended DGP of Stage 7, across four designs, two sample
 sizes, five censoring patterns and three half-lives. The analysis is
 G10, which the companion paper recommends [@pmsimstats-paper02]. G10
-is a random-intercept model with CAR(1) residual correlation and CR2
-cluster-robust standard errors. Its exposure-decayed drug indicator
-has a half-life chosen by AIC on the model without the interaction
-(planning section). Each cell has 250 replicates and
+is a linear mixed model with a random intercept and continuous-time
+AR(1) residual correlation. Its drug indicator is the
+exposure-decayed $D_{bc}$ at an analysis half-life chosen by AIC over
+0.25, 0.5, 1 and 2 weeks. The selection uses maximum-likelihood fits
+of the model without the interaction, so the choice of half-life does
+not depend on the term under test. The model at the chosen half-life
+is refitted by REML with the interaction, and the interaction is
+tested with CR2 cluster-robust standard errors and Satterthwaite
+degrees of freedom. The grid does not include 0 or the
+pharmacological values of 0.1 to 0.2 week, so at those true values
+G10 uses an analysis half-life of at least 0.25 week. Each cell has 250 replicates and
 a Monte Carlo SE of at most `r g9f_mcse_max`. The open-label design is not
 estimable under G10: every visit is on drug, so the exposure-decayed
 indicator is constant at 1 and the interaction term is collinear with
@@ -1602,194 +1607,13 @@ stopped drug. A sensitivity arm of the DGP calibrated to these
 estimates is future work. A working protocol for it exists in the
 repository, and it has not been run.
 
-```{r planningg10data}
-## Driver 19, --params published, blocks P and F (published-planning/)
-## and block N (published-planning/block-N/); pub_ok(), pend() and
-## rate_cmp() are defined in the fig4bg10data chunk.
-pg_file <- pub_ok('planning-g10.csv')
-pg9_file <- pub_ok('planning-g9.csv')
-have_pg <- !is.na(pg_file) && !is.na(pg9_file)
-if (have_pg) {
-  pg <- read.csv(pg_file)
-  pg9 <- read.csv(pg9_file)
-  pg_key <- c('design', 'c_bm', 't_half', 'N_label')
-  pg_vs9 <- merge(pg, pg9, by = pg_key, suffixes = c('', '_g9'))
-  stopifnot(nrow(pg_vs9) == nrow(pg), nrow(pg) == nrow(pg9))
-  pg_alt <- pg[pg$c_bm > 0, ]
-  pg_n80 <- pg_alt[pg_alt$N_label == 'N80_E9' & !pg_alt$capped, ]
-  pg_cap <- pg_alt[pg_alt$N_label == 'N80_E9' & pg_alt$capped, ]
-}
-pg_design <- c(Hybrid = 'Hybrid', `OL+BDC` = 'OL+BDC', Crossover = 'CO')
-pg_cell <- function(d, cbm, th, nlab) {
-  pg[pg$design == pg_design[d] & pg$c_bm == cbm & pg$t_half == th &
-     pg$N_label == nlab, ]
-}
-pg_pow <- function(d, cbm, th, nlab = '70', dagger = TRUE) pend(have_pg, {
-  r <- pg_cell(d, cbm, th, nlab)
-  if (nrow(r) != 1) return('')
-  paste0(sprintf('%.3f', r$power), if (dagger && r$capped) '$^\\dagger$' else '')
-})
-pg_mcse <- function(d, cbm, th, nlab = '70')
-  pend(have_pg, sprintf('%.3f', pg_cell(d, cbm, th, nlab)$mcse))
-fmt_range <- function(x) sprintf('%.3f to %.3f', min(x), max(x))
-pg_vs9_max <- pend(have_pg,
-  sprintf('%.3f', max(abs(pg_vs9$power - pg_vs9$power_g9))))
-pg_size_range <- pend(have_pg, fmt_range(pg$size[!is.na(pg$size)]))
-pg_size_mcse <- pend(have_pg, sprintf('%.3f', max(pg$mcse[pg$c_bm == 0])))
-pg_size_reps <- pend(have_pg, format(max(pg$n_reps[pg$c_bm == 0]),
-                                     big.mark = ','))
-pg_alt_reps <- pend(have_pg, format(max(pg_alt$n_reps), big.mark = ','))
-pg_alt_mcse <- pend(have_pg, sprintf('%.3f', max(pg_alt$mcse)))
-pg_n80_range <- pend(have_pg, fmt_range(pg_n80$power))
-pg_n80_n <- pend(have_pg, nrow(pg_n80))
-pg_cap_range <- pend(have_pg, fmt_range(pg_cap$power))
-pg_cap_n <- pend(have_pg, nrow(pg_cap))
-## Uncapped cells only: a capped cell ran below the E9 sample size.
-pg_min_n80 <- pend(have_pg, sprintf('%.3f', min(pg_n80$power)))
-pg_nonconv_max <- pend(have_pg, sprintf('%.3f', max(pg$nonconv)))
-pg_nonconv_pct <- pend(have_pg, sprintf('%.1f', 100 * max(pg$nonconv)))
-
-## Closed-form E9 power at N = 70 (17-rho-stage.R, planning-n80.csv).
-pn80 <- read.csv(file.path('..', '..', 'data', 'quick-sim',
-                           'carryover-closed-form', 'rho-stage',
-                           'planning-n80.csv'))
-e9_pow <- function(d, cbm, th) {
-  v <- pn80$power_N70[pn80$design == pg_design[[d]] & pn80$c_bm == cbm &
-                      pn80$t_half == th]
-  stopifnot(length(v) == 1)
-  v
-}
-e9_fmt <- function(d, cbm, th) sprintf('%.3f', e9_pow(d, cbm, th))
-## G10 at N = 70 against closed-form E9, every alternative cell: counts
-## of cells where G10 is more than two Monte Carlo SEs above, within,
-## and below.
-pg_vs_e9 <- if (have_pg) {
-  a <- pg_alt[pg_alt$N_label == '70', ]
-  e9 <- mapply(function(d, cb, th) {
-    e9_pow(names(pg_design)[pg_design == d], cb, th)
-  }, a$design, a$c_bm, a$t_half)
-  z <- (a$power - e9) / a$mcse
-  c(above = sum(z > 2), within = sum(abs(z) <= 2), below = sum(z < -2),
-    cells = nrow(a))
-} else NULL
-pg_vs_e9_txt <- pend(have_pg, {
-  k <- pg_vs_e9
-  if (k[['above']] == k[['cells']]) {
-    sprintf('higher power than E9 in every one of the %d cells', k[['cells']])
-  } else {
-    cnt <- function(n) if (n == 0) 'none' else as.character(n)
-    sprintf(paste('power more than two Monte Carlo SEs above that of E9 in',
-                  '%d of the %d cells, within two SEs in %s and below in %s'),
-            k[['above']], k[['cells']], cnt(k[['within']]),
-            cnt(k[['below']]))
-  }
-})
-## Is the closed-form E9 rule conservative for G10? At the E9 sample
-## size, every uncapped cell must reach 0.80 within two Monte Carlo
-## SEs.
-pg_short <- if (have_pg) pg_n80[pg_n80$power < 0.8 - 2 * pg_n80$mcse, ] else NULL
-pg_conservative <- have_pg && nrow(pg_short) == 0
-## The text names the crossover design as the one with the smallest
-## margin at the E9 sample size.
-stopifnot(!have_pg ||
-  names(which.min(tapply(pg_n80$power, pg_n80$design, min))) == 'CO')
-
-## Block N: N for 80 percent power of G10 in the Hybrid design.
-n80_dir <- file.path(pub_dir, 'block-N')
-n80_file <- pub_ok('n80-g10.csv', n80_dir)
-n80_meta_file <- pub_ok('meta.rds', n80_dir)
-have_n80 <- !is.na(n80_file) && !is.na(n80_meta_file)
-if (have_n80) {
-  n80 <- read.csv(n80_file)
-  n80_meta <- readRDS(n80_meta_file)
-  n80_in <- n80[!n80$extrapolated, ]
-}
-n80_mult_txt <- pend(have_n80, sprintf('%g to %g',
-  min(n80_meta$n80_mult), max(n80_meta$n80_mult)))
-n80_k <- pend(have_n80, length(n80_meta$n80_mult))
-n80_reps <- pend(have_n80, format(n80_meta$reps_n80, big.mark = ','))
-n80_ratio_range <- pend(have_n80, if (nrow(n80_in) == 0) 'not estimable' else
-  sprintf('%.2f to %.2f', min(n80_in$ratio_to_E9), max(n80_in$ratio_to_E9)))
-n80_n_in <- pend(have_n80, nrow(n80_in))
-n80_n_ex <- pend(have_n80, sum(n80$extrapolated))
-```
-
-**Sample size.** Table \@ref(tab:planning) gives the total $N$ for 80%
-power under the recommended DGP, by design, $c_{bm}$ and half-life: in
-closed form for the paired-difference statistic E9, and by simulation
-for the recommended analysis G10 in the Hybrid design. At
-the pharmacological half-life the Hybrid design needs about 280
-participants at $c_{bm} = 0.25$ and 84 at 0.45. At a 1-week half-life
-those rise to 480 and 146.
-
-**The recommended analysis at the planned sample sizes.** The
-companion paper [@pmsimstats-paper02] recommends the analysis G10 for
-the interaction. Stage 2 introduced it as a random-intercept CAR(1)
-model; its half-life selection matters here. Its drug indicator is
-the exposure-decayed $D_{bc}$ at an analysis half-life chosen by AIC
-over 0.25, 0.5, 1 and 2 weeks. The selection uses maximum-likelihood
-fits of the model without the interaction, so the choice of half-life
-does not depend on the term under test. The model at the chosen
-half-life is refitted by REML with the interaction, and the
-interaction is tested with CR2 cluster-robust standard errors and
-Satterthwaite degrees of freedom. The grid of half-lives does not
-include 0 or the pharmacological values of 0.1 to 0.2 week, so at
-those true values G10 uses an analysis half-life of at least 0.25
-week. The AIC-chosen analyses of the stress test also consider 0
-(Table \@ref(tab:estimands)). We simulated G10 under the recommended
-DGP with the default values in every cell of Table
-\@ref(tab:planning), at $N = 70$ and at the E9 sample size for 80
-percent power, with `r pg_alt_reps` replicates per cell. We also
-simulated the null ($c_{bm} = 0$) at $N = 70$ for each design and
-half-life with `r pg_size_reps` replicates. Table
-\@ref(tab:planningg10) gives the rejection rates at the 0.2- and 1-week
-half-lives. Where the E9 sample size exceeded 400, or was above 800 and
-not computed, the cell ran at $N = 400$ and is marked.
-
-Three results follow. First, G10 rejected the null at
-`r pg_size_range` across the nine design-by-half-life cells, including
-the half-life of 0 not shown in the table (Monte
-Carlo SE at most `r pg_size_mcse`). Second, at $N = 70$ G10 has
-`r pg_vs_e9_txt`. In the Hybrid design at $c_{bm} = 0.25$ and the
-0.2-week half-life, G10 power is `r pg_pow('Hybrid', 0.25, 0.2)`
-(MCSE `r pg_mcse('Hybrid', 0.25, 0.2)`) against
-`r e9_fmt('Hybrid', 0.25, 0.2)` for E9. In the crossover design at the
-same cell it is `r pg_pow('Crossover', 0.25, 0.2)` (MCSE
-`r pg_mcse('Crossover', 0.25, 0.2)`) against
-`r e9_fmt('Crossover', 0.25, 0.2)`. Third, at the E9 sample size for
-80 percent power, G10 power is `r pg_n80_range` in the `r pg_n80_n`
-uncapped cells, and `r pg_cap_range` in the `r pg_cap_n` cells that
-ran at $N = 400$. `r if (!have_pg) PENDING else if (pg_conservative) paste0('Under the recommended DGP at $\\rho = 0.7$ with the default values, the closed-form E9 rule is therefore conservative for G10. A trial sized by Table \\@ref(tab:planning) and analyzed with G10 had power of at least ', pg_min_n80, ' in every uncapped cell, with the smallest margin in the crossover design.') else sprintf('The closed-form E9 rule is therefore not conservative for G10 in every cell: in %d of the %d uncapped cells G10 power at the E9 sample size is more than two Monte Carlo SEs below 0.80.', nrow(pg_short), nrow(pg_n80))`
-Fits failed to converge in at most `r pg_nonconv_max` of replicates in
-any cell, and the rejection rates are computed over converged fits.
-
-The same simulated trials were also analyzed with G9, which chooses
-the half-life by AIC with the interaction in the model. In every cell
-the G9 and G10 rejection rates differ by at most `r pg_vs9_max`.
-
-**The sample size for G10.** In the nine Hybrid cells we simulated G10
-at `r n80_k` multiples of the E9 sample size, from `r n80_mult_txt`
-times, with `r n80_reps` replicates at each. In each cell we fitted a
-probit regression of rejection on $\log N$. The G10 columns of Table
-\@ref(tab:planning) give the $N$ at which the fitted power is 0.80. `r if (have_n80 && sum(n80$extrapolated) == 0) paste0('That $N$ lies inside the simulated range in all ', n80_n_in, ' cells, and it is ', n80_ratio_range, ' times the E9 value.') else paste0('In the ', n80_n_in, ' cells where that $N$ lies inside the simulated range, it is ', n80_ratio_range, ' times the E9 value. In the remaining ', n80_n_ex, ' cells it lies outside the range, and the value is an extrapolation from the fitted curve and is marked.')` The E9 values are
-closed form, so this comparison is the measured difference between
-the paired-difference approximation and the analysis a trial would
-use.
-
 ```{r planningrhodata}
-## Block P at rho 0.5 and 0.9: driver 19 with --rho and --plan-file
-## (athena job 19, joe job 12, commit 644f958), published-planning/
-## rho<R>/; closed-form grids from 24-rho-sweep.R.
+## Closed-form E9 sample sizes by rho (17-rho-stage.R for 0.7,
+## 24-rho-sweep.R for 0.5 and 0.9). The G10 simulations at these cells
+## moved to paper 02 on 2026-11-11.
 pr_rhos <- c(0.5, 0.7, 0.9)
 pr_cf_dir <- file.path('..', '..', 'data', 'quick-sim',
                        'carryover-closed-form', 'rho-stage')
-pr_dir <- function(r) if (r == 0.7) pub_dir else
-  file.path(pub_dir, sprintf('rho%g', r))
-pr_list <- lapply(pr_rhos, function(r) {
-  f <- pub_ok('planning-g10.csv', pr_dir(r))
-  if (is.na(f)) NULL else cbind(rho = r, read.csv(f))
-})
-have_pr <- !any(vapply(pr_list, is.null, logical(1)))
 pr_cf <- do.call(rbind, lapply(pr_rhos, function(r) {
   f <- if (r == 0.7) 'planning-n80.csv' else
     sprintf('planning-n80-rho%g.csv', r)
@@ -1800,73 +1624,14 @@ pr_cf <- do.call(rbind, lapply(pr_rhos, function(r) {
 }))
 pr_grid <- list(`0.5` = c(0.25, 0.35, 0.45), `0.7` = c(0.25, 0.35, 0.45),
                 `0.9` = c(0.20, 0.25, 0.30))
-if (have_pr) {
-  pr <- do.call(rbind, pr_list)
-  pr_new <- pr[pr$rho != 0.7, ]
-  pr_null <- pr_new[pr_new$c_bm == 0, ]
-  pr_n80 <- pr_new[pr_new$c_bm > 0 & pr_new$N_label == 'N80_E9' &
-                   !pr_new$capped, ]
-  ## Every feasible closed-form cell was simulated at both sample sizes.
-  stopifnot(nrow(pr_new[pr_new$c_bm > 0, ]) ==
-              2 * sum(pr_cf$feasible[pr_cf$rho != 0.7]))
-  co9 <- pr_new$rho == 0.9 & pr_new$design == 'CO'
-  pr_fail_co9 <- pr_new$nonconv[co9 & pr_new$N_label == '70']
-  pr_fail_co9_n80 <- pr_new$nonconv[co9 & pr_new$N_label == 'N80_E9' &
-                                    !pr_new$capped]
-  pr_fail_co9_cap <- pr_new$nonconv[co9 & pr_new$capped]
-  pr_fail_other <- pr_new$nonconv[!co9]
-}
-pr_cell <- function(r, d, cb, th, nlab) {
-  pr[pr$rho == r & pr$design == d & abs(pr$c_bm - cb) < 1e-9 &
-     pr$t_half == th & pr$N_label == nlab, ]
-}
 pr_e9n <- function(r, d, cb, th = 0.2) {
   k <- pr_cf$rho == r & pr_cf$design == d & abs(pr_cf$c_bm - cb) < 1e-9 &
     pr_cf$t_half == th
   stopifnot(sum(k) == 1)
   if (!pr_cf$feasible[k]) NA_integer_ else pr_cf$N80[k]
 }
-pr_rng <- function(x, d = 3) sprintf(paste0('%.', d, 'f to %.', d, 'f'),
-                                     min(x), max(x))
-pr_pct <- function(x) sprintf('%.0f', 100 * x)
-pr_size_txt <- pend(have_pr, pr_rng(pr_null$size))
-pr_n80_txt <- function(r) pend(have_pr, pr_rng(pr_n80$power[pr_n80$rho == r]))
-pr_g <- function(r, d, cb, th, nlab) pend(have_pr,
-  sprintf('%.3f', pr_cell(r, d, cb, th, nlab)$power))
-pr_fail_txt <- pend(have_pr, paste(pr_pct(min(pr_fail_co9)), 'to',
-                                   pr_pct(max(pr_fail_co9))))
-pr_fail_n80_txt <- pend(have_pr, paste(pr_pct(min(pr_fail_co9_n80)), 'to',
-                                       pr_pct(max(pr_fail_co9_n80))))
-pr_fail_cap_txt <- pend(have_pr, sprintf('%.1f',
-                                         100 * max(pr_fail_co9_cap)))
-pr_fail_other_txt <- pend(have_pr, sprintf('%.1f',
-                                           100 * max(pr_fail_other)))
 pr_ratio <- function(r) sprintf('%.1f',
   pr_e9n(r, 'CO', 0.25) / pr_e9n(r, 'Hybrid', 0.25))
-## Block N at rho 0.5 and 0.9 (julia job 3, joe job 13, commit
-## 4f5b789): G10 sample size for 80 percent power, Hybrid design.
-n80_rho <- lapply(c(0.5, 0.9), function(r) {
-  f <- pub_ok('n80-g10.csv', file.path(pr_dir(r), 'block-N'))
-  if (is.na(f)) NULL else cbind(rho = r, read.csv(f))
-})
-have_n80r <- have_n80 && !any(vapply(n80_rho, is.null, logical(1)))
-n80r_in <- function(r) {
-  d <- n80_rho[[match(r, c(0.5, 0.9))]]
-  d[!d$extrapolated & !is.na(d$N80_G), ]
-}
-n80r_ratio <- function(r) pend(have_n80r, {
-  d <- n80r_in(r)
-  sprintf('%.2f to %.2f', min(d$ratio_to_E9), max(d$ratio_to_E9))
-})
-n80r_ex <- pend(have_n80r, sum(vapply(n80_rho, function(d)
-  sum(d$extrapolated | is.na(d$N80_G)), numeric(1))))
-## The text states that G10 power at the E9 sample size exceeds 0.80 in
-## every uncapped cell at both new values of rho, and that the
-## crossover failures at 0.9 are the only ones above 3 percent.
-stopifnot(!have_pr || (all(pr_n80$power > 0.8) &&
-                       max(pr_fail_other) < 0.03 && min(pr_fail_co9) > 0.03 &&
-                       min(pr_fail_co9_n80) > 0.03 &&
-                       max(pr_fail_co9_cap) < 0.01))
 ## Typed in the Abstract and Limitations: bound 0.34 at rho 0.9, and
 ## about half the Hybrid sample of rho 0.7.
 stopifnot(abs(rb_min(0.9, 0) - 0.34) < 0.005,
@@ -1874,15 +1639,24 @@ stopifnot(abs(rb_min(0.9, 0) - 0.34) < 0.005,
                 0.5) < 0.1)
 ```
 
-**Serial correlation.** The planning results above assume
+**Sample size.** Table \@ref(tab:planning) gives the total $N$ for 80%
+power of the paired-difference statistic E9 under the recommended
+DGP, by design, $c_{bm}$ and half-life, in closed form. At the
+pharmacological half-life the Hybrid design needs about 280
+participants at $c_{bm} = 0.25$ and 84 at 0.45. At a 1-week half-life
+those rise to 480 and 146. The values compare designs, effect sizes
+and half-lives on one exact scale. They are not the sample sizes for
+the mixed-model analysis a trial would use. The companion paper
+[@pmsimstats-paper02] gives those for its recommended analysis, G10,
+by simulation.
+
+**Serial correlation.** Table \@ref(tab:planning) assumes
 $\rho = 0.7$, a convention (Stage 4). We repeated the closed-form
-calculation and the G10 simulation at $\rho = 0.5$ and 0.9, with the
-same seeds and replicate counts. At 0.5 the grid of $c_{bm}$ is
+calculation at $\rho = 0.5$ and 0.9. At 0.5 the grid of $c_{bm}$ is
 unchanged, and one cell lies above its bound (OL+BDC at 0.45 without
 carryover). At 0.9 the Hybrid bound falls to `r rb_f(rb_min(0.9, 0))`,
 so the grid moves to 0.20, 0.25 and 0.30. Table
 \@ref(tab:planningrho) gives the cells at the 0.2-week half-life.
-Below, ranges over all half-lives cover 0, 0.2 and 1 week.
 
 In the Hybrid design the required sample size depends strongly on
 $\rho$ above 0.7 and little below it. At $c_{bm} = 0.25$ the E9 rule
@@ -1893,43 +1667,15 @@ at 0.7 and `r pr_ratio(0.9)` times at 0.9. The likely reason is visit
 spacing. The Hybrid design compares on- and off-drug visits one week
 apart, where a high serial correlation cancels most of the shared
 noise. The crossover compares two blocks of four visits 2.5 weeks
-apart, ten weeks apart on average. G10 rejected
-the null at `r pr_size_txt` in the 18 design-by-half-life cells at the
-two new values. At the E9 sample size its power was
-`r pr_n80_txt(0.5)` at $\rho = 0.5$ and `r pr_n80_txt(0.9)` at 0.9, in
-the uncapped cells. The E9 rule therefore stays conservative for G10,
-and at $\rho = 0.9$ it is very conservative. There G10 had power
-`r pr_g(0.9, 'Hybrid', 0.25, 0.2, '70')` in the Hybrid design at
-$c_{bm} = 0.25$ with only 70 participants. We repeated the G10
-sample-size search in the Hybrid design (Table
-\@ref(tab:planningrho)). Over all three half-lives it gives `r n80r_ratio(0.5)` times the E9 value at $\rho = 0.5$ and
-`r n80r_ratio(0.9)` times at 0.9, against `r n80_ratio_range` at 0.7.
-`r if (identical(suppressWarnings(as.numeric(n80r_ex)), 0)) 'At both new values the sample size lies inside the simulated range in every cell.' else paste0('Cells whose value lies outside the simulated range are left out of these ranges: ', n80r_ex, ' at the two new values.')`
-
-In the crossover design at $\rho = 0.9$, `r pr_fail_txt` percent of G10
-fits failed in each cell at $N = 70$, and `r pr_fail_n80_txt` percent
-at the E9 sample sizes below 400. In the cells that ran at $N = 400$
-at most `r pr_fail_cap_txt` percent failed. In every other cell at the
-two new values at most `r pr_fail_other_txt` percent failed. In the failed replicates we
-refitted, the model chosen by AIC put the serial correlation at its
-upper limit of 1 and the random-intercept SD near zero. A correlation
-that does not decay cannot be told apart from a random intercept, and
-the CR2 step then failed because the fitted covariance was singular.
-The rates in Table \@ref(tab:planningrho) are over the fits that
-succeeded. A trialist who expects slow decay and plans a crossover
-analyzed with G10 should expect such failures and specify a fallback
-model in advance.
+apart, ten weeks apart on average.
 
 **When these sample sizes apply.** The sample sizes assume, as the
-whole paper does, that the biomarker is not prognostic (Aims). G10
-does not hold its level under every prognostic pathway. A trial in
-which such a pathway is plausible should be planned for an analysis
-that does, and its sample size is larger; the companion paper gives
-both [@pmsimstats-paper15].
+whole paper does, that the biomarker is not prognostic (Aims). Under
+a prognostic biomarker some analyses lose their nominal size, and a
+trial in which such a pathway is plausible needs an analysis that
+keeps it and a larger sample [@pmsimstats-paper15].
 
 ```{r planning}
-## E9 (closed form) for every design; G10 (block N, rho = 0.7) for the
-## Hybrid design only, the design in which it was searched for.
 tab <- data.frame(
   design = c('Hybrid', '', '', 'OL+BDC', '', '', 'Crossover', '', ''),
   cbm = rep(c(0.25, 0.35, 0.45), 3),
@@ -1956,47 +1702,14 @@ pn80_d0 <- {
   max(abs(b - a) / b, na.rm = TRUE)
 }
 stopifnot(pn80_d0 < 0.05)
-g10n <- function(cb, th) {
-  if (!have_n80) return(PENDING)
-  r <- n80[abs(n80$c_bm - cb) < 1e-9 & n80$t_half == th, ]
-  stopifnot(nrow(r) == 1)
-  paste0(if (is.na(r$N80_G)) 'n/e' else ceiling(r$N80_G),
-         if (r$extrapolated) '$^\\ddagger$' else '')
-}
 tab$n02 <- pn80_n(0.2)
 tab$n1 <- pn80_n(1)
-tab$g02 <- c(vapply(c(0.25, 0.35, 0.45), g10n, '', th = 0.2), rep('', 6))
-tab$g1 <- c(vapply(c(0.25, 0.35, 0.45), g10n, '', th = 1), rep('', 6))
-knitr::kable(tab, booktabs = TRUE, digits = 3, escape = FALSE, align = 'lrrrrrr',
+knitr::kable(tab, booktabs = TRUE, digits = 3, escape = FALSE, align = 'lrrrr',
   linesep = '',
   col.names = c('Design', '$c_{bm}$', 'Slope (points per SD)',
-                '0.2 week', '1 week', '0.2 week', '1 week'),
-  caption = paste0('Total $N$ for 80 percent power at $\\alpha = 0.05$ under the recommended DGP (separable AR(1), $\\rho = 0.7$, $c_1 = 0.2$, decaying biomarker-response correlation, carryover decaying from the last on-drug mean, default values), by design, interaction strength and carryover half-life, with the implied slope in symptom points per SD of biomarker ($\\sigma_{BR} = 8$). E9: closed form. G10: Hybrid design only; the $N$ at which a probit regression of rejection on $\\log N$, fitted to simulations at ', n80_k, ' multiples of the E9 value (', n80_reps, ' replicates each), reaches 0.80, rounded up. Without carryover the E9 values are at most ', sprintf('%.0f', 100 * pn80_d0), ' percent below those at 0.2 week. Participants are allocated to paths in fixed proportions (18, 18, 17, 17 in the Hybrid design at $N = 70$).', if (have_n80 && any(n80$extrapolated)) ' $\\ddagger$: outside the simulated range of $N$, an extrapolation.' else '')) |>
-  kableExtra::add_header_above(c(' ' = 3, 'E9 (closed form)' = 2, 'G10 (simulated)' = 2), escape = FALSE)
-```
-
-```{r planningg10}
-th <- c(0.2, 1)
-des <- c('Hybrid', 'OL+BDC', 'Crossover')
-rows <- expand.grid(cbm = c(0, 0.25, 0.35, 0.45), design = des,
-                    stringsAsFactors = FALSE)[, c('design', 'cbm')]
-cell_or_blank <- function(d, cb, t, nlab) {
-  if (cb == 0 && nlab == 'N80_E9') return('')
-  pg_pow(d, cb, t, nlab)
-}
-tab9 <- data.frame(
-  design = ifelse(rows$cbm == 0, rows$design, ''),
-  cbm = sprintf('%.2f', rows$cbm),
-  p70_02 = mapply(cell_or_blank, rows$design, rows$cbm, 0.2, '70'),
-  p70_1 = mapply(cell_or_blank, rows$design, rows$cbm, 1, '70'),
-  p80_02 = mapply(cell_or_blank, rows$design, rows$cbm, 0.2, 'N80_E9'),
-  p80_1 = mapply(cell_or_blank, rows$design, rows$cbm, 1, 'N80_E9'))
-knitr::kable(tab9, booktabs = TRUE, escape = FALSE, align = 'lrrrrr',
-  linesep = '', row.names = FALSE,
-  col.names = c('Design', '$c_{bm}$', '0.2 week', '1 week',
                 '0.2 week', '1 week'),
-  caption = paste0('Rejection rate of the analysis G10 under the recommended DGP of Table \\ref{tab:planning}, by design, interaction strength and carryover half-life, at $N = 70$ and at the closed-form E9 $N$ for 80 percent power. Rows with $c_{bm} = 0$ give the size at $N = 70$ (', pg_size_reps, ' replicates per cell, Monte Carlo SE at most ', pg_size_mcse, '); the other rows give power (', pg_alt_reps, ' replicates per cell, Monte Carlo SE at most ', pg_alt_mcse, '). $\\dagger$: the E9 sample size exceeds 400 and the cell ran at $N = 400$. Rejection rates are over converged fits (at most ', pg_nonconv_pct, ' percent of replicates failed in any cell).')) |>
-  kableExtra::add_header_above(c(' ' = 2, 'At $N = 70$' = 2, 'At the E9 $N$' = 2), escape = FALSE)
+  caption = paste0('Total $N$ for 80 percent power of the paired-difference statistic E9 at $\\alpha = 0.05$, in closed form, under the recommended DGP (separable AR(1), $\\rho = 0.7$, $c_1 = 0.2$, decaying biomarker-response correlation, carryover decaying from the last on-drug mean, default values), by design, interaction strength and carryover half-life, with the implied slope in symptom points per SD of biomarker ($\\sigma_{BR} = 8$). Without carryover the values are at most ', sprintf('%.0f', 100 * pn80_d0), ' percent below those at 0.2 week. Participants are allocated to paths in fixed proportions (18, 18, 17, 17 in the Hybrid design at $N = 70$). Sample sizes for the mixed-model analysis G10 are in the companion paper.')) |>
+  kableExtra::add_header_above(c(' ' = 3, 'Carryover half-life' = 2), escape = FALSE)
 ```
 
 ```{r planningrho}
@@ -2005,20 +1718,12 @@ pr_rows <- do.call(rbind, lapply(pr_new_rhos, function(r)
   expand.grid(cbm = pr_grid[[as.character(r)]],
               design = c('Hybrid', 'OL+BDC', 'CO'), rho = r,
               stringsAsFactors = FALSE)))
-pr_txt <- function(r, d, cb, nlab) {
-  if (!have_pr) return(PENDING)
-  x <- pr_cell(r, d, cb, 0.2, nlab)
-  if (nrow(x) == 0) return('')
-  paste0(sprintf('%.3f', x$power), if (x$capped) '$^\\dagger$' else '')
-}
-pr_g10n <- function(r, d, cb) {
-  if (d != 'Hybrid') return('')
-  if (!have_n80r) return(PENDING)
-  x <- n80_rho[[match(r, c(0.5, 0.9))]]
-  x <- x[abs(x$c_bm - cb) < 1e-9 & x$t_half == 0.2, ]
-  stopifnot(nrow(x) == 1)
-  paste0(if (is.na(x$N80_G)) 'n/e' else ceiling(x$N80_G),
-         if (x$extrapolated) '$^\\ddagger$' else '')
+pr_n_txt <- function(r, d, cb, th) {
+  v <- pr_e9n(r, d, cb, th)
+  k <- pr_cf$rho == r & pr_cf$design == d &
+    abs(pr_cf$c_bm - cb) < 1e-9 & pr_cf$t_half == th
+  if (!pr_cf$feasible[k]) 'not feasible' else
+    if (is.na(v)) '> 800' else as.character(v)
 }
 tabr <- data.frame(
   rho = ifelse(!duplicated(pr_rows$rho), sprintf('%.1f', pr_rows$rho), ''),
@@ -2026,27 +1731,13 @@ tabr <- data.frame(
                   ifelse(pr_rows$design == 'CO', 'Crossover',
                          pr_rows$design), ''),
   cbm = sprintf('%.2f', pr_rows$cbm),
-  n = mapply(function(r, d, cb) {
-    v <- pr_e9n(r, d, cb)
-    k <- pr_cf$rho == r & pr_cf$design == d &
-      abs(pr_cf$c_bm - cb) < 1e-9 & pr_cf$t_half == 0.2
-    if (!pr_cf$feasible[k]) 'not feasible' else
-      if (is.na(v)) '> 800' else as.character(v)
-  }, pr_rows$rho, pr_rows$design, pr_rows$cbm),
-  g10n = mapply(pr_g10n, pr_rows$rho, pr_rows$design, pr_rows$cbm),
-  g80 = mapply(pr_txt, pr_rows$rho, pr_rows$design, pr_rows$cbm,
-               'N80_E9'),
-  fail = mapply(function(r, d, cb) {
-    if (!have_pr) return('')
-    x <- pr_cell(r, d, cb, 0.2, '70')
-    if (nrow(x) == 0) '' else pr_pct(x$nonconv)
-  }, pr_rows$rho, pr_rows$design, pr_rows$cbm))
-knitr::kable(tabr, booktabs = TRUE, escape = FALSE, align = 'llrrrrr',
+  n02 = mapply(pr_n_txt, pr_rows$rho, pr_rows$design, pr_rows$cbm, 0.2),
+  n1 = mapply(pr_n_txt, pr_rows$rho, pr_rows$design, pr_rows$cbm, 1))
+knitr::kable(tabr, booktabs = TRUE, escape = FALSE, align = 'llrrr',
   linesep = '', row.names = FALSE,
-  col.names = c('$\\rho$', 'Design', '$c_{bm}$', 'E9 $N$', 'G10 $N$',
-                'G10 power at the E9 $N$', 'G10 failed (\\%)'),
-  caption = paste0('Planning by serial correlation at the 0.2-week half-life, as Table \\ref{tab:planning} (which gives $\\rho = 0.7$) but at $\\rho = 0.5$ and 0.9: the closed-form total $N$ for 80 percent power of E9, the G10 $N$ for 80 percent power (Hybrid design only), G10 power at the E9 $N$ (', pend(have_pr, format(max(pr$n_reps[pr$c_bm > 0]), big.mark = ',')), ' replicates per cell), and the percent of G10 fits that failed at $N = 70$. At $\\rho = 0.9$ the grid of $c_{bm}$ lies inside the lower bound. Not feasible: $c_{bm}$ lies above the bound of that design. $\\dagger$: the E9 sample size exceeds 400 and the cell ran at $N = 400$. Power is over the fits that succeeded.')) |>
-  kableExtra::kable_styling(font_size = 9)
+  col.names = c('$\\rho$', 'Design', '$c_{bm}$', '0.2 week', '1 week'),
+  caption = 'Total $N$ for 80 percent power of E9 in closed form by serial correlation, as Table \\ref{tab:planning} (which gives $\\rho = 0.7$) but at $\\rho = 0.5$ and 0.9, at carryover half-lives of 0.2 and 1 week. At $\\rho = 0.9$ the grid of $c_{bm}$ lies inside the lower bound. Not feasible: $c_{bm}$ lies above the bound of that design.') |>
+  kableExtra::add_header_above(c(' ' = 3, 'Carryover half-life' = 2), escape = FALSE)
 ```
 
 **Parameters by status.**
@@ -2474,19 +2165,14 @@ For simulation studies of these designs, we recommend the following.
   paired-difference statistic, not for the binary-indicator mixed model. The
   two agree closely in the Hybrid design. Under compound symmetry, in
   the crossover design, the closed form understates the binary-indicator mixed
-  model. The sample sizes of the planning table are E9 values. The
-  simulated G10 columns show the direction and size of the difference
-  under the recommended DGP: at the E9
-  sample size G10 power was `r pg_n80_range` in the uncapped cells. The
-  G10 sample size for 80 percent power was searched for in the Hybrid
-  design only, by simulation at `r n80_k` values of $N$ per cell. It
-  carries Monte Carlo error that Table \@ref(tab:planning) does not
-  show.
+  model. The sample sizes of the planning tables are E9 values, not
+  sample sizes for the mixed-model analysis a trial would use; the
+  companion paper gives those for G10 [@pmsimstats-paper02].
 - **The planning results depend on $\rho$.** The main tables use
   $\rho = 0.7$. The one available PTSD series suggests a slower decay
   (Stage 4). At $\rho = 0.9$ the Hybrid design needs about half the
-  sample, the largest feasible effect is lower, and G10 fits fail
-  often in the crossover design (Table \@ref(tab:planningrho)).
+  sample and the largest feasible effect is lower (Table
+  \@ref(tab:planningrho)).
 - **The biomarker is assumed not to be prognostic.** Every result
   assumes a biomarker correlated with the drug response only (Aims).
   CSP 563 supports the assumption for baseline severity but cannot
@@ -2548,14 +2234,10 @@ the Hybrid design needs `r pr_e9n(0.9, 'Hybrid', 0.25)` participants at
 $c_{bm} = 0.25$ instead of `r pr_e9n(0.7, 'Hybrid', 0.25)`. Third, a
 matrix outside the bound should be refused rather than repaired.
 
-The planning table gives the power at matched strength. It does so for
-the paired-difference statistic in closed form and for the recommended
-mixed-model analysis G10 by simulation. At the closed-form sample
-size, G10 power was `r pg_n80_range` in the uncapped cells. In the
-Hybrid design the G10 sample size for 80 percent power was
-`r n80_ratio_range` times the closed-form
-value`r if (have_n80 && (any(n80$extrapolated) || any(is.na(n80$N80_G)))) ' where it could be located' else ''`.
-We propose the recommended DGP as a reference for simulation studies
+The planning tables give closed-form sample sizes for the
+paired-difference statistic by design, strength, half-life and serial
+correlation; the companion paper gives them for the recommended
+mixed-model analysis. We propose the recommended DGP as a reference for simulation studies
 of these designs when the biomarker is predictive only. It has options
 for measurement error, the decay form and dropout; the prognostic case
 is the subject of a companion paper. Every parameter is
@@ -2669,9 +2351,6 @@ code, data files and table headings.
   error estimated from the residuals with each participant as a
   cluster, valid when the assumed covariance is wrong; used here in its
   bias-reduced CR2 form with Satterthwaite degrees of freedom.
-- **Capped cell** ($\dagger$ in Table \@ref(tab:planningg10)): a cell
-  whose E9 sample size for 80 percent power exceeds 400, simulated at
-  $N = 400$.
 - **Exposure-decayed drug indicator** ($D_{bc}$): a drug indicator
   equal to 1 on drug, $2^{-t_{sd}/t_{1/2}}$ off drug after exposure,
   and 0 before exposure.
@@ -2772,11 +2451,11 @@ cite commit `r sub('-dirty$', '', render_sha)`, from which this version was rend
   `analysis/scripts/quick-sim/carryover-closed-form/01-e9-closed-form.R`,
   and the serial-correlation stage, planning table and trajectory
   figure, in `17-rho-stage.R` in the same directory;
-- the G10 and G9 simulations at the planned sample sizes, on the
-  Figure 4B grid and for the G10 sample size, in
+- the G10 and G9 simulations on the Figure 4B grid, in
   `19-g9-planning-and-fig4b.R` in the same directory (run with
-  `--params published --specs E7null_cr2,E7cr2`, blocks P and F in
-  one job and block N in another), with their outputs under
+  `--params published --specs E7null_cr2,E7cr2`, block F; its blocks P
+  and N, the G10 planning runs, are reported in the companion paper),
+  with their outputs under
   `analysis/data/quick-sim/carryover-closed-form/published-planning/`;
   the generator check against the closed form in
   `analysis/scripts/carryover-sensitivity/42-check-param-sets.R`; the

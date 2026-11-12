@@ -92,14 +92,10 @@ these features.
 
 **Planning.** At the pharmacological half-life the Hybrid design
 needs about 280 participants at $c_{bm} = 0.25$ and 84 at 0.45 for
-80% power of E9; at a 1-week half-life, 480 and 146. The recommended
-analysis G10 (a random-intercept CAR(1) mixed model with an analysis
-half-life chosen by AIC on the model without the interaction, tested
-with cluster-robust CR2 standard errors) rejected the null at 0.046
-to 0.053. At the E9 sample size G10 power was 0.844 to 0.936 in the
-20 uncapped cells, so the closed-form rule is conservative for G10.
-In the Hybrid design the G10 sample size for 80% power is 0.71 to
-0.83 times the E9 value.
+80% power of E9 in closed form; at a 1-week half-life, 480 and 146.
+These are exact values for the paired-difference statistic. Sample
+sizes for the mixed-model analysis a trial would use, G10, are given
+by simulation in the companion carryover paper (paper 02).
 
 **Differences from the DGP of Hendrickson et al.** A separate section
 lists every difference and reruns their code. As published, power

@@ -143,3 +143,40 @@ pmsimstats team
   table, the A0-to-A1 power increment and the scoreboard's power
   columns. A0 stays in the size ladder, Table S1 and every Type I
   column. Captions say why. Re-rendered; no unresolved references.
+
+## Sample-size simulations for A4 (started 2026-11-11 15:10)
+
+Driver `46-run-sample-size.R` (commit 5819e1d): A4 and A2 power over a
+grid of N, designs CO/OLBDC/Hybrid, t1/2 {0, 0.5, 1}, c_bm {0.2, 0.3,
+0.4}, 500 replicates per cell, both parameter sets (author decision).
+Local pilot (Hybrid, c_bm 0.4, 100 reps): A4 power at t1/2 = 1 is 0.86
+at N = 100 under simcore2026 and 0.61 under published, so the
+published N grid is roughly doubled. zeus was unreachable (Tailscale
+timeout, home alias unresolved), so the six jobs went to:
+
+| Host | Job | Set, design |
+|---|---|---|
+| athena | 21 | published OLBDC |
+| joe | 14 | published Hybrid |
+| zeus (sim-zeus-ts) | 66, then 67 | published CO, simcore2026 Hybrid (moved from athena 22 and joe 15 when zeus came back; commit 431f126, same driver and core as 5819e1d) |
+| mercury (sim-mercury-ts) | 53, then 54 | simcore2026 CO, simcore2026 OLBDC |
+
+athena and joe build the image first (30 to 60 min under Rosetta).
+Outputs: `analysis/data/carryover-sensitivity/sample-size-<set>-<design>/`.
+After `simrun fetch` / `apply`: write 47-sample-size-curves.R (probit
+fit of power on sqrt(N) per design, t1/2, c_bm and analysis; invert at
+0.8 with an interval), then the table and figure.
+
+### Paper 01 G10 planning material, staged for merge (2026-11-11)
+
+Moved from paper 01 by another session (commits c5ab2118b, 62ea70327,
+c91186258): `staging/from-paper01-g10-planning.Rmd` (planning chunks
+and prose, G10 relabeled A4; E9 and one G9 sentence still to remove or
+cite to paper 01) and `staging/reconcile-g10-with-46.R` (probit in
+c_bm*sqrt(N) at t1/2 = 0 and 1, likelihood-ratio test of a study
+difference, N80 side by side). Both use the published parameter set.
+Papers 01 and 15 now cite paper 02 for the A4 sample sizes, so paper 02
+must carry them. Merge after joe job 14 (published Hybrid) is fetched:
+run the reconciliation first; merge only if the two studies agree.
+Decision needed: paper 02's other results use simcore2026, these use
+published.

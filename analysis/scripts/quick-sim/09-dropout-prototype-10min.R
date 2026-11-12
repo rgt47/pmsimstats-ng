@@ -8,8 +8,20 @@
 ##       = 16 cells.
 ## Target: 500 reps per cell (8,000 fits) within a 540 s wall-clock
 ## budget, parallel::mclapply with mc.cores = 8 (HARD REQUIREMENT,
-## matched to sister papers 04, 05, 08). Architecture A (mean
-## moderation), N = 35, c.bm = 0.45, carryover_t1half = 0.5.
+## matched to sister papers 04, 05, 08). Mean-shift encoding
+## (dgp_architecture = 'mean_moderation'), total N = 70 per design
+## (allocated across paths), c.bm = 0.45, carryover_t1half = 0.5.
+##
+## STATUS (2026-10-29). Superseded for paper 09 by the paired driver
+## analysis/scripts/informative-dropout-by-design/20-paired-dropout.R.
+## Kept because its stored output (analysis/data/quick-sim/
+## 09-dropout-*.{rds,txt}) is the unpaired prototype the manuscript
+## compares against. Known limitations (referee report 2026-10-28):
+## cells are unpaired (seed 100000 * cell + rep); the 'biased' hazard
+## rises with the squared, uncentered change from baseline and is not
+## worsening-driven; the OL fit tests bm:t, not bm:Dbc; the analysis
+## half-life (0.5 week) does not match the generating interaction,
+## which has no carryover; it does not call censordata().
 ##
 ## Outputs (overwrite):
 ##   analysis/data/quick-sim/09-dropout-replicates.rds
@@ -526,7 +538,7 @@ p_power <- ggplot(plot_dt,
        title = paste0('Power for biomarker x treatment ',
                       'interaction by design and dropout'),
        subtitle = sprintf(
-         paste0('Architecture A, N=35, c.bm=0.45, ',
+         paste0('Mean-shift encoding, total N=70, c.bm=0.45, ',
                 'target %d reps per cell, 8-core mclapply'),
          n_reps_target),
        caption = paste0('Error bars: 1.96 x binomial MCSE. ',

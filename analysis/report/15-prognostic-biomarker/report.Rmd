@@ -73,6 +73,17 @@ knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path
     34-referee-reanalysis.R
       -> .../referee-reanalysis/m12-random-effects.csv
 
+  Second stress test (moved from paper 01 on 2026-11-11; its study 2,
+  formerly numbered study 3). Published means and SDs as constants in
+  the driver, stop on non-positive-definite matrices:
+    analysis/scripts/quick-sim/carryover-closed-form/
+      11-strawman-stress-test.R, three runs plus --extra, --extra2
+      (all runs) and --extra5 (third run only)
+      -> analysis/data/quick-sim/carryover-closed-form/strawman-stress/
+    18-prognostic-joint-ceiling.R (analytic, correlation matrix only)
+      -> analysis/data/quick-sim/carryover-closed-form/rho-stage/
+           prognostic-joint-ceilings.csv
+
   Not yet run: the biomarker-by-time block of split plan Section 3.1.
   Its section is a marked placeholder with no numbers.
 
@@ -514,12 +525,15 @@ when such an association biases the interaction test, and what
 removes the bias.
 
 **Methods.** We simulated the Hybrid design under the extended
-data-generating process (DGP) of the companion paper, with the
+data-generating process (DGP) of the companion DGP paper (paper 01), with the
 parameter values published by Hendrickson et al. Five prognostic
 pathways were examined. Three are correlations of the biomarker with a
 component. Two are mean shifts of the natural-history component, one
 constant and one growing over the trial. We compared analyses with
 and without the design-expectancy terms $\eta_t$ and $B^c_i\eta_t$.
+A second stress test, run with the driver of paper 01,
+fitted ten analyses to trials with four prognostic pathways at
+strength 0.3. Its analyses keep the baseline visit as an outcome row.
 
 **Results.** Under a correlation with the placebo-response component
 of 0.45, the analyses without expectancy terms rejected a true null at
@@ -527,16 +541,21 @@ of 0.45, the analyses without expectancy terms rejected a true null at
 `r V('l_f1_45')` (F1). The two-MCSE band at `r V('l_n')` replicates
 was `r V('l_band')`.
 Under a natural-history shift that grows over the trial, G9 rejected
-at `r V('t_g9')` and F1 at `r V('t_f1')` at $N = 70$. Without a
-prognostic effect, F1A0 reached `r V('g_r_Hybrid_F1A0')` percent of
-the power of G10 in the Hybrid cells. The power loss once attributed
-to a strong prognostic correlation came from repaired covariance
-matrices. Under the current stop on infeasible matrices, all
-`r V('n6_refused')` of those cells were refused.
+at `r V('t_g9')` and F1 at `r V('t_f1')` at $N = 70$, with no
+baseline row in the analysis. Without a prognostic effect, F1A0
+reached `r V('g_r_Hybrid_F1A0')` percent of the power of G10 in the
+Hybrid cells. In the second stress test, the analyses with expectancy
+terms stayed inside the two-MCSE band under every pathway. Every
+analysis without them, G10 included, exceeded the band under at least
+one pathway. The bias from the growing shift changed sign when a
+baseline row was added. The power loss once attributed to a strong
+prognostic correlation came from repaired covariance matrices. Under
+the current stop on infeasible matrices, all `r V('n6_refused')` of
+those cells were refused.
 
 **Conclusions.** For a biomarker that may be prognostic, add
 $\eta_t$ and $B^c_i\eta_t$ to the recommended analysis of the
-companion paper. A biomarker that may predict the rate of
+companion carryover paper (paper 02). A biomarker that may predict the rate of
 natural-history change needs a biomarker-by-time term. That remedy
 has not yet been simulated.
 
@@ -570,14 +589,16 @@ listed there and are marked *proposed*.
 - **Original DGP; extended DGP.** The original DGP is the code
   published by Hendrickson et al. at commit `58b32a9`
   [@hendrickson2020]. The extended DGP is the one recommended in
-  paper 01 [@pmsimstats-paper01]. It has a decaying biomarker-response
+  paper 01 [@pmsimstats-paper01], which calls it the recommended DGP.
+  It has a decaying biomarker-response
   correlation, the same first-order autoregressive correlation for
   every component with a constant between-component correlation at
   every lag ($\rho = 0.7$, $c_1 = 0.2$), carryover that decays from
   the last on-drug mean, and a stop on correlation matrices that are
   not positive definite. Code and data label it `refined`.
 - **Published parameter set; simcore2026 set.** The published set is
-  the component means and SDs of Hendrickson et al. The simcore2026
+  the component means and SDs of Hendrickson et al. Paper 01 calls
+  them the default values. The simcore2026
   set is an earlier set used by the paper 02 drivers before
   2026-11-03. Runs under it are labeled historical in this draft.
 - **Predictive biomarker.** One that changes the drug response
@@ -587,7 +608,12 @@ listed there and are marked *proposed*.
   stored data labels are `prog-BL` ($c_{bm,BL}$), `prog-TV-const`
   ($c_{bm,TV}$), `prog-PB` ($c_{bm,PB}$), `prog-TV-grow` ($b_{TV}$,
   constant despite its label) and the block T trend pathway
-  ($b_{TV}^{\mathrm{tr}}$).
+  ($b_{TV}^{\mathrm{tr}}$). The second stress test's growing
+  natural-history pathway is the trend pathway under another name.
+- **Baseline row.** An outcome row at week 0 holding the baseline
+  level, with $D_{bc,it} = 0$ and $\eta_t = 0$. The analyses of the
+  second stress test include it. Those of the paper 02 driver do not:
+  their first row is the week-4 visit.
 - **Feasibility bound.** The largest value of one correlation, given
   the others, for which the joint correlation matrix is positive
   definite on every path of the design.
@@ -638,7 +664,10 @@ placebo. In a design whose expectancy varies between open-label and
 blinded phases, the on-drug and off-drug visits differ in more than
 drug exposure. A prognostic association that differs between those
 visits can then project onto the interaction term. The test would
-then report moderation of the drug effect where there is none.
+then report moderation of the drug effect where there is none. A
+prognostic effect is known to bias tests of a
+biomarker-by-treatment interaction when the analysis model omits or
+misrepresents it [@haller2018; @kent2020path].
 
 The companion paper on carryover [@pmsimstats-paper02] studies a
 predictive-only biomarker. It recommends G10. That analysis uses an
@@ -652,11 +681,16 @@ under a strong prognostic correlation came from the silent repair of
 infeasible covariance matrices. It was not a property of any
 analysis.
 
-The data-generating facts are established in paper 01
-[@pmsimstats-paper01]. A prognostic correlation shares one
-feasibility condition with $c_{bm}$. The extended DGP refuses a
-matrix that is not positive definite. This paper cites those results
-and reports only their consequences for the analysis. The studies are
+Paper 01 defines the extended DGP and its prognostic pathways
+[@pmsimstats-paper01]. It assumes that the biomarker is not
+prognostic and refers that case to this paper. Two of its results
+therefore appear here. The first is the joint feasibility condition.
+A prognostic correlation shares one feasibility condition with
+$c_{bm}$, and the extended DGP refuses a matrix that violates it
+(Section \@ref(sec-feasibility), Appendix \@ref(sec-jointfeas)). The
+second is the prognostic cells of paper 01's stress test, its study
+2. That test fitted ten analyses, each with a baseline row, under
+four prognostic pathways (Section \@ref(sec-tenan)). The studies are
 exploratory.
 
 # Methods {#sec-methods}
@@ -786,6 +820,8 @@ draw-for-draw identical.
 ## Stored runs and their parameter sets {#sec-sources}
 
 Table \@ref(tab:tab-sources) lists every stored run this draft reads.
+The second stress test of Section \@ref(sec-tenan) comes from another
+driver, the stress test of paper 01.
 The published-set runs are the reruns of `docs/74`. The historical
 runs used the simcore2026 parameter set and silent repair. They are
 kept only as the exhibit of Section \@ref(sec-artifact)
@@ -793,13 +829,20 @@ kept only as the exhibit of Section \@ref(sec-artifact)
 an analysis.
 
 ```{r tab-sources}
-srow <- function(what, folder, meta, kind) {
+srow <- function(what, folder, meta, kind, set = NULL, base = 'cs',
+                 date = NULL) {
+  folder <- if (base == 'cs') {
+    paste0('carryover-sensitivity/', folder)
+  } else {
+    paste0('quick-sim/carryover-closed-form/', folder)
+  }
   data.frame(
     Run = what,
     Folder = paste0('\\texttt{', gsub('_', '\\\\_', folder), '}'),
-    Set = if (is.null(meta)) 'missing' else param_set(meta),
-    Date = if (is.null(meta) || is.null(meta$date)) '--' else
-      format(as.Date(meta$date)),
+    Set = if (!is.null(set)) set else
+      if (is.null(meta)) 'missing' else param_set(meta),
+    Date = if (!is.null(date)) date else
+      if (is.null(meta) || is.null(meta$date)) '--' else format(as.Date(meta$date)),
     Kind = kind)
 }
 tsrc <- rbind(
@@ -817,21 +860,30 @@ tsrc <- rbind(
        s27_m, 'published set'),
   srow('Scenario cells', 'published/g-vs-f-comparison', s21_m,
        'published set'),
+  srow('Second stress test, three runs and post hoc fits',
+       'strawman-stress', NULL, 'published set',
+       set = 'driver constants', base = 'qs',
+       date = '2026-10-07 to 2026-11-07'),
+  srow('Joint feasibility bounds',
+       'rho-stage/prognostic-joint-ceilings.csv', NULL, 'analytic',
+       set = 'correlations only', base = 'qs', date = '2026-10-27'),
   srow('Prognostic stress test', 'g9-prognostic-stress', st_h_m,
        'historical, repaired'),
   srow('Random-slope variants', 'g9-random-effects', re_h_m,
        'historical, repaired'))
 knitr::kable(tsrc, booktabs = TRUE, escape = FALSE,
-  col.names = c('Run', 'Folder under carryover-sensitivity/',
+  col.names = c('Run', 'Folder under analysis/data/',
                 'Parameter set recorded', 'Date', 'Status'),
   caption = 'Stored runs read by this draft. The parameter set is the
     value recorded in each run\'s metadata. Runs made before the
     parameter switch of 2026-11-03 record none and used the
-    simcore2026 set (docs/74). Two analytic files of the historical
-    folder, \\texttt{pd-check.rds} and
-    \\texttt{coupling-ceilings.rds}, are read as well. The first
-    depends on the simcore2026 SDs. The second depends on the
-    correlation matrix only.') |>
+    simcore2026 set (docs/74). The second stress test writes no
+    metadata file; its dates span its output files, from the first run
+    to the G10 fits. Its driver holds the published means and SDs as
+    constants. Two analytic files of the historical folder,
+    \\texttt{pd-check.rds} and \\texttt{coupling-ceilings.rds}, are
+    read as well. The first depends on the simcore2026 SDs. The
+    second depends on the correlation matrix only.') |>
   kableExtra::kable_styling(latex_options = 'scale_down',
                             font_size = 8)
 ```
@@ -840,25 +892,132 @@ knitr::kable(tsrc, booktabs = TRUE, escape = FALSE,
 
 ## Feasibility of a prognostic correlation {#sec-feasibility}
 
-Paper 01 derives the joint feasibility condition and tabulates the
-bounds for every design [@pmsimstats-paper01]. A prognostic
-correlation occupies the same biomarker row of the correlation
-matrix as $c_{bm}$. The two share one condition, a quadratic form in
-the correlations that must be below one. We do not repeat that
-table. We quote only the bounds at this paper's configuration:
-Hybrid, $t_{1/2} = 0.5$ week, $\rho = 0.7$, $c_1 = 0.2$. The bounds
-depend on the correlation matrix only, not on the component SDs. They
-therefore hold for both parameter sets.
+A prognostic correlation occupies the same biomarker row of the
+correlation matrix as $c_{bm}$. The two therefore share one
+feasibility condition. Writing the row as a sum of fixed patterns
+scaled by the correlations, the condition becomes a quadratic form in
+the correlations that must be below one. The largest value of one
+correlation given the others is the positive root of a quadratic
+(Appendix \@ref(sec-jointfeas)). Table \@ref(tab:tab-jointceil) gives
+the bounds for the Hybrid design under the extended DGP. They depend
+on the correlation matrix only, not on the component SDs, so they
+hold for both parameter sets.
 
-Alone, $c_{bm}$ is feasible up to `r V('b_bm')` and $c_{bm,PB}$ or
-$c_{bm,TV}$ up to `r V('b_pb')`. Given $c_{bm} = 0.30$ the bound on
-$c_{bm,PB}$ or $c_{bm,TV}$ is `r V('b_pb30')` and on $c_{bm,BL}$ is
-`r V('b_bl30')`. Given $c_{bm} = 0.45$ they are `r V('b_pb45')` and
-`r V('b_bl45')`. No $c_{bm}$ is feasible with $c_{bm,PB}$ or
-$c_{bm,TV}$ at 0.6. Strength 0.3 therefore lies just inside the
-bound at $c_{bm} = 0.45$. Strength 0.6 is infeasible at every
-$c_{bm}$ on those two pathways. The feasible grid of Section
-\@ref(sec-grid) was chosen from these bounds.
+```{r values-jointceil, include = FALSE}
+jc_file <- file.path(repo_root, 'analysis', 'data', 'quick-sim',
+                     'carryover-closed-form', 'rho-stage',
+                     'prognostic-joint-ceilings.csv')
+has_jc <- file.exists(jc_file)
+if (has_jc) {
+  jc <- read.csv(jc_file, stringsAsFactors = FALSE)
+  jc_v <- function(d, th, cp, g) {
+    jc$ceiling[jc$design == d & jc$t1half == th & jc$coupling == cp &
+                 jc$given == g]
+  }
+  setv('jc_gap45', f3(jc_v('Hybrid', 0.5, 'c_pb', 'c_bm = 0.45') - 0.3))
+  setv('jc_bm02', f2(jc_v('Hybrid', 0.2, 'c_bm', 'c_pb = 0.3')))
+  setv('jc_co_pb', f3(jc_v('CO', 0.5, 'c_pb', 'alone')))
+  setv('jc_hy_pb', f3(jc_v('Hybrid', 0.5, 'c_pb', 'alone')))
+  hy <- jc[jc$design == 'Hybrid', ]
+  ob <- jc[jc$design == 'OLBDC', ]
+  k <- match(paste(hy$t1half, hy$coupling, hy$given),
+             paste(ob$t1half, ob$coupling, ob$given))
+  setv('jc_ob_dmax', f3(max(abs(hy$ceiling - ob$ceiling[k]),
+                            na.rm = TRUE)))
+  claim(all(is.na(jc$ceiling[jc$given == 'c_pb = 0.6'])),
+        'Joint bounds: no c_bm is feasible with c_bm,PB = 0.6.')
+  claim(jc_v('Hybrid', 0.5, 'c_pb', 'c_bm = 0.45') > 0.3 &&
+          jc_v('Hybrid', 0.2, 'c_bm', 'c_pb = 0.3') < 0.45,
+        paste('Joint bounds: strength 0.3 is feasible with c_bm = 0.45',
+              'at 0.5 week but not at 0.2 week.'))
+  claim(jc_v('CO', 0.5, 'c_bm', 'alone') >
+          jc_v('Hybrid', 0.5, 'c_bm', 'alone') &&
+          jc_v('CO', 0.5, 'c_bl', 'c_bm = 0.3') >
+          jc_v('Hybrid', 0.5, 'c_bl', 'c_bm = 0.3') &&
+          jc_v('CO', 0.5, 'c_pb', 'alone') <
+          jc_v('Hybrid', 0.5, 'c_pb', 'alone'),
+        paste('Joint bounds: CO is looser than Hybrid on c_bm and',
+              'c_bm,BL and tighter on c_bm,PB alone.'))
+  claim(all(jc$min_eig_below > 0, na.rm = TRUE) &&
+          all(jc$min_eig_above < 0, na.rm = TRUE),
+        paste('Joint bounds: the smallest eigenvalue is positive just',
+              'below each bound and negative just above it.'))
+  if (has_ceil) {
+    cr0 <- ceil$results
+    cr0 <- cr0[cr0$coupling != 'c_tv' & !grepl('c_tv', cr0$given), ]
+    ck <- vapply(seq_len(nrow(cr0)), function(i) {
+      v <- jc_v('Hybrid', 0.5, cr0$coupling[i], cr0$given[i])
+      length(v) == 1 && isTRUE(all.equal(v, cr0$ceiling[i]))
+    }, logical(1))
+    claim(all(ck[!is.na(cr0$ceiling)]),
+          paste('The historical ceiling file and the joint-ceiling',
+                'table agree at Hybrid, 0.5 week.'))
+  }
+}
+```
+
+```{r tab-jointceil}
+if (has_jc) {
+  jc_hyb <- jc[jc$design == 'Hybrid' & jc$t1half %in% c(0.2, 0.5), ]
+  jc_rows <- data.frame(
+    lab = c('$c_{bm,PB}$ or $c_{bm,TV}$', '', '', '',
+            '$c_{bm,BL}$', '', '', '', '$c_{bm}$', '', ''),
+    given = c('alone', '$c_{bm} = 0.25$', '$c_{bm} = 0.30$',
+              '$c_{bm} = 0.45$', 'alone', '$c_{bm} = 0.25$',
+              '$c_{bm} = 0.30$', '$c_{bm} = 0.45$', 'alone',
+              '$c_{bm,PB} = 0.3$', '$c_{bm,PB} = 0.6$'),
+    key_c = c(rep('c_pb', 4), rep('c_bl', 4), rep('c_bm', 3)),
+    key_g = c('alone', 'c_bm = 0.25', 'c_bm = 0.3', 'c_bm = 0.45',
+              'alone', 'c_bm = 0.25', 'c_bm = 0.3', 'c_bm = 0.45',
+              'alone', 'c_pb = 0.3', 'c_pb = 0.6'))
+  jc_pick <- function(th) {
+    vapply(seq_len(nrow(jc_rows)), function(i) {
+      v <- jc_hyb$ceiling[jc_hyb$t1half == th &
+                            jc_hyb$coupling == jc_rows$key_c[i] &
+                            jc_hyb$given == jc_rows$key_g[i]]
+      if (length(v) != 1 || is.na(v)) 'none' else sprintf('%.3f', v)
+    }, character(1))
+  }
+  jc_tab <- data.frame(jc_rows$lab, jc_rows$given, jc_pick(0.2),
+                       jc_pick(0.5))
+  knitr::kable(jc_tab, booktabs = TRUE, escape = FALSE, linesep = '',
+    col.names = c('Correlation', 'Given', '$t_{1/2} = 0.2$ week',
+                  '$t_{1/2} = 0.5$ week'),
+    caption = 'Largest feasible prognostic correlation given the
+      biomarker-response correlation $c_{bm}$, and the reverse, under
+      the extended DGP (separable AR(1), $\\rho = 0.7$, $c_1 = 0.2$),
+      Hybrid design, minimum over its four paths. Correlation: the
+      quantity whose bound is given. $c_{bm,PB}$, $c_{bm,TV}$,
+      $c_{bm,BL}$: correlation of the biomarker with the
+      placebo-response component, the natural-history component and
+      the baseline level. None: no value is feasible. Computed from
+      the correlation matrix, no simulation
+      (\\texttt{18-prognostic-joint-ceiling.R}).') |>
+    kableExtra::kable_styling(font_size = 9)
+} else {
+  pending_note('the joint feasibility bounds')
+}
+```
+
+At this paper's half-life of 0.5 week, a prognostic correlation of
+0.3 lies inside the feasible region at every $c_{bm}$ up to 0.45, by
+`r V('jc_gap45')` at 0.45. At 0.2 week it is feasible only up to
+$c_{bm} =$ `r V('jc_bm02')`. A prognostic correlation of 0.6 with the
+placebo-response or natural-history component is infeasible with any
+$c_{bm}$. That is the combination that the repaired runs of Section
+\@ref(sec-artifact) simulated. The correlations with the
+placebo-response and the natural-history components have identical
+bounds, because their patterns are the same constant on every visit
+of one component. A correlation with the baseline level has a looser
+bound. The baseline level is uncorrelated with the response
+components and enters only through its square. Outside the table,
+the OL+BDC bounds are within `r V('jc_ob_dmax')` of the Hybrid
+values at the same half-life. The crossover bounds are looser on
+$c_{bm}$ and $c_{bm,BL}$, and slightly tighter on $c_{bm,PB}$ alone
+(`r V('jc_co_pb')` against `r V('jc_hy_pb')`). Each bound was checked
+by the sign of the smallest eigenvalue of the full matrix: positive
+at 0.999 times the bound and negative at 1.001 times it. The feasible
+grid of Section \@ref(sec-grid) was chosen from these bounds.
 
 ## Correlation pathways at strength 0.3 {#sec-stress}
 
@@ -1129,7 +1288,10 @@ was `r V('t_ref_pw')` with `r V('t_ref_est')`. That comparison is
 unpaired. The mechanism is the design. In the Hybrid design
 $D_{bc,it}$ falls with calendar time, so a biomarker that predicts
 the trend projects onto the interaction term of a model with no
-biomarker-by-time term.
+biomarker-by-time term. The paper 02 driver has no baseline row. The
+second stress test applied the same shift to analyses with a
+baseline row and found a bias of the opposite sign (Section
+\@ref(sec-reconcile)).
 
 ## The biomarker-by-time remedy: RESULTS PENDING {#sec-bmt}
 
@@ -1244,6 +1406,543 @@ if (has_s21) {
   pending_note('the published-set scenario cells')
 }
 ```
+
+## A second stress test: ten analyses under the extended DGP {#sec-tenan}
+
+This section reports the prognostic cells of a second stress test, run
+with the driver of paper 01
+(`analysis/scripts/quick-sim/carryover-closed-form/11-strawman-stress-test.R`).
+Paper 01 reports the cells of the same study, its study 2, that have
+no prognostic pathway [@pmsimstats-paper01]. The trials come from the
+extended DGP with the published parameter set, in the Hybrid design:
+$N = 70$ with fixed allocation (18, 18, 17, 17), $t_{1/2} = 0.5$ week,
+$\rho = 0.7$ and $c_1 = 0.2$. Four null cells ($c_{bm} = 0$) each add
+one prognostic pathway of strength 0.3: $c_{bm,TV} = 0.3$,
+$c_{bm,PB} = 0.3$, $c_{bm,BL} = 0.3$, and a mean shift of the
+natural-history component of 0.3 of its SD per SD of the biomarker at
+the end of its curve, growing along the curve. The last is labeled the
+growing natural-history pathway here. It is not the stored
+`prog-TV-grow` cell of the paper 02 driver, which is constant (Section
+\@ref(sec-pathways)). It is the trend pathway of Section
+\@ref(sec-trend), with the same coefficient (Section
+\@ref(sec-reconcile)). Each cell has 1,000 replicates, so the
+single-cell two-MCSE band is 0.036 to 0.064.
+
+Fourteen analyses were fitted to the same trials, and ten are
+reported. They are named by their model in Table
+\@ref(tab:tab-tenan), not by the G and F codes of this paper. Every
+one of them keeps the baseline visit as an outcome row. The
+expectancy-term model adds $\eta_t$ and $B^c_i\eta_t$, as the F-family
+does. The free-baseline model adds `bmc:bl0`, a separate biomarker
+slope for the baseline row. Analyses with a fixed analysis half-life
+use 0.5 week, the true value.
+
+The study was run three times with the same seed rule,
+$20261007 + 1000 \times \text{cell} + \text{chunk}$. The first run
+used the compounding carryover rule on the mean and fixed allocation.
+The second used carryover decaying from the last on-drug mean and
+randomized allocation. The third, reported here, is the extended DGP
+as defined: decaying carryover and fixed allocation. It differs from
+the first only in the carryover rule and from the second only in the
+allocation. Failed fits were excluded from the denominator. They
+were at most 0.6% in any cell. The study is exploratory. Its cells and
+analyses followed a working protocol that was revised as results came
+in. Two cells with a prognostic association with baseline severity,
+and three analyses, were added after the first results.
+
+```{r p01-stress, include = FALSE}
+## Paper 01's study 2 (driver 11; numbered study 3 in paper 01 before
+## 2026-11-11), moved here on 2026-11-11 with its prognostic cells.
+## Main run plus the two post hoc files fitted to the same trials; S
+## is refitted in each post hoc file as a pairing check and dropped
+## there.
+ss_dir <- file.path(repo_root, 'analysis', 'data', 'quick-sim',
+                    'carryover-closed-form', 'strawman-stress')
+ss_read <- function(tag) {
+  x <- lapply(c('summary-full', 'summary-full-extra',
+                'summary-full-extra2'), function(b) {
+    d <- read.csv(file.path(ss_dir, paste0(b, tag, '.csv')))
+    if (b != 'summary-full') d <- d[d$analysis != 'S', ]
+    d[, c('label', 'cbm', 'analysis', 'reject', 'fits')]
+  })
+  do.call(rbind, x)
+}
+## Third run (the reported one): the extended DGP with fixed
+## allocation. Second run: randomized allocation. First run:
+## compounding carryover rule.
+ss3 <- ss_read('-anchored-fixed-ha0.5')
+ss2 <- ss_read('-anchored')
+ss1 <- ss_read('')
+ss_r <- function(d, lab, an, cbm = 0) {
+  v <- d$reject[d$label == lab & d$cbm == cbm & d$analysis == an]
+  stopifnot(length(v) == 1)
+  v
+}
+ss_f <- function(v) sprintf('%.3f', v)
+ss_an <- c(
+  R = 'Binary-indicator analysis (random intercept, model-based)',
+  S = 'Random intercept + CAR(1), CR2',
+  DS = 'The same, half-life chosen by AIC',
+  A = 'Unstructured covariance, Kenward-Roger',
+  DA = 'The same, half-life chosen by AIC',
+  F1 = 'Random intercept + CAR(1) with expectancy terms, CR2',
+  G1 = 'The same, with phase-specific residual variances, CR2',
+  G2 = 'The same, with phase-specific residual variances, model-based',
+  F1A = 'Expectancy terms, half-life chosen by AIC, CR2',
+  ES = 'Random intercept + CAR(1) with free baseline slope, CR2')
+ss_short <- c(
+  R = 'the binary-indicator analysis',
+  S = 'the CAR(1) model with CR2',
+  DS = 'the CAR(1) model with AIC-chosen half-life',
+  A = 'the unstructured model',
+  DA = 'the unstructured model with AIC-chosen half-life',
+  F1 = 'the expectancy-term model',
+  G1 = paste('the expectancy-term model with phase-specific',
+             'variances (CR2)'),
+  G2 = paste('the expectancy-term model with phase-specific',
+             'variances (model-based)'),
+  F1A = 'the expectancy-term model with AIC-chosen half-life',
+  ES = 'the free-baseline model')
+ss_prog <- c('prog-TV-const', 'prog-TV-grow', 'prog-PB', 'prog-BL')
+ss_cell <- c(`prog-TV-const` = 'the constant natural-history pathway',
+             `prog-TV-grow` = 'the growing natural-history pathway',
+             `prog-PB` = 'the placebo pathway',
+             `prog-BL` = 'the baseline-severity pathway')
+ss_tab <- function(d) {
+  sapply(ss_prog, function(l) {
+    sapply(names(ss_an), function(a) ss_r(d, l, a))
+  })
+}
+ss_m3 <- ss_tab(ss3)
+ss_m2 <- ss_tab(ss2)
+ss_m1 <- ss_tab(ss1)
+ss_bold <- function(m) {
+  matrix(ifelse(m > 0.075, sprintf('\\textbf{%.3f}', m),
+                sprintf('%.3f', m)),
+         nrow(m), dimnames = dimnames(m))
+}
+ss_band1 <- 0.05 + c(-2, 2) * sqrt(0.05 * 0.95 / 1000)
+## Cells of the reported run whose classification differs from an
+## earlier run, against the bold threshold (0.075) and the single-cell
+## band. The first run isolates the carryover rule, the second the
+## allocation.
+ss_cross <- function(m, run, thr) {
+  k <- which((m > thr) != (ss_m3 > thr), arr.ind = TRUE)
+  if (!nrow(k)) return('none')
+  paste(sprintf('%s under %s (%s run %s, third run %s)',
+                ss_short[rownames(ss_m3)[k[, 1]]],
+                ss_cell[colnames(ss_m3)[k[, 2]]], run,
+                ss_f(m[k]), ss_f(ss_m3[k])), collapse = '; ')
+}
+ss_dmax_at <- function(m) {
+  d <- abs(ss_m3 - m)
+  k <- which(d == max(d), arr.ind = TRUE)[1, ]
+  sprintf('%s, for %s under %s', ss_f(max(d)),
+          ss_short[rownames(ss_m3)[k[1]]],
+          ss_cell[colnames(ss_m3)[k[2]]])
+}
+## The text below states these for all three runs.
+for (ss_m in list(ss_m1, ss_m2, ss_m3)) {
+  stopifnot(all(ss_m[c('F1', 'G1', 'G2', 'F1A'), ] < ss_band1[2]),
+            all(apply(ss_m[c('R', 'S', 'DS', 'A', 'DA'), ], 1, max) >
+                ss_band1[2]),
+            max(ss_m['ES', ]) < ss_band1[2] + 0.015)
+}
+stopifnot(max(ss_m1['ES', ]) < ss_band1[2],
+          which.max(ss_m2['ES', ]) == 2,
+          max(ss_m2['ES', ]) > ss_band1[2],
+          which.max(ss_m3['ES', ]) == 2,
+          max(ss_m3['ES', ]) > ss_band1[2])
+p01_pend <- function(ok, x) if (ok) x else '\\textbf{[pending]}'
+```
+
+```{r tab-tenan}
+ss_tab3 <- data.frame(Analysis = unname(ss_an), ss_bold(ss_m3),
+                      check.names = FALSE)
+knitr::kable(ss_tab3, booktabs = TRUE, escape = FALSE,
+  row.names = FALSE, linesep = '',
+  col.names = c('Analysis', 'Natural history, constant',
+                'Natural history, growing', 'Placebo response',
+                'Baseline severity'),
+  caption = 'Second stress test: null rejection rates under a
+    prognostic biomarker ($c_{bm} = 0$). Each pathway has strength
+    0.3: a correlation of 0.3 with the natural-history component
+    (constant), the placebo-response component or baseline severity,
+    and for the growing natural-history pathway a mean shift of the
+    natural-history component of 0.3 of its SD (3 points) per SD of
+    biomarker at the end of its curve, growing along the curve. 1,000
+    replicates per cell (two-MCSE band 0.036 to 0.064 for a single
+    cell). Third run: the extended DGP, with carryover decaying from
+    the last on-drug mean and fixed path allocation. Every analysis
+    has a baseline row. Rates above 0.075 in bold. The first run is
+    in Appendix \\ref{sec-firstrun}.') |>
+  kableExtra::kable_styling(font_size = 9) |>
+  kableExtra::column_spec(1, width = '5.5cm') |>
+  kableExtra::column_spec(2:5, width = '2.1cm')
+```
+
+Analyses that keep baseline as an outcome row use one biomarker main
+effect for baseline and for the off-drug visits. When the biomarker is
+prognostic through a pathway that is absent at baseline, those two
+associations differ, and part of the difference is attributed to the
+interaction (Appendix \@ref(sec-shared)). Every analysis that shares
+the biomarker effect with baseline exceeded the nominal level in at
+least one such cell (Table \@ref(tab:tab-tenan)).
+
+The expectancy-term family stayed within the single-cell two-MCSE band
+in every prognostic cell. Its four analyses rejected
+`r ss_f(min(ss_m3[c('F1', 'G1', 'G2', 'F1A'), ]))` to
+`r ss_f(max(ss_m3[c('F1', 'G1', 'G2', 'F1A'), ]))`. This family adds
+the expectancy and a biomarker-by-expectancy term to the mean model,
+with or without residual variances that differ by trial phase. The
+free-baseline model rejected `r ss_f(ss_m3['ES', 'prog-TV-grow'])`
+under the growing natural-history pathway, above the single-cell band,
+and `r ss_f(ss_m3['ES', 'prog-PB'])` under the placebo pathway.
+Appendix \@ref(sec-shared) explains why freeing the baseline slope
+alone is not sufficient when the prognostic slope grows over time or
+scales with the expectancy. A prognostic association with baseline
+severity alone did less harm, because baseline severity enters every
+visit equally. The binary-indicator analysis rejected
+`r ss_f(ss_m3['R', 'prog-BL'])` there. The scenarios in which the
+pathway is absent at baseline are the ones that show the inflation.
+Whether such a pathway, at a magnitude of 0.3, is realistic for blood
+pressure in PTSD is not known.
+
+**Changes between runs.** Treating two runs as independent, the
+difference between them in one cell has a Monte Carlo SE of about
+0.010 at a rate of 0.05. The first and third runs use the same seeds
+and allocation, so their differences are paired and that SE overstates
+their noise. The carryover rule changed the table by at most
+`r ss_dmax_at(ss_m1)` (Appendix \@ref(sec-firstrun)). Cells that
+crossed the bold threshold of 0.075:
+`r ss_cross(ss_m1, 'first', 0.075)`. Cells that crossed the upper edge
+of the single-cell band: `r ss_cross(ss_m1, 'first', ss_band1[2])`.
+Randomized allocation changed it by at most `r ss_dmax_at(ss_m2)`.
+Cells that crossed the bold threshold:
+`r ss_cross(ss_m2, 'second', 0.075)`. Cells that crossed the upper edge
+of the single-cell band: `r ss_cross(ss_m2, 'second', ss_band1[2])`.
+In all three runs the expectancy-term family stayed within the
+single-cell band in every prognostic cell. The binary-indicator, CAR(1)
+and unstructured analyses each exceeded it in at least one cell, with
+or without an AIC-chosen half-life. Taken analysis by analysis, only
+the free-baseline model changed its classification. It stayed within
+the band in the first run and exceeded it under the growing pathway in
+the other two, by at most
+`r ss_f(max(ss_m2['ES', ], ss_m3['ES', ]) - ss_band1[2])`.
+
+```{r p01-g10, include = FALSE}
+## G10 on the trials of the reported run (driver 11 --extra5, athena
+## job 20; S refitted as the pairing check).
+x5_file <- file.path(ss_dir,
+                     'summary-full-extra5-anchored-fixed-ha0.5.csv')
+have_x5 <- file.exists(x5_file)
+if (have_x5) {
+  x5 <- read.csv(x5_file)
+  x5_r <- function(lab, an = 'G10', cbm = 0) {
+    v <- x5$reject[x5$label == lab & abs(x5$cbm - cbm) < 1e-9 &
+                     x5$analysis == an]
+    stopifnot(length(v) == 1)
+    v
+  }
+  ## Pairing: S refitted on the same trials reproduces the main run.
+  x5_pair <- max(abs(mapply(function(l, cb) x5_r(l, 'S', cb) -
+                              ss_r(ss3, l, 'S', cb),
+                            x5$label[x5$analysis == 'S'],
+                            x5$cbm[x5$analysis == 'S'])))
+  stopifnot(x5_pair < 0.005)
+  x5_prog <- sapply(ss_prog, x5_r)
+  ## Cost of robustness: the factor by which N must grow for the
+  ## expectancy-term model to match G10's power, by the normal
+  ## approximation, over the separable power-curve cells with power
+  ## between 0.1 and 0.95 for both.
+  x5_cb <- c(0.15, 0.225, 0.30, 0.375, 0.45)
+  x5_pg <- sapply(x5_cb, function(cb) x5_r('curve-C07', 'G10', cb))
+  x5_pf <- sapply(x5_cb, function(cb) ss_r(ss3, 'curve-C07', 'F1', cb))
+  x5_ok <- x5_pg > 0.1 & x5_pg < 0.95 & x5_pf > 0.1 & x5_pf < 0.95
+  x5_za <- qnorm(0.975)
+  x5_infl <- ((x5_za + qnorm(x5_pg[x5_ok])) /
+                (x5_za + qnorm(x5_pf[x5_ok])))^2
+  ## The lowest-power cell (both near 0.15) can fall just below 1
+  ## within Monte Carlo error; the text names it.
+  x5_lo <- which.min(x5_pg[x5_ok])
+  stopifnot(all(x5_ok), all(x5_infl > 0.9),
+            all(x5_infl[-x5_lo] > 1), x5_lo == 1)
+  x5_hi <- x5_infl[-x5_lo]
+  ## Text: G10 is liberal under the constant natural-history and
+  ## placebo pathways and inside the band under the other two.
+  stopifnot(x5_prog[['prog-TV-const']] > ss_band1[2],
+            x5_prog[['prog-PB']] > ss_band1[2],
+            x5_prog[['prog-TV-grow']] <= ss_band1[2],
+            x5_prog[['prog-BL']] <= ss_band1[2])
+}
+x5_txt <- function(v) p01_pend(have_x5, ss_f(v))
+```
+
+**G10 under these pathways.** Paper 01's planning sample sizes for
+G10 assume that the biomarker is not prognostic. We fitted G10 to the
+trials of this stress test, with the baseline row. It rejected the
+null at `r p01_pend(have_x5, ss_f(x5_r('curve-C07')))` in the base
+cell, and at
+`r x5_txt(x5_prog[['prog-TV-const']])`,
+`r x5_txt(x5_prog[['prog-TV-grow']])`,
+`r x5_txt(x5_prog[['prog-PB']])` and
+`r x5_txt(x5_prog[['prog-BL']])` under the constant natural-history,
+growing natural-history, placebo and baseline-severity pathways
+(single-cell band `r ss_f(ss_band1[1])` to `r ss_f(ss_band1[2])`).
+The expectancy-term model rejected
+`r ss_f(min(ss_m3['F1', ]))` to `r ss_f(max(ss_m3['F1', ]))` in the
+same cells. In this test G10 held its level when the biomarker acted
+through baseline severity or the growing natural history, but not when
+it acted through a constant natural history or the placebo response.
+Section \@ref(sec-reconcile) shows why the growing case may not carry
+over to an analysis without a baseline row. A trial in which a
+constant natural-history or placebo pathway is plausible should be
+planned for the expectancy-term analysis. On the power-curve trials of
+the stress test, matching G10's power with that analysis needs about
+`r p01_pend(have_x5, sprintf('%.2f to %.2f', min(x5_hi), max(x5_hi)))`
+times the G10 sample size, by the normal approximation to power, at
+$c_{bm}$ from 0.225 to 0.45. At $c_{bm} = 0.15$ both analyses have
+power near 0.15 and the factor,
+`r p01_pend(have_x5, sprintf('%.2f', x5_infl[x5_lo]))`, is within
+Monte Carlo error of 1. Paper 01's G10 sample sizes can be scaled by
+that factor. The factor comes from one design, half-life and $\rho$,
+the stress test's base cell.
+
+```{r pooled-extra4}
+## Pooled second run plus --extra4 (2,000 trials per cell), written by
+## 15-extra4-pooled-inputs.R; power_adj is size-adjusted power.
+pl_dat <- read.csv(file.path(repo_root, 'analysis', 'data', 'quick-sim',
+  'carryover-closed-form', 'strawman-stress', 'extra4-decision',
+  'pooled', 'decision-power-ds-nosym-all14-x.csv'))
+pl_adj <- function(lab, cbm, an) {
+  x <- pl_dat$power_adj[pl_dat$label == lab &
+                        abs(pl_dat$cbm - cbm) < 1e-9 &
+                        pl_dat$analysis == an]
+  stopifnot(length(x) == 1, pl_dat$n[pl_dat$label == lab &
+    abs(pl_dat$cbm - cbm) < 1e-9 & pl_dat$analysis == an] == 2000)
+  x
+}
+pl_f <- function(...) sprintf('%.3f', pl_adj(...))
+```
+
+**Power and robustness.** The expectancy-term model keeps its size
+under every prognostic pathway and has lower power. In the base cell
+at $c_{bm} = 0.30$ its power was
+`r ss_f(ss_r(ss3, 'curve-C07', 'F1', 0.3))` against
+`r ss_f(ss_r(ss3, 'curve-C07', 'S', 0.3))` for the CAR(1) model. A
+further 1,500 trials per cell under the second run's DGP (randomized
+allocation) were pooled with that run (2,000 per cell). There,
+size-adjusted power was `r pl_f('curve-C07', 0.3, 'F1')` against
+`r pl_f('curve-C07', 0.3, 'S')`, about
+`r sprintf('%.0f', 100 * (1 - pl_adj('curve-C07', 0.3, 'F1') / pl_adj('curve-C07', 0.3, 'S')))`%
+less. Under compound symmetry at $c_{bm} = 0.25$ the gap closes. Power
+was `r ss_f(ss_r(ss3, 'curve-CS', 'F1', 0.25))` against
+`r ss_f(ss_r(ss3, 'curve-CS', 'S', 0.25))` in the reported run, and
+size-adjusted power in the pooled trials was
+`r pl_f('curve-CS', 0.25, 'F1')` against
+`r pl_f('curve-CS', 0.25, 'S')` (Monte Carlo SE about 0.011). The
+choice between power and robustness is the trialist's. It depends on
+whether a prognostic pathway absent at baseline is plausible for the
+biomarker in hand.
+
+### The growing pathway and the trend pathway {#sec-reconcile}
+
+```{r values-reconcile, include = FALSE}
+## Driver 11 stores estimates per unit of the raw biomarker (bmc is
+## centered, not scaled); the paper 02 core stores them per SD. The
+## biomarker SD is read from driver 11's source of constants.
+rc_here04 <- file.path(repo_root, 'analysis', 'scripts', 'quick-sim',
+                       'hendrickson-problems', '04-power-simulation.R')
+rc_env <- new.env()
+for (e in parse(rc_here04)) {
+  if (is.call(e) && identical(e[[1]], as.name('<-')) &&
+        is.name(e[[2]]) &&
+        as.character(e[[2]]) %in% c('bm_sd', 'gomp', 'designs',
+                                    'path_info')) {
+    eval(e, rc_env)
+  }
+}
+has_rc <- has_rvT && have_x5 &&
+  all(c('bm_sd', 'gomp', 'designs', 'path_info') %in% ls(rc_env))
+if (has_rc) {
+  rc_bm_sd <- rc_env$bm_sd
+  bpT <- rvT_m$params$baseline_param
+  rpT <- rvT_m$params$resp_param
+  claim(isTRUE(all.equal(rc_bm_sd, bpT$sd[bpT$cat == 'bm'],
+                         tolerance = 1e-6)),
+        'Driver 11 and block T use the same biomarker SD.')
+  setv('rc_sig_tv', sprintf('%g', rpT$sd[rpT$cat == 'tv']))
+  rc_main <- read.csv(file.path(ss_dir,
+                                'summary-full-anchored-fixed-ha0.5.csv'))
+  rc_get <- function(d, an) {
+    x <- d[d$label == 'prog-TV-grow' & d$cbm == 0 & d$analysis == an, ]
+    stopifnot(nrow(x) == 1)
+    c(reject = x$reject, est = x$mean_est * rc_bm_sd,
+      se = x$emp_sd * rc_bm_sd)
+  }
+  rc_S <- rc_get(rc_main, 'S')
+  rc_DS <- rc_get(rc_main, 'DS')
+  rc_F1 <- rc_get(rc_main, 'F1')
+  rc_G10 <- rc_get(x5, 'G10')
+  rc_T <- function(m) {
+    x <- row1(rvT, method == m, c_bm == 0)
+    c(reject = x$reject, est = x$mean_est, se = x$emp_se)
+  }
+  rc_G8 <- rc_T('E2cr2')
+  rc_G9 <- rc_T('E7cr2')
+  rc_TF <- rc_T('F1')
+  for (nm in c('S', 'DS', 'F1', 'G10', 'G8', 'G9', 'TF')) {
+    v <- get(paste0('rc_', nm))
+    setv(paste0('rc_', nm, '_r'), f3(v[['reject']]))
+    setv(paste0('rc_', nm, '_e'), fs2(v[['est']]))
+    setv(paste0('rc_', nm, '_s'), f2(v[['se']]))
+  }
+  claim(sign(rc_S[['est']]) == -sign(rc_G8[['est']]),
+        paste('Growing shift: the fixed-half-life estimate has opposite',
+              'signs with and without the baseline row.'))
+  claim(all(abs(c(rc_S[['est']], rc_DS[['est']], rc_G10[['est']],
+                  rc_G8[['est']], rc_G9[['est']])) <
+              c(rc_S[['se']], rc_DS[['se']], rc_G10[['se']],
+                rc_G8[['se']], rc_G9[['se']]) / 3),
+        paste('Growing shift: every G-type mean estimate is within a',
+              'third of its empirical SE of zero.'))
+  claim(in_band(rc_S[['reject']], 1000) &&
+          in_band(rc_G8[['reject']], 1000) &&
+          in_band(rc_G10[['reject']], 1000) &&
+          in_band(rc_DS[['reject']], 1000),
+        paste('Growing shift: G8, the CAR(1) model, its AIC variant',
+              'and G10 are inside the band.'))
+  ## Least-squares projection of the shift onto the biomarker terms
+  ## of Sx ~ bm + t + Dbc + bm:Dbc at the true half-life, with no
+  ## covariance weighting: the Dbc coefficient of the shift on
+  ## [1, Dbc], pooled over the four Hybrid paths with equal weight.
+  ## A sign check of the mechanism, not a prediction of the estimate.
+  rc_D <- rc_env$designs$Hybrid
+  rc_pi <- lapply(rc_D$paths, function(od) {
+    rc_env$path_info(rc_D$t_wk, rc_D$e, od)
+  })
+  rc_g <- rc_env$gomp(rc_pi[[1]]$w, 6.50647, 5, 0.35)
+  rc_g <- rc_g / max(rc_g)
+  rc_dbc <- unlist(lapply(rc_pi, function(p) {
+    ifelse(p$on, 1, ifelse(p$tsd > 0, 0.5^(p$tsd / 0.5), 0))
+  }))
+  rc_shift <- -0.3 * rpT$sd[rpT$cat == 'tv'] *
+    rep(rc_g, length(rc_pi))
+  rc_ols0 <- coef(lm(rc_shift ~ rc_dbc))[[2]]
+  rc_dbc1 <- c(rc_dbc, rep(0, length(rc_pi)))
+  rc_shift1 <- c(rc_shift, rep(0, length(rc_pi)))
+  rc_ols1 <- coef(lm(rc_shift1 ~ rc_dbc1))[[2]]
+  rc_z <- vapply(list(rc_S, rc_DS, rc_G10, rc_G8, rc_G9), function(v) {
+    abs(v[['est']]) / (v[['se']] / sqrt(1000))
+  }, numeric(1))
+  setv('rc_zmin', sprintf('%.1f', min(rc_z)))
+  claim(min(rc_z) > 2,
+        paste('Growing shift: every G-type mean estimate is more than',
+              'two Monte Carlo SEs from zero.'))
+  setv('rc_ols0', fs2(rc_ols0))
+  setv('rc_ols1', fs2(rc_ols1))
+  claim(sign(rc_ols0) == sign(rc_G8[['est']]) &&
+          sign(rc_ols1) == sign(rc_S[['est']]),
+        paste('Growing shift: the unweighted projection has the sign',
+              'of the estimate with and without the baseline row.'))
+}
+```
+
+The growing natural-history pathway of this test and the trend
+pathway of Section \@ref(sec-trend) are the same mean shift. Both add
+$0.3\,\sigma_{TV}\,z_i\,g(w_t)$ to the natural-history component,
+with $g$ the natural-history mean course scaled to peak 1 over the
+visits. Driver 11 applies it in `draw()`. The paper 02 driver
+applies it in `implementations/tidyverse/R/functions.R`. Both use the
+published natural-history curve, $\sigma_{TV} =$ `r V('rc_sig_tv')`,
+the Hybrid design with fixed allocation, $N = 70$, $t_{1/2} = 0.5$
+week and 1,000 null replicates. The two results appear to disagree.
+Under the trend pathway G9 exceeded the band. Under the growing
+pathway G10 stayed inside it.
+
+The comparison is less direct than that. The two tests did not fit
+the same analyses. Block T fitted G8, G9 and F1, not G10. The second
+test fitted G10 but not G8 or G9. Its CAR(1) model with CR2 at the
+fixed half-life of 0.5 week has the formula, covariance and test of
+G8. Its AIC variant resembles G9, with a grid that adds 0. The two
+tests also differ in their analysis data. Every analysis of the
+second test has a baseline row. The paper 02 driver has none. Table
+\@ref(tab:tab-reconcile) sets the comparable analyses side by side.
+The comparison is across jobs and unpaired.
+
+```{r tab-reconcile}
+if (has_rc) {
+  rc_cell <- function(k) {
+    if (is.null(k)) return('--')
+    sprintf('%s (%s; %s)', V(paste0('rc_', k, '_r')),
+            V(paste0('rc_', k, '_e')), V(paste0('rc_', k, '_s')))
+  }
+  rc_tab <- data.frame(
+    Analysis = c('Fixed half-life 0.5 week, CR2',
+                 'Half-life by AIC, interaction in the model',
+                 'Half-life by AIC, interaction not in the model',
+                 'Expectancy terms, fixed half-life'),
+    T = c(paste('G8:', rc_cell('G8')), paste('G9:', rc_cell('G9')),
+          'not fitted', paste('F1 (0.2 week):', rc_cell('TF'))),
+    S = c(paste('CAR(1):', rc_cell('S')),
+          paste('AIC variant:', rc_cell('DS')),
+          paste('G10:', rc_cell('G10')),
+          paste('Expectancy-term (0.5 week):', rc_cell('F1'))))
+  knitr::kable(rc_tab, booktabs = TRUE, escape = FALSE, linesep = '',
+    col.names = c('Analysis', 'Block T, no baseline row',
+                  'Second stress test, baseline row'),
+    caption = sprintf('The growing natural-history shift ($0.3\\,
+      \\sigma_{TV}\\,z_i\\,g(w_t)$) with no true interaction, in the two
+      drivers. Each entry: rejection rate (mean interaction estimate
+      per SD of the biomarker; empirical SE). Hybrid, $N = 70$,
+      $t_{1/2} = 0.5$ week, fixed allocation, 1,000 replicates. Band
+      %s. The estimates of the second test are converted from raw
+      biomarker units by its SD.', V('t_band'))) |>
+    kableExtra::kable_styling(font_size = 8) |>
+    kableExtra::column_spec(1, width = '4cm') |>
+    kableExtra::column_spec(2:3, width = '4.6cm')
+} else {
+  pending_note('the comparison of the growing and trend pathways')
+}
+```
+
+At the fixed half-life the two drivers agree on size. G8 rejected at
+`r V('rc_G8_r')` and the CAR(1) model at `r V('rc_S_r')`, both inside
+the band. G9 rejected at `r V('rc_G9_r')`, above it, and the AIC
+variant of the second test at `r V('rc_DS_r')`. The mean estimates
+differ in sign. Without a baseline row G8 gave `r V('rc_G8_e')` per SD
+of the biomarker. With one, the CAR(1) model gave `r V('rc_S_e')` and
+G10 `r V('rc_G10_e')`. Every one of these is within a third of its
+empirical SE of zero.
+
+The baseline row accounts for the change of sign. The shift is zero
+at week 0 and grows along the natural-history curve. In the Hybrid
+design the off-drug visits come late, where the shift is large.
+Without a baseline row the off-drug visits carry more of the shift
+than the on-drug visits. The shift lowers the outcome, so the
+difference projects onto $B^c_i D_{bc,it}$ with a positive sign. A
+baseline row adds an off-drug row with no shift. That reverses the
+sign. An unweighted least-squares projection of the shift onto the
+biomarker terms of the G8 model gives `r V('rc_ols0')` per SD of the
+biomarker without the baseline row and `r V('rc_ols1')` with it. It
+ignores the random intercept and the CAR(1) weighting, so it checks
+only the signs, which agree with the fitted estimates.
+
+The two results therefore do not conflict. The DGP settings match.
+The difference lies in the analysis data and in which analyses were
+fitted. Two points remain open. First, G10 has not been fitted under
+the trend pathway without a baseline row. That it held its level
+under the growing pathway rests on analyses with a baseline row only.
+Second, the bias is real in both tests. Every G-type mean estimate in
+Table \@ref(tab:tab-reconcile) is at least `r V('rc_zmin')` Monte
+Carlo SEs from zero. It is within a third of the empirical SE at
+$N = 70$, so it moves the rejection rate little there. As under the
+placebo-response pathway (Section \@ref(sec-largen)), a fixed bias of
+either sign inflates the size of the two-sided test as $N$ grows. The
+sign here depends on the visit structure of the analysis. A larger
+sample under the trend pathway, with the same analysis fitted with
+and without the baseline row, would settle both points. The biomarker-by-time block of Section \@ref(sec-bmt)
+should include that contrast.
 
 ## The repair artifact: a historical exhibit {#sec-artifact}
 
@@ -1440,7 +2139,12 @@ are correlations of a single latent biomarker with the components.
 The feasibility bound is a property of that parameterization. The
 large-sample cells have no confound-free counterpart at the same $N$.
 The trend pathway was simulated at one coefficient, one sample size
-and one half-life. Its remedy has not been simulated. The
+and one half-life. The sign of its bias depends on whether the
+analysis has a baseline row, and no single job has fitted the same
+analysis both ways. G10 has not been fitted under it without a
+baseline row. Its remedy has not been simulated. The second stress
+test ran 1,000 null replicates per cell at one sample size, and its
+cells and analyses were revised as results came in. The
 placebo-response contrast has not been recomputed under the published
 SDs. The random-slope variants were fitted only to historical,
 partly repaired cells under a DGP without patient-specific slopes.
@@ -1458,13 +2162,20 @@ inside a band are not independent confirmations.
    G-family estimate. Under the published parameter values the bias
    inflated the size of G9 and G10 at $N = 280$. The expectancy terms
    removed it.
-4. A biomarker that predicts the natural-history trend biases every
-   analysis examined. The expectancy terms absorb part of the bias.
-   The biomarker-by-time remedy is pending.
-5. The power loss once attributed to a prognostic correlation of 0.6
+4. A biomarker that predicts the natural-history trend biased every
+   analysis fitted by the paper 02 driver, which has no baseline row.
+   The expectancy terms absorbed part of the bias. With a baseline
+   row the bias changed sign. At $N = 70$ the mean estimate was
+   within a third of its empirical SE of zero in both. The
+   biomarker-by-time remedy is pending.
+5. In the second stress test, whose analyses have a baseline row, the
+   expectancy-term analyses kept their size under all four pathways.
+   G10 exceeded the band under the constant natural-history and
+   placebo-response pathways.
+6. The power loss once attributed to a prognostic correlation of 0.6
    was produced by the silent repair of infeasible matrices. Under the
    current default those cells are refused.
-6. For a biomarker that may be prognostic, add $\eta_t$ and
+7. For a biomarker that may be prognostic, add $\eta_t$ and
    $B^c_i\eta_t$ to G10. The result is F1A0.
 
 # Declarations {-}
@@ -1485,6 +2196,32 @@ alternative blocks are driver 36, blocks T, N and A. The original
 grid is driver 27 and the scenario cells driver 06. Driver 29, the
 random-slope variants, was not rerun. Every confounded cell in it is
 a repaired strength-0.6 cell (`docs/74`, decision D5).
+
+The second stress test is study 2 of paper 01. Its driver is
+`analysis/scripts/quick-sim/carryover-closed-form/11-strawman-stress-test.R`,
+and its outputs are under
+`analysis/data/quick-sim/carryover-closed-form/strawman-stress/`. The
+driver holds the published means and SDs as constants and stops on a
+matrix that is not positive definite. The reported (third) run is
+reproduced with `--carryover anchored --allocation fixed
+--analysis-half-life 0.5` (files tagged `-anchored-fixed-ha0.5`). The
+second run used `--carryover anchored --allocation random
+--analysis-half-life 0.5` (tagged `-anchored`). The first used
+`--carryover recursive --allocation fixed --analysis-half-life 0.5`
+(untagged). Each run was followed by the same command with `--extra`
+and with `--extra2` added, on the same trials. G10 was fitted to the
+trials of the third run by the same command with `--extra5`. The
+pooled size-adjusted comparison adds 1,500 fresh trials per cell from
+`--extra4` under the second run's DGP (tagged `-extra4-anchored`);
+`15-extra4-pooled-inputs.R` pools them with the second run and writes
+`strawman-stress/extra4-decision/pooled/`. The script's default analysis half-life is now
+0.2 week, so the `--analysis-half-life 0.5` flag is needed. The joint
+feasibility bounds of Table \@ref(tab:tab-jointceil) come from
+`analysis/scripts/quick-sim/carryover-closed-form/18-prognostic-joint-ceiling.R`,
+which writes
+`analysis/data/quick-sim/carryover-closed-form/rho-stage/prognostic-joint-ceilings.csv`.
+It computes the bounds from the correlation matrix, with no
+simulation.
 
 Changes needed before the next draft, not made here:
 
@@ -1522,6 +2259,126 @@ half-life. CR2 standard errors depend on the residuals and the design
 only. The interaction estimate, its standard error and its $p$-value
 are therefore identical, replicate by replicate. The stored data
 confirm it (Section \@ref(sec-stress)).
+
+# The joint feasibility condition {#sec-jointfeas}
+
+Order the variables as biomarker, then everything else, and let $M_0$
+be the correlation matrix of everything but the biomarker, including
+the baseline level, which is uncorrelated with the response
+components. By the Schur complement the joint matrix is positive
+definite if and only if $M_0$ is and the biomarker row $r$ satisfies
+$r^\top M_0^{-1} r < 1$. With $c_{bm}$ alone, $r = c_{bm}\tilde g$,
+where $\tilde g$ is the correlation profile padded with zeros, and the
+bound is $c_{bm}^{\ast} = (\tilde g^\top M_0^{-1}\tilde g)^{-1/2}$
+[@pmsimstats-paper01].
+
+With prognostic correlations the row is a sum of fixed patterns scaled
+by the correlations,
+$r = c_{bm}\tilde g + c_{bm,PB}\, p + c_{bm,TV}\, q + c_{bm,BL}\, b$.
+Here $p$ and $q$ are one on every visit of the placebo-response and
+natural-history components, and $b$ is one on the baseline level. The
+condition becomes $c^\top A c < 1$, with
+$c = (c_{bm}, c_{bm,PB}, c_{bm,TV}, c_{bm,BL})$ and
+$A_{jk} = x_j^\top M_0^{-1} x_k$ for $x \in \{\tilde g, p, q, b\}$. The
+feasible region is the interior of an ellipsoid. Fixing all
+correlations but one makes $c^\top A c = 1$ a quadratic in that
+correlation, whose positive root is its bound. A negative discriminant
+means the fixed correlations are already infeasible. Because $b$ is an
+eigenvector of $M_0$ with unit eigenvalue, $c_{bm,BL}$ enters only
+through its square. Its bound given $c_{bm}$ is
+$\sqrt{1 - c_{bm}^2 A_{\tilde g\tilde g}}$. The $p$ and $q$ patterns
+are structurally identical, so $c_{bm,PB}$ and $c_{bm,TV}$ have the
+same bounds. A design's bound is the minimum over its paths. Table
+\@ref(tab:tab-jointceil) gives the values for the Hybrid design. The
+off-diagonal entries of $A$ are negative at the extended DGP's values,
+so the correlations are mildly complementary. The DGP sets the
+biomarker's marginal correlations with the other components to zero.
+The negative entries of $A$ reflect partial association: given its
+correlation with the drug response, the biomarker's partial
+correlation with the other components is not zero. An explicit
+correlation of the same sign therefore uses less of the feasible
+region than it would if the components were independent.
+
+# The shared biomarker effect {#sec-shared}
+
+Let $s_0$, $s_{\text{off}}$ and $s_{\text{on}}$ be the true slopes of
+$Y$ on $B$ at baseline, at post-baseline off-drug visits and at
+on-drug visits. A model with baseline as an off-drug row estimates one
+$\beta_B$ for $s_0$ and $s_{\text{off}}$.
+
+The following account is heuristic, not a derivation. Consider a
+prognostic biomarker with no interaction, whose post-baseline slope is
+constant: $s_0 = 0 \ne s_{\text{off}} = s_{\text{on}} = s_{\text{prog}}$.
+
+- **The bias.** The fitted $\hat\beta_B$ lies between the baseline and
+  off-drug slopes, $\hat\beta_B \approx f\,s_{\text{prog}}$ for some
+  $0 < f < 1$ that depends on the weight the baseline row receives.
+  The interaction absorbs the remainder,
+  $\hat\beta_{bm:D} \approx (1 - f)\,s_{\text{prog}} \ne 0$.
+- **The correction.** Adding $B_i\cdot\mathbf 1\{t = 0\}$ frees $s_0$
+  and removes this source of bias. The constraint is analogous to the
+  choice, in longitudinal analysis, between treating baseline as a
+  covariate and as a response [@liu2009baseline].
+
+Two further mechanisms operate in the scenarios of Section
+\@ref(sec-tenan).
+
+- **The slope grows over time.** When the post-baseline slope grows,
+  the bias depends on how drug status is confounded with time.
+  Freeing $s_0$ is then not sufficient in general. The rejection rate
+  of `r ss_f(ss_m3['ES', 'prog-TV-grow'])` for that analysis under the
+  growing pathway is consistent with this. Section
+  \@ref(sec-reconcile) shows that the same growing shift biases the
+  interaction with or without a baseline row, in opposite directions.
+- **Expectancy.** When the biomarker is associated with the placebo
+  response, the slope also scales with the expectancy $\eta_t$, which
+  is higher at the open-label (on-drug) visits. The expectancy term
+  $B_i \cdot \eta_t$, with $\eta_0 = 0$, addresses both this mechanism
+  and the baseline constraint. Freeing $s_0$ alone does not. An
+  expectancy-scaled slope still enters the interaction through the
+  open-label visits.
+
+Neither correction is exact in the Hybrid design. The expectancy term
+removes a constant post-baseline slope from the interaction only when
+the blinded on-drug and off-drug visits carry equal total weight. In
+the Hybrid design they do not, so a small bias remains. The
+corresponding derivations are in the project's compendium of
+mathematical results (`analysis/report/compendium-mathematics.tex`).
+The null rejection rates of Section \@ref(sec-tenan) across the four
+prognostic cells were `r ss_f(min(ss_m3['F1', ]))` to
+`r ss_f(max(ss_m3['F1', ]))` for the expectancy-term model and
+`r ss_f(min(ss_m3['ES', ]))` to `r ss_f(max(ss_m3['ES', ]))` for the
+free-baseline model. The residual bias of the expectancy-term model is
+therefore within Monte Carlo error at the prognostic correlations
+simulated. That of the free-baseline model is not, under the growing
+pathway. Under a prognostic association with baseline severity alone
+the binary-indicator analysis rejected
+`r ss_f(ss_m3['R', 'prog-BL'])`, and the two corrections rejected
+`r ss_f(ss_m3['F1', 'prog-BL'])` and `r ss_f(ss_m3['ES', 'prog-BL'])`.
+
+# First run of the second stress test {#sec-firstrun}
+
+The first run of the stress test of Section \@ref(sec-tenan) used the
+compounding carryover rule on the mean and fixed path allocation (18,
+18, 17, 17). Its table is given here for comparison with Table
+\@ref(tab:tab-tenan). The two runs differ only in the carryover rule.
+
+```{r tab-tenan-first}
+ss_tab1 <- data.frame(Analysis = unname(ss_an), ss_bold(ss_m1),
+                      check.names = FALSE)
+knitr::kable(ss_tab1, booktabs = TRUE, escape = FALSE,
+  row.names = FALSE, linesep = '',
+  col.names = c('Analysis', 'Natural history, constant',
+                'Natural history, growing', 'Placebo response',
+                'Baseline severity'),
+  caption = 'Second stress test, first run (compounding carryover
+    rule, fixed allocation): null rejection rates under a prognostic
+    biomarker, 1,000 replicates per cell (two-MCSE band 0.036 to
+    0.064 for a single cell). Rates above 0.075 in bold.') |>
+  kableExtra::kable_styling(font_size = 9) |>
+  kableExtra::column_spec(1, width = '5.5cm') |>
+  kableExtra::column_spec(2:5, width = '2.1cm')
+```
 
 # Draft consistency checks {#sec-checks}
 

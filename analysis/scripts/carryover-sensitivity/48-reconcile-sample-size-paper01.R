@@ -1,4 +1,6 @@
-## analysis/report/02-carryover-sensitivity/staging/reconcile-g10-with-46.R
+## analysis/scripts/carryover-sensitivity/48-reconcile-sample-size-paper01.R
+## (moved from paper 02's staging/ folder, 2026-11-12; writes
+## sample-size-reconcile.csv for the paper 02 text)
 ##
 ## Reconcile paper 01's G10 sample-size runs (19-g9-planning-and-fig4b.R,
 ## block N, --params published) with paper 02's A4 runs
@@ -26,7 +28,7 @@
 ##
 ## Usage (from the repository root, after the 46 published Hybrid job
 ## has been fetched):
-##   Rscript analysis/report/02-carryover-sensitivity/staging/reconcile-g10-with-46.R
+##   Rscript analysis/scripts/carryover-sensitivity/48-reconcile-sample-size-paper01.R
 
 f01 <- 'analysis/data/quick-sim/carryover-closed-form/published-planning/block-N/n80-grid-g10.csv'
 f46 <- 'analysis/data/carryover-sensitivity/sample-size-published-Hybrid/summary.rds'
@@ -52,6 +54,7 @@ n80 <- function(fit, cb) {
   b <- coef(fit)
   ((qnorm(0.8) - b[[1]]) / b[[2]] / cb)^2
 }
+out <- list()
 for (th in c(0, 1)) {
   dd <- d[d$t_half == th, ]
   f0 <- glm(cbind(k, n - k) ~ x, binomial('probit'), data = dd)
@@ -64,7 +67,15 @@ for (th in c(0, 1)) {
   g01 <- glm(cbind(k, n - k) ~ x, binomial('probit'), data = dd[dd$study == '01', ])
   g46 <- glm(cbind(k, n - k) ~ x, binomial('probit'), data = dd[dd$study == '46', ])
   cb <- c(0.25, 0.30, 0.35, 0.40)
-  print(data.frame(c_bm = cb, N80_paper01 = round(n80(g01, cb)),
-                   N80_paper02 = round(n80(g46, cb)),
-                   N80_pooled = round(n80(f0, cb))), row.names = FALSE)
+  tab <- data.frame(t_half = th, c_bm = cb, N80_paper01 = n80(g01, cb),
+                    N80_paper02 = n80(g46, cb), N80_pooled = n80(f0, cb),
+                    lr_chi2 = lr$Deviance[2], lr_df = lr$Df[2],
+                    lr_p = lr$`Pr(>Chi)`[2])
+  print(transform(tab[, 1:5], N80_paper01 = round(N80_paper01),
+                  N80_paper02 = round(N80_paper02),
+                  N80_pooled = round(N80_pooled)), row.names = FALSE)
+  out[[length(out) + 1]] <- tab
 }
+write.csv(do.call(rbind, out),
+          'analysis/data/carryover-sensitivity/sample-size-reconcile.csv',
+          row.names = FALSE)

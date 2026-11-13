@@ -774,6 +774,53 @@ knitr::kable(te, booktabs = TRUE, escape = FALSE, linesep = '',
   kableExtra::kable_styling(font_size = 8)
 ```
 
+## Sample size for A4 {-}
+
+Table \@ref(tab:tab-sample-size) gives the total $N$ for 80 percent
+power of A4, and Figure \@ref(fig:fig-sample-size) the power curves
+under this paper's parameter set. At a 1-week half-life the binary
+indicator (A2) needs `r ssr('Hybrid', 1)` percent more patients than
+A4 in the Hybrid design. Under the starting values of the companion
+paper the required $N$ is roughly twice as large, and it depends
+strongly on the serial correlation (Table S13 of the supplement).
+
+```{r tab-sample-size, echo = FALSE}
+ss_tab <- ss_n80 |>
+  filter(analysis == 'A4', c_bm %in% c(0.2, 0.3, 0.4)) |>
+  mutate(cell = sprintf('%d (%d--%d)', as.integer(ceiling(N80)),
+                        as.integer(ceiling(N80_lo)),
+                        as.integer(ceiling(N80_hi))),
+         col = sprintf('%s_%.1f', params, c_bm)) |>
+  select(design, t1half, col, cell) |>
+  pivot_wider(names_from = col, values_from = cell) |>
+  arrange(match(design, c('CO', 'OLBDC', 'Hybrid')), t1half) |>
+  mutate(design = design_lab[design], t1half = sprintf('%.1f', t1half)) |>
+  select(design, t1half, simcore2026_0.2, simcore2026_0.3,
+         simcore2026_0.4, published_0.2, published_0.3, published_0.4)
+stopifnot(nrow(ss_tab) == 9, !anyNA(ss_tab))
+ss_tab$design[duplicated(ss_tab$design)] <- ''
+knitr::kable(ss_tab, booktabs = TRUE, escape = FALSE, linesep = '',
+  col.names = c('Design', '$t_{1/2}$', '0.2', '0.3', '0.4', '0.2', '0.3',
+                '0.4'),
+  caption = paste0('Total $N$ for 80 percent power of A4 at $\\alpha =
+    0.05$, with a 95 percent Monte Carlo interval, by design, carryover
+    half-life (weeks) and $c_{bm}$, under the parameter set of this
+    paper and under the starting values of the companion paper. From
+    a probit curve in $c_{bm}\\sqrt{N}$ fitted to five values of $N$ per
+    $c_{bm}$, ', ss_reps, ' replicates each; the interval does not
+    include the approximation of the curve model (about 6 percent).
+    $\\rho = 0.7$, exponential decay, complete data, predictive-only
+    biomarker.')) |>
+  kableExtra::add_header_above(c(' ' = 2, 'This paper, $c_{bm}$' = 3,
+                                 'Starting values, $c_{bm}$' = 3),
+                               escape = FALSE) |>
+  kableExtra::kable_styling(font_size = 8, latex_options = 'scale_down')
+```
+
+```{r fig-sample-size, echo = FALSE, fig.cap = 'Power of A4 (filled points, solid lines) and A2 (open points, dashed lines) against total $N$ under the parameter set of this paper, by design (columns) and carryover half-life (rows), for $c_{bm} \\in \\{0.2, 0.3, 0.4\\}$. Points are simulated rejection rates (500 replicates) with 2 $\\times$ the Monte Carlo standard error; lines are the fitted probit curves in $c_{bm}\\sqrt{N}$. The horizontal line is 80 percent power. The same figure under the starting values is Figure S1.', out.width = '100%'}
+knitr::include_graphics('../../figures/02-sample-size-curves-simcore2026.png')
+```
+
 # Recommendation {-}
 
 For a Hybrid trial with a biomarker known to be predictive only, at

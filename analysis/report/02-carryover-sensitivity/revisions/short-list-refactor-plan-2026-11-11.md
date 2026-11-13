@@ -180,3 +180,19 @@ must carry them. Merge after joe job 14 (published Hybrid) is fetched:
 run the reconciliation first; merge only if the two studies agree.
 Decision needed: paper 02's other results use simcore2026, these use
 published.
+
+### Sample-size results merged (2026-11-12)
+
+All six jobs finished (exit 0; 482 to 500 replicates per cell,
+non-convergence at most 3.6 percent; every A4 curve brackets 0.8).
+`47-sample-size-curves.R` fits a probit in c_bm*sqrt(N) per (set,
+design, t1/2, analysis); separate per-c_bm fits change N80 by 0.95 to
+1.06, so N80 is accurate to about 6 percent. Reconciliation with paper
+01 (`48-reconcile-sample-size-paper01.R`): LR p = 0.10 (t1/2 0) and
+0.91 (t1/2 1), N80 within 6 patients. New Results section
+sec-samplesize (Table tab-sample-size, both parameter sets; Figure
+fig-sample-size, simcore2026), Methods paragraph, Abstract and
+Conclusion 7 sentences, Reproducibility entry; supplement Table S13
+(A4 N80 by rho, from paper 01's runs) and Figure S1 (published
+curves). Staged paper 01 Rmd removed after merge: its E9 tables stay
+in paper 01; its A4-at-E9-N result is one sentence citing paper 01.

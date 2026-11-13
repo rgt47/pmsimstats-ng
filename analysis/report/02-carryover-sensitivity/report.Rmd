@@ -139,7 +139,11 @@ A2 in `r hy_below` cells, by at most
 seeds, the size of A4 minus that of the oracle was
 `r sprintf('%+.4f', eqS$size_diff)` (90 percent interval
 `r sprintf('%+.4f', eqS_lo)` to `r sprintf('%+.4f', eqS_hi)`),
-equivalent within $\pm 0.01$.
+equivalent within $\pm 0.01$. For 80 percent power at a 1-week
+half-life, a Hybrid trial analyzed with A4 needs about
+`r ceiling(ssN('simcore2026', 'Hybrid', 1, 0.4))` patients at
+$c_{bm} = 0.4$ and `r ceiling(ssN('simcore2026', 'Hybrid', 1, 0.2))` at
+0.2.
 
 **Conclusions.** For a Hybrid trial with a biomarker known to be
 predictive only, under this process at $N \le 70$, A4 is correctly
@@ -868,6 +872,22 @@ family 5. A4 was later fitted to the stored trials of families 1 to 5
 by regenerating each trial from its stored seed; a trial was used
 only if a refit of a stored analysis reproduced its stored estimate
 (Reproducibility section).
+
+**Sample-size study.** A separate run gives the total $N$ that A4
+needs for 80 percent power. It fits A4 and A2 to the same simulated
+trials over a grid of $N$, for the three designs, $t_{1/2} \in \{0,
+0.5, 1\}$ week and $c_{bm} \in \{0.2, 0.3, 0.4\}$, with five values of
+$N$ per $c_{bm}$ chosen to bracket 80 percent power and 500 replicates
+per cell. Every cell has its own seed. The run was made under both
+parameter sets: the set used everywhere else in this paper, and the
+starting values of commit 58b32a9 that the companion paper uses (Table
+\@ref(tab:tab-params)), because the required $N$ depends strongly on
+the variances. Within a design, half-life and analysis, power is
+modeled as a probit curve in $c_{bm}\sqrt{N}$, fitted by binomial
+maximum likelihood over the 15 cells, and inverted at 0.8. The
+noncentrality of the interaction test is close to proportional to
+$c_{bm}\sqrt{N}$, so one curve serves all three values of $c_{bm}$.
+The interval for $N$ reflects Monte Carlo error under that model only.
 
 ## Performance measures and computing environment {#sec-perf}
 
@@ -2243,6 +2263,105 @@ percent of its power on average; the analyses above 100 percent, A0
 and A3, are respectively liberal and unavailable to an analyst. The
 conditions and limits are in Section \@ref(sec-discussion).
 
+## Sample size for A4 {#sec-samplesize}
+
+Table \@ref(tab:tab-sample-size) gives the total $N$ at which A4 has 80
+percent power, and Figure \@ref(fig:fig-sample-size) shows the power
+curves behind it for the parameter set of this paper. Halving the
+effect roughly quadruples $N$. Under this paper's parameter set a
+Hybrid trial with a 1-week half-life needs about
+`r ceiling(ssN('simcore2026', 'Hybrid', 1, 0.4))` patients at
+$c_{bm} = 0.4$, `r ceiling(ssN('simcore2026', 'Hybrid', 1, 0.3))` at
+0.3 and `r ceiling(ssN('simcore2026', 'Hybrid', 1, 0.2))` at 0.2.
+Carryover raises the requirement in the two designs with a
+discontinuation phase: at $c_{bm} = 0.3$ the Hybrid design needs
+`r ceiling(ssN('simcore2026', 'Hybrid', 0, 0.3))` patients without
+carryover and `r ceiling(ssN('simcore2026', 'Hybrid', 1, 0.3))` at a
+1-week half-life, and OL+BDC
+`r ceiling(ssN('simcore2026', 'OLBDC', 0, 0.3))` and
+`r ceiling(ssN('simcore2026', 'OLBDC', 1, 0.3))`. The crossover design
+is almost insensitive to the half-life but needs about twice the
+Hybrid sample without carryover. Under the starting values the
+required $N$ is
+`r sprintf('%.1f to %.1f', min(ss_p_ratio$r), max(ss_p_ratio$r))`
+times larger, because the response components vary more; the ordering
+of designs and half-lives is the same.
+
+The binary indicator with CR2 (A2) needs the same $N$ as A4 within a
+few percent, except at a 1-week half-life in the two designs with a
+discontinuation phase. There it needs `r ssr('Hybrid', 1)` percent more patients
+than A4 in the Hybrid design and `r ssr('OLBDC', 1)` percent more in
+OL+BDC, over both parameter sets. That is the gain from modeling
+carryover expressed in patients.
+
+The companion paper simulated A4 in the Hybrid design under the
+starting values with its own seeds and grid
+[@pmsimstats_dgp_architectures2026]. A likelihood-ratio test of a
+difference between the two studies' power curves gives
+$p = `r sprintf('%.2f', ss_rec$lr_p[ss_rec$t_half == 0][1])`$ without
+carryover and
+$p = `r sprintf('%.2f', ss_rec$lr_p[ss_rec$t_half == 1][1])`$ at a
+1-week half-life, and the two studies' $N$ for 80 percent power differ
+by at most
+`r max(abs(round(ss_rec$N80_paper01) - round(ss_rec$N80_paper02)))`
+patients over $c_{bm}$ from 0.25 to 0.40. In the companion paper's
+runs, A4 had power 0.844 to 0.936 at the sample size of its
+closed-form paired-difference rule, so that rule is conservative for
+A4 under the starting values. Serial correlation matters as much as the
+half-life: in the companion paper's runs the Hybrid $N$ at
+$c_{bm} = 0.25$ is
+`r sprintf('%.2f to %.2f', min(rho_r$r09), max(rho_r$r09))` times its
+$\rho = 0.7$ value at $\rho = 0.9$ and
+`r sprintf('%.2f to %.2f', min(rho_r$r05), max(rho_r$r05))` times at
+$\rho = 0.5$, over half-lives of 0, 0.2 and 1 week (Table S13).
+
+The curve model is an approximation. Fitting a separate curve for each
+$c_{bm}$ changes $N$ by a factor of
+`r sprintf('%.2f to %.2f', min(ss_sep$ratio), max(ss_sep$ratio))`, and
+`r sum(ss_fit$gof_p < 0.05)` of the `r nrow(ss_fit)` curves fail a
+goodness-of-fit test at the 5 percent level. The intervals of Table
+\@ref(tab:tab-sample-size) cover Monte Carlo error under the model
+only, so the values are best read as accurate to about 6 percent.
+They assume complete data, the exponential decay form, $\rho = 0.7$
+and a predictive-only biomarker.
+
+```{r tab-sample-size, echo = FALSE}
+ss_tab <- ss_n80 |>
+  filter(analysis == 'A4', c_bm %in% c(0.2, 0.3, 0.4)) |>
+  mutate(cell = sprintf('%d (%d--%d)', as.integer(ceiling(N80)),
+                        as.integer(ceiling(N80_lo)),
+                        as.integer(ceiling(N80_hi))),
+         col = sprintf('%s_%.1f', params, c_bm)) |>
+  select(design, t1half, col, cell) |>
+  pivot_wider(names_from = col, values_from = cell) |>
+  arrange(match(design, c('CO', 'OLBDC', 'Hybrid')), t1half) |>
+  mutate(design = design_lab[design], t1half = sprintf('%.1f', t1half)) |>
+  select(design, t1half, simcore2026_0.2, simcore2026_0.3,
+         simcore2026_0.4, published_0.2, published_0.3, published_0.4)
+stopifnot(nrow(ss_tab) == 9, !anyNA(ss_tab))
+ss_tab$design[duplicated(ss_tab$design)] <- ''
+knitr::kable(ss_tab, booktabs = TRUE, escape = FALSE, linesep = '',
+  col.names = c('Design', '$t_{1/2}$', '0.2', '0.3', '0.4', '0.2', '0.3',
+                '0.4'),
+  caption = paste0('Total $N$ for 80 percent power of A4 at $\\alpha =
+    0.05$, with a 95 percent Monte Carlo interval, by design, carryover
+    half-life (weeks) and $c_{bm}$, under the parameter set of this
+    paper and under the starting values of the companion paper. From
+    a probit curve in $c_{bm}\\sqrt{N}$ fitted to five values of $N$ per
+    $c_{bm}$, ', ss_reps, ' replicates each; the interval does not
+    include the approximation of the curve model (about 6 percent).
+    $\\rho = 0.7$, exponential decay, complete data, predictive-only
+    biomarker.')) |>
+  kableExtra::add_header_above(c(' ' = 2, 'This paper, $c_{bm}$' = 3,
+                                 'Starting values, $c_{bm}$' = 3),
+                               escape = FALSE) |>
+  kableExtra::kable_styling(font_size = 8, latex_options = 'scale_down')
+```
+
+```{r fig-sample-size, echo = FALSE, fig.cap = 'Power of A4 (filled points, solid lines) and A2 (open points, dashed lines) against total $N$ under the parameter set of this paper, by design (columns) and carryover half-life (rows), for $c_{bm} \\in \\{0.2, 0.3, 0.4\\}$. Points are simulated rejection rates (500 replicates) with 2 $\\times$ the Monte Carlo standard error; lines are the fitted probit curves in $c_{bm}\\sqrt{N}$. The horizontal line is 80 percent power. The same figure under the starting values is Figure S1.', out.width = '100%'}
+knitr::include_graphics('../../figures/02-sample-size-curves-simcore2026.png')
+```
+
 # Discussion {#sec-discussion}
 
 ## What each rung bought {#sec-bought}
@@ -2547,7 +2666,17 @@ term as a carryover adjustment in crossover trials is classical
    analysis it shares with A4: the exposure-weighted predictor, the
    choice of half-life on the model without the interaction, and the
    CR2 test.
-7. **Limits.** The recommendation is conditional on the correlation
+7. **Sample size.** Halving the effect roughly quadruples the
+   required $N$. Under this paper's parameter set a Hybrid trial with
+   a 1-week half-life analyzed with A4 needs about
+   `r ceiling(ssN('simcore2026', 'Hybrid', 1, 0.4))`,
+   `r ceiling(ssN('simcore2026', 'Hybrid', 1, 0.3))` and
+   `r ceiling(ssN('simcore2026', 'Hybrid', 1, 0.2))` patients at
+   $c_{bm}$ = 0.4, 0.3 and 0.2, and the binary indicator about
+   `r ssr('Hybrid', 1)` percent more (Table \@ref(tab:tab-sample-size)).
+   The requirement is roughly twice as large under the starting values
+   and depends strongly on the serial correlation.
+8. **Limits.** The recommendation is conditional on the correlation
    encoding, on one parameter set (Table \@ref(tab:tab-params)), on
    one design and on a biomarker that is predictive only. Size was
    evaluated at $N = 35$ and $N = 70$. The analysis model is close to
@@ -2823,6 +2952,22 @@ summaries only.
   \@ref(tab:tab-ladder-score), Figures \@ref(fig:fig-ladder-size),
   \@ref(fig:fig-ladder-power) and \@ref(fig:fig-ladder-calibration)).
   `37-ladder-README.md` documents its definitions and known limits.
+- Sample size for A4: `46-run-sample-size.R` fits A4 and A2 over the
+  $N$ grid of Section \@ref(sec-grid), 500 replicates per cell, as six
+  simrun jobs on 2026-11-11 (one per parameter set and design: athena
+  21, joe 14, zeus 66 and 67, mercury 53 and 54; commits `5819e1d` and
+  `431f126`, which differ only in paper 01 files), writing
+  `carryover-sensitivity/sample-size-<set>-<design>/`.
+  `47-sample-size-curves.R` fits the probit curves and writes
+  `sample-size-n80.csv`, `sample-size-fit.csv`,
+  `sample-size-sepcheck.csv` and the figures
+  `02-sample-size-curves-<set>`.
+  `48-reconcile-sample-size-paper01.R` compares the Hybrid run under
+  the starting values with the companion paper's runs and writes
+  `sample-size-reconcile.csv`. Table S13 reads the companion paper's
+  `n80-g10.csv` in `published-planning/block-N/`,
+  `published-planning/rho0.5/block-N/` and
+  `published-planning/rho0.9/block-N/`.
 - Isolation of the first rung: `38-run-e0-isolation.R` fits the chain
   A0, E0n, E0nc, E1nc and A1 to the same trials on the 30-cell grid at
   1,000 replicates (simrun job 42) and writes

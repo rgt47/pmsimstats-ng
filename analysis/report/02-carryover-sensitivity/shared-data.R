@@ -406,3 +406,62 @@ m9 <- bf_all |>
   arrange(true_t1half, N)
 stopifnot(all(abs(m9$p_0.25 + m9$p_0.5 + m9$p_1 + m9$p_2 - 1) < 1e-9))
 m9_05 <- m9 |> filter(true_t1half == 0.5)
+
+## ---- sample-size study (formerly the ss-setup chunk) ----
+## 46-run-sample-size.R (six simrun jobs, 2026-11-11) and
+## 47-sample-size-curves.R; 48-reconcile-sample-size-paper01.R compares
+## the published Hybrid run with the companion paper's runs.
+ss_dir <- here::here('analysis/data/carryover-sensitivity')
+ss_n80 <- read.csv(file.path(ss_dir, 'sample-size-n80.csv'))
+ss_fit <- read.csv(file.path(ss_dir, 'sample-size-fit.csv'))
+ss_sep <- read.csv(file.path(ss_dir, 'sample-size-sepcheck.csv'))
+ss_rec <- read.csv(file.path(ss_dir, 'sample-size-reconcile.csv'))
+ss_reps <- min(vapply(Sys.glob(file.path(ss_dir, 'sample-size-*-*',
+                                         'meta.rds')),
+                      function(f) readRDS(f)$reps, numeric(1)))
+ssN <- function(p, d, h, cb, a = 'A4', w = 'N80') {
+  x <- ss_n80[ss_n80$params == p & ss_n80$design == d &
+                ss_n80$t1half == h & abs(ss_n80$c_bm - cb) < 1e-9 &
+                ss_n80$analysis == a, ]
+  stopifnot(nrow(x) == 1)
+  x[[w]]
+}
+## A2 needs a constant multiple of A4's N within a (set, design, t1/2),
+## because the curve model scales with c_bm sqrt(N).
+ss_ratio <- ss_n80 |>
+  filter(abs(c_bm - 0.3) < 1e-9) |>
+  select(params, design, t1half, analysis, N80) |>
+  pivot_wider(names_from = analysis, values_from = N80) |>
+  mutate(r = A2 / A4)
+ssr <- function(d, h) {
+  x <- ss_ratio |> filter(design == d, t1half == h)
+  lo <- sprintf('%.0f', 100 * (min(x$r) - 1))
+  hi <- sprintf('%.0f', 100 * (max(x$r) - 1))
+  if (lo == hi) lo else paste(lo, 'to', hi)
+}
+## The text says A2 needs more N than A4 at a 1-week half-life in
+## Hybrid and OL+BDC, and that the two are within a few percent
+## elsewhere.
+stopifnot(all(ss_ratio$r[ss_ratio$t1half == 1 & ss_ratio$design != 'CO'] > 1.1),
+          all(abs(ss_ratio$r[!(ss_ratio$t1half == 1 & ss_ratio$design != 'CO')] - 1) < 0.06))
+## The companion paper's A4 runs by serial correlation (Hybrid,
+## starting values; 19-g9-planning-and-fig4b.R block N at rho 0.5, 0.7
+## and 0.9). c_bm = 0.25 is the value common to all three.
+rho_root <- here::here('analysis/data/quick-sim/carryover-closed-form',
+                       'published-planning')
+rho_n80 <- bind_rows(lapply(c(0.5, 0.7, 0.9), function(r) {
+  f <- file.path(rho_root, if (r == 0.7) 'block-N' else
+                   file.path(sprintf('rho%.1f', r), 'block-N'), 'n80-g10.csv')
+  read.csv(f) |> mutate(rho = r)
+})) |>
+  filter(abs(c_bm - 0.25) < 1e-9, !extrapolated)
+rho_r <- rho_n80 |>
+  select(rho, t_half, N80_G) |>
+  pivot_wider(names_from = rho, values_from = N80_G, names_prefix = 'r') |>
+  mutate(r09 = r0.9 / r0.7, r05 = r0.5 / r0.7)
+stopifnot(nrow(rho_r) == 3, !anyNA(rho_r))
+ss_p_ratio <- ss_n80 |>
+  filter(analysis == 'A4') |>
+  select(params, design, t1half, c_bm, N80) |>
+  pivot_wider(names_from = params, values_from = N80) |>
+  mutate(r = published / simcore2026)

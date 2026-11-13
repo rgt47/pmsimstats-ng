@@ -23,6 +23,7 @@ header-includes:
   - \usepackage{longtable}
   - \usepackage{float}
   - \renewcommand{\thetable}{S\arabic{table}}
+  - \renewcommand{\thefigure}{S\arabic{figure}}
 knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path(d, 'tools', 'stamp-render.R')) && d != dirname(d)) d <- dirname(d); source(file.path(d, 'tools', 'stamp-render.R'))$value(input) })
 ---
 
@@ -377,4 +378,51 @@ if (has_rv) {
     kableExtra::kable_styling(font_size = 9)
 }
 
+```
+
+# Sample size for A4
+
+Table \@ref(tab:ss-rho) gives the total $N$ for 80 percent power of A4
+in the Hybrid design at three values of the serial correlation, from
+the companion paper's runs under its starting values. Figure
+\@ref(fig:fig-sample-size-published) gives the power curves of the
+main text under the starting values.
+
+```{r ss-rho, echo = FALSE}
+## Companion paper, 19-g9-planning-and-fig4b.R block N (starting
+## values; rho 0.7 at commit c195cd4 and later, rho 0.5 joe job 12 and
+## rho 0.9 julia job 3 / joe job 13). The c_bm grid differs by rho
+## because the feasible c_bm falls as rho rises.
+rho_root <- here::here('analysis/data/quick-sim/carryover-closed-form',
+                       'published-planning')
+rho_tab <- bind_rows(lapply(c(0.5, 0.7, 0.9), function(r) {
+  f <- file.path(rho_root, if (r == 0.7) 'block-N' else
+                   file.path(sprintf('rho%.1f', r), 'block-N'), 'n80-g10.csv')
+  read.csv(f) |> mutate(rho = r)
+})) |>
+  mutate(cell = ifelse(extrapolated | is.na(N80_G), '--',
+                       as.character(ceiling(N80_G))),
+         c_bm = sprintf('%.2f', c_bm)) |>
+  select(rho, t_half, c_bm, cell) |>
+  pivot_wider(names_from = c_bm, values_from = cell, values_fill = '') |>
+  arrange(rho, t_half)
+rho_tab <- rho_tab[, c('rho', 't_half', sort(setdiff(names(rho_tab),
+                                                       c('rho', 't_half'))))]
+rho_tab$rho <- ifelse(duplicated(rho_tab$rho), '', sprintf('%.1f', rho_tab$rho))
+knitr::kable(rho_tab, booktabs = TRUE, escape = FALSE, linesep = '',
+  col.names = c('$\\rho$', '$t_{1/2}$', names(rho_tab)[-(1:2)]),
+  caption = 'Total $N$ for 80 percent power of A4 in the Hybrid design
+    by serial correlation $\\rho$, carryover half-life (weeks) and
+    $c_{bm}$ (columns), under the starting values, from the companion
+    paper\'s runs (six or seven values of $N$ per cell, a probit curve
+    on $\\sqrt{N}$ per cell). The grid of $c_{bm}$ differs by $\\rho$
+    because the largest feasible $c_{bm}$ falls as $\\rho$ rises; a
+    blank cell was not simulated.') |>
+  kableExtra::add_header_above(c(' ' = 2, '$c_{bm}$' = ncol(rho_tab) - 2),
+                               escape = FALSE) |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+```{r fig-sample-size-published, echo = FALSE, fig.cap = 'Power of A4 (filled points, solid lines) and A2 (open points, dashed lines) against total $N$ under the starting values of the companion paper, as the sample-size figure of the main text. The horizontal line is 80 percent power.', out.width = '100%'}
+knitr::include_graphics('../../figures/02-sample-size-curves-published.png')
 ```

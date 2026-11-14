@@ -51,6 +51,9 @@ argv <- function(k, d) if (k %in% args) args[which(args == k) + 1] else d
 DESIGN  <- argv('--design', 'all')
 CBM     <- argv('--cbm', 'all')
 NULL_RUN <- '--null' %in% args
+## --null-n N1,N2 overrides the null N values (multiples of 4), for a
+## check at the largest entries of the sample-size table.
+NULL_N  <- argv('--null-n', NA_character_)
 REPS    <- as.integer(argv('--reps', if (NULL_RUN) '1000' else '500'))
 CORES   <- as.integer(argv('--cores', Sys.getenv('SIM_CORES', '4')))
 PREFLIGHT <- '--preflight' %in% args
@@ -63,7 +66,8 @@ OUT_DIR <- argv('--out-dir', file.path(
   'analysis/data/carryover-sensitivity',
   paste0(if (SMOKE) 'sample-size-smoke' else 'sample-size',
          if (NULL_RUN) '-null' else '', '-', PARAMS,
-         if (DESIGN != 'all') paste0('-', DESIGN) else '')))
+         if (DESIGN != 'all') paste0('-', DESIGN) else '',
+         if (!is.na(NULL_N)) paste0('-N', gsub(',', '-', NULL_N)) else '')))
 guard_out_dir(OUT_DIR)
 ck_dir <- file.path(OUT_DIR, 'trials')
 dir.create(ck_dir, recursive = TRUE, showWarnings = FALSE)
@@ -84,7 +88,9 @@ N_GRID <- if (PARAMS == 'published') {
 }
 stopifnot(all(unlist(N_GRID) %% 4 == 0))
 
-N_NULL <- if (PARAMS == 'published') c(300, 600) else c(152, 300)
+N_NULL <- if (!is.na(NULL_N)) {
+  as.numeric(strsplit(NULL_N, ',')[[1]])
+} else if (PARAMS == 'published') c(300, 600) else c(152, 300)
 stopifnot(all(N_NULL %% 4 == 0))
 
 grid <- if (NULL_RUN) {

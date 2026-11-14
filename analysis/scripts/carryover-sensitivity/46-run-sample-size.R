@@ -24,6 +24,10 @@
 ##     [--params simcore2026|published] [--design CO|OLBDC|Hybrid|all] \
 ##     [--cbm 0.2|0.3|0.4|all] [--reps R] [--cores K] [--out-dir PATH] \
 ##     [--preflight] [--smoke] [--time]
+##   --null runs the size check instead: c_bm = 0, t1/2 in {0, 1},
+##   N in {152, 300} (simcore2026) or {300, 600} (published), so that
+##   the size of A4 and A2 is known at the N of the sample-size table
+##   (referee report 2026-11-14, M1); default 1,000 replicates;
 ##   --preflight checks every cell's covariance matrix and exits;
 ##   --smoke runs two replicates of every cell; --time runs three
 ##   replicates of the smallest and largest N on one worker and
@@ -46,7 +50,8 @@ args <- commandArgs(trailingOnly = TRUE)
 argv <- function(k, d) if (k %in% args) args[which(args == k) + 1] else d
 DESIGN  <- argv('--design', 'all')
 CBM     <- argv('--cbm', 'all')
-REPS    <- as.integer(argv('--reps', '500'))
+NULL_RUN <- '--null' %in% args
+REPS    <- as.integer(argv('--reps', if (NULL_RUN) '1000' else '500'))
 CORES   <- as.integer(argv('--cores', Sys.getenv('SIM_CORES', '4')))
 PREFLIGHT <- '--preflight' %in% args
 SMOKE     <- '--smoke' %in% args
@@ -56,7 +61,8 @@ PARAMS    <- Sys.getenv('PMSIM_PARAMS')
 ## jobs never write the same result file.
 OUT_DIR <- argv('--out-dir', file.path(
   'analysis/data/carryover-sensitivity',
-  paste0(if (SMOKE) 'sample-size-smoke' else 'sample-size', '-', PARAMS,
+  paste0(if (SMOKE) 'sample-size-smoke' else 'sample-size',
+         if (NULL_RUN) '-null' else '', '-', PARAMS,
          if (DESIGN != 'all') paste0('-', DESIGN) else '')))
 guard_out_dir(OUT_DIR)
 ck_dir <- file.path(OUT_DIR, 'trials')
@@ -78,12 +84,22 @@ N_GRID <- if (PARAMS == 'published') {
 }
 stopifnot(all(unlist(N_GRID) %% 4 == 0))
 
-grid <- expand_grid(design = c('CO', 'OLBDC', 'Hybrid'),
-                    t1half = c(0, 0.5, 1),
-                    c_bm = c(0.2, 0.3, 0.4)) |>
-  mutate(N = map(c_bm, ~ N_GRID[[sprintf('%.1f', .x)]])) |>
-  unnest(N) |>
-  mutate(cell_id = sprintf('ss-%s-t%.1f-cbm%.2f-N%03d', design, t1half,
+N_NULL <- if (PARAMS == 'published') c(300, 600) else c(152, 300)
+stopifnot(all(N_NULL %% 4 == 0))
+
+grid <- if (NULL_RUN) {
+  expand_grid(design = c('CO', 'OLBDC', 'Hybrid'), t1half = c(0, 1),
+              c_bm = 0, N = N_NULL)
+} else {
+  expand_grid(design = c('CO', 'OLBDC', 'Hybrid'),
+              t1half = c(0, 0.5, 1),
+              c_bm = c(0.2, 0.3, 0.4)) |>
+    mutate(N = map(c_bm, ~ N_GRID[[sprintf('%.1f', .x)]])) |>
+    unnest(N)
+}
+grid <- grid |>
+  mutate(cell_id = sprintf('%s-%s-t%.1f-cbm%.2f-N%03d',
+                           if (NULL_RUN) 'ssnull' else 'ss', design, t1half,
                            c_bm, N),
          cell = pmap(list(design, t1half, c_bm, N), function(d, t, cb, n)
            list(design = d, N = n, t1half = t, c_bm = cb,
@@ -184,7 +200,8 @@ summary_tab <- res |>
             emp_se = sd(estimate, na.rm = TRUE), .groups = 'drop') |>
   mutate(kappa = mean_se / emp_se)
 saveRDS(summary_tab, file.path(OUT_DIR, 'summary.rds'))
-saveRDS(list(params = PARAMS, reps = REPS, specs = SPECS, n_grid = N_GRID,
+saveRDS(list(params = PARAMS, reps = REPS, specs = SPECS,
+             n_grid = if (NULL_RUN) N_NULL else N_GRID, null_run = NULL_RUN,
              date = Sys.time(), elapsed_min = elapsed_min),
         file.path(OUT_DIR, 'meta.rds'))
 cat(sprintf('%d of %d (cell, rep) jobs present; %.1f min this run\n',

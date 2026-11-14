@@ -493,3 +493,76 @@ knitr::kable(e9_tab, booktabs = TRUE, escape = FALSE, linesep = '',
 ```{r fig-sample-size-published, echo = FALSE, fig.cap = 'Power of A4 (filled points, solid lines) and A2 (open points, dashed lines) against total $N$ under the starting values of the companion paper, as the sample-size figure of the main text. The horizontal line is 80 percent power.', out.width = '100%'}
 knitr::include_graphics('../../figures/02-sample-size-curves-published.png')
 ```
+
+# Size-adjusted power
+
+Table \@ref(tab:sap-table) compares all five analyses at the same
+size. Each analysis is tested at the empirical 5 percent quantile of
+its own null $p$-values, so the liberal A0 can be compared with the
+others.
+
+```{r sap-table, echo = FALSE}
+## sap and sap_pair are built in shared-data.R from
+## 50-size-adjusted-power.R.
+sap_tab <- sap |>
+  mutate(cell = sprintf('%.3f (%.3f)', power_adj, power_adj_se)) |>
+  select(design, N, c_bm, analysis, cell) |>
+  pivot_wider(names_from = analysis, values_from = cell) |>
+  left_join(sap_pair |> filter(vs == 'A0') |>
+              transmute(design, N, c_bm,
+                        d = sprintf('%+.3f (%.3f)', diff, se)),
+            by = c('design', 'N', 'c_bm')) |>
+  arrange(match(design, c('CO', 'OLBDC', 'Hybrid')), N, c_bm) |>
+  mutate(design = design_lab[design], c_bm = sprintf('%.2f', c_bm)) |>
+  select(design, N, c_bm, A0, A1, A2, A3, A4, d)
+stopifnot(nrow(sap_tab) == 12, !anyNA(sap_tab))
+sap_tab$design[duplicated(sap_tab$design)] <- ''
+knitr::kable(sap_tab, booktabs = TRUE, escape = FALSE, linesep = '',
+  col.names = c('Design', '$N$', '$c_{bm}$', 'A0', 'A1', 'A2', 'A3',
+                'A4', 'A4 $-$ A0'),
+  caption = 'Size-adjusted power of the five analyses on the 30-cell
+    grid at $t_{1/2} = 1$ week, with a bootstrap standard error in
+    parentheses. For each analysis, design and $N$ the critical value
+    is the empirical 5 percent quantile of the $p$-values in the null
+    cell (500 replicates); size-adjusted power is the share of the 500
+    alternative replicates at or below it. The last column is the
+    paired difference of A4 and A0 on the same trials. The bootstrap
+    (2,000 resamples) resamples the null and alternative replicates
+    jointly across analyses, so it includes the error of the
+    estimated critical values. From `50-size-adjusted-power.R`.') |>
+  kableExtra::kable_styling(font_size = 8, latex_options = 'scale_down')
+```
+
+# Size at large sample sizes
+
+Table \@ref(tab:ss-null) checks the size of A4 and A2 at the sample
+sizes of the sample-size study. Every other size check of the paper is
+at $N = 35$ or 70.
+
+```{r ss-null, echo = FALSE}
+## ssnull is built in shared-data.R from 46-run-sample-size.R --null.
+null_tab <- ssnull |>
+  mutate(cell = sprintf('%.3f', reject),
+         col = sprintf('%s_%s', analysis, ifelse(t1half == 0, 't0', 't1'))) |>
+  select(params, design, N, col, cell) |>
+  pivot_wider(names_from = col, values_from = cell) |>
+  arrange(match(params, c('simcore2026', 'published')),
+          match(design, c('CO', 'OLBDC', 'Hybrid')), N) |>
+  mutate(params = ifelse(params == 'simcore2026', 'This paper',
+                         'Starting values'),
+         design = design_lab[design]) |>
+  select(params, design, N, A4_t0, A4_t1, A2_t0, A2_t1)
+stopifnot(nrow(null_tab) == 12, !anyNA(null_tab))
+null_tab$params[duplicated(null_tab$params)] <- ''
+knitr::kable(null_tab, booktabs = TRUE, escape = FALSE, linesep = '',
+  col.names = c('Parameter set', 'Design', '$N$', '0', '1', '0', '1'),
+  caption = 'Type I error of A4 and A2 at the larger sample sizes of
+    the sample-size study, by parameter set, design, $N$ and true
+    carryover half-life (0 or 1 week). $c_{bm} = 0$, exponential
+    decay, complete data, 1,000 replicates per cell; two-MCSE band
+    around 0.05: $[0.036, 0.064]$. Non-convergence was at most 0.3
+    percent. From `46-run-sample-size.R` in its null mode.') |>
+  kableExtra::add_header_above(c(' ' = 3, 'A4, $t_{1/2}$' = 2,
+                                 'A2, $t_{1/2}$' = 2), escape = FALSE) |>
+  kableExtra::kable_styling(font_size = 9)
+```

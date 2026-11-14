@@ -474,3 +474,53 @@ ss_p_ratio <- ss_n80 |>
   select(params, design, t1half, c_bm, N80) |>
   pivot_wider(names_from = params, values_from = N80) |>
   mutate(r = published / simcore2026)
+
+## Coverage of A3 and A4 in family 1 and family S
+## (49-coverage-family1-s.R; referee report 2026-11-14, M2).
+m6 <- read.csv(file.path(rr_dir, 'm6-coverage-family1-s.csv'))
+m6_cell <- m6 |> filter(level == 'cell')
+m6_sum <- m6 |> filter(level == 'summary')
+m6_ref <- m6_cell |>
+  filter(family == '1', design == 'Hybrid', N == 70, c_bm == 0.45,
+         t1half == 1)
+stopifnot(nrow(m6_ref) == 2, nrow(m6_sum) == 4)
+## The smallest calibration ratio of A4 at any alternative cell with
+## stored per-replicate output (families 1 to 4 and S).
+k_g10_min <- min(m6_cell$kappa[m6_cell$method == 'G10'])
+
+## Size of A4 and A2 at the large N of the sample-size table
+## (46-run-sample-size.R --null; referee report 2026-11-14, M1).
+ssnull <- bind_rows(lapply(
+  list.files(here::here('analysis/data/carryover-sensitivity'),
+             pattern = '^sample-size-null-', full.names = TRUE),
+  function(d) readRDS(file.path(d, 'summary.rds')) |>
+    mutate(params = readRDS(file.path(d, 'meta.rds'))$params))) |>
+  mutate(analysis = c(E1cr2 = 'A2', E7null_cr2 = 'A4')[method])
+## Two-MCSE band at 1,000 replicates.
+ssnull_band <- c(0.036, 0.064)
+stopifnot(nrow(ssnull) == 48, all(ssnull$n >= 990),
+          all(ssnull$reject[ssnull$analysis == 'A4'] >= ssnull_band[1] &
+                ssnull$reject[ssnull$analysis == 'A4'] <= ssnull_band[2]))
+ssn_rng <- function(a, w = 'reject') range(ssnull[[w]][ssnull$analysis == a])
+## Calibration of A4 under the alternative in the sample-size runs.
+ss_alt_k <- bind_rows(lapply(
+  list.files(here::here('analysis/data/carryover-sensitivity'),
+             pattern = '^sample-size-(simcore2026|published)-',
+             full.names = TRUE),
+  function(d) readRDS(file.path(d, 'summary.rds'))))
+ss_k <- function(m, h) mean(ss_alt_k$kappa[ss_alt_k$method == m &
+                                             ss_alt_k$t1half == h])
+ss_k_cor <- with(ss_alt_k[ss_alt_k$method == 'E7null_cr2' &
+                            ss_alt_k$t1half == 1, ], cor(N, kappa))
+
+## Size-adjusted power of A0 to A4 on the 30-cell grid at t1/2 = 1
+## week (50-size-adjusted-power.R; referee report 2026-11-14, M3).
+sap <- read.csv(file.path(rr_dir, 'size-adjusted-power-f1.csv'))
+sap_pair <- read.csv(file.path(rr_dir, 'size-adjusted-power-f1-paired.csv'))
+stopifnot(nrow(sap) == 60, nrow(sap_pair) == 24)
+sapd <- function(d, vs) sap_pair$diff[sap_pair$design == d & sap_pair$vs == vs]
+sapse <- function(d, vs) sap_pair$se[sap_pair$design == d & sap_pair$vs == vs]
+## The text says A4 leads the size-adjusted A0 in every Hybrid and
+## OL+BDC cell and trails it in every CO cell.
+stopifnot(all(sapd('Hybrid', 'A0') > 0), all(sapd('OLBDC', 'A0') > 0),
+          all(sapd('CO', 'A0') < 0))

@@ -82,7 +82,7 @@ Table \@ref(tab:tab-families) lists the six scenario families.
 ```{r tab-families, echo = FALSE}
 tab_fam <- tibble::tribble(
   ~Family, ~Scenarios, ~Replicates,
-  '1', 'Base 30-cell grid: three designs, $N \\in \\{35, 70\\}$, $c_{bm} \\in \\{0, 0.30, 0.45\\}$, $t_{1/2} \\in \\{0, 0.5, 1\\}$ weeks', '500',
+  '1', 'Base 30-cell grid: three designs, $N \\in \\{35, 70\\}$; $c_{bm} \\in \\{0, 0.30, 0.45\\}$ at $t_{1/2} = 1$ week, and $t_{1/2} \\in \\{0, 0.5\\}$ weeks at $c_{bm} = 0.45$', '500',
   '2', 'Misspecified half-life ($0.2$, $2$ or $4$ weeks) and decay shape (Weibull $k \\in \\{0.5, 2\\}$), analyzed as exponential', '500',
   '3', 'Serial correlation $\\rho \\in \\{0.5, 0.9\\}$', '500',
   '4', 'Patient-level dropout, completely at random or by baseline severity', '500',
@@ -226,8 +226,9 @@ cap_fig3 <- paste0(
   'coverage of the nominal 95 percent interval of A3 and A4 in ',
   'families 2 to 4, as the mean of the cell lower bounds and upper ',
   'bounds. The bars span the two bounds. The coverage bounds are ',
-  'not Monte Carlo intervals. Families 1, 5 and S have no coverage ',
-  'output.')
+  'not Monte Carlo intervals. Coverage in families 1 and S was ',
+  'computed later and is in Table \\ref{tab:stage3-coverage}; family ',
+  '5 has none.')
 ```
 
 Figure \@ref(fig:fig-ladder-size) gives size by family.
@@ -409,8 +410,8 @@ ref_tab <- ref_tab |>
   select(-order_a, -order_h)
 ref_tab$`$t_{1/2}$`[duplicated(ref_tab$`$t_{1/2}$`)] <- ''
 knitr::kable(ref_tab, booktabs = TRUE, escape = FALSE, linesep = '',
-  caption = 'Reference cell on the corrected 30-cell grid (job 27:
-    Hybrid, $N = 70$, $c_{bm} = 0.45$, exponential decay, 500
+  caption = 'Reference cell on the corrected 30-cell grid (Hybrid,
+    $N = 70$, $c_{bm} = 0.45$, exponential decay, 500
     replicates, every analysis fitted to the same trials; A4 fitted
     afterward to the same trials). Power is
     the rejection rate of $H_0: \\beta_{bm:X} = 0$ at $\\alpha =
@@ -430,7 +431,7 @@ knitr::kable(ref_tab, booktabs = TRUE, escape = FALSE, linesep = '',
   kableExtra::kable_styling(font_size = 8, latex_options = 'scale_down')
 ```
 
-```{r fig-power-by-half-life, echo = FALSE, fig.cap = 'Power against carryover half-life by analysis and design (job 27: $N = 70$, $c_{bm} = 0.45$, exponential decay, 500 replicates). A0 is omitted because its test is liberal. The analyses are A1 (binary indicator, working-covariance standard error); A2 (binary indicator, CR2); A3 (exposure-weighted at the true half-life, CR2); and A4 (exposure-weighted at the half-life chosen by AIC without the interaction, CR2), fitted afterward to the same trials. Points at each half-life are offset horizontally for legibility. Bars are 2 $\\times$ the Monte Carlo standard error.', out.width = '100%'}
+```{r fig-power-by-half-life, echo = FALSE, fig.cap = 'Power against carryover half-life by analysis and design (30-cell grid: $N = 70$, $c_{bm} = 0.45$, exponential decay, 500 replicates). A0 is omitted because its test is liberal. The analyses are A1 (binary indicator, working-covariance standard error); A2 (binary indicator, CR2); A3 (exposure-weighted at the true half-life, CR2); and A4 (exposure-weighted at the half-life chosen by AIC without the interaction, CR2), fitted afterward to the same trials. Points at each half-life are offset horizontally for legibility. Bars are 2 $\\times$ the Monte Carlo standard error.', out.width = '100%'}
 knitr::include_graphics('../../figures/02-power-by-half-life.png')
 ```
 
@@ -638,24 +639,44 @@ if (file.exists(file.path(rr_dir, 'm3-coverage.csv'))) {
   m3c <- bind_rows(m3c, m5c) |>
     arrange(match(method, c('G8', 'G10', 'G9')), N)
   m3c_g10 <- m3c |> filter(method == 'G10')
-  m3c <- m3c |>
-    filter(method %in% c('G8', 'G10')) |>
-    transmute(Method = to_a(method), `$N$` = N, Cells = cells,
+  ## Families 1 and S from 49-coverage-family1-s.R, pooled over N.
+  m6c <- m6_cell |>
+    group_by(family, method) |>
+    summarise(cells = n(), lo = mean(coverage_lower),
+              hi = mean(coverage_upper), mn = min(coverage_lower),
+              .groups = 'drop') |>
+    mutate(Family = ifelse(family == 'S', 'S (independent seeds)',
+                           '1 (30-cell grid)'), N = NA_integer_)
+  cov_rows <- bind_rows(
+    m3c |> filter(method %in% c('G8', 'G10')) |>
+      mutate(Family = '2 to 4'),
+    m6c) |>
+    arrange(match(Family, c('1 (30-cell grid)', '2 to 4',
+                            'S (independent seeds)')),
+            match(method, c('G8', 'G10')), N) |>
+    transmute(Family, Method = to_a(method),
+              `$N$` = ifelse(is.na(N), '35, 70', as.character(N)),
+              Cells = cells,
               `Mean coverage (lower, upper)` = sprintf('%.3f, %.3f', lo, hi),
               `Minimum (lower)` = sprintf('%.3f', mn))
-  knitr::kable(m3c, booktabs = TRUE, escape = FALSE, linesep = '',
+  cov_rows$Family[duplicated(cov_rows$Family)] <- ''
+  knitr::kable(cov_rows, booktabs = TRUE, escape = FALSE, linesep = '',
     caption = 'Coverage of the nominal 95 percent CR2 interval for A3
-      and A4 over the predictive-only alternative cells of the
-      supplementary study without heavy missingness, on the
-      calibrated scale ($\\theta = -c_{bm}\\sigma_{BR}$). The
-      Satterthwaite degrees of freedom are not stored per replicate
-      and were recovered from the stored $t$ and $p$ where $|t| \\ge
-      0.5$; the remaining replicates are classified as covering, not
-      covering, or ambiguous, which gives the lower and upper bounds.
-      A3 from `34-referee-reanalysis.R`, A4 from
-      `43-g10-coverage.R`.') |>
+      and A4 over the predictive-only alternative cells, on the
+      calibrated scale ($\\theta = -c_{bm}\\sigma_{BR}$). Family 1 is
+      the 30-cell grid, all three designs; families 2 to 4 are the
+      supplementary study without heavy missingness; family S is the
+      independent-seed Hybrid run. The Satterthwaite degrees of
+      freedom are not stored per replicate and were recovered from the
+      stored $t$ and $p$ where $|t| \\ge 0.5$; the remaining
+      replicates are classified as covering, not covering, or
+      ambiguous, which gives the lower and upper bounds. Families 2 to
+      4: A3 from `34-referee-reanalysis.R`, A4 from
+      `43-g10-coverage.R`. Families 1 and S: both from
+      `49-coverage-family1-s.R`.') |>
     kableExtra::kable_styling(font_size = 9)
 }
+m6g <- function(f, w) m6_sum[[w]][m6_sum$family == f & m6_sum$method == 'G10']
 ```
 
 ## Which analysis to use {-}
@@ -828,17 +849,27 @@ knitr::include_graphics('../../figures/02-sample-size-curves-simcore2026.png')
 
 # Recommendation {-}
 
-For a Hybrid trial with a biomarker known to be predictive only, at
-$N \le 70$, use A4: the exposure-weighted predictor with the
+For a Hybrid trial with a biomarker known to be predictive only, use
+A4 to test the interaction: the exposure-weighted predictor with the
 half-life chosen by AIC on the model without the interaction,
 refitted by REML with the interaction and tested with CR2. Its size is
 equivalent to the oracle's within $\pm 0.01$ in the run with
 independent seeds and in `r sum(eq10$equiv) - 1` of the other five
-families. In the Hybrid cells it gains
-`r sprintf('%.1f', 100 * hy_d_mean)` points of power over A2 on
-average, up to `r sprintf('%.1f', 100 * hy_max)` at long half-lives,
-and is behind by at most `r sprintf('%.1f', -100 * hy_min)` point in
-`r hy_below` cells.
+families, and it holds its size up to $N = 600$ (Table S17). In the
+Hybrid cells it gains `r sprintf('%.1f', 100 * hy_d_mean)` points of
+power over A2 on average, up to `r sprintf('%.1f', 100 * hy_max)` at
+long half-lives, and is behind by at most
+`r sprintf('%.1f', -100 * hy_min)` point in `r hy_below` cells. At
+equal size it also leads the starting analysis A0 under Hybrid (Table
+S16).
+
+The recommendation is for the test, not for estimation. The selected
+half-life is often wrong, so the A4 estimate is biased. Its standard
+error is too small under the alternative, by up to
+`r sprintf('%.0f', 100 * (1 - k_g10_min))` percent in a single cell.
+Its nominal 95 percent interval covers at
+`r f3(m6_ref$coverage_lower[m6_ref$method == 'G10'])` at the
+reference cell.
 
 Whether a biomarker is also prognostic is rarely known before a
 trial. For a biomarker of unknown role the default is the analysis of

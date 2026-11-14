@@ -64,6 +64,13 @@ of them.
 | `archive/report-extra-slim.Rmd` | Narrowed to the master's scope; carries the `bullets`/`rgt`/`orig` three-part scaffolding with `rgt` placeholders | Scaffolding stripped and prose rewritten |
 | (promoted to `report.Rmd`) | Narrative rewrite of the above | Current master |
 
+Two later companions of the master are also archived:
+
+| File | Scope | Superseded because |
+|---|---|---|
+| `archive/supplement-2026-10-21.Rmd` | Supplement to the nine-specification (G1-G9) report | Replaced by the A0-A4 `supplement.Rmd` (2026-11-11) |
+| `archive/bullets-2026-10-09.Rmd` | Bullet outline of the report as of 2026-10-09 (nine specifications G1-G9, Tier 1/Tier 2 blocks); an authoring aid, not a manuscript | The 2026-11-11 short-list refactor (A0-A4) changed every section it outlines |
+
 **Content held only by the archived full-scope drafts.** The
 following is not in the master and must be taken from `archive/` if
 needed:

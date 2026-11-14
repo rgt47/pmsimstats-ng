@@ -136,6 +136,11 @@ pmsimstats team
   OPEN: `notation-lint.pl` flags A1-A3 as `legacy-spec-label` (152
   hits; NOTATION.md retired A1-A3 on 2026-07-31 with different
   meanings). Author rendered with A0-A4 as is; letter choice pending.
+  CLOSED 2026-11-11 (commit 99f555628): author kept A0-A4; the lint
+  skips `legacy-spec-label` for files under
+  `/analysis/report/02-carryover-sensitivity/` (matched on the
+  absolute path), and NOTATION.md records the exception ("Paper 02
+  exception (2026-11-11)"). Report and supplement lint clean.
 - 2026-11-11: A0 dropped from every power display (author decision):
   power ladder (first change shown is A1 to A2), power against
   half-life, both heatmaps, the power columns of the dropout table and
@@ -196,3 +201,25 @@ Conclusion 7 sentences, Reproducibility entry; supplement Table S13
 (A4 N80 by rho, from paper 01's runs) and Figure S1 (published
 curves). Staged paper 01 Rmd removed after merge: its E9 tables stay
 in paper 01; its A4-at-E9-N result is one sentence citing paper 01.
+
+### Supplement Tables S14 and S15; attribution (2026-11-13 to 11-14)
+
+- Table S14 (`ss-a2`): A2 N80 under both parameter sets, same runs
+  and curve model as the main-text A4 table.
+- Attribution corrected at the paper 01 session's request: paper 01
+  no longer reports its G10 planning runs (moved out 2026-11-11), so
+  the sentence above that cited paper 01 for the A4-at-E9-N result,
+  the rho ratios, the likelihood-ratio sentence, Table S13's intro
+  and caption and the Reproducibility entry now say the runs were made
+  with paper 01's simulation code (driver 19) and are not reported
+  there.
+- Table S15 (`ss-e9`): A4 power at the closed-form (E9) N, read from
+  `published-planning/planning-g10.csv` (rho 0.7). The text's range
+  0.844 to 0.936 is now computed (`e9_g10_p` in `shared-data.R`) over
+  the 20 cells whose closed-form N was at most 400; the 7 capped cells
+  are flagged in the table. Commit 15df2a200.
+- `bullets.Rmd` (an outline of the 2026-10-09 nine-specification
+  report) archived as `archive/bullets-2026-10-09.*`; the README
+  archive table lists it. The build-pipeline comment in `report.Rmd`
+  now points to `45-ladder-heatmaps.R`. No live document uses the
+  `02xs-heatmap-hendrickson-*` files.

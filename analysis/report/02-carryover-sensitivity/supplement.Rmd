@@ -384,7 +384,12 @@ if (has_rv) {
 
 Table \@ref(tab:ss-rho) gives the total $N$ for 80 percent power of A4
 in the Hybrid design at three values of the serial correlation, from
-the companion paper's runs under its starting values. Figure
+runs made with the companion paper's simulation code under its
+starting values; the companion paper does not report these runs. Table
+\@ref(tab:ss-a2) gives the total $N$ for A2, the binary indicator with
+CR2, from the same runs as the A4 table of the main text. Table
+\@ref(tab:ss-e9) gives the power of A4 at the sample size of the
+companion paper's closed-form rule. Figure
 \@ref(fig:fig-sample-size-published) gives the power curves of the
 main text under the starting values.
 
@@ -413,12 +418,74 @@ knitr::kable(rho_tab, booktabs = TRUE, escape = FALSE, linesep = '',
   col.names = c('$\\rho$', '$t_{1/2}$', names(rho_tab)[-(1:2)]),
   caption = 'Total $N$ for 80 percent power of A4 in the Hybrid design
     by serial correlation $\\rho$, carryover half-life (weeks) and
-    $c_{bm}$ (columns), under the starting values, from the companion
-    paper\'s runs (six or seven values of $N$ per cell, a probit curve
+    $c_{bm}$ (columns), under the starting values, from runs made with
+    the companion paper\'s simulation code (six or seven values of $N$
+    per cell, a probit curve
     on $\\sqrt{N}$ per cell). The grid of $c_{bm}$ differs by $\\rho$
     because the largest feasible $c_{bm}$ falls as $\\rho$ rises; a
     blank cell was not simulated.') |>
   kableExtra::add_header_above(c(' ' = 2, '$c_{bm}$' = ncol(rho_tab) - 2),
+                               escape = FALSE) |>
+  kableExtra::kable_styling(font_size = 9)
+```
+
+```{r ss-a2, echo = FALSE}
+## A2 (binary indicator with CR2) from the same runs and curve model as
+## the A4 table of the main text (47-sample-size-curves.R).
+ss_tab_a2 <- ss_n80 |>
+  filter(analysis == 'A2', c_bm %in% c(0.2, 0.3, 0.4)) |>
+  mutate(cell = sprintf('%d (%d--%d)', as.integer(ceiling(N80)),
+                        as.integer(ceiling(N80_lo)),
+                        as.integer(ceiling(N80_hi))),
+         col = sprintf('%s_%.1f', params, c_bm)) |>
+  select(design, t1half, col, cell) |>
+  pivot_wider(names_from = col, values_from = cell) |>
+  arrange(match(design, c('CO', 'OLBDC', 'Hybrid')), t1half) |>
+  mutate(design = design_lab[design], t1half = sprintf('%.1f', t1half)) |>
+  select(design, t1half, simcore2026_0.2, simcore2026_0.3,
+         simcore2026_0.4, published_0.2, published_0.3, published_0.4)
+stopifnot(nrow(ss_tab_a2) == 9, !anyNA(ss_tab_a2))
+ss_tab_a2$design[duplicated(ss_tab_a2$design)] <- ''
+knitr::kable(ss_tab_a2, booktabs = TRUE, escape = FALSE, linesep = '',
+  col.names = c('Design', '$t_{1/2}$', '0.2', '0.3', '0.4', '0.2', '0.3',
+                '0.4'),
+  caption = 'Total $N$ for 80 percent power of A2, the binary indicator
+    with CR2, at $\\alpha = 0.05$, with a 95 percent Monte Carlo
+    interval, by design, carryover half-life (weeks) and $c_{bm}$,
+    under the parameter set of the main text and under the starting
+    values of the companion paper. Same runs, curve model and
+    conditions as the A4 table of the main text, so the two tables can
+    be compared cell by cell.') |>
+  kableExtra::add_header_above(c(' ' = 2, 'Main text set, $c_{bm}$' = 3,
+                                 'Starting values, $c_{bm}$' = 3),
+                               escape = FALSE) |>
+  kableExtra::kable_styling(font_size = 8, latex_options = 'scale_down')
+```
+
+```{r ss-e9, echo = FALSE}
+## A4 power at the closed-form N; e9_g10 is built in shared-data.R.
+e9_tab <- e9_g10 |>
+  mutate(cell = ifelse(capped,
+                       sprintf('%.3f (%d)$^a$', power, as.integer(N)),
+                       sprintf('%.3f (%d)', power, as.integer(N))),
+         c_bm = sprintf('%.2f', c_bm)) |>
+  select(design, t_half, c_bm, cell) |>
+  pivot_wider(names_from = c_bm, values_from = cell) |>
+  arrange(match(design, c('CO', 'OL+BDC', 'Hybrid')), t_half) |>
+  mutate(t_half = sprintf('%.1f', t_half))
+stopifnot(nrow(e9_tab) == 9, !anyNA(e9_tab))
+e9_tab$design[duplicated(e9_tab$design)] <- ''
+knitr::kable(e9_tab, booktabs = TRUE, escape = FALSE, linesep = '',
+  col.names = c('Design', '$t_{1/2}$', names(e9_tab)[-(1:2)]),
+  caption = 'Power of A4 at the total $N$ given by the closed-form
+    paired-difference rule of the companion paper for 80 percent power
+    (in parentheses), by design, carryover half-life (weeks) and
+    $c_{bm}$ (columns), under the starting values at $\\rho = 0.7$.
+    Runs made with the companion paper\'s simulation code, 1{,}000
+    replicates per cell (Monte Carlo SE at most 0.016).
+    $^a$The closed-form $N$ exceeded 400 and the cell was run at
+    $N = 400$, so its power is not at the rule\'s $N$.') |>
+  kableExtra::add_header_above(c(' ' = 2, '$c_{bm}$' = ncol(e9_tab) - 2),
                                escape = FALSE) |>
   kableExtra::kable_styling(font_size = 9)
 ```

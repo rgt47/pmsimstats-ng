@@ -460,6 +460,15 @@ rho_r <- rho_n80 |>
   pivot_wider(names_from = rho, values_from = N80_G, names_prefix = 'r') |>
   mutate(r09 = r0.9 / r0.7, r05 = r0.5 / r0.7)
 stopifnot(nrow(rho_r) == 3, !anyNA(rho_r))
+## A4 power at the closed-form (E9) N of the companion paper, from the
+## same driver's planning block (rho 0.7). Cells whose closed-form N
+## exceeded the cap of 400 were run at 400 and are left out of the
+## range quoted in the text; Table S15 shows them flagged.
+e9_g10 <- read.csv(file.path(rho_root, 'planning-g10.csv')) |>
+  filter(N_label == 'N80_E9')
+e9_g10_p <- range(e9_g10$power[!e9_g10$capped])
+stopifnot(nrow(e9_g10) == 27, sum(!e9_g10$capped) == 20,
+          all(e9_g10$power[!e9_g10$capped] > 0.8))
 ss_p_ratio <- ss_n80 |>
   filter(analysis == 'A4') |>
   select(params, design, t1half, c_bm, N80) |>

@@ -498,7 +498,7 @@ ssnull <- bind_rows(lapply(
   mutate(analysis = c(E1cr2 = 'A2', E7null_cr2 = 'A4')[method])
 ## Two-MCSE band at 1,000 replicates.
 ssnull_band <- c(0.036, 0.064)
-stopifnot(nrow(ssnull) == 48, all(ssnull$n >= 990),
+stopifnot(nrow(ssnull) == 56, all(ssnull$n >= 990),
           all(ssnull$reject[ssnull$analysis == 'A4'] >= ssnull_band[1] &
                 ssnull$reject[ssnull$analysis == 'A4'] <= ssnull_band[2]))
 ssn_rng <- function(a, w = 'reject') range(ssnull[[w]][ssnull$analysis == a])

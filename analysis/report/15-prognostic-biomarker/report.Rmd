@@ -84,8 +84,11 @@ knit: (function(input, ...) { d <- dirname(input); while (!file.exists(file.path
       -> analysis/data/quick-sim/carryover-closed-form/rho-stage/
            prognostic-joint-ceilings.csv
 
-  Not yet run: the biomarker-by-time block of split plan Section 3.1.
-  Its section is a marked placeholder with no numbers.
+  Biomarker-by-time block (split plan Section 3.1, with the baseline
+  row crossed in), published set, run locally 2026-11-14:
+    analysis/scripts/prognostic-biomarker/01-run-bmt-block.R
+      --params published   (sources simulation-core.R unchanged)
+      -> published/bmt-block/
 
   Render through tools/render.sh, never rmarkdown::render() directly.
 -->
@@ -117,7 +120,7 @@ select <- dplyr::select
 ```{r values-provenance, include = FALSE}
 pub_metas <- list(stress = st_p_m, gapC = gfC_m, blkT = rvT_m,
                   blkN = rvN_m, blkA = rvA_m, tier1 = s27_m,
-                  scen = s21_m)
+                  scen = s21_m, bmt = bk_m)
 pub_metas <- pub_metas[!vapply(pub_metas, is.null, logical(1))]
 claim(all(vapply(pub_metas, pub_ok, logical(1))),
       'Every published-set run records param_set = published.')
@@ -519,6 +522,174 @@ if (has_re_h) {
 if (has_m12) setv('m12_dmax', f3(max(abs(m12$diff))))
 ```
 
+```{r values-bmt, include = FALSE}
+if (has_bk) {
+  bk_an <- c('G8', 'G9', 'G10', 'F1A0')
+  bk_tm <- c('none', 'bmt', 'bmt2')
+  bk_g <- bk_m$grid
+  bk_reps <- function(cc) bk_g$reps[bk_g$cell_id == cc]
+  n_tn <- bk_reps('T3-null')
+  n_tb <- bk_reps('T3-null-N280')
+  n_a <- bk_reps('T3-alt')
+  stopifnot(bk_reps('T0-null') == n_a, bk_reps('T0-alt') == n_a,
+            n_tb == n_a)
+  setv('bk_tcoef', sprintf('%g', unique(bk_g$b_tv_trend[
+    bk_g$b_tv_trend > 0])))
+  setv('bk_cbm', sprintf('%.2f', max(bk_g$c_bm)))
+  setv('bk_nbig', max(bk_g$N))
+  setv('bk_n5', fn(n_tn))
+  setv('bk_n1', fn(n_a))
+  setv('bk_band5', band_txt(n_tn))
+  setv('bk_band1', band_txt(n_a))
+  setv('bk_conv', sprintf('%.2f', 100 * (1 - weighted.mean(bk$nonconv,
+                                                          bk$n))))
+  claim(isTRUE(all.equal(sort(unique(bk$analysis)), sort(bk_an))) &&
+          setequal(unique(bk$term), bk_tm),
+        'The biomarker-by-time block fitted G8, G9, G10 and F1A0 with
+         all three time terms.')
+  b1 <- function(cc, an, tm, b) {
+    x <- bk[bk$cell_id == cc & bk$analysis == an & bk$term == tm &
+              bk$bl == b, ]
+    stopifnot(nrow(x) == 1)
+    x
+  }
+  zb <- function(x) x$mean_est / x$mcse_est
+  shift <- function(an, tm, b) {
+    a <- b1('T3-alt', an, tm, b)
+    r <- b1('T0-alt', an, tm, b)
+    c(d = a$mean_est - r$mean_est,
+      se = sqrt(a$mcse_est^2 + r$mcse_est^2))
+  }
+  ## G10 without either remedy, N = 70 and N = 280.
+  g10a <- b1('T3-null', 'G10', 'none', 0)
+  g10b <- b1('T3-null-N280', 'G10', 'none', 0)
+  g10c <- b1('T3-null', 'G10', 'none', 1)
+  g9a <- b1('T3-null', 'G9', 'none', 0)
+  setv('bk_g10_r', f3(g10a$reject))
+  setv('bk_g10_e', fs2(g10a$mean_est))
+  setv('bk_g10_z', sprintf('%.0f', zb(g10a)))
+  setv('bk_g9_e', fs2(g9a$mean_est))
+  setv('bk_g10b_r', f3(g10b$reject))
+  setv('bk_g10b_e', fs2(g10b$mean_est))
+  setv('bk_g10c_r', f3(g10c$reject))
+  setv('bk_g10c_e', fs2(g10c$mean_est))
+  claim(g10a$reject > band(n_tn)[2] && g10b$reject > band(n_a)[2],
+        'Trend, no term, no baseline row: G10 above the band at N = 70
+         and at the larger N.')
+  claim(g10c$mean_est < 0 && g10a$mean_est > 0,
+        'Trend, no term: the baseline row reverses the sign of the G10
+         estimate.')
+  claim(abs(g10a$mean_est - g10b$mean_est) <
+          0.25 * abs(g10a$mean_est),
+        'Trend, no term: the G10 bias is nearly the same at both N.')
+  claim(abs(g10a$mean_est - g9a$mean_est) < 0.1,
+        'Trend, no term, no baseline row: G10 and G9 estimates within
+         0.1 of each other.')
+  ## G-family with a time term, both sample sizes.
+  gf <- bk[bk$analysis %in% c('G8', 'G9', 'G10') &
+             bk$cell_id %in% c('T3-null', 'T3-null-N280'), ]
+  gl0 <- gf[gf$term == 'bmt' & gf$bl == 0, ]
+  gl1 <- gf[gf$term == 'bmt' & gf$bl == 1, ]
+  gq0 <- gf[gf$term == 'bmt2' & gf$bl == 0, ]
+  gq1 <- gf[gf$term == 'bmt2' & gf$bl == 1, ]
+  setv('bk_gl0', rng(gl0$mean_est, fs2))
+  setv('bk_gl1', rng(gl1$mean_est, fs2))
+  setv('bk_gq0', rng(gq0$mean_est, fs2))
+  setv('bk_gq1', rng(gq1$mean_est, fs2))
+  setv('bk_gl_r', rng(c(gl0$reject, gl1$reject)))
+  claim(all(gl0$mean_est > 0) && all(gl1$mean_est < 0) &&
+          all(abs(zb(rbind(gl0, gl1))) > 3),
+        'Trend, linear term: every G-family estimate is more than 3
+         MCSE from zero, positive without and negative with the
+         baseline row.')
+  claim(all(abs(zb(gq0)) < 2) && all(zb(gq1) > 3),
+        'Trend, quadratic term: G-family unbiased without the baseline
+         row and biased upward with it.')
+  ## F1A0.
+  ff <- bk[bk$analysis == 'F1A0' &
+             bk$cell_id %in% c('T3-null', 'T3-null-N280'), ]
+  f0n <- ff[ff$term == 'none' & ff$bl == 0, ]
+  f1 <- ff[ff$bl == 1, ]
+  setv('bk_f0n', rng(f0n$mean_est, fs2))
+  setv('bk_f1_e', rng(f1$mean_est, fs2))
+  setv('bk_f1_z', sprintf('%.1f', max(abs(zb(f1)))))
+  setv('bk_f1_r', rng(f1$reject))
+  claim(all(abs(zb(f1)) < 3) &&
+          all(in_band(f1$reject[f1$cell_id == 'T3-null'], n_tn)) &&
+          all(in_band(f1$reject[f1$cell_id == 'T3-null-N280'], n_a)),
+        'Trend: F1A0 with the baseline row is within 3 MCSE of zero and
+         inside the band with every time term at both N.')
+  claim(all(zb(f0n) > 3),
+        'Trend: F1A0 without a term or baseline row is biased upward.')
+  ## Shift under the alternative.
+  sh <- do.call(rbind, lapply(bk_an, function(an) {
+    do.call(rbind, lapply(bk_tm, function(tm) {
+      do.call(rbind, lapply(0:1, function(b) {
+        s <- shift(an, tm, b)
+        data.frame(analysis = an, term = tm, bl = b, d = s[['d']],
+                   se = s[['se']])
+      }))
+    }))
+  }))
+  shf <- sh[sh$analysis == 'F1A0' & sh$bl == 1, ]
+  sh10 <- sh[sh$analysis == 'G10' & sh$term == 'none', ]
+  setv('bk_shf', rng(shf$d, fs2))
+  setv('bk_sh10_0', fs2(sh10$d[sh10$bl == 0]))
+  setv('bk_sh10_1', fs2(sh10$d[sh10$bl == 1]))
+  setv('bk_sh_se', rng(sh$se, f2))
+  claim(all(abs(shf$d / shf$se) < 2),
+        'Alternative: the trend moves the F1A0 estimate with the
+         baseline row by less than 2 SE under every time term.')
+  claim(all(abs(sh10$d / sh10$se) > 3),
+        'Alternative: the trend moves the G10 estimate without a term
+         by more than 3 SE, with or without the baseline row.')
+  ## Cost of the terms without a trend.
+  pw <- function(an, tm, b) b1('T0-alt', an, tm, b)$reject
+  setv('bk_pw10', f3(pw('G10', 'none', 0)))
+  setv('bk_pw10b', f3(pw('G10', 'none', 1)))
+  pd <- function(tm) {
+    x <- bkp[bkp$cell_id == 'T0-alt' & bkp$analysis == 'G10' &
+               bkp$term == tm & bkp$bl == 0, ]
+    stopifnot(nrow(x) == 1)
+    x
+  }
+  setv('bk_c1', fs3(pd('bmt')$diff_reject))
+  setv('bk_c1s', f3(pd('bmt')$se_diff_reject))
+  setv('bk_c2', fs3(pd('bmt2')$diff_reject))
+  setv('bk_c2s', f3(pd('bmt2')$se_diff_reject))
+  claim(pd('bmt')$diff_reject < 0 && pd('bmt2')$diff_reject <
+          pd('bmt')$diff_reject,
+        'No trend: the linear term costs G10 power and the quadratic
+         term costs more.')
+  fpw <- vapply(bk_tm, function(tm) pw('F1A0', tm, 1), numeric(1))
+  setv('bk_pwf1', rng(fpw))
+  claim(max(fpw) - min(fpw) < 2 * sqrt(0.75 * 0.25 / n_a),
+        'No trend: F1A0 power with the baseline row varies by less than
+         two binomial MCSE across the time terms.')
+  claim(pw('G10', 'none', 1) > max(fpw),
+        'No trend: G10 with the baseline row has more power than F1A0
+         with it.')
+  ## Calibration of the standard error.
+  kp <- function(cc, an) bk$kappa[bk$cell_id == cc & bk$analysis == an]
+  setv('bk_k8', rng(kp('T3-alt', 'G8'), f2))
+  setv('bk_k10', rng(kp('T3-alt', 'G10'), f2))
+  setv('bk_kf', rng(kp('T3-alt', 'F1A0'), f2))
+  setv('bk_k10_0', rng(kp('T0-alt', 'G10'), f2))
+  setv('bk_kf_0', rng(kp('T0-alt', 'F1A0'), f2))
+  setv('bk_kbig', rng(bk$kappa[bk$cell_id == 'T3-null-N280'], f2))
+  claim(all(kp('T3-alt', 'G10') < 0.95) &&
+          all(kp('T3-alt', 'F1A0') < 0.95),
+        'Trend alternative: kappa below 0.95 for G10 and F1A0 under
+         every variant.')
+  ## Size without a trend.
+  t0 <- bk[bk$cell_id == 'T0-null', ]
+  setv('bk_t0_r', rng(t0$reject))
+  setv('bk_t0_up', sum(t0$reject > band(n_a)[2]))
+  setv('bk_t0_upan', paste(sort(unique(t0$analysis[
+    t0$reject > band(n_a)[2]])), collapse = ', '))
+}
+```
+
 # Abstract {-}
 
 **Background.** The biomarker-treatment interaction test of an
@@ -545,6 +716,8 @@ it as G10 does.
 A second stress test, run with the driver of paper 01,
 fitted ten analyses to trials with four prognostic pathways at
 strength 0.3. Its analyses keep the baseline visit as an outcome row.
+A final block fitted G8, G9, G10 and F1A0 under the growing shift,
+each with and without a biomarker-by-time term and a baseline row.
 
 **Results.** Under a correlation with the placebo-response component
 of 0.45, the analyses without expectancy terms rejected a true null at
@@ -559,21 +732,30 @@ Hybrid cells. In the second stress test, the analyses with expectancy
 terms stayed inside the two-MCSE band under every pathway. Every
 analysis without them, G10 included, exceeded the band under at least
 one pathway. The bias from the growing shift changed sign when a
-baseline row was added. The power loss once attributed to a strong
+baseline row was added. It did not shrink with $N$: at $N =$
+`r V('bk_nbig')` G10 rejected a true null at `r V('bk_g10b_r')`. A
+linear biomarker-by-time term reduced the bias but did not remove it.
+F1A0 fitted with a baseline row stayed within `r V('bk_f1_z')` MCSE
+of zero at both sample sizes, with or without the term. The model
+standard errors of G10 and F1A0 were too small under the alternative
+with the shift ($\kappa$ `r V('bk_k10')` for G10, `r V('bk_kf')` for
+F1A0).
+The power loss once attributed to a strong
 prognostic correlation came from repaired covariance matrices. Under
 the current stop on infeasible matrices, all `r V('n6_refused')` of
 those cells were refused.
 
 **Conclusions.** For a biomarker that may be prognostic, add
 $\eta_t$ and $B^c_i\eta_t$ to the recommended analysis of the
-companion carryover paper (paper 02). A biomarker that may predict the rate of
-natural-history change needs a biomarker-by-time term. That remedy
-has not yet been simulated.
+companion carryover paper (paper 02). For a biomarker that may predict
+the rate of natural-history change, fit that analysis with a baseline
+row; a biomarker-by-time term alone is not enough. Use these analyses
+for the test, not for an interval estimate.
 
 # Notation and glossary {-}
 
-Symbols follow `analysis/report/NOTATION.md`. Two symbols are not yet
-listed there and are marked *proposed*.
+Symbols follow `analysis/report/NOTATION.md`. Three symbols are not
+yet listed there and are marked *proposed*.
 
 | Symbol | Meaning |
 |---|---|
@@ -590,6 +772,7 @@ listed there and are marked *proposed*.
 | $\eta_t$ | design expectancy: 1 open label, 0.5 blinded, 0 at baseline |
 | $\beta_{bm:D}$ | interaction coefficient, the target of the test |
 | $\beta_\eta$, $\beta_{bm:\eta}$ | coefficients of $\eta_t$ and $B^c_i\eta_t$ |
+| $\beta_{bm:T}$ (*proposed*) | coefficient of the biomarker-by-time term $B^c_i w_t$ |
 | $\kappa$ | mean model standard error divided by the empirical SD of the estimates |
 | $\hat\pi$, MCSE | estimated rejection rate and its Monte Carlo standard error |
 
@@ -625,6 +808,9 @@ listed there and are marked *proposed*.
   level, with $D_{bc,it} = 0$ and $\eta_t = 0$. The analyses of the
   second stress test include it. Those of the paper 02 driver do not:
   their first row is the week-4 visit.
+- **Biomarker-by-time term.** The product $B^c_i w_t$ added to an
+  analysis model, coded `bm:t`. Its quadratic form adds $w_t^2$ and
+  $B^c_i w_t^2$.
 - **Feasibility bound.** The largest value of one correlation, given
   the others, for which the joint correlation matrix is positive
   definite on every path of the design.
@@ -870,6 +1056,8 @@ tsrc <- rbind(
   srow('Original 30-cell grid', 'published/tier1-g-vs-f-e0',
        s27_m, 'published set'),
   srow('Scenario cells', 'published/g-vs-f-comparison', s21_m,
+       'published set'),
+  srow('Biomarker-by-time block', 'published/bmt-block', bk_m,
        'published set'),
   srow('Second stress test, three runs and post hoc fits',
        'strawman-stress', NULL, 'published set',
@@ -1828,40 +2016,170 @@ only the signs, which agree with the fitted estimates.
 
 The two results therefore do not conflict. The DGP settings match.
 The difference lies in the analysis data and in which analyses were
-fitted. Two points remain open. First, G10 has not been fitted under
-the trend pathway without a baseline row. That it held its level
-under the growing pathway rests on analyses with a baseline row only.
+fitted. That left two points open. First, G10 had not been fitted
+under the trend pathway without a baseline row. That it held its level
+under the growing pathway rested on analyses with a baseline row only.
 Second, the bias is real in both tests. Every G-type mean estimate in
 Table \@ref(tab:tab-reconcile) is at least `r V('rc_zmin')` Monte
 Carlo SEs from zero. It is within a third of the empirical SE at
 $N = 70$, so it moves the rejection rate little there. As under the
 placebo-response pathway (Section \@ref(sec-largen)), a fixed bias of
 either sign inflates the size of the two-sided test as $N$ grows. The
-sign here depends on the visit structure of the analysis. A larger
-sample under the trend pathway, with the same analysis fitted with
-and without the baseline row, would settle both points. The biomarker-by-time block of Section
-\@ref(sec-bmt) should include that contrast.
+biomarker-by-time block of Section \@ref(sec-bmt) fitted the same
+analyses with and without the baseline row to the same trials, at
+$N = 70$ and $N =$ `r V('bk_nbig')`. It settles both points. G10
+without a baseline row was biased like G9. At $N =$ `r V('bk_nbig')`
+it rejected at `r V('bk_g10b_r')`, above the band.
 
-## The biomarker-by-time remedy: RESULTS PENDING {#sec-bmt}
+## The biomarker-by-time remedy {#sec-bmt}
 
-\fbox{\parbox{0.95\linewidth}{\textbf{RESULTS PENDING.} The
-simulation for this section has not been run. This section contains
-no results. It will be written from the block described in the split
-plan, Section 3.1, once that block is stored.}}
+The remedy for a biomarker that predicts the natural-history trend
+adds $B^c_i w_t$ to the analysis model, coded `bm:t`, with coefficient
+$\beta_{bm:T}$. A quadratic variant adds $w_t^2$ and $B^c_i w_t^2$.
+Section \@ref(sec-reconcile) showed that the sign of the trend bias
+depends on whether the analysis has a baseline row, so the block
+crossed the two. It simulated the Hybrid design at $t_{1/2} = 0.5$
+week under the published parameter set. The trend pathway was absent
+or present at $b_{TV}^{\mathrm{tr}} =$ `r V('bk_tcoef')`, and the
+interaction was null or $c_{bm} =$ `r V('bk_cbm')`, at $N = 70$. A
+fifth cell repeated the null trend cell at $N =$ `r V('bk_nbig')`.
+The trend null at $N = 70$ had `r V('bk_n5')` replicates (band
+`r V('bk_band5')`). The other cells had `r V('bk_n1')` (band
+`r V('bk_band1')`). G8, G9, G10 and F1A0 were each fitted to every
+trial with no time term, the linear term and the quadratic term, with
+and without the baseline row: 24 fits per trial. The time terms enter
+both the model that chooses the half-life and the refitted model.
+`r V('bk_conv')` percent of the fits converged. Table
+\@ref(tab:tab-bmt) gives the results.
 
-The remedy adds a biomarker-by-time term $B^c_i w_t$ to the analysis
-model, as `bmc:t`. Its coefficient would be written
-$\beta_{bm:T}$ (*proposed*). A quadratic variant adds $B^c_i w_t^2$.
-The planned block crosses the trend pathway, present or absent, with
-a null and an alternative interaction. It fits G8, G9, G10 and F1A0
-with and without the term to the same trials. It answers three
-questions. Does the term remove the trend bias in size and in the
-mean estimate? What does it cost in power when there is no trend?
-Does a linear term suffice when the natural-history course is not a
-straight line? Section \@ref(sec-reconcile) adds a fourth: does the
-answer depend on whether the analysis has a baseline row? The block
-should fit each analysis both ways. The driver changes it needs are listed in the
-Reproducibility section.
+```{r tab-bmt}
+if (has_bk) {
+  tl <- c(none = 'none', bmt = 'linear', bmt2 = 'quadratic')
+  cell_v <- function(cc, col) {
+    vapply(seq_len(nrow(grid_b)), function(i) {
+      x <- b1(cc, grid_b$analysis[i], grid_b$term[i], grid_b$bl[i])
+      x[[col]]
+    }, numeric(1))
+  }
+  grid_b <- expand.grid(bl = 0:1, term = bk_tm, analysis = bk_an,
+                        stringsAsFactors = FALSE)[, 3:1]
+  bold_up <- function(r, n) {
+    ifelse(r > band(n)[2], sprintf('\\textbf{%.3f}', r),
+           sprintf('%.3f', r))
+  }
+  shv <- merge(grid_b, sh, sort = FALSE)
+  shv <- shv[match(paste(grid_b$analysis, grid_b$term, grid_b$bl),
+                   paste(shv$analysis, shv$term, shv$bl)), ]
+  tb <- data.frame(
+    Analysis = grid_b$analysis,
+    Term = unname(tl[grid_b$term]),
+    BL = ifelse(grid_b$bl == 1, 'yes', 'no'),
+    s70 = bold_up(cell_v('T3-null', 'reject'), n_tn),
+    e70 = fs2(cell_v('T3-null', 'mean_est')),
+    sB = bold_up(cell_v('T3-null-N280', 'reject'), n_a),
+    eB = fs2(cell_v('T3-null-N280', 'mean_est')),
+    sh = fs2(shv$d),
+    pw = f3(cell_v('T0-alt', 'reject')),
+    k = f2(cell_v('T3-alt', 'kappa')))
+  tb$Analysis[duplicated(tb$Analysis)] <- ''
+  knitr::kable(tb, booktabs = TRUE, escape = FALSE, linesep = '',
+    col.names = c('Analysis', 'Time term', 'Baseline row',
+                  'Size', 'Mean est.', 'Size', 'Mean est.',
+                  'Trend shift', 'Power', '$\\kappa$'),
+    caption = sprintf('Biomarker-by-time block, published parameter
+      set, Hybrid, $t_{1/2} = 0.5$ week. Trend null: $b_{TV}^{\\mathrm{
+      tr}} = %s$, $c_{bm} = 0$, so the true interaction is 0; %s
+      replicates at $N = 70$ (band %s) and %s at $N = %s$ (band %s).
+      Rates above the band in bold. Estimates are per SD of the
+      biomarker. Trend shift: mean estimate with the trend minus
+      without it at $c_{bm} = %s$, $N = 70$ (%s replicates each,
+      unpaired; SE %s). Power: no trend, $c_{bm} = %s$. $\\kappa$: with
+      the trend, $c_{bm} = %s$.', V('bk_tcoef'), V('bk_n5'),
+      V('bk_band5'), V('bk_n1'), V('bk_nbig'), V('bk_band1'),
+      V('bk_cbm'), V('bk_n1'), V('bk_sh_se'), V('bk_cbm'),
+      V('bk_cbm'))) |>
+    kableExtra::add_header_above(c(' ' = 3, 'Trend null, N = 70' = 2,
+                                   'Trend null, N = 280' = 2,
+                                   'Alternative, N = 70' = 3)) |>
+    kableExtra::kable_styling(latex_options = 'scale_down',
+                              font_size = 8)
+} else {
+  pending_note('the biomarker-by-time block')
+}
+```
+
+**No remedy.** Without a time term or a baseline row, G10 rejected the
+true null at `r V('bk_g10_r')` at $N = 70$, above the band, with a mean
+estimate of `r V('bk_g10_e')` (`r V('bk_g10_z')` MCSE from zero). G9
+gave `r V('bk_g9_e')`. The two analyses differ only in how they choose
+the half-life, and under this pathway the difference did not matter.
+This settles the first open point of Section \@ref(sec-reconcile).
+At $N =$ `r V('bk_nbig')` G10 gave `r V('bk_g10b_e')` and rejected at
+`r V('bk_g10b_r')`. The bias is a fixed amount that does not shrink
+with $N$, while the standard error does. That settles the second open
+point. With the baseline row alone, G10 gave `r V('bk_g10c_e')` and
+rejected at `r V('bk_g10c_r')`: the sign reverses, as in Section
+\@ref(sec-reconcile).
+
+**A time term in the G-family.** The linear term reduced the bias but
+did not remove it. Across G8, G9 and G10 at both sample sizes the
+mean estimate was `r V('bk_gl0')` without the baseline row and
+`r V('bk_gl1')` with it. Every one is more than 3 MCSE from zero.
+The rejection rates were `r V('bk_gl_r')`. They were close to nominal
+at these sample sizes only because the remaining bias is small against
+the standard error. As with no time term, the size is expected to
+rise with $N$. The quadratic term removed the bias without the
+baseline row (`r V('bk_gq0')`) and left one of `r V('bk_gq1')` with
+it. The natural-history course is a Gompertz curve, not a
+polynomial in $w_t$. Which polynomial absorbs its projection onto
+$B^c_i D_{bc,it}$ depends on the visits in the analysis data, and no
+single choice worked in both.
+
+**F1A0 with the baseline row.** F1A0 without either remedy was biased
+upward (`r V('bk_f0n')`). With the baseline row its mean estimate was
+`r V('bk_f1_e')` across the three time terms and both sample sizes,
+at most `r V('bk_f1_z')` MCSE from zero. Its rejection rates were
+`r V('bk_f1_r')`, inside the band in every cell. With a baseline row
+the expectancy term $\eta_t$ is 0 at week 0, so $B^c_i\eta_t$
+separates the baseline row from the later visits. That appears to
+take up the part of the trend that the G-family projects onto the
+interaction. The block does not isolate the mechanism.
+
+**Under the alternative.** Each analysis has its own estimand, because
+each builds $D_{bc,it}$ at its own half-life. The trend shift column
+therefore compares each analysis with itself, with and without the
+trend. The trend moved F1A0 with the baseline row by `r V('bk_shf')`
+across the three time terms. It moved G10 without a time term by
+`r V('bk_sh10_0')` without the baseline row and `r V('bk_sh10_1')`
+with it.
+
+**Cost without a trend.** At $c_{bm} =$ `r V('bk_cbm')` and no trend,
+G10 had power `r V('bk_pw10')`. The linear term changed it by
+`r V('bk_c1')` (paired SE `r V('bk_c1s')`) and the quadratic term by
+`r V('bk_c2')` (`r V('bk_c2s')`). The baseline row raised G10 power to
+`r V('bk_pw10b')`. F1A0 with the baseline row had power
+`r V('bk_pwf1')` across the three time terms, so for it the time term
+cost nothing measurable. Its gap to G10 with the baseline row is the
+cost of the expectancy terms in this cell. Without a trend the
+rejection rates under the null were `r V('bk_t0_r')`. Of the 24
+variants, `r V('bk_t0_up')` were above the band, all of them fits of
+`r V('bk_t0_upan')`.
+
+**Standard errors.** With the trend and $c_{bm} =$ `r V('bk_cbm')`,
+$\kappa$ was `r V('bk_k10')` for G10 and `r V('bk_kf')` for F1A0.
+Without the trend it was `r V('bk_k10_0')` and `r V('bk_kf_0')`. G8,
+which chooses no half-life, had `r V('bk_k8')` with the trend, so part
+of the shortfall at $N = 70$ is not due to the selection. At $N =$
+`r V('bk_nbig')` under the null, $\kappa$ was `r V('bk_kbig')` for
+every analysis. Paper 02 found that the G10 confidence interval
+under-covers under the alternative [@pmsimstats-paper02]. These
+values show that F1A0, which chooses its half-life the same way,
+shares the shortfall. Both analyses are recommended here for the test
+and not for an interval estimate.
+
+The block has one trend coefficient, one design and one half-life.
+The F1A0 result holds in this setting. Whether it holds for a trend
+of another shape or size has not been simulated.
 
 ## Expectancy terms without a prognostic effect {#sec-gvf}
 
@@ -2135,7 +2453,9 @@ the single biomarker main effect shared by baseline and the off-drug
 visits (Appendix \@ref(sec-shared)). G10 then exceeded the band at
 $N = 70$ under the natural-history and placebo-response correlations
 (Section \@ref(sec-tenan)). Under the trend pathway the baseline row
-reversed the sign of the bias (Section \@ref(sec-reconcile)). The
+reversed the sign of the bias of the G-family (Section
+\@ref(sec-reconcile)). For F1A0 it did more: it removed the bias
+(Section \@ref(sec-bmt)). The
 expectancy-term analyses kept their size in both kinds of data. Which
 convention a trial's analysis follows is therefore part of its
 specification. A study that plans G10 for a biomarker that may be
@@ -2154,9 +2474,22 @@ This paper and paper 02 give one recommendation between them.
   or its bootstrap-calibrated form F1A0B. F1A0 and G10 differ only in
   those two terms.
 - Where the biomarker may predict the rate of natural-history change,
-  also add a biomarker-by-time term. This step is provisional until
-  the block of Section \@ref(sec-bmt) is run.
+  fit F1A0 with the baseline visit as an outcome row. In the block of
+  Section \@ref(sec-bmt) that removed the trend bias with or without
+  a biomarker-by-time term. A biomarker-by-time term in G10 did not:
+  the linear term left a bias, and the quadratic term left one when
+  the baseline row was included. A time term is therefore optional
+  for F1A0 with a baseline row and is not a substitute for it.
+- Use G10 and F1A0 for the test of $\beta_{bm:D}$, not for an
+  interval estimate. Their model standard errors were too small under
+  the alternative here and in paper 02, whose G10 interval
+  under-covered [@pmsimstats-paper02].
 
+The third point rests on one trend coefficient, one design and one
+half-life. It also has a cost. With a baseline row and no trend, F1A0
+had power `r V('bk_pwf1')` against `r V('bk_pw10b')` for G10 (Section
+\@ref(sec-bmt)), a larger gap than in the paper 02 cells without a
+baseline row (Section \@ref(sec-gvf)).
 F1, which fixes the half-life at 0.2 week, is not recommended. It
 loses power wherever that value is wrong (Section \@ref(sec-gvf)).
 Two questions remain for F1A0B. Its bootstrap calibration may be
@@ -2172,11 +2505,12 @@ the Hybrid design at $t_{1/2} = 0.5$ week. The prognostic correlations
 are correlations of a single latent biomarker with the components.
 The feasibility bound is a property of that parameterization. The
 large-sample cells have no confound-free counterpart at the same $N$.
-The trend pathway was simulated at one coefficient, one sample size
-and one half-life. The sign of its bias depends on whether the
-analysis has a baseline row, and no single job has fitted the same
-analysis both ways. G10 has not been fitted under it without a
-baseline row. Its remedy has not been simulated. The second stress
+The trend pathway was simulated at one coefficient, one half-life and
+one design, with a single null cell at the larger sample size. The
+natural-history course was the published Gompertz curve; a trend of
+another shape may need a different remedy. The alternative cells had
+1,000 replicates each, and their trend shifts are unpaired across
+cells. The second stress
 test ran 1,000 null replicates per cell at one sample size, and its
 cells and analyses were revised as results came in. The
 placebo-response contrast has not been recomputed under the published
@@ -2201,8 +2535,10 @@ inside a band are not independent confirmations.
    analysis fitted by the paper 02 driver, which has no baseline row.
    The expectancy terms absorbed part of the bias. With a baseline
    row the bias changed sign. At $N = 70$ the mean estimate was
-   within a third of its empirical SE of zero in both. The
-   biomarker-by-time remedy is pending.
+   within a third of its empirical SE of zero in both. The bias does
+   not shrink with $N$, so the size rises with it. A linear
+   biomarker-by-time term reduced the bias but did not remove it. F1A0
+   with a baseline row removed it, with or without the term.
 5. In the second stress test, whose analyses have a baseline row, the
    expectancy-term analyses kept their size under all four pathways.
    G10 exceeded the band under the constant natural-history and
@@ -2211,7 +2547,9 @@ inside a band are not independent confirmations.
    was produced by the silent repair of infeasible matrices. Under the
    current default those cells are refused.
 7. For a biomarker that may be prognostic, add $\eta_t$ and
-   $B^c_i\eta_t$ to G10. The result is F1A0.
+   $B^c_i\eta_t$ to G10. The result is F1A0. Where the biomarker may
+   predict the natural-history trend, fit F1A0 with a baseline row.
+   Use G10 and F1A0 for the test, not for an interval estimate.
 
 # Declarations {-}
 
@@ -2259,12 +2597,21 @@ which writes
 It computes the bounds from the correlation matrix, with no
 simulation.
 
+The biomarker-by-time block of Section \@ref(sec-bmt) has its own
+driver, `analysis/scripts/prognostic-biomarker/01-run-bmt-block.R`.
+It sources `simulation-core.R` without changing it, adds the baseline
+row and the time terms itself, and checks that the parameter set is
+the published one. It was run locally with
+`--params published --cores 6` and writes
+`analysis/data/carryover-sensitivity/published/bmt-block/`
+(`summary.rds`, `paired.rds`, `selection.rds`, `all.rds`, `meta.rds`
+and one file per replicate under `trials/`). Its fits without a time
+term or baseline row reproduce the stored G8, G9, G10 and F1A0 fitters
+of `simulation-core.R` on a check trial; that check exercised only a
+trial on which every analysis chose the same half-life.
+
 Changes needed before the next draft, not made here:
 
-- Add the biomarker-by-time specifications (`E2cr2_bmt`,
-  `E7cr2_bmt`, `E7null_cr2_bmt`, `F1A0_bmt`, optionally quadratic) to
-  `simulation-core.R`. Add the corresponding block to
-  `36-run-referee-variants.R` (split plan, Section 3.1, step 6).
 - Give `30-check-prognostic-confound-pd.R` a `--params` switch so that
   the placebo-response contrast can be recomputed under the published
   SDs.

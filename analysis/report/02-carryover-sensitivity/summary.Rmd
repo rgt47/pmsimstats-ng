@@ -224,11 +224,10 @@ cap_fig3 <- paste0(
   'cells of each scenario family, by analysis. A value of one is ',
   'calibrated and a value above one is conservative. Right: the ',
   'coverage of the nominal 95 percent interval of A3 and A4 in ',
-  'families 2 to 4, as the mean of the cell lower bounds and upper ',
-  'bounds. The bars span the two bounds. The coverage bounds are ',
-  'not Monte Carlo intervals. Coverage in families 1 and S was ',
-  'computed later and is in Table \\ref{tab:stage3-coverage}; family ',
-  '5 has none.')
+  'families 1 to 4 and S, as the mean of the cell lower bounds and ',
+  'upper bounds (Table \\ref{tab:stage3-coverage}). The bars span ',
+  'the two bounds. The coverage bounds are not Monte Carlo ',
+  'intervals. Family 5 has no coverage output.')
 ```
 
 Figure \@ref(fig:fig-ladder-size) gives size by family.
@@ -712,7 +711,8 @@ lad_B2 <- lad_B |>
       analysis == 'E0', '--', ifelse(is.na(worst_family), '0',
       sprintf('%.1f (%s)', worst_family_power_loss_pp, worst_family))),
     `Worst cell loss, points (cell)` = ifelse(
-      analysis == 'E0', '--', ifelse(is.na(worst_cell), '0',
+      analysis == 'E0', '--', ifelse(is.na(worst_cell) |
+                                       analysis == 'G10', '0',
       sprintf('%.1f (%s)', worst_cell_power_loss_pp, tex_cell(worst_cell)))),
     Coverage = ifelse(is.na(coverage_mean), '--',
                       sprintf('%.3f', coverage_mean)))
@@ -813,9 +813,8 @@ S15), so the rule is conservative for A4.
 ```{r tab-sample-size, echo = FALSE}
 ss_tab <- ss_n80 |>
   filter(analysis == 'A4', c_bm %in% c(0.2, 0.3, 0.4)) |>
-  mutate(cell = sprintf('%d (%d--%d)', as.integer(ceiling(N80)),
-                        as.integer(ceiling(N80_lo)),
-                        as.integer(ceiling(N80_hi))),
+  mutate(cell = sprintf('%s (%s--%s)', bigm(ceiling(N80)),
+                        bigm(ceiling(N80_lo)), bigm(ceiling(N80_hi))),
          col = sprintf('%s_%.1f', params, c_bm)) |>
   select(design, t1half, col, cell) |>
   pivot_wider(names_from = col, values_from = cell) |>
@@ -855,18 +854,23 @@ half-life chosen by AIC on the model without the interaction,
 refitted by REML with the interaction and tested with CR2. Its size is
 equivalent to the oracle's within $\pm 0.01$ in the run with
 independent seeds and in `r sum(eq10$equiv) - 1` of the other five
-families, and it holds its size up to $N = 1{,}012$ (Table S17). In the
+families. It held its size at every $N$ checked, up to 300 in the
+Hybrid design under this paper's set and 600 under the starting
+values (Table S17). In the
 Hybrid cells it gains `r sprintf('%.1f', 100 * hy_d_mean)` points of
 power over A2 on average, up to `r sprintf('%.1f', 100 * hy_max)` at
 long half-lives, and is behind by at most
 `r sprintf('%.1f', -100 * hy_min)` point in `r hy_below` cells. At
-equal size it also leads the starting analysis A0 under Hybrid (Table
-S16).
+equal size it is ahead of the starting analysis A0 in all four Hybrid
+cells, by `r sprintf('%.1f', 100 * sapp('Hybrid', 'A0'))` points on
+average (SE `r sprintf('%.1f', 100 * sapp('Hybrid', 'A0', 'se'))`),
+though no single difference exceeds two standard errors (Table S16).
+Under the crossover design A2 is the better choice.
 
 The recommendation is for the test, not for estimation. The selected
 half-life is often wrong, so the A4 estimate is biased. Its standard
 error is too small under the alternative, by up to
-`r sprintf('%.0f', 100 * (1 - k_g10_min))` percent in a single cell.
+`r sprintf('%.0f', 100 * (1 - k_a4_min))` percent in a single cell.
 Its nominal 95 percent interval covers at
 `r f3(m6_ref$coverage_lower[m6_ref$method == 'G10'])` at the
 reference cell.

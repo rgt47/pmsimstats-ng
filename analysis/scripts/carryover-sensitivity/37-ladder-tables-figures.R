@@ -609,6 +609,15 @@ coverage_fam <- cov_raw |>
     sub == 'C1-ladder' ~ '5',
     .default = NA_character_),
     analysis = method) |>
+  ## Families 1 and S (49-coverage-family1-s.R, same method; referee
+  ## report 2026-11-15, M3). The file carries its own family column.
+  bind_rows(
+    read.csv(file.path(data_dir,
+                       'referee-reanalysis/m6-coverage-family1-s.csv'),
+             stringsAsFactors = FALSE,
+             colClasses = c(family = 'character')) |>
+      filter(pred, level == 'cell') |>
+      mutate(analysis = method)) |>
   filter(!is.na(family), family %in% fam_levels,
          analysis %in% c('G8', if (pred) 'G10' else 'G9')) |>
   group_by(family, analysis) |>

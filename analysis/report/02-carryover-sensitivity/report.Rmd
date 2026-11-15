@@ -147,7 +147,8 @@ $c_{bm} = 0.4$ and `r ceiling(ssN('simcore2026', 'Hybrid', 1, 0.2))` at
 
 **Conclusions.** For a Hybrid trial with a biomarker known to be
 predictive only, under this process, A4 is a correctly sized test
-from $N = 35$ to about 1,000 and needs no half-life. Its standard error is
+at every sample size checked, from $N = 35$ to 300, and needs no
+half-life. Its standard error is
 too small under the alternative, so it should be used for the test,
 not for an interval. Its gain over the binary indicator is
 modest except at long half-lives. Even the oracle recovers only part
@@ -193,10 +194,12 @@ This is a loss of power, not of validity. Under the null,
 $c_{bm} = 0$, there is no biomarker-response association at any
 level of residual exposure. A miscoded regressor then has no
 interaction to distort, and test size does not depend on the
-exposure coding. The conservatism reported in Section \@ref(sec-rung2) has a
-separate origin in the working covariance and applies equally to
-every specification. Carryover misspecification is therefore a
-question of efficiency. Rung 3 of the study is therefore framed in terms of recovered power.
+exposure coding. The conservatism reported in Section
+\@ref(sec-rung2) has a separate origin in the working covariance. It
+affects both exposure codings, the exposure-weighted predictor
+slightly more. Carryover misspecification is thus a question of
+efficiency, and rung 3 of the study is framed in terms of recovered
+power.
 
 A companion study [@pmsimstats_dgp_architectures2026] builds on the
 data-generating process of Hendrickson et al. [-@hendrickson2020].
@@ -713,8 +716,8 @@ drug after first exposure it decays as $D_{bc,it} =
 $t^{a}_{1/2}$ weeks after discontinuation. Before any exposure
 $D_{bc,it} = 0$. This pre-exposure rule was absent in earlier drafts
 (Section \@ref(sec-corrections)). The half-life assumption enters only through the
-predictor values passed to `lme`. Exposure-weighted is therefore a
-different model for each assumed half-life. As $t^{a}_{1/2}
+predictor values passed to `lme`. The exposure-weighted analysis is
+therefore a different model for each assumed half-life. As $t^{a}_{1/2}
 \rightarrow 0$, $D_{bc,it} \rightarrow D_{it}$. The binary indicator
 of A1 and A2 is therefore the limit of the exposure-weighted
 predictor at zero assumed half-life. At rung 3 the assumed half-life
@@ -913,6 +916,11 @@ modeled as a probit curve in $c_{bm}\sqrt{N}$, fitted by binomial
 maximum likelihood over the 15 cells, and inverted at 0.8. The
 noncentrality of the interaction test is close to proportional to
 $c_{bm}\sqrt{N}$, so one curve serves all three values of $c_{bm}$.
+The reason is simple. The target coefficient is proportional to
+$c_{bm}$, and for a fixed design its standard error falls as
+$1/\sqrt{N}$. The proportionality is not exact, because the residual
+variance of the drug response given the biomarker also depends on
+$c_{bm}$.
 The interval for $N$ reflects Monte Carlo error under that model only.
 A second run checks size at the larger samples of this study. It
 fits A4 and A2 at $c_{bm} = 0$, for the three designs and
@@ -932,7 +940,7 @@ in the REML refit at the selected value. The stored output records
 only whether the final fit succeeded, so the non-convergence rate
 bounds the refit failure rate from above. Over the
 `r format(sum(bf_all$method == 'E7null_cr2'), big.mark = ',')` A4
-fits of the backfill, `r sum(!bf_all$converged[bf_all$method == 'E7null_cr2'])`
+fits made afterward to the stored trials, `r sum(!bf_all$converged[bf_all$method == 'E7null_cr2'])`
 failed
 (`r sprintf('%.2f', 100 * mean(!bf_all$converged[bf_all$method == 'E7null_cr2']))`
 percent). We chose $n_{sim} = 500$ so
@@ -956,9 +964,9 @@ job-level base plus $r$. Cells at the same design and $N$ within a
 job therefore share a random-number stream. Contrasts between such
 cells are paired too. Counts of cells inside a band are not
 independent confirmations and are not presented as such.
-Comparisons across jobs, and across the two simulation hosts, are
-unpaired and carry the full Monte Carlo error of both cells. The two
-hosts do not produce identical draws. Exact file paths and versions
+Comparisons across jobs, and across simulation hosts, are unpaired
+and carry the full Monte Carlo error of both cells. Different hosts do
+not produce identical draws. Exact file paths and versions
 are given in the Reproducibility section.
 
 ## Corrections to the simulation code during the study {#sec-corrections}
@@ -1063,11 +1071,10 @@ cap_fig3 <- paste0(
   'cells of each scenario family, by analysis. A value of one is ',
   'calibrated and a value above one is conservative. Right: the ',
   'coverage of the nominal 95 percent interval of A3 and A4 in ',
-  'families 2 to 4, as the mean of the cell lower bounds and upper ',
-  'bounds. The bars span the two bounds. The coverage bounds are ',
-  'not Monte Carlo intervals. Coverage in families 1 and S was ',
-  'computed later and is in Table \\ref{tab:stage3-coverage}; family ',
-  '5 has none.')
+  'families 1 to 4 and S, as the mean of the cell lower bounds and ',
+  'upper bounds (Table \\ref{tab:stage3-coverage}). The bars span ',
+  'the two bounds. The coverage bounds are not Monte Carlo ',
+  'intervals. Family 5 has no coverage output.')
 ```
 
 Figure \@ref(fig:fig-ladder-size) shows the null rejection rate of
@@ -1367,8 +1374,7 @@ The median Satterthwaite degrees of freedom of the CR2 test were
 `r sprintf('%.0f', olb$df_q50[olb$N == 35])` at $N = 35$ and
 `r sprintf('%.0f', olb$df_q50[olb$N == 70])` at $N = 70$. So few
 degrees of freedom widen the reference distribution. That is part of
-the power cost of CR2 at small $N$. A0, the starting analysis, rejects at `r rngf(st3n('E0'), 2)`. It is far outside the band under CO and OL+BDC and at its edge
-under Hybrid.
+the power cost of CR2 at small $N$.
 
 Figures \@ref(fig:fig-hendrickson-a) and \@ref(fig:fig-hendrickson-b)
 show power for A1 to A4 on the corrected 30-cell grid. The
@@ -1761,9 +1767,10 @@ calibration ratio there is
 `r if (has_rv) sprintf('%.2f', kA('E7null_cr2')[2])`, against
 `r if (has_rv) sprintf('%.2f', kA('E2cr2')[1])` to
 `r if (has_rv) sprintf('%.2f', kA('E2cr2')[2])` for A3. The selection
-step therefore costs no size but leaves the standard error of A4 a few
-percent too small under the alternative (Section
-\@ref(sec-calibration)).
+step therefore costs no size. It does leave the standard error of A4
+too small under the alternative, by up to
+`r if (has_rv) sprintf('%.0f', 100 * (1 - kA('E7null_cr2')[1]))`
+percent in this run (Section \@ref(sec-calibration)).
 
 Rung 4 therefore removes the need to know the half-life. A4 is the
 leading analysis of the ladder among those that do not need the true
@@ -1783,7 +1790,7 @@ such.
 
 ### Misspecified half-life, decay shape and serial correlation {#sec-scen-grids}
 
-The scenario job placed one cell each at a four-fold half-life
+The scenario run placed one cell each at a four-fold half-life
 misspecification and a Weibull decay analyzed as exponential, beside
 Hybrid and OL+BDC reference cells. Table S7 gives
 Type I error at its null scenarios and Table S8
@@ -1936,7 +1943,8 @@ rate 0.1 is not measured on the same trials.
 The earlier convention of the driver, in which the rate is the
 per-occasion hazard, removes far more data (Section \@ref(sec-grid)). It gives
 the heavy-missingness stress case. Its cells are not tabulated here.
-They are in `g9-gap-fill/job-31/summary.rds`. A4 was not fitted to
+They are in the stored output (Reproducibility section). A4 was not
+fitted to
 them, so A3 is reported. The A3 Type I error is
 `r fmt3(min(o3n$reject))` to `r fmt3(max(o3n$reject))`. It is above
 the band at `r sum(o3n$reject > 0.069)` of 12 cells. Its $\kappa$
@@ -2081,12 +2089,8 @@ empirical SD of the A4 estimate is
 same trials. The selection step thus adds about
 `r sprintf('%.0f', 100 * ((c27('Hybrid', 'E7null_cr2', 1)$emp_sd / c27('Hybrid', 'E2cr2', 1)$emp_sd)^2 - 1))`
 percent to the sampling variance, and the CR2 standard error does not
-see it. The coverage
-of the A3 interval over families 2 to 4 is
-`r sprintf('%.3f', min(cvr('G8')))` to
-`r sprintf('%.3f', max(cvr('G8')))`, and that of the A4 interval
-`r sprintf('%.3f', min(cvr('G10')))` to
-`r sprintf('%.3f', max(cvr('G10')))`.
+see it. Table \@ref(tab:stage3-coverage) gives the coverage that
+follows.
 
 The standard error of A4 is close to calibrated at the null ($\kappa$
 `r sprintf('%.2f', min(g10n$kappa))` to
@@ -2233,7 +2237,8 @@ lad_B2 <- lad_B |>
       analysis == 'E0', '--', ifelse(is.na(worst_family), '0',
       sprintf('%.1f (%s)', worst_family_power_loss_pp, worst_family))),
     `Worst cell loss, points (cell)` = ifelse(
-      analysis == 'E0', '--', ifelse(is.na(worst_cell), '0',
+      analysis == 'E0', '--', ifelse(is.na(worst_cell) |
+                                       analysis == 'G10', '0',
       sprintf('%.1f (%s)', worst_cell_power_loss_pp, tex_cell(worst_cell)))),
     Coverage = ifelse(is.na(coverage_mean), '--',
                       sprintf('%.3f', coverage_mean)))
@@ -2361,7 +2366,13 @@ cells, by `r sprintf('%.1f', 100 * min(sapd('Hybrid', 'A0')))` to
 SE `r sprintf('%.3f', min(sapse('Hybrid', 'A0')))` to
 `r sprintf('%.3f', max(sapse('Hybrid', 'A0')))`). No single
 difference exceeds two standard errors. The four agree in sign.
-Under OL+BDC A4 leads by
+Averaged over the four cells, A4 leads A0 by
+`r sprintf('%.1f', 100 * sapp('Hybrid', 'A0'))` points (bootstrap SE
+`r sprintf('%.1f', 100 * sapp('Hybrid', 'A0', 'se'))`) and A2 by
+`r sprintf('%.1f', 100 * sapp('Hybrid', 'A2'))` points
+(`r sprintf('%.1f', 100 * sapp('Hybrid', 'A2', 'se'))`). The bootstrap
+resamples the replicates jointly across the cells that share a
+random-number stream. Under OL+BDC A4 leads by
 `r sprintf('%.1f', 100 * min(sapd('OLBDC', 'A0')))` to
 `r sprintf('%.1f', 100 * max(sapd('OLBDC', 'A0')))` points. Under the
 crossover design A0 leads A4 by
@@ -2371,7 +2382,10 @@ adjustment cannot be done in practice, since the analyst does not
 know the null distribution. It shows, though, that the raw power of
 A0 is not all excess rejection. Under CO the binary indicator, with
 or without residual correlation, is the stronger test once sizes are
-equal.
+equal. A2 leads A4 in every CO cell, by
+`r sprintf('%.1f', 100 * sapp('CO', 'A2') * -1)` points on average
+(bootstrap SE `r sprintf('%.1f', 100 * sapp('CO', 'A2', 'se'))`). That
+average is within Monte Carlo error.
 
 ## Sample size for A4 {#sec-samplesize}
 
@@ -2394,8 +2408,9 @@ is almost insensitive to the half-life but needs about twice the
 Hybrid sample without carryover. Under the starting values the
 required $N$ is
 `r sprintf('%.1f to %.1f', min(ss_p_ratio$r), max(ss_p_ratio$r))`
-times larger, because the response components vary more; the ordering
-of designs and half-lives is the same.
+times larger, presumably because the response components vary more.
+We did not decompose the difference. The ordering of designs and
+half-lives is the same.
 
 The binary indicator with CR2 (A2) needs the same $N$ as A4 within a
 few percent, except at a 1-week half-life in the two designs with a
@@ -2424,8 +2439,10 @@ power
 sample size of that paper's closed-form paired-difference rule, in
 every cell where that sample size was at most 400 (Table S15). The
 rule is therefore conservative for A4 under the starting values.
-Serial correlation matters as much as the half-life: in the same
-code's runs the Hybrid $N$ at $c_{bm} = 0.25$ is
+Serial correlation moves the required $N$ more than the half-life
+does. A 1-week half-life roughly doubles the Hybrid $N$ (Table
+\@ref(tab:tab-sample-size)). In the same code's runs the Hybrid $N$
+at $c_{bm} = 0.25$ is
 `r sprintf('%.2f to %.2f', min(rho_r$r09), max(rho_r$r09))` times its
 $\rho = 0.7$ value at $\rho = 0.9$ and
 `r sprintf('%.2f to %.2f', min(rho_r$r05), max(rho_r$r05))` times at
@@ -2469,7 +2486,17 @@ The curve model is an approximation. Fitting a separate curve for each
 $c_{bm}$ changes $N$ by a factor of
 `r sprintf('%.2f to %.2f', min(ss_sep$ratio), max(ss_sep$ratio))`, and
 `r sum(ss_fit$gof_p < 0.05)` of the `r nrow(ss_fit)` curves fail a
-goodness-of-fit test at the 5 percent level. The intervals of Table
+goodness-of-fit test at the 5 percent level. That is about
+`r sprintf('%.0f', sum(ss_fit$gof_p < 0.05) / (0.05 * nrow(ss_fit)))`
+times the expected rate. The curves are therefore a smooth summary,
+not an exact model. Fits that failed were dropped from the rejection
+rates. In the sample-size runs at most
+`r sprintf('%.1f', 100 * max(ss_alt_k$nonconv[ss_alt_k$method == 'E7null_cr2']))`
+percent of A4 fits in a cell failed. The highest rates were in the
+three OL+BDC cells at $N = 740$ under the starting values; we did not
+diagnose them. Counting the failures as
+non-rejections would lower power there by at most that amount. The
+intervals of Table
 \@ref(tab:tab-sample-size) cover Monte Carlo error under the model
 only, so the values are best read as accurate to about 6 percent.
 They assume complete data, the exponential decay form, $\rho = 0.7$
@@ -2478,9 +2505,8 @@ and a predictive-only biomarker.
 ```{r tab-sample-size, echo = FALSE}
 ss_tab <- ss_n80 |>
   filter(analysis == 'A4', c_bm %in% c(0.2, 0.3, 0.4)) |>
-  mutate(cell = sprintf('%d (%d--%d)', as.integer(ceiling(N80)),
-                        as.integer(ceiling(N80_lo)),
-                        as.integer(ceiling(N80_hi))),
+  mutate(cell = sprintf('%s (%s--%s)', bigm(ceiling(N80)),
+                        bigm(ceiling(N80_lo)), bigm(ceiling(N80_hi))),
          col = sprintf('%s_%.1f', params, c_bm)) |>
   select(design, t1half, col, cell) |>
   pivot_wider(names_from = col, values_from = cell) |>
@@ -2569,7 +2595,7 @@ patients change size by at most
 `r f3(max(abs(iso_de_null$de_d)))`.
 A1 costs power against A0 in the base grid, but the power of A0 is
 the power of a test that rejects too often. At equal size the two are
-within a few points, and A4 leads A0 under Hybrid and OL+BDC but not
+within a few points, and A4 is ahead of A0 under Hybrid and OL+BDC but not
 under CO (Table S16).
 
 Rung 2 showed that the working-covariance test is conservative by about a
@@ -2660,7 +2686,7 @@ Two qualifications apply. The first concerns estimation. The selected
 half-life is often not the true one (Table S4), so the A4 coefficient
 does not in general estimate $\theta$. Its standard error under the alternative is
 too small, by a few percent pooled over a family and by up to
-`r sprintf('%.0f', 100 * (1 - k_g10_min))` percent in a single cell.
+`r sprintf('%.0f', 100 * (1 - k_a4_min))` percent in a single cell.
 Averaged over the cells of a family, its nominal 95 percent interval
 covers at
 `r f3(min(c(m3c_g10$lo, m6_sum$mean_cov_lower[m6_sum$method == 'G10'])))`
@@ -2684,8 +2710,12 @@ and 4 and the scenario cells, where A4 and A3 lead in the same
 near-tie. Under the crossover design the analyses are within a few
 points of one another. A4 has the lowest power of A1 to A4 there,
 `r f3(cell_pw('CO', 'G10'))` against `r f3(cell_pw('CO', 'G1'))` for
-A1 on the base grid, and the binary indicator is as good a
-choice. The recommendation is stated for the correlation encoding.
+A1 on the base grid. At equal size A2 leads A4 in every CO cell
+(Table S16), though the average lead is within Monte Carlo error.
+For a crossover trial we therefore recommend A2. It needs no
+half-life selection, it is as powerful as A4, and its standard error
+is calibrated. The recommendation is stated for the correlation
+encoding.
 
 ## Limitations
 
@@ -2698,8 +2728,8 @@ the starting values (Section \@ref(sec-samplesize)). Every other
 result uses this paper's set. That set has one trajectory shape per
 component, one response SD vector, $\rho = 0.7$ except in the $\rho$
 grid, and $c_1 = 0.2$. The recommendation comes from one design.
-Above $N = 70$ size was checked only for A2 and A4, at two values of
-$N$ per parameter set and under complete data. Absolute power values are
+Above $N = 70$ size was checked only for A2 and A4, at two or three
+values of $N$ per design and parameter set, and under complete data. Absolute power values are
 therefore illustrative. The ranking, conditional on design, is the
 more portable result. The correlation encoding is itself an
 unvalidated modeling assumption of this project. The analysis model
@@ -2709,7 +2739,7 @@ structure. Every biomarker simulated here is predictive only; a
 biomarker that is also prognostic is examined in the companion paper
 [@pmsimstats_prognostic2026]. Selecting the half-life leaves the A4
 standard error too small under the alternative, by up to
-`r sprintf('%.0f', 100 * (1 - k_g10_min))` percent in a single cell,
+`r sprintf('%.0f', 100 * (1 - k_a4_min))` percent in a single cell,
 and its interval below nominal coverage (Section
 \@ref(sec-calibration)). Family 5 has no coverage output. A
 selection-aware interval has not been evaluated. Dropout was examined at 10 to 30
@@ -2774,7 +2804,7 @@ al. [@blackston2019] show inflated Type I error for aggregated N-of-1
 analyses of the treatment effect that ignore moderate or strong
 carryover. The interaction behaves differently. A1 ignores carryover
 and is conservative, and the inflation of A0 comes from its missing
-residual correlation (Section \@ref(sec-e0)). For the interaction,
+residual correlation (Section \@ref(sec-rung1)). For the interaction,
 ignoring carryover costs power rather than validity. Percha et al.
 [@percha2019] give design recommendations from simulated
 single-series N-of-1 trials with carryover and wash-in. Zucker et
@@ -2792,8 +2822,9 @@ term as a carryover adjustment in crossover trials is classical
    A1 is conservative and costs power against A0 in the base grid.
 2. **Rung 2: use a CR2 cluster-robust standard error.** The working-covariance
    test rejects at about 0.037 under the null. CR2 with Satterthwaite
-   degrees of freedom brings every analysis to within about half a
-   point of nominal size. It changes power by a mean of
+   degrees of freedom brings the pooled size of every analysis to
+   within about half a point of nominal. Single 500-replicate cells
+   range more widely. CR2 changes power by a mean of
    `r sprintf('%+.1f', 100 * cg('Hybrid', 'mean_gain'))` points under
    Hybrid and `r sprintf('%+.1f', 100 * cg('OLBDC', 'mean_gain'))` under
    OL+BDC, and by `r sprintf('%+.1f', 100 * cg('CO', 'mean_gain'))` under
@@ -2829,10 +2860,12 @@ term as a carryover adjustment in crossover trials is classical
    on average in the Hybrid cells, up to
    `r sprintf('%.1f', 100 * hy_max)` at long half-lives, and loses at
    most `r sprintf('%.1f', -100 * hy_min)` point in the
-   `r hy_below` cells where it is behind. Among the analyses fitted in every family that do not
-   need the true half-life, A4 is the most powerful one whose size is
-   within Monte Carlo error of the oracle's. At equal size it also
-   leads the starting analysis A0 under Hybrid. The recommendation is
+   `r hy_below` cells where it is behind. At equal size it is ahead of
+   the starting analysis A0 in all four Hybrid cells, by
+   `r sprintf('%.1f', 100 * sapp('Hybrid', 'A0'))` points on average
+   (SE `r sprintf('%.1f', 100 * sapp('Hybrid', 'A0', 'se'))`), though
+   no single difference exceeds two standard errors. Under the
+   crossover design use A2 instead. The recommendation is
    for the test. The A4 estimate is biased when the selected half-life
    is wrong, and its interval covers below its nominal rate, so it
    should not be reported as an estimate with a 95 percent interval.
@@ -3180,11 +3213,16 @@ summaries only.
   30-cell grid (A3), the backfill refits of the same trials (A4) and
   `referee-variants/block-A/all.rds`, and writes
   `referee-reanalysis/m6-coverage-family1-s.csv` (Table
-  \@ref(tab:stage3-coverage)).
+  \@ref(tab:stage3-coverage)). `37-ladder-tables-figures.R` reads the
+  same file for the coverage of families 1 and S in Table
+  \@ref(tab:tab-ladder-score) and Figure
+  \@ref(fig:fig-ladder-calibration).
 - Size-adjusted power: `50-size-adjusted-power.R` reads the same
   per-replicate output of the 30-cell grid and the backfill, and
   writes `referee-reanalysis/size-adjusted-power-f1.csv` and
-  `size-adjusted-power-f1-paired.csv` (Table S16).
+  `size-adjusted-power-f1-paired.csv` (Table S16), and the averages
+  over the four cells of each design in
+  `size-adjusted-power-f1-pooled.csv` (Section \@ref(sec-which)).
 - Isolation of the first rung: `38-run-e0-isolation.R` fits the chain
   A0, E0n, E0nc, E1nc and A1 to the same trials on the 30-cell grid at
   1,000 replicates (simrun job 42) and writes

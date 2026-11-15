@@ -204,6 +204,8 @@ fam_size <- function(a) {
   setNames(x$value, x$family)
 }
 f3 <- function(x) sprintf('%.3f', x)
+## Integer with a thousands separator, for sample sizes in tables.
+bigm <- function(x) formatC(as.integer(x), big.mark = ',', format = 'd')
 fs3 <- function(x) sprintf('%+.3f', x)
 lag_mean_g2 <- grid |>
   filter(dgp_arch == 'mvn', carryover_form %in% c('exponential', 'weibull'),
@@ -512,6 +514,11 @@ ss_k <- function(m, h) mean(ss_alt_k$kappa[ss_alt_k$method == m &
                                              ss_alt_k$t1half == h])
 ss_k_cor <- with(ss_alt_k[ss_alt_k$method == 'E7null_cr2' &
                             ss_alt_k$t1half == 1, ], cor(N, kappa))
+## Smallest A4 calibration ratio in any single alternative cell, over
+## families 1 and S and the sample-size runs (referee report
+## 2026-11-15, M3d).
+k_a4_min <- min(k_g10_min,
+                ss_alt_k$kappa[ss_alt_k$method == 'E7null_cr2'])
 
 ## Size-adjusted power of A0 to A4 on the 30-cell grid at t1/2 = 1
 ## week (50-size-adjusted-power.R; referee report 2026-11-14, M3).
@@ -524,3 +531,11 @@ sapse <- function(d, vs) sap_pair$se[sap_pair$design == d & sap_pair$vs == vs]
 ## OL+BDC cell and trails it in every CO cell.
 stopifnot(all(sapd('Hybrid', 'A0') > 0), all(sapd('OLBDC', 'A0') > 0),
           all(sapd('CO', 'A0') < 0))
+## Pooled over the four alternative cells of a design (referee report
+## 2026-11-15, M2).
+sap_pool <- read.csv(file.path(rr_dir, 'size-adjusted-power-f1-pooled.csv'))
+stopifnot(nrow(sap_pool) == 6)
+sapp <- function(d, vs, w = 'diff') sap_pool[[w]][sap_pool$design == d &
+                                                   sap_pool$vs == vs]
+## Under CO A2 is ahead of A4 in every cell; the text says so.
+stopifnot(all(sapd('CO', 'A2') < 0))

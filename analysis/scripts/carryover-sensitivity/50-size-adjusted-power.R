@@ -115,3 +115,46 @@ print(as.data.frame(pairs), digits = 3)
 write.csv(pairs, file.path(out_dir, 'size-adjusted-power-f1-paired.csv'),
           row.names = FALSE)
 cat('wrote', file.path(out_dir, 'size-adjusted-power-f1-paired.csv'), '\n')
+
+## Pooled difference per design: the mean of the four (N, c_bm) cell
+## differences (referee report 2026-11-15, M2). Within a job, the null
+## and alternative cells at one design and N share replicate r's
+## random-number stream, so the bootstrap resamples replicate indices
+## jointly across the three cells at each N; the two N are resampled
+## independently.
+pool_one <- function(wd, a, b, B = 2000) {
+  ns <- sort(unique(wd$N))
+  by_n <- lapply(ns, function(n) {
+    w <- wd[wd$N == n, ]
+    list(reps = sort(unique(w$rep)),
+         cells = split(w, sprintf('%.2f', w$c_bm)))
+  })
+  stat <- function(draw) {
+    mean(unlist(lapply(seq_along(by_n), function(k) {
+      cl <- by_n[[k]]$cells
+      pick <- function(x) x[match(draw[[k]], x$rep, nomatch = 0), ]
+      w0 <- pick(cl[['0.00']])
+      vapply(c('0.30', '0.45'), function(cb) {
+        w1 <- pick(cl[[cb]])
+        mean(w1[[a]] <= quantile(w0[[a]], 0.05, names = FALSE)) -
+          mean(w1[[b]] <= quantile(w0[[b]], 0.05, names = FALSE))
+      }, numeric(1))
+    })))
+  }
+  est <- stat(lapply(by_n, `[[`, 'reps'))
+  boot <- replicate(B, stat(lapply(by_n, function(x)
+    sample(x$reps, replace = TRUE))))
+  c(diff = est, se = sd(boot))
+}
+pooled <- list()
+for (dz in unique(wide$design)) for (b in c('E0', 'E1cr2')) {
+  pooled[[length(pooled) + 1]] <- tibble(
+    design = dz, vs = b,
+    !!!as.list(pool_one(wide |> filter(design == dz), 'E7null_cr2', b)))
+}
+pooled <- bind_rows(pooled) |>
+  mutate(vs = c(E0 = 'A0', E1cr2 = 'A2')[vs])
+print(as.data.frame(pooled), digits = 3)
+write.csv(pooled, file.path(out_dir, 'size-adjusted-power-f1-pooled.csv'),
+          row.names = FALSE)
+cat('wrote', file.path(out_dir, 'size-adjusted-power-f1-pooled.csv'), '\n')

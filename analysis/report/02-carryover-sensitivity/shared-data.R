@@ -500,7 +500,7 @@ ssnull <- bind_rows(lapply(
   mutate(analysis = c(E1cr2 = 'A2', E7null_cr2 = 'A4')[method])
 ## Two-MCSE band at 1,000 replicates.
 ssnull_band <- c(0.036, 0.064)
-stopifnot(nrow(ssnull) == 56, all(ssnull$n >= 990),
+stopifnot(nrow(ssnull) == 60, all(ssnull$n >= 990),
           all(ssnull$reject[ssnull$analysis == 'A4'] >= ssnull_band[1] &
                 ssnull$reject[ssnull$analysis == 'A4'] <= ssnull_band[2]))
 ssn_rng <- function(a, w = 'reject') range(ssnull[[w]][ssnull$analysis == a])
@@ -514,6 +514,31 @@ ss_k <- function(m, h) mean(ss_alt_k$kappa[ss_alt_k$method == m &
                                              ss_alt_k$t1half == h])
 ss_k_cor <- with(ss_alt_k[ss_alt_k$method == 'E7null_cr2' &
                             ss_alt_k$t1half == 1, ], cor(N, kappa))
+## Failed fits of the sample-size runs refitted with an nlminb fallback
+## (51-refit-failed-fits.R; referee report 2026-11-15, minor 12).
+ss_refit <- bind_rows(lapply(c('simcore2026', 'published'), function(p)
+  read.csv(file.path(rr_dir, sprintf('sample-size-refits-%s.csv', p)))))
+ss_refit_cells <- bind_rows(lapply(c('simcore2026', 'published'), function(p)
+  read.csv(file.path(rr_dir, sprintf('sample-size-refit-cells-%s.csv', p)))))
+ss_refit_n <- sum(!ss_refit$stored_ok)
+## The Reproducibility section says the guard held in all but one fit.
+stopifnot(all(ss_refit$opt[!ss_refit$stored_ok] == 'nlminb'),
+          all(ss_refit_cells$n_still_failed == 0),
+          sum(!ss_refit$guard) == 1)
+ss_refit_d <- range(ss_refit_cells$reject_refit -
+                      ss_refit_cells$reject_stored)
+## Selection-aware intervals for A4 at the reference cell: parametric
+## bootstrap repeating the selection (52-a4-bootstrap-interval.R and
+## 53-a4-bootstrap-summary.R; referee report 2026-11-15, suggestion 2).
+a4b <- read.csv(file.path(rr_dir, 'a4-bootstrap-coverage.csv'))
+stopifnot(nrow(a4b) == 5, all(a4b$n == a4b$n[1]), a4b$n[1] >= 490,
+          a4b$min_boot[1] >= 180,
+          ## Section 3.4: misses fall mostly on the side nearer zero.
+          all(a4b$miss_high > a4b$miss_low),
+          ## '... and slightly overstates it.'
+          a4b$mean_sd_boot[1] > a4b$sd_est[1],
+          a4b$mean_sd_boot[1] < 1.15 * a4b$sd_est[1])
+a4bc <- function(i, w = 'coverage') a4b[[w]][a4b$interval == i]
 ## Smallest A4 calibration ratio in any single alternative cell, over
 ## families 1 and S and the sample-size runs (referee report
 ## 2026-11-15, M3d).

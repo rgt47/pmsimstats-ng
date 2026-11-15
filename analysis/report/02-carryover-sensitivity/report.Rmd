@@ -147,7 +147,7 @@ $c_{bm} = 0.4$ and `r ceiling(ssN('simcore2026', 'Hybrid', 1, 0.2))` at
 
 **Conclusions.** For a Hybrid trial with a biomarker known to be
 predictive only, under this process, A4 is a correctly sized test
-at every sample size checked, from $N = 35$ to 300, and needs no
+at every sample size checked, from $N = 35$ to 600, and needs no
 half-life. Its standard error is
 too small under the alternative, so it should be used for the test,
 not for an interval. Its gain over the binary indicator is
@@ -296,9 +296,12 @@ association with the natural history or the placebo response with
 moderation of the drug effect. A prognostic shift that is constant
 over visits is absorbed exactly by the biomarker main effect of every
 analysis here. It cannot move the interaction estimate, so it needs no
-simulation. Prognostic associations that vary over time, and the design-expectancy terms that
-protect against them, are the subject of a companion paper
-[@pmsimstats_prognostic2026].
+simulation. Prognostic associations that vary over time are the
+subject of a companion paper [@pmsimstats_prognostic2026]. There the
+design-expectancy terms remove the bias from a biomarker that predicts
+the placebo response. A biomarker that predicts the natural-history
+trend biases every analysis of this paper. The companion paper also
+needs the baseline visit as an outcome row to control that bias.
 
 Two defects in the simulation code were found during the study and
 corrected. The first was a pre-exposure coding error in the
@@ -927,7 +930,8 @@ fits A4 and A2 at $c_{bm} = 0$, for the three designs and
 $t_{1/2} \in \{0, 1\}$ week, with 1,000 replicates per cell. The
 values of $N$ are 152 and 300 under this paper's parameter set, and
 300 and 600 under the starting values. Two further OL+BDC runs use
-480 and 1,012, the largest entries of the sample-size table.
+480 and 1,012, the largest entries of the sample-size table. A last
+run checks the Hybrid design at $N = 600$ under this paper's set.
 
 ## Performance measures and computing environment {#sec-perf}
 
@@ -2197,9 +2201,31 @@ nominal. At the reference cell the A4 interval covers at
 `r f3(m6_ref$coverage_upper[m6_ref$method == 'G8'])` for A3.
 Selecting the half-life without the term under test therefore
 protects the test but not the interval. The A4 interval should not be
-reported as a 95 percent interval. A selection-aware interval, for
-example a parametric bootstrap that repeats the selection, has not
-been evaluated.
+reported as a 95 percent interval.
+
+A selection-aware interval repairs this at the reference cell.
+Analytic post-selection intervals exist for selection by AIC
+[@charkhi2018] and, in linear mixed models, by the conditional AIC
+[@claeskens2021]. We used a simpler route, a parametric bootstrap
+that repeats the selection. For each of the `r a4b$n[1]` replicates
+whose A4 fit reproduced the stored one, we drew 199 datasets from the
+fitted interaction model at the selected half-life. We then reran the
+whole A4 procedure, selection included, on each. The percentile
+interval covered at `r f3(a4bc('percentile'))` (MCSE
+`r f3(a4bc('percentile', 'mcse'))`). A Wald interval with the
+bootstrap SD as its standard error covered at
+`r f3(a4bc('boot_se'))`. On the same replicates the CR2 interval with
+normal quantiles covered at `r f3(a4bc('cr2_normal'))`. The bootstrap
+SD averaged `r sprintf('%.2f', a4b$mean_sd_boot[1])`, against an
+empirical SD of `r sprintf('%.2f', a4b$sd_est[1])` and a mean CR2
+standard error of `r sprintf('%.2f', a4b$mean_se[1])`. The bootstrap
+therefore recovers the variance that the selection adds, and slightly
+overstates it. The
+bootstrap-t interval keeps the CR2 standard error and covered at only
+`r f3(a4bc('boot_t'))`; the basic interval covered at
+`r f3(a4bc('basic'))`. The misses of every interval fall mostly on
+the side nearer zero. This was checked at one cell only, and it costs
+about 200 refits of A4 per trial.
 
 ## Which analysis to use {#sec-which}
 
@@ -2460,13 +2486,15 @@ at `r f3(ssn_rng('A2')[1])` to `r f3(ssn_rng('A2')[2])`. Under the
 null the calibration ratio of A4 is
 `r sprintf('%.2f', ssn_rng('A4', 'kappa')[1])` to
 `r sprintf('%.2f', ssn_rng('A4', 'kappa')[2])`. The checks reach
-$N = 300$ under this paper's set and 600 under the starting values.
+$N = 300$ for CO and 600 for Hybrid under this paper's set, and 600
+under the starting values.
 OL+BDC at a 1-week half-life and $c_{bm} = 0.2$ needs more. It was
 checked at its own entries,
-`r max(ssnull$N[ssnull$params == 'simcore2026'])` and
-`r format(max(ssnull$N[ssnull$params == 'published']), big.mark = ',')`
-patients. A few CO
-and Hybrid entries lie just above the largest $N$ checked, at most
+`r max(ssnull$N[ssnull$params == 'simcore2026' & ssnull$design == 'OLBDC'])`
+and
+`r format(max(ssnull$N[ssnull$params == 'published' & ssnull$design == 'OLBDC']), big.mark = ',')`
+patients. A few CO entries, and one Hybrid entry under the starting
+values, lie just above the largest $N$ checked, at most
 `r ceiling(ssN('simcore2026', 'CO', 1, 0.2))` and
 `r ceiling(ssN('published', 'CO', 1, 0.2))`. Size showed no trend
 with $N$, so we expect it to hold there as well.
@@ -2493,9 +2521,17 @@ not an exact model. Fits that failed were dropped from the rejection
 rates. In the sample-size runs at most
 `r sprintf('%.1f', 100 * max(ss_alt_k$nonconv[ss_alt_k$method == 'E7null_cr2']))`
 percent of A4 fits in a cell failed. The highest rates were in the
-three OL+BDC cells at $N = 740$ under the starting values; we did not
-diagnose them. Counting the failures as
-non-rejections would lower power there by at most that amount. The
+three OL+BDC cells at $N = 740$ under the starting values. The cause
+is the optimizer. Every fit in this study uses the `optim` optimizer
+of `nlme`, and on these trials its REML fit stops with a singular
+matrix. The default `nlminb` optimizer fits the same trials. We
+regenerated every trial with a failed fit from its stored seed and
+refitted the failed analysis with `nlminb`. All
+`r ss_refit_n` failed fits succeeded. With the refits included, the
+rejection rate of an affected cell changes by
+`r sprintf('%+.3f', ss_refit_d[1])` to
+`r sprintf('%+.3f', ss_refit_d[2])`, so dropping the failures does
+not bias Table \@ref(tab:tab-sample-size). The
 intervals of Table
 \@ref(tab:tab-sample-size) cover Monte Carlo error under the model
 only, so the values are best read as accurate to about 6 percent.
@@ -2696,14 +2732,19 @@ and at
 `r f3(m6_ref$coverage_lower[m6_ref$method == 'G10'])` at the reference
 cell (Section \@ref(sec-calibration)). We therefore recommend A4 for
 the test only. An estimate and interval for the interaction need
-either the true half-life or a selection-aware method, which we have
-not evaluated. The second qualification concerns the biomarker. With a
+either the true half-life or a selection-aware method. At the
+reference cell a parametric bootstrap that repeats the selection gave
+a percentile interval that covered at `r f3(a4bc('percentile'))`
+(Section \@ref(sec-calibration)). We have not checked it elsewhere,
+so we do not yet recommend it as routine. The second qualification concerns the biomarker. With a
 predictive-only biomarker A2 to A4 hold
 nominal size without the design-expectancy terms in every family
 examined; the terms matter when the biomarker may also be prognostic,
 which the companion paper [@pmsimstats_prognostic2026] examines. A
 trial whose biomarker may be prognostic should follow that paper,
-which pairs the selection rule of A4 with the expectancy terms.
+which pairs the selection rule of A4 with the expectancy terms. Where
+the biomarker may predict the natural-history trend, that paper also
+analyzes the baseline visit, which none of our analyses does.
 
 The recommendation transfers to OL+BDC on the evidence of rungs 3
 and 4 and the scenario cells, where A4 and A3 lead in the same
@@ -2742,7 +2783,8 @@ standard error too small under the alternative, by up to
 `r sprintf('%.0f', 100 * (1 - k_a4_min))` percent in a single cell,
 and its interval below nominal coverage (Section
 \@ref(sec-calibration)). Family 5 has no coverage output. A
-selection-aware interval has not been evaluated. Dropout was examined at 10 to 30
+selection-aware bootstrap interval was evaluated at the reference
+cell only, under complete data. Dropout was examined at 10 to 30
 percent of patients, monotone, with the MAR mechanism tied to
 baseline severity. Baseline severity is not among the analysis
 variables, so the mechanism is MAR given the analyzed data only
@@ -2879,8 +2921,10 @@ term as a carryover adjustment in crossover trials is classical
 6. **A biomarker of unknown role.** Whether a candidate biomarker is
    also prognostic is rarely known before a trial and is hard to test
    within it. A4 omits the design-expectancy terms, which protect the
-   test when the biomarker is prognostic through a pathway that
-   changes over time. The default for a biomarker of unknown role is
+   test when the biomarker predicts the placebo response. A biomarker
+   that predicts the natural-history trend biases A4 as fitted here;
+   the companion paper controls that bias only with the baseline
+   visit added as an outcome row. The default for a biomarker of unknown role is
    therefore the analysis of the companion paper
    [@pmsimstats_prognostic2026]. This paper supports the parts of that
    analysis it shares with A4: the exposure-weighted predictor, the
@@ -2896,7 +2940,7 @@ term as a carryover adjustment in crossover trials is classical
    `r ssr('Hybrid', 1)` percent more (Table \@ref(tab:tab-sample-size)).
    The requirement is roughly twice as large under the starting values
    and depends strongly on the serial correlation. A4 held its size
-   at every $N$ checked, up to 480 under this paper's set and 1,012
+   at every $N$ checked, up to 600 under this paper's set and 1,012
    under the starting values.
 8. **Limits.** The recommendation is conditional on the correlation
    encoding, on one parameter set (Table \@ref(tab:tab-params)), on
@@ -3207,7 +3251,9 @@ summaries only.
   `carryover-sensitivity/sample-size-null-<set>-<design>/`. Two
   OL+BDC jobs at commit `3371920` add `--null-n 480` (joe 18) and
   `--null-n 1012` under the starting values (zeus 70), writing
-  `sample-size-null-<set>-OLBDC-N<N>/`.
+  `sample-size-null-<set>-OLBDC-N<N>/`. A Hybrid job at commit
+  `f548b0f` adds `--null-n 600` under this paper's set (zeus 71),
+  writing `sample-size-null-simcore2026-Hybrid-N600/`.
 - Coverage in families 1 and S: `49-coverage-family1-s.R` applies the
   method of `43-g10-coverage.R` to the per-replicate output of the
   30-cell grid (A3), the backfill refits of the same trials (A4) and
@@ -3217,6 +3263,29 @@ summaries only.
   same file for the coverage of families 1 and S in Table
   \@ref(tab:tab-ladder-score) and Figure
   \@ref(fig:fig-ladder-calibration).
+- Failed fits of the sample-size runs: `51-refit-failed-fits.R`
+  (run locally, once per parameter set) regenerates each trial with a
+  failed fit from its stored seed, reruns the stored fits as a pairing
+  guard (it held in all but one of
+  `r format(nrow(ss_refit), big.mark = ',')` fits), refits the
+  failed analysis with an `nlminb` fallback, and writes
+  `referee-reanalysis/sample-size-refits-<set>.csv` and
+  `sample-size-refit-cells-<set>.csv` (Section
+  \@ref(sec-samplesize)).
+- Selection-aware interval for A4: `52-a4-bootstrap-interval.R`
+  regenerates the 500 trials of the reference cell (job 27, panel A)
+  from their stored seeds and refits A4, using a replicate only if it
+  reproduces the stored backfill estimate within $10^{-6}$. It then
+  draws 199 parametric resamples per trial, each from its own seed,
+  and reruns A4 on each. It ran at commit `b096f48` as simrun jobs
+  zeus 72 (replicates 341 to 500) and joe 19 (171 to 340); replicates
+  1 to 170 ran locally after athena 24 failed to start. The guard held
+  in 497 of 500 replicates, and 781 of 98,903 resamples (0.8 percent)
+  failed to fit and were dropped. Output is checkpointed per replicate
+  under `a4-bootstrap/trials/`.
+  `53-a4-bootstrap-summary.R` combines it into `a4-bootstrap/all.rds`
+  and writes `referee-reanalysis/a4-bootstrap-coverage.csv` (Section
+  \@ref(sec-calibration)).
 - Size-adjusted power: `50-size-adjusted-power.R` reads the same
   per-replicate output of the 30-cell grid and the backfill, and
   writes `referee-reanalysis/size-adjusted-power-f1.csv` and

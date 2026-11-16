@@ -120,7 +120,7 @@ select <- dplyr::select
 ```{r values-provenance, include = FALSE}
 pub_metas <- list(stress = st_p_m, gapC = gfC_m, blkT = rvT_m,
                   blkN = rvN_m, blkA = rvA_m, tier1 = s27_m,
-                  scen = s21_m, bmt = bk_m)
+                  scen = s21_m, bmt = bk_m, bmtr = bkr_m)
 pub_metas <- pub_metas[!vapply(pub_metas, is.null, logical(1))]
 claim(all(vapply(pub_metas, pub_ok, logical(1))),
       'Every published-set run records param_set = published.')
@@ -690,6 +690,143 @@ if (has_bk) {
 }
 ```
 
+```{r values-bmtr, include = FALSE}
+## Robustness block: other trend sizes, OL+BDC, t1/2 = 1. The two
+## Hybrid t1/2 = 0.5 settings take their no-trend reference from the
+## main block's T0-alt (other trials, so the shift is unpaired).
+if (has_bkr) {
+  br_an <- c('G8', 'G10', 'F1A0')
+  br_tm <- c('none', 'bmt')
+  br_st <- data.frame(
+    key = c('t15', 't6', 'ob', 'h1'),
+    null = c('R-T15-null', 'R-T6-null', 'R-OB-T3-null', 'R-H1-T3-null'),
+    alt = c('R-T15-alt', 'R-T6-alt', 'R-OB-T3-alt', 'R-H1-T3-alt'),
+    ref = c('T0-alt', 'T0-alt', 'R-OB-T0-alt', 'R-H1-T0-alt'),
+    stringsAsFactors = FALSE)
+  rb <- function(cc, an, tm, b) {
+    d <- if (cc %in% bkr$cell_id) bkr else bk
+    x <- d[d$cell_id == cc & d$analysis == an & d$term == tm &
+             d$bl == b, ]
+    stopifnot(nrow(x) == 1)
+    x
+  }
+  br_g <- bkr_m$grid
+  n_r <- unique(br_g$reps)
+  stopifnot(length(n_r) == 1, all(br_g$N == 70))
+  setv('br_n', fn(n_r))
+  setv('br_band', band_txt(n_r))
+  setv('br_conv', sprintf('%.2f', 100 * (1 - weighted.mean(
+    bkr$nonconv, bkr$n))))
+  setv('br_b_lo', sprintf('%g', min(br_g$b_tv_trend[
+    br_g$b_tv_trend > 0])))
+  setv('br_b_hi', sprintf('%g', max(br_g$b_tv_trend)))
+  claim(setequal(unique(bkr$analysis), br_an) &&
+          setequal(unique(bkr$term), br_tm),
+        'The robustness block fitted G8, G10 and F1A0 with no time term
+         and the linear term.')
+  ## Null bias, size and trend shift per setting, analysis, term, row.
+  br <- do.call(rbind, lapply(seq_len(nrow(br_st)), function(i) {
+    s <- br_st[i, ]
+    do.call(rbind, lapply(br_an, function(an) {
+      do.call(rbind, lapply(br_tm, function(tm) {
+        do.call(rbind, lapply(0:1, function(b) {
+          x0 <- rb(s$null, an, tm, b)
+          xa <- rb(s$alt, an, tm, b)
+          xr <- rb(s$ref, an, tm, b)
+          data.frame(key = s$key, analysis = an, term = tm, bl = b,
+                     est = x0$mean_est, z = x0$mean_est / x0$mcse_est,
+                     size = x0$reject,
+                     shift = xa$mean_est - xr$mean_est,
+                     zs = (xa$mean_est - xr$mean_est) /
+                       sqrt(xa$mcse_est^2 + xr$mcse_est^2),
+                     pw0 = xr$reject, k = xa$kappa)
+        }))
+      }))
+    }))
+  }))
+  fb <- function(k, an = 'F1A0', tm = 'none', b = 1) {
+    x <- br[br$key == k & br$analysis == an & br$term == tm &
+              br$bl == b, ]
+    stopifnot(nrow(x) == 1)
+    x
+  }
+  for (k in br_st$key) {
+    x <- fb(k)
+    setv(paste0('br_f_e_', k), fs2(x$est))
+    setv(paste0('br_f_z_', k), sprintf('%.1f', x$z))
+    setv(paste0('br_f_r_', k), f3(x$size))
+    setv(paste0('br_f_s_', k), fs2(x$shift))
+    setv(paste0('br_f_zs_', k), sprintf('%.1f', x$zs))
+    setv(paste0('br_f_p_', k), f3(x$pw0))
+    setv(paste0('br_g_p_', k), f3(fb(k, 'G10')$pw0))
+    xl <- fb(k, 'F1A0', 'bmt')
+    setv(paste0('br_fl_e_', k), fs2(xl$est))
+    setv(paste0('br_fl_z_', k), sprintf('%.1f', xl$z))
+    setv(paste0('br_fl_s_', k), fs2(xl$shift))
+  }
+  fok <- br[br$analysis == 'F1A0' & br$term == 'none' & br$bl == 1, ]
+  setv('br_f_zmax', sprintf('%.1f', max(abs(fok$z[fok$key != 'h1']))))
+  claim(all(abs(fok$z[fok$key != 'h1']) < 3) &&
+          all(abs(fok$zs[fok$key != 'h1']) < 2),
+        'Robustness: F1A0 with the baseline row and no time term is
+         within 3 MCSE of zero under the null, and its trend shift
+         within 2 SE, at both trend sizes and under OL+BDC.')
+  claim(fb('h1')$z < -3,
+        'Robustness: at t1/2 = 1, F1A0 with the baseline row and no
+         time term is biased downward by more than 3 MCSE.')
+  claim(all(fok$size <= band(n_r)[2]) &&
+          sum(!in_band(fok$size, n_r)) == 1 &&
+          !in_band(fb('t15')$size, n_r) &&
+          in_band(fb('h1')$size, n_r),
+        'Robustness: F1A0 with the baseline row and no time term is
+         never above the band; only its rate at b = 0.15 is outside it,
+         below; at t1/2 = 1 it is inside.')
+  claim(abs(fb('h1', 'F1A0', 'bmt')$z) < abs(fb('h1')$z),
+        'Robustness: at t1/2 = 1 the linear term reduces the F1A0 bias
+         with the baseline row.')
+  claim(fb('ob', 'F1A0', 'bmt')$z < -3,
+        'Robustness: under OL+BDC the linear term biases F1A0 with the
+         baseline row.')
+  ## G-family without a time term.
+  gn <- br[br$analysis %in% c('G8', 'G10') & br$term == 'none', ]
+  g10n <- gn[gn$analysis == 'G10', ]
+  setv('br_g0', rng(g10n$est[g10n$bl == 0], fs2))
+  setv('br_g1', rng(g10n$est[g10n$bl == 1], fs2))
+  setv('br_gz', sprintf('%.0f', min(abs(gn$z))))
+  setv('br_gup', sum(gn$size > band(n_r)[2]))
+  setv('br_gn', nrow(gn))
+  claim(all(gn$est[gn$bl == 0] > 0) && all(gn$est[gn$bl == 1] < 0) &&
+          all(abs(gn$z) > 2.9),
+        'Robustness: G8 and G10 without a time term are biased in every
+         setting, upward without and downward with the baseline row.')
+  ## G-family with the linear term.
+  gl <- br[br$analysis %in% c('G8', 'G10') & br$term == 'bmt', ]
+  setv('br_gl_ok', sum(abs(gl$z) < 2))
+  setv('br_gl_n', nrow(gl))
+  st_lab <- c(t15 = '$b_{TV}^{\\mathrm{tr}} = 0.15$',
+              t6 = '$b_{TV}^{\\mathrm{tr}} = 0.6$', ob = 'OL+BDC',
+              h1 = '$t_{1/2} = 1$ week')
+  setv('br_gl_okk', paste(unique(st_lab[gl$key[abs(gl$z) < 2]]),
+                          collapse = ' and '))
+  claim(all(gl$bl[abs(gl$z) < 2] == 0),
+        'Robustness: every G-family fit with the linear term and the
+         baseline row is more than 2 MCSE from zero.')
+  ## Power without a trend and kappa with it.
+  gap <- function(k) fb(k, 'G10')$pw0 - fb(k)$pw0
+  setv('br_gap0', f3(gap('t15')))
+  setv('br_gap_ob', f3(gap('ob')))
+  setv('br_gap_h1', f3(gap('h1')))
+  claim(gap('ob') > 1.5 * gap('t15') && gap('h1') > 1.5 * gap('t15'),
+        'Robustness: the power gap between G10 and F1A0, both with the
+         baseline row, is more than 1.5 times as large under OL+BDC and
+         at t1/2 = 1 as in the base Hybrid cell.')
+  setv('br_kf', rng(br$k[br$analysis == 'F1A0' & br$bl == 1 &
+                            br$term == 'none'], f2))
+  setv('br_k10', rng(br$k[br$analysis == 'G10'], f2))
+  setv('br_k8', rng(br$k[br$analysis == 'G8'], f2))
+}
+```
+
 # Abstract {-}
 
 **Background.** The biomarker-treatment interaction test of an
@@ -718,6 +855,8 @@ fitted ten analyses to trials with four prognostic pathways at
 strength 0.3. Its analyses keep the baseline visit as an outcome row.
 A final block fitted G8, G9, G10 and F1A0 under the growing shift,
 each with and without a biomarker-by-time term and a baseline row.
+A second such block varied the trend size, the design and the
+half-life.
 
 **Results.** Under a correlation with the placebo-response component
 of 0.45, the analyses without expectancy terms rejected a true null at
@@ -736,7 +875,10 @@ baseline row was added. It did not shrink with $N$: at $N =$
 `r V('bk_nbig')` G10 rejected a true null at `r V('bk_g10b_r')`. A
 linear biomarker-by-time term reduced the bias but did not remove it.
 F1A0 fitted with a baseline row stayed within `r V('bk_f1_z')` MCSE
-of zero at both sample sizes, with or without the term. The model
+of zero at both sample sizes, with or without the term. Without the
+term it stayed within `r V('br_f_zmax')` MCSE at two other trend
+sizes and under OL+BDC. At a half-life of 1 week it kept a bias of
+`r V('br_f_e_h1')`, with its size inside the band. The model
 standard errors of G10 and F1A0 were too small under the alternative
 with the shift ($\kappa$ `r V('bk_k10')` for G10, `r V('bk_kf')` for
 F1A0).
@@ -749,7 +891,9 @@ those cells were refused.
 $\eta_t$ and $B^c_i\eta_t$ to the recommended analysis of the
 companion carryover paper (paper 02). For a biomarker that may predict
 the rate of natural-history change, fit that analysis with a baseline
-row; a biomarker-by-time term alone is not enough. Use these analyses
+row; a biomarker-by-time term alone is not enough. That removed the
+bias in most settings simulated but not at the longer half-life. Use
+these analyses
 for the test, not for an interval estimate.
 
 # Notation and glossary {-}
@@ -1059,6 +1203,8 @@ tsrc <- rbind(
        'published set'),
   srow('Biomarker-by-time block', 'published/bmt-block', bk_m,
        'published set'),
+  srow('Biomarker-by-time robustness block',
+       'published/bmt-block-robust', bkr_m, 'published set'),
   srow('Second stress test, three runs and post hoc fits',
        'strawman-stress', NULL, 'published set',
        set = 'driver constants', base = 'qs',
@@ -2177,9 +2323,140 @@ values show that F1A0, which chooses its half-life the same way,
 shares the shortfall. Both analyses are recommended here for the test
 and not for an interval estimate.
 
-The block has one trend coefficient, one design and one half-life.
-The F1A0 result holds in this setting. Whether it holds for a trend
-of another shape or size has not been simulated.
+### Other trend sizes, designs and half-lives {#sec-bmtr}
+
+A second block varied one feature of the cell at a time. Two settings
+kept the Hybrid design at $t_{1/2} = 0.5$ week and changed the trend
+coefficient to $b_{TV}^{\mathrm{tr}} =$ `r V('br_b_lo')` and
+`r V('br_b_hi')`. Two kept the coefficient at 0.3 and changed the
+design to OL+BDC or the half-life to $t_{1/2} = 1$ week. Each setting
+had a trend null and a trend alternative at $c_{bm} =$
+`r V('bk_cbm')`. The OL+BDC and $t_{1/2} = 1$ settings also had their
+own alternative without a trend. The two Hybrid settings at
+$t_{1/2} = 0.5$ week used the no-trend alternative of the first block,
+which has other trials. Every cell had $N = 70$ and `r V('br_n')`
+replicates (band `r V('br_band')`). G8, G10 and F1A0 were fitted with
+no time term and with the linear term, with and without the baseline
+row: 12 fits per trial. G8 fixed the analysis half-life at the true
+value of each setting. Of the fits, `r V('br_conv')` percent
+converged. Tables \@ref(tab:tab-bmtr-null) and
+\@ref(tab:tab-bmtr-alt) give the results.
+
+```{r tab-bmtr-null}
+if (has_bkr) {
+  tl2 <- c(none = 'none', bmt = 'linear')
+  gr <- expand.grid(bl = 0:1, term = br_tm, analysis = br_an,
+                    stringsAsFactors = FALSE)[, 3:1]
+  cols <- function(f) {
+    do.call(cbind, lapply(br_st$key, function(k) {
+      x <- do.call(rbind, lapply(seq_len(nrow(gr)), function(i) {
+        fb(k, gr$analysis[i], gr$term[i], gr$bl[i])
+      }))
+      f(x)
+    }))
+  }
+  bold_if <- function(txt, b) ifelse(b, paste0('\\textbf{', txt, '}'),
+                                     txt)
+  lead <- data.frame(Analysis = gr$analysis,
+                     Term = unname(tl2[gr$term]),
+                     BL = ifelse(gr$bl == 1, 'yes', 'no'))
+  lead$Analysis[duplicated(lead$Analysis)] <- ''
+  hdr <- c(' ' = 3, 'Hybrid, b = 0.15' = 2, 'Hybrid, b = 0.6' = 2,
+           'OL+BDC, b = 0.3' = 2, 'Hybrid, t1/2 = 1' = 2)
+  tn <- cbind(lead, cols(function(x) {
+    data.frame(e = bold_if(fs2(x$est), abs(x$z) > 3),
+               r = bold_if(f3(x$size), x$size > band(n_r)[2]))
+  }))
+  knitr::kable(tn, booktabs = TRUE, escape = FALSE, linesep = '',
+    col.names = c('Analysis', 'Time term', 'Baseline row',
+                  rep(c('Mean est.', 'Size'), 4)),
+    caption = sprintf('Robustness block under the trend null
+      ($c_{bm} = 0$), published parameter set, $N = 70$, %s replicates
+      per cell (band %s). The trend coefficient is
+      $b_{TV}^{\\mathrm{tr}}$ and the design half-life $t_{1/2} = 0.5$
+      week unless stated. Mean estimates more than 3 MCSE from zero and
+      rates above the band are in bold. Estimates are per SD of the
+      biomarker.', V('br_n'), V('br_band'))) |>
+    kableExtra::add_header_above(hdr) |>
+    kableExtra::kable_styling(latex_options = 'scale_down',
+                              font_size = 8)
+} else {
+  pending_note('the robustness block')
+}
+```
+
+```{r tab-bmtr-alt}
+if (has_bkr) {
+  ta <- cbind(lead, cols(function(x) {
+    data.frame(s = bold_if(fs2(x$shift), abs(x$zs) > 3),
+               p = f3(x$pw0))
+  }))
+  knitr::kable(ta, booktabs = TRUE, escape = FALSE, linesep = '',
+    col.names = c('Analysis', 'Time term', 'Baseline row',
+                  rep(c('Trend shift', 'Power'), 4)),
+    caption = sprintf('Robustness block under the alternative,
+      $c_{bm} = %s$, $N = 70$, %s replicates per cell. Trend shift: mean
+      estimate with the trend minus without it; shifts more than 3 SE
+      from zero are in bold. For the two Hybrid settings at
+      $t_{1/2} = 0.5$ week the cell without the trend is the one of the
+      first block, so those shifts and powers are unpaired across runs
+      and the power is the same in both. Power: no trend.', V('bk_cbm'), V('br_n'))) |>
+    kableExtra::add_header_above(hdr) |>
+    kableExtra::kable_styling(latex_options = 'scale_down',
+                              font_size = 8)
+} else {
+  pending_note('the robustness block')
+}
+```
+
+**F1A0 with the baseline row.** With no time term, F1A0 with the
+baseline row stayed close to zero at both trend sizes and under
+OL+BDC. Its mean estimate under the null was `r V('br_f_e_t15')`
+(`r V('br_f_z_t15')` MCSE) at $b_{TV}^{\mathrm{tr}} =$
+`r V('br_b_lo')`, `r V('br_f_e_t6')` (`r V('br_f_z_t6')`) at
+`r V('br_b_hi')` and `r V('br_f_e_ob')` (`r V('br_f_z_ob')`) under
+OL+BDC. The trend moved its estimate under the alternative by
+`r V('br_f_s_t15')`, `r V('br_f_s_t6')` and `r V('br_f_s_ob')`. At
+$t_{1/2} = 1$ week it did not remove the bias. The mean estimate was
+`r V('br_f_e_h1')` (`r V('br_f_z_h1')` MCSE), and the trend moved
+the estimate under the alternative by `r V('br_f_s_h1')`
+(`r V('br_f_zs_h1')` SE). Its size was not above the band in any
+setting (`r V('br_f_r_t15')`, `r V('br_f_r_t6')`, `r V('br_f_r_ob')`,
+`r V('br_f_r_h1')`); the first is just below it. At
+$t_{1/2} = 1$ week the size stayed inside the band because the
+remaining bias is small against the standard error at $N = 70$. As for the
+G-family, a fixed bias is expected to raise the size at larger $N$.
+The linear term reduced the bias at $t_{1/2} = 1$ week to
+`r V('br_fl_e_h1')` (`r V('br_fl_z_h1')` MCSE). Under OL+BDC it
+introduced one: `r V('br_fl_e_ob')` (`r V('br_fl_z_ob')` MCSE). In
+the first block the term made no difference to F1A0 with the baseline
+row. Under OL+BDC it does.
+
+**The G-family.** Without a time term, G10 had a mean estimate of
+`r V('br_g0')` without the baseline row and `r V('br_g1')` with it.
+Every G8 and G10 estimate without a time term was at least
+`r V('br_gz')` MCSE from zero. Of these `r V('br_gn')` fits,
+`r V('br_gup')` rejected above the band at $N = 70$. The sign
+reversal with the baseline row held in every setting. With the
+linear term, `r V('br_gl_ok')` of `r V('br_gl_n')` G-family fits were
+within 2 MCSE of zero, all without the baseline row, at
+`r V('br_gl_okk')`. The linear term is not a general remedy for the
+G-family.
+
+**Cost and standard errors.** Without a trend, G10 with the baseline
+row had more power than F1A0 with it in every setting. The gap was
+`r V('br_gap0')` in the Hybrid cell at $t_{1/2} = 0.5$ week,
+`r V('br_gap_ob')` under OL+BDC (`r V('br_g_p_ob')` against
+`r V('br_f_p_ob')`) and `r V('br_gap_h1')` at $t_{1/2} = 1$ week
+(`r V('br_g_p_h1')` against `r V('br_f_p_h1')`). With the trend
+and $c_{bm} =$ `r V('bk_cbm')`, $\kappa$ was `r V('br_kf')` for F1A0
+with the baseline row, `r V('br_k10')` for G10 and `r V('br_k8')`
+for G8.
+
+The two blocks cover two designs, two half-lives and three trend
+coefficients, one at a time, at $N = 70$. The natural-history course
+was the published Gompertz curve in every cell. Neither block
+isolates why the longer half-life leaves a bias in F1A0.
 
 ## Expectancy terms without a prognostic effect {#sec-gvf}
 
@@ -2454,8 +2731,9 @@ visits (Appendix \@ref(sec-shared)). G10 then exceeded the band at
 $N = 70$ under the natural-history and placebo-response correlations
 (Section \@ref(sec-tenan)). Under the trend pathway the baseline row
 reversed the sign of the bias of the G-family (Section
-\@ref(sec-reconcile)). For F1A0 it did more: it removed the bias
-(Section \@ref(sec-bmt)). The
+\@ref(sec-reconcile)). For F1A0 it did more: it removed the bias in
+four of the five settings simulated (Sections \@ref(sec-bmt) and
+\@ref(sec-bmtr)). The
 expectancy-term analyses kept their size in both kinds of data. Which
 convention a trial's analysis follows is therefore part of its
 specification. A study that plans G10 for a biomarker that may be
@@ -2474,22 +2752,31 @@ This paper and paper 02 give one recommendation between them.
   or its bootstrap-calibrated form F1A0B. F1A0 and G10 differ only in
   those two terms.
 - Where the biomarker may predict the rate of natural-history change,
-  fit F1A0 with the baseline visit as an outcome row. In the block of
-  Section \@ref(sec-bmt) that removed the trend bias with or without
-  a biomarker-by-time term. A biomarker-by-time term in G10 did not:
-  the linear term left a bias, and the quadratic term left one when
-  the baseline row was included. A time term is therefore optional
-  for F1A0 with a baseline row and is not a substitute for it.
+  fit F1A0 with the baseline visit as an outcome row and no time
+  term. In the block of Section \@ref(sec-bmt) that removed the trend
+  bias with or without a biomarker-by-time term. In the second block
+  (Section \@ref(sec-bmtr)) it removed the bias at two other trend
+  sizes and under OL+BDC but left one of `r V('br_f_e_h1')` at
+  $t_{1/2} = 1$ week, with the size still inside the band. The linear
+  term reduced that bias but introduced one under OL+BDC, so it is not
+  recommended as a default. A biomarker-by-time term in G10 is not a
+  remedy: the linear term left a bias in most settings, and the
+  quadratic term left one when the baseline row was included.
 - Use G10 and F1A0 for the test of $\beta_{bm:D}$, not for an
   interval estimate. Their model standard errors were too small under
   the alternative here and in paper 02, whose G10 interval
   under-covered [@pmsimstats-paper02].
 
-The third point rests on one trend coefficient, one design and one
-half-life. It also has a cost. With a baseline row and no trend, F1A0
-had power `r V('bk_pwf1')` against `r V('bk_pw10b')` for G10 (Section
-\@ref(sec-bmt)), a larger gap than in the paper 02 cells without a
-baseline row (Section \@ref(sec-gvf)).
+The third point rests on three trend coefficients, two designs and
+two half-lives, varied one at a time at $N = 70$. It is a
+recommendation for the test. As an estimator, F1A0 with a baseline row
+was biased at the longer half-life. It also has a cost. With a
+baseline row and no trend, F1A0 had power `r V('bk_pwf1')` against
+`r V('bk_pw10b')` for G10 in the Hybrid cell at $t_{1/2} = 0.5$ week
+(Section \@ref(sec-bmt)), a larger gap than in the paper 02 cells
+without a baseline row (Section \@ref(sec-gvf)). The gap was
+`r V('br_gap_ob')` under OL+BDC and `r V('br_gap_h1')` at
+$t_{1/2} = 1$ week (Section \@ref(sec-bmtr)).
 F1, which fixes the half-life at 0.2 week, is not recommended. It
 loses power wherever that value is wrong (Section \@ref(sec-gvf)).
 Two questions remain for F1A0B. Its bootstrap calibration may be
@@ -2505,11 +2792,13 @@ the Hybrid design at $t_{1/2} = 0.5$ week. The prognostic correlations
 are correlations of a single latent biomarker with the components.
 The feasibility bound is a property of that parameterization. The
 large-sample cells have no confound-free counterpart at the same $N$.
-The trend pathway was simulated at one coefficient, one half-life and
-one design, with a single null cell at the larger sample size. The
-natural-history course was the published Gompertz curve; a trend of
-another shape may need a different remedy. The alternative cells had
-1,000 replicates each, and their trend shifts are unpaired across
+The trend pathway was simulated at three coefficients, two half-lives
+and two designs, varied one at a time from a single base cell, with
+one null cell at the larger sample size. The robustness cells had
+`r V('br_n')` replicates, which bound the size to about $\pm 0.014$.
+The natural-history course was the published Gompertz curve; a trend
+of another shape may need a different remedy. The alternative cells
+had 1,000 replicates each, and their trend shifts are unpaired across
 cells. The second stress
 test ran 1,000 null replicates per cell at one sample size, and its
 cells and analyses were revised as results came in. The
@@ -2537,8 +2826,10 @@ inside a band are not independent confirmations.
    row the bias changed sign. At $N = 70$ the mean estimate was
    within a third of its empirical SE of zero in both. The bias does
    not shrink with $N$, so the size rises with it. A linear
-   biomarker-by-time term reduced the bias but did not remove it. F1A0
-   with a baseline row removed it, with or without the term.
+   biomarker-by-time term reduced the bias in most settings but did
+   not remove it. F1A0 with a baseline row and no time term removed it
+   at three trend sizes and under OL+BDC. At $t_{1/2} = 1$ week it
+   left a smaller bias, with the size inside the band at $N = 70$.
 5. In the second stress test, whose analyses have a baseline row, the
    expectancy-term analyses kept their size under all four pathways.
    G10 exceeded the band under the constant natural-history and
@@ -2548,8 +2839,10 @@ inside a band are not independent confirmations.
    current default those cells are refused.
 7. For a biomarker that may be prognostic, add $\eta_t$ and
    $B^c_i\eta_t$ to G10. The result is F1A0. Where the biomarker may
-   predict the natural-history trend, fit F1A0 with a baseline row.
-   Use G10 and F1A0 for the test, not for an interval estimate.
+   predict the natural-history trend, fit F1A0 with a baseline row,
+   at a cost in power that was largest under OL+BDC and at the longer
+   half-life. Use G10 and F1A0 for the test, not for an interval
+   estimate.
 
 # Declarations {-}
 
@@ -2608,7 +2901,12 @@ the published one. It was run locally with
 and one file per replicate under `trials/`). Its fits without a time
 term or baseline row reproduce the stored G8, G9, G10 and F1A0 fitters
 of `simulation-core.R` on a check trial; that check exercised only a
-trial on which every analysis chose the same half-life.
+trial on which every analysis chose the same half-life. The
+robustness block of Section \@ref(sec-bmtr) is the same driver run
+with `--block robust --params published --cores 6`. It fits G8, G10
+and F1A0 with no time term and the linear term only, and writes
+`analysis/data/carryover-sensitivity/published/bmt-block-robust/`.
+Its cells are separate from those of the first block.
 
 Changes needed before the next draft, not made here:
 

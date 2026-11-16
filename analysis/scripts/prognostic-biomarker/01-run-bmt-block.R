@@ -33,10 +33,19 @@
 ## Each replicate is seeded from its own label (label_seed()), as in
 ## driver 36.
 ##
+## --block robust (added 2026-11-15) is the robustness extension of the
+## F1A0-with-baseline-row result: other trend sizes, the OL+BDC design
+## and t1/2 = 1, at N = 70 with REPS_ALT replicates per cell. It fits
+## G8, G10 and F1A0 with no term or the linear term, with and without
+## the baseline row (12 fits per trial), and writes bmt-block-robust/.
+## Each cell carries its own design and t1/2; G8 uses the cell's t1/2.
+## The main block's cells, labels and seeds are unchanged.
+##
 ## Usage (from the repository root):
 ##   Rscript analysis/scripts/prognostic-biomarker/01-run-bmt-block.R \
-##     --params published [--reps-null R] [--reps-alt R] \
-##     [--reps-big R] [--cores K] [--out-dir PATH] [--smoke] [--time]
+##     --params published [--block main|robust] [--reps-null R] \
+##     [--reps-alt R] [--reps-big R] [--cores K] [--out-dir PATH] \
+##     [--smoke] [--time]
 suppressMessages({
   library(dplyr); library(purrr); library(tibble); library(tidyr)
   library(parallel)
@@ -52,10 +61,13 @@ REPS_BIG  <- as.integer(argv('--reps-big', '1000'))
 CORES     <- as.integer(argv('--cores', Sys.getenv('SIM_CORES', '4')))
 SMOKE     <- '--smoke' %in% args
 TIME      <- '--time' %in% args
-stopifnot(param_set() == 'published')
+BLOCK     <- argv('--block', 'main')
+stopifnot(param_set() == 'published', BLOCK %in% c('main', 'robust'))
+out_base <- paste0('analysis/data/carryover-sensitivity/published/',
+                   if (BLOCK == 'main') 'bmt-block' else
+                     'bmt-block-robust')
 OUT_DIR <- argv('--out-dir',
-  if (SMOKE) 'analysis/data/carryover-sensitivity/published/bmt-block-smoke'
-  else 'analysis/data/carryover-sensitivity/published/bmt-block')
+  if (SMOKE) paste0(out_base, '-smoke') else out_base)
 guard_out_dir(OUT_DIR)
 ck_dir <- file.path(OUT_DIR, 'trials')
 dir.create(ck_dir, recursive = TRUE, showWarnings = FALSE)
@@ -66,18 +78,37 @@ G_GRID <- c(0.25, 0.5, 1, 2)
 base_cell <- list(design = 'Hybrid', t1half = T1HALF,
                   carryover_form = 'exponential', weibull_shape = 1,
                   dgp_arch = 'mvn')
-grid <- tribble(
-  ~cell_id,         ~b_tv_trend, ~c_bm, ~N,  ~reps,
-  'T0-null',        0,           0,     70,  REPS_ALT,
-  'T0-alt',         0,           0.45,  70,  REPS_ALT,
-  'T3-null',        0.3,         0,     70,  REPS_NULL,
-  'T3-alt',         0.3,         0.45,  70,  REPS_ALT,
-  'T3-null-N280',   0.3,         0,     280, REPS_BIG
-)
+grid <- if (BLOCK == 'main') {
+  tribble(
+    ~cell_id,         ~b_tv_trend, ~c_bm, ~N,  ~reps,
+    'T0-null',        0,           0,     70,  REPS_ALT,
+    'T0-alt',         0,           0.45,  70,  REPS_ALT,
+    'T3-null',        0.3,         0,     70,  REPS_NULL,
+    'T3-alt',         0.3,         0.45,  70,  REPS_ALT,
+    'T3-null-N280',   0.3,         0,     280, REPS_BIG
+  ) |> mutate(design = 'Hybrid', t1half = T1HALF)
+} else {
+  ## The Hybrid t1/2 = 0.5 no-trend reference is the main block's
+  ## T0-alt cell; each other design or half-life has its own here.
+  tribble(
+    ~cell_id,         ~design,  ~t1half, ~b_tv_trend, ~c_bm,
+    'R-T15-null',     'Hybrid', 0.5,     0.15,        0,
+    'R-T15-alt',      'Hybrid', 0.5,     0.15,        0.45,
+    'R-T6-null',      'Hybrid', 0.5,     0.6,         0,
+    'R-T6-alt',       'Hybrid', 0.5,     0.6,         0.45,
+    'R-OB-T0-alt',    'OLBDC',  0.5,     0,           0.45,
+    'R-OB-T3-null',   'OLBDC',  0.5,     0.3,         0,
+    'R-OB-T3-alt',    'OLBDC',  0.5,     0.3,         0.45,
+    'R-H1-T0-alt',    'Hybrid', 1,       0,           0.45,
+    'R-H1-T3-null',   'Hybrid', 1,       0.3,         0,
+    'R-H1-T3-alt',    'Hybrid', 1,       0.3,         0.45
+  ) |> mutate(N = 70, reps = REPS_ALT)
+}
 if (SMOKE) grid$reps <- 2L
 
 ## ---------------- analyses ----------------
 TERMS <- list(none = '', bmt = ' + bm:t', bmt2 = ' + t2 + bm:t + bm:t2')
+if (BLOCK == 'robust') TERMS <- TERMS[c('none', 'bmt')]
 G_FULL <- 'Sx ~ bm + t + Dbc + bm:Dbc'
 G_NULL <- 'Sx ~ bm + t + Dbc'
 F_FULL <- 'Sx ~ bm + t + Dbc + bm:Dbc + De + bm:De'
@@ -125,6 +156,7 @@ ANALYSES <- list(
   G10  = list(full = G_FULL, sel = G_NULL, grid = G_GRID),
   F1A0 = list(full = F_FULL, sel = F_NULL, grid = F_GRID)
 )
+if (BLOCK == 'robust') ANALYSES <- ANALYSES[c('G8', 'G10', 'F1A0')]
 
 add_baseline_row <- function(dl, dat) {
   b <- dat |>
@@ -135,8 +167,8 @@ add_baseline_row <- function(dl, dat) {
   bind_rows(b[, names(dl)], dl) |> arrange(ptID, t)
 }
 
-fit_all <- function(dat, design_set) {
-  dl0 <- prepare_long_data(dat, design_set, carryover_t1half = T1HALF)
+fit_all <- function(dat, design_set, t1half = T1HALF) {
+  dl0 <- prepare_long_data(dat, design_set, carryover_t1half = t1half)
   dl1 <- add_baseline_row(dl0, dat)
   out <- list()
   for (bl in 0:1) {
@@ -144,6 +176,7 @@ fit_all <- function(dat, design_set) {
     dl$t2 <- dl$t^2
     for (tm in names(TERMS)) for (an in names(ANALYSES)) {
       a <- ANALYSES[[an]]
+      if (an == 'G8') a$grid <- t1half
       r <- fit_one(dl, as.formula(paste0(a$full, TERMS[[tm]])),
                    as.formula(paste0(a$sel, TERMS[[tm]])), a$grid)
       out[[length(out) + 1]] <- tibble(
@@ -159,7 +192,9 @@ fit_all <- function(dat, design_set) {
 }
 
 simulate_one <- function(row) {
-  cell <- modifyList(base_cell, list(N = row$N, c_bm = row$c_bm))
+  cell <- modifyList(base_cell, list(N = row$N, c_bm = row$c_bm,
+                                     design = row$design,
+                                     t1half = row$t1half))
   design_set <- build_design_set(cell$design)
   mp <- list(N = cell$N, carryover_t1half = cell$t1half,
              carryover_form = cell$carryover_form,
@@ -171,12 +206,12 @@ simulate_one <- function(row) {
   dat <- generate_data_multi_path(mp, default_resp_param(),
                                   default_baseline_param(), design_set,
                                   stop_on_nonpd = TRUE)
-  fit_all(dat, design_set)
+  fit_all(dat, design_set, cell$t1half)
 }
 
 ## ---------------- --time ----------------
 if (TIME) {
-  for (k in c(1, 5)) {
+  for (k in unique(c(1, if (BLOCK == 'main') 5 else c(5, 8)))) {
     set.seed(label_seed(sprintf('%s-rep-%d', grid$cell_id[k], 1)))
     t0 <- Sys.time()
     res <- simulate_one(grid[k, ])
@@ -189,8 +224,8 @@ if (TIME) {
 }
 
 jobs <- grid |> mutate(rep = map(reps, seq_len)) |> unnest(rep)
-cat(sprintf('bmt block: %d cells, %d (cell, rep) jobs, %d workers\n',
-            nrow(grid), nrow(jobs), CORES))
+cat(sprintf('bmt block (%s): %d cells, %d (cell, rep) jobs, %d workers\n',
+            BLOCK, nrow(grid), nrow(jobs), CORES))
 
 one_job <- function(i) {
   j <- jobs[i, ]
@@ -220,7 +255,8 @@ cat(sprintf('%d of %d jobs present; %.1f min this run\n',
             elapsed_min))
 
 summary_tab <- res |>
-  group_by(cell_id, b_tv_trend, c_bm, N, analysis, term, bl) |>
+  group_by(cell_id, design, t1half, b_tv_trend, c_bm, N, analysis, term,
+           bl) |>
   summarise(n = sum(converged),
             reject = mean(p_value < 0.05, na.rm = TRUE),
             mcse = sqrt(reject * (1 - reject) / n),
@@ -254,7 +290,8 @@ selection_tab <- res |>
 saveRDS(summary_tab, file.path(OUT_DIR, 'summary.rds'))
 saveRDS(paired_tab, file.path(OUT_DIR, 'paired.rds'))
 saveRDS(selection_tab, file.path(OUT_DIR, 'selection.rds'))
-saveRDS(list(script = '01-run-bmt-block.R', date = Sys.time(),
+saveRDS(list(script = '01-run-bmt-block.R', block = BLOCK,
+             date = Sys.time(),
              params = param_meta(), grid = grid, terms = TERMS,
              analyses = ANALYSES, smoke = SMOKE,
              elapsed_min_this_run = elapsed_min,

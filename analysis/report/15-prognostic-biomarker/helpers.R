@@ -44,6 +44,7 @@ src <- list(
   tier1_p  = file.path(pub_dir, 'tier1-g-vs-f-e0'),
   scen_p   = file.path(pub_dir, 'g-vs-f-comparison'),
   bmt_p    = file.path(pub_dir, 'bmt-block'),
+  bmtr_p   = file.path(pub_dir, 'bmt-block-robust'),
   stress_h = file.path(cs_dir, 'g9-prognostic-stress'),
   re_h     = file.path(cs_dir, 'g9-random-effects'),
   rr_h     = file.path(cs_dir, 'referee-reanalysis')
@@ -71,6 +72,8 @@ s21_m    <- rd(file.path(src$scen_p, 'meta.rds'))
 bk       <- rd(file.path(src$bmt_p, 'summary.rds'))
 bkp      <- rd(file.path(src$bmt_p, 'paired.rds'))
 bk_m     <- rd(file.path(src$bmt_p, 'meta.rds'))
+bkr      <- rd(file.path(src$bmtr_p, 'summary.rds'))
+bkr_m    <- rd(file.path(src$bmtr_p, 'meta.rds'))
 
 ## Historical exhibit (simcore2026, silent repair).
 st_h     <- rd(file.path(src$stress_h, 'summary.rds'))
@@ -91,6 +94,7 @@ has_s27  <- !is.null(s27)
 has_s27a <- !is.null(s27_all)
 has_s21  <- !is.null(s21)
 has_bk   <- !is.null(bk) && !is.null(bkp) && !is.null(bk_m)
+has_bkr  <- has_bk && !is.null(bkr) && !is.null(bkr_m)
 has_st_h <- !is.null(st_h)
 has_pdc  <- !is.null(pdc)
 has_ceil <- !is.null(ceil)

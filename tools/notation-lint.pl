@@ -57,12 +57,12 @@ for my $file (@ARGV) {
     push @hits, "$ln bare-Dbc" if $p =~ /(?<![\w\\{])Dbc(?![\w}])/;
     # N1: Sx used as a symbol outside code context (should be Y)
     push @hits, "$ln bare-Sx"  if $p =~ /(?<![\w\\{])Sx(?![\w}])/;
-    # N6: legacy specification labels. Paper 02 labels its five
-    # ladder analyses A0-A4 (author decision 2026-11-11, NOTATION.md
-    # Part 3), so its sources are exempt.
+    # N6: legacy specification labels. The ladder analyses are
+    # labeled A0-A6 in papers 02 (2026-11-11) and 15 (2026-11-18),
+    # NOTATION.md Part 3, so those sources and NOTATION.md are exempt.
     push @hits, "$ln legacy-spec-label"
       if $p =~ /(?<![\w])A[123](?![\w])/
-         && (abs_path($file) // $file) !~ m{/analysis/report/02-carryover-sensitivity/};
+         && (abs_path($file) // $file) !~ m{/analysis/report/(?:02-carryover-sensitivity|15-prognostic-biomarker)/|/NOTATION\.md$};
     # N3: half-life quoted in days without a units statement is
     # checked separately; here just record day-denominated half-lives
     push @hits, "$ln halflife-days" if $p =~ /t_\{1\/2\}[^.]{0,40}\bdays\b/;

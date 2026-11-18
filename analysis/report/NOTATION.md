@@ -622,10 +622,19 @@ them. These were labeled `A1`/`A2`/`A3` until 2026-07-31; the stored data
 and the drivers were migrated to E1/E2/E3, so the labels now agree
 everywhere and nothing is mapped at display time.
 
-**Paper 02 exception (2026-11-11).** Paper 02 displays its five
-ladder analyses as A0 to A4, numbered by rung: A0 = E0, A1 = G1
-(`E1`), A2 = G6 (`E1cr2`), A3 = G8 (`E2cr2`), A4 = G10
-(`E7null_cr2`). The mapping is `to_a()` in
+**Ladder labels A0 to A6 (paper 02 from 2026-11-11; papers 01 and 15
+from 2026-11-18).** The ladder analyses are displayed as A0 to A6,
+numbered by rung: A0 = E0, A1 = G1 (`E1`), A2 = G6 (`E1cr2`), A3 = G8
+(`E2cr2`), A4 = G10 (`E7null_cr2`), A5 = F1A0 (A4 plus $\eta_t$ and
+$B^c_i\eta_t$), A6 = A5 fitted with the baseline (week 0) outcome row.
+A0 is the analysis Hendrickson et al. published: `lme_analysis()` at
+commit 58b32a9 as their publication driver called it (`useDE =
+FALSE`), with its baseline row and no expectancy term. Paper 02's
+stored `E0` (`fit_spec_e0()`) adds $D_e$ and has no baseline row; it
+is being refit as published (`E0p`, script 54) and must not be called
+A0 until paper 02 reads the refit. Paper 01 uses A0 and A4 only.
+Analyses off the ladder (G9, F1, F1A, F1A0B) keep their codes. The
+mapping for paper 02 is `to_a()` in
 `analysis/scripts/carryover-sensitivity/spec-labels.R`. These display
 labels are unrelated to the legacy stored `A1`/`A2`/`A3` codes of
 output archived before 2026-07-31; paper 02's Reproducibility section

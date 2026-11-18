@@ -101,6 +101,19 @@ knitr::opts_chunk$set(
   fig.path = '../../figures/15-cache-'
 )
 library(knitr)
+## Ladder labels at display time (NOTATION.md Part 3). Chunks keep the
+## G and F codes of helpers.R's m_lab as keys; the rendered document
+## shows A1 to A5 for G1, G6, G8, G10 and F1A0. Off-ladder codes (G9,
+## F1, F1A, F1A0B) are unchanged. Stored codes such as E7null_cr2 do
+## not match these patterns.
+a_label <- function(x) {
+  x <- gsub('\\bF1A0\\b(?!B)', 'A5', x, perl = TRUE)
+  for (p in list(c('G10', 'A4'), c('G8', 'A3'), c('G6', 'A2'),
+                 c('G1', 'A1')))
+    x <- gsub(paste0('\\b', p[1], '\\b'), p[2], x, perl = TRUE)
+  x
+}
+knitr::knit_hooks$set(document = function(x) a_label(x))
 ## The repository root is the first parent holding DESCRIPTION. The
 ## here package is not assumed, since the host R session may lack it.
 repo_root <- local({
@@ -843,17 +856,17 @@ pathways were examined. Three are correlations of the biomarker with a
 component. Two are mean shifts of the natural-history component, one
 constant and one growing over the trial. The main analyses were mixed
 models with an exposure-weighted drug indicator, tested with
-cluster-robust (CR2) standard errors. G9 and G10 choose the
+cluster-robust (CR2) standard errors. G9 and A4 choose the
 indicator's half-life by AIC, G9 with the interaction term in the
-model and G10 without it; G10 is the analysis recommended by the
+model and A4 without it; A4 is the analysis recommended by the
 companion carryover paper (paper 02). The F-family adds the design
 expectancy $\eta_t$ and its product with the centered biomarker,
-$B^c_i\eta_t$: F1 fixes the half-life at 0.2 week, and F1A0 chooses
-it as G10 does.
+$B^c_i\eta_t$: F1 fixes the half-life at 0.2 week, and A5 chooses
+it as A4 does.
 A second stress test, run with the driver of paper 01,
 fitted ten analyses to trials with four prognostic pathways at
 strength 0.3. Its analyses keep the baseline visit as an outcome row.
-A final block fitted G8, G9, G10 and F1A0 under the growing shift,
+A final block fitted A3, G9, A4 and A5 under the growing shift,
 each with and without a biomarker-by-time term and a baseline row.
 A second such block varied the trend size, the design and the
 half-life.
@@ -865,23 +878,23 @@ of 0.45, the analyses without expectancy terms rejected a true null at
 was `r V('l_band')`.
 Under a natural-history shift that grows over the trial, G9 rejected
 at `r V('t_g9')` and F1 at `r V('t_f1')` at $N = 70$, with no
-baseline row in the analysis. Without a prognostic effect, F1A0
-reached `r V('g_r_Hybrid_F1A0')` percent of the power of G10 in the
+baseline row in the analysis. Without a prognostic effect, A5
+reached `r V('g_r_Hybrid_F1A0')` percent of the power of A4 in the
 Hybrid cells. In the second stress test, the analyses with expectancy
 terms stayed inside the two-MCSE band under every pathway. Every
-analysis without them, G10 included, exceeded the band under at least
+analysis without them, A4 included, exceeded the band under at least
 one pathway. The bias from the growing shift changed sign when a
 baseline row was added. It did not shrink with $N$: at $N =$
-`r V('bk_nbig')` G10 rejected a true null at `r V('bk_g10b_r')`. A
+`r V('bk_nbig')` A4 rejected a true null at `r V('bk_g10b_r')`. A
 linear biomarker-by-time term reduced the bias but did not remove it.
-F1A0 fitted with a baseline row stayed within `r V('bk_f1_z')` MCSE
+A5 fitted with a baseline row stayed within `r V('bk_f1_z')` MCSE
 of zero at both sample sizes, with or without the term. Without the
 term it stayed within `r V('br_f_zmax')` MCSE at two other trend
 sizes and under OL+BDC. At a half-life of 1 week it kept a bias of
 `r V('br_f_e_h1')`, with its size inside the band. The model
-standard errors of G10 and F1A0 were too small under the alternative
-with the shift ($\kappa$ `r V('bk_k10')` for G10, `r V('bk_kf')` for
-F1A0).
+standard errors of A4 and A5 were too small under the alternative
+with the shift ($\kappa$ `r V('bk_k10')` for A4, `r V('bk_kf')` for
+A5).
 The power loss once attributed to a strong
 prognostic correlation came from repaired covariance matrices. Under
 the current stop on infeasible matrices, all `r V('n6_refused')` of
@@ -962,21 +975,28 @@ yet listed there and are marked *proposed*.
   replaced a matrix that was not positive definite with a nearby one
   that was, without warning. A repaired cell is a cell simulated
   under such a matrix.
-- **G-family.** Analyses with no expectancy terms. **G8:**
-  $D_{bc,it}$ at the true half-life with CR2, an oracle benchmark and
-  not a candidate analysis. **G9:** $t^a_{1/2}$ chosen by AIC on the
-  model with the interaction, with CR2. **G10:** $t^a_{1/2}$ chosen by
-  AIC on the model without the interaction, the interaction model
-  refitted, with CR2. G10 is the recommended analysis of paper 02
-  [@pmsimstats-paper02]. G1 and G6 are the binary-indicator analyses,
-  with the working-covariance standard error and with CR2. Stored codes: `E2cr2`, `E7cr2`,
-  `E7null_cr2`, `E1`, `E1cr2`.
-- **F-family.** The G-family model plus $\eta_t$ and $B^c_i\eta_t$, with
-  CR2. **F1:** $t^a_{1/2}$ fixed at the half-life policy value of 0.2
-  week. **F1A:** chosen by AIC with the interaction in the model.
-  **F1A0:** chosen by AIC without it. **F1A0B:** F1A0 with a
-  single-resample parametric-bootstrap calibration that repeats the
-  selection.
+- **Analysis ladder (A1 to A6).** The analyses are labeled by rung of
+  the ladder of the companion papers [@pmsimstats-paper02]. Each rung
+  changes one thing from the rung before. Earlier drafts used G and F
+  codes, given here in parentheses.
+  **A1** (G1): binary drug indicator, working-covariance standard
+  error. **A2** (G6): A1 with CR2. **A3** (G8): $D_{bc,it}$ at the
+  true half-life with CR2, an oracle benchmark and not a candidate
+  analysis. **A4** (G10): $t^a_{1/2}$ chosen by AIC on the model
+  without the interaction, the interaction model refitted, with CR2.
+  A4 is the recommended analysis of paper 02. **A5** (F1A0): A4 plus
+  $\eta_t$ and $B^c_i\eta_t$. **A6**: A5 fitted with the baseline row.
+  In tables with a baseline-row column, A5 with the baseline row is
+  A6. This paper does not use A0. Stored codes: `E1`, `E1cr2`,
+  `E2cr2`, `E7null_cr2`, `F1A0`.
+- **Analyses off the ladder.** These keep their codes. **G9:** A4
+  with the interaction in the selection model (stored `E7cr2`).
+  **F1:** A5 with $t^a_{1/2}$ fixed at the half-life policy value of
+  0.2 week. **F1A:** A5 with the interaction in the selection model.
+  **F1A0B:** A5 with a single-resample parametric-bootstrap
+  calibration that repeats the selection.
+- **G-family; F-family.** The analyses without expectancy terms (A1
+  to A4, G9) and with them (A5, A6, F1, F1A, F1A0B).
 - **CR2.** The Bell-McCaffrey bias-reduced cluster-robust standard
   error with Satterthwaite degrees of freedom
   [@bell2002bias; @pustejovsky2018].
@@ -1011,7 +1031,7 @@ biomarker-by-treatment interaction when the analysis model omits or
 misrepresents it [@haller2018; @kent2020path].
 
 The companion paper on carryover [@pmsimstats-paper02] studies a
-predictive-only biomarker. It recommends G10. That analysis uses an
+predictive-only biomarker. It recommends A4. That analysis uses an
 exposure-weighted drug indicator, chooses its half-life by AIC on the
 model without the interaction, and tests with CR2. This paper asks
 what changes when the biomarker is also prognostic. It examines five
@@ -1115,11 +1135,11 @@ Y_{it} = \beta_0 + \beta_B B^c_i + \beta_T w_t + \beta_D D_{bc,it}
   + \beta_{bm:D} B^c_i D_{bc,it} + u_i + \epsilon_{it}.
 $$
 $D_{bc,it}$ is one on drug, $2^{-t_{sd}/t^a_{1/2}}$ off drug after
-first exposure, and zero before first exposure. G8 sets
+first exposure, and zero before first exposure. A3 sets
 $t^a_{1/2} = t_{1/2}$. It is an oracle benchmark and not a candidate
 analysis. G9 chooses $t^a_{1/2}$ by maximum-likelihood AIC over
 $\{0.25, 0.5, 1, 2\}$ weeks with the interaction in the model
-[@akaike1974new]. G10 makes the same choice on the model without the
+[@akaike1974new]. A4 makes the same choice on the model without the
 interaction and refits the interaction model by REML. The selection
 of G9 depends on the coefficient under test. That is a
 post-selection inference risk [@berk2013valid; @leeb2005]. All three
@@ -1135,12 +1155,12 @@ off-drug visits in the Hybrid design. A biomarker correlated with the
 placebo response therefore acquires an on/off slope difference by
 construction. The term $B^c_i\eta_t$ absorbs it. F1 fixes
 $t^a_{1/2}$ at 0.2 week. F1A selects it by AIC with the interaction.
-F1A0 selects it without the interaction, as G10 does. F1A0B
-calibrates F1A0 by a single-resample parametric bootstrap under the
+A5 selects it without the interaction, as A4 does. F1A0B
+calibrates A5 by a single-resample parametric bootstrap under the
 null that repeats the selection. Its candidate grid is $\{0, 0.2,
 0.5, 1, 2\}$ weeks. $\eta_t$ is constant within every path of the
 crossover design. The F-family is therefore not estimable under CO.
-F1A0 and G10 differ only in the expectancy terms. That is the
+A5 and A4 differ only in the expectancy terms. That is the
 property that lets this paper and paper 02 give one recommendation
 (Section \@ref(sec-recommend)).
 
@@ -1397,8 +1417,8 @@ if (has_st_p) {
 ```
 
 The G9 Type I error was `r V('st_g9_null')` across the six null cells
-of the three correlation pathways. G10 gave `r V('st_g10_null')` and
-F1A0B `r V('st_fb_null')`. Every G9 and G10 null rate was inside the
+of the three correlation pathways. A4 gave `r V('st_g10_null')` and
+F1A0B `r V('st_fb_null')`. Every G9 and A4 null rate was inside the
 band. The G9 power at $c_{bm} = 0.45$ was `r V('st_g9_alt')`. The
 no-confound reference from block A of the referee-variant runs is
 `r V('ref35')` at $N = 35$ and `r V('ref70')` at $N = 70$. The
@@ -1406,7 +1426,7 @@ largest difference from it was `r V('st_g9_dmax')`, under the
 placebo-response pathway. Section \@ref(sec-grid) shows that this
 excess is bias in the estimate. That comparison is
 unpaired, against `r V('a_n')`-replicate cells of another job. F1A0B
-differed from G10 in power by `r V('st_fb_g10')` on the same trials.
+differed from A4 in power by `r V('st_fb_g10')` on the same trials.
 The constant shift gave the same rejection at strengths 0.3 and 0.6
 in every analysis. In the scenario job, the constant-shift null cell
 differs from the unshifted Hybrid null cell by at most
@@ -1414,16 +1434,16 @@ differs from the unshifted Hybrid null cell by at most
 \@ref(sec-absorb).
 
 A longer run at the placebo-response pathway sharpens the size
-comparison. Block N of the referee-variant runs fitted G8, G9, G10
+comparison. Block N of the referee-variant runs fitted A3, G9, A4
 and F1 to `r V('bn_n')` replicates in each of `r V('bn_cells')`
 Hybrid null cells at $c_{bm,PB} =$ `r V('bn_cpb')`
 (Table \@ref(tab:tab-blockN)). The band is `r V('bn_band')`. The
-paired difference from G8 was `r V('bn_g9_d')` for G9, `r V('bn_g10_d')`
-for G10 and `r V('bn_f1_d')` for F1. G9 was above G8 in every cell,
-by at least `r V('bn_g9_z')` paired standard errors. G10 was within
-two paired standard errors of G8 in every cell. The number of cells
-above the band was `r V('bn_up_g8')` for G8, `r V('bn_up_g9')` for
-G9, `r V('bn_up_g10')` for G10 and `r V('bn_up_f1')` for F1.
+paired difference from A3 was `r V('bn_g9_d')` for G9, `r V('bn_g10_d')`
+for A4 and `r V('bn_f1_d')` for F1. G9 was above A3 in every cell,
+by at least `r V('bn_g9_z')` paired standard errors. A4 was within
+two paired standard errors of A3 in every cell. The number of cells
+above the band was `r V('bn_up_g8')` for A3, `r V('bn_up_g9')` for
+G9, `r V('bn_up_g10')` for A4 and `r V('bn_up_f1')` for F1.
 
 ```{r tab-blockN}
 if (has_rvN) {
@@ -1514,11 +1534,11 @@ if (has_gfC) {
 ```
 
 The G9 Type I error was `r V('c_g9_null')` across the
-`r V('c_nnull')` null cells, inside the band in every one. G10 gave
+`r V('c_nnull')` null cells, inside the band in every one. A4 gave
 `r V('c_g10_null')` and F1 `r V('c_f1_null')`. The rejection rates
 hide a bias that the mean estimates show. Under the placebo-response
 pathway with no true interaction, the mean G9 estimate was
-`r V('c_pb_g9_est')`. G10 gave `r V('c_pb_g10_est')`. F1 gave
+`r V('c_pb_g9_est')`. A4 gave `r V('c_pb_g10_est')`. F1 gave
 `r V('c_pb_f1_est')`. Under the other two pathways the mean G9
 estimate was `r V('c_op_g9_est')`. At $c_{bm} =$ `r V('c_bm_alt')`
 the same bias appears as excess power. G9 reached `r V('c_pb_g9_pw')`
@@ -1567,14 +1587,14 @@ if (has_gfC) {
 ```
 
 At $N = 280$ and $c_{bm,PB} = 0.45$, G9 rejected at
-`r V('l_g9_45')`, G10 at `r V('l_g10_45')` and G8 at `r V('l_g8_45')`.
+`r V('l_g9_45')`, A4 at `r V('l_g10_45')` and A3 at `r V('l_g8_45')`.
 The binary-indicator analysis with the working-covariance standard
-error, G1, rejected at
+error, A1, rejected at
 `r V('l_g1_45')`. The F-family stayed inside the band: F1 at
-`r V('l_f1_45')`, F1A0 at `r V('l_f1a0_45')` and F1A0B at
+`r V('l_f1_45')`, A5 at `r V('l_f1a0_45')` and F1A0B at
 `r V('l_fb_45')`. On the same trials, the paired difference in
 rejection of F1 minus G9 was `r V('l_pd')` (paired SE
-`r V('l_pd_se')`). That of F1A0 minus G10 was `r V('l_pd2')`
+`r V('l_pd_se')`). That of A5 minus A4 was `r V('l_pd2')`
 (`r V('l_pd2_se')`). The G9 rate rose with $N$:
 `r V('l_g9_70')` at 70, `r V('l_g9_140')` at 140 and
 `r V('l_g9_45')` at 280. Its mean estimate at $N = 280$ was
@@ -1589,7 +1609,7 @@ underestimated standard error. At $c_{bm,PB} = 0.30$ the rates were
 Block T of the referee-variant runs simulated a natural-history shift
 that grows over the trial, with $b_{TV}^{\mathrm{tr}} =$
 `r V('t_coef')`. It is a mean shift, so the feasibility bound does
-not limit it. G8, G9 and F1 were fitted at $N = 70$ and
+not limit it. A3, G9 and F1 were fitted at $N = 70$ and
 `r V('t_n')` replicates (Table \@ref(tab:tab-trend)). The band is
 `r V('t_band')`.
 
@@ -1620,11 +1640,11 @@ if (has_rvT) {
 }
 ```
 
-The trend pathway biased the G-family. Under the null G8 rejected at
+The trend pathway biased the G-family. Under the null A3 rejected at
 `r V('t_g8')` and G9 at `r V('t_g9')`. Their mean estimates were
 `r V('t_g8_est')` and `r V('t_g9_est')` where the truth is zero. The
-G8 empirical SE was `r V('t_g8_se')`. F1 rejected at `r V('t_f1')`,
-with a mean estimate of `r V('t_f1_est')`. Paired against G8, F1
+A3 empirical SE was `r V('t_g8_se')`. F1 rejected at `r V('t_f1')`,
+with a mean estimate of `r V('t_f1_est')`. Paired against A3, F1
 differed by `r V('t_f1_d')` (SE `r V('t_f1_dse')`) and G9 by
 `r V('t_g9_d')` (`r V('t_g9_dse')`). The expectancy terms therefore
 absorb part of the shift but not all of it. At $c_{bm} = 0.45$ the
@@ -1910,8 +1930,8 @@ if (have_x5) {
 x5_txt <- function(v) p01_pend(have_x5, ss_f(v))
 ```
 
-**G10 under these pathways.** The planning sample sizes for G10
-(paper 02) assume that the biomarker is not prognostic. We fitted G10 to the
+**A4 under these pathways.** The planning sample sizes for A4
+(paper 02) assume that the biomarker is not prognostic. We fitted A4 to the
 trials of this stress test, with the baseline row. It rejected the
 null at `r p01_pend(have_x5, ss_f(x5_r('curve-C07')))` in the base
 cell, and at
@@ -1923,20 +1943,20 @@ growing natural-history, placebo and baseline-severity pathways
 (single-cell band `r ss_f(ss_band1[1])` to `r ss_f(ss_band1[2])`).
 The expectancy-term model rejected
 `r ss_f(min(ss_m3['F1', ]))` to `r ss_f(max(ss_m3['F1', ]))` in the
-same cells. In this test G10 held its level when the biomarker acted
+same cells. In this test A4 held its level when the biomarker acted
 through baseline severity or the growing natural history, but not when
 it acted through a constant natural history or the placebo response.
 Section \@ref(sec-reconcile) shows why the growing case may not carry
 over to an analysis without a baseline row. A trial in which a
 constant natural-history or placebo pathway is plausible should be
 planned for the expectancy-term analysis. On the power-curve trials of
-the stress test, matching G10's power with that analysis needs about
+the stress test, matching A4's power with that analysis needs about
 `r p01_pend(have_x5, sprintf('%.2f to %.2f', min(x5_hi), max(x5_hi)))`
-times the G10 sample size, by the normal approximation to power, at
+times the A4 sample size, by the normal approximation to power, at
 $c_{bm}$ from 0.225 to 0.45. At $c_{bm} = 0.15$ both analyses have
 power near 0.15 and the factor,
 `r p01_pend(have_x5, sprintf('%.2f', x5_infl[x5_lo]))`, is within
-Monte Carlo error of 1. Paper 02's G10 sample sizes can be scaled by
+Monte Carlo error of 1. Paper 02's A4 sample sizes can be scaled by
 that factor. The factor comes from one design, half-life and $\rho$,
 the stress test's base cell.
 
@@ -2090,13 +2110,13 @@ published natural-history curve, $\sigma_{TV} =$ `r V('rc_sig_tv')`,
 the Hybrid design with fixed allocation, $N = 70$, $t_{1/2} = 0.5$
 week and 1,000 null replicates. The two results appear to disagree.
 Under the trend pathway G9 exceeded the band. Under the growing
-pathway G10 stayed inside it.
+pathway A4 stayed inside it.
 
 The comparison is less direct than that. The two tests did not fit
-the same analyses. Block T fitted G8, G9 and F1, not G10. The second
-test fitted G10 but not G8 or G9. Its CAR(1) model with CR2 at the
+the same analyses. Block T fitted A3, G9 and F1, not A4. The second
+test fitted A4 but not A3 or G9. Its CAR(1) model with CR2 at the
 fixed half-life of 0.5 week has the formula, covariance and test of
-G8. Its AIC variant resembles G9, with a grid that adds 0. The two
+A3. Its AIC variant resembles G9, with a grid that adds 0. The two
 tests also differ in their analysis data. Every analysis of the
 second test has a baseline row. The paper 02 driver has none. Table
 \@ref(tab:tab-reconcile) sets the comparable analyses side by side.
@@ -2138,13 +2158,13 @@ if (has_rc) {
 }
 ```
 
-At the fixed half-life the two drivers agree on size. G8 rejected at
+At the fixed half-life the two drivers agree on size. A3 rejected at
 `r V('rc_G8_r')` and the CAR(1) model at `r V('rc_S_r')`, both inside
 the band. G9 rejected at `r V('rc_G9_r')`, above it, and the AIC
 variant of the second test at `r V('rc_DS_r')`. The mean estimates
-differ in sign. Without a baseline row G8 gave `r V('rc_G8_e')` per SD
+differ in sign. Without a baseline row A3 gave `r V('rc_G8_e')` per SD
 of the biomarker. With one, the CAR(1) model gave `r V('rc_S_e')` and
-G10 `r V('rc_G10_e')`. Every one of these is within a third of its
+A4 `r V('rc_G10_e')`. Every one of these is within a third of its
 empirical SE of zero.
 
 The baseline row accounts for the change of sign. The shift is zero
@@ -2155,14 +2175,14 @@ than the on-drug visits. The shift lowers the outcome, so the
 difference projects onto $B^c_i D_{bc,it}$ with a positive sign. A
 baseline row adds an off-drug row with no shift. That reverses the
 sign. An unweighted least-squares projection of the shift onto the
-biomarker terms of the G8 model gives `r V('rc_ols0')` per SD of the
+biomarker terms of the A3 model gives `r V('rc_ols0')` per SD of the
 biomarker without the baseline row and `r V('rc_ols1')` with it. It
 ignores the random intercept and the CAR(1) weighting, so it checks
 only the signs, which agree with the fitted estimates.
 
 The two results therefore do not conflict. The DGP settings match.
 The difference lies in the analysis data and in which analyses were
-fitted. That left two points open. First, G10 had not been fitted
+fitted. That left two points open. First, A4 had not been fitted
 under the trend pathway without a baseline row. That it held its level
 under the growing pathway rested on analyses with a baseline row only.
 Second, the bias is real in both tests. Every G-type mean estimate in
@@ -2173,7 +2193,7 @@ placebo-response pathway (Section \@ref(sec-largen)), a fixed bias of
 either sign inflates the size of the two-sided test as $N$ grows. The
 biomarker-by-time block of Section \@ref(sec-bmt) fitted the same
 analyses with and without the baseline row to the same trials, at
-$N = 70$ and $N =$ `r V('bk_nbig')`. It settles both points. G10
+$N = 70$ and $N =$ `r V('bk_nbig')`. It settles both points. A4
 without a baseline row was biased like G9. At $N =$ `r V('bk_nbig')`
 it rejected at `r V('bk_g10b_r')`, above the band.
 
@@ -2191,7 +2211,7 @@ interaction was null or $c_{bm} =$ `r V('bk_cbm')`, at $N = 70$. A
 fifth cell repeated the null trend cell at $N =$ `r V('bk_nbig')`.
 The trend null at $N = 70$ had `r V('bk_n5')` replicates (band
 `r V('bk_band5')`). The other cells had `r V('bk_n1')` (band
-`r V('bk_band1')`). G8, G9, G10 and F1A0 were each fitted to every
+`r V('bk_band1')`). A3, G9, A4 and A5 were each fitted to every
 trial with no time term, the linear term and the quadratic term, with
 and without the baseline row: 24 fits per trial. The time terms enter
 both the model that chooses the half-life and the refitted model.
@@ -2254,21 +2274,21 @@ if (has_bk) {
 }
 ```
 
-**No remedy.** Without a time term or a baseline row, G10 rejected the
+**No remedy.** Without a time term or a baseline row, A4 rejected the
 true null at `r V('bk_g10_r')` at $N = 70$, above the band, with a mean
 estimate of `r V('bk_g10_e')` (`r V('bk_g10_z')` MCSE from zero). G9
 gave `r V('bk_g9_e')`. The two analyses differ only in how they choose
 the half-life, and under this pathway the difference did not matter.
 This settles the first open point of Section \@ref(sec-reconcile).
-At $N =$ `r V('bk_nbig')` G10 gave `r V('bk_g10b_e')` and rejected at
+At $N =$ `r V('bk_nbig')` A4 gave `r V('bk_g10b_e')` and rejected at
 `r V('bk_g10b_r')`. The bias is a fixed amount that does not shrink
 with $N$, while the standard error does. That settles the second open
-point. With the baseline row alone, G10 gave `r V('bk_g10c_e')` and
+point. With the baseline row alone, A4 gave `r V('bk_g10c_e')` and
 rejected at `r V('bk_g10c_r')`: the sign reverses, as in Section
 \@ref(sec-reconcile).
 
 **A time term in the G-family.** The linear term reduced the bias but
-did not remove it. Across G8, G9 and G10 at both sample sizes the
+did not remove it. Across A3, G9 and A4 at both sample sizes the
 mean estimate was `r V('bk_gl0')` without the baseline row and
 `r V('bk_gl1')` with it. Every one is more than 3 MCSE from zero.
 The rejection rates were `r V('bk_gl_r')`. They were close to nominal
@@ -2281,7 +2301,7 @@ polynomial in $w_t$. Which polynomial absorbs its projection onto
 $B^c_i D_{bc,it}$ depends on the visits in the analysis data, and no
 single choice worked in both.
 
-**F1A0 with the baseline row.** F1A0 without either remedy was biased
+**A6.** A5 without either remedy was biased
 upward (`r V('bk_f0n')`). With the baseline row its mean estimate was
 `r V('bk_f1_e')` across the three time terms and both sample sizes,
 at most `r V('bk_f1_z')` MCSE from zero. Its rejection rates were
@@ -2294,32 +2314,32 @@ interaction. The block does not isolate the mechanism.
 **Under the alternative.** Each analysis has its own estimand, because
 each builds $D_{bc,it}$ at its own half-life. The trend shift column
 therefore compares each analysis with itself, with and without the
-trend. The trend moved F1A0 with the baseline row by `r V('bk_shf')`
-across the three time terms. It moved G10 without a time term by
+trend. The trend moved A6 by `r V('bk_shf')`
+across the three time terms. It moved A4 without a time term by
 `r V('bk_sh10_0')` without the baseline row and `r V('bk_sh10_1')`
 with it.
 
 **Cost without a trend.** At $c_{bm} =$ `r V('bk_cbm')` and no trend,
-G10 had power `r V('bk_pw10')`. The linear term changed it by
+A4 had power `r V('bk_pw10')`. The linear term changed it by
 `r V('bk_c1')` (paired SE `r V('bk_c1s')`) and the quadratic term by
-`r V('bk_c2')` (`r V('bk_c2s')`). The baseline row raised G10 power to
-`r V('bk_pw10b')`. F1A0 with the baseline row had power
+`r V('bk_c2')` (`r V('bk_c2s')`). The baseline row raised A4 power to
+`r V('bk_pw10b')`. A6 had power
 `r V('bk_pwf1')` across the three time terms, so for it the time term
-cost nothing measurable. Its gap to G10 with the baseline row is the
+cost nothing measurable. Its gap to A4 with the baseline row is the
 cost of the expectancy terms in this cell. Without a trend the
 rejection rates under the null were `r V('bk_t0_r')`. Of the 24
 variants, `r V('bk_t0_up')` were above the band, all of them fits of
 `r V('bk_t0_upan')`.
 
 **Standard errors.** With the trend and $c_{bm} =$ `r V('bk_cbm')`,
-$\kappa$ was `r V('bk_k10')` for G10 and `r V('bk_kf')` for F1A0.
-Without the trend it was `r V('bk_k10_0')` and `r V('bk_kf_0')`. G8,
+$\kappa$ was `r V('bk_k10')` for A4 and `r V('bk_kf')` for A5.
+Without the trend it was `r V('bk_k10_0')` and `r V('bk_kf_0')`. A3,
 which chooses no half-life, had `r V('bk_k8')` with the trend, so part
 of the shortfall at $N = 70$ is not due to the selection. At $N =$
 `r V('bk_nbig')` under the null, $\kappa$ was `r V('bk_kbig')` for
-every analysis. Paper 02 found that the G10 confidence interval
+every analysis. Paper 02 found that the A4 confidence interval
 under-covers under the alternative [@pmsimstats-paper02]. These
-values show that F1A0, which chooses its half-life the same way,
+values show that A5, which chooses its half-life the same way,
 shares the shortfall. Both analyses are recommended here for the test
 and not for an interval estimate.
 
@@ -2335,9 +2355,9 @@ had a trend null and a trend alternative at $c_{bm} =$
 own alternative without a trend. The two Hybrid settings at
 $t_{1/2} = 0.5$ week used the no-trend alternative of the first block,
 which has other trials. Every cell had $N = 70$ and `r V('br_n')`
-replicates (band `r V('br_band')`). G8, G10 and F1A0 were fitted with
+replicates (band `r V('br_band')`). A3, A4 and A5 were fitted with
 no time term and with the linear term, with and without the baseline
-row: 12 fits per trial. G8 fixed the analysis half-life at the true
+row: 12 fits per trial. A3 fixed the analysis half-life at the true
 value of each setting. Of the fits, `r V('br_conv')` percent
 converged. Tables \@ref(tab:tab-bmtr-null) and
 \@ref(tab:tab-bmtr-alt) give the results.
@@ -2409,7 +2429,7 @@ if (has_bkr) {
 }
 ```
 
-**F1A0 with the baseline row.** With no time term, F1A0 with the
+**A6.** With no time term, A5 with the
 baseline row stayed close to zero at both trend sizes and under
 OL+BDC. Its mean estimate under the null was `r V('br_f_e_t15')`
 (`r V('br_f_z_t15')` MCSE) at $b_{TV}^{\mathrm{tr}} =$
@@ -2429,12 +2449,12 @@ G-family, a fixed bias is expected to raise the size at larger $N$.
 The linear term reduced the bias at $t_{1/2} = 1$ week to
 `r V('br_fl_e_h1')` (`r V('br_fl_z_h1')` MCSE). Under OL+BDC it
 introduced one: `r V('br_fl_e_ob')` (`r V('br_fl_z_ob')` MCSE). In
-the first block the term made no difference to F1A0 with the baseline
+the first block the term made no difference to A5 with the baseline
 row. Under OL+BDC it does.
 
-**The G-family.** Without a time term, G10 had a mean estimate of
+**The G-family.** Without a time term, A4 had a mean estimate of
 `r V('br_g0')` without the baseline row and `r V('br_g1')` with it.
-Every G8 and G10 estimate without a time term was at least
+Every A3 and A4 estimate without a time term was at least
 `r V('br_gz')` MCSE from zero. Of these `r V('br_gn')` fits,
 `r V('br_gup')` rejected above the band at $N = 70$. The sign
 reversal with the baseline row held in every setting. With the
@@ -2443,20 +2463,20 @@ within 2 MCSE of zero, all without the baseline row, at
 `r V('br_gl_okk')`. The linear term is not a general remedy for the
 G-family.
 
-**Cost and standard errors.** Without a trend, G10 with the baseline
-row had more power than F1A0 with it in every setting. The gap was
+**Cost and standard errors.** Without a trend, A4 with the baseline
+row had more power than A5 with it in every setting. The gap was
 `r V('br_gap0')` in the Hybrid cell at $t_{1/2} = 0.5$ week,
 `r V('br_gap_ob')` under OL+BDC (`r V('br_g_p_ob')` against
 `r V('br_f_p_ob')`) and `r V('br_gap_h1')` at $t_{1/2} = 1$ week
 (`r V('br_g_p_h1')` against `r V('br_f_p_h1')`). With the trend
-and $c_{bm} =$ `r V('bk_cbm')`, $\kappa$ was `r V('br_kf')` for F1A0
-with the baseline row, `r V('br_k10')` for G10 and `r V('br_k8')`
-for G8.
+and $c_{bm} =$ `r V('bk_cbm')`, $\kappa$ was `r V('br_kf')` for A5
+with the baseline row, `r V('br_k10')` for A4 and `r V('br_k8')`
+for A3.
 
 The two blocks cover two designs, two half-lives and three trend
 coefficients, one at a time, at $N = 70$. The natural-history course
 was the published Gompertz curve in every cell. Neither block
-isolates why the longer half-life leaves a bias in F1A0.
+isolates why the longer half-life leaves a bias in A5.
 
 ## Expectancy terms without a prognostic effect {#sec-gvf}
 
@@ -2496,15 +2516,15 @@ if (has_s27) {
 }
 ```
 
-The null rates were `r V('g_null_g10')` for G10, `r V('g_null_f1a0')`
-for F1A0, `r V('g_null_fb')` for F1A0B and `r V('g_null_f1')` for F1.
-Over the alternative cells of the Hybrid design, F1A0 reached
-`r V('g_r_Hybrid_F1A0')` percent of the mean power of G10, F1A0B
+The null rates were `r V('g_null_g10')` for A4, `r V('g_null_f1a0')`
+for A5, `r V('g_null_fb')` for F1A0B and `r V('g_null_f1')` for F1.
+Over the alternative cells of the Hybrid design, A5 reached
+`r V('g_r_Hybrid_F1A0')` percent of the mean power of A4, F1A0B
 `r V('g_r_Hybrid_F1A0B')` percent and F1 `r V('g_r_Hybrid_F1')`
 percent. Under OL+BDC the figures were `r V('g_r_OLBDC_F1A0')`,
 `r V('g_r_OLBDC_F1A0B')` and `r V('g_r_OLBDC_F1')` percent. The mean
-paired difference from G10 over the `r V('g_k')` Hybrid alternative
-cells was `r V('g_pd_Hybrid_F1A0')` for F1A0 (SE
+paired difference from A4 over the `r V('g_k')` Hybrid alternative
+cells was `r V('g_pd_Hybrid_F1A0')` for A5 (SE
 `r V('g_pse_Hybrid_F1A0')`) and `r V('g_pd_Hybrid_F1')` for F1
 (`r V('g_pse_Hybrid_F1')`). Under OL+BDC it was
 `r V('g_pd_OLBDC_F1A0')` (`r V('g_pse_OLBDC_F1A0')`) and
@@ -2514,10 +2534,10 @@ $N$ share random-number streams, so they are approximate.
 
 F1 also loses power where its fixed half-life is wrong. In block A
 at a true half-life of 2 weeks and $c_{bm} = 0.45$, F1 reached
-`r V('a_f1_pw')` against `r V('a_g10_pw')` for G10. Its mean estimate
-was `r V('a_f1_est')` against `r V('a_g10_est')` for G10 and a true
+`r V('a_f1_pw')` against `r V('a_g10_pw')` for A4. Its mean estimate
+was `r V('a_f1_est')` against `r V('a_g10_est')` for A4 and a true
 value of `r V('truth45')`. The fixed half-life is the cost, not the
-expectancy terms. F1A0, which selects the half-life, is the fair
+expectancy terms. A5, which selects the half-life, is the fair
 comparator for the terms themselves.
 
 ```{r tab-scen}
@@ -2722,57 +2742,57 @@ The results come from two kinds of analysis data. The paper 02
 driver starts at the first post-baseline visit. The second stress test
 adds baseline as an off-drug row. The choice changes how a prognostic
 pathway reaches the interaction term. Without a baseline row, the
-correlation pathways at strength 0.3 left G9 and G10 inside the band
+correlation pathways at strength 0.3 left G9 and A4 inside the band
 at $N \le 70$ (Section \@ref(sec-stress)), and the placebo-response
 bias became visible only at $N = 280$ (Section \@ref(sec-largen)).
 With a baseline row, a pathway absent at baseline also enters through
 the single biomarker main effect shared by baseline and the off-drug
-visits (Appendix \@ref(sec-shared)). G10 then exceeded the band at
+visits (Appendix \@ref(sec-shared)). A4 then exceeded the band at
 $N = 70$ under the natural-history and placebo-response correlations
 (Section \@ref(sec-tenan)). Under the trend pathway the baseline row
 reversed the sign of the bias of the G-family (Section
-\@ref(sec-reconcile)). For F1A0 it did more: it removed the bias in
+\@ref(sec-reconcile)). For A5 it did more: it removed the bias in
 four of the five settings simulated (Sections \@ref(sec-bmt) and
 \@ref(sec-bmtr)). The
 expectancy-term analyses kept their size in both kinds of data. Which
 convention a trial's analysis follows is therefore part of its
-specification. A study that plans G10 for a biomarker that may be
+specification. A study that plans A4 for a biomarker that may be
 prognostic should state it.
 
 ## The joint recommendation {#sec-recommend}
 
 This paper and paper 02 give one recommendation between them.
 
-- For a biomarker believed to be predictive only, use G10: the
+- For a biomarker believed to be predictive only, use A4: the
   exposure-weighted indicator with the half-life chosen by AIC on the
   model without the interaction, tested with CR2
   [@pmsimstats-paper02].
 - Where the biomarker may also be prognostic, add the
-  design-expectancy terms $\eta_t$ and $B^c_i\eta_t$. This is F1A0,
-  or its bootstrap-calibrated form F1A0B. F1A0 and G10 differ only in
+  design-expectancy terms $\eta_t$ and $B^c_i\eta_t$. This is A5,
+  or its bootstrap-calibrated form F1A0B. A5 and A4 differ only in
   those two terms.
 - Where the biomarker may predict the rate of natural-history change,
-  fit F1A0 with the baseline visit as an outcome row and no time
+  fit A5 with the baseline visit as an outcome row and no time
   term. In the block of Section \@ref(sec-bmt) that removed the trend
   bias with or without a biomarker-by-time term. In the second block
   (Section \@ref(sec-bmtr)) it removed the bias at two other trend
   sizes and under OL+BDC but left one of `r V('br_f_e_h1')` at
   $t_{1/2} = 1$ week, with the size still inside the band. The linear
   term reduced that bias but introduced one under OL+BDC, so it is not
-  recommended as a default. A biomarker-by-time term in G10 is not a
+  recommended as a default. A biomarker-by-time term in A4 is not a
   remedy: the linear term left a bias in most settings, and the
   quadratic term left one when the baseline row was included.
-- Use G10 and F1A0 for the test of $\beta_{bm:D}$, not for an
+- Use A4 and A5 for the test of $\beta_{bm:D}$, not for an
   interval estimate. Their model standard errors were too small under
-  the alternative here and in paper 02, whose G10 interval
+  the alternative here and in paper 02, whose A4 interval
   under-covered [@pmsimstats-paper02].
 
 The third point rests on three trend coefficients, two designs and
 two half-lives, varied one at a time at $N = 70$. It is a
-recommendation for the test. As an estimator, F1A0 with a baseline row
+recommendation for the test. As an estimator, A6
 was biased at the longer half-life. It also has a cost. With a
-baseline row and no trend, F1A0 had power `r V('bk_pwf1')` against
-`r V('bk_pw10b')` for G10 in the Hybrid cell at $t_{1/2} = 0.5$ week
+baseline row and no trend, A5 had power `r V('bk_pwf1')` against
+`r V('bk_pw10b')` for A4 in the Hybrid cell at $t_{1/2} = 0.5$ week
 (Section \@ref(sec-bmt)), a larger gap than in the paper 02 cells
 without a baseline row (Section \@ref(sec-gvf)). The gap was
 `r V('br_gap_ob')` under OL+BDC and `r V('br_gap_h1')` at
@@ -2781,7 +2801,7 @@ F1, which fixes the half-life at 0.2 week, is not recommended. It
 loses power wherever that value is wrong (Section \@ref(sec-gvf)).
 Two questions remain for F1A0B. Its bootstrap calibration may be
 unnecessary once the selection excludes the interaction. Its cost
-against G10 without a prognostic effect is measured here on one grid
+against A4 without a prognostic effect is measured here on one grid
 only.
 
 ## Limitations {#sec-limitations}
@@ -2814,11 +2834,11 @@ inside a band are not independent confirmations.
 1. A constant prognostic shift is absorbed exactly by the biomarker
    main effect. It cannot move the interaction estimate.
 2. Inside the feasibility bounds, and without a baseline row, the
-   correlation pathways left the G9 and G10 Type I error inside the
+   correlation pathways left the G9 and A4 Type I error inside the
    band at $N \le 70$.
 3. A biomarker correlated with the placebo response biases the
    G-family estimate. Under the published parameter values the bias
-   inflated the size of G9 and G10 at $N = 280$. The expectancy terms
+   inflated the size of G9 and A4 at $N = 280$. The expectancy terms
    removed it.
 4. A biomarker that predicts the natural-history trend biased every
    analysis fitted by the paper 02 driver, which has no baseline row.
@@ -2827,21 +2847,21 @@ inside a band are not independent confirmations.
    within a third of its empirical SE of zero in both. The bias does
    not shrink with $N$, so the size rises with it. A linear
    biomarker-by-time term reduced the bias in most settings but did
-   not remove it. F1A0 with a baseline row and no time term removed it
+   not remove it. A6 and no time term removed it
    at three trend sizes and under OL+BDC. At $t_{1/2} = 1$ week it
    left a smaller bias, with the size inside the band at $N = 70$.
 5. In the second stress test, whose analyses have a baseline row, the
    expectancy-term analyses kept their size under all four pathways.
-   G10 exceeded the band under the constant natural-history and
+   A4 exceeded the band under the constant natural-history and
    placebo-response pathways.
 6. The power loss once attributed to a prognostic correlation of 0.6
    was produced by the silent repair of infeasible matrices. Under the
    current default those cells are refused.
 7. For a biomarker that may be prognostic, add $\eta_t$ and
-   $B^c_i\eta_t$ to G10. The result is F1A0. Where the biomarker may
-   predict the natural-history trend, fit F1A0 with a baseline row,
+   $B^c_i\eta_t$ to A4. The result is A5. Where the biomarker may
+   predict the natural-history trend, fit A6,
    at a cost in power that was largest under OL+BDC and at the longer
-   half-life. Use G10 and F1A0 for the test, not for an interval
+   half-life. Use A4 and A5 for the test, not for an interval
    estimate.
 
 # Declarations {-}
@@ -2876,7 +2896,7 @@ second run used `--carryover anchored --allocation random
 --analysis-half-life 0.5` (tagged `-anchored`). The first used
 `--carryover recursive --allocation fixed --analysis-half-life 0.5`
 (untagged). Each run was followed by the same command with `--extra`
-and with `--extra2` added, on the same trials. G10 was fitted to the
+and with `--extra2` added, on the same trials. A4 was fitted to the
 trials of the third run by the same command with `--extra5`. The
 pooled size-adjusted comparison adds 1,500 fresh trials per cell from
 `--extra4` under the second run's DGP (tagged `-extra4-anchored`);
@@ -2899,12 +2919,12 @@ the published one. It was run locally with
 `analysis/data/carryover-sensitivity/published/bmt-block/`
 (`summary.rds`, `paired.rds`, `selection.rds`, `all.rds`, `meta.rds`
 and one file per replicate under `trials/`). Its fits without a time
-term or baseline row reproduce the stored G8, G9, G10 and F1A0 fitters
+term or baseline row reproduce the stored A3, G9, A4 and A5 fitters
 of `simulation-core.R` on a check trial; that check exercised only a
 trial on which every analysis chose the same half-life. The
 robustness block of Section \@ref(sec-bmtr) is the same driver run
-with `--block robust --params published --cores 6`. It fits G8, G10
-and F1A0 with no time term and the linear term only, and writes
+with `--block robust --params published --cores 6`. It fits A3, A4
+and A5 with no time term and the linear term only, and writes
 `analysis/data/carryover-sensitivity/published/bmt-block-robust/`.
 Its cells are separate from those of the first block.
 

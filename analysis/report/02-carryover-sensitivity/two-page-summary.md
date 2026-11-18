@@ -8,117 +8,135 @@ header-includes:
 
 # Two-page summary
 
-*2026-08-12 11:02 PDT*
+*2026-11-18 08:39 PST*
 
-**Unadjusted, lag-adjusted, and exposure-weighted carryover
-specifications under differential-correlation biomarker
-interactions: a factorial simulation study** (pmsimstats team).
+**Testing a predictive biomarker under drug carryover in aggregated
+N-of-1 trials: a staged simulation study** (pmsimstats team).
 
 ## Goal
 
-A companion paper establishes that under covariance moderation, the
-multivariate-normal differential-correlation architecture in which
-the biomarker-treatment interaction lives in a treatment-state
-correlation, carryover (residual drug effect that decays after
-discontinuation) costs up to roughly 31% of power in relative
-terms. That earlier work, and the original Hendrickson et al.
-(2020) publication it builds on, fixed the pharmacokinetic decay
-shape at exponential and evaluated only a single way of
-representing residual exposure in the analysis model. Given a
-trial analyzed under covariance moderation, the analyst must still
-decide how to code that residual exposure in the linear predictor,
-and it is not established which representation is most robust to
-the ordinarily unknown decay shape. This paper takes up that
-question directly, restricting attention to covariance moderation
-and the exponential and Weibull decay forms.
+A predictive biomarker is validated by a biomarker-by-treatment
+interaction test. In an aggregated N-of-1 trial that test is made
+within patients, from repeated on-drug and off-drug contrasts. Drug
+carryover weakens the contrast. Observations taken after
+discontinuation still carry part of the drug effect, and a binary
+on/off regressor codes them as if they carried none. The analyst must
+therefore decide three things. These are how to represent residual
+exposure, how to size the test, and whether the half-life must be
+known. Paper 02 asks which analysis answers all three.
 
-Three analysis-model specifications for the drug-exposure regressor
-are compared. \emph{Unadjusted} is the binary on-drug indicator,
-ignoring carryover entirely; it is what an analyst obtains by
-default and serves as the benchmark any remedy must beat.
-\emph{Lag-adjusted} augments that indicator with a lagged
-just-off-drug term that estimates the magnitude of carryover
-non-parametrically, following the classical crossover-trial device
-of Jones and Kenward. \emph{Exposure-weighted} is a continuous
-indicator that commits to a parametric decay form and half-life,
-the current default in the pmsimstats-ng package. Unadjusted and
-Lag-adjusted estimate the same coefficient and differ by exactly
-one nuisance term, so their contrast isolates that term's
-contribution alone.
+## Approach
 
-## Method
+We simulate under the structure of the data-generating process of the
+companion paper (paper 01). There the interaction is a correlation
+$c_{bm}$ between the biomarker and the drug response that is present
+on drug and decays off drug at the carryover half-life. The parameter
+values are this paper's own set, not paper 01's default values. The
+biomarker is predictive only. We compare five analyses arranged as a
+ladder. Each rung changes one thing about the analysis, except the
+step from rung 0 to rung 1, which changes three.
 
-All three specifications are fitted to the same simulated datasets
-under common random numbers, so every pairwise contrast is paired
-and estimated with reduced Monte Carlo variance. The principal
-comparison is an ADEMP-structured factorial crossing two
-data-generating decay forms (exponential; Weibull at three shape
-values) with the three specifications, three trial designs
-(crossover, Hybrid, OL+BDC), two sample sizes ($N = 35, 70$), and
-three biomarker-moderation strengths (216 cells, 500 replicates
-each). Four further single-axis sensitivity blocks perturb
-within-factor autocorrelation, the analyst's assumed half-life
-against the true one, dropout, and biomarker effect size, and a
-cluster-robust (CR2) recalibration checks whether the model-based
-test's known mild conservatism disturbs the ranking among
-specifications.
+- **A0**, the starting analysis of Hendrickson et al. (2020): random
+  intercept, binary drug indicator, no residual correlation.
+- **A1**: the binary indicator with `corCAR1` residual correlation
+  and the working-covariance standard error.
+- **A2**: A1 with a CR2 cluster-robust standard error and
+  Satterthwaite degrees of freedom.
+- **A3**: an exposure-weighted predictor at the true half-life, with
+  CR2. No analyst knows the true half-life, so A3 is an oracle
+  benchmark.
+- **A4**: the exposure-weighted predictor at the half-life chosen by
+  AIC over four candidates. The selection uses the model without the
+  interaction. The interaction model is then refitted by REML and
+  tested with CR2. Papers 01 and 15 call this analysis G10.
+
+The ladder is compared in six scenario families. Family 1 is the base
+grid of 30 cells. It covers three designs (crossover, OL+BDC and
+Hybrid) and $N$ of 35 and 70. It sets $c_{bm}$ to 0, 0.30 and 0.45 at
+a 1-week half-life, and the half-life to 0 and 0.5 week at
+$c_{bm} = 0.45$. Families 2 to 5 add a misspecified half-life and
+decay shape, serial correlation of 0.5 and 0.9, patient dropout, and
+a patient slope variance. Family S is a Hybrid run with independent
+seeds for every cell. Within a cell every analysis is fitted to the
+same trials, so the comparisons are paired. A separate factorial of
+exponential and Weibull decay compares the binary indicator with the
+exposure-weighted predictor (rung 3). The study is exploratory. Its
+rungs and scenarios were not fixed in advance.
 
 ## Results
 
-Two findings dominate. First, the lagged-treatment term buys
-nothing: across all 216 cells, Lag-adjusted and Unadjusted are
-statistically indistinguishable, differing by a mean of 0.003 in
-power against a Monte Carlo standard error of 0.018, and agreeing
-to three decimal places on bias, mean squared error, and coverage.
-Because the two specifications share an estimand, are fitted to the
-same datasets, and differ by exactly one term, this is a clean
-null rather than an underpowered comparison. The mechanism follows
-from where the term sits: it enters only as a nuisance main effect,
-so it can absorb mean-level carryover but cannot repair the
-attenuation of the biomarker interaction itself.
+**Rungs 0 and 1: residual correlation.** Pooled over the three
+designs in the base grid, A0 rejected the null at 0.110. It is liberal
+by two to three times nominal under the crossover and OL+BDC designs,
+and marginally liberal under Hybrid. Isolation analyses attribute this
+to its missing residual correlation. A1 rejected at 0.038. That is,
+the working-covariance test is conservative.
 
-Second, Exposure-weighted attains the highest power only in the
-two designs with a blinded-discontinuation phase. At the reference
-cell (Hybrid, $N = 70$), its advantage over Unadjusted is about ten
-percentage points (0.860 versus 0.766), a difference far beyond
-Monte Carlo error. Under the classical crossover design, however,
-it is markedly inferior (0.488 versus 0.830), because the
-within-subject correlation there already carries most of the
-signal the decaying predictor was designed to recover, so its
-down-weighting of off-drug observations works against it. Where
-Exposure-weighted leads, the lead is robust to incorrect
-decay-shape and half-life assumptions and to autocorrelation
-strength. The model-based interaction test is mildly conservative
-for all three specifications (an artifact of the working
-covariance, common to both architectures), and a CR2 cluster-robust
-standard error restores nominal Type I error without disturbing
-the ranking among specifications. Across every condition examined,
-anticipated dropout reduces power far more than the choice among
-specifications: at 30% dropout, all three specifications collapse
-to between 0.12 and 0.25, essentially indistinguishable.
+**Rung 2: cluster-robust inference.** CR2 moved the pooled size to
+0.055. It brings every analysis to within about half a point of
+nominal. It changed power by a mean of $+2.4$ points under Hybrid,
+$+3.3$ under OL+BDC and $-1.0$ under the crossover design.
 
-## Conclusion
+**Rung 3: exposure weighting.** At a 1-week half-life the
+exposure-weighted predictor at the true half-life recovers 15% to 44%
+of the power that carryover removes under Hybrid, and 19% to 25%
+under OL+BDC. The rest has to be met by the design, for example with
+more patients. Where it does not gain, it is within Monte Carlo error
+of the binary indicator.
 
-Under covariance moderation, we recommend the exposure-weighted
-predictor, reported with a cluster-robust standard error, for the
-Hybrid and OL+BDC designs; under a crossover design it should not
-be used, and the unadjusted binary indicator is materially better.
-The classical lagged-treatment remedy cannot be recommended in any
-design examined here, since it never improves on ignoring carryover
-altogether. An approximate half-life is adequate where exposure
-weighting is used, with the error asymmetric in the safer
-direction (under-assuming). Preventing dropout is a more effective
-use of design effort than any choice among these three
-specifications.
+**Rung 4: choosing the half-life.** Paired against the oracle, AIC
+selection changed size by $-0.002$ to $+0.002$ and power by $-0.013$
+to $+0.003$ across the six families. The selected half-life is spread
+over the candidates. The small cost therefore reflects how little the
+predictor depends on the half-life, not recovery of the true value.
+Leaving the interaction out of the selection matters. Selecting with
+it in the model raised size in every family. In the run with
+independent seeds, the size of A4 minus that of the oracle was
+$-0.0008$ (90% interval $-0.0033$ to $+0.0018$). That is equivalent
+within $\pm 0.01$. The same equivalence held in 4 of the other five
+families.
 
-One structural gap bounds these negative findings on the
-lagged-treatment remedy. Every carryover term evaluated here,
-lagged and a supplementary washout-adjusted check alike, enters the
-model only as a nuisance main effect, with no product term against
-the biomarker, so the finding is that a carryover main effect does
-not recover the attenuated interaction signal, not that no
-shape-free specification can. The natural untested candidate is a
-carryover term interacted with the biomarker (\texttt{bm:tsd}), a
-linear approximation to what exposure weighting does
-parametrically; this is the more promising candidate and the
-obvious next step.
+**A4 against the binary indicator.** In the Hybrid design A4 exceeded
+A2 by 1.3 points on average over 40 alternative cells, and by up to
+7.1 points at long half-lives. It was below A2 in 6 cells, by at most
+1.0 point. Under dropout of 10% to 30% of patients, completely at
+random or dependent on baseline severity, A4 kept its size. In all but
+one cell it also kept its power advantage.
+
+**Sample size.** Halving the effect roughly quadruples the required
+$N$. Under this paper's parameter set, a Hybrid trial with a 1-week
+half-life analyzed with A4 needs about 73, 130 and 292 patients at
+$c_{bm}$ of 0.4, 0.3 and 0.2 for 80% power. The binary indicator needs
+about 15% to 18% more. A4 held its size at every $N$ checked, up to
+600. This parameter set is not the one paper 01 uses. Under paper
+01's default values (the starting values of
+Hendrickson et al.) the requirement is roughly twice as large, 154
+and 613 patients at 0.4 and 0.2. The two papers' sample sizes should
+not be compared directly.
+
+## Recommendation
+
+For a Hybrid trial with a biomarker known to be predictive only, use
+A4 to test the interaction. It is correctly sized and needs no
+half-life. Three qualifications apply. First, A4 is for the test, not
+for an estimate. Its estimate is biased when the selected half-life is
+wrong, and its interval covers below the nominal rate. Second, under
+the crossover design use A2 instead. Third, whether a biomarker is
+also prognostic is rarely known before a trial. A biomarker that
+predicts the natural-history trend biases A4 as fitted here. For a
+biomarker of unknown role, the default is the analysis of the
+companion paper on prognostic biomarkers (paper 15). This paper
+supports the parts of it that A4 shares: the exposure-weighted
+predictor, the choice of half-life without the interaction, and the
+CR2 test.
+
+## Limits
+
+The results are conditional on the correlation encoding, on one
+parameter set, on one design and on a predictive-only biomarker. Size was evaluated at $N$ of 35 and 70 for every analysis,
+and up to 1,012 for A2 and A4. The analysis model is close to the
+conditional mean of the data-generating process. Part of what the
+ladder shows is therefore that a correctly specified regressor
+outperforms a misspecified one. Even the oracle recovers only part of
+the power that carryover removes. The rest has to be met by the
+design, with more patients and an effort to retain them.

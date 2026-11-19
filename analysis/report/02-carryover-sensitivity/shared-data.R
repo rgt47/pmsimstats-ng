@@ -28,8 +28,9 @@ if (pub) {
 ## The objects the backfill supplies under simcore2026 are built from
 ## the runs, over the same cells the backfill covered: job 27, the four
 ## Stage 4 scenario cells, the gap-fill cells (patient-level dropout,
-## size, shape, half-life, rho) and block S. Every replicate counts, so
-## the guard holds trivially.
+## size, shape, half-life, rho) and block S. In the cells whose runs
+## fitted G10 every replicate counts, so the guard holds trivially;
+## block S is guarded below.
 bf_meth <- c('E7cr2', 'E7null_cr2')
 bf_cols <- c('source', 'cell_id', 'rep', 'method', 'h', 'estimate',
              'std_error', 'p_value', 'converged', 't', 'family', 'sub',
@@ -41,6 +42,21 @@ gf_keep <- sgf |>
                     'B4-rho'),
          sub != 'A1-dropout' | dropout_per == 'patient') |>
   select(-dropout_per)
+## Block S was run without G10. 36-run-referee-variants.R --add-g10
+## refitted it on the same trials (block-S-g10); its G9 must reproduce
+## the stored block-S G9, the same guard the simcore2026 backfill uses.
+rvS_dir <- p02_rv('S')
+rvS_guard <- readRDS(file.path(rvS_dir, 'all.rds')) |>
+  filter(method == 'E7cr2') |>
+  select(cell_id, rep, est_new = estimate) |>
+  inner_join(readRDS(file.path(p02_run('referee-variants/block-S'),
+                               'all.rds')) |>
+               filter(method == 'E7cr2') |>
+               select(cell_id, rep, est_stored = estimate),
+             by = c('cell_id', 'rep')) |>
+  mutate(source = 'rvS', abs_diff = abs(est_new - est_stored),
+         match = (is.na(est_new) & is.na(est_stored)) |
+           (!is.na(abs_diff) & abs_diff < 1e-6))
 bf_all <- bind_rows(
   readRDS(file.path(p02_run('tier1-g-vs-f-e0'), 'all.rds')) |>
     filter(method %in% bf_meth) |>
@@ -55,7 +71,7 @@ bf_all <- bind_rows(
     select(-any_of(c('sub', 'N', 'c_bm', 'design'))) |>
     inner_join(gf_keep, by = 'cell_id') |>
     mutate(source = 'gf', design = 'Hybrid'),
-  readRDS(file.path(p02_run('referee-variants/block-S'), 'all.rds')) |>
+  readRDS(file.path(rvS_dir, 'all.rds')) |>
     filter(method %in% bf_meth) |>
     mutate(source = 'rvS', sub = NA_character_, design = 'Hybrid',
            N = as.numeric(sub('.*-N(\\d+).*', '\\1', cell_id)),
@@ -63,6 +79,11 @@ bf_all <- bind_rows(
   mutate(family = as.character(family)) |>
   select(any_of(bf_cols))
 stopifnot(!anyNA(bf_all$c_bm), !anyNA(bf_all$N))
+## As in the simcore2026 backfill, a block-S replicate whose refitted G9
+## does not reproduce the stored G9 is dropped.
+bf_all <- bf_all |>
+  anti_join(rvS_guard |> filter(!match) |> select(source, cell_id, rep),
+            by = c('source', 'cell_id', 'rep'))
 bf_sum <- bf_all |>
   group_by(source, family, sub, cell_id, N, c_bm, design, method) |>
   summarise(reject = mean(p_value[converged & !is.na(p_value)] < 0.05),
@@ -72,8 +93,10 @@ bf_sum <- bf_all |>
             mean_se = mean(std_error, na.rm = TRUE),
             emp_se = sd(estimate, na.rm = TRUE),
             kappa = mean_se / emp_se, .groups = 'drop')
-bf_guard <- bf_all |> filter(method == 'E7cr2') |>
-  distinct(source, cell_id, rep) |> mutate(match = TRUE)
+bf_guard <- bf_all |> filter(method == 'E7cr2', source != 'rvS') |>
+  distinct(source, cell_id, rep) |> mutate(match = TRUE) |>
+  bind_rows(rvS_guard |> select(source, cell_id, rep, match))
+stopifnot(nrow(rvS_guard) == 2000, mean(rvS_guard$match) > 0.99)
 bf_rej <- function(src, m, ...) {
   d <- bf_sum |> filter(source == src, method == m, ...)
   stopifnot(nrow(d) == 1)
@@ -88,7 +111,7 @@ bf_gvf <- bf_sum |>
   transmute(cell = cell_id, method, reject)
 g21 <- function(cell_id, m) s21$reject[s21$cell == cell_id & s21$method == m]
 g21b <- g21
-bf_ok <- bf_guard |> select(source, cell_id, rep)
+bf_ok <- bf_guard |> filter(match) |> select(source, cell_id, rep)
 cell_meta27 <- s27 |> distinct(cell_id, panel, design, N, c_bm, t1half)
 ## Job 27's A4 replicates, as the backfill supplies them under simcore2026.
 a27_g10 <- bf_all |> filter(source == 't1', method == 'E7null_cr2') |>
@@ -202,8 +225,7 @@ g9h <- if (has_rr) g9_pooled[g9_pooled$item == 'G9 conditional on selected h', ]
 ## The four referee-variant runs (36-run-referee-variants.R, simrun
 ## jobs 34 to 37 on zeus, 2026-10-27), one directory per block.
 rv_read <- function(block, what) {
-  f <- file.path(p02_run(paste0('referee-variants/block-', block)),
-                 paste0(what, '.rds'))
+  f <- file.path(p02_rv(block), paste0(what, '.rds'))
   if (file.exists(f)) readRDS(f) else NULL
 }
 has_rv <- !is.null(rv_read('N', 'summary'))

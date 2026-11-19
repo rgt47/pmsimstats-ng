@@ -317,7 +317,7 @@ if (!pred) {
 ## Referee-variant blocks (family 7 and the side-analysis family S) --------
 
 rv_load <- function(block) {
-  rv_block <- p02_run(paste0('referee-variants/block-', block))
+  rv_block <- p02_rv(block)
   s <- readRDS(file.path(rv_block, 'summary.rds'))
   a <- readRDS(file.path(rv_block, 'all.rds'))
   cells <- s |>

@@ -44,6 +44,17 @@ p02_run <- function(name) {
   else file.path(p02_cs(), name)
 }
 
+## A referee-variant block. Under the published set, block S is the
+## --add-g10 rerun of 36-run-referee-variants.R (block-S-g10): the same
+## trials as the stored block S, with G10 added, since no separate G10
+## backfill was run for that set. Every reader of block S goes through
+## here, so the paper and the ladder script cannot disagree.
+p02_rv <- function(block) {
+  if (p02_published() && block == 'S')
+    p02_run('referee-variants/block-S-g10')
+  else p02_run(paste0('referee-variants/block-', block))
+}
+
 ## A derived output folder or file name under analysis/data/
 ## carryover-sensitivity/ (for example 'ladder-predictive').
 p02_derived <- function(name) {

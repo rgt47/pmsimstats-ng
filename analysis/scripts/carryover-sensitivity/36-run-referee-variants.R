@@ -54,7 +54,7 @@
 ##   Rscript analysis/scripts/carryover-sensitivity/36-run-referee-variants.R \
 ##     [--block N|A|T|S|all] [--reps-null R] [--reps-alt R] \
 ##     [--reps-other R] [--cores K] [--out-dir PATH] \
-##     [--preflight] [--smoke] [--time]
+##     [--preflight] [--smoke] [--time] [--add-g10]
 ##   --preflight checks every cell's covariance matrix and exits;
 ##   --smoke runs two replicates of every cell; --time runs 5
 ##   replicates of the heaviest cell on one worker and reports the
@@ -86,6 +86,10 @@ dir.create(ck_dir, recursive = TRUE, showWarnings = FALSE)
 HL_FIXED <- c(0.25, 1)
 SPECS_FULL  <- c('E2cr2', 'E7cr2', 'E7null_cr2', 'F1', 'E3fix_cr2')
 SPECS_SHORT <- c('E2cr2', 'E7cr2', 'F1')
+## --add-g10 adds G10 (E7null_cr2) to blocks T and S. Seeds depend only
+## on (cell, rep), so the trials are those of a run without it. Used for
+## the published set, where no separate G10 backfill was run.
+if ('--add-g10' %in% args) SPECS_SHORT <- c(SPECS_SHORT, 'E7null_cr2')
 
 base_cell <- list(design = 'Hybrid', N = 70, t1half = 0.5,
                   carryover_form = 'exponential', weibull_shape = 1,

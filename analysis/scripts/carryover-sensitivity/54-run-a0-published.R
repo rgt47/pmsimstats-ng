@@ -26,22 +26,32 @@
 ## --validate fits one trial per design (and one dropout trial) with
 ## E0p and with the vendored lme_analysis() of commit 58b32a9
 ## (analysis/data/quick-sim/hendrickson-58b32a9, useDE = FALSE), and
-## requires equal p-values. The biomarker enters both on the same
-## scale, so the estimates must agree as well.
+## requires equal p-values. The two codes may put the biomarker on
+## different scales (under the published set they differ by the
+## biomarker SD, 15.36), so the estimates must agree up to one constant
+## factor: est_mine / est_orig is the same in every probe and equals 1
+## or the biomarker SD of the active set.
 ##
 ## Usage (from the repository root):
 ##   Rscript analysis/scripts/carryover-sensitivity/54-run-a0-published.R \
 ##     [--validate] [--smoke] [--time] [--max-reps R] [--cores K] \
-##     [--out-dir PATH]
-## The parameter set is forced to simcore2026, the set job 27 used.
-Sys.setenv(PMSIM_PARAMS = 'simcore2026')
+##     [--out-dir PATH] [--params simcore2026|published]
+## --params names the parameter set of the job-27 run to refit
+## (default simcore2026). With published, the stored E0 comes from
+## published/tier1-g-vs-f-e0 and the output goes to
+## published/a0-published, which carries a PARAM_SET marker.
+.args0 <- commandArgs(trailingOnly = TRUE)
+PARAMS <- if ('--params' %in% .args0)
+  .args0[which(.args0 == '--params') + 1] else 'simcore2026'
+stopifnot(PARAMS %in% c('simcore2026', 'published'))
+Sys.setenv(PMSIM_PARAMS = PARAMS)
 suppressMessages({
   library(dplyr); library(purrr); library(tibble); library(tidyr)
   library(parallel)
 })
 source('implementations/tidyverse/R/functions.R')
 source('analysis/scripts/carryover-sensitivity/simulation-core.R')
-stopifnot(param_set() == 'simcore2026')
+stopifnot(param_set() == PARAMS)
 
 args <- commandArgs(trailingOnly = TRUE)
 argv <- function(k, d) if (k %in% args) args[which(args == k) + 1] else d
@@ -51,8 +61,10 @@ TIME     <- '--time' %in% args
 MAX_REPS <- as.integer(argv('--max-reps', NA))
 CORES    <- as.integer(argv('--cores', Sys.getenv('SIM_CORES', '6')))
 DATA_DIR <- 'analysis/data/carryover-sensitivity'
+SET_DIR  <- if (PARAMS == 'published') file.path(DATA_DIR, 'published') else
+  DATA_DIR
 OUT_DIR  <- argv('--out-dir',
-  file.path(DATA_DIR, if (SMOKE) 'a0-published-smoke' else 'a0-published'))
+  file.path(SET_DIR, if (SMOKE) 'a0-published-smoke' else 'a0-published'))
 ck_dir <- file.path(OUT_DIR, 'trials')
 GUARD_TOL <- 1e-6
 
@@ -195,9 +207,15 @@ if (VALIDATE) {
            est_mine = mine$estimate, est_orig = theirs$beta,
            p_mine = mine$p_value, p_orig = theirs$p)
   })
-  out <- mutate(out, d_est = abs(est_mine - est_orig), d_p = abs(p_mine - p_orig))
+  bm_sd <- default_baseline_param() |> filter(cat == 'bm') |> pull(sd)
+  out <- mutate(out, ratio = est_mine / est_orig,
+                d_p = abs(p_mine - p_orig))
   print(as.data.frame(out), digits = 8)
-  ok <- all(out$d_est < 1e-6 & out$d_p < 1e-6)
+  k <- out$ratio[1]
+  ok <- all(out$d_p < 1e-6) && all(abs(out$ratio / k - 1) < 1e-6) &&
+    (abs(k - 1) < 1e-6 || abs(k / bm_sd - 1) < 0.01)
+  cat(sprintf('\nEstimate ratio %.6g; biomarker SD of this set %.6g\n',
+              k, bm_sd))
   cat(if (ok) '\nVALIDATION PASSED\n' else '\nVALIDATION FAILED\n')
   quit(save = 'no', status = if (ok) 0 else 1)
 }
@@ -219,6 +237,7 @@ if (TIME) {
 }
 
 ## ---------------- run ----------------
+if (PARAMS == 'published') guard_out_dir(OUT_DIR)
 dir.create(ck_dir, recursive = TRUE, showWarnings = FALSE)
 reps <- if (SMOKE) 2L else if (!is.na(MAX_REPS)) MAX_REPS else 500L
 jobs <- expand_grid(i = seq_len(nrow(t1_grid)), rep = seq_len(reps))
@@ -254,7 +273,7 @@ res <- bind_rows(lapply(files, read_ck)) |>
 saveRDS(res, file.path(OUT_DIR, 'all.rds'))
 
 ## ---------------- guard: refitted E0 against stored E0 ----------------
-stored <- readRDS(file.path(DATA_DIR, 'tier1-g-vs-f-e0/all.rds')) |>
+stored <- readRDS(file.path(SET_DIR, 'tier1-g-vs-f-e0/all.rds')) |>
   filter(method == 'E0') |>
   select(cell_id, rep, est_stored = estimate, p_stored = p_value)
 guard <- res |> filter(method == 'E0') |>

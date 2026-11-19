@@ -19,21 +19,31 @@ suppressPackageStartupMessages({
 root <- here::here()
 source(file.path(root, 'analysis/scripts/carryover-sensitivity',
                  'spec-labels.R'))
-dat_dir <- file.path(root, 'analysis/data/carryover-sensitivity')
-a <- readRDS(file.path(dat_dir, 'tier1-g-vs-f-e0', 'all.rds'))
-s <- readRDS(file.path(dat_dir, 'tier1-g-vs-f-e0', 'summary.rds'))
-bf <- readRDS(file.path(dat_dir, 'g10-backfill', 'all.rds'))
-guard <- readRDS(file.path(dat_dir, 'g10-backfill', 'guard.rds'))
+## Parameter set from PAPER02_PARAMS (p02-sources.R). Under the published
+## set A4 was fitted in the run itself and the backfill does not apply.
+source(file.path(root, 'analysis/scripts/carryover-sensitivity',
+                 'p02-sources.R'))
+run_dir <- p02_run('tier1-g-vs-f-e0')
+a <- readRDS(file.path(run_dir, 'all.rds'))
+s <- readRDS(file.path(run_dir, 'summary.rds'))
 
 ## A0 (E0) is liberal, so its power is not comparable; it is omitted.
 stored <- c('E1', 'E1cr2', 'E2cr2')
 meta <- a |> distinct(cell_id, design, N, c_bm, t1half)
-a4 <- bf |>
-  filter(source == 't1', method == 'E7null_cr2') |>
-  semi_join(guard |> filter(match), by = c('source', 'cell_id', 'rep')) |>
-  select(cell_id, rep, method, p_value, converged) |>
-  left_join(meta, by = 'cell_id')
-stopifnot(!anyNA(a4$t1half))
+if (p02_backfill()) {
+  dat_dir <- file.path(root, 'analysis/data/carryover-sensitivity')
+  bf <- readRDS(file.path(dat_dir, 'g10-backfill', 'all.rds'))
+  guard <- readRDS(file.path(dat_dir, 'g10-backfill', 'guard.rds'))
+  a4 <- bf |>
+    filter(source == 't1', method == 'E7null_cr2') |>
+    semi_join(guard |> filter(match), by = c('source', 'cell_id', 'rep')) |>
+    select(cell_id, rep, method, p_value, converged) |>
+    left_join(meta, by = 'cell_id')
+} else {
+  stored <- c(stored, 'E7null_cr2')
+  a4 <- NULL
+}
+stopifnot(is.null(a4) || !anyNA(a4$t1half))
 
 a <- a |>
   filter(method %in% stored) |>
@@ -88,7 +98,8 @@ p <- ggplot(d, aes(t1half, power, colour = Analysis, shape = Analysis,
         legend.position = 'top', legend.title = element_blank())
 
 fig_dir <- Sys.getenv('POWER_FIG_DIR', file.path(root, 'analysis/figures'))
-ggsave(file.path(fig_dir, '02-power-by-half-life.pdf'), p,
+fig_base <- p02_fig('02-power-by-half-life')
+ggsave(file.path(fig_dir, paste0(fig_base, '.pdf')), p,
        width = 6.5, height = 3.2)
-ggsave(file.path(fig_dir, '02-power-by-half-life.png'), p,
+ggsave(file.path(fig_dir, paste0(fig_base, '.png')), p,
        width = 6.5, height = 3.2, dpi = 300)

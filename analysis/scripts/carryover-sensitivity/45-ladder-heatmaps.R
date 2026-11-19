@@ -21,24 +21,34 @@ suppressPackageStartupMessages({
 root <- here::here()
 source(file.path(root, 'analysis/scripts/carryover-sensitivity',
                  'spec-labels.R'))
-dat_dir <- file.path(root, 'analysis/data/carryover-sensitivity')
-s <- readRDS(file.path(dat_dir, 'tier1-g-vs-f-e0', 'summary.rds'))
-bf <- readRDS(file.path(dat_dir, 'g10-backfill', 'all.rds'))
-guard <- readRDS(file.path(dat_dir, 'g10-backfill', 'guard.rds'))
+## Parameter set from PAPER02_PARAMS (p02-sources.R). Under the published
+## set A4 was fitted in the run itself and the backfill does not apply.
+source(file.path(root, 'analysis/scripts/carryover-sensitivity',
+                 'p02-sources.R'))
+s <- readRDS(file.path(p02_run('tier1-g-vs-f-e0'), 'summary.rds'))
 
 meta <- s |> distinct(cell_id, design, N, c_bm, t1half, panel)
-a4 <- bf |>
-  filter(source == 't1', method == 'E7null_cr2', converged,
-         !is.na(p_value)) |>
-  semi_join(guard |> filter(match), by = c('source', 'cell_id', 'rep')) |>
-  group_by(cell_id, method) |>
-  summarise(reject = mean(p_value < 0.05), .groups = 'drop') |>
-  left_join(meta, by = 'cell_id')
-stopifnot(nrow(a4) == 30, !anyNA(a4$panel))
+shown <- c('E1', 'E1cr2', 'E2cr2')
+if (p02_backfill()) {
+  dat_dir <- file.path(root, 'analysis/data/carryover-sensitivity')
+  bf <- readRDS(file.path(dat_dir, 'g10-backfill', 'all.rds'))
+  guard <- readRDS(file.path(dat_dir, 'g10-backfill', 'guard.rds'))
+  a4 <- bf |>
+    filter(source == 't1', method == 'E7null_cr2', converged,
+           !is.na(p_value)) |>
+    semi_join(guard |> filter(match), by = c('source', 'cell_id', 'rep')) |>
+    group_by(cell_id, method) |>
+    summarise(reject = mean(p_value < 0.05), .groups = 'drop') |>
+    left_join(meta, by = 'cell_id')
+  stopifnot(nrow(a4) == 30, !anyNA(a4$panel))
+} else {
+  shown <- c(shown, 'E7null_cr2')
+  a4 <- NULL
+}
 
 d <- s |>
   ## A0 (E0) is liberal, so its power is not comparable; omitted.
-  filter(method %in% c('E1', 'E1cr2', 'E2cr2')) |>
+  filter(method %in% shown) |>
   select(cell_id, design, N, c_bm, t1half, panel, method, reject) |>
   bind_rows(a4) |>
   transmute(design = factor(design, levels = c('CO', 'Hybrid', 'OLBDC'),
@@ -77,7 +87,7 @@ p_a <- heat(d |> filter(panel == 'A'), 'c_bm',
   expression('Biomarker moderation ('*c[bm]*')'),
   expression('A: Power by design, analysis and biomarker effect'~
              (t['1/2']==1.0)))
-ggsave(file.path(fig_dir, '02-heatmap-ladder-a.pdf'), p_a,
+ggsave(file.path(fig_dir, paste0(p02_fig('02-heatmap-ladder-a'), '.pdf')), p_a,
        width = 7.0, height = 4.4)
 
 ## The t1/2 = 1 week column of panel B is the c_bm = 0.45 column of
@@ -88,5 +98,5 @@ p_b <- heat(d_b, 't1half',
   expression('Carryover half-life ('*t['1/2']*', weeks)'),
   expression('B: Power by design, analysis and half-life'~
              (c[bm]==0.45)))
-ggsave(file.path(fig_dir, '02-heatmap-ladder-b.pdf'), p_b,
+ggsave(file.path(fig_dir, paste0(p02_fig('02-heatmap-ladder-b'), '.pdf')), p_b,
        width = 7.0, height = 4.4)

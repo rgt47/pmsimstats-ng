@@ -15,7 +15,11 @@ in_file <- sprintf('analysis/data/quick-sim/hendrickson-problems/fig4b-graded/fi
                    cbm, reps)
 out_dir <- 'analysis/figures/quick-sim/hendrickson-problems'
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
-d <- fread(in_file)
+## The N = 140 cells (added 2026-11-18) live in their own file, written
+## by 15-fig4b-graded-58b32a9.R --N 140; they are drawn when present.
+in_140 <- sub('\\.csv$', '-N140.csv', in_file)
+d <- rbind(fread(in_file), if (file.exists(in_140)) fread(in_140), fill = TRUE)
+n_lev <- sort(unique(d$N))
 d[, design := factor(design, levels = c('OL', 'OL+BDC', 'CO', 'N-of-1'))]
 d[, censoring := factor(censoring, levels = c('high dropout', 'more of biased',
                                               'more of flat', 'balanced', 'No censoring'))]
@@ -24,7 +28,7 @@ d[, censoring := factor(censoring, levels = c('high dropout', 'more of biased',
 v_lab <- c(published = 'As published: constant rule (58b32a9)',
            graded = 'Decaying rule')
 d[, version := factor(v_lab[version], levels = unname(v_lab))]
-d[, N := factor(paste0('N = ', N), levels = c('N = 35', 'N = 70'))]
+d[, N := factor(paste0('N = ', N), levels = paste0('N = ', n_lev))]
 p <- ggplot(d, aes(factor(t_half), censoring, fill = power)) +
   geom_tile(color = 'white') +
   geom_text(aes(label = sprintf('%.2f', power)), size = 2.6) +
@@ -34,6 +38,7 @@ p <- ggplot(d, aes(factor(t_half), censoring, fill = power)) +
   theme_grey(base_size = 10) +
   theme(strip.text.y = element_text(size = 8))
 base <- file.path(out_dir, sprintf('fig4b-graded-cbm%.2f', cbm))
-ggsave(paste0(base, '.png'), p, width = 9, height = 8.5, units = 'in', dpi = 200)
-ggsave(paste0(base, '.pdf'), p, width = 9, height = 8.5, units = 'in')
+fig_h <- 2.1 * 2 * length(n_lev) + 0.1
+ggsave(paste0(base, '.png'), p, width = 9, height = fig_h, units = 'in', dpi = 200)
+ggsave(paste0(base, '.pdf'), p, width = 9, height = fig_h, units = 'in')
 cat('Wrote', paste0(base, '.png'), '\n')

@@ -22,6 +22,13 @@ arg <- function(k, d) if (k %in% args) as.numeric(args[which(args == k) + 1]) el
 reps <- as.integer(arg('--reps', 200))
 cores <- as.integer(arg('--cores', 8))
 cbm <- arg('--cbm', 0.25)
+## --N takes a comma-separated list of sample sizes (default 35,70, the
+## stored run). N = 140 was added on 2026-11-18 for paper 01's Figure 6;
+## its cells get their own seed block, so the stored N = 35 and 70 cells
+## keep their seeds and reproduce.
+n_set <- if ('--N' %in% args)
+  as.integer(strsplit(args[which(args == '--N') + 1], ',')[[1]]) else c(35L, 70L)
+stopifnot(all(n_set %in% c(35L, 70L, 140L)))
 src <- 'analysis/data/quick-sim/hendrickson-58b32a9'
 extra <- Sys.getenv('H58_EXTRA', file.path(src, 'R'))
 find_src <- function(f) {
@@ -96,12 +103,20 @@ tds <- list(
                     pathC = c(1, 1, 1, 0, 0, 0, 1, 0), pathD = c(1, 1, 1, 0, 0, 0, 0, 1))))
 cens_names <- c('No censoring', as.character(ps$censorparams$names))
 
+## Seeds for N = 35 and 70 follow the original grid's group numbering
+## (1501 to 1524); N = 140 uses 1601 to 1612 in the same order.
 cells <- CJ(version = names(gen_files), design = 1:4, N = c(35, 70), t_half = c(0, 0.1, 0.2))
 cells[, seed := 1500L + .GRP, by = .(design, N, t_half)]
+c140 <- CJ(version = names(gen_files), design = 1:4, N = 140, t_half = c(0, 0.1, 0.2))
+c140[, seed := 1600L + .GRP, by = .(design, N, t_half)]
+cells <- rbind(cells, c140)[N %in% n_set]
 run <- function(k) {
   cl <- cells[k]
   env <- make_env(gen_files[[cl$version]])
-  mp <- ps$modelparams[ps$modelparams$N == cl$N, , drop = FALSE][1, , drop = FALSE]
+  ## Their parameter table has rows for N = 35 and 70 only, identical
+  ## apart from N; N = 140 takes the N = 70 row with N replaced.
+  mp <- ps$modelparams[ps$modelparams$N == min(cl$N, 70), , drop = FALSE][1, , drop = FALSE]
+  mp$N <- cl$N
   mp$c.bm <- cbm
   mp$carryover_t1half <- cl$t_half
   set.seed(cl$seed)
@@ -123,7 +138,9 @@ bad <- which(!vapply(out, is.data.frame, logical(1)))
 if (length(bad)) stop('cells failed: ', paste(unique(unlist(out[bad])), collapse = ' | '))
 out <- rbindlist(out)
 out[, censoring := cens_names[censorparamset + 1]]
-fwrite(out, file.path(out_dir, sprintf('fig4b-graded-cbm%.2f-reps%d.csv', cbm, reps)))
+n_tag <- if (identical(sort(n_set), c(35L, 70L))) '' else
+  paste0('-N', paste(sort(n_set), collapse = '-'))
+fwrite(out, file.path(out_dir, sprintf('fig4b-graded-cbm%.2f-reps%d%s.csv', cbm, reps, n_tag)))
 print(dcast(out[censorparamset == 0], design + N ~ version + t_half, value.var = 'power'),
       digits = 2)
 cat('repairs by version:\n'); print(out[, .(repairs = sum(unique(repairs))), by = version])

@@ -10,15 +10,96 @@
 source(here::here(
   'analysis/scripts/carryover-sensitivity/spec-labels.R'))
 
-## Data loaded once for the tables below.
-grid <- readRDS(here::here('analysis/data/02-grid-summary.rds'))$summary
-s27  <- readRDS(here::here(
-  'analysis/data/carryover-sensitivity/tier1-g-vs-f-e0/summary.rds'))
-s21  <- readRDS(here::here(
-  'analysis/data/carryover-sensitivity/g-vs-f-comparison/summary.rds'))
-sgf  <- readRDS(here::here(
-  'analysis/data/carryover-sensitivity/g9-gap-fill/summary.rds'))
+## Parameter set, from PAPER02_PARAMS (p02-sources.R): simcore2026 by
+## default, or published (Hendrickson et al.'s values). Every stored run
+## and derived file below is read through it.
+source(here::here('analysis/scripts/carryover-sensitivity/p02-sources.R'))
+pub <- p02_published()
 
+## Data loaded once for the tables below.
+grid <- readRDS(here::here(if (pub) 'analysis/data/02-grid-summary-published.rds'
+                           else 'analysis/data/02-grid-summary.rds'))$summary
+s27  <- readRDS(file.path(p02_run('tier1-g-vs-f-e0'), 'summary.rds'))
+s21  <- readRDS(file.path(p02_run('g-vs-f-comparison'), 'summary.rds'))
+sgf  <- p02_gapfill_summary()
+
+if (pub) {
+## Published set: G10 (A4) and G9 were fitted in the runs themselves.
+## The objects the backfill supplies under simcore2026 are built from
+## the runs, over the same cells the backfill covered: job 27, the four
+## Stage 4 scenario cells, the gap-fill cells (patient-level dropout,
+## size, shape, half-life, rho) and block S. Every replicate counts, so
+## the guard holds trivially.
+bf_meth <- c('E7cr2', 'E7null_cr2')
+bf_cols <- c('source', 'cell_id', 'rep', 'method', 'h', 'estimate',
+             'std_error', 'p_value', 'converged', 't', 'family', 'sub',
+             'N', 'c_bm', 'design')
+gvf_ids <- c('shapemis_alt', 'shapemis_null', 't1hifhi_alt', 't1hifhi_null')
+gf_keep <- sgf |>
+  distinct(cell_id, sub, N, c_bm, dropout_per) |>
+  filter(sub %in% c('A1-dropout', 'A2-size', 'B1-shape', 'B2-halflife',
+                    'B4-rho'),
+         sub != 'A1-dropout' | dropout_per == 'patient') |>
+  select(-dropout_per)
+bf_all <- bind_rows(
+  readRDS(file.path(p02_run('tier1-g-vs-f-e0'), 'all.rds')) |>
+    filter(method %in% bf_meth) |>
+    mutate(source = 't1', sub = NA_character_),
+  readRDS(file.path(p02_run('g-vs-f-comparison'), 'all.rds')) |>
+    filter(method %in% bf_meth, cell %in% gvf_ids) |>
+    mutate(source = 'gvf', cell_id = cell, sub = NA_character_,
+           N = 70, c_bm = ifelse(grepl('_alt$', cell), 0.25, 0),
+           design = 'Hybrid'),
+  p02_gapfill_all() |>
+    filter(method %in% bf_meth) |>
+    select(-any_of(c('sub', 'N', 'c_bm', 'design'))) |>
+    inner_join(gf_keep, by = 'cell_id') |>
+    mutate(source = 'gf', design = 'Hybrid'),
+  readRDS(file.path(p02_run('referee-variants/block-S'), 'all.rds')) |>
+    filter(method %in% bf_meth) |>
+    mutate(source = 'rvS', sub = NA_character_, design = 'Hybrid',
+           N = as.numeric(sub('.*-N(\\d+).*', '\\1', cell_id)),
+           c_bm = as.numeric(sub('.*-cbm([0-9.]+).*', '\\1', cell_id)))) |>
+  mutate(family = as.character(family)) |>
+  select(any_of(bf_cols))
+stopifnot(!anyNA(bf_all$c_bm), !anyNA(bf_all$N))
+bf_sum <- bf_all |>
+  group_by(source, family, sub, cell_id, N, c_bm, design, method) |>
+  summarise(reject = mean(p_value[converged & !is.na(p_value)] < 0.05),
+            n = sum(converged & !is.na(p_value)),
+            mcse = sqrt(reject * (1 - reject) / n),
+            nonconv = sum(!converged),
+            mean_se = mean(std_error, na.rm = TRUE),
+            emp_se = sd(estimate, na.rm = TRUE),
+            kappa = mean_se / emp_se, .groups = 'drop')
+bf_guard <- bf_all |> filter(method == 'E7cr2') |>
+  distinct(source, cell_id, rep) |> mutate(match = TRUE)
+bf_rej <- function(src, m, ...) {
+  d <- bf_sum |> filter(source == src, method == m, ...)
+  stopifnot(nrow(d) == 1)
+  d$reject
+}
+bf_mean_est <- bf_all |>
+  filter(method == 'E7null_cr2') |>
+  group_by(source, cell_id) |>
+  summarise(mean_est = mean(estimate, na.rm = TRUE), .groups = 'drop')
+bf_gvf <- bf_sum |>
+  filter(source == 'gvf', method == 'E7null_cr2') |>
+  transmute(cell = cell_id, method, reject)
+g21 <- function(cell_id, m) s21$reject[s21$cell == cell_id & s21$method == m]
+g21b <- g21
+bf_ok <- bf_guard |> select(source, cell_id, rep)
+cell_meta27 <- s27 |> distinct(cell_id, panel, design, N, c_bm, t1half)
+## Job 27's A4 replicates, as the backfill supplies them under simcore2026.
+a27_g10 <- bf_all |> filter(source == 't1', method == 'E7null_cr2') |>
+  select(cell_id, rep, method, h, estimate, std_error, p_value,
+         converged, t) |>
+  left_join(cell_meta27, by = 'cell_id') |>
+  mutate(family = 'G')
+## In the published runs A4 is already in s27 and sgf.
+stopifnot(sum(s27$method == 'E7null_cr2') == 30,
+          any(sgf$method == 'E7null_cr2'))
+} else {
 ## G10 fitted afterward to the stored trials of families 1 to 5
 ## (41-run-g10-backfill.R). The backfill refit of G9 reproduces the
 ## stored G9 summaries, so its G10 rows sit beside the stored rows.
@@ -71,6 +152,7 @@ s27_g10 <- a27_g10 |>
   summarise(reject = mean(p_value < 0.05), n = n(), .groups = 'drop')
 stopifnot(nrow(s27_g10) == 30, !anyNA(s27_g10$t1half))
 s27 <- bind_rows(s27, s27_g10)
+}
 ## One rejection rate from the gap-fill summary; the dots are filter
 ## conditions and must identify exactly one cell.
 gf <- function(sub_, m, ...) {
@@ -110,16 +192,18 @@ fmt3 <- function(x) ifelse(is.na(x), '--', sprintf('%.3f', x))
 ## Reanalysis of the per-replicate output for the 2026-10-27 referee
 ## report (34-referee-reanalysis.R); the tables that use it are
 ## skipped if the files are absent.
-rr_dir <- here::here('analysis/data/carryover-sensitivity/referee-reanalysis')
+rr_dir <- p02_derived('referee-reanalysis')
+## Files that already hold both parameter sets (sample-size refits).
+rr_both <- here::here('analysis/data/carryover-sensitivity/referee-reanalysis')
 has_rr <- file.exists(file.path(rr_dir, 'm2-pooled-size.csv'))
 g9_pooled <- if (has_rr) read.csv(file.path(rr_dir, 'm2-pooled-size.csv')) else NULL
 ## G9 null rejection by the half-life it selected (four A2 cells).
 g9h <- if (has_rr) g9_pooled[g9_pooled$item == 'G9 conditional on selected h', ] else NULL
 ## The four referee-variant runs (36-run-referee-variants.R, simrun
 ## jobs 34 to 37 on zeus, 2026-10-27), one directory per block.
-rv_dir <- here::here('analysis/data/carryover-sensitivity/referee-variants')
 rv_read <- function(block, what) {
-  f <- file.path(rv_dir, paste0('block-', block), paste0(what, '.rds'))
+  f <- file.path(p02_run(paste0('referee-variants/block-', block)),
+                 paste0(what, '.rds'))
   if (file.exists(f)) readRDS(f) else NULL
 }
 has_rv <- !is.null(rv_read('N', 'summary'))
@@ -148,7 +232,7 @@ rv_cell <- function(d, m, ...) {
 ## Isolation block (38-run-e0-isolation.R, checked by
 ## 39-check-e0-isolation.R; simrun job 42). Paired step differences
 ## are computed from the per-replicate file.
-iso_dir <- here::here('analysis/data/carryover-sensitivity/e0-isolation')
+iso_dir <- p02_run('e0-isolation')
 iso <- readRDS(file.path(iso_dir, 'summary.rds'))
 iso_all <- readRDS(file.path(iso_dir, 'all.rds'))
 stopifnot(nrow(iso) == 150, nrow(iso_all) == 150000)
@@ -156,7 +240,7 @@ stopifnot(nrow(iso) == 150, nrow(iso_all) == 150000)
 ## Analysis-ladder tables and figures (37-ladder-tables-figures.R).
 ## The script reads stored data only. This document reads its CSV
 ## files and recomputes nothing.
-lad_dir <- here::here('analysis/data/carryover-sensitivity/ladder-predictive')
+lad_dir <- p02_derived('ladder-predictive')
 lad_long <- read.csv(file.path(lad_dir, 'ladder-long.csv'),
                      stringsAsFactors = FALSE)
 lad_A  <- read.csv(file.path(lad_dir, 'ladder-table-A.csv'),
@@ -240,7 +324,8 @@ stopifnot(nrow(eqS) == 1, eqS_lo > -0.01, eqS_hi < 0.01)
 ## OL+BDC CR2 check at 5,000 null datasets per cell, this paper's
 ## parameter set (analysis/data/cr2-olbdc-check/; the -published/
 ## directory beside it holds the same check under the starting values).
-olb <- read.csv(here::here('analysis/data/cr2-olbdc-check/summary.csv')) |>
+olb <- read.csv(here::here(if (pub) 'analysis/data/cr2-olbdc-check-published/summary.csv'
+                            else 'analysis/data/cr2-olbdc-check/summary.csv')) |>
   filter(setting == 'p02', design == 'OLBDC', variant == 'g6')
 stopifnot(nrow(olb) == 2, setequal(olb$N, c(35, 70)))
 ## kappa with the root-mean-square SE against the mean-SE kappa used
@@ -517,9 +602,9 @@ ss_k_cor <- with(ss_alt_k[ss_alt_k$method == 'E7null_cr2' &
 ## Failed fits of the sample-size runs refitted with an nlminb fallback
 ## (51-refit-failed-fits.R; referee report 2026-11-15, minor 12).
 ss_refit <- bind_rows(lapply(c('simcore2026', 'published'), function(p)
-  read.csv(file.path(rr_dir, sprintf('sample-size-refits-%s.csv', p)))))
+  read.csv(file.path(rr_both, sprintf('sample-size-refits-%s.csv', p)))))
 ss_refit_cells <- bind_rows(lapply(c('simcore2026', 'published'), function(p)
-  read.csv(file.path(rr_dir, sprintf('sample-size-refit-cells-%s.csv', p)))))
+  read.csv(file.path(rr_both, sprintf('sample-size-refit-cells-%s.csv', p)))))
 ss_refit_n <- sum(!ss_refit$stored_ok)
 ## The Reproducibility section says the guard held in all but one fit.
 stopifnot(all(ss_refit$opt[!ss_refit$stored_ok] == 'nlminb'),
@@ -530,15 +615,20 @@ ss_refit_d <- range(ss_refit_cells$reject_refit -
 ## Selection-aware intervals for A4 at the reference cell: parametric
 ## bootstrap repeating the selection (52-a4-bootstrap-interval.R and
 ## 53-a4-bootstrap-summary.R; referee report 2026-11-15, suggestion 2).
-a4b <- read.csv(file.path(rr_dir, 'a4-bootstrap-coverage.csv'))
-stopifnot(nrow(a4b) == 5, all(a4b$n == a4b$n[1]), a4b$n[1] >= 490,
+## Not yet run under the published set: a4b is NULL there and a4bc()
+## returns NA, so the text prints NA until 52-a4-bootstrap-interval.R
+## is run for it.
+has_a4b <- file.exists(file.path(rr_dir, 'a4-bootstrap-coverage.csv'))
+a4b <- if (has_a4b) read.csv(file.path(rr_dir, 'a4-bootstrap-coverage.csv')) else NULL
+if (has_a4b) stopifnot(nrow(a4b) == 5, all(a4b$n == a4b$n[1]), a4b$n[1] >= 490,
           a4b$min_boot[1] >= 180,
           ## Section 3.4: misses fall mostly on the side nearer zero.
           all(a4b$miss_high > a4b$miss_low),
           ## '... and slightly overstates it.'
           a4b$mean_sd_boot[1] > a4b$sd_est[1],
           a4b$mean_sd_boot[1] < 1.15 * a4b$sd_est[1])
-a4bc <- function(i, w = 'coverage') a4b[[w]][a4b$interval == i]
+a4bc <- function(i, w = 'coverage') if (is.null(a4b)) NA_real_ else
+  a4b[[w]][a4b$interval == i]
 ## Smallest A4 calibration ratio in any single alternative cell, over
 ## families 1 and S and the sample-size runs (referee report
 ## 2026-11-15, M3d).

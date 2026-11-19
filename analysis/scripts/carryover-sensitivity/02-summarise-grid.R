@@ -40,8 +40,19 @@ tier1_file <- if (dev_mode) '01-dev.rds' else '01-factorial.rds'
 if (dev_mode) message('Dev mode: reading ', tier1_file,
                       ' (production summaries will be overwritten)')
 
-raw <- readRDS(file.path(repo_root,
-  'analysis/scripts/carryover-sensitivity/output', tier1_file))
+## Parameter set from PAPER02_PARAMS (p02-sources.R). The published-set
+## factorial (correlation encoding only, 270 cells) is read from
+## published/factorial/ and summarised to 02-grid-summary-published.rds;
+## the simcore2026 outputs are not touched.
+source(file.path(repo_root, 'analysis/scripts/carryover-sensitivity',
+                 'p02-sources.R'))
+pub <- p02_published()
+raw <- if (pub) {
+  readRDS(file.path(p02_run('factorial'), '01-factorial.rds'))
+} else {
+  readRDS(file.path(repo_root,
+    'analysis/scripts/carryover-sensitivity/output', tier1_file))
+}
 
 alpha <- 0.05
 
@@ -128,6 +139,14 @@ stopifnot(all(summary_grid$mc_se_power >= 0,
               summary_grid$mc_se_bias >= 0,
               summary_grid$mc_se_mse >= 0,
               summary_grid$mc_se_non_convergence >= 0))
+
+if (pub) {
+  out_manuscript <- file.path(repo_root,
+    'analysis/data/02-grid-summary-published.rds')
+  saveRDS(list(summary = summary_grid, meta = raw$meta), out_manuscript)
+  message('Wrote ', out_manuscript)
+  quit(save = 'no')
+}
 
 out_analysis <- file.path(repo_root,
   'analysis/scripts/carryover-sensitivity/output/02-grid-summary.rds')

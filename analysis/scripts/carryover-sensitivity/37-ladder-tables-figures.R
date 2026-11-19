@@ -41,10 +41,14 @@ ref_a <- if (pred) 'G10' else 'G9'
 fig_suffix <- if (pred) '-predictive' else ''
 
 data_dir <- here::here('analysis/data/carryover-sensitivity')
-iso_dir <- Sys.getenv('LADDER_ISOLATION_DIR',
-  file.path(data_dir, 'e0-isolation'))
-out_data <- Sys.getenv('LADDER_OUT_DATA', file.path(data_dir,
-  if (pred) 'ladder-predictive' else 'ladder'))
+## Parameter set from PAPER02_PARAMS (p02-sources.R). Under the published
+## set every stored run is read from published/, A4 comes from the runs
+## (no backfill), and outputs take a -published suffix.
+source(here::here('analysis/scripts/carryover-sensitivity/p02-sources.R'))
+if (p02_published()) fig_suffix <- paste0(fig_suffix, '-published')
+iso_dir <- Sys.getenv('LADDER_ISOLATION_DIR', p02_run('e0-isolation'))
+out_data <- Sys.getenv('LADDER_OUT_DATA',
+  p02_derived(if (pred) 'ladder-predictive' else 'ladder'))
 out_fig <- Sys.getenv('LADDER_OUT_FIG', here::here('analysis/figures'))
 dir.create(out_data, recursive = TRUE, showWarnings = FALSE)
 dir.create(out_fig, recursive = TRUE, showWarnings = FALSE)
@@ -194,8 +198,8 @@ make_cells <- function(d) {
 
 ## Original grid (family 1) ------------------------------------------
 
-t1_all <- readRDS(file.path(data_dir, 'tier1-g-vs-f-e0/all.rds'))
-t1_sum <- readRDS(file.path(data_dir, 'tier1-g-vs-f-e0/summary.rds'))
+t1_all <- readRDS(file.path(p02_run('tier1-g-vs-f-e0'), 'all.rds'))
+t1_sum <- readRDS(file.path(p02_run('tier1-g-vs-f-e0'), 'summary.rds'))
 design_lab <- c(CO = 'CO', Hybrid = 'Hybrid', OLBDC = 'OL+BDC')
 
 t1_cells_raw <- t1_all |>
@@ -226,8 +230,8 @@ if (iso_present) {
 
 ## Stage 4 scenario cells (family 2, stored g-vs-f-comparison) ---------
 
-gvf_all <- readRDS(file.path(data_dir, 'g-vs-f-comparison/all.rds'))
-gvf_sum <- readRDS(file.path(data_dir, 'g-vs-f-comparison/summary.rds'))
+gvf_all <- readRDS(file.path(p02_run('g-vs-f-comparison'), 'all.rds'))
+gvf_sum <- readRDS(file.path(p02_run('g-vs-f-comparison'), 'summary.rds'))
 gvf_cells_raw <- tibble::tribble(
   ~cell, ~scenario, ~c_bm, ~t_half,
   'shapemis_null', 'Weibull k=2 (Stage 4)', 0, 0.5,
@@ -244,7 +248,7 @@ gvf_reps <- gvf_all |>
 
 ## Supplementary study (families 2 to 6) --------------------------------
 
-gf_sum <- readRDS(file.path(data_dir, 'g9-gap-fill/summary.rds'))
+gf_sum <- p02_gapfill_summary()
 gf_cells_raw <- gf_sum |>
   distinct(job, sub, cell_id, N, c_bm, t1half, rho, weibull_shape,
            dropout_rate, dropout_mech, dropout_per, c_pb, c_tv, c_bl) |>
@@ -280,12 +284,9 @@ gf_def <- gf_cells_raw |>
   filter(!is.na(family), family %in% fam_levels)
 gf_cells <- make_cells(gf_def)
 
-gf_files <- list.files(file.path(data_dir, 'g9-gap-fill'),
-                       pattern = '^all\\.rds$', recursive = TRUE,
-                       full.names = TRUE)
-gf_reps <- map(gf_files, \(f) {
-  job <- as.integer(sub('^job-', '', basename(dirname(f))))
-  d <- readRDS(f) |> mutate(job = job)
+gf_parts <- p02_gapfill_parts()
+gf_reps <- map(names(gf_parts), \(job) {
+  d <- readRDS(file.path(gf_parts[[job]], 'all.rds')) |> mutate(job = job)
   as_reps(d, paste('gf', d$job, d$cell_id, sep = '|'))
 }) |>
   list_rbind() |>
@@ -296,8 +297,8 @@ gf_reps <- map(gf_files, \(f) {
 j28_cells <- NULL
 j28_reps <- NULL
 if (!pred) {
-  j28_all <- readRDS(file.path(data_dir, 'g9-prognostic-stress/all.rds'))
-  j28_sum <- readRDS(file.path(data_dir, 'g9-prognostic-stress/summary.rds'))
+  j28_all <- readRDS(file.path(p02_run('g9-prognostic-stress'), 'all.rds'))
+  j28_sum <- readRDS(file.path(p02_run('g9-prognostic-stress'), 'summary.rds'))
   path_lab <- c(progpb = 'PB', progtvconst = 'TV-const', progbl = 'BL')
   j28_cells_raw <- j28_sum |>
     distinct(cell_id, pathway, strength, c_bm, N) |>
@@ -315,10 +316,10 @@ if (!pred) {
 
 ## Referee-variant blocks (family 7 and the side-analysis family S) --------
 
-rv_dir <- file.path(data_dir, 'referee-variants')
 rv_load <- function(block) {
-  s <- readRDS(file.path(rv_dir, paste0('block-', block), 'summary.rds'))
-  a <- readRDS(file.path(rv_dir, paste0('block-', block), 'all.rds'))
+  rv_block <- p02_run(paste0('referee-variants/block-', block))
+  s <- readRDS(file.path(rv_block, 'summary.rds'))
+  a <- readRDS(file.path(rv_block, 'all.rds'))
   cells <- s |>
     distinct(cell_id, N, c_bm, t1half, c_pb, b_tv_trend, sd_slope) |>
     mutate(
@@ -354,7 +355,7 @@ rv_reps <- list_rbind(map(rv, 'reps'))
 ## paired with the stored G1 to G9 replicates of the same trial.
 
 bf_reps <- NULL
-if (pred) {
+if (pred && p02_backfill()) {
   bf_all <- readRDS(file.path(data_dir, 'g10-backfill/all.rds'))
   bf_guard <- readRDS(file.path(data_dir, 'g10-backfill/guard.rds'))
   gf_jobs <- gf_def |> distinct(cell_id, job)
@@ -585,7 +586,8 @@ step_results <- step_results |>
 
 ## Coverage (stored in the referee reanalysis) ------------------------------
 
-cov_raw <- read.csv(file.path(data_dir, 'referee-reanalysis/m3-coverage.csv'),
+rr_dir <- p02_derived('referee-reanalysis')
+cov_raw <- read.csv(file.path(rr_dir, 'm3-coverage.csv'),
                     stringsAsFactors = FALSE) |>
   filter(level == 'cell')
 ## The predictive scope shows A3 (G8) and A4 (G10); G10 coverage comes
@@ -593,7 +595,7 @@ cov_raw <- read.csv(file.path(data_dir, 'referee-reanalysis/m3-coverage.csv'),
 if (pred) {
   cov_raw <- bind_rows(
     cov_raw |> filter(method == 'G8'),
-    read.csv(file.path(data_dir, 'referee-reanalysis/m5-coverage-g10.csv'),
+    read.csv(file.path(rr_dir, 'm5-coverage-g10.csv'),
              stringsAsFactors = FALSE) |>
       filter(level == 'cell', method == 'G10') |>
       ## No dropout_per column in this file; the patient-level dropout
@@ -612,8 +614,7 @@ coverage_fam <- cov_raw |>
   ## Families 1 and S (49-coverage-family1-s.R, same method; referee
   ## report 2026-11-15, M3). The file carries its own family column.
   bind_rows(
-    read.csv(file.path(data_dir,
-                       'referee-reanalysis/m6-coverage-family1-s.csv'),
+    read.csv(file.path(rr_dir, 'm6-coverage-family1-s.csv'),
              stringsAsFactors = FALSE,
              colClasses = c(family = 'character')) |>
       filter(pred, level == 'cell') |>

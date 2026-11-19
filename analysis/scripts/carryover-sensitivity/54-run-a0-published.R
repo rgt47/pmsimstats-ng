@@ -82,9 +82,8 @@ add_bl_rows <- function(dat, dat_long) {
             dat_long |> select(ptID, path, bm, timepoint_name, Sx, t, Db))
 }
 
-fit_spec_e0p <- function(dat, dat_long) {
-  na_out <- tibble(spec = 'E0p', estimate = NA_real_, std_error = NA_real_,
-                   p_value = NA_real_, converged = FALSE)
+## Data, fixed-effect formula and target of the published analysis.
+e0p_setup <- function(dat, dat_long) {
   dd <- add_bl_rows(dat, dat_long)
   db_tab <- dd |> filter(t > 0) |> group_by(ptID) |>
     summarise(mean_db = mean(Db), .groups = 'drop')
@@ -93,18 +92,53 @@ fit_spec_e0p <- function(dat, dat_long) {
     ever_on <- db_tab$ptID[db_tab$mean_db == 1]
     dd <- filter(dd, ptID %in% ever_on)
   }
-  form <- if (var_in_db) Sx ~ bm + Db + t + bm:Db + (1 | ptID) else
-    Sx ~ bm + t + bm:t + (1 | ptID)
-  fit <- tryCatch(suppressMessages(lmerTest::lmer(form, data = dd)),
+  list(dd = dd,
+       form = if (var_in_db) Sx ~ bm + Db + t + bm:Db else Sx ~ bm + t + bm:t,
+       targets = if (var_in_db) c('bm:Db', 'Db:bm') else c('bm:t', 't:bm'))
+}
+
+na_row <- function(spec) tibble(spec = spec, estimate = NA_real_,
+                                std_error = NA_real_, p_value = NA_real_,
+                                converged = FALSE)
+
+fit_spec_e0p <- function(dat, dat_long, s = e0p_setup(dat, dat_long)) {
+  form <- update(s$form, . ~ . + (1 | ptID))
+  fit <- tryCatch(suppressMessages(lmerTest::lmer(form, data = s$dd)),
                   error = function(e) NULL)
-  if (is.null(fit)) return(na_out)
+  if (is.null(fit)) return(na_row('E0p'))
   cc <- summary(fit)$coefficients
-  tgt <- intersect(if (var_in_db) c('bm:Db', 'Db:bm') else c('bm:t', 't:bm'),
-                   rownames(cc))
-  if (length(tgt) == 0) return(na_out)
+  tgt <- intersect(s$targets, rownames(cc))
+  if (length(tgt) == 0) return(na_row('E0p'))
   tibble(spec = 'E0p', estimate = cc[tgt[1], 'Estimate'],
          std_error = cc[tgt[1], 'Std. Error'],
          p_value = cc[tgt[1], 'Pr(>|t|)'], converged = TRUE)
+}
+
+## Isolation chain from the published analysis to G1, one change per
+## step, on the same data:
+##   E0p    lmerTest::lmer, Satterthwaite df (the published analysis)
+##   E0pn   the same data and terms, nlme::lme with containment df
+##          (isolates software and df method)
+##   E0pnc  E0pn plus corCAR1(form = ~ t | ptID) (isolates the residual
+##          correlation)
+##   E1     G1 as paper 02 fits it (fit_spec_s7): no BL row, all
+##          patients kept (isolates the BL row and the exclusion rule)
+## The nlme settings are those of 38-run-e0-isolation.R.
+fit_e0p_nlme <- function(spec, s, corr) {
+  ctl <- nlme::lmeControl(opt = 'optim', maxIter = 200, msMaxIter = 200)
+  fit <- tryCatch(
+    if (corr) nlme::lme(s$form, random = ~ 1 | ptID, data = s$dd,
+                        correlation = nlme::corCAR1(form = ~ t | ptID),
+                        control = ctl)
+    else nlme::lme(s$form, random = ~ 1 | ptID, data = s$dd, control = ctl),
+    error = function(e) NULL)
+  if (is.null(fit)) return(na_row(spec))
+  cc <- summary(fit)$tTable
+  tgt <- intersect(s$targets, rownames(cc))
+  if (length(tgt) == 0) return(na_row(spec))
+  tibble(spec = spec, estimate = cc[tgt[1], 'Value'],
+         std_error = cc[tgt[1], 'Std.Error'],
+         p_value = cc[tgt[1], 'p-value'], converged = TRUE)
 }
 
 ## ---------------- regeneration, as simulate_cell_g10() ----------------
@@ -143,14 +177,19 @@ gen_trial <- function(cell) {
   list(dat = dat, dat_long = dat_long, design_set = design_set)
 }
 
+METHODS <- c('E0', 'E0p', 'E0pn', 'E0pnc', 'E1')
 fit_both <- function(tr) {
   if (is.null(tr))
-    return(tibble(method = c('E0', 'E0p'), estimate = NA_real_,
+    return(tibble(method = METHODS, estimate = NA_real_,
                   std_error = NA_real_, p_value = NA_real_,
                   converged = FALSE))
-  bind_rows(fit_spec_e0(tr$dat_long) |>
-              select(spec, estimate, std_error, p_value, converged),
-            fit_spec_e0p(tr$dat, tr$dat_long)) |>
+  s <- e0p_setup(tr$dat, tr$dat_long)
+  keep <- function(x) select(x, spec, estimate, std_error, p_value, converged)
+  bind_rows(keep(fit_spec_e0(tr$dat_long)),
+            fit_spec_e0p(tr$dat, tr$dat_long, s),
+            fit_e0p_nlme('E0pn', s, FALSE),
+            fit_e0p_nlme('E0pnc', s, TRUE),
+            keep(fit_spec_s7(tr$dat_long, 'E1'))) |>
     rename(method = spec)
 }
 
@@ -285,6 +324,20 @@ guard <- res |> filter(method == 'E0') |>
 stopifnot(nrow(guard) == nrow(distinct(res, cell_id, rep)))
 cat(sprintf('\nGuard: %d of %d replicates reproduce stored E0 (max diff %.2g)\n',
             sum(guard$match), nrow(guard), max(guard$abs_diff, na.rm = TRUE)))
+## The refitted G1 (E1) closes the chain; it must also match its stored
+## fit, so the chain ends on the stored A1.
+e1_chk <- res |> filter(method == 'E1') |>
+  select(cell_id, rep, est_new = estimate) |>
+  inner_join(readRDS(file.path(SET_DIR, 'tier1-g-vs-f-e0/all.rds')) |>
+               filter(method == 'E1') |>
+               select(cell_id, rep, est_stored = estimate),
+             by = c('cell_id', 'rep')) |>
+  mutate(abs_diff = abs(est_new - est_stored))
+guard <- guard |>
+  left_join(e1_chk |> select(cell_id, rep, e1_diff = abs_diff),
+            by = c('cell_id', 'rep'))
+cat(sprintf('E1 check: max |refit - stored| %.2g over %d replicates\n',
+            max(e1_chk$abs_diff, na.rm = TRUE), nrow(e1_chk)))
 saveRDS(guard, file.path(OUT_DIR, 'guard.rds'))
 
 ## ---------------- summary ----------------

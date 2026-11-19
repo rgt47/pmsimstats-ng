@@ -21,11 +21,16 @@
 ##
 ## Usage (from the repository root):
 ##   Rscript analysis/scripts/carryover-sensitivity/53-a4-bootstrap-summary.R
+## With PMSIM_PARAMS=published it reads a4-bootstrap-published/ and
+## writes referee-reanalysis-published/a4-bootstrap-coverage.csv. The
+## true value is the same under both sets (sigma_BR = 8).
 suppressMessages({
   library(dplyr); library(purrr); library(tibble); library(tidyr)
 })
 DATA_DIR <- 'analysis/data/carryover-sensitivity'
-BOOT_DIR <- file.path(DATA_DIR, 'a4-bootstrap')
+PUB <- Sys.getenv('PMSIM_PARAMS', 'simcore2026') == 'published'
+BOOT_DIR <- file.path(DATA_DIR, if (PUB) 'a4-bootstrap-published' else 'a4-bootstrap')
+RR_DIR <- file.path(DATA_DIR, if (PUB) 'referee-reanalysis-published' else 'referee-reanalysis')
 THETA <- -0.45 * 8
 
 files <- list.files(file.path(BOOT_DIR, 'trials'), pattern = '^rep-.*\\.rds$',
@@ -75,5 +80,5 @@ cov <- lims |>
          sd_est = sd(ok$est), mean_se = mean(ok$se),
          mean_sd_boot = mean(iv$sd_b))
 print(as.data.frame(cov), digits = 3)
-write.csv(cov, file.path(DATA_DIR, 'referee-reanalysis',
-                         'a4-bootstrap-coverage.csv'), row.names = FALSE)
+write.csv(cov, file.path(RR_DIR, 'a4-bootstrap-coverage.csv'),
+          row.names = FALSE)

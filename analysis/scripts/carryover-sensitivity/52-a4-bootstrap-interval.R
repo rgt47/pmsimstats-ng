@@ -25,7 +25,7 @@
 ##
 ## Usage (from the repository root):
 ##   Rscript analysis/scripts/carryover-sensitivity/52-a4-bootstrap-interval.R \
-##     --params simcore2026 [--reps-from A] [--reps-to B] [--boot B]
+##     [--reps-from A] [--reps-to B] [--boot B]
 ##     [--cores K] [--out-dir PATH] [--time] [--smoke]
 ##   --time runs one replicate with 10 resamples on one worker and
 ##   reports the cost; --smoke runs replicates 1 and 2 with 5 resamples.
@@ -50,10 +50,16 @@ R_TO   <- as.integer(argv('--reps-to', if (SMOKE) '2' else '500'))
 B      <- as.integer(argv('--boot', if (SMOKE) '5' else '199'))
 CORES  <- as.integer(argv('--cores', Sys.getenv('SIM_CORES', '4')))
 PARAMS <- Sys.getenv('PMSIM_PARAMS')
-stopifnot(PARAMS == 'simcore2026')
+## PMSIM_PARAMS selects the set. Under published, the stored A4 fits
+## come from that set's own job 27 (A4 was fitted in the run) and the
+## output goes to a4-bootstrap-published/.
+stopifnot(PARAMS %in% c('simcore2026', 'published'))
+PUB <- PARAMS == 'published'
 DATA_DIR <- 'analysis/data/carryover-sensitivity'
-OUT_DIR <- argv('--out-dir', file.path(DATA_DIR,
-  if (SMOKE) 'a4-bootstrap-smoke' else 'a4-bootstrap'))
+OUT_DIR <- argv('--out-dir', file.path(DATA_DIR, paste0(
+  if (SMOKE) 'a4-bootstrap-smoke' else 'a4-bootstrap',
+  if (PUB) '-published' else '')))
+if (PUB) guard_out_dir(OUT_DIR)
 ck_dir <- file.path(OUT_DIR, 'trials')
 dir.create(ck_dir, recursive = TRUE, showWarnings = FALSE)
 GUARD_TOL <- 1e-6
@@ -63,8 +69,11 @@ CELL <- list(design = 'Hybrid', N = 70, c_bm = 0.45, t1half = 1,
              dgp_arch = 'mvn')
 FULL <- Sx ~ bm + t + Dbc + bm:Dbc
 
-stored <- readRDS(file.path(DATA_DIR, 'g10-backfill/all.rds')) |>
-  filter(source == 't1', cell_id == CELL_ID, method == 'E7null_cr2')
+stored <- (if (PUB)
+  readRDS(file.path(DATA_DIR, 'published/tier1-g-vs-f-e0/all.rds'))
+  else readRDS(file.path(DATA_DIR, 'g10-backfill/all.rds')) |>
+    filter(source == 't1')) |>
+  filter(cell_id == CELL_ID, method == 'E7null_cr2')
 stopifnot(nrow(stored) == 500)
 
 ## ---------------- trial regeneration (as simulate_cell_g10) ----------------

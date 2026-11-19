@@ -16,6 +16,11 @@
 ## Usage (repository root):
 ##   Rscript analysis/scripts/carryover-sensitivity/44-g10-random-slope.R \
 ##     [--max-reps R] [--cores K] [--time] [--g9]
+## The parameter set is PMSIM_PARAMS (simcore2026 by default). Under
+## published the guard reference is block S with G10
+## (published/referee-variants/block-S-g10, which has G9 as well) and
+## the output goes to <spec>-random-slope-published/, the folder
+## paper 02 reads for that set.
 suppressMessages({
   library(dplyr); library(purrr); library(tibble); library(parallel)
 })
@@ -32,8 +37,11 @@ SPEC     <- if (G9) 'G9' else 'G10'
 REF_SPEC <- if (G9) 'E7cr2' else 'E7null_cr2'
 SELECTION <- if (G9) Sx ~ bm + t + Dbc + bm:Dbc else NULL
 DATA_DIR <- 'analysis/data/carryover-sensitivity'
-OUT_DIR  <- file.path(DATA_DIR, sprintf('%s-random-slope%s',
-                                         tolower(SPEC), if (TIME) '-time' else ''))
+PUB      <- param_set() == 'published'
+OUT_DIR  <- file.path(DATA_DIR, sprintf('%s-random-slope%s%s',
+                                         tolower(SPEC), if (PUB) '-published' else '',
+                                         if (TIME) '-time' else ''))
+if (PUB) guard_out_dir(OUT_DIR)
 ck_dir <- file.path(OUT_DIR, 'trials')
 dir.create(ck_dir, recursive = TRUE, showWarnings = FALSE)
 GUARD_TOL <- 1e-6
@@ -132,8 +140,11 @@ if (!TIME) saveRDS(res, file.path(OUT_DIR, 'all.rds'))
 ## itself matched its G9 reference in all but 11 of 55,000 replicates,
 ## so isolated numerical misses are recorded, not fatal; a pairing
 ## failure shows as a large share of misses.
-bf <- readRDS(file.path(DATA_DIR, 'g10-backfill/all.rds')) |>
-  filter(source == 'rvS', method == REF_SPEC) |>
+bf <- (if (PUB)
+  readRDS(file.path(DATA_DIR, 'published/referee-variants/block-S-g10/all.rds'))
+  else readRDS(file.path(DATA_DIR, 'g10-backfill/all.rds')) |>
+    filter(source == 'rvS')) |>
+  filter(method == REF_SPEC) |>
   select(cell_id, rep, est_ref = estimate)
 chk <- res |> filter(method == SPEC, converged) |>
   inner_join(bf, by = c('cell_id', 'rep')) |>

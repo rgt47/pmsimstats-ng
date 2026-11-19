@@ -23,17 +23,24 @@ suppressPackageStartupMessages({
 
 root <- here::here()
 cs <- file.path(root, 'analysis/data/carryover-sensitivity')
-out_dir <- file.path(cs, 'referee-reanalysis')
+## Parameter set from PAPER02_PARAMS (p02-sources.R). Under the published
+## set A4 was fitted in job 27's counterpart and is read from there.
+source(file.path(root, 'analysis/scripts/carryover-sensitivity',
+                 'p02-sources.R'))
+out_dir <- p02_derived('referee-reanalysis')
 
 specs <- c('E0', 'E1', 'E1cr2', 'E2cr2', 'E7null_cr2')
-a27 <- readRDS(file.path(cs, 'tier1-g-vs-f-e0/all.rds')) |>
-  filter(method %in% specs, t1half == 1) |>
+stored <- if (p02_backfill()) setdiff(specs, 'E7null_cr2') else specs
+a27 <- readRDS(file.path(p02_run('tier1-g-vs-f-e0'), 'all.rds')) |>
+  filter(method %in% stored, t1half == 1) |>
   select(cell_id, rep, method, p_value, converged, design, N, c_bm)
 key27 <- a27 |> distinct(cell_id, design, N, c_bm)
-g27 <- readRDS(file.path(cs, 'g10-backfill/all.rds')) |>
-  filter(source == 't1', method == 'E7null_cr2') |>
-  select(cell_id, rep, method, p_value, converged) |>
-  inner_join(key27, by = 'cell_id')
+g27 <- if (p02_backfill()) {
+  readRDS(file.path(cs, 'g10-backfill/all.rds')) |>
+    filter(source == 't1', method == 'E7null_cr2') |>
+    select(cell_id, rep, method, p_value, converged) |>
+    inner_join(key27, by = 'cell_id')
+} else NULL
 d <- bind_rows(a27, g27) |>
   filter(converged, !is.na(p_value))
 stopifnot(setequal(unique(d$method), specs))

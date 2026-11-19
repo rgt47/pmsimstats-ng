@@ -30,7 +30,15 @@ suppressPackageStartupMessages({
 
 root <- here::here()
 cs <- file.path(root, 'analysis/data/carryover-sensitivity')
-out_dir <- file.path(cs, 'referee-reanalysis')
+## Parameter set from PAPER02_PARAMS (p02-sources.R). Under the published
+## set only the items paper 02 reads are computed (m2 pooled size, m3
+## kappa and coverage, m10 heavy missingness); they need the gap-fill
+## study only. The script stops after item 4 there, because the later
+## items read runs that exist under simcore2026 only.
+source(file.path(root, 'analysis/scripts/carryover-sensitivity',
+                 'p02-sources.R'))
+pub <- p02_published()
+out_dir <- p02_derived('referee-reanalysis')
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
 source(file.path(root,
@@ -57,12 +65,17 @@ options(width = 220)
 ## Load stored data
 ## ---------------------------------------------------------------------
 
-sgf <- readRDS(file.path(cs, 'g9-gap-fill/summary.rds'))
-gf_jobs <- c(31, 32, 33, 40)
-gf_all <- map_dfr(gf_jobs, function(j) {
-  readRDS(file.path(cs, sprintf('g9-gap-fill/job-%d/all.rds', j))) |>
-    mutate(job = j)
-})
+if (pub) {
+  sgf <- p02_gapfill_summary()
+  gf_all <- p02_gapfill_all()
+} else {
+  sgf <- readRDS(file.path(cs, 'g9-gap-fill/summary.rds'))
+  gf_jobs <- c(31, 32, 33, 40)
+  gf_all <- map_dfr(gf_jobs, function(j) {
+    readRDS(file.path(cs, sprintf('g9-gap-fill/job-%d/all.rds', j))) |>
+      mutate(job = j)
+  })
+}
 ## Cell-level covariates for the per-replicate gap-fill rows come
 ## from the summary; cell_id is unique within the gap-fill study.
 gf_cells <- sgf |>
@@ -71,10 +84,11 @@ gf_cells <- sgf |>
            dropout_per, c_pb, c_tv, c_bl)
 stopifnot(!anyDuplicated(gf_cells$cell_id))
 gf_all <- gf_all |>
-  select(-job, -block, -sub) |>
+  select(-any_of(c('job', 'block', 'sub'))) |>
   left_join(gf_cells, by = 'cell_id')
 stopifnot(!any(is.na(gf_all$N)))
 
+if (!pub) {
 s21 <- readRDS(file.path(cs, 'g-vs-f-comparison/summary.rds'))
 a21 <- readRDS(file.path(cs, 'g-vs-f-comparison/all.rds'))
 s27 <- readRDS(file.path(cs, 'tier1-g-vs-f-e0/summary.rds'))
@@ -86,7 +100,12 @@ a30 <- readRDS(file.path(cs, 'g9-random-effects/all.rds'))
 grid <- readRDS(file.path(root, 'analysis/data/02-grid-summary.rds'))$summary
 raw1 <- readRDS(file.path(root,
   'analysis/scripts/carryover-sensitivity/output/01-factorial.rds'))$results
+} else {
+  ## sigma_BR is 8 under both parameter sets (paper 02, Table 2).
+  grid <- data.frame(sigma_BR = 8)
+}
 
+if (!pub) {
 ## Stage 4 cell covariates, transcribed from 06-g-vs-f-comparison.R
 ## (base cell: Hybrid, N = 70, t1half = 0.5; t1hifhi cells t1half = 2;
 ## olbdc cells the OL+BDC design).
@@ -98,6 +117,7 @@ s4_cells <- tibble(cell = unique(s21$cell)) |>
 s4_null8 <- c('hybrid_null', 'olbdc_null', 'progbl_null',
               'progtvconst_null', 'progtvgrow_null', 'progpb_null',
               't1hifhi_null', 'shapemis_null')
+}
 
 ## ---------------------------------------------------------------------
 ## Helpers
@@ -217,6 +237,7 @@ emit(bind_rows(pooled, paired_row, cond, per_cell, nl_sum, nl_rows),
 ## Item 2: AIC-selected half-life frequencies
 ## ---------------------------------------------------------------------
 
+if (!pub) {
 sel_src <- bind_rows(
   gf_all |> filter(method %in% c('E7', 'E7cr2')) |>
     transmute(source = sprintf('gap-fill job %d', job), scenario = sub,
@@ -254,6 +275,7 @@ sel_tab <- bind_rows(
          true_t1half, design, N, method)) |>
   arrange(level, true_t1half, design, N, method)
 emit(sel_tab, 'm9-selection-frequencies.csv')
+}
 
 ## ---------------------------------------------------------------------
 ## Item 3: kappa at alternative cells; coverage of CR2 intervals
@@ -351,6 +373,10 @@ hm <- gf_all |>
   mutate(method = g(method), cell_type = ifelse(c_bm == 0, 'null', 'alt')) |>
   arrange(c_bm, match(method, m_lab))
 emit(hm, 'm10-heavy-missingness.csv')
+if (pub) {
+  cat('\nPublished set: items 1, 3 and 4 written to', out_dir, '\n')
+  quit(save = 'no')
+}
 
 ## ---------------------------------------------------------------------
 ## Item 5: counts and claims

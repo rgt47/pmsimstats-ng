@@ -23,7 +23,11 @@ suppressPackageStartupMessages({
 
 root <- here::here()
 cs <- file.path(root, 'analysis/data/carryover-sensitivity')
-out_dir <- file.path(cs, 'referee-reanalysis')
+## Parameter set from PAPER02_PARAMS (p02-sources.R). Under the published
+## set A4 was fitted in job 27's counterpart, so it is read from there.
+source(file.path(root, 'analysis/scripts/carryover-sensitivity',
+                 'p02-sources.R'))
+out_dir <- p02_derived('referee-reanalysis')
 
 solve_df <- function(t, p) {
   if (is.na(t) || is.na(p) || abs(t) < 0.5 || p <= 0 || p >= 1) {
@@ -54,20 +58,24 @@ sigma_br <- 8
 
 ## Family 1: job 27 alternatives. A3 from the stored per-replicate file,
 ## A4 from the backfill refits of the same trials.
-a27 <- readRDS(file.path(cs, 'tier1-g-vs-f-e0/all.rds')) |>
+t1_all <- readRDS(file.path(p02_run('tier1-g-vs-f-e0'), 'all.rds'))
+a27 <- t1_all |>
   filter(method == 'E2cr2', c_bm > 0, converged) |>
   select(cell_id, rep, method, estimate, std_error, p_value, t,
          design, N, c_bm, t1half)
 key27 <- a27 |> distinct(cell_id, design, N, c_bm, t1half)
-g27 <- readRDS(file.path(cs, 'g10-backfill/all.rds')) |>
-  filter(source == 't1', method == 'E7null_cr2', c_bm > 0, converged) |>
+g27_src <- if (p02_backfill()) {
+  readRDS(file.path(cs, 'g10-backfill/all.rds')) |> filter(source == 't1')
+} else t1_all
+g27 <- g27_src |>
+  filter(method == 'E7null_cr2', c_bm > 0, converged) |>
   select(cell_id, rep, method, estimate, std_error, p_value, t) |>
   inner_join(key27, by = 'cell_id')
 stopifnot(nrow(g27) > 0, setequal(unique(g27$cell_id), unique(a27$cell_id)))
 f1 <- bind_rows(a27, g27) |> mutate(family = '1')
 
 ## Family S: independent-seed alternatives (block A).
-bA <- readRDS(file.path(cs, 'referee-variants/block-A/all.rds')) |>
+bA <- readRDS(file.path(p02_run('referee-variants/block-A'), 'all.rds')) |>
   filter(method %in% c('E2cr2', 'E7null_cr2'), converged) |>
   mutate(design = 'Hybrid',
          N = as.integer(sub('.*-N(\\d+)-.*', '\\1', cell_id)),

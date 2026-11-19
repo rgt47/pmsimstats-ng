@@ -20,7 +20,12 @@ suppressPackageStartupMessages({
 
 root <- here::here()
 cs <- file.path(root, 'analysis/data/carryover-sensitivity')
-out_dir <- file.path(cs, 'referee-reanalysis')
+## Parameter set from PAPER02_PARAMS (p02-sources.R). Under the published
+## set G9 and G10 were fitted in the gap-fill runs themselves, so they
+## are read from there, restricted to the cells the backfill covered.
+source(file.path(root, 'analysis/scripts/carryover-sensitivity',
+                 'p02-sources.R'))
+out_dir <- p02_derived('referee-reanalysis')
 
 solve_df <- function(t, p) {
   if (is.na(t) || is.na(p) || abs(t) < 0.5 || p <= 0 || p >= 1) {
@@ -48,11 +53,27 @@ coverage_block <- function(d, theta) {
          coverage_normal_approx = mean(z < 1.96))
 }
 
-## sigma_BR = 8 in the simcore2026 parameter set, as in
-## 34-referee-reanalysis.R (grid$sigma_BR).
+## sigma_BR = 8 in both parameter sets, as in 34-referee-reanalysis.R
+## (grid$sigma_BR).
 sigma_br <- 8
-bf <- readRDS(file.path(cs, 'g10-backfill/all.rds')) |>
-  filter(source == 'gf', c_bm > 0, converged)
+if (p02_backfill()) {
+  bf <- readRDS(file.path(cs, 'g10-backfill/all.rds')) |>
+    filter(source == 'gf', c_bm > 0, converged)
+} else {
+  ## The backfill's gap-fill cells: patient-level dropout, the size
+  ## cells, the shape, half-life and rho blocks (41-run-g10-backfill.R).
+  cells <- p02_gapfill_summary() |>
+    distinct(cell_id, sub, N, c_bm, dropout_per) |>
+    filter(sub %in% c('A1-dropout', 'A2-size', 'B1-shape', 'B2-halflife',
+                      'B4-rho'),
+           sub != 'A1-dropout' | dropout_per == 'patient') |>
+    select(-dropout_per)
+  bf <- p02_gapfill_all() |>
+    filter(method %in% c('E7cr2', 'E7null_cr2')) |>
+    select(-any_of(c('sub', 'N', 'c_bm'))) |>
+    inner_join(cells, by = 'cell_id') |>
+    filter(c_bm > 0, converged)
+}
 cov_tab <- bf |>
   group_by(cell_id, sub, N, c_bm, method) |>
   group_modify(~ coverage_block(.x, theta = -unique(.y$c_bm) * sigma_br)) |>

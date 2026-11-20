@@ -12,6 +12,13 @@
 ##                               core's own values (parameter set 2),
 ##                               under analysis/data/carryover-sensitivity/
 ##
+## Since 2026-11-19 the text of paper 02 is written for parameter set 1,
+## and its assertions encode set-1 claims, so report.Rmd renders only
+## under the default. simcore2026 still selects the set-2 data for the
+## derived scripts; the paper reads set-2 results by explicit path
+## where it reports them (sample size, the sensitivity table, the
+## mean-moderation comparison).
+##
 ## The helpers fail closed. A published-set run that is missing, or
 ## whose PARAM_SET marker does not read 'published', stops with an
 ## error; nothing falls back to the other set. Derived outputs (ladder

@@ -807,3 +807,34 @@ stopifnot(cell_pw('CO', 'G10') <= min(vapply(c('G1', 'G6', 'G8'),
                                             function(a) cell_pw('CO', a), 0)),
           all(abs(st3n(c('E1cr2', 'E2cr2', 'E7null_cr2')) - 0.05) <=
                 2 * sqrt(0.05 * 0.95 / 500)))
+
+## The text says the order of A1 to A4 by power is the same under both
+## parameter sets, except where two analyses differ by less than their
+## Monte Carlo error. Every pair whose order differs between the sets
+## must be within two (unpaired, so conservative) MCSE in both.
+sens_pairs <- sens |>
+  filter(quantity == 'power', a != 'A0') |>
+  inner_join(sens |> filter(quantity == 'power', a != 'A0'),
+             by = c('params', 'family', 'quantity'),
+             suffix = c('1', '2'), relationship = 'many-to-many') |>
+  filter(a1 < a2) |>
+  mutate(d = value1 - value2, tol = 2 * sqrt(mcse1^2 + mcse2^2)) |>
+  select(params, family, a1, a2, d, tol) |>
+  pivot_wider(names_from = params, values_from = c(d, tol))
+sens_swaps <- sens_pairs |>
+  filter(sign(d_published) != sign(d_simcore2026))
+stopifnot(nrow(sens_swaps) <= 2,
+          all(abs(sens_swaps$d_published) < sens_swaps$tol_published),
+          all(abs(sens_swaps$d_simcore2026) < sens_swaps$tol_simcore2026))
+
+## Typed facts about parameter set 2 in the text: A2 led A4 in all four
+## CO cells at equal size; A3 fell below the band in one family; A2 at
+## OL+BDC, N = 35, rejected at 0.074 in the 30-cell grid.
+s2_sap <- read.csv(file.path(here::here('analysis/data/carryover-sensitivity'),
+                             'referee-reanalysis', 'size-adjusted-power-f1-paired.csv'))
+s2_27 <- readRDS(file.path(here::here('analysis/data/carryover-sensitivity'),
+                           'tier1-g-vs-f-e0', 'summary.rds'))
+stopifnot(all(s2_sap$diff[s2_sap$design == 'CO' & s2_sap$vs == 'A2'] < 0),
+          sum(sens_sz$a == 'A3' & sens_sz$simcore2026 < 0.04) == 1,
+          abs(s2_27$reject[s2_27$c_bm == 0 & s2_27$method == 'E1cr2' &
+                             s2_27$design == 'OLBDC' & s2_27$N == 35] - 0.074) < 5e-4)

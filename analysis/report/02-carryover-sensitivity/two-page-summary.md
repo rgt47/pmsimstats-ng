@@ -38,8 +38,8 @@ biomarker is predictive only. We compare five analyses arranged as a
 ladder. Each rung changes one thing about the analysis, except the
 step from rung 0 to rung 1, which changes three.
 
-- **A0**, the starting analysis of Hendrickson et al. (2020): random
-  intercept, binary drug indicator, no residual correlation.
+- **A0**, adapted from the analysis of Hendrickson et al. (2020):
+  random intercept, binary drug indicator, no residual correlation.
 - **A1**: the binary indicator with `corCAR1` residual correlation
   and the working-covariance standard error.
 - **A2**: A1 with a CR2 cluster-robust standard error and

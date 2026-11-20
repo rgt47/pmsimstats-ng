@@ -246,8 +246,8 @@ order in which the questions arise for an analyst. Section
 \@ref(sec-ladder-def) defines the rungs and Table
 \@ref(tab:tab-spec-summary) lists them.
 
-Rung 0 is the starting analysis (A0), the analysis used with the
-starting DGP [@hendrickson2020]. It fits a random intercept, uses a binary
+Rung 0 is the starting analysis (A0), adapted from the analysis used
+with the starting DGP [@hendrickson2020] (Section \@ref(sec-e0)). It fits a random intercept, uses a binary
 on-drug indicator, and has no residual correlation structure. The
 first question is whether its test is correctly sized. Rung 1 (A1)
 keeps the binary indicator and uses an AR(1) residual correlation
@@ -1335,6 +1335,9 @@ chs <- function(a, b, d = NULL, alt = FALSE, w = 'diff')
 chr <- function(m, d = NULL, alt = FALSE) f3(ch_rate(m, d, alt))
 ch_bl <- vapply(c('CO', 'OLBDC', 'Hybrid'), function(d)
   chs('E0pnc', 'E1', d, alt = TRUE), numeric(1))
+## The six reference alternatives are those of the base-grid ladder:
+## A1 in the chain must equal A1 there, so A4 there is comparable.
+stopifnot(abs(ch_rate('E1', alt = TRUE) - lv('G1', 'power')) < 0.002)
 ```
 
 **The published analysis itself is liberal for the same reason.** A0
@@ -1358,14 +1361,16 @@ A0, the residual correlation removes the excess.
 **The baseline row carries much of the power.** At the six reference
 alternatives the published analysis with `corCAR1` (E0pnc) has power
 `r chr('E0pnc', alt = TRUE)`, against `r chr('E1', alt = TRUE)` for
-A1. The two differ only in the baseline row. Dropping it lowers power
+A1 and `r f3(lv('G10', 'power'))` for A4 on the same cells. E0pnc and
+A1 differ only in the baseline row. Dropping it lowers power
 by `r f3(-max(ch_bl))` to `r f3(-min(ch_bl))` across the three
 designs and changes size by `r fs3(chs('E0pnc', 'E1'))` (paired SE
 `r f3(chs('E0pnc', 'E1', w = 'se'))`). The baseline row adds an
 off-drug observation of every patient, which presumably sharpens the
 contrast between on-drug and off-drug occasions. No rung of the ladder uses it,
-because the analyzed data of this study start after baseline. The
-comparisons between rungs are unaffected, since all of them omit it.
+because the analyzed data of this study start after baseline. All
+rungs omit it, so the comparisons between them are presumably
+little affected.
 The absolute power of every rung is presumably lower than it would be
 with the baseline row, but we did not fit A2 to A4 with one.
 
@@ -3227,11 +3232,12 @@ term as a carryover adjustment in crossover trials is classical
 - **Separable AR(1) structure.** The same first-order autoregressive
   correlation for every component across occasions, with a constant
   between-component correlation at every lag.
-- **Starting analysis (A0).** The analysis published with the
-  starting DGP: `lme4::lmer` with a random intercept, no residual
-  correlation structure, a binary on-drug indicator, and Satterthwaite
-  $p$-values. The companion paper calls it the binary-indicator
-  analysis.
+- **Starting analysis (A0).** An adaptation of the analysis published
+  with the starting DGP: `lme4::lmer` with a random intercept, no
+  residual correlation structure, a binary on-drug indicator, and
+  Satterthwaite $p$-values. Unlike the published analysis it adds the
+  expectancy term where expectancy varies and has no baseline row
+  (Section \@ref(sec-e0)).
 - **Starting DGP.** The data-generating process of Hendrickson et al.
   (2020), the starting point of the companion study.
 - **Supplementary study.** A later simulation study that added the
@@ -3326,7 +3332,10 @@ other through `p02-sources.R`, selected by `PAPER02_PARAMS` (default
   `a4-bootstrap-published/`). Each local run regenerates the stored
   trials from their seeds and is guarded by refitting a stored
   analysis. The repeat of block S reproduced
-  `r sum(rvS_guard$match)` of `r nrow(rvS_guard)` stored fits, and the
+  `r sum(rvS_guard$match)` of `r nrow(rvS_guard)` stored fits, the
+  random-slope refit reproduced
+  `r if (has_rs) format(sum(rs10$guard$gap < 1e-6), big.mark = ',')` of
+  `r if (has_rs) format(nrow(rs10$guard), big.mark = ',')`, and the
   bootstrap guard held in every replicate whose stored A4 fit had
   converged (499 of 500); 148 of its 99,301 resamples failed to fit.
 - The derived files and figures (`02-summarise-grid.R`,
@@ -3417,8 +3426,7 @@ scripts are the same for both sets. All paths are under
   (2026-10-31), writing `carryover-sensitivity/g10-backfill/`. The
   refit of `E7cr2` is the pairing check: a replicate is used only if
   it reproduces the stored fit, which held in
-  `r format(sum(bf_guard$match, na.rm = TRUE), big.mark = ',')` of
-  `r format(nrow(bf_guard), big.mark = ',')` replicates (`guard.rds`).
+  54,989 of 55,000 replicates (`guard.rds`).
 - A4 with a random slope on time: `44-g10-random-slope.R`
   regenerates the block-S trials from their seeds and fits A4 with a
   random intercept and with a random slope, recording whether a
@@ -3428,9 +3436,8 @@ scripts are the same for both sets. All paths are under
   (`all.rds`, `summary.rds`, `guard.rds`). The random-intercept fit is
   the pairing check against the stored block-S fit: it reproduced the
   stored estimate within $10^{-6}$ in
-  `r if (has_rs) format(sum(rs10$guard$gap < 1e-6), big.mark = ',')` of
-  `r if (has_rs) format(nrow(rs10$guard), big.mark = ',')` replicates.
-  Each exception chose a different half-life. The same script with
+  1,997 of 1,998 replicates. The exception chose a different
+  half-life. The same script with
   `--g9` refits the selection variant (job 7, `g9-random-slope/`),
   which is not reported.
 - Ladder tables and figures: `37-ladder-tables-figures.R --scope

@@ -8,7 +8,7 @@ header-includes:
 
 # Two-page summary
 
-*2026-11-18 08:39 PST*
+*2026-11-19 20:12 PST*
 
 **Toward an optimal data-generating process for simulating
 predictive-biomarker interactions in aggregated N-of-1 trials**
@@ -97,9 +97,9 @@ needs about 280 participants at $c_{bm} = 0.25$ and 84 at 0.45 for
 146. These are exact values for the paired-difference statistic.
 Paper 02 gives sample sizes by simulation for the mixed-model analysis
 a trial would use. Paper 02 calls that analysis A4, and this paper
-calls it G10. Paper 02 uses a different parameter set, under which the
-requirement is about half as large. Its sample sizes should therefore
-not be compared directly with those here.
+calls it G10. Paper 02 uses the same parameter values. In its runs A4
+had at least 80% power at the closed-form sample size wherever that
+size was at most 400, so the closed form is conservative for A4.
 
 **Differences from the DGP of Hendrickson et al.** A separate section
 lists every difference and reruns their code. As published, power

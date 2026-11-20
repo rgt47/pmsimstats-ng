@@ -10,10 +10,37 @@
 source(here::here(
   'analysis/scripts/carryover-sensitivity/spec-labels.R'))
 
-## Parameter set, from PAPER02_PARAMS (p02-sources.R): simcore2026 by
-## default, or published (Hendrickson et al.'s values). Every stored run
-## and derived file below is read through it.
+## Parameter set, from PAPER02_PARAMS (p02-sources.R): published
+## (Hendrickson et al.'s values, set 1) by default, or simcore2026
+## (set 2). Every stored run and derived file below is read through it.
 source(here::here('analysis/scripts/carryover-sensitivity/p02-sources.R'))
+
+## Column alignment for knitr::kable: 'r' for a column whose entries
+## are all numbers, 'l' otherwise. Most table cells are preformatted
+## strings ('0.457 (0.011)', '566 (551--582)', '-0.0020 to +0.0035'),
+## which kable would left-align by type. A cell counts as numeric when
+## nothing but numbers, signs, brackets, separators and the words
+## 'to'/'of' remains; blanks and dashes are ignored.
+num_align <- function(x) {
+  is_num_cell <- function(s) {
+    s <- gsub('\\$\\^\\{?[a-z]\\}?\\$|\\$[-+]\\$|\\\\%', '', s)
+    s <- gsub('[-+]?[0-9][0-9,]*(\\.[0-9]+)?', '#', s)
+    s <- gsub('\\b(to|of)\\b|[-+%(),[:space:]]', '', s)
+    grepl('^#+$', s)
+  }
+  vapply(x, function(col) {
+    if (is.numeric(col)) return('r')
+    v <- trimws(as.character(col))
+    v <- v[!is.na(v) & !v %in% c('', '--', '---', '-', 'n/e')]
+    if (length(v) > 0 && all(is_num_cell(v))) 'r' else 'l'
+  }, character(1), USE.NAMES = FALSE)
+}
+kable_r <- function(x, ...) knitr::kable(x, align = num_align(x), ...)
+## A fixed-width numeric column (column_spec(width =) would make it
+## ragged-right): pass as column_spec(latex_column_spec = rcol('1cm')).
+## kableExtra consumes one level of backslashes, hence the doubling;
+## with single ones the spec is mangled and later column widths drop.
+rcol <- function(w) sprintf('>{\\\\raggedleft\\\\arraybackslash}p{%s}', w)
 pub <- p02_published()
 
 ## Data loaded once for the tables below.

@@ -156,8 +156,8 @@ The rest has to be met by the design. Whether a biomarker is also
 prognostic is rarely known before a trial. In that case the analysis of the
 companion paper applies.
 This paper's results bear on its choice of half-life and its CR2
-test. The results are conditional on the correlation encoding and one
-parameter set.
+test. The results are conditional on the correlation encoding. A
+second parameter set gave the same ranking of the analyses.
 
 **Keywords:** N-of-1 trials; carryover; predictive biomarker;
 cluster-robust inference; post-selection inference; simulation
@@ -214,9 +214,10 @@ The loss under a given analysis is governed by the on/off correlation
 difference. That is the on-drug correlation minus the mean off-drug
 correlation, which the analysis's exposure coding determines. At a
 half-life of one week in this study's factorial grid, the binary
-indicator loses a fifth to two thirds of its power under the
-Hybrid and OL+BDC designs. It loses 7 to 16 percent under the crossover
-design (Section \@ref(sec-rung3)). We restrict attention to the correlation
+indicator loses `r rl_pct(c('Hybrid', 'OLBDC'))` of its power under the
+Hybrid and OL+BDC designs. Under the crossover design the
+relative loss is `r rl_pct('CO')`, where a negative loss is a gain
+(Section \@ref(sec-rung3)). We restrict attention to the correlation
 encoding. The carryover problem is largest there, and the starting DGP
 uses it. Earlier work under this encoding fixed the decay shape at
 exponential and evaluated only one analysis specification
@@ -401,8 +402,8 @@ tab_fam <- tibble::tribble(
 knitr::kable(tab_fam, booktabs = TRUE, escape = FALSE, linesep = '',
   caption = 'The six scenario families of the ladder comparisons.
     Every biomarker is predictive only. Within a cell every analysis
-    is fitted to the same simulated trials; A4 was fitted to the
-    stored trials of families 1 to 5 afterward. Family S has
+    is fitted to the same simulated trials. In family 5, A4 was added
+    to the stored trials in a repeat run. Family S has
     independent seeds for every cell. Section \\ref{sec-grid}
     describes the cells.') |>
   kableExtra::column_spec(2, width = '9.5cm') |>
@@ -650,22 +651,27 @@ analysis. It shows what the selection step of rung 4 costs.
 
 ### Rung 0: the starting analysis (A0) {#sec-e0}
 
-**A0** is the starting analysis, the analysis published with the
-starting DGP [@hendrickson2020]. We read it from the published
-repository (commit `58b32a9`, `R/lme_analysis.R`). We did not use
-this project's vendored copy, which had acquired a residual
-correlation structure at some later point. It fits `lme4::lmer` with a random
-intercept
-and no residual correlation structure. It uses the binary on-drug
-indicator and takes Satterthwaite $p$-values from `lmerTest`. As
-published it also adds the expectancy main effect $D_e$ whenever
-expectancy varies within the design. It also drops patients who are
-never on drug. Under the crossover design expectancy is constant, so
-$D_e$ drops out. A0 therefore differs from A1 in three respects at
-once. These are the absence of `corCAR1`, the $D_e$ term, and the
-software and degrees-of-freedom method. A separate simulation changes them one
-at a time (E0n, E0nc
-and E1nc; Section \@ref(sec-rung1)).
+**A0** is the starting analysis, adapted from the analysis published
+with the starting DGP [@hendrickson2020]. We read the published
+analysis from the published repository (commit `58b32a9`,
+`R/lme_analysis.R`, and the driver of its publication results). We
+did not use this project's vendored copy, which had acquired a
+residual correlation structure at some later point. The published
+analysis fits `lme4::lmer` with a random intercept and no residual
+correlation structure. It uses the binary on-drug indicator and takes
+Satterthwaite $p$-values from `lmerTest`. It also adds a baseline row
+for each patient, an off-drug outcome at time zero, and it has no
+expectancy term. A0 departs from it in two respects. It adds the
+expectancy main effect $D_e$ whenever expectancy varies within the
+design, and it has no baseline row, because the analyzed data of this
+study start at the first post-baseline visit. Under the crossover
+design expectancy is constant, so $D_e$ drops out. A0 also drops
+patients who are never on drug. A0 differs from A1 in three respects
+at once. These are the absence of `corCAR1`, the $D_e$ term, and the
+software and degrees-of-freedom method. A separate simulation changes
+them one at a time (E0n, E0nc and E1nc; Section \@ref(sec-rung1)). A
+second one starts from the published analysis itself (Section
+\@ref(sec-rung1)).
 
 ### Rung 1: binary indicator with residual correlation (A1) {#sec-g1}
 
@@ -929,10 +935,13 @@ The Hybrid run with independent seeds (family S) fits A3 and A4 at
 $N \in \{35, 70\}$. The null cells use $t_{1/2} \in \{0.5, 1\}$ week
 with 5,000 replicates each. The alternatives use $\{0.5, 2\}$ weeks
 with 1,000 replicates each. The run adds the patient-slope cell of
-family 5. A4 was later fitted to the stored trials of families 1 to 5
-by regenerating each trial from its stored seed. A trial was used only
-if a refit of a stored analysis reproduced its stored estimate
-(Reproducibility section).
+family 5. A4 was fitted in the same runs as the other analyses,
+except in that cell. There the run was repeated with A4 added, on
+trials regenerated from the stored seeds. A trial was used only if the
+repeat reproduced the stored estimate of the side analysis of Section
+\@ref(sec-comparators) (`r sum(rvS_guard$match)` of
+`r nrow(rvS_guard)` trials;
+Reproducibility section).
 
 **Sample-size study.** A separate run gives the total $N$ that A4
 needs for 80 percent power. It fits A4 and A2 to the same simulated
@@ -958,7 +967,8 @@ fits A4 and A2 at $c_{bm} = 0$, for the three designs and
 $t_{1/2} \in \{0, 1\}$ week, with 1,000 replicates per cell. The
 values of $N$ are 300 and 600 under parameter set 1, and
 152 and 300 under parameter set 2. Two further OL+BDC runs use
-480 and 1,012, the largest entries of the sample-size table. A last
+1,012 under parameter set 1 and 480 under parameter set 2, just above
+the largest OL+BDC entries of the sample-size table. A last
 run checks the Hybrid design at $N = 600$ under parameter set 2.
 
 ## Performance measures and computing environment {#sec-perf}
@@ -973,7 +983,7 @@ records
 only whether the final fit succeeded, so the non-convergence rate
 bounds the refit failure rate from above. Over the
 `r format(sum(bf_all$method == 'E7null_cr2'), big.mark = ',')` A4
-fits made afterward to the stored trials, `r sum(!bf_all$converged[bf_all$method == 'E7null_cr2'])`
+fits in the cells that use it, `r sum(!bf_all$converged[bf_all$method == 'E7null_cr2'])`
 failed
 (`r sprintf('%.2f', 100 * mean(!bf_all$converged[bf_all$method == 'E7null_cr2']))`
 percent). We chose $n_{sim} = 500$ so
@@ -1223,9 +1233,10 @@ simulated trials. The numbers in the closing sentences come from Table
 
 Rung 1 replaces the starting analysis (A0) by A1. A0 fits `lme4::lmer`
 with a random intercept and takes Satterthwaite $p$-values from
-`lmerTest`. It has no residual correlation structure. As published it
-adds the expectancy main effect $D_e$ whenever expectancy varies within
-the design, and it drops patients who are never on drug. A1 fits
+`lmerTest`. It has no residual correlation structure. It adds the
+expectancy main effect $D_e$ whenever expectancy varies within the
+design, and it drops patients who are never on drug (Section
+\@ref(sec-e0)). A1 fits
 `nlme::lme` with a random intercept and a `corCAR1` residual
 correlation. It has no expectancy term, keeps every patient, and uses
 the working-covariance standard error. A0 and A1 therefore differ in three
@@ -1237,20 +1248,21 @@ sample sizes, all at $t_{1/2} = 1$ week. It has no null cell at other
 half-lives outside Hybrid.
 
 A0 rejects at `r fmt3(min(e0_6))` to `r fmt3(max(e0_6))` in these six
-cells. It is far outside the two-MCSE band under CO and OL+BDC and at
-its edge under Hybrid. A1 rejects at `r fmt3(min(g1_6))` to
-`r fmt3(max(g1_6))`, below nominal at every cell. The step from A0 to
+cells. It is above the two-MCSE band in every cell: at
+`r rngf(e0_d('CO'))` under CO, `r rngf(e0_d('OLBDC'))` under OL+BDC
+and `r rngf(e0_d('Hybrid'))` under Hybrid. A1 rejects at
+`r fmt3(min(g1_6))` to `r fmt3(max(g1_6))`, below nominal at
+`r if (g1_above == 0) 'every cell' else sprintf('%d of the six cells', 6 - g1_above)`. The step from A0 to
 A1 therefore moves the test from liberal to conservative.
 
-**A0 is liberal under CO and OL+BDC, and at the edge of the band under
-Hybrid.** Across the `r c('two', 'three', 'four', 'five', 'six')[length(e0_null) - 1]` Hybrid and OL+BDC null scenarios of
+**A0 is liberal in every design, least so under Hybrid.** Across the `r c('two', 'three', 'four', 'five', 'six')[length(e0_null) - 1]` Hybrid and OL+BDC null scenarios of
 Table S7, A0 rejects at
 `r sprintf('%.3f', min(e0_null))` to `r sprintf('%.3f', max(e0_null))`.
 It reaches `r sprintf('%.3f', g21('olbdc_null', 'E0'))` under OL+BDC. In
 the 2,000-replicate Hybrid cells of Table S3 it
-is `r rngf(a2v('E0', 'reject'))`. Taken together, its inflation is
-clear under CO and OL+BDC and marginal under Hybrid. Under Hybrid
-several single cells lie inside the 500-replicate band. The raw power of A0 at
+is `r rngf(a2v('E0', 'reject'))`, above its band
+(0.040 to 0.060 at 2,000 replicates). Its inflation is therefore clear in every design and smallest
+under Hybrid. The raw power of A0 at
 the alternatives is
 not comparable with that of the other analyses because the test is
 liberal. Section \@ref(sec-which) compares it after adjusting every
@@ -1315,6 +1327,48 @@ alternative cells (paired SE at most `r f3(max(iso_de_alt$de_se))`).
 A0 is therefore liberal because it has no residual correlation
 structure.
 
+```{r chain-numbers, echo = FALSE}
+## Paired steps of the chain from the published analysis to A1 at the
+## six null cells and the six reference alternatives (shared-data.R).
+chs <- function(a, b, d = NULL, alt = FALSE, w = 'diff')
+  unname(ch_pair(a, b, d, alt)[w])
+chr <- function(m, d = NULL, alt = FALSE) f3(ch_rate(m, d, alt))
+ch_bl <- vapply(c('CO', 'OLBDC', 'Hybrid'), function(d)
+  chs('E0pnc', 'E1', d, alt = TRUE), numeric(1))
+```
+
+**The published analysis itself is liberal for the same reason.** A0
+is an adaptation (Section \@ref(sec-e0)). A further run fits the
+analysis exactly as published to the stored trials of the 30-cell
+grid. It keeps the baseline row and has no expectancy term (E0p). It
+then changes one element at a time. E0pn refits E0p with `nlme`,
+E0pnc adds `corCAR1`, and dropping the baseline row from E0pnc gives
+A1. The run reproduces the stored A0 fit in all but `r ch_excl` of
+the `r format(nrow(ch_guard), big.mark = ',')` replicates, which are
+excluded. A further `r ch_nc` replicates are excluded because one
+fit did not converge. At the six null cells the published analysis
+rejects at `r chr('E0p')`. It rejects at `r chr('E0p', 'CO')` under
+CO, `r chr('E0p', 'OLBDC')` under OL+BDC and `r chr('E0p', 'Hybrid')`
+under Hybrid. Refitting it with `nlme` changes no decision. Adding
+`corCAR1` lowers the pooled rate by
+`r f3(-chs('E0pn', 'E0pnc'))` (paired SE
+`r f3(chs('E0pn', 'E0pnc', w = 'se'))`) to `r chr('E0pnc')`. As for
+A0, the residual correlation removes the excess.
+
+**The baseline row carries much of the power.** At the six reference
+alternatives the published analysis with `corCAR1` (E0pnc) has power
+`r chr('E0pnc', alt = TRUE)`, against `r chr('E1', alt = TRUE)` for
+A1. The two differ only in the baseline row. Dropping it lowers power
+by `r f3(-max(ch_bl))` to `r f3(-min(ch_bl))` across the three
+designs and changes size by `r fs3(chs('E0pnc', 'E1'))` (paired SE
+`r f3(chs('E0pnc', 'E1', w = 'se'))`). The baseline row adds an
+off-drug observation of every patient, which presumably sharpens the
+contrast between on-drug and off-drug occasions. No rung of the ladder uses it,
+because the analyzed data of this study start after baseline. The
+comparisons between rungs are unaffected, since all of them omit it.
+The absolute power of every rung is presumably lower than it would be
+with the baseline row, but we did not fit A2 to A4 with one.
+
 **The residual correlation also carries the change in power.** Pooled
 over the six reference alternatives, adding `corCAR1` to E0n changes
 power by `r fs3(inc('E0n>E0nc'))` (paired SE
@@ -1375,8 +1429,8 @@ test.
 Rung 2 replaces the working-covariance standard error of A1 by a CR2
 cluster-robust standard error with Satterthwaite degrees of freedom
 (A1 to A2). The point estimates do not change. Across the null cells
-of the factorial grid the working-covariance test rejects at about 0.037 on
-average (Section \@ref(sec-rung3) gives the range). We asked whether CR2 corrects it without disturbing
+of the factorial grid the working-covariance test rejects at about
+`r sprintf('%.3f', wc_null$m)` on average (Section \@ref(sec-rung3) gives the range). We asked whether CR2 corrects it without disturbing
 the ranking of the analyses. Table S3 diagnoses
 the conservatism at four Hybrid null cells with 2,000 replicates each.
 That count is enough to resolve the calibration ratio $\kappa$ of
@@ -1397,19 +1451,19 @@ the band for A2, A3 and A4 at all four cells. A4 rejects at
 Table S1 also reports Type I error at the six null cells of the base
 grid. A1 is at `r rngf(st3n('E1'), 2)` throughout. A2, A3 and A4 are
 at `r rngf(st3n(c('E1cr2', 'E2cr2', 'E7null_cr2')), 2)`, inside the
-two-MCSE band at every cell except A2 at
-`r design_lab[st3_g6max$design]`, $N = `r st3_g6max$N`$. There A2
-rejects at `r f3(st3_g6max$reject)`, above the band. A separate check
-with 5,000 independent null datasets per cell, under this paper's
-parameter set, gave A2
+two-MCSE band at every cell. Under parameter set 2, A2 lay above the
+band under OL+BDC at $N = 35$ (0.074), so we checked that design with
+5,000 independent null datasets per cell. Under parameter set 1 that
+check gave A2
 `r f3(olb$rej_cr2[olb$N == 35])` (MCSE
 `r f3(olb$mcse_cr2[olb$N == 35])`) at $N = 35$ and
 `r f3(olb$rej_cr2[olb$N == 70])` (MCSE
 `r f3(olb$mcse_cr2[olb$N == 70])`) at $N = 70$ in OL+BDC
 (`analysis/scripts/cr2-olbdc-check/`, output in
-`analysis/data/cr2-olbdc-check/`). The `r f3(st3_g6max$reject)` is therefore a Monte
-Carlo excursion of a 500-replicate cell, not a small-sample failure of
-CR2. The rate at $N = 70$ is about two MCSE above 0.05, a small excess.
+`analysis/data/cr2-olbdc-check-published/`). CR2 therefore keeps its
+size under OL+BDC at these sample sizes. The rate at $N = 70$ is
+`r sprintf('%.1f', (olb$rej_cr2[olb$N == 70] - 0.05) / olb$mcse_cr2[olb$N == 70])`
+MCSE from 0.05.
 The median Satterthwaite degrees of freedom of the CR2 test were
 `r sprintf('%.0f', olb$df_q50[olb$N == 35])` at $N = 35$ and
 `r sprintf('%.0f', olb$df_q50[olb$N == 70])` at $N = 70$. So few
@@ -1421,7 +1475,7 @@ show power for A1 to A4 on the corrected 30-cell grid. The
 layout follows Figure 4 of Hendrickson et al. Panel A varies the
 biomarker effect and Panel B varies the carryover half-life.
 
-```{r fig-hendrickson-a, echo = FALSE, fig.cap = "Power by trial design (columns), $N$ (row blocks) and analysis (rows within block) across $c_{bm} \\in \\{0, 0.30, 0.45\\}$ at $t_{1/2} = 1.0$ weeks, exponential DGP, corrected simulation code ($n_{sim} = 500$). The $c_{bm} = 0$ column is Type I error. A4 was fitted afterward to the same simulated trials. A0 is omitted because its test is liberal; its size is in Figure \\ref{fig:fig-ladder-size} and Table S1.", out.width = "95%"}
+```{r fig-hendrickson-a, echo = FALSE, fig.cap = "Power by trial design (columns), $N$ (row blocks) and analysis (rows within block) across $c_{bm} \\in \\{0, 0.30, 0.45\\}$ at $t_{1/2} = 1.0$ weeks, exponential DGP, corrected simulation code ($n_{sim} = 500$). The $c_{bm} = 0$ column is Type I error. A0 is omitted because its test is liberal; its size is in Figure \\ref{fig:fig-ladder-size} and Table S1.", out.width = "95%"}
 knitr::include_graphics(paste0('../../figures/', p02_fig('02-heatmap-ladder-a'), '.pdf'))
 ```
 
@@ -1572,8 +1626,7 @@ ref_tab$`$t_{1/2}$`[duplicated(ref_tab$`$t_{1/2}$`)] <- ''
 knitr::kable(ref_tab, booktabs = TRUE, escape = FALSE, linesep = '',
   caption = 'Reference cell on the corrected 30-cell grid (Hybrid,
     $N = 70$, $c_{bm} = 0.45$, exponential decay, 500
-    replicates, every analysis fitted to the same trials; A4 fitted
-    afterward to the same trials). Power is
+    replicates, every analysis fitted to the same trials). Power is
     the rejection rate of $H_0: \\beta_{bm:X} = 0$ at $\\alpha =
     0.05$ with its Monte Carlo standard error. Type I is the
     rejection rate in the null cell of the same design and $N$. That
@@ -1649,7 +1702,9 @@ rec27$share <- rec27$gain / rec27$loss
 stopifnot(all(rec27$share < 0.5))
 rec_txt <- function(d) {
   r <- rec27[rec27$design == d, ]
-  sprintf('%.0f%% to %.0f%%', 100 * min(r$share), 100 * max(r$share))
+  lo <- sprintf('%.0f%%', 100 * min(r$share))
+  hi <- sprintf('%.0f%%', 100 * max(r$share))
+  if (lo == hi) paste('about', lo) else paste(lo, 'to', hi)
 }
 ```
 
@@ -1691,9 +1746,7 @@ such as more off-drug visits.
 $c_{bm} = 0.45$ and $t_{1/2} = 1$ in the 30-cell grid, A3 leads A2 by
 `r sprintf('%.0f', 100 * (c27('OLBDC', 'E2cr2', 1)$reject - c27('OLBDC', 'E1cr2', 1)$reject))`
 points under OL+BDC (`r sprintf('%.3f', c27('OLBDC', 'E2cr2', 1)$reject)`
-against `r sprintf('%.3f', c27('OLBDC', 'E1cr2', 1)$reject)`). OL+BDC
-has the fewest post-discontinuation occasions, so it has the most to
-gain from weighting them. A3 leads A2 by
+against `r sprintf('%.3f', c27('OLBDC', 'E1cr2', 1)$reject)`). A3 leads A2 by
 `r sprintf('%.0f', 100 * (c27('Hybrid', 'E2cr2', 1)$reject - c27('Hybrid', 'E1cr2', 1)$reject))`
 points under Hybrid. Under the crossover design the two are within
 `r sprintf('%.3f', abs(c27('CO', 'E2cr2', 1)$reject - c27('CO', 'E1cr2', 1)$reject))`
@@ -1749,9 +1802,8 @@ from the data, on the model without the interaction (Section
 \@ref(sec-g4)). We asked two questions. The first is whether the
 selection recovers the power that the predictor obtains at the true
 half-life. The second is what the selection step costs in size and in
-standard-error calibration. A4 was fitted afterward to the stored
-trials of families 1 to 5, so every comparison with A3 below is paired
-on the same trials.
+standard-error calibration. A3 and A4 were fitted to the same trials
+in every family, so every comparison with A3 below is paired.
 
 ```{r stage3-variants-numbers, echo = FALSE}
 if (has_rv) {
@@ -1853,11 +1905,10 @@ The scenario run placed one cell each at a four-fold half-life
 misspecification and a Weibull decay analyzed as exponential, beside
 Hybrid and OL+BDC reference cells. Table S7 gives
 Type I error at its null scenarios and Table S8
-power at its alternatives. A4 was fitted afterward to the four
-misspecification cells only.
+power at its alternatives. A4 was fitted in every cell of this run.
 
-The largest differences are at the half-life misspecification cell,
-where the true $t_{1/2} = 2$ weeks. A4 gives
+At the half-life misspecification cell, where the true
+$t_{1/2} = 2$ weeks, A4 gives
 `r f3(g21b('t1hifhi_alt', 'E7null_cr2'))`, against
 `r f3(g21('t1hifhi_alt', 'E1cr2'))` for its equal-size comparator A2
 and `r f3(g21('t1hifhi_alt', 'E2cr2'))` for the oracle A3. Under a
@@ -1937,7 +1988,7 @@ knitr::kable(dtab, booktabs = TRUE, escape = FALSE,
   caption = 'Type I error and power under monotone dropout
     (Hybrid, $t_{1/2} = 0.5$ week; the rate is the fraction of
     patients with an incomplete series; $n_{sim} = 500$; band $[0.031,
-    0.069]$). A4 was fitted afterward to the same trials. A0 has no
+    0.069]$). A0 has no
     power column because its test is liberal.') |>
   kableExtra::add_header_above(
     c(' ' = 1, 'Type I error' = 5, 'Power, $c_{bm} = 0.45$' = 4),
@@ -1978,14 +2029,17 @@ kp <- function(m, n, w = 'k') kap[[w]][kap$method == m & kap$N == n]
 
 The A4 Type I error is `r fmt3(min(g10n$reject))` to
 `r fmt3(max(g10n$reject))`. It is inside the band at
-`r in_band(g10n$reject)` of the 12 null cells. No cell is above the
-band for A4 or for the starting analysis A0 (`r fmt3(min(e0n$reject))` to
-`r fmt3(max(e0n$reject))`). The working-covariance A1 is below the band at
+`r in_band(g10n$reject)` of the 12 null cells, and no cell is above
+the band. The starting analysis A0 is at `r fmt3(min(e0n$reject))` to
+`r fmt3(max(e0n$reject))`, above the band at
+`r sum(e0n$reject > 0.069)` of the 12 cells. The working-covariance A1 is below the band at
 `r sum(g1n$reject < 0.031)` of the 12 cells (`r fmt3(min(g1n$reject))`
 to `r fmt3(max(g1n$reject))`), as it was without dropout. At the
 alternative A4 is more powerful than A1 at
 `r sum(gap_g1 > 0)` of 12 cells, by `r fmt3(min(gap_g1))` to
-`r fmt3(max(gap_g1))`. Dropout costs power mainly at $N = 35$. Within the dropout block, A4
+`r fmt3(max(gap_g1))`. Dropout costs a similar absolute amount of
+power at both sample sizes, and so a larger share at $N = 35$.
+Within the dropout block, A4
 falls from
 `r fmt3(min(g10a$reject[g10a$N == 35 & g10a$dropout_rate == 0.1]))` to
 `r fmt3(max(g10a$reject[g10a$N == 35 & g10a$dropout_rate == 0.1]))` at
@@ -2002,9 +2056,9 @@ rate 0.1 is not measured on the same trials.
 The earlier convention of the driver, in which the rate is the
 per-occasion hazard, removes far more data (Section \@ref(sec-grid)). It gives
 the heavy-missingness stress case. Its cells are not tabulated here.
-They are in the stored output (Reproducibility section). A4 was not
-fitted to
-them, so A3 is reported. The A3 Type I error is
+They are in the stored output (Reproducibility section). A3 is
+reported, for comparison with parameter set 2, under which A4 was not
+fitted to them. The A3 Type I error is
 `r fmt3(min(o3n$reject))` to `r fmt3(max(o3n$reject))`. It is above
 the band at `r sum(o3n$reject > 0.069)` of 12 cells. Its $\kappa$
 falls to `r sprintf('%.2f', min(o3n$kappa))`. Power falls steeply for
@@ -2243,9 +2297,9 @@ m6g <- function(f, w) m6_sum[[w]][m6_sum$family == f & m6_sum$method == 'G10']
 ```
 
 The A3 interval covers at its nominal rate in every family. The A4
-interval does not. In families 2 to 4 it covers at
-`r f3(m3c_g10$lo[m3c_g10$N == 35])` to `r f3(m3c_g10$hi[m3c_g10$N == 35])`
-at $N = 35$ and `r f3(m3c_g10$lo[m3c_g10$N == 70])` to
+interval covers near nominal only in families 2 to 4 at $N = 35$, at
+`r f3(m3c_g10$lo[m3c_g10$N == 35])` to `r f3(m3c_g10$hi[m3c_g10$N == 35])`.
+In the same families it covers at `r f3(m3c_g10$lo[m3c_g10$N == 70])` to
 `r f3(m3c_g10$hi[m3c_g10$N == 70])` at $N = 70$. In the 30-cell grid
 it covers at `r f3(m6g('1', 'mean_cov_lower'))` to
 `r f3(m6g('1', 'mean_cov_upper'))` on average, and in the
@@ -2383,6 +2437,22 @@ eq <- lad_An |>
          equiv = lo > -eq_margin & hi < eq_margin)
 eq10 <- eq |> filter(step_id == 'G8>G10')
 stopifnot(nrow(eq10) == 6, eq10$equiv[eq10$family == 'S'])
+## The Discussion says A4 is within two paired SE of A3 in every family.
+stopifnot(all(abs(eq10$size_diff) <= 2 * eq10$size_se))
+## The families whose interval crosses the margin, and how far it
+## reaches; the text calls this just outside, so it must stay below
+## 0.015.
+eq_out <- eq10 |> filter(!equiv) |>
+  mutate(reach = pmax(abs(lo), abs(hi)))
+stopifnot(all(eq_out$reach < 0.015))
+eq_fams <- function(f) if (length(f) == 1) f else
+  paste(paste(f[-length(f)], collapse = ', '), 'and', f[length(f)])
+eq_out_txt <- if (nrow(eq_out) == 0) '' else paste0(
+  'In famil', if (nrow(eq_out) == 1) 'y ' else 'ies ', eq_fams(eq_out$family),
+  ' it extends to ', if (nrow(eq_out) == 1) sprintf('%.4f', eq_out$reach)
+  else sprintf('%.4f to %.4f', min(eq_out$reach), max(eq_out$reach)),
+  ' in absolute value, just outside the margin. The paired SE there is ',
+  'an upper bound, so these intervals are conservative.')
 fam_ord <- c('S', '1', '2', '3', '4', '5')
 g8_low <- lad_fam |> filter(analysis == 'G8', quantity == 'size') |>
   slice_min(value, n = 1)
@@ -2430,7 +2500,7 @@ the run with independent seeds, with a 90 percent interval of
 `r sprintf('%+.4f to %+.4f', eq10$lo[eq10$family == 'S'], eq10$hi[eq10$family == 'S'])`.
 That is equivalence within $\pm 0.01$. The interval lies inside the
 margin in `r sum(eq10$equiv)` of the `r nrow(eq10)` families.
-`r if (any(!eq10$equiv)) paste0('In family ', paste(eq10$family[!eq10$equiv], collapse = ' and '), ' it reaches ', sprintf('%+.4f', max(eq10$hi[!eq10$equiv])), ', just outside, with a conservative SE.') else ''`
+`r eq_out_txt`
 
 The largest cell size of A4 is
 `r sprintf('%.3f', bv('G10', 'max_size'))`. A0 lies in the band in `r bv('E0', 'size_in_band')`, with a largest
@@ -2449,7 +2519,7 @@ percent of its power on average. Only the oracle A3 is above 100
 percent, and it is unavailable to an analyst.
 
 A0 is not in that comparison, because its test is liberal. Under
-Hybrid, however, A0 is only marginally liberal, and Hybrid is the
+Hybrid, however, A0 is the least liberal, and Hybrid is the
 design the recommendation is for. We therefore compared all five
 analyses at the same size. The critical value is set for each
 analysis, design and $N$. It is the empirical 5 percent quantile of
@@ -2663,9 +2733,10 @@ The ladder was not planned in advance. Each rung answered the question
 the previous one raised. The recommendation rests on the chain of
 rungs and on the stress scenarios rather than on any single
 comparison. Everything below is conditional on three things. These
-are the correlation encoding of the companion study, one parameter set
-chosen for the simulation core (Table \@ref(tab:tab-params)), and the
-Hybrid design. The analysis model is close to the conditional mean of that
+are the correlation encoding of the companion study, the parameter
+values (Table \@ref(tab:tab-params)), and the Hybrid design. A second
+parameter set changed the absolute power but not the ranking (Section
+\@ref(sec-sens-params)). The analysis model is close to the conditional mean of that
 Gaussian DGP. Part of what the
 rungs show is therefore that a correctly specified regressor
 outperforms a misspecified one. The findings concern which choices cost
@@ -2704,8 +2775,9 @@ the drug effect. Which encoding holds for a given drug is an empirical
 question that these trials have not yet answered.
 
 Rung 1 showed that the starting analysis is liberal and that A1 is
-conservative. A0 is liberal by a factor of two to three under the
-crossover and OL+BDC designs and marginally liberal under Hybrid. It
+conservative. A0 is liberal in every design, from
+`r rngf(e0_d('Hybrid'))` under Hybrid to `r rngf(e0_d('CO'))` under
+the crossover design. It
 differs from A1 in three respects at once. The isolation analyses of
 Section \@ref(sec-rung1) separate them. The missing residual
 correlation accounts for the whole inflation. The software, the
@@ -2717,8 +2789,8 @@ the power of a test that rejects too often. At equal size the two are
 within a few points, and A4 is ahead of A0 under Hybrid and OL+BDC but not
 under CO (Table S16).
 
-Rung 2 showed that the working-covariance test is conservative by about a
-quarter of its nominal size. The conservatism comes from a working
+Rung 2 showed that the working-covariance test is conservative. It
+rejects at about `r sprintf('%.3f', wc_null$m)` on average under the null. The conservatism comes from a working
 covariance that does not match the data. A CR2 cluster-robust standard
 error with Satterthwaite degrees of freedom brings the pooled size of
 every analysis to within about half a point of nominal. Single
@@ -2798,7 +2870,9 @@ interaction is then fitted by REML at that half-life. The interaction
 is tested with a CR2 cluster-robust standard error and Satterthwaite
 degrees of freedom. Two properties recommend it. It requires no
 pharmacokinetic input from the analyst. Its size is within one paired
-standard error of the oracle at the true half-life in every family.
+standard error of the oracle at the true half-life in
+`r sum(abs(eq10$size_diff) <= eq10$size_se)` of the six families and
+within two in all.
 The selection leaves the term under test out of its model. That is
 the likely reason, but the evidence is the paired comparison itself.
 
@@ -2836,10 +2910,10 @@ and the scenario cells, where A4 and A3 lead in the same near-tie. Under the
 crossover design the analyses are within a few
 points of one another. A4 has the lowest power of A1 to A4 there,
 `r f3(cell_pw('CO', 'G10'))` against `r f3(cell_pw('CO', 'G1'))` for
-A1 on the base grid. At equal size A2 leads A4 in every CO cell
-(Table S16), though the average lead is within Monte Carlo error.
+A1 on the base grid. At equal size A2 and A4 are within Monte Carlo
+error of each other under CO (Table S16).
 For a crossover trial we therefore recommend A2. It needs no
-half-life selection, it is as powerful as A4, and its standard error
+half-life selection, it is at least as powerful as A4, and its standard error
 is calibrated. The recommendation is stated for the correlation
 encoding.
 
@@ -2853,8 +2927,13 @@ the ranking of the analyses did not change (Section
 \@ref(sec-sens-params)). The mean-moderation comparison of Section
 \@ref(sec-bought) exists under parameter set 2 only. Each set has one
 trajectory shape per component, one response SD vector,
-$\rho = 0.7$ except in the $\rho$ grid, and $c_1 = 0.2$. The
-recommendation comes from one design.
+$\rho = 0.7$ except in the $\rho$ grid, and $c_1 = 0.2$. No rung of
+the ladder includes the baseline visit as an outcome row. In the
+published analysis that row adds about
+`r sprintf('%.0f', -100 * chs('E0pnc', 'E1', alt = TRUE))` points of
+power at the reference alternatives (Section \@ref(sec-rung1)), so
+the absolute power of every rung probably understates what the same
+analysis would achieve with it. The recommendation comes from one design.
 Above $N = 70$ size was checked only for A2 and A4. Those checks used
 two or three values of $N$ per design and parameter set, under
 complete data. Absolute power values are therefore illustrative. The ranking,
@@ -2888,7 +2967,7 @@ within a job share random-number streams.
 Counts of cells inside a band are therefore not independent, and the
 cross-job comparisons are unpaired. The calibration ratio $\kappa$
 uses the mean rather than the root mean square of the standard
-errors. This lowers it by 0.01 to 0.03 (Section
+errors. This lowers it by `r sprintf('%.2f to %.2f', min(krms_d), max(krms_d))` (Section
 \@ref(sec-cr2-method)). The effect-size curve of earlier drafts was
 not rerun under the corrected code. The
 sensitivity checks vary one factor at a time, so they can miss
@@ -2945,13 +3024,14 @@ term as a carryover adjustment in crossover trials is classical
 # Conclusions {#sec-conclusions}
 
 1. **Rung 0 to 1: do not use the starting analysis as is.** It is
-   liberal by two to three times nominal under the crossover and
-   OL+BDC designs. It is marginally liberal under Hybrid. It differs from A1
+   liberal in every design, from `r rngf(e0_d('Hybrid'))` at the null
+   under Hybrid to `r rngf(e0_d('CO'))` under the crossover design. It
+   differs from A1
    in its
    residual correlation structure, an expectancy term and its software.
    A1 is conservative and costs power against A0 in the base grid.
 2. **Rung 2: use a CR2 cluster-robust standard error.** The working-covariance
-   test rejects at about 0.037 under the null. CR2 with Satterthwaite
+   test rejects at about `r sprintf('%.3f', wc_null$m)` under the null. CR2 with Satterthwaite
    degrees of freedom brings the pooled size of every analysis to
    within about half a point of nominal. Single 500-replicate cells
    range more widely. CR2 changes power by a mean of
@@ -3035,10 +3115,13 @@ term as a carryover adjustment in crossover trials is classical
    `r format(max(ssnull$N[ssnull$params == 'simcore2026']), big.mark = ',')`
    under parameter set 2.
 8. **Limits.** The recommendation is conditional on the correlation
-   encoding, on one parameter set (Table \@ref(tab:tab-params)), on
-   one design and on a biomarker that is predictive only. Size was
+   encoding, on two parameter sets that gave the same ranking (Table
+   \@ref(tab:tab-params)), on one design and on a biomarker that is predictive only. Size was
    evaluated at $N = 35$ and $N = 70$ for every analysis, and up to
-   $N = 1{,}012$ for A2 and A4. The analysis model is close to the
+   $N = 1{,}012$ for A2 and A4. No rung uses the baseline visit as an
+   outcome row. In the published analysis that row added about
+   `r sprintf('%.0f', -100 * chs('E0pnc', 'E1', alt = TRUE))` points of
+   power. The analysis model is close to the
    conditional mean of the DGP. Part of what the rungs show is
    therefore that a correctly specified regressor outperforms a
    misspecified one.
@@ -3211,7 +3294,50 @@ linear-mixed analysis, `clubSandwich` for CR2 inference, `lme4` and
 simulation code runs during knitting. Knitting loads pre-computed
 summaries only.
 
-**Drivers and data, by table and figure.** All paths are under
+**Parameter set 1.** Every run was first made under parameter set 2,
+as listed in the next paragraph, and then repeated under parameter
+set 1 by the same drivers with `--params published` (the
+`PMSIM_PARAMS` variable for the scripts that read it). The repeats
+write under `analysis/data/carryover-sensitivity/published/`, each
+folder marked with a `PARAM_SET` file, and the derived files and
+figures carry a `-published` suffix. The paper reads one set or the
+other through `p02-sources.R`, selected by `PAPER02_PARAMS` (default
+`published`). The set-1 runs are these:
+
+- simrun jobs on 2026-11-04 and 2026-11-05, at commit `9d7821e`: the
+  30-cell grid (zeus 61), the isolation run (zeus 62), the dropout
+  cells (zeus 63), the factorial grid with the correlation encoding
+  only (athena 5), the scenario cells (athena 6), the referee-variant
+  blocks A, S, N and T (athena 4, 7, 8 and 9), and the supplementary
+  study's blocks B and C and size cells (joe 10, mercury 52 and
+  joe 11). The 30-cell grid, the isolation run and the dropout cells
+  ran on one host, as the pairing requires. In these runs A4 was
+  fitted beside the other analyses, so no backfill was needed.
+- The sample-size runs: athena 21, joe 14 and zeus 66 (2026-11-11),
+  and the null runs mercury 55, zeus 68, athena 23 and zeus 70
+  (2026-11-14).
+- Local runs: A4 added to the block-S trials by
+  `36-run-referee-variants.R --add-g10` (2026-11-18, writing
+  `referee-variants/block-S-g10/`); the analysis as published and its
+  chain to A1 by `54-run-a0-published.R` (2026-11-19, writing
+  `a0-published/`); the random-slope refit by
+  `44-g10-random-slope.R` (2026-11-19); and the selection-aware
+  interval by `52-a4-bootstrap-interval.R` (2026-11-19, writing
+  `a4-bootstrap-published/`). Each local run regenerates the stored
+  trials from their seeds and is guarded by refitting a stored
+  analysis. The repeat of block S reproduced
+  `r sum(rvS_guard$match)` of `r nrow(rvS_guard)` stored fits, and the
+  bootstrap guard held in every replicate whose stored A4 fit had
+  converged (499 of 500); 148 of its 99,301 resamples failed to fit.
+- The derived files and figures (`02-summarise-grid.R`,
+  `34-referee-reanalysis.R`, `37-ladder-tables-figures.R`,
+  `40-stage-power-figure.R`, `43-g10-coverage.R`,
+  `45-ladder-heatmaps.R`, `49-coverage-family1-s.R` and
+  `50-size-adjusted-power.R`) were rerun with
+  `PAPER02_PARAMS=published`.
+
+**Drivers and data, by table and figure, for parameter set 2.** The
+scripts are the same for both sets. All paths are under
 `analysis/scripts/carryover-sensitivity/` (scripts) and
 `analysis/data/` (summaries).
 

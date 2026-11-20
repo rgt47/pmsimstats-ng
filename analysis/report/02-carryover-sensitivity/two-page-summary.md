@@ -8,7 +8,7 @@ header-includes:
 
 # Two-page summary
 
-*2026-11-18 08:39 PST*
+*2026-11-19 19:59 PST*
 
 **Testing a predictive biomarker under drug carryover in aggregated
 N-of-1 trials: a staged simulation study** (pmsimstats team).
@@ -31,7 +31,9 @@ We simulate under the structure of the data-generating process of the
 companion paper (paper 01). There the interaction is a correlation
 $c_{bm}$ between the biomarker and the drug response that is present
 on drug and decays off drug at the carryover half-life. The parameter
-values are this paper's own set, not paper 01's default values. The
+values are the starting values of Hendrickson et al., which paper 01
+also uses (parameter set 1). The whole study was repeated under a
+second set with a weaker placebo pathway (parameter set 2). The
 biomarker is predictive only. We compare five analyses arranged as a
 ladder. Each rung changes one thing about the analysis, except the
 step from rung 0 to rung 1, which changes three.
@@ -66,53 +68,56 @@ rungs and scenarios were not fixed in advance.
 ## Results
 
 **Rungs 0 and 1: residual correlation.** Pooled over the three
-designs in the base grid, A0 rejected the null at 0.110. It is liberal
-by two to three times nominal under the crossover and OL+BDC designs,
-and marginally liberal under Hybrid. Isolation analyses attribute this
-to its missing residual correlation. A1 rejected at 0.038. That is,
-the working-covariance test is conservative.
+designs in the base grid, A0 rejected the null at 0.107. It is liberal
+in every design, from 0.074 to 0.076 under Hybrid to 0.128 to 0.150
+under the crossover design. Isolation analyses attribute this to its
+missing residual correlation. A1 rejected at 0.038. That is, the
+working-covariance test is conservative. A0 departs from the analysis
+as published in two respects: it adds an expectancy term and it has
+no baseline row. The analysis exactly as published rejected at 0.097,
+and at 0.045 once `corCAR1` was added. Its baseline row, an off-drug
+outcome at time zero, carried 13 to 17 points of power. No rung of
+the ladder uses that row, so every rung's absolute power is probably
+understated.
 
 **Rung 2: cluster-robust inference.** CR2 moved the pooled size to
-0.055. It brings every analysis to within about half a point of
-nominal. It changed power by a mean of $+2.4$ points under Hybrid,
-$+3.3$ under OL+BDC and $-1.0$ under the crossover design.
+0.054. It brings every analysis to within about half a point of
+nominal. It changed power by a mean of $+3.4$ points under Hybrid,
+$+4.9$ under OL+BDC and $-3.4$ under the crossover design.
 
 **Rung 3: exposure weighting.** At a 1-week half-life the
-exposure-weighted predictor at the true half-life recovers 15% to 44%
-of the power that carryover removes under Hybrid, and 19% to 25%
+exposure-weighted predictor at the true half-life recovers 20% to 22%
+of the power that carryover removes under Hybrid, and about 12%
 under OL+BDC. The rest has to be met by the design, for example with
 more patients. Where it does not gain, it is within Monte Carlo error
 of the binary indicator.
 
 **Rung 4: choosing the half-life.** Paired against the oracle, AIC
-selection changed size by $-0.002$ to $+0.002$ and power by $-0.013$
-to $+0.003$ across the six families. The selected half-life is spread
+selection changed size by $-0.005$ to $+0.005$ and power by $-0.011$
+to $+0.002$ across the six families. The selected half-life is spread
 over the candidates. The small cost therefore reflects how little the
 predictor depends on the half-life, not recovery of the true value.
 Leaving the interaction out of the selection matters. Selecting with
 it in the model raised size in every family. In the run with
 independent seeds, the size of A4 minus that of the oracle was
-$-0.0008$ (90% interval $-0.0033$ to $+0.0018$). That is equivalent
-within $\pm 0.01$. The same equivalence held in 4 of the other five
-families.
+$+0.0008$ (90% interval $-0.0020$ to $+0.0035$). That is equivalent
+within $\pm 0.01$. The same equivalence held in 2 of the other five
+families; in the other three the interval reached just past the
+margin.
 
 **A4 against the binary indicator.** In the Hybrid design A4 exceeded
-A2 by 1.3 points on average over 40 alternative cells, and by up to
-7.1 points at long half-lives. It was below A2 in 6 cells, by at most
-1.0 point. Under dropout of 10% to 30% of patients, completely at
+A2 by only 0.4 points on average over 40 alternative cells, and by up
+to 4.1 points at long half-lives. It was below A2 in 13 cells, by at
+most 1.5 points. Under dropout of 10% to 30% of patients, completely at
 random or dependent on baseline severity, A4 kept its size. In all but
 one cell it also kept its power advantage.
 
 **Sample size.** Halving the effect roughly quadruples the required
-$N$. Under this paper's parameter set, a Hybrid trial with a 1-week
-half-life analyzed with A4 needs about 73, 130 and 292 patients at
-$c_{bm}$ of 0.4, 0.3 and 0.2 for 80% power. The binary indicator needs
-about 15% to 18% more. A4 held its size at every $N$ checked, up to
-600. This parameter set is not the one paper 01 uses. Under paper
-01's default values (the starting values of
-Hendrickson et al.) the requirement is roughly twice as large, 154
-and 613 patients at 0.4 and 0.2. The two papers' sample sizes should
-not be compared directly.
+$N$. Under parameter set 1, a Hybrid trial with a 1-week half-life
+analyzed with A4 needs about 154, 273 and 613 patients at $c_{bm}$ of
+0.4, 0.3 and 0.2 for 80% power. The binary indicator needs about 15%
+to 18% more. A4 held its size at every $N$ checked, up to 1,012.
+Under parameter set 2 the requirement is about half as large.
 
 ## Recommendation
 
@@ -132,8 +137,9 @@ CR2 test.
 
 ## Limits
 
-The results are conditional on the correlation encoding, on one
-parameter set, on one design and on a predictive-only biomarker. Size was evaluated at $N$ of 35 and 70 for every analysis,
+The results are conditional on the correlation encoding, on two
+parameter sets that gave the same ranking, on one design and on a
+predictive-only biomarker. Size was evaluated at $N$ of 35 and 70 for every analysis,
 and up to 1,012 for A2 and A4. The analysis model is close to the
 conditional mean of the data-generating process. Part of what the
 ladder shows is therefore that a correctly specified regressor

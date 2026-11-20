@@ -715,3 +715,95 @@ sens_sz_max <- max(abs(sens_sz$published - sens_sz$simcore2026)[sens_sz$a != 'A0
 ## The supplement says A0 is more liberal under set 1 in families 2 to 4.
 stopifnot(with(sens_sz[sens_sz$a == 'A0' & sens_sz$family %in% c('2', '3', '4'), ],
                all(published > simcore2026)))
+
+## ---- the analysis exactly as published, and its chain to A1 ----
+## 54-run-a0-published.R refits the stored trials of the 30-cell grid
+## with the published analysis (E0p: lmer, Satterthwaite, baseline row,
+## no expectancy term), then changes one element at a time: E0pn
+## (nlme, same model), E0pnc (adds corCAR1), and A1 (drops the baseline
+## row). Replicates whose E0 refit does not reproduce the stored fit
+## are excluded from every method. Only the set-1 run has the chain.
+ch_dir <- p02_run('a0-published')
+ch_all <- readRDS(file.path(ch_dir, 'all.rds'))
+ch_guard <- readRDS(file.path(ch_dir, 'guard.rds'))
+has_chain <- all(c('E0p', 'E0pn', 'E0pnc', 'E1') %in% ch_all$method)
+if (has_chain) {
+  ch_ok <- ch_guard |> filter(match) |> select(cell_id, rep)
+  ch_excl <- nrow(ch_guard) - nrow(ch_ok)
+  ## The guard excludes a handful of replicates; E1 must reproduce the
+  ## stored A1 fit in every kept replicate, up to the optimizer
+  ## tolerance of nlme (largest difference 4e-5 on estimates of order 5).
+  stopifnot(ch_excl <= 10,
+            max(ch_guard$e1_diff[ch_guard$match], na.rm = TRUE) < 1e-4)
+  ch_w <- ch_all |>
+    semi_join(ch_ok, by = c('cell_id', 'rep')) |>
+    mutate(rej = as.numeric(p_value < 0.05)) |>
+    select(cell_id, rep, design, N, c_bm, t1half, method, rej, converged) |>
+    pivot_wider(names_from = method, values_from = c(rej, converged))
+  ## A replicate in which any method failed to converge is dropped from
+  ## all of them, so every comparison stays paired.
+  ch_conv <- Reduce(`&`, ch_w[grep('^converged_', names(ch_w))])
+  ch_nc <- sum(!ch_conv)
+  stopifnot(ch_nc <= 5)
+  ch_w <- ch_w[ch_conv, ]
+  ch_steps <- c(`E0>E0p` = 'design', `E0p>E0pn` = 'software',
+                `E0pn>E0pnc` = 'corCAR1', `E0pnc>E1` = 'baseline row')
+  ## Paired difference of two methods, pooled over the cells of a
+  ## design at the null or at the reference alternative (c_bm = 0.45,
+  ## t1/2 = 1 week), with the paired SE.
+  ch_pair <- function(a, b, d = NULL, alt = FALSE) {
+    x <- ch_w |> filter(t1half == 1, if (alt) c_bm == 0.45 else c_bm == 0)
+    if (!is.null(d)) x <- x |> filter(design %in% d)
+    dd <- x[[paste0('rej_', b)]] - x[[paste0('rej_', a)]]
+    c(diff = mean(dd), se = sd(dd) / sqrt(length(dd)))
+  }
+  ch_rate <- function(m, d = NULL, alt = FALSE) {
+    x <- ch_w |> filter(t1half == 1, if (alt) c_bm == 0.45 else c_bm == 0)
+    if (!is.null(d)) x <- x |> filter(design %in% d)
+    mean(x[[paste0('rej_', m)]])
+  }
+  ## The text says: the published analysis is liberal; the software
+  ## step changes nothing; corCAR1 brings size to the band or below;
+  ## dropping the baseline row lowers power in every design.
+  stopifnot(ch_rate('E0p') > 0.06,
+            all(ch_w$rej_E0p == ch_w$rej_E0pn),
+            ch_rate('E0pnc') <= 0.06,
+            all(vapply(c('CO', 'OLBDC', 'Hybrid'), function(d)
+              ch_pair('E0pnc', 'E1', d, alt = TRUE)['diff'] < 0, logical(1))))
+}
+
+## A0 and A1 at the six null cells of the 30-cell grid, by design. The
+## text says A0 is above the 500-replicate two-MCSE band in every cell
+## and A1 is below nominal in all but at most one.
+e0_d <- function(d) range(n6$reject[n6$method == 'E0' & n6$design == d])
+band500 <- 0.05 + c(-2, 2) * sqrt(0.05 * 0.95 / 500)
+stopifnot(all(e0_6 > band500[2]), sum(g1_6 >= 0.05) <= 1)
+g1_above <- sum(g1_6 >= 0.05)
+
+## Relative power loss of A1 from t1/2 = 0 to 1 week in the factorial
+## grid, for the Introduction (the rung-3 chunk recomputes it by design
+## and half-life).
+rl_i <- grid |> filter(dgp_arch == 'mvn', carryover_form == 'exponential',
+                       spec == 'E1', c_bm > 0) |>
+  select(design, N, c_bm, t1half, power) |>
+  pivot_wider(names_from = t1half, values_from = power, names_prefix = 'h') |>
+  mutate(loss1 = 1 - h1 / h0)
+rl_pct <- function(d) {
+  x <- rl_i$loss1[rl_i$design %in% d]
+  sprintf('%.0f to %.0f percent', round(100 * min(x)) + 0, round(100 * max(x)) + 0)
+}
+
+## Mean null rejection of the working-covariance test (A1 and the
+## exposure-weighted predictor without CR2) in the factorial grid.
+wc_null <- grid |>
+  filter(dgp_arch == 'mvn', carryover_form == 'exponential', c_bm == 0,
+         spec %in% c('E1', 'E2')) |>
+  summarise(m = mean(power), lo = min(power), hi = max(power))
+
+## The Discussion says A4 has the lowest base-grid power of A1 to A4
+## under CO, and Section 3 that A2 to A4 are inside the 500-replicate
+## band at the six null cells.
+stopifnot(cell_pw('CO', 'G10') <= min(vapply(c('G1', 'G6', 'G8'),
+                                            function(a) cell_pw('CO', a), 0)),
+          all(abs(st3n(c('E1cr2', 'E2cr2', 'E7null_cr2')) - 0.05) <=
+                2 * sqrt(0.05 * 0.95 / 500)))

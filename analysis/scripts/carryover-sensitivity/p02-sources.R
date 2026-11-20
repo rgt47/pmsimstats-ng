@@ -4,11 +4,13 @@
 ## scripts read every stored run through these helpers, so one switch
 ## selects the set:
 ##
-##   PAPER02_PARAMS=simcore2026  (default) the stored runs under
-##                               analysis/data/carryover-sensitivity/
-##   PAPER02_PARAMS=published    the runs under Hendrickson et al.'s
-##                               values, in .../carryover-sensitivity/
-##                               published/ (docs/74, wave 1)
+##   PAPER02_PARAMS=published    (default since 2026-11-19) the runs
+##                               under Hendrickson et al.'s values
+##                               (parameter set 1 of the paper), in
+##                               .../carryover-sensitivity/published/ (docs/74, wave 1)
+##   PAPER02_PARAMS=simcore2026  the stored runs of the simulation
+##                               core's own values (parameter set 2),
+##                               under analysis/data/carryover-sensitivity/
 ##
 ## The helpers fail closed. A published-set run that is missing, or
 ## whose PARAM_SET marker does not read 'published', stops with an
@@ -20,7 +22,7 @@
 ## themselves, so the G10 backfill (script 41) does not apply.
 
 p02_set <- function() {
-  s <- Sys.getenv('PAPER02_PARAMS', 'simcore2026')
+  s <- Sys.getenv('PAPER02_PARAMS', 'published')
   if (!s %in% c('simcore2026', 'published'))
     stop("PAPER02_PARAMS must be 'simcore2026' or 'published', not '", s, "'")
   s

@@ -19,6 +19,11 @@ pub <- p02_published()
 ## Data loaded once for the tables below.
 grid <- readRDS(here::here(if (pub) 'analysis/data/02-grid-summary-published.rds'
                            else 'analysis/data/02-grid-summary.rds'))$summary
+## The mean-moderation half of the factorial grid exists under
+## parameter set 2 (simcore2026) only, so its comparison reads that
+## set's grid whichever set is active.
+grid_s2 <- readRDS(here::here('analysis/data/02-grid-summary.rds'))$summary
+stopifnot(any(grid_s2$dgp_arch == 'mean_moderation'))
 s27  <- readRDS(file.path(p02_run('tier1-g-vs-f-e0'), 'summary.rds'))
 s21  <- readRDS(file.path(p02_run('g-vs-f-comparison'), 'summary.rds'))
 sgf  <- p02_gapfill_summary()
@@ -674,5 +679,39 @@ sap_pool <- read.csv(file.path(rr_dir, 'size-adjusted-power-f1-pooled.csv'))
 stopifnot(nrow(sap_pool) == 6)
 sapp <- function(d, vs, w = 'diff') sap_pool[[w]][sap_pool$design == d &
                                                    sap_pool$vs == vs]
-## Under CO A2 is ahead of A4 in every cell; the text says so.
-stopifnot(all(sapd('CO', 'A2') < 0))
+## Under CO, A4 and A2 are within Monte Carlo error of each other once
+## sizes are equal; the text says so for the pooled difference. (Under
+## parameter set 2 A2 was ahead in every CO cell; under set 1 it is
+## ahead in two of four.)
+stopifnot(abs(sapp('CO', 'A2')) < 2 * sapp('CO', 'A2', 'se'))
+
+## ---- sensitivity to the parameter set ----
+## Family-level size and power of A0 to A4 under both parameter sets,
+## from the ladder output of 37-ladder-tables-figures.R for each set.
+## Read by explicit path, so the comparison does not depend on
+## PAPER02_PARAMS.
+sens_codes <- c(E0 = 'A0', G1 = 'A1', G6 = 'A2', G8 = 'A3', G10 = 'A4')
+sens <- bind_rows(lapply(c(published = 'ladder-predictive-published',
+                           simcore2026 = 'ladder-predictive'), function(d)
+  read.csv(file.path(here::here('analysis/data/carryover-sensitivity'), d,
+                     'ladder-long.csv'), colClasses = c(family = 'character'))),
+  .id = 'params') |>
+  filter(level == 'family', quantity %in% c('size', 'power'),
+         analysis %in% names(sens_codes)) |>
+  mutate(a = unname(sens_codes[analysis])) |>
+  select(params, family, quantity, a, value, mcse)
+stopifnot(nrow(sens) == 2 * nrow(distinct(sens, family, quantity, a)),
+          all(c('published', 'simcore2026') %in% sens$params))
+sens_w <- sens |>
+  select(-mcse) |>
+  pivot_wider(names_from = params, values_from = value)
+## Power is lower under set 1 in every family and analysis.
+sens_pw <- sens_w |> filter(quantity == 'power')
+stopifnot(all(sens_pw$published < sens_pw$simcore2026))
+sens_pw_ratio <- range(sens_pw$published / sens_pw$simcore2026)
+## Size moves by at most this much between the sets, A0 excepted.
+sens_sz <- sens_w |> filter(quantity == 'size')
+sens_sz_max <- max(abs(sens_sz$published - sens_sz$simcore2026)[sens_sz$a != 'A0'])
+## The supplement says A0 is more liberal under set 1 in families 2 to 4.
+stopifnot(with(sens_sz[sens_sz$a == 'A0' & sens_sz$family %in% c('2', '3', '4'), ],
+               all(published > simcore2026)))

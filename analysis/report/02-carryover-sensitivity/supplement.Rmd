@@ -384,14 +384,15 @@ if (has_rv) {
 
 Table \@ref(tab:ss-rho) gives the total $N$ for 80 percent power of A4
 in the Hybrid design at three values of the serial correlation, from
-runs made with the companion paper's simulation code under its
-starting values; the companion paper does not report these runs. Table
+runs made with the companion paper's simulation code under
+parameter set 1; the companion paper does not report these runs. Table
 \@ref(tab:ss-a2) gives the total $N$ for A2, the binary indicator with
-CR2, from the same runs as the A4 table of the main text. Table
+CR2, from the same runs as the A4 table of the main text, under both
+parameter sets. Table
 \@ref(tab:ss-e9) gives the power of A4 at the sample size of the
 companion paper's closed-form rule. Figure
-\@ref(fig:fig-sample-size-published) gives the power curves of the
-main text under the starting values.
+\@ref(fig:fig-sample-size-set2) gives the power curves of the
+main text under parameter set 2.
 
 ```{r ss-rho, echo = FALSE}
 ## Companion paper, 19-g9-planning-and-fig4b.R block N (starting
@@ -418,7 +419,7 @@ knitr::kable(rho_tab, booktabs = TRUE, escape = FALSE, linesep = '',
   col.names = c('$\\rho$', '$t_{1/2}$', names(rho_tab)[-(1:2)]),
   caption = 'Total $N$ for 80 percent power of A4 in the Hybrid design
     by serial correlation $\\rho$, carryover half-life (weeks) and
-    $c_{bm}$ (columns), under the starting values, from runs made with
+    $c_{bm}$ (columns), under parameter set 1, from runs made with
     the companion paper\'s simulation code (six or seven values of $N$
     per cell, a probit curve
     on $\\sqrt{N}$ per cell). The grid of $c_{bm}$ differs by $\\rho$
@@ -441,8 +442,8 @@ ss_tab_a2 <- ss_n80 |>
   pivot_wider(names_from = col, values_from = cell) |>
   arrange(match(design, c('CO', 'OLBDC', 'Hybrid')), t1half) |>
   mutate(design = design_lab[design], t1half = sprintf('%.1f', t1half)) |>
-  select(design, t1half, simcore2026_0.2, simcore2026_0.3,
-         simcore2026_0.4, published_0.2, published_0.3, published_0.4)
+  select(design, t1half, published_0.2, published_0.3, published_0.4,
+         simcore2026_0.2, simcore2026_0.3, simcore2026_0.4)
 stopifnot(nrow(ss_tab_a2) == 9, !anyNA(ss_tab_a2))
 ss_tab_a2$design[duplicated(ss_tab_a2$design)] <- ''
 knitr::kable(ss_tab_a2, booktabs = TRUE, escape = FALSE, linesep = '',
@@ -451,12 +452,11 @@ knitr::kable(ss_tab_a2, booktabs = TRUE, escape = FALSE, linesep = '',
   caption = 'Total $N$ for 80 percent power of A2, the binary indicator
     with CR2, at $\\alpha = 0.05$, with a 95 percent Monte Carlo
     interval, by design, carryover half-life (weeks) and $c_{bm}$,
-    under the parameter set of the main text and under the starting
-    values of the companion paper. Same runs, curve model and
+    under parameter sets 1 and 2 (Table 1 of the main text). Same runs, curve model and
     conditions as the A4 table of the main text, so the two tables can
     be compared cell by cell.') |>
-  kableExtra::add_header_above(c(' ' = 2, 'Main text set, $c_{bm}$' = 3,
-                                 'Starting values, $c_{bm}$' = 3),
+  kableExtra::add_header_above(c(' ' = 2, 'Parameter set 1, $c_{bm}$' = 3,
+                                 'Parameter set 2, $c_{bm}$' = 3),
                                escape = FALSE) |>
   kableExtra::kable_styling(font_size = 8, latex_options = 'scale_down')
 ```
@@ -479,7 +479,7 @@ knitr::kable(e9_tab, booktabs = TRUE, escape = FALSE, linesep = '',
   caption = 'Power of A4 at the total $N$ given by the closed-form
     paired-difference rule of the companion paper for 80 percent power
     (in parentheses), by design, carryover half-life (weeks) and
-    $c_{bm}$ (columns), under the starting values at $\\rho = 0.7$.
+    $c_{bm}$ (columns), under parameter set 1 at $\\rho = 0.7$.
     Runs made with the companion paper\'s simulation code, 1{,}000
     replicates per cell (Monte Carlo SE at most 0.016).
     $^a$The closed-form $N$ exceeded 400 and the cell was run at
@@ -489,8 +489,8 @@ knitr::kable(e9_tab, booktabs = TRUE, escape = FALSE, linesep = '',
   kableExtra::kable_styling(font_size = 9)
 ```
 
-```{r fig-sample-size-published, echo = FALSE, fig.cap = 'Power of A4 (filled points, solid lines) and A2 (open points, dashed lines) against total $N$ under the starting values of the companion paper, as the sample-size figure of the main text. The horizontal line is 80 percent power.', out.width = '100%'}
-knitr::include_graphics('../../figures/02-sample-size-curves-published.png')
+```{r fig-sample-size-set2, echo = FALSE, fig.cap = 'Power of A4 (filled points, solid lines) and A2 (open points, dashed lines) against total $N$ under parameter set 2, as the sample-size figure of the main text. The horizontal line is 80 percent power.', out.width = '100%'}
+knitr::include_graphics('../../figures/02-sample-size-curves-simcore2026.png')
 ```
 
 # Size-adjusted power
@@ -545,10 +545,9 @@ null_tab <- ssnull |>
          col = sprintf('%s_%s', analysis, ifelse(t1half == 0, 't0', 't1'))) |>
   select(params, design, N, col, cell) |>
   pivot_wider(names_from = col, values_from = cell) |>
-  arrange(match(params, c('simcore2026', 'published')),
+  arrange(match(params, c('published', 'simcore2026')),
           match(design, c('CO', 'OLBDC', 'Hybrid')), N) |>
-  mutate(params = ifelse(params == 'simcore2026', 'This paper',
-                         'Starting values'),
+  mutate(params = ifelse(params == 'published', 'Set 1', 'Set 2'),
          design = design_lab[design], N = bigm(N)) |>
   select(params, design, N, A4_t0, A4_t1, A2_t0, A2_t1)
 stopifnot(nrow(null_tab) == 15, !anyNA(null_tab))
@@ -565,3 +564,47 @@ knitr::kable(null_tab, booktabs = TRUE, escape = FALSE, linesep = '',
                                  'A2, $t_{1/2}$' = 2), escape = FALSE) |>
   kableExtra::kable_styling(font_size = 9)
 ```
+
+# Sensitivity to the parameter set
+
+Table \@ref(tab:sens-params) repeats the ladder of the main text under
+parameter set 2, the simulation core's own values (Table 1 of the main
+text). Every run of the scenario families was made under both sets
+over the same grid. Set 2 has a placebo-response SD a fifth
+as large and smaller natural-history and baseline variances.
+
+```{r sens-params, echo = FALSE}
+## sens is built in shared-data.R from the ladder output of both sets.
+sens_tab <- sens |>
+  mutate(v = sprintf('%.3f', value)) |>
+  select(params, family, quantity, a, v) |>
+  pivot_wider(names_from = params, values_from = v) |>
+  mutate(cell = sprintf('%s (%s)', published, simcore2026)) |>
+  select(family, quantity, a, cell) |>
+  pivot_wider(names_from = a, values_from = cell, values_fill = '--') |>
+  arrange(match(family, fam_ids), match(quantity, c('size', 'power'))) |>
+  mutate(quantity = ifelse(quantity == 'size', 'Size', 'Power'))
+sens_tab <- sens_tab[, c('family', 'quantity', 'A0', 'A1', 'A2', 'A3', 'A4')]
+stopifnot(nrow(sens_tab) == 2 * length(fam_ids))
+sens_tab$family[duplicated(sens_tab$family)] <- ''
+knitr::kable(sens_tab, booktabs = TRUE, escape = FALSE, linesep = '',
+  col.names = c('Family', 'Measure', 'A0', 'A1', 'A2', 'A3', 'A4'),
+  caption = 'Size (pooled null rejection rate) and power (pooled
+    reference alternative) of the five analyses by scenario family,
+    under parameter set 1 and, in parentheses, parameter set 2. The
+    set 1 values are those of the ladder figures of the main text. A
+    dash means the analysis was not fitted in that family. From
+    `37-ladder-tables-figures.R` run under each set.') |>
+  kableExtra::kable_styling(font_size = 8, latex_options = 'scale_down')
+```
+
+Power is lower under parameter set 1 in every family and analysis, at
+`r sprintf('%.2f to %.2f', sens_pw_ratio[1], sens_pw_ratio[2])` times
+its value under set 2, presumably because the response components
+vary more.
+Apart from A0, size differs between the sets by at most
+`r sprintf('%.3f', sens_sz_max)`. A0 is the exception. In families
+2 to 4 it is more liberal under set 1. The order of A1 to A4 by power
+is the same under both sets in every family, except that A2 and A4
+change places in families 3 and 4, where they differ by less than
+their Monte Carlo error.

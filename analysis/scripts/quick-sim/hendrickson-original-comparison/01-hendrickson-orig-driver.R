@@ -1,5 +1,5 @@
 suppressPackageStartupMessages({
-  library(devtools); load_all('/Users/zenn/Library/CloudStorage/Dropbox/prj/res/36-pmsimstats-ng/pmsimstats-ng', quiet = TRUE)
+  library(devtools); load_all('.', quiet = TRUE)
   library(data.table); library(corpcor); library(MASS); library(lme4); library(lmerTest); library(parallel)
 })
 

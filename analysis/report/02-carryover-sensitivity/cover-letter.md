@@ -1,6 +1,16 @@
 # Cover letter
 *2026-08-20 11:05 PDT*
 
+> **Superseded (noted 2026-11-23; do not send).** This letter
+> describes an earlier manuscript, 'Robustness of Carryover-Mitigation
+> Analysis Strategies for Biomarker-Treatment Interaction: A Factorial
+> Simulation Study'. The current `report.Rmd` is titled 'Testing a
+> predictive biomarker under drug carryover in aggregated N-of-1
+> trials: a staged simulation study'. The old title and the Tier
+> 1/Tier 2 design described below do not appear in the current
+> manuscript, so the summary of findings below should not be relied
+> on. Rewrite the letter from the current Abstract before submission.
+
 To the Editor,
 Statistics in Medicine
 

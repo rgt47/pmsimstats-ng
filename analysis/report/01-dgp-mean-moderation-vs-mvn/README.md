@@ -21,10 +21,19 @@ mean-moderation-versus-MVN manuscript.
 - Plain prose. The three-part `bullets` / `rgt` / `orig` paragraph
   scaffolding was dropped on 2026-10-07; do not reintroduce it.
 
-All numerical results are typeset inline; the document loads no
-data and runs no simulation code during knit. It requires
-`../sim-preamble.tex`, `references.bib` and
-`statistics-in-medicine.csl`.
+The scope bullets above describe the 2026-07-31 consolidation and
+are stale. Since then the manuscript was retitled 'Toward an optimal
+data-generating process for simulating predictive-biomarker
+interactions in aggregated N-of-1 trials', all mean-moderation
+material was removed (2026-10-27), and the Hybrid design at $N = 70$
+is the primary case. Refresh these bullets with the pending outline
+noted under Known defects below.
+
+The document runs no simulation code during knit, but it does load
+stored results: its chunks call `read.csv()` on files under
+`analysis/data/` (about 19 calls) and include figures from
+`analysis/figures/`. It requires `../sim-preamble.tex`,
+`references.bib` and `vancouver.csl`.
 
 Render through the stamping wrapper, from the repository root:
 
@@ -32,7 +41,7 @@ Render through the stamping wrapper, from the repository root:
 bash tools/render.sh analysis/report/01-dgp-mean-moderation-vs-mvn/report.Rmd
 ```
 
-The current render is 21 pages.
+The render of 2026-11-21 is 72 pages (`pdfinfo report.pdf`).
 
 ## Other live files
 
@@ -42,9 +51,10 @@ The current render is 21 pages.
 - `claudecode.tex` defines the retired `bullets` / `rgt` / `orig`
   environments. The master does not use it. The copy in `archive/`
   is needed only to render the archived comprehensive draft.
-- `bullets.Rmd` is a standalone key-points summary of the master,
-  cited in its reproducibility notes; it is not part of the
-  paragraph scaffolding.
+- `bullets.Rmd` is a standalone key-points summary of the
+  pre-2026-08-26 manuscript, not of the current master, which no
+  longer cites it; it is not part of the paragraph scaffolding. See
+  Known defects below.
 - `whitepaper-dgp-architectures-summary.md` and
   `whitepaper-architecture-c-latent-class-assessment.md` are
   standalone summary whitepapers.
@@ -151,8 +161,14 @@ paper 11. Read the archived grid with that correction in mind.
 
 - None recorded. The raw-citekey defect listed here earlier
   (`[@pmsimstats-paper08]` inside a raw-LaTeX `bullets` block) no
-  longer applies: the citation is now in plain prose and the key is
-  in `references.bib` (inspected; not yet confirmed by a render).
+  longer applies: the current `report.Rmd` does not cite that key at
+  all (checked by grep, 2026-11-23). It survives only in the
+  superseded `bullets.Rmd`.
+- `bullets.Rmd` summarizes the pre-2026-08-26 manuscript, not the
+  master, and is no longer cited by it. It now carries a superseded
+  notice, and its Section 3.3 ($N = 140$ robustness check) is
+  labeled as an unverified legacy result with no generating script
+  or data in the repository.
 - The manuscript's goal is being restated (2026-10-07): from a
   comparison of two architectures to the specification of the
   compendium's reference data-generating process, refined from the

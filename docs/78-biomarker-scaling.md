@@ -16,8 +16,9 @@ whether that matters, and sets out the case for and against
 normalizing the biomarker throughout.
 
 **Status.** Exploratory. The checks in Sections 2 and 3 use synthetic
-data, not the papers' data-generating process (DGP). No manuscript
-text or result has been changed.
+data, not the papers' data-generating process (DGP). No result has
+been changed. Recommendations 2 to 4 (Section 6) were applied to the
+text of papers 01 and 02 on 2026-11-23; recommendation 5 is open.
 
 ## Summary
 
